@@ -29,7 +29,18 @@ export function getValidMotions(state) {
     if (key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
     // Renewal rule: Cannot renew defeated main motions at same meeting
     if (motion.category === 'main' && wasDefeated(key)) return;
-    if (motion.category === 'incidental' || motion.precedence > currentPrecedence) {
+
+    // Motion availability rules per Robert's Rules:
+    // - Incidental: Always in order (no fixed precedence)
+    // - Subsidiary: Only when there's a motion to apply them to (currentPrecedence >= 1)
+    // - Privileged: Always available when precedence is higher than current
+    // - Main: Already filtered above (line 27)
+
+    if (motion.category === 'incidental') {
+      validMotions.push({ key, ...motion });
+    } else if (motion.category === 'subsidiary' && currentPrecedence >= 1 && motion.precedence > currentPrecedence) {
+      validMotions.push({ key, ...motion });
+    } else if (motion.category === 'privileged' && motion.precedence > currentPrecedence) {
       validMotions.push({ key, ...motion });
     }
   });
