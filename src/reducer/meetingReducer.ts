@@ -95,7 +95,44 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
 
       const newVotes = { ...state.votes };
       newVotes[action.vote]++;
-      return { ...state, votes: newVotes, voters: [...state.voters, action.voterId] };
+      const newVoters = [...state.voters, action.voterId];
+
+      // Check if all eligible voters have voted
+      const presentMembers = state.members.filter(m => m.present);
+      const chair = presentMembers.find(m => m.role === 'chair');
+      const eligibleVoterCount = state.votingMethod === 'ballot'
+        ? presentMembers.length
+        : presentMembers.length - (chair ? 1 : 0);
+
+      // Auto-close voting if all eligible voters have voted
+      if (newVoters.length >= eligibleVoterCount) {
+        const total = newVotes.yea + newVotes.nay;
+        const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
+        const passed = newVotes.yea > threshold;
+        const newStack = state.motionStack.slice(0, -1);
+
+        // Apply motion outcome if passed
+        const outcome = passed ? applyMotionOutcome(state) : {
+          tabledMotions: state.tabledMotions,
+          agendaAdopted: state.agendaAdopted,
+          agendaObjection: state.agendaObjection,
+          agenda: state.agenda
+        };
+
+        return {
+          ...state,
+          votes: newVotes,
+          voters: newVoters,
+          votingOpen: false,
+          voteTimerEnd: null,
+          currentMotion: newStack[newStack.length - 1] || null,
+          motionStack: newStack,
+          ...outcome,
+          meetingLog: log('[auto]', `All votes in. Yea ${newVotes.yea}, Nay ${newVotes.nay}. Motion ${passed ? "CARRIED" : "FAILED"}.`)
+        };
+      }
+
+      return { ...state, votes: newVotes, voters: newVoters };
     }
 
     case 'CLOSE_VOTING': {
