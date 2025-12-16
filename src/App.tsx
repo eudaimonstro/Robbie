@@ -92,6 +92,16 @@ function ParticipantView({ state, dispatch, currentUser }) {
               <button onClick={() => dispatch({ type: 'SECOND_MOTION', seconder: currentUser.name })} className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg">I Second This Motion</button>
             )}
           </div>
+        ) : state.unanimousConsentPending ? (
+          <div className="space-y-3">
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+              <p className="text-green-800 font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Unanimous Consent Requested</p>
+              <p className="text-gray-800 mb-2">"{state.currentMotion?.text}"</p>
+              <p className="text-sm text-gray-600 mb-3">Chair is asking: "Is there any objection?"</p>
+              <p className="text-xs text-green-700 bg-green-100 p-2 rounded">If no one objects, this motion will pass without a vote.</p>
+            </div>
+            <button onClick={() => dispatch({ type: 'OBJECT_TO_CONSENT', objector: currentUser.name })} className="w-full bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 font-semibold text-lg">I Object!</button>
+          </div>
         ) : state.currentMotion ? (
           <MotionCard motion={state.currentMotion}/>
         ) : state.agendaAdopted && !state.currentAgendaItem ? (
@@ -156,9 +166,9 @@ function ParticipantView({ state, dispatch, currentUser }) {
           ) : (
             <>
               <select value={selectedMotion} onChange={(e) => setSelectedMotion(e.target.value)} className="w-full p-3 border rounded-lg mb-3 bg-white">
-                {Object.entries(validMotions.reduce((acc, m) => { if (!acc[m.category]) acc[m.category] = []; acc[m.category].push(m); return acc; }, {})).map(([cat, motions]) => (
+                {Object.entries(validMotions.reduce((acc, m) => { if (!acc[m.category]) acc[m.category] = []; acc[m.category].push(m); return acc; }, {} as any)).map(([cat, motions]: [string, any]) => (
                   <optgroup key={cat} label={CATEGORY_INFO[cat].label + " Motions"}>
-                    {motions.map(m => <option key={m.key} value={m.key}>{m.name}</option>)}
+                    {motions.map((m: any) => <option key={m.key} value={m.key}>{m.name}</option>)}
                   </optgroup>
                 ))}
               </select>
@@ -269,11 +279,29 @@ function ChairView({ state, dispatch }) {
         </div>
       )}
 
-      {state.currentMotion && !state.votingOpen && !state.pendingSecond && (
+      {state.currentMotion && !state.votingOpen && !state.pendingSecond && !state.unanimousConsentPending && (
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
           <MotionCard motion={state.currentMotion}/>
-          <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="mt-4 w-full bg-indigo-600 text-white py-3 rounded-lg font-medium">Call the Question</button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">Ask for Consent</button>
+            <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="bg-indigo-600 text-white py-3 rounded-lg font-medium">Call the Question</button>
+          </div>
+        </div>
+      )}
+
+      {state.unanimousConsentPending && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Unanimous Consent Requested</h3>
+          <MotionCard motion={state.currentMotion}/>
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium mb-2">Waiting for objections...</p>
+            <p className="text-green-700 text-sm">If no one objects, motion passes without a vote.</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">No Objection - Pass</button>
+            <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="bg-indigo-600 text-white py-3 rounded-lg font-medium">Proceed to Vote</button>
+          </div>
         </div>
       )}
 

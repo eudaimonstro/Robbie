@@ -129,6 +129,60 @@ export function meetingReducer(state, action) {
     case 'SET_VOTE_TIME_LIMIT':
       return { ...state, voteTimeLimit: action.seconds };
 
+    case 'REQUEST_UNANIMOUS_CONSENT':
+      return { ...state, unanimousConsentPending: true, meetingLog: log('Chair: "Is there any objection?"') };
+
+    case 'OBJECT_TO_CONSENT':
+      return { ...state, unanimousConsentPending: false, meetingLog: log(`${action.objector} objects. Motion requires a vote.`) };
+
+    case 'UNANIMOUS_CONSENT_PASSED': {
+      const newStack = state.motionStack.slice(0, -1);
+      let tabledMotions = state.tabledMotions;
+      let agendaAdopted = state.agendaAdopted;
+      let agendaObjection = state.agendaObjection;
+      let agenda = state.agenda;
+
+      if (state.currentMotion?.type === 'layOnTable') {
+        const mainMotion = newStack.find(m => m.category === 'main');
+        if (mainMotion) tabledMotions = [...tabledMotions, mainMotion];
+      }
+      if (state.currentMotion?.isAgendaAdoption) {
+        agendaAdopted = true;
+        agendaObjection = false;
+      }
+      if (state.currentMotion?.agendaAmendment) {
+        const amendment = state.currentMotion.agendaAmendment;
+        if (amendment.action === 'add') {
+          const newItem = { id: Date.now(), title: amendment.title, status: "pending" };
+          if (amendment.position === 'end') agenda = [...agenda, newItem];
+          else if (amendment.position === 'beginning') agenda = [newItem, ...agenda];
+          else if (typeof amendment.position === 'number') agenda = [...agenda.slice(0, amendment.position), newItem, ...agenda.slice(amendment.position)];
+        } else if (amendment.action === 'remove') {
+          agenda = agenda.filter(item => item.id !== amendment.itemId);
+        } else if (amendment.action === 'reorder') {
+          const newAgenda = [...agenda];
+          const [moved] = newAgenda.splice(amendment.fromIndex, 1);
+          newAgenda.splice(amendment.toIndex, 0, moved);
+          agenda = newAgenda;
+        }
+      }
+
+      return {
+        ...state,
+        unanimousConsentPending: false,
+        currentMotion: newStack[newStack.length - 1] || null,
+        motionStack: newStack,
+        tabledMotions,
+        agendaAdopted,
+        agendaObjection,
+        agenda,
+        meetingLog: log(`Motion CARRIED by unanimous consent.`)
+      };
+    }
+
+    case 'SET_VOTING_METHOD':
+      return { ...state, votingMethod: action.method };
+
     default:
       return state;
   }

@@ -15,6 +15,8 @@ export const initialState = {
   votes: { yea: 0, nay: 0, abstain: 0 },
   voters: [],
   votingOpen: false,
+  votingMethod: "standard",
+  unanimousConsentPending: false,
   speakerQueue: [],
   recognizedSpeaker: null,
   speakerTimerEnd: null,
