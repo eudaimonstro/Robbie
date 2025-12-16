@@ -146,10 +146,10 @@ The following need to be checked against official Robert's Rules:
 4. ✅ Enforce motion maker speaks first on debate
 5. ✅ Prevent seconding your own motion
 
-### Phase 2: Core Completeness (Medium Priority)
-1. Implement standard order of business
-2. Add minutes recording and approval
-3. Implement renewal rules for defeated motions
+### Phase 2: Core Completeness (Medium Priority) 🔄 60% COMPLETE
+1. ✅ Implement standard order of business
+2. ✅ Add minutes recording and approval
+3. ✅ Implement renewal rules for defeated motions
 4. Add committee report handling
 5. Improve debate speaker alternation (pro/con)
 
@@ -240,12 +240,12 @@ When implementing new features:
 ---
 
 **Last Updated**: 2025-12-16
-**Version**: 0.4.0 (Phase 1: 100% Complete - All Critical Fixes Implemented)
+**Version**: 0.5.0 (Phase 2: 60% Complete - Standard Order of Business + Renewal Rules)
 **Contributors**: Claude Code Agent
 
 ## Recent Session Updates (2025-12-16)
 
-### Completed Features
+### Phase 1 Completed Features
 1. ✅ **Agenda Item Voting** - Chair can put agenda items to vote or mark complete without vote
 2. ✅ **Unanimous Consent Procedure** - Full implementation with objection handling
 3. ✅ **Five Voting Methods** - Voice, Rising, Standard, Ballot, Roll Call
@@ -255,9 +255,17 @@ When implementing new features:
 7. ✅ **Vote Results Display** - Members see detailed results after announcement
 8. ✅ **Objection Visual Alerts** - Chair sees prominent notification when objection occurs
 9. ✅ **Second Validation** - Members cannot second their own motions (with educational feedback)
+10. ✅ **Participant Agenda Objections** - Members can object to agenda adoption
+
+### Phase 2 Completed Features (NEW)
+1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
+2. ✅ **Minutes Approval System** - Reading, display, and approval of previous meeting minutes
+3. ✅ **Motion Renewal Rules** - Defeated motions cannot be renewed at same meeting (RONR compliant)
 
 ### Compliance Status
 - **Phase 1** (Critical Fixes): ✅ 5/5 complete (100%) - PHASE COMPLETE!
+- **Phase 2** (Core Completeness): 🔄 3/5 complete (60%) - IN PROGRESS
 - **Robert's Rules Core Features**: Significantly improved
 - **Voting Compliance**: Fully compliant with RONR
 - **Parliamentary Procedure**: Core workflow complete and compliant
+- **Meeting Structure**: Now follows standard order of business
