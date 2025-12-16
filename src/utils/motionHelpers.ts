@@ -12,8 +12,11 @@ export function getValidMotions(state) {
     return state.defeatedMotions?.some(dm => dm.type === motionType) || false;
   };
 
+  // When agenda objection exists and no current motion, prioritize agenda motions
+  // but don't block privileged motions (they're always in order)
   if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion) {
-    return [{ key: 'adoptAgenda', ...MOTIONS.adoptAgenda }, { key: 'amendAgenda', ...MOTIONS.amendAgenda }];
+    validMotions.push({ key: 'adoptAgenda', ...MOTIONS.adoptAgenda });
+    validMotions.push({ key: 'amendAgenda', ...MOTIONS.amendAgenda });
   }
   if (isAgendaAdoptionPending) {
     validMotions.push({ key: 'amendAgenda', ...MOTIONS.amendAgenda });
