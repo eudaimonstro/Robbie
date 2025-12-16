@@ -86,6 +86,30 @@ export type MeetingStage =
   | 'announcements'
   | 'adjourned';
 
+// Rule suspension types
+export type SuspendableRule =
+  | 'pro-con-alternation'       // Speaker queue alternation
+  | 'second-requirement'         // Motion needs second
+  | 'motion-precedence'          // Motion hierarchy enforcement
+  | 'amendment-depth'            // Max 2 amendment levels
+  | 'motion-renewal'             // Can't renew defeated motions
+  | 'chair-voting-restriction'   // Chair tie-breaking only
+  | 'motion-maker-priority'      // Maker speaks first
+  | 'mover-cannot-second'        // Can't second own motion
+  | 'debate-rules'               // Debatable/non-debatable
+  | 'order-of-business';         // Sequential meeting stages
+
+export interface RuleSuspension {
+  id: number;
+  rule: SuspendableRule;
+  purpose: string;              // Why suspending (RONR requirement)
+  specificAction: string;       // What action is allowed
+  scope: 'single-action' | 'meeting-remainder';
+  suspendedAt: string;          // Timestamp
+  actionCompleted?: boolean;    // For single-action suspensions
+  motionId: number;             // Reference to the suspension motion
+}
+
 // State type
 export interface MeetingState {
   meetingStage: MeetingStage;
@@ -119,6 +143,7 @@ export interface MeetingState {
   committeeReports: CommitteeReport[];
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
+  suspendedRules: RuleSuspension[];
 }
 
 // Action types
@@ -152,7 +177,8 @@ export type MeetingAction =
   | { type: 'APPROVE_MINUTES'; timestamp: string }
   | { type: 'SET_PREVIOUS_MINUTES'; minutes: string }
   | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
-  | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string };
+  | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
+  | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

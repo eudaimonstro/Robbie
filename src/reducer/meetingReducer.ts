@@ -358,6 +358,15 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       };
     }
 
+    case 'SUSPEND_RULE_APPROVED':
+      // Add suspension to active suspensions list
+      // Phase 1: No-op implementation - foundation only
+      return {
+        ...state,
+        suspendedRules: [...state.suspendedRules, action.suspension],
+        meetingLog: log(action.timestamp, `[RULE SUSPENDED] ${action.suspension.rule}: ${action.suspension.purpose}`)
+      };
+
     default:
       return state;
   }
