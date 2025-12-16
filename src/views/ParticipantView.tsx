@@ -84,9 +84,18 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         )}
 
         {state.meetingActive && !state.agendaAdopted && !state.agendaObjection && !state.pendingSecond && (
-          <div className="text-center py-6 text-gray-500">
-            <Info size={24} className="mx-auto mb-2 opacity-50"/>
-            <p>Waiting for agenda adoption</p>
+          <div className="space-y-3">
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+              <p className="text-blue-800 font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Agenda Adoption</p>
+              <p className="text-gray-800 mb-2">The chair is asking: "Is there any objection to adopting the agenda?"</p>
+              <p className="text-xs text-blue-700 bg-blue-100 p-2 rounded">If no one objects, the agenda will be adopted without a vote.</p>
+            </div>
+            <button
+              onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
+              className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg"
+            >
+              I Object to the Agenda!
+            </button>
           </div>
         )}
 
