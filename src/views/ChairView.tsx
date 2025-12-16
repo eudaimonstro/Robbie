@@ -88,6 +88,74 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         )}
       </div>
 
+      {state.meetingActive && state.meetingStage !== 'adjourned' && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Order of Business</h3>
+          <div className="space-y-2">
+            {[
+              { stage: 'call-to-order', label: 'Call to Order', icon: '🔔' },
+              { stage: 'minutes-approval', label: 'Approval of Minutes', icon: '📝' },
+              { stage: 'reports', label: 'Reports', icon: '📊' },
+              { stage: 'special-orders', label: 'Special Orders', icon: '⭐' },
+              { stage: 'unfinished-business', label: 'Unfinished Business', icon: '📋' },
+              { stage: 'new-business', label: 'New Business', icon: '✨' },
+              { stage: 'announcements', label: 'Announcements', icon: '📢' },
+            ].map((item) => (
+              <div
+                key={item.stage}
+                className={`flex items-center justify-between p-2 rounded ${
+                  state.meetingStage === item.stage
+                    ? 'bg-indigo-100 border-2 border-indigo-300'
+                    : 'bg-gray-50'
+                }`}
+              >
+                <span className={`flex items-center gap-2 ${state.meetingStage === item.stage ? 'font-semibold text-indigo-900' : 'text-gray-600'}`}>
+                  <span>{item.icon}</span>
+                  {item.label}
+                </span>
+                {state.meetingStage === item.stage && (
+                  <ChevronRight size={18} className="text-indigo-600"/>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => dispatch({ type: 'ADVANCE_MEETING_STAGE', timestamp: generateTimestamp() })}
+            className="w-full mt-3 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-medium"
+            disabled={state.meetingStage === 'announcements'}
+          >
+            Proceed to Next Stage
+          </button>
+        </div>
+      )}
+
+      {state.meetingStage === 'minutes-approval' && !state.minutesApproved && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">📝 Minutes from Previous Meeting</h3>
+          <div className="bg-gray-50 rounded-lg p-4 mb-3 max-h-64 overflow-y-auto">
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{state.minutesFromPreviousMeeting}</pre>
+          </div>
+          <p className="text-sm text-gray-600 mb-3">Say: "Are there any corrections to the minutes?"</p>
+          <button
+            onClick={() => dispatch({ type: 'APPROVE_MINUTES', timestamp: generateTimestamp() })}
+            className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-medium"
+          >
+            Approve Minutes (No Corrections)
+          </button>
+          <p className="text-xs text-gray-500 mt-2 text-center">If corrections are needed, they should be made before approval</p>
+        </div>
+      )}
+
+      {state.meetingStage === 'minutes-approval' && state.minutesApproved && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <div className="flex items-center gap-2 text-green-700 mb-2">
+            <CheckCircle size={20}/>
+            <span className="font-semibold">Minutes Approved</span>
+          </div>
+          <p className="text-sm text-gray-600">Minutes from the previous meeting have been approved. Click "Proceed to Next Stage" to continue.</p>
+        </div>
+      )}
+
       {script && showScript && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
           <div className="flex justify-between">

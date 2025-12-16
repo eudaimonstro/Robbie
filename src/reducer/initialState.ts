@@ -1,6 +1,7 @@
 import type { MeetingState } from '../types';
 
 export const initialState: MeetingState = {
+  meetingStage: "not-started" as const,
   meetingActive: false,
   meetingCode: "",
   members: [
@@ -35,4 +36,6 @@ export const initialState: MeetingState = {
   agendaObjection: false,
   currentAgendaItem: null,
   tabledMotions: [],
+  minutesFromPreviousMeeting: "Meeting minutes from previous session:\n\n1. Meeting called to order at 7:00 PM\n2. Quorum established (5 members present)\n3. Budget proposal for Q4 approved unanimously\n4. New committee formed for community outreach\n5. Meeting adjourned at 8:30 PM",
+  minutesApproved: false,
 };

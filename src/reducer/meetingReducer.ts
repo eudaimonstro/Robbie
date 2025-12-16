@@ -12,6 +12,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       return {
         ...state,
         meetingActive: true,
+        meetingStage: 'call-to-order',
         meetingCode: action.meetingCode,
         meetingLog: log(action.timestamp, "Meeting called to order.")
       };
@@ -20,6 +21,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       return {
         ...state,
         meetingActive: false,
+        meetingStage: 'adjourned',
         meetingLog: log(action.timestamp, "Meeting adjourned.")
       };
 
@@ -258,6 +260,53 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
 
     case 'SET_VOTING_METHOD':
       return { ...state, votingMethod: action.method };
+
+    case 'ADVANCE_MEETING_STAGE': {
+      const stageOrder: Array<typeof state.meetingStage> = [
+        'not-started',
+        'call-to-order',
+        'minutes-approval',
+        'reports',
+        'special-orders',
+        'unfinished-business',
+        'new-business',
+        'announcements',
+        'adjourned'
+      ];
+      const currentIndex = stageOrder.indexOf(state.meetingStage);
+      const nextStage = stageOrder[Math.min(currentIndex + 1, stageOrder.length - 1)];
+
+      const stageMessages: Record<typeof nextStage, string> = {
+        'not-started': '',
+        'call-to-order': 'Meeting called to order',
+        'minutes-approval': 'Reading and approval of minutes',
+        'reports': 'Reports of officers and committees',
+        'special-orders': 'Special orders',
+        'unfinished-business': 'Unfinished business and general orders',
+        'new-business': 'New business',
+        'announcements': 'Announcements',
+        'adjourned': 'Meeting adjourned'
+      };
+
+      return {
+        ...state,
+        meetingStage: nextStage,
+        meetingLog: stageMessages[nextStage] ? log(action.timestamp, stageMessages[nextStage]) : state.meetingLog
+      };
+    }
+
+    case 'APPROVE_MINUTES':
+      return {
+        ...state,
+        minutesApproved: true,
+        meetingLog: log(action.timestamp, "Minutes from previous meeting approved.")
+      };
+
+    case 'SET_PREVIOUS_MINUTES':
+      return {
+        ...state,
+        minutesFromPreviousMeeting: action.minutes
+      };
 
     default:
       return state;

@@ -59,8 +59,20 @@ export interface Votes {
 
 export type VotingMethod = 'voice' | 'rising' | 'standard' | 'ballot' | 'rollcall';
 
+export type MeetingStage =
+  | 'not-started'
+  | 'call-to-order'
+  | 'minutes-approval'
+  | 'reports'
+  | 'special-orders'
+  | 'unfinished-business'
+  | 'new-business'
+  | 'announcements'
+  | 'adjourned';
+
 // State type
 export interface MeetingState {
+  meetingStage: MeetingStage;
   meetingActive: boolean;
   meetingCode: string;
   members: Member[];
@@ -85,6 +97,8 @@ export interface MeetingState {
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
   tabledMotions: Motion[];
+  minutesFromPreviousMeeting: string;
+  minutesApproved: boolean;
 }
 
 // Action types
@@ -113,7 +127,10 @@ export type MeetingAction =
   | { type: 'REQUEST_UNANIMOUS_CONSENT'; timestamp: string }
   | { type: 'OBJECT_TO_CONSENT'; objector: string; timestamp: string }
   | { type: 'UNANIMOUS_CONSENT_PASSED'; timestamp: string }
-  | { type: 'SET_VOTING_METHOD'; method: VotingMethod };
+  | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
+  | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
+  | { type: 'APPROVE_MINUTES'; timestamp: string }
+  | { type: 'SET_PREVIOUS_MINUTES'; minutes: string };
 
 // Motion definition type
 export interface MotionDefinition {
