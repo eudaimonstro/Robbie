@@ -146,11 +146,11 @@ The following need to be checked against official Robert's Rules:
 4. ✅ Enforce motion maker speaks first on debate
 5. ✅ Prevent seconding your own motion
 
-### Phase 2: Core Completeness (Medium Priority) 🔄 60% COMPLETE
+### Phase 2: Core Completeness (Medium Priority) 🔄 80% COMPLETE
 1. ✅ Implement standard order of business
 2. ✅ Add minutes recording and approval
 3. ✅ Implement renewal rules for defeated motions
-4. Add committee report handling
+4. ✅ Add committee report handling
 5. Improve debate speaker alternation (pro/con)
 
 ### Phase 3: Advanced Features (Low Priority)
@@ -240,7 +240,7 @@ When implementing new features:
 ---
 
 **Last Updated**: 2025-12-16
-**Version**: 0.5.0 (Phase 2: 60% Complete - Standard Order of Business + Renewal Rules)
+**Version**: 0.5.0 (Phase 2: 80% Complete - Standard Order + Minutes + Renewal + Committee Reports)
 **Contributors**: Claude Code Agent
 
 ## Recent Session Updates (2025-12-16)
@@ -261,10 +261,11 @@ When implementing new features:
 1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
 2. ✅ **Minutes Approval System** - Reading, display, and approval of previous meeting minutes
 3. ✅ **Motion Renewal Rules** - Defeated motions cannot be renewed at same meeting (RONR compliant)
+4. ✅ **Committee Report Handling** - Presentation, tracking, and logging of committee reports during Reports stage
 
 ### Compliance Status
 - **Phase 1** (Critical Fixes): ✅ 5/5 complete (100%) - PHASE COMPLETE!
-- **Phase 2** (Core Completeness): 🔄 3/5 complete (60%) - IN PROGRESS
+- **Phase 2** (Core Completeness): 🔄 4/5 complete (80%) - IN PROGRESS
 - **Robert's Rules Core Features**: Significantly improved
 - **Voting Compliance**: Fully compliant with RONR
 - **Parliamentary Procedure**: Core workflow complete and compliant
