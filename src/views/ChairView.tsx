@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Gavel, Hand, X, CheckCircle, ChevronRight } from 'lucide-react';
 import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '../utils/idGenerators';
 import { MotionCard } from '../components/MotionCard';
@@ -10,7 +10,30 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   const [showScript, setShowScript] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState("");
 
-  const getChairScript = () => {
+  // Memoize add agenda item callback
+  const handleAddAgendaItem = useCallback(() => {
+    dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem, itemId: generateId() });
+    setNewAgendaItem("");
+  }, [newAgendaItem, dispatch]);
+
+  // Memoize put to vote callback
+  const handlePutToVote = useCallback(() => {
+    const chair = state.members.find(m => m.role === 'chair');
+    if (chair) {
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: `Approve: ${state.currentAgendaItem?.title}`,
+        mover: 'Chair',
+        moverId: chair.id,
+        motionId: generateId(),
+        timestamp: generateTimestamp()
+      });
+    }
+  }, [state.members, state.currentAgendaItem, dispatch]);
+
+  // Memoize chair script computation
+  const script = useMemo(() => {
     if (!state.meetingActive) return null;
     if (!state.agendaAdopted && !state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"Is there any objection to adopting the agenda?"', note: "If none, click 'No Objection'. If someone objects, click 'Objection Raised'." };
     if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"There has been an objection. A motion to adopt the agenda is in order."', note: "Wait for a member to move." };
@@ -32,9 +55,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
       return next ? { text: '"We will proceed to the next item."', note: `Next: "${next.title}"` } : { text: '"Is there any new business?"', note: "If none, entertain motion to adjourn." };
     }
     return { text: '"Is there any business?"', note: "" };
-  };
-
-  const script = getChairScript();
+  }, [state.meetingActive, state.agendaAdopted, state.agendaObjection, state.currentMotion, state.pendingSecond, state.votingOpen, state.meetingLog, state.currentAgendaItem, state.agenda]);
 
   return (
     <div className="space-y-4">
@@ -85,7 +106,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <div className="flex gap-2 my-3">
             <input type="text" value={newAgendaItem} onChange={(e) => setNewAgendaItem(e.target.value)} placeholder="Add item..." className="flex-1 p-2 border rounded-lg text-sm"/>
             <button
-              onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem, itemId: generateId() }); setNewAgendaItem(""); }}
+              onClick={handleAddAgendaItem}
               disabled={!newAgendaItem.trim()}
               className="bg-gray-200 text-gray-700 px-4 rounded-lg disabled:opacity-50 text-sm"
             >
@@ -287,20 +308,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">{state.currentAgendaItem.title}</div>
           <div className="space-y-2">
             <button
-              onClick={() => {
-                const chair = state.members.find(m => m.role === 'chair');
-                if (chair) {
-                  dispatch({
-                    type: 'MAKE_MOTION',
-                    motionType: 'mainMotion',
-                    text: `Approve: ${state.currentAgendaItem?.title}`,
-                    mover: 'Chair',
-                    moverId: chair.id,
-                    motionId: generateId(),
-                    timestamp: generateTimestamp()
-                  });
-                }
-              }}
+              onClick={handlePutToVote}
               className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
             >
               Put to Vote
