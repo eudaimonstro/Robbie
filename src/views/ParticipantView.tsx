@@ -104,7 +104,12 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
               <p className="text-gray-800">"{state.pendingSecond.text}"</p>
               <p className="text-sm text-gray-600 mt-1">{state.pendingSecond.name} by {state.pendingSecond.mover}</p>
             </div>
-            {state.pendingSecond.mover !== currentUser.name && (
+            {state.pendingSecond.mover === currentUser.name ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <p className="text-blue-800 font-medium mb-1">You moved this motion</p>
+                <p className="text-blue-600 text-sm">Under Robert's Rules, you cannot second your own motion. Waiting for another member to second.</p>
+              </div>
+            ) : (
               <button
                 onClick={() => dispatch({ type: 'SECOND_MOTION', seconder: currentUser.name, timestamp: generateTimestamp() })}
                 className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg"
