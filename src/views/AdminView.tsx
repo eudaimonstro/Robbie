@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Users, Settings, Timer } from 'lucide-react';
 import { generateId } from '../utils/idGenerators';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
+import { useQuorumStatus } from '../hooks/useQuorumStatus';
 import type { AdminViewProps } from '../types';
 
 export function AdminView({ state, dispatch }: AdminViewProps) {
   const [newItem, setNewItem] = useState("");
   const [speakerTime, setSpeakerTime] = useState(state.speakerTimeLimit);
   const [voteTime, setVoteTime] = useState(state.voteTimeLimit);
+
+  // Use custom hook for quorum status
+  const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
 
   return (
     <div className="space-y-4">
@@ -59,10 +63,10 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Settings size={18}/> Meeting Settings</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-gray-50 rounded-lg"><p className="text-gray-500 text-sm">Quorum</p><p className="font-semibold text-lg">{state.quorum}</p></div>
-          <div className="p-3 bg-gray-50 rounded-lg"><p className="text-gray-500 text-sm">Present</p><p className="font-semibold text-lg">{state.members.filter(m => m.present).length} / {state.members.length}</p></div>
+          <div className="p-3 bg-gray-50 rounded-lg"><p className="text-gray-500 text-sm">Present</p><p className="font-semibold text-lg">{presentCount} / {totalMembers}</p></div>
         </div>
-        <div className={`mt-3 p-3 rounded-lg ${state.members.filter(m => m.present).length >= state.quorum ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-          {state.members.filter(m => m.present).length >= state.quorum ? '✓ Quorum present' : '✗ No quorum'}
+        <div className={`mt-3 p-3 rounded-lg ${hasQuorum ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {hasQuorum ? '✓ Quorum present' : '✗ No quorum'}
         </div>
       </div>
 
