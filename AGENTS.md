@@ -80,7 +80,8 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 ### ⚠️ Partially Implemented / Needs Verification
 
 #### Motion Handling
-- ⚠️ **Amendment depth**: Currently allows amendment of amendment, but not beyond (correct per RONR)
+- ✅ **Motion precedence enforcement**: ✅ IMPLEMENTED - Subsidiary motions only available when main motion exists (RONR compliant)
+- ✅ **Amendment depth**: Currently allows amendment of amendment, but not beyond (correct per RONR)
 - ⚠️ **Reconsideration rules**: Need to verify timing restrictions (must be moved by someone on prevailing side, same meeting or next)
 - ⚠️ **Lay on Table**: Need to verify restrictions (can't be used to kill a motion, must have urgent business)
 - ⚠️ **Previous Question**: Need to verify it applies only to immediately pending question unless specified otherwise
@@ -260,6 +261,7 @@ When implementing new features:
 10. ✅ **Participant Agenda Objections** - Members can object to agenda adoption
 11. ✅ **Vote Changing** - Members can change their vote before chair closes voting (RONR compliant)
 12. ✅ **Privileged Motions Availability** - Privileged motions always available, even before agenda adoption (RONR compliant)
+13. ✅ **Motion Engine Fix** - Subsidiary motions only available when main motion exists (critical RONR compliance fix)
 
 ### Phase 2 Completed Features (NEW)
 1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
