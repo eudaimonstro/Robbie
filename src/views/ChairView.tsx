@@ -249,12 +249,33 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-2 text-gray-800">Current Item</h3>
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">{state.currentAgendaItem.title}</div>
-          <button
-            onClick={() => dispatch({ type: 'COMPLETE_AGENDA_ITEM', id: state.currentAgendaItem.id, timestamp: generateTimestamp() })}
-            className="w-full bg-green-500 text-white py-2 rounded-lg"
-          >
-            Mark Complete
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                const chair = state.members.find(m => m.role === 'chair');
+                if (chair) {
+                  dispatch({
+                    type: 'MAKE_MOTION',
+                    motionType: 'mainMotion',
+                    text: `Approve: ${state.currentAgendaItem?.title}`,
+                    mover: 'Chair',
+                    moverId: chair.id,
+                    motionId: generateId(),
+                    timestamp: generateTimestamp()
+                  });
+                }
+              }}
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+            >
+              Put to Vote
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'COMPLETE_AGENDA_ITEM', id: state.currentAgendaItem.id, timestamp: generateTimestamp() })}
+              className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+            >
+              Mark Complete (No Vote)
+            </button>
+          </div>
         </div>
       )}
 
