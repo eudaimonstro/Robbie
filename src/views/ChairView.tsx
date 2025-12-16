@@ -16,7 +16,16 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"There has been an objection. A motion to adopt the agenda is in order."', note: "Wait for a member to move." };
     if (state.pendingSecond) return { text: '"Is there a second?"', note: "Wait for a second or declare no second." };
     if (state.votingOpen) return { text: '"Those in favor say Aye. Those opposed say No."', note: "Close voting when done." };
-    if (state.currentMotion) return { text: state.currentMotion.debatable ? `"Is there any discussion on: ${state.currentMotion.text}?"` : '"This motion is not debatable."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "Proceed to vote." };
+    if (state.currentMotion) {
+      // Check if there was a recent objection
+      const lastLog = state.meetingLog[state.meetingLog.length - 1];
+      const recentObjection = lastLog && lastLog.message.includes('objects');
+
+      if (recentObjection) {
+        return { text: '"An objection has been raised. The motion is now open for debate."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "This motion is not debatable - proceed to vote." };
+      }
+      return { text: state.currentMotion.debatable ? `"Is there any discussion on: ${state.currentMotion.text}?"` : '"This motion is not debatable."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "Proceed to vote." };
+    }
     if (state.currentAgendaItem) return { text: `"We are now on: ${state.currentAgendaItem.title}"`, note: "Allow discussion or motions." };
     if (state.agendaAdopted) {
       const next = state.agenda.find(a => a.status === "pending");
@@ -122,6 +131,22 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
       {state.currentMotion && !state.votingOpen && !state.pendingSecond && !state.unanimousConsentPending && (
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
+
+          {/* Show objection alert if recent log entry indicates objection */}
+          {(() => {
+            const lastLog = state.meetingLog[state.meetingLog.length - 1];
+            if (lastLog && lastLog.message.includes('objects')) {
+              return (
+                <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                  <p className="text-amber-800 font-semibold mb-1">⚠️ Objection Raised</p>
+                  <p className="text-amber-700 text-sm">{lastLog.message}</p>
+                  <p className="text-amber-600 text-xs mt-2">Motion requires debate and/or formal vote.</p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <MotionCard motion={state.currentMotion}/>
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
