@@ -46,6 +46,15 @@ export interface AgendaAmendment {
   toIndex?: number;
 }
 
+export interface CommitteeReport {
+  id: number;
+  committee: string;
+  presenter: string;
+  summary: string;
+  recommendations?: string;
+  presented: boolean;
+}
+
 export interface MeetingLogEntry {
   time: string;
   message: string;
@@ -98,6 +107,7 @@ export interface MeetingState {
   currentAgendaItem: AgendaItem | null;
   tabledMotions: Motion[];
   defeatedMotions: Array<{ type: string; text: string; timestamp: string }>;
+  committeeReports: CommitteeReport[];
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
 }
@@ -131,7 +141,9 @@ export type MeetingAction =
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
   | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
   | { type: 'APPROVE_MINUTES'; timestamp: string }
-  | { type: 'SET_PREVIOUS_MINUTES'; minutes: string };
+  | { type: 'SET_PREVIOUS_MINUTES'; minutes: string }
+  | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
+  | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

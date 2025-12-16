@@ -37,6 +37,24 @@ export const initialState: MeetingState = {
   currentAgendaItem: null,
   tabledMotions: [],
   defeatedMotions: [],
+  committeeReports: [
+    {
+      id: 1,
+      committee: "Finance Committee",
+      presenter: "Alice Johnson",
+      summary: "The Finance Committee reviewed Q1 expenditures. Total spending was $45,200, which is 92% of the budgeted amount. All expenditures were within approved categories.",
+      recommendations: "Committee recommends approving the Q2 budget proposal as presented.",
+      presented: false
+    },
+    {
+      id: 2,
+      committee: "Membership Committee",
+      presenter: "Bob Smith",
+      summary: "The Membership Committee processed 12 new applications. All applicants meet the membership criteria.",
+      recommendations: "Committee moves to accept all 12 applicants as new members.",
+      presented: false
+    }
+  ],
   minutesFromPreviousMeeting: "Meeting minutes from previous session:\n\n1. Meeting called to order at 7:00 PM\n2. Quorum established (5 members present)\n3. Budget proposal for Q4 approved unanimously\n4. New committee formed for community outreach\n5. Meeting adjourned at 8:30 PM",
   minutesApproved: false,
 };

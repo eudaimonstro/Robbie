@@ -156,6 +156,56 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         </div>
       )}
 
+      {state.meetingStage === 'reports' && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">📊 Committee Reports</h3>
+          {state.committeeReports.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No committee reports scheduled</p>
+          ) : (
+            <div className="space-y-3">
+              {state.committeeReports.map((report) => (
+                <div
+                  key={report.id}
+                  className={`border rounded-lg p-4 ${
+                    report.presented
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{report.committee}</h4>
+                      <p className="text-sm text-gray-600">Presenter: {report.presenter}</p>
+                    </div>
+                    {report.presented && (
+                      <CheckCircle size={18} className="text-green-600"/>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-700 mb-2">{report.summary}</p>
+                  {report.recommendations && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Recommendations:</p>
+                      <p className="text-xs text-amber-900">{report.recommendations}</p>
+                    </div>
+                  )}
+                  {!report.presented && (
+                    <button
+                      onClick={() => dispatch({ type: 'PRESENT_COMMITTEE_REPORT', reportId: report.id, timestamp: generateTimestamp() })}
+                      className="w-full mt-2 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                    >
+                      Present Report
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-3 text-center">
+            After all reports, click "Proceed to Next Stage"
+          </p>
+        </div>
+      )}
+
       {script && showScript && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
           <div className="flex justify-between">

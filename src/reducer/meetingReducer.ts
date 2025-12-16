@@ -318,6 +318,25 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         minutesFromPreviousMeeting: action.minutes
       };
 
+    case 'ADD_COMMITTEE_REPORT':
+      return {
+        ...state,
+        committeeReports: [...state.committeeReports, action.report]
+      };
+
+    case 'PRESENT_COMMITTEE_REPORT': {
+      const report = state.committeeReports.find(r => r.id === action.reportId);
+      if (!report) return state;
+
+      return {
+        ...state,
+        committeeReports: state.committeeReports.map(r =>
+          r.id === action.reportId ? { ...r, presented: true } : r
+        ),
+        meetingLog: log(action.timestamp, `${report.committee} report presented by ${report.presenter}.${report.recommendations ? ' Recommendations made.' : ''}`)
+      };
+    }
+
     default:
       return state;
   }
