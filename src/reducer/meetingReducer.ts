@@ -33,10 +33,10 @@ export function meetingReducer(state, action) {
     }
 
     case 'CAST_VOTE':
-      if (state.voters.includes(action.oderId)) return state;
+      if (state.voters.includes(action.voterId)) return state;
       const newVotes = { ...state.votes };
       newVotes[action.vote]++;
-      return { ...state, votes: newVotes, voters: [...state.voters, action.oderId] };
+      return { ...state, votes: newVotes, voters: [...state.voters, action.voterId] };
 
     case 'CLOSE_VOTING': {
       const { yea, nay } = state.votes;

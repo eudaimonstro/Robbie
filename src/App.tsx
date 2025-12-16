@@ -119,7 +119,14 @@ function ParticipantView({ state, dispatch, currentUser }) {
 
       {state.votingOpen && (
         <div className="bg-white rounded-lg p-4 shadow border-2 border-indigo-200">
-          <h3 className="font-semibold mb-2 flex items-center gap-2 text-indigo-700"><Vote size={18}/> Vote Now</h3>
+          <h3 className="font-semibold mb-2 flex items-center gap-2 text-indigo-700">
+            <Vote size={18}/>
+            {state.votingMethod === 'voice' && 'Voice Vote'}
+            {state.votingMethod === 'rising' && 'Rising Vote'}
+            {state.votingMethod === 'standard' && 'Vote Now'}
+            {state.votingMethod === 'ballot' && 'Secret Ballot'}
+            {state.votingMethod === 'rollcall' && 'Roll Call Vote'}
+          </h3>
           {state.voteTimerEnd && (
             <div className="mb-3">
               <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
@@ -127,12 +134,54 @@ function ParticipantView({ state, dispatch, currentUser }) {
           )}
           <p className="text-gray-700 mb-2">"{state.currentMotion?.text}"</p>
           <p className="text-sm text-gray-500 mb-4">Requires: {state.currentMotion?.vote === "2/3" ? "Two-thirds" : "Majority"}</p>
-          <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', oderId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-green-500 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50">YEA</button>
-            <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', oderId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-red-500 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50">NAY</button>
-            <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'abstain', oderId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-gray-400 text-white py-4 rounded-lg font-bold disabled:opacity-50">ABSTAIN</button>
-          </div>
-          {state.voters.includes(currentUser.id) && <p className="text-center text-green-600 mt-3 font-medium">Vote recorded</p>}
+
+          {state.votingMethod === 'voice' && (
+            <div className="bg-blue-50 p-4 rounded-lg text-center">
+              <p className="text-blue-800 font-medium mb-2">Voice Vote in Progress</p>
+              <p className="text-blue-700 text-sm">Chair will ask: "All in favor say Aye. All opposed say No."</p>
+              <p className="text-blue-600 text-xs mt-2">Speak your vote aloud when prompted</p>
+            </div>
+          )}
+
+          {state.votingMethod === 'rising' && (
+            <div className="bg-purple-50 p-4 rounded-lg text-center">
+              <p className="text-purple-800 font-medium mb-2">Rising Vote in Progress</p>
+              <p className="text-purple-700 text-sm mb-3">Chair will ask: "All in favor, please rise. All opposed, please rise."</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-green-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">I Rise in Favor</button>
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-red-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">I Rise Opposed</button>
+              </div>
+            </div>
+          )}
+
+          {(state.votingMethod === 'standard' || state.votingMethod === 'ballot') && (
+            <>
+              {state.votingMethod === 'ballot' && (
+                <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+                  🔒 Secret Ballot - your vote is anonymous
+                </p>
+              )}
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-green-500 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50">YEA</button>
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-red-500 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50">NAY</button>
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'abstain', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-gray-400 text-white py-4 rounded-lg font-bold disabled:opacity-50">ABSTAIN</button>
+              </div>
+            </>
+          )}
+
+          {state.votingMethod === 'rollcall' && (
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <p className="text-indigo-800 font-medium mb-2">Roll Call Vote</p>
+              <p className="text-indigo-700 text-sm mb-3">Chair will call each member by name. Respond when called.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-green-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">AYE</button>
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-red-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">NO</button>
+                <button onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'abstain', voterId: currentUser.id })} disabled={state.voters.includes(currentUser.id)} className="bg-gray-400 text-white py-3 rounded-lg disabled:opacity-50">ABSTAIN</button>
+              </div>
+            </div>
+          )}
+
+          {state.voters.includes(currentUser.id) && <p className="text-center text-green-600 mt-3 font-medium">✓ Vote recorded</p>}
         </div>
       )}
 
@@ -283,7 +332,21 @@ function ChairView({ state, dispatch }) {
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
           <MotionCard motion={state.currentMotion}/>
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
+            <select
+              value={state.votingMethod}
+              onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value })}
+              className="w-full p-2 border rounded-lg mb-3 bg-white"
+            >
+              <option value="voice">Voice Vote (fastest)</option>
+              <option value="rising">Rising Vote (show of hands)</option>
+              <option value="standard">Standard Vote (Yea/Nay buttons)</option>
+              <option value="ballot">Secret Ballot</option>
+              <option value="rollcall">Roll Call Vote</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <button onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">Ask for Consent</button>
             <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="bg-indigo-600 text-white py-3 rounded-lg font-medium">Call the Question</button>
           </div>
