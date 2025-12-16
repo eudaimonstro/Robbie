@@ -1,8 +1,9 @@
 import React from 'react';
 import { HelpTooltip } from './HelpTooltip';
 import { CATEGORY_INFO } from '../constants/motions';
+import type { MotionCardProps } from '../types';
 
-export function MotionCard({ motion, showHelp = true }) {
+export function MotionCard({ motion, showHelp = true }: MotionCardProps) {
   const cat = CATEGORY_INFO[motion.category];
   const colors = {
     purple: "bg-purple-50 border-purple-200 text-purple-700",

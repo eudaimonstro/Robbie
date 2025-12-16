@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { HelpCircle, X, CheckCircle, XCircle } from 'lucide-react';
+import type { HelpTooltipProps } from '../types';
 
-export function HelpTooltip({ motion }) {
-  const [show, setShow] = useState(false);
+export function HelpTooltip({ motion }: HelpTooltipProps) {
+  const [show, setShow] = useState<boolean>(false);
 
   return (
     <div className="relative">

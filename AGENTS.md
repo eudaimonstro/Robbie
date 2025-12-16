@@ -224,6 +224,15 @@ When implementing new features:
 - When in doubt, default to stricter interpretation of rules
 - App should educate users about proper procedure, not just enforce it
 
+## Best Practices
+- Read and follow: [ReactJS Best Practices](https://www.tatvasoft.com/blog/reactjs-best-practices/)
+- Read and follow: [TypeScript Best Practices](https://basarat.gitbook.io/typescript/type-system/best-practices)
+- Read and follow: [Redux Best Practices](https://redux.js.org/style-guide/style-guide)
+- Read and follow: [CSS-in-JS Best Practices](https://cssinjs.org/best-practices)
+- Read and follow: [Thining in React Apps](https://reactjs.org/docs/thinking-in-react.html)
+
+
+
 ---
 
 **Last Updated**: 2025-12-16

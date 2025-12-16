@@ -1,7 +1,8 @@
 import { MOTIONS } from '../constants/motions';
+import type { MeetingState, MeetingAction, MeetingLogEntry } from '../types';
 
-export function meetingReducer(state, action) {
-  const log = (msg) => [...state.meetingLog, { time: new Date().toLocaleTimeString(), message: msg }];
+export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
+  const log = (msg: string): MeetingLogEntry[] => [...state.meetingLog, { time: new Date().toLocaleTimeString(), message: msg }];
 
   switch (action.type) {
     case 'START_MEETING':
@@ -21,7 +22,7 @@ export function meetingReducer(state, action) {
 
     case 'SECOND_MOTION':
       if (!state.pendingSecond) return state;
-      const seconded = { ...state.pendingSecond, secondedBy: action.seconder, status: "active" };
+      const seconded = { ...state.pendingSecond, secondedBy: action.seconder, status: "active" as const };
       return { ...state, pendingSecond: null, currentMotion: seconded, motionStack: [...state.motionStack, seconded], meetingLog: log(`${action.seconder} seconds the motion.`) };
 
     case 'DECLINE_SECOND':
@@ -59,8 +60,8 @@ export function meetingReducer(state, action) {
       }
       if (passed && state.currentMotion?.agendaAmendment) {
         const amendment = state.currentMotion.agendaAmendment;
-        if (amendment.action === 'add') {
-          const newItem = { id: Date.now(), title: amendment.title, status: "pending" };
+        if (amendment.action === 'add' && amendment.title) {
+          const newItem = { id: Date.now(), title: amendment.title, status: "pending" as const };
           if (amendment.position === 'end') agenda = [...agenda, newItem];
           else if (amendment.position === 'beginning') agenda = [newItem, ...agenda];
           else if (typeof amendment.position === 'number') agenda = [...agenda.slice(0, amendment.position), newItem, ...agenda.slice(amendment.position)];
@@ -93,7 +94,7 @@ export function meetingReducer(state, action) {
       return { ...state, recognizedSpeaker: null, speakerTimerEnd: null, meetingLog: log(`${state.recognizedSpeaker?.name} yields the floor.`) };
 
     case 'ADD_AGENDA_ITEM':
-      return { ...state, agenda: [...state.agenda, { id: Date.now(), title: action.title, status: "pending" }] };
+      return { ...state, agenda: [...state.agenda, { id: Date.now(), title: action.title, status: "pending" as const }] };
 
     case 'REMOVE_AGENDA_ITEM':
       return { ...state, agenda: state.agenda.filter(a => a.id !== action.id) };
@@ -106,12 +107,12 @@ export function meetingReducer(state, action) {
 
     case 'CALL_AGENDA_ITEM': {
       const item = state.agenda.find(a => a.id === action.id);
-      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "active" } : a.status === "active" ? { ...a, status: "pending" } : a);
-      return { ...state, currentAgendaItem: item, agenda: updatedAgenda, meetingLog: log(`Chair calls: "${item.title}"`) };
+      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "active" as const } : a.status === "active" ? { ...a, status: "pending" as const } : a);
+      return { ...state, currentAgendaItem: item, agenda: updatedAgenda, meetingLog: log(`Chair calls: "${item?.title}"`) };
     }
 
     case 'COMPLETE_AGENDA_ITEM': {
-      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "completed" } : a);
+      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "completed" as const } : a);
       return { ...state, currentAgendaItem: null, agenda: updatedAgenda, meetingLog: log(`Completed: "${state.currentAgendaItem?.title}"`) };
     }
 
@@ -152,8 +153,8 @@ export function meetingReducer(state, action) {
       }
       if (state.currentMotion?.agendaAmendment) {
         const amendment = state.currentMotion.agendaAmendment;
-        if (amendment.action === 'add') {
-          const newItem = { id: Date.now(), title: amendment.title, status: "pending" };
+        if (amendment.action === 'add' && amendment.title) {
+          const newItem = { id: Date.now(), title: amendment.title, status: "pending" as const };
           if (amendment.position === 'end') agenda = [...agenda, newItem];
           else if (amendment.position === 'beginning') agenda = [newItem, ...agenda];
           else if (typeof amendment.position === 'number') agenda = [...agenda.slice(0, amendment.position), newItem, ...agenda.slice(amendment.position)];

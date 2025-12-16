@@ -1,12 +1,14 @@
-export const initialState = {
+import type { MeetingState } from '../types';
+
+export const initialState: MeetingState = {
   meetingActive: false,
   meetingCode: "",
   members: [
-    { id: 1, name: "Alice Johnson", role: "member", present: true },
-    { id: 2, name: "Bob Smith", role: "member", present: true },
-    { id: 3, name: "Carol Davis", role: "member", present: true },
-    { id: 4, name: "David Wilson", role: "chair", present: true },
-    { id: 5, name: "Eve Martinez", role: "admin", present: true },
+    { id: 1, name: "Alice Johnson", role: "member" as const, present: true },
+    { id: 2, name: "Bob Smith", role: "member" as const, present: true },
+    { id: 3, name: "Carol Davis", role: "member" as const, present: true },
+    { id: 4, name: "David Wilson", role: "chair" as const, present: true },
+    { id: 5, name: "Eve Martinez", role: "admin" as const, present: true },
   ],
   quorum: 3,
   motionStack: [],
@@ -15,7 +17,7 @@ export const initialState = {
   votes: { yea: 0, nay: 0, abstain: 0 },
   voters: [],
   votingOpen: false,
-  votingMethod: "standard",
+  votingMethod: "standard" as const,
   unanimousConsentPending: false,
   speakerQueue: [],
   recognizedSpeaker: null,
@@ -25,9 +27,9 @@ export const initialState = {
   voteTimeLimit: 60,
   meetingLog: [],
   agenda: [
-    { id: 1, title: "Approve previous meeting minutes", status: "pending" },
-    { id: 2, title: "Budget proposal for Q1", status: "pending" },
-    { id: 3, title: "New member applications", status: "pending" },
+    { id: 1, title: "Approve previous meeting minutes", status: "pending" as const },
+    { id: 2, title: "Budget proposal for Q1", status: "pending" as const },
+    { id: 3, title: "New member applications", status: "pending" as const },
   ],
   agendaAdopted: false,
   agendaObjection: false,

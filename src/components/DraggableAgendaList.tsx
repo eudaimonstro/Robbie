@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { X, CheckCircle, ChevronRight } from 'lucide-react';
+import type { DraggableAgendaListProps } from '../types';
 
-export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = false }) {
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
+export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = false }: DraggableAgendaListProps) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleDragStart = (e, index) => {
     if (disabled) return;

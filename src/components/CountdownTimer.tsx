@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
+import type { CountdownTimerProps } from '../types';
 
-export function CountdownTimer({ endTime, label }) {
-  const [timeLeft, setTimeLeft] = useState(0);
+export function CountdownTimer({ endTime, label }: CountdownTimerProps) {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     if (!endTime) return;

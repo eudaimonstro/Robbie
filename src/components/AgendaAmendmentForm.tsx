@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
+import type { AgendaAmendmentFormProps } from '../types';
 
-export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }) {
-  const [amendmentType, setAmendmentType] = useState('add');
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemPosition, setNewItemPosition] = useState('end');
-  const [selectedItemId, setSelectedItemId] = useState(agenda[0]?.id || null);
-  const [moveDirection, setMoveDirection] = useState('up');
+export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendmentFormProps) {
+  const [amendmentType, setAmendmentType] = useState<'add' | 'remove' | 'reorder'>('add');
+  const [newItemTitle, setNewItemTitle] = useState<string>('');
+  const [newItemPosition, setNewItemPosition] = useState<'beginning' | 'end' | number>('end');
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(agenda[0]?.id || null);
+  const [moveDirection, setMoveDirection] = useState<'up' | 'down'>('up');
 
   const handleSubmit = () => {
     let text = '';
     let agendaAmendment = null;
     if (amendmentType === 'add') {
-      const positionText = newItemPosition === 'end' ? 'at the end' : newItemPosition === 'beginning' ? 'at the beginning' : `after item ${parseInt(newItemPosition) + 1}`;
+      const positionText = newItemPosition === 'end' ? 'at the end' : newItemPosition === 'beginning' ? 'at the beginning' : `after item ${(newItemPosition as number) + 1}`;
       text = `Amend the agenda by adding "${newItemTitle}" ${positionText}`;
-      agendaAmendment = { action: 'add', title: newItemTitle, position: newItemPosition === 'end' ? 'end' : newItemPosition === 'beginning' ? 'beginning' : parseInt(newItemPosition) + 1 };
+      agendaAmendment = { action: 'add', title: newItemTitle, position: newItemPosition === 'end' ? 'end' : newItemPosition === 'beginning' ? 'beginning' : (newItemPosition as number) + 1 };
     } else if (amendmentType === 'remove') {
       const item = agenda.find(a => a.id === selectedItemId);
       text = `Amend the agenda by removing "${item?.title}"`;
@@ -33,7 +34,7 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Amendment Type</label>
         <div className="grid grid-cols-3 gap-2">
-          {[{ value: 'add', label: 'Add', icon: '+' }, { value: 'remove', label: 'Remove', icon: '−' }, { value: 'reorder', label: 'Reorder', icon: '↕' }].map(opt => (
+          {[{ value: 'add' as const, label: 'Add', icon: '+' }, { value: 'remove' as const, label: 'Remove', icon: '−' }, { value: 'reorder' as const, label: 'Reorder', icon: '↕' }].map(opt => (
             <button key={opt.value} onClick={() => setAmendmentType(opt.value)} className={`p-3 rounded-lg border-2 text-center ${amendmentType === opt.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}>
               <span className="text-xl block">{opt.icon}</span>
               <span className="text-sm">{opt.label}</span>
@@ -49,7 +50,10 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-            <select value={newItemPosition} onChange={(e) => setNewItemPosition(e.target.value)} className="w-full p-3 border rounded-lg bg-white">
+            <select value={newItemPosition} onChange={(e) => {
+              const val = e.target.value;
+              setNewItemPosition(val === 'beginning' || val === 'end' ? val : parseInt(val));
+            }} className="w-full p-3 border rounded-lg bg-white">
               <option value="beginning">At the beginning</option>
               {agenda.map((item, i) => (<option key={item.id} value={i}>After: {item.title}</option>))}
               <option value="end">At the end</option>
