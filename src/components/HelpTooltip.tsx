@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HelpCircle, X, CheckCircle, XCircle } from 'lucide-react';
 import type { HelpTooltipProps } from '../types';
 
-export function HelpTooltip({ motion }: HelpTooltipProps) {
+export const HelpTooltip = React.memo(function HelpTooltip({ motion }: HelpTooltipProps) {
   const [show, setShow] = useState<boolean>(false);
 
   return (
@@ -42,4 +42,4 @@ export function HelpTooltip({ motion }: HelpTooltipProps) {
       )}
     </div>
   );
-}
+});
