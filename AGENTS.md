@@ -56,11 +56,12 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ Majority vote calculation (>50% of yea+nay)
 - ✅ Two-thirds vote calculation (≥66.67% of yea+nay)
 - ✅ Vote result announcement (CARRIED/FAILED)
-- ✅ Prevention of duplicate voting
-- ✅ **Five voting methods**: Voice, Rising, Standard, Ballot, Roll Call (NEW)
-- ✅ **Chair voting rules**: Chair only votes to break/create ties or in ballot votes (NEW)
-- ✅ **Secret ballot privacy**: Vote counts hidden until chair announces (NEW)
-- ✅ **Member vote results**: Members see detailed results after announcement (NEW)
+- ✅ **Vote changing allowed**: Members can change vote before chair closes voting (RONR compliant)
+- ✅ **Three voting methods**: Standard, Ballot, Roll Call (Voice/Rising removed - not applicable to digital context)
+- ✅ **Chair voting rules**: Chair only votes to break/create ties or in ballot votes
+- ✅ **Secret ballot privacy**: Vote counts hidden until chair announces
+- ✅ **Member vote results**: Members see detailed results after announcement
+- ✅ **Visual vote feedback**: Selected option highlighted with ring + checkmark
 
 #### Time Management (NEW)
 - ✅ Configurable speaker time limits
@@ -92,7 +93,8 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 #### Voting
 - ⚠️ **Abstention handling**: Currently counted separately, need to verify they shouldn't affect vote calculation
 - ✅ **Chair voting**: ✅ IMPLEMENTED - Chair only votes to break/create ties or in ballot votes
-- ✅ **Vote methods**: ✅ IMPLEMENTED - All five methods: voice, rising, standard, ballot, roll call
+- ✅ **Vote methods**: ✅ IMPLEMENTED - Three digital methods: standard, ballot, roll call
+- ✅ **Vote changing**: ✅ IMPLEMENTED - Members can change vote before result announced (RONR compliant)
 
 ### ❌ Missing Critical Features
 
@@ -248,7 +250,7 @@ When implementing new features:
 ### Phase 1 Completed Features
 1. ✅ **Agenda Item Voting** - Chair can put agenda items to vote or mark complete without vote
 2. ✅ **Unanimous Consent Procedure** - Full implementation with objection handling
-3. ✅ **Five Voting Methods** - Voice, Rising, Standard, Ballot, Roll Call
+3. ✅ **Three Voting Methods** - Standard, Ballot, Roll Call (Voice/Rising removed as not applicable to digital)
 4. ✅ **Chair Voting Rules** - Chair restricted to tie-breaking or ballot votes
 5. ✅ **Secret Ballot Privacy** - Vote counts hidden from chair until announced
 6. ✅ **Motion Maker Priority** - Highlighted in speaker queue, speaks first
@@ -256,6 +258,7 @@ When implementing new features:
 8. ✅ **Objection Visual Alerts** - Chair sees prominent notification when objection occurs
 9. ✅ **Second Validation** - Members cannot second their own motions (with educational feedback)
 10. ✅ **Participant Agenda Objections** - Members can object to agenda adoption
+11. ✅ **Vote Changing** - Members can change their vote before chair closes voting (RONR compliant)
 
 ### Phase 2 Completed Features (NEW)
 1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
