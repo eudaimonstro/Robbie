@@ -292,22 +292,41 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         )}
         {state.speakerQueue.length === 0 ? <p className="text-gray-500 text-center py-4">No one waiting</p> : (
           <ul className="space-y-2">
-            {state.speakerQueue.map((m, i) => (
-              <li key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span>{i + 1}. {m.name}</span>
-                <button
-                  onClick={() => dispatch({
-                    type: 'RECOGNIZE_SPEAKER',
-                    member: m,
-                    speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
-                    timestamp: generateTimestamp()
-                  })}
-                  className="bg-blue-500 text-white px-4 py-1 rounded text-sm"
-                >
-                  Recognize
-                </button>
-              </li>
-            ))}
+            {(() => {
+              // Prioritize motion maker if they haven't spoken yet
+              const motionMakerId = state.currentMotion?.moverId;
+              const moverHasSpoken = state.currentMotion?.moverHasSpoken;
+              const sortedQueue = [...state.speakerQueue].sort((a, b) => {
+                const aIsMover = motionMakerId && a.id === motionMakerId && !moverHasSpoken;
+                const bIsMover = motionMakerId && b.id === motionMakerId && !moverHasSpoken;
+                if (aIsMover && !bIsMover) return -1;
+                if (!aIsMover && bIsMover) return 1;
+                return 0;
+              });
+
+              return sortedQueue.map((m, i) => {
+                const isMotionMaker = motionMakerId === m.id && !moverHasSpoken;
+                return (
+                  <li key={m.id} className={`flex items-center justify-between p-3 rounded-lg ${isMotionMaker ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50'}`}>
+                    <span>
+                      {i + 1}. {m.name}
+                      {isMotionMaker && <span className="ml-2 text-xs text-indigo-600 font-medium">(Motion Maker - speaks first)</span>}
+                    </span>
+                    <button
+                      onClick={() => dispatch({
+                        type: 'RECOGNIZE_SPEAKER',
+                        member: m,
+                        speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
+                        timestamp: generateTimestamp()
+                      })}
+                      className={`px-4 py-1 rounded text-sm text-white ${isMotionMaker ? 'bg-indigo-600' : 'bg-blue-500'}`}
+                    >
+                      Recognize
+                    </button>
+                  </li>
+                );
+              });
+            })()}
           </ul>
         )}
       </div>

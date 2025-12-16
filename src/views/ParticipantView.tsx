@@ -33,6 +33,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         motionType: selectedMotion,
         text: motionText || selectedMotionDef?.phrase,
         mover: currentUser.name,
+        moverId: currentUser.id,
         motionId: generateId(),
         timestamp: generateTimestamp()
       });
@@ -46,6 +47,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       motionType: 'amendAgenda',
       text,
       mover: currentUser.name,
+      moverId: currentUser.id,
       agendaAmendment,
       motionId: generateId(),
       timestamp: generateTimestamp()

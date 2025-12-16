@@ -18,6 +18,7 @@ export interface Motion {
   name: string;
   text: string;
   mover: string;
+  moverId?: number; // ID of member who made the motion
   secondedBy: string | null;
   status: 'pending' | 'active';
   precedence: number;
@@ -33,6 +34,7 @@ export interface Motion {
   whenToUse: string;
   isAgendaAdoption?: boolean;
   agendaAmendment?: AgendaAmendment | null;
+  moverHasSpoken?: boolean; // Track if motion maker has had floor for debate
 }
 
 export interface AgendaAmendment {
@@ -89,7 +91,7 @@ export interface MeetingState {
 export type MeetingAction =
   | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
-  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment }
+  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment }
   | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }

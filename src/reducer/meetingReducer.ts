@@ -31,10 +31,12 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         type: action.motionType,
         text: action.text,
         mover: action.mover,
+        moverId: action.moverId,
         secondedBy: null,
         status: "pending" as const,
         isAgendaAdoption: action.motionType === 'adoptAgenda',
-        agendaAmendment: action.agendaAmendment || null
+        agendaAmendment: action.agendaAmendment || null,
+        moverHasSpoken: false
       };
       if (motion.needsSecond) {
         return {
@@ -129,14 +131,27 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'LOWER_HAND':
       return { ...state, speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id) };
 
-    case 'RECOGNIZE_SPEAKER':
+    case 'RECOGNIZE_SPEAKER': {
+      // Mark motion maker as having spoken if they're being recognized
+      const updatedMotion = state.currentMotion && state.currentMotion.moverId === action.member.id
+        ? { ...state.currentMotion, moverHasSpoken: true }
+        : state.currentMotion;
+
+      // Update motion stack if current motion was updated
+      const updatedStack = updatedMotion && updatedMotion !== state.currentMotion
+        ? state.motionStack.map(m => m.id === updatedMotion.id ? updatedMotion : m)
+        : state.motionStack;
+
       return {
         ...state,
+        currentMotion: updatedMotion,
+        motionStack: updatedStack,
         recognizedSpeaker: action.member,
         speakerTimerEnd: action.speakerTimerEnd,
         speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id),
         meetingLog: log(action.timestamp, `Chair recognizes ${action.member.name}.`)
       };
+    }
 
     case 'YIELD_FLOOR':
       return {
