@@ -1,0 +1,286 @@
+import React, { useState } from 'react';
+import { Gavel, Hand, X, CheckCircle, ChevronRight } from 'lucide-react';
+import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '../utils/idGenerators';
+import { MotionCard } from '../components/MotionCard';
+import { DraggableAgendaList } from '../components/DraggableAgendaList';
+import { CountdownTimer } from '../components/CountdownTimer';
+import type { ChairViewProps, VotingMethod } from '../types';
+
+export function ChairView({ state, dispatch }: ChairViewProps) {
+  const [showScript, setShowScript] = useState(true);
+  const [newAgendaItem, setNewAgendaItem] = useState("");
+
+  const getChairScript = () => {
+    if (!state.meetingActive) return null;
+    if (!state.agendaAdopted && !state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"Is there any objection to adopting the agenda?"', note: "If none, click 'No Objection'. If someone objects, click 'Objection Raised'." };
+    if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"There has been an objection. A motion to adopt the agenda is in order."', note: "Wait for a member to move." };
+    if (state.pendingSecond) return { text: '"Is there a second?"', note: "Wait for a second or declare no second." };
+    if (state.votingOpen) return { text: '"Those in favor say Aye. Those opposed say No."', note: "Close voting when done." };
+    if (state.currentMotion) return { text: state.currentMotion.debatable ? `"Is there any discussion on: ${state.currentMotion.text}?"` : '"This motion is not debatable."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "Proceed to vote." };
+    if (state.currentAgendaItem) return { text: `"We are now on: ${state.currentAgendaItem.title}"`, note: "Allow discussion or motions." };
+    if (state.agendaAdopted) {
+      const next = state.agenda.find(a => a.status === "pending");
+      return next ? { text: '"We will proceed to the next item."', note: `Next: "${next.title}"` } : { text: '"Is there any new business?"', note: "If none, entertain motion to adjourn." };
+    }
+    return { text: '"Is there any business?"', note: "" };
+  };
+
+  const script = getChairScript();
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-lg p-4 shadow">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Gavel size={18}/> Meeting Control</h3>
+        {!state.meetingActive ? (
+          <button
+            onClick={() => dispatch({ type: 'START_MEETING', meetingCode: generateMeetingCode(), timestamp: generateTimestamp() })}
+            className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-medium"
+          >
+            Call Meeting to Order
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <span className="text-green-700 font-medium">Meeting in Progress</span>
+              <span className="text-green-600 font-mono">{state.meetingCode}</span>
+            </div>
+            <button
+              onClick={() => dispatch({ type: 'END_MEETING', timestamp: generateTimestamp() })}
+              className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+            >
+              Adjourn
+            </button>
+          </div>
+        )}
+      </div>
+
+      {script && showScript && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex justify-between">
+            <div>
+              <p className="text-indigo-800 font-medium mb-1">Say:</p>
+              <p className="text-indigo-900 text-lg">{script.text}</p>
+              <p className="text-indigo-600 text-sm mt-2 italic">{script.note}</p>
+            </div>
+            <button onClick={() => setShowScript(false)} className="text-indigo-400"><X size={18}/></button>
+          </div>
+        </div>
+      )}
+      {!showScript && <button onClick={() => setShowScript(true)} className="text-indigo-600 text-sm">Show script</button>}
+
+      {state.meetingActive && !state.agendaAdopted && !state.currentMotion && !state.pendingSecond && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">{state.agendaObjection ? "Agenda (Objection)" : "Adopt Agenda"}</h3>
+          <p className="text-sm text-gray-600 mb-3">Drag items to reorder before adoption.</p>
+          <DraggableAgendaList agenda={state.agenda} dispatch={dispatch} disabled={false}/>
+          <div className="flex gap-2 my-3">
+            <input type="text" value={newAgendaItem} onChange={(e) => setNewAgendaItem(e.target.value)} placeholder="Add item..." className="flex-1 p-2 border rounded-lg text-sm"/>
+            <button
+              onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem, itemId: generateId() }); setNewAgendaItem(""); }}
+              disabled={!newAgendaItem.trim()}
+              className="bg-gray-200 text-gray-700 px-4 rounded-lg disabled:opacity-50 text-sm"
+            >
+              Add
+            </button>
+          </div>
+          {!state.agendaObjection ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => dispatch({ type: 'ADOPT_AGENDA', timestamp: generateTimestamp() })}
+                className="bg-green-500 text-white py-3 rounded-lg font-medium"
+              >
+                No Objection
+              </button>
+              <button
+                onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
+                className="bg-amber-500 text-white py-3 rounded-lg font-medium"
+              >
+                Objection Raised
+              </button>
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+              <strong>Objection noted.</strong> A member must move to adopt or amend the agenda.
+            </div>
+          )}
+        </div>
+      )}
+
+      {state.pendingSecond && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-2 text-amber-700">Awaiting Second</h3>
+          <MotionCard motion={state.pendingSecond}/>
+          <button
+            onClick={() => dispatch({ type: 'DECLINE_SECOND', timestamp: generateTimestamp() })}
+            className="mt-3 w-full bg-gray-200 text-gray-700 py-2 rounded-lg"
+          >
+            Declare "No Second"
+          </button>
+        </div>
+      )}
+
+      {state.currentMotion && !state.votingOpen && !state.pendingSecond && !state.unanimousConsentPending && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
+          <MotionCard motion={state.currentMotion}/>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
+            <select
+              value={state.votingMethod}
+              onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })}
+              className="w-full p-2 border rounded-lg mb-3 bg-white"
+            >
+              <option value="voice">Voice Vote (fastest)</option>
+              <option value="rising">Rising Vote (show of hands)</option>
+              <option value="standard">Standard Vote (Yea/Nay buttons)</option>
+              <option value="ballot">Secret Ballot</option>
+              <option value="rollcall">Roll Call Vote</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })}
+              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+            >
+              Ask for Consent
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+            >
+              Call the Question
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.unanimousConsentPending && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Unanimous Consent Requested</h3>
+          <MotionCard motion={state.currentMotion}/>
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium mb-2">Waiting for objections...</p>
+            <p className="text-green-700 text-sm">If no one objects, motion passes without a vote.</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() })}
+              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+            >
+              No Objection - Pass
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+            >
+              Proceed to Vote
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.votingOpen && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
+          {state.voteTimerEnd && (
+            <div className="mb-3">
+              <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{state.votes.yea}</p><p className="text-green-600">Yea</p></div>
+            <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{state.votes.nay}</p><p className="text-red-600">Nay</p></div>
+            <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
+          </div>
+          <button
+            onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
+          >
+            Close & Announce
+          </button>
+        </div>
+      )}
+
+      {state.agendaAdopted && state.currentAgendaItem && !state.currentMotion && !state.pendingSecond && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-2 text-gray-800">Current Item</h3>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">{state.currentAgendaItem.title}</div>
+          <button
+            onClick={() => dispatch({ type: 'COMPLETE_AGENDA_ITEM', id: state.currentAgendaItem.id, timestamp: generateTimestamp() })}
+            className="w-full bg-green-500 text-white py-2 rounded-lg"
+          >
+            Mark Complete
+          </button>
+        </div>
+      )}
+
+      {state.agendaAdopted && !state.currentAgendaItem && !state.currentMotion && !state.pendingSecond && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Agenda</h3>
+          <ul className="space-y-2">
+            {state.agenda.map((item, i) => (
+              <li key={item.id} className={`flex items-center justify-between p-3 rounded-lg ${item.status === 'completed' ? 'bg-green-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2">
+                  {item.status === 'completed' && <CheckCircle size={16} className="text-green-600"/>}
+                  <span className={item.status === 'completed' ? 'line-through text-gray-400' : ''}>{i + 1}. {item.title}</span>
+                </div>
+                {item.status === 'pending' && (
+                  <button
+                    onClick={() => dispatch({ type: 'CALL_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() })}
+                    className="bg-indigo-500 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Call
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg p-4 shadow">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Hand size={18}/> Speaker Queue <span className="bg-gray-200 text-gray-700 text-sm px-2 py-0.5 rounded-full">{state.speakerQueue.length}</span></h3>
+        {state.recognizedSpeaker && (
+          <div className="mb-3 p-3 bg-green-100 rounded-lg">
+            <div className="text-green-800 font-medium mb-2"><strong>{state.recognizedSpeaker.name}</strong> has the floor</div>
+            {state.speakerTimerEnd && <CountdownTimer endTime={state.speakerTimerEnd} label="Speaking Time" />}
+          </div>
+        )}
+        {state.speakerQueue.length === 0 ? <p className="text-gray-500 text-center py-4">No one waiting</p> : (
+          <ul className="space-y-2">
+            {state.speakerQueue.map((m, i) => (
+              <li key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span>{i + 1}. {m.name}</span>
+                <button
+                  onClick={() => dispatch({
+                    type: 'RECOGNIZE_SPEAKER',
+                    member: m,
+                    speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
+                    timestamp: generateTimestamp()
+                  })}
+                  className="bg-blue-500 text-white px-4 py-1 rounded text-sm"
+                >
+                  Recognize
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {state.motionStack.length > 0 && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Motion Stack</h3>
+          <ul className="space-y-2">
+            {[...state.motionStack].reverse().map((m, i) => (
+              <li key={m.id} className={`text-sm p-3 rounded-lg ${i === 0 ? 'bg-indigo-100 border-2 border-indigo-300' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2">{i === 0 && <ChevronRight size={16} className="text-indigo-600"/>}<span className="font-medium">{m.name}</span></div>
+                <p className="text-gray-600 ml-6">"{m.text}"</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
