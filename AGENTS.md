@@ -85,7 +85,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ⚠️ **Previous Question**: Need to verify it applies only to immediately pending question unless specified otherwise
 
 #### Debate Rules
-- ⚠️ **Speaking order**: Basic queue, but doesn't enforce alternating pro/con speakers
+- ✅ **Speaking order**: ✅ IMPLEMENTED - Full pro/con speaker alternation per Robert's Rules
 - ⚠️ **Speaking limits**: Time limits implemented, but no enforcement of "twice per day per question" rule
 - ✅ **Maker speaks first**: ✅ IMPLEMENTED - motion maker prioritized in speaker queue
 
@@ -146,12 +146,12 @@ The following need to be checked against official Robert's Rules:
 4. ✅ Enforce motion maker speaks first on debate
 5. ✅ Prevent seconding your own motion
 
-### Phase 2: Core Completeness (Medium Priority) 🔄 80% COMPLETE
+### Phase 2: Core Completeness (Medium Priority) ✅ 100% COMPLETE
 1. ✅ Implement standard order of business
 2. ✅ Add minutes recording and approval
 3. ✅ Implement renewal rules for defeated motions
 4. ✅ Add committee report handling
-5. Improve debate speaker alternation (pro/con)
+5. ✅ Improve debate speaker alternation (pro/con)
 
 ### Phase 3: Advanced Features (Low Priority)
 1. Add nominations and elections procedures
@@ -240,7 +240,7 @@ When implementing new features:
 ---
 
 **Last Updated**: 2025-12-16
-**Version**: 0.5.0 (Phase 2: 80% Complete - Standard Order + Minutes + Renewal + Committee Reports)
+**Version**: 0.6.0 (Phase 2: ✅ COMPLETE - All Core Completeness Features Implemented)
 **Contributors**: Claude Code Agent
 
 ## Recent Session Updates (2025-12-16)
@@ -262,11 +262,13 @@ When implementing new features:
 2. ✅ **Minutes Approval System** - Reading, display, and approval of previous meeting minutes
 3. ✅ **Motion Renewal Rules** - Defeated motions cannot be renewed at same meeting (RONR compliant)
 4. ✅ **Committee Report Handling** - Presentation, tracking, and logging of committee reports during Reports stage
+5. ✅ **Debate Speaker Alternation** - Pro/con speaker alternation per Robert's Rules with visual stance indicators
 
 ### Compliance Status
 - **Phase 1** (Critical Fixes): ✅ 5/5 complete (100%) - PHASE COMPLETE!
-- **Phase 2** (Core Completeness): 🔄 4/5 complete (80%) - IN PROGRESS
+- **Phase 2** (Core Completeness): ✅ 5/5 complete (100%) - PHASE COMPLETE!
 - **Robert's Rules Core Features**: Significantly improved
 - **Voting Compliance**: Fully compliant with RONR
 - **Parliamentary Procedure**: Core workflow complete and compliant
-- **Meeting Structure**: Now follows standard order of business
+- **Meeting Structure**: Follows standard order of business with full debate alternation
+- **Debate Management**: Fully compliant with pro/con speaker alternation rules
