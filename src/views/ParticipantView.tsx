@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Hand, ChevronRight, AlertCircle, Vote, MessageSquare, Info, CheckCircle } from 'lucide-react';
 import { MOTIONS, CATEGORY_INFO } from '../constants/motions';
 import { getValidMotions } from '../utils/motionHelpers';
@@ -13,9 +13,11 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
   const [motionText, setMotionText] = useState("");
   const [selectedMotion, setSelectedMotion] = useState("mainMotion");
   const [showAgendaAmendForm, setShowAgendaAmendForm] = useState(false);
-  const validMotions = getValidMotions(state);
+
+  // Memoize expensive computations
+  const validMotions = useMemo(() => getValidMotions(state), [state]);
   const selectedMotionDef = MOTIONS[selectedMotion];
-  const handRaised = state.speakerQueue.find(s => s.id === currentUser.id);
+  const handRaised = useMemo(() => state.speakerQueue.find(s => s.id === currentUser.id), [state.speakerQueue, currentUser.id]);
   const hasFloor = state.recognizedSpeaker?.id === currentUser.id;
 
   useEffect(() => {
@@ -24,7 +26,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
     }
   }, [validMotions, selectedMotion]);
 
-  const handleMotionSubmit = () => {
+  const handleMotionSubmit = useCallback(() => {
     if (selectedMotion === 'amendAgenda') {
       setShowAgendaAmendForm(true);
     } else {
@@ -39,9 +41,9 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       });
       setMotionText("");
     }
-  };
+  }, [selectedMotion, motionText, selectedMotionDef, currentUser, dispatch]);
 
-  const handleAgendaAmendSubmit = (text: string, agendaAmendment: any) => {
+  const handleAgendaAmendSubmit = useCallback((text: string, agendaAmendment: any) => {
     dispatch({
       type: 'MAKE_MOTION',
       motionType: 'amendAgenda',
@@ -53,7 +55,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       timestamp: generateTimestamp()
     });
     setShowAgendaAmendForm(false);
-  };
+  }, [currentUser, dispatch]);
 
   return (
     <div className="space-y-4">
