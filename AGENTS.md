@@ -259,6 +259,7 @@ When implementing new features:
 9. ✅ **Second Validation** - Members cannot second their own motions (with educational feedback)
 10. ✅ **Participant Agenda Objections** - Members can object to agenda adoption
 11. ✅ **Vote Changing** - Members can change their vote before chair closes voting (RONR compliant)
+12. ✅ **Privileged Motions Availability** - Privileged motions always available, even before agenda adoption (RONR compliant)
 
 ### Phase 2 Completed Features (NEW)
 1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
