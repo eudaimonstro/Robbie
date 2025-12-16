@@ -137,11 +137,11 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     }
 
     case 'RAISE_HAND':
-      if (state.speakerQueue.find(s => s.id === action.member.id)) return state;
-      return { ...state, speakerQueue: [...state.speakerQueue, action.member] };
+      if (state.speakerQueue.find(s => s.member.id === action.member.id)) return state;
+      return { ...state, speakerQueue: [...state.speakerQueue, { member: action.member, stance: action.stance }] };
 
     case 'LOWER_HAND':
-      return { ...state, speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id) };
+      return { ...state, speakerQueue: state.speakerQueue.filter(s => s.member.id !== action.member.id) };
 
     case 'RECOGNIZE_SPEAKER': {
       // Mark motion maker as having spoken if they're being recognized
@@ -159,8 +159,9 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         currentMotion: updatedMotion,
         motionStack: updatedStack,
         recognizedSpeaker: action.member,
+        lastSpeakerStance: action.stance,
         speakerTimerEnd: action.speakerTimerEnd,
-        speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id),
+        speakerQueue: state.speakerQueue.filter(s => s.member.id !== action.member.id),
         meetingLog: log(action.timestamp, `Chair recognizes ${action.member.name}.`)
       };
     }

@@ -6,6 +6,13 @@ export interface Member {
   present: boolean;
 }
 
+export type DebateStance = 'pro' | 'con' | 'neutral';
+
+export interface SpeakerQueueEntry {
+  member: Member;
+  stance: DebateStance;
+}
+
 export interface AgendaItem {
   id: number;
   title: string;
@@ -94,8 +101,9 @@ export interface MeetingState {
   votingOpen: boolean;
   votingMethod: VotingMethod;
   unanimousConsentPending: boolean;
-  speakerQueue: Member[];
+  speakerQueue: SpeakerQueueEntry[];
   recognizedSpeaker: Member | null;
+  lastSpeakerStance: DebateStance | null;
   speakerTimerEnd: number | null;
   voteTimerEnd: number | null;
   speakerTimeLimit: number;
@@ -122,9 +130,9 @@ export type MeetingAction =
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }
   | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number; isChairDecidingVote?: boolean }
   | { type: 'CLOSE_VOTING'; timestamp: string }
-  | { type: 'RAISE_HAND'; member: Member }
+  | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
   | { type: 'LOWER_HAND'; member: Member }
-  | { type: 'RECOGNIZE_SPEAKER'; member: Member; speakerTimerEnd: number | null; timestamp: string }
+  | { type: 'RECOGNIZE_SPEAKER'; member: Member; stance: DebateStance; speakerTimerEnd: number | null; timestamp: string }
   | { type: 'YIELD_FLOOR'; timestamp: string }
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }

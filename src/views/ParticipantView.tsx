@@ -14,11 +14,12 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
   const [motionText, setMotionText] = useState("");
   const [selectedMotion, setSelectedMotion] = useState("mainMotion");
   const [showAgendaAmendForm, setShowAgendaAmendForm] = useState(false);
+  const [selectedStance, setSelectedStance] = useState<'pro' | 'con' | 'neutral'>('neutral');
 
   // Memoize expensive computations
   const validMotions = useMemo(() => getValidMotions(state), [state]);
   const selectedMotionDef = MOTIONS[selectedMotion];
-  const handRaised = useMemo(() => state.speakerQueue.find(s => s.id === currentUser.id), [state.speakerQueue, currentUser.id]);
+  const handRaised = useMemo(() => state.speakerQueue.find(s => s.member.id === currentUser.id), [state.speakerQueue, currentUser.id]);
   const hasFloor = state.recognizedSpeaker?.id === currentUser.id;
 
   // Use custom hook for vote results
@@ -258,9 +259,69 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
 
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Hand size={18}/> Seek Recognition</h3>
-        <button onClick={() => dispatch({ type: handRaised ? 'LOWER_HAND' : 'RAISE_HAND', member: currentUser })} className={`w-full py-3 rounded-lg font-medium ${handRaised ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-blue-500 text-white'}`}>
-          {handRaised ? "✋ Hand Raised (tap to lower)" : "Raise Hand to Speak"}
-        </button>
+        {handRaised ? (
+          <div className="space-y-2">
+            <div className="bg-amber-100 border-2 border-amber-300 rounded-lg p-3 text-center">
+              <p className="font-medium text-amber-700">✋ Hand Raised</p>
+              <p className="text-xs text-amber-600 mt-1">
+                Stance: {handRaised.stance === 'pro' ? '✓ For' : handRaised.stance === 'con' ? '✗ Against' : '○ Neutral'}
+              </p>
+            </div>
+            <button
+              onClick={() => dispatch({ type: 'LOWER_HAND', member: currentUser })}
+              className="w-full py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+            >
+              Lower Hand
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-800 mb-2 font-medium">Select your position on the motion:</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setSelectedStance('pro')}
+                  className={`py-2 px-3 rounded text-sm font-medium transition-colors ${
+                    selectedStance === 'pro'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'
+                  }`}
+                >
+                  ✓ For
+                </button>
+                <button
+                  onClick={() => setSelectedStance('con')}
+                  className={`py-2 px-3 rounded text-sm font-medium transition-colors ${
+                    selectedStance === 'con'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-white text-red-700 border border-red-300 hover:bg-red-50'
+                  }`}
+                >
+                  ✗ Against
+                </button>
+                <button
+                  onClick={() => setSelectedStance('neutral')}
+                  className={`py-2 px-3 rounded text-sm font-medium transition-colors ${
+                    selectedStance === 'neutral'
+                      ? 'bg-gray-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  ○ Neutral
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => dispatch({ type: 'RAISE_HAND', member: currentUser, stance: selectedStance })}
+              className="w-full py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600"
+            >
+              Raise Hand to Speak
+            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Per Robert's Rules, speakers alternate between for and against
+            </p>
+          </div>
+        )}
       </div>
 
       {state.agendaAdopted && (

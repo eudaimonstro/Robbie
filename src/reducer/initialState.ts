@@ -22,6 +22,7 @@ export const initialState: MeetingState = {
   unanimousConsentPending: false,
   speakerQueue: [],
   recognizedSpeaker: null,
+  lastSpeakerStance: null,
   speakerTimerEnd: null,
   voteTimerEnd: null,
   speakerTimeLimit: 120,

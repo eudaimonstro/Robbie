@@ -11,8 +11,8 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   const [showScript, setShowScript] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState("");
 
-  // Use custom hook for sorted speaker queue
-  const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion);
+  // Use custom hook for sorted speaker queue with alternation
+  const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance);
 
   // Memoize add agenda item callback
   const handleAddAgendaItem = useCallback(() => {
@@ -479,20 +479,27 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         )}
         {state.speakerQueue.length === 0 ? <p className="text-gray-500 text-center py-4">No one waiting</p> : (
           <ul className="space-y-2">
-            {sortedQueue.map((m, i) => {
+            {sortedQueue.map((entry, i) => {
               const motionMakerId = state.currentMotion?.moverId;
               const moverHasSpoken = state.currentMotion?.moverHasSpoken;
-              const isMotionMaker = motionMakerId === m.id && !moverHasSpoken;
+              const isMotionMaker = motionMakerId === entry.member.id && !moverHasSpoken;
+              const stanceIcon = entry.stance === 'pro' ? '✓' : entry.stance === 'con' ? '✗' : '○';
+              const stanceColor = entry.stance === 'pro' ? 'text-green-600' : entry.stance === 'con' ? 'text-red-600' : 'text-gray-500';
+              const stanceLabel = entry.stance === 'pro' ? 'For' : entry.stance === 'con' ? 'Against' : 'Neutral';
               return (
-                <li key={m.id} className={`flex items-center justify-between p-3 rounded-lg ${isMotionMaker ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50'}`}>
-                  <span>
-                    {i + 1}. {m.name}
+                <li key={entry.member.id} className={`flex items-center justify-between p-3 rounded-lg ${isMotionMaker ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50'}`}>
+                  <span className="flex items-center gap-2">
+                    <span>{i + 1}. {entry.member.name}</span>
+                    <span className={`text-xs font-medium ${stanceColor}`} title={stanceLabel}>
+                      {stanceIcon} {stanceLabel}
+                    </span>
                     {isMotionMaker && <span className="ml-2 text-xs text-indigo-600 font-medium">(Motion Maker - speaks first)</span>}
                   </span>
                   <button
                     onClick={() => dispatch({
                       type: 'RECOGNIZE_SPEAKER',
-                      member: m,
+                      member: entry.member,
+                      stance: entry.stance,
                       speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
                       timestamp: generateTimestamp()
                     })}
