@@ -233,11 +233,7 @@ When implementing new features:
 - App should educate users about proper procedure, not just enforce it
 
 ## Best Practices
-- Read and follow: [ReactJS Best Practices](https://www.tatvasoft.com/blog/reactjs-best-practices/)
-- Read and follow: [TypeScript Best Practices](https://www.dennisokeeffe.com/blog/2025-03-16-effective-typescript-principles-in-2025)
-- Read and follow: [Redux Best Practices](https://redux.js.org/style-guide/style-guide)
-- Read and follow: [CSS-in-JS Best Practices](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Styling_basics/Organizing)
-- Read and follow: [Thinking in React Apps](https://reactjs.org/docs/thinking-in-react.html)
+- Read and follow: BEST_PRACTICES.md
 
 
 
