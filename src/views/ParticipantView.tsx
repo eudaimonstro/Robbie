@@ -211,6 +211,54 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         </div>
       )}
 
+      {!state.votingOpen && (() => {
+        // Find the most recent vote result in the meeting log
+        const recentLogs = state.meetingLog.slice().reverse();
+        const voteResult = recentLogs.find(log => log.message.includes('CARRIED') || log.message.includes('FAILED'));
+
+        if (!voteResult) return null;
+
+        // Parse the vote result: "Vote: Yea X, Nay Y. Motion CARRIED/FAILED."
+        const match = voteResult.message.match(/Vote: Yea (\d+), Nay (\d+)\. Motion (CARRIED|FAILED)/);
+        if (!match) return null;
+
+        const yea = parseInt(match[1]);
+        const nay = parseInt(match[2]);
+        const outcome = match[3];
+        const passed = outcome === 'CARRIED';
+
+        // Find the motion text from logs just before the vote
+        const voteIndex = state.meetingLog.indexOf(voteResult);
+        const questionLog = voteIndex > 0 ? state.meetingLog[voteIndex - 1] : null;
+        const motionTextMatch = questionLog?.message.match(/Chair puts the question: "(.+)"/);
+        const motionText = motionTextMatch ? motionTextMatch[1] : null;
+
+        return (
+          <div className={`bg-white rounded-lg p-4 shadow border-2 ${passed ? 'border-green-300' : 'border-red-300'}`}>
+            <h3 className={`font-semibold mb-3 flex items-center gap-2 ${passed ? 'text-green-700' : 'text-red-700'}`}>
+              <Vote size={18}/>
+              Vote Result: {outcome}
+            </h3>
+            {motionText && (
+              <p className="text-gray-800 mb-3 italic">"{motionText}"</p>
+            )}
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              <div className={`${passed ? 'bg-green-100' : 'bg-green-50'} p-3 rounded-lg text-center`}>
+                <p className={`text-2xl font-bold ${passed ? 'text-green-700' : 'text-green-600'}`}>{yea}</p>
+                <p className="text-green-600 text-sm">Yea</p>
+              </div>
+              <div className={`${!passed ? 'bg-red-100' : 'bg-red-50'} p-3 rounded-lg text-center`}>
+                <p className={`text-2xl font-bold ${!passed ? 'text-red-700' : 'text-red-600'}`}>{nay}</p>
+                <p className="text-red-600 text-sm">Nay</p>
+              </div>
+            </div>
+            <p className={`text-center text-sm ${passed ? 'text-green-600' : 'text-red-600'}`}>
+              {voteResult.time}
+            </p>
+          </div>
+        );
+      })()}
+
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Hand size={18}/> Seek Recognition</h3>
         <button onClick={() => dispatch({ type: handRaised ? 'LOWER_HAND' : 'RAISE_HAND', member: currentUser })} className={`w-full py-3 rounded-lg font-medium ${handRaised ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-blue-500 text-white'}`}>
