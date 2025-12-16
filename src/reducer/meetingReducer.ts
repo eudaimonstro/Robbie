@@ -107,6 +107,15 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       const passed = yea > threshold;
       const newStack = state.motionStack.slice(0, -1);
 
+      // Track defeated motions for renewal rule enforcement
+      const defeatedMotions = !passed && state.currentMotion
+        ? [...state.defeatedMotions, {
+            type: state.currentMotion.type,
+            text: state.currentMotion.text,
+            timestamp: action.timestamp
+          }]
+        : state.defeatedMotions;
+
       // Apply motion outcome if passed
       const outcome = passed ? applyMotionOutcome(state) : {
         tabledMotions: state.tabledMotions,
@@ -121,6 +130,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         voteTimerEnd: null,
         currentMotion: newStack[newStack.length - 1] || null,
         motionStack: newStack,
+        defeatedMotions,
         ...outcome,
         meetingLog: log(action.timestamp, `Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.`)
       };

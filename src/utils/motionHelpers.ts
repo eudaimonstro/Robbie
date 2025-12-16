@@ -7,6 +7,11 @@ export function getValidMotions(state) {
   const isAgendaAdoptionPending = state.currentMotion?.type === 'adoptAgenda';
   const validMotions = [];
 
+  // Helper to check if a motion was defeated this meeting
+  const wasDefeated = (motionType: string) => {
+    return state.defeatedMotions?.some(dm => dm.type === motionType) || false;
+  };
+
   if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion) {
     return [{ key: 'adoptAgenda', ...MOTIONS.adoptAgenda }, { key: 'amendAgenda', ...MOTIONS.amendAgenda }];
   }
@@ -19,6 +24,8 @@ export function getValidMotions(state) {
     if (key === 'mainMotion' && currentPrecedence > 0) return;
     if (key === 'amendAmendment' && (!hasAmendment || hasSecondaryAmendment)) return;
     if (key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
+    // Renewal rule: Cannot renew defeated main motions at same meeting
+    if (motion.category === 'main' && wasDefeated(key)) return;
     if (motion.category === 'incidental' || motion.precedence > currentPrecedence) {
       validMotions.push({ key, ...motion });
     }

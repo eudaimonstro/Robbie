@@ -97,6 +97,7 @@ export interface MeetingState {
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
   tabledMotions: Motion[];
+  defeatedMotions: Array<{ type: string; text: string; timestamp: string }>;
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
 }
