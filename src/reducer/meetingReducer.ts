@@ -1,37 +1,83 @@
 import { MOTIONS } from '../constants/motions';
+import { applyMotionOutcome } from '../utils/motionOutcomeHelper';
 import type { MeetingState, MeetingAction, MeetingLogEntry } from '../types';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
-  const log = (msg: string): MeetingLogEntry[] => [...state.meetingLog, { time: new Date().toLocaleTimeString(), message: msg }];
+  // Helper to add log entry (timestamp now comes from action)
+  const log = (timestamp: string, msg: string): MeetingLogEntry[] =>
+    [...state.meetingLog, { time: timestamp, message: msg }];
 
   switch (action.type) {
     case 'START_MEETING':
-      return { ...state, meetingActive: true, meetingCode: Math.random().toString(36).substring(2, 8).toUpperCase(), meetingLog: log("Meeting called to order.") };
+      return {
+        ...state,
+        meetingActive: true,
+        meetingCode: action.meetingCode,
+        meetingLog: log(action.timestamp, "Meeting called to order.")
+      };
 
     case 'END_MEETING':
-      return { ...state, meetingActive: false, meetingLog: log("Meeting adjourned.") };
+      return {
+        ...state,
+        meetingActive: false,
+        meetingLog: log(action.timestamp, "Meeting adjourned.")
+      };
 
     case 'MAKE_MOTION': {
       const motionDef = MOTIONS[action.motionType];
-      const motion = { ...motionDef, id: Date.now(), type: action.motionType, text: action.text, mover: action.mover, secondedBy: null, status: "pending", isAgendaAdoption: action.motionType === 'adoptAgenda', agendaAmendment: action.agendaAmendment || null };
+      const motion = {
+        ...motionDef,
+        id: action.motionId,
+        type: action.motionType,
+        text: action.text,
+        mover: action.mover,
+        secondedBy: null,
+        status: "pending" as const,
+        isAgendaAdoption: action.motionType === 'adoptAgenda',
+        agendaAmendment: action.agendaAmendment || null
+      };
       if (motion.needsSecond) {
-        return { ...state, pendingSecond: motion, meetingLog: log(`${action.mover} moves: "${action.text}" (${motion.name}). Awaiting second.`) };
+        return {
+          ...state,
+          pendingSecond: motion,
+          meetingLog: log(action.timestamp, `${action.mover} moves: "${action.text}" (${motion.name}). Awaiting second.`)
+        };
       }
-      return { ...state, currentMotion: motion, motionStack: [...state.motionStack, motion], meetingLog: log(`${action.mover} raises ${motion.name}.`) };
+      return {
+        ...state,
+        currentMotion: motion,
+        motionStack: [...state.motionStack, motion],
+        meetingLog: log(action.timestamp, `${action.mover} raises ${motion.name}.`)
+      };
     }
 
     case 'SECOND_MOTION':
       if (!state.pendingSecond) return state;
       const seconded = { ...state.pendingSecond, secondedBy: action.seconder, status: "active" as const };
-      return { ...state, pendingSecond: null, currentMotion: seconded, motionStack: [...state.motionStack, seconded], meetingLog: log(`${action.seconder} seconds the motion.`) };
+      return {
+        ...state,
+        pendingSecond: null,
+        currentMotion: seconded,
+        motionStack: [...state.motionStack, seconded],
+        meetingLog: log(action.timestamp, `${action.seconder} seconds the motion.`)
+      };
 
     case 'DECLINE_SECOND':
-      return { ...state, pendingSecond: null, meetingLog: log("Motion fails for lack of a second.") };
+      return {
+        ...state,
+        pendingSecond: null,
+        meetingLog: log(action.timestamp, "Motion fails for lack of a second.")
+      };
 
-    case 'OPEN_VOTING': {
-      const timerEnd = state.voteTimeLimit > 0 ? Date.now() + state.voteTimeLimit * 1000 : null;
-      return { ...state, votingOpen: true, voteTimerEnd: timerEnd, votes: { yea: 0, nay: 0, abstain: 0 }, voters: [], meetingLog: log(`Chair puts the question: "${state.currentMotion?.text}"`) };
-    }
+    case 'OPEN_VOTING':
+      return {
+        ...state,
+        votingOpen: true,
+        voteTimerEnd: action.voteTimerEnd,
+        votes: { yea: 0, nay: 0, abstain: 0 },
+        voters: [],
+        meetingLog: log(action.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`)
+      };
 
     case 'CAST_VOTE':
       if (state.voters.includes(action.voterId)) return state;
@@ -45,37 +91,24 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
       const passed = yea > threshold;
       const newStack = state.motionStack.slice(0, -1);
-      let tabledMotions = state.tabledMotions;
-      let agendaAdopted = state.agendaAdopted;
-      let agendaObjection = state.agendaObjection;
-      let agenda = state.agenda;
 
-      if (passed && state.currentMotion?.type === 'layOnTable') {
-        const mainMotion = newStack.find(m => m.category === 'main');
-        if (mainMotion) tabledMotions = [...tabledMotions, mainMotion];
-      }
-      if (passed && state.currentMotion?.isAgendaAdoption) {
-        agendaAdopted = true;
-        agendaObjection = false;
-      }
-      if (passed && state.currentMotion?.agendaAmendment) {
-        const amendment = state.currentMotion.agendaAmendment;
-        if (amendment.action === 'add' && amendment.title) {
-          const newItem = { id: Date.now(), title: amendment.title, status: "pending" as const };
-          if (amendment.position === 'end') agenda = [...agenda, newItem];
-          else if (amendment.position === 'beginning') agenda = [newItem, ...agenda];
-          else if (typeof amendment.position === 'number') agenda = [...agenda.slice(0, amendment.position), newItem, ...agenda.slice(amendment.position)];
-        } else if (amendment.action === 'remove') {
-          agenda = agenda.filter(item => item.id !== amendment.itemId);
-        } else if (amendment.action === 'reorder') {
-          const newAgenda = [...agenda];
-          const [moved] = newAgenda.splice(amendment.fromIndex, 1);
-          newAgenda.splice(amendment.toIndex, 0, moved);
-          agenda = newAgenda;
-        }
-      }
+      // Apply motion outcome if passed
+      const outcome = passed ? applyMotionOutcome(state) : {
+        tabledMotions: state.tabledMotions,
+        agendaAdopted: state.agendaAdopted,
+        agendaObjection: state.agendaObjection,
+        agenda: state.agenda
+      };
 
-      return { ...state, votingOpen: false, voteTimerEnd: null, currentMotion: newStack[newStack.length - 1] || null, motionStack: newStack, tabledMotions, agendaAdopted, agendaObjection, agenda, meetingLog: log(`Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.`) };
+      return {
+        ...state,
+        votingOpen: false,
+        voteTimerEnd: null,
+        currentMotion: newStack[newStack.length - 1] || null,
+        motionStack: newStack,
+        ...outcome,
+        meetingLog: log(action.timestamp, `Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.`)
+      };
     }
 
     case 'RAISE_HAND':
@@ -85,35 +118,74 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'LOWER_HAND':
       return { ...state, speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id) };
 
-    case 'RECOGNIZE_SPEAKER': {
-      const timerEnd = state.speakerTimeLimit > 0 ? Date.now() + state.speakerTimeLimit * 1000 : null;
-      return { ...state, recognizedSpeaker: action.member, speakerTimerEnd: timerEnd, speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id), meetingLog: log(`Chair recognizes ${action.member.name}.`) };
-    }
+    case 'RECOGNIZE_SPEAKER':
+      return {
+        ...state,
+        recognizedSpeaker: action.member,
+        speakerTimerEnd: action.speakerTimerEnd,
+        speakerQueue: state.speakerQueue.filter(s => s.id !== action.member.id),
+        meetingLog: log(action.timestamp, `Chair recognizes ${action.member.name}.`)
+      };
 
     case 'YIELD_FLOOR':
-      return { ...state, recognizedSpeaker: null, speakerTimerEnd: null, meetingLog: log(`${state.recognizedSpeaker?.name} yields the floor.`) };
+      return {
+        ...state,
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        meetingLog: log(action.timestamp, `${state.recognizedSpeaker?.name} yields the floor.`)
+      };
 
     case 'ADD_AGENDA_ITEM':
-      return { ...state, agenda: [...state.agenda, { id: Date.now(), title: action.title, status: "pending" as const }] };
+      return {
+        ...state,
+        agenda: [...state.agenda, { id: action.itemId, title: action.title, status: "pending" as const }]
+      };
 
     case 'REMOVE_AGENDA_ITEM':
       return { ...state, agenda: state.agenda.filter(a => a.id !== action.id) };
 
     case 'ADOPT_AGENDA':
-      return { ...state, agendaAdopted: true, agendaObjection: false, meetingLog: log("Agenda adopted by unanimous consent.") };
+      return {
+        ...state,
+        agendaAdopted: true,
+        agendaObjection: false,
+        meetingLog: log(action.timestamp, "Agenda adopted by unanimous consent.")
+      };
 
     case 'AGENDA_OBJECTION':
-      return { ...state, agendaObjection: true, meetingLog: log("Objection raised to agenda.") };
+      return {
+        ...state,
+        agendaObjection: true,
+        meetingLog: log(action.timestamp, "Objection raised to agenda.")
+      };
 
     case 'CALL_AGENDA_ITEM': {
       const item = state.agenda.find(a => a.id === action.id);
-      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "active" as const } : a.status === "active" ? { ...a, status: "pending" as const } : a);
-      return { ...state, currentAgendaItem: item, agenda: updatedAgenda, meetingLog: log(`Chair calls: "${item?.title}"`) };
+      const updatedAgenda = state.agenda.map(a =>
+        a.id === action.id
+          ? { ...a, status: "active" as const }
+          : a.status === "active"
+          ? { ...a, status: "pending" as const }
+          : a
+      );
+      return {
+        ...state,
+        currentAgendaItem: item,
+        agenda: updatedAgenda,
+        meetingLog: log(action.timestamp, `Chair calls: "${item?.title}"`)
+      };
     }
 
     case 'COMPLETE_AGENDA_ITEM': {
-      const updatedAgenda = state.agenda.map(a => a.id === action.id ? { ...a, status: "completed" as const } : a);
-      return { ...state, currentAgendaItem: null, agenda: updatedAgenda, meetingLog: log(`Completed: "${state.currentAgendaItem?.title}"`) };
+      const updatedAgenda = state.agenda.map(a =>
+        a.id === action.id ? { ...a, status: "completed" as const } : a
+      );
+      return {
+        ...state,
+        currentAgendaItem: null,
+        agenda: updatedAgenda,
+        meetingLog: log(action.timestamp, `Completed: "${state.currentAgendaItem?.title}"`)
+      };
     }
 
     case 'REORDER_AGENDA': {
@@ -131,53 +203,30 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       return { ...state, voteTimeLimit: action.seconds };
 
     case 'REQUEST_UNANIMOUS_CONSENT':
-      return { ...state, unanimousConsentPending: true, meetingLog: log('Chair: "Is there any objection?"') };
+      return {
+        ...state,
+        unanimousConsentPending: true,
+        meetingLog: log(action.timestamp, 'Chair: "Is there any objection?"')
+      };
 
     case 'OBJECT_TO_CONSENT':
-      return { ...state, unanimousConsentPending: false, meetingLog: log(`${action.objector} objects. Motion requires a vote.`) };
+      return {
+        ...state,
+        unanimousConsentPending: false,
+        meetingLog: log(action.timestamp, `${action.objector} objects. Motion requires a vote.`)
+      };
 
     case 'UNANIMOUS_CONSENT_PASSED': {
       const newStack = state.motionStack.slice(0, -1);
-      let tabledMotions = state.tabledMotions;
-      let agendaAdopted = state.agendaAdopted;
-      let agendaObjection = state.agendaObjection;
-      let agenda = state.agenda;
-
-      if (state.currentMotion?.type === 'layOnTable') {
-        const mainMotion = newStack.find(m => m.category === 'main');
-        if (mainMotion) tabledMotions = [...tabledMotions, mainMotion];
-      }
-      if (state.currentMotion?.isAgendaAdoption) {
-        agendaAdopted = true;
-        agendaObjection = false;
-      }
-      if (state.currentMotion?.agendaAmendment) {
-        const amendment = state.currentMotion.agendaAmendment;
-        if (amendment.action === 'add' && amendment.title) {
-          const newItem = { id: Date.now(), title: amendment.title, status: "pending" as const };
-          if (amendment.position === 'end') agenda = [...agenda, newItem];
-          else if (amendment.position === 'beginning') agenda = [newItem, ...agenda];
-          else if (typeof amendment.position === 'number') agenda = [...agenda.slice(0, amendment.position), newItem, ...agenda.slice(amendment.position)];
-        } else if (amendment.action === 'remove') {
-          agenda = agenda.filter(item => item.id !== amendment.itemId);
-        } else if (amendment.action === 'reorder') {
-          const newAgenda = [...agenda];
-          const [moved] = newAgenda.splice(amendment.fromIndex, 1);
-          newAgenda.splice(amendment.toIndex, 0, moved);
-          agenda = newAgenda;
-        }
-      }
+      const outcome = applyMotionOutcome(state);
 
       return {
         ...state,
         unanimousConsentPending: false,
         currentMotion: newStack[newStack.length - 1] || null,
         motionStack: newStack,
-        tabledMotions,
-        agendaAdopted,
-        agendaObjection,
-        agenda,
-        meetingLog: log(`Motion CARRIED by unanimous consent.`)
+        ...outcome,
+        meetingLog: log(action.timestamp, `Motion CARRIED by unanimous consent.`)
       };
     }
 

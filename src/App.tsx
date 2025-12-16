@@ -4,6 +4,7 @@ import { MOTIONS, CATEGORY_INFO } from './constants/motions';
 import { initialState } from './reducer/initialState';
 import { meetingReducer } from './reducer/meetingReducer';
 import { getValidMotions } from './utils/motionHelpers';
+import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from './utils/idGenerators';
 import { MotionCard } from './components/MotionCard';
 import { HelpTooltip } from './components/HelpTooltip';
 import { DraggableAgendaList } from './components/DraggableAgendaList';
@@ -29,13 +30,28 @@ function ParticipantView({ state, dispatch, currentUser }) {
     if (selectedMotion === 'amendAgenda') {
       setShowAgendaAmendForm(true);
     } else {
-      dispatch({ type: 'MAKE_MOTION', motionType: selectedMotion, text: motionText || selectedMotionDef?.phrase, mover: currentUser.name });
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: selectedMotion,
+        text: motionText || selectedMotionDef?.phrase,
+        mover: currentUser.name,
+        motionId: generateId(),
+        timestamp: generateTimestamp()
+      });
       setMotionText("");
     }
   };
 
   const handleAgendaAmendSubmit = (text, agendaAmendment) => {
-    dispatch({ type: 'MAKE_MOTION', motionType: 'amendAgenda', text, mover: currentUser.name, agendaAmendment });
+    dispatch({
+      type: 'MAKE_MOTION',
+      motionType: 'amendAgenda',
+      text,
+      mover: currentUser.name,
+      agendaAmendment,
+      motionId: generateId(),
+      timestamp: generateTimestamp()
+    });
     setShowAgendaAmendForm(false);
   };
 
@@ -45,7 +61,7 @@ function ParticipantView({ state, dispatch, currentUser }) {
         <div className="bg-green-100 border border-green-300 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-green-800 font-medium">You have the floor</span>
-            <button onClick={() => dispatch({ type: 'YIELD_FLOOR' })} className="text-green-700 text-sm underline">Yield</button>
+            <button onClick={() => dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() })} className="text-green-700 text-sm underline">Yield</button>
           </div>
           {state.speakerTimerEnd && <CountdownTimer endTime={state.speakerTimerEnd} label="Time Remaining" />}
         </div>
@@ -89,7 +105,12 @@ function ParticipantView({ state, dispatch, currentUser }) {
               <p className="text-sm text-gray-600 mt-1">{state.pendingSecond.name} by {state.pendingSecond.mover}</p>
             </div>
             {state.pendingSecond.mover !== currentUser.name && (
-              <button onClick={() => dispatch({ type: 'SECOND_MOTION', seconder: currentUser.name })} className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg">I Second This Motion</button>
+              <button
+                onClick={() => dispatch({ type: 'SECOND_MOTION', seconder: currentUser.name, timestamp: generateTimestamp() })}
+                className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg"
+              >
+                I Second This Motion
+              </button>
             )}
           </div>
         ) : state.unanimousConsentPending ? (
@@ -100,7 +121,12 @@ function ParticipantView({ state, dispatch, currentUser }) {
               <p className="text-sm text-gray-600 mb-3">Chair is asking: "Is there any objection?"</p>
               <p className="text-xs text-green-700 bg-green-100 p-2 rounded">If no one objects, this motion will pass without a vote.</p>
             </div>
-            <button onClick={() => dispatch({ type: 'OBJECT_TO_CONSENT', objector: currentUser.name })} className="w-full bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 font-semibold text-lg">I Object!</button>
+            <button
+              onClick={() => dispatch({ type: 'OBJECT_TO_CONSENT', objector: currentUser.name, timestamp: generateTimestamp() })}
+              className="w-full bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 font-semibold text-lg"
+            >
+              I Object!
+            </button>
           </div>
         ) : state.currentMotion ? (
           <MotionCard motion={state.currentMotion}/>
@@ -272,14 +298,24 @@ function ChairView({ state, dispatch }) {
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Gavel size={18}/> Meeting Control</h3>
         {!state.meetingActive ? (
-          <button onClick={() => dispatch({ type: 'START_MEETING' })} className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-medium">Call Meeting to Order</button>
+          <button
+            onClick={() => dispatch({ type: 'START_MEETING', meetingCode: generateMeetingCode(), timestamp: generateTimestamp() })}
+            className="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 font-medium"
+          >
+            Call Meeting to Order
+          </button>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <span className="text-green-700 font-medium">Meeting in Progress</span>
               <span className="text-green-600 font-mono">{state.meetingCode}</span>
             </div>
-            <button onClick={() => dispatch({ type: 'END_MEETING' })} className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">Adjourn</button>
+            <button
+              onClick={() => dispatch({ type: 'END_MEETING', timestamp: generateTimestamp() })}
+              className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+            >
+              Adjourn
+            </button>
           </div>
         )}
       </div>
@@ -305,12 +341,28 @@ function ChairView({ state, dispatch }) {
           <DraggableAgendaList agenda={state.agenda} dispatch={dispatch} disabled={false}/>
           <div className="flex gap-2 my-3">
             <input type="text" value={newAgendaItem} onChange={(e) => setNewAgendaItem(e.target.value)} placeholder="Add item..." className="flex-1 p-2 border rounded-lg text-sm"/>
-            <button onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem }); setNewAgendaItem(""); }} disabled={!newAgendaItem.trim()} className="bg-gray-200 text-gray-700 px-4 rounded-lg disabled:opacity-50 text-sm">Add</button>
+            <button
+              onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem, itemId: generateId() }); setNewAgendaItem(""); }}
+              disabled={!newAgendaItem.trim()}
+              className="bg-gray-200 text-gray-700 px-4 rounded-lg disabled:opacity-50 text-sm"
+            >
+              Add
+            </button>
           </div>
           {!state.agendaObjection ? (
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => dispatch({ type: 'ADOPT_AGENDA' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">No Objection</button>
-              <button onClick={() => dispatch({ type: 'AGENDA_OBJECTION' })} className="bg-amber-500 text-white py-3 rounded-lg font-medium">Objection Raised</button>
+              <button
+                onClick={() => dispatch({ type: 'ADOPT_AGENDA', timestamp: generateTimestamp() })}
+                className="bg-green-500 text-white py-3 rounded-lg font-medium"
+              >
+                No Objection
+              </button>
+              <button
+                onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
+                className="bg-amber-500 text-white py-3 rounded-lg font-medium"
+              >
+                Objection Raised
+              </button>
             </div>
           ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
@@ -324,7 +376,12 @@ function ChairView({ state, dispatch }) {
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-2 text-amber-700">Awaiting Second</h3>
           <MotionCard motion={state.pendingSecond}/>
-          <button onClick={() => dispatch({ type: 'DECLINE_SECOND' })} className="mt-3 w-full bg-gray-200 text-gray-700 py-2 rounded-lg">Declare "No Second"</button>
+          <button
+            onClick={() => dispatch({ type: 'DECLINE_SECOND', timestamp: generateTimestamp() })}
+            className="mt-3 w-full bg-gray-200 text-gray-700 py-2 rounded-lg"
+          >
+            Declare "No Second"
+          </button>
         </div>
       )}
 
@@ -347,8 +404,18 @@ function ChairView({ state, dispatch }) {
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">Ask for Consent</button>
-            <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="bg-indigo-600 text-white py-3 rounded-lg font-medium">Call the Question</button>
+            <button
+              onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })}
+              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+            >
+              Ask for Consent
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+            >
+              Call the Question
+            </button>
           </div>
         </div>
       )}
@@ -362,8 +429,18 @@ function ChairView({ state, dispatch }) {
             <p className="text-green-700 text-sm">If no one objects, motion passes without a vote.</p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED' })} className="bg-green-500 text-white py-3 rounded-lg font-medium">No Objection - Pass</button>
-            <button onClick={() => dispatch({ type: 'OPEN_VOTING' })} className="bg-indigo-600 text-white py-3 rounded-lg font-medium">Proceed to Vote</button>
+            <button
+              onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() })}
+              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+            >
+              No Objection - Pass
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+            >
+              Proceed to Vote
+            </button>
           </div>
         </div>
       )}
@@ -381,7 +458,12 @@ function ChairView({ state, dispatch }) {
             <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{state.votes.nay}</p><p className="text-red-600">Nay</p></div>
             <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
           </div>
-          <button onClick={() => dispatch({ type: 'CLOSE_VOTING' })} className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium">Close & Announce</button>
+          <button
+            onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
+          >
+            Close & Announce
+          </button>
         </div>
       )}
 
@@ -389,7 +471,12 @@ function ChairView({ state, dispatch }) {
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-2 text-gray-800">Current Item</h3>
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">{state.currentAgendaItem.title}</div>
-          <button onClick={() => dispatch({ type: 'COMPLETE_AGENDA_ITEM', id: state.currentAgendaItem.id })} className="w-full bg-green-500 text-white py-2 rounded-lg">Mark Complete</button>
+          <button
+            onClick={() => dispatch({ type: 'COMPLETE_AGENDA_ITEM', id: state.currentAgendaItem.id, timestamp: generateTimestamp() })}
+            className="w-full bg-green-500 text-white py-2 rounded-lg"
+          >
+            Mark Complete
+          </button>
         </div>
       )}
 
@@ -403,7 +490,14 @@ function ChairView({ state, dispatch }) {
                   {item.status === 'completed' && <CheckCircle size={16} className="text-green-600"/>}
                   <span className={item.status === 'completed' ? 'line-through text-gray-400' : ''}>{i + 1}. {item.title}</span>
                 </div>
-                {item.status === 'pending' && <button onClick={() => dispatch({ type: 'CALL_AGENDA_ITEM', id: item.id })} className="bg-indigo-500 text-white px-3 py-1 rounded text-sm">Call</button>}
+                {item.status === 'pending' && (
+                  <button
+                    onClick={() => dispatch({ type: 'CALL_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() })}
+                    className="bg-indigo-500 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Call
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -423,7 +517,17 @@ function ChairView({ state, dispatch }) {
             {state.speakerQueue.map((m, i) => (
               <li key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span>{i + 1}. {m.name}</span>
-                <button onClick={() => dispatch({ type: 'RECOGNIZE_SPEAKER', member: m })} className="bg-blue-500 text-white px-4 py-1 rounded text-sm">Recognize</button>
+                <button
+                  onClick={() => dispatch({
+                    type: 'RECOGNIZE_SPEAKER',
+                    member: m,
+                    speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
+                    timestamp: generateTimestamp()
+                  })}
+                  className="bg-blue-500 text-white px-4 py-1 rounded text-sm"
+                >
+                  Recognize
+                </button>
               </li>
             ))}
           </ul>
@@ -528,7 +632,13 @@ function AdminView({ state, dispatch }) {
         {!state.agendaAdopted && (
           <div className="flex gap-2 mt-3">
             <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="New item" className="flex-1 p-3 border rounded-lg"/>
-            <button onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newItem }); setNewItem(""); }} disabled={!newItem.trim()} className="bg-indigo-600 text-white px-6 rounded-lg disabled:bg-gray-300">Add</button>
+            <button
+              onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newItem, itemId: generateId() }); setNewItem(""); }}
+              disabled={!newItem.trim()}
+              className="bg-indigo-600 text-white px-6 rounded-lg disabled:bg-gray-300"
+            >
+              Add
+            </button>
           </div>
         )}
         {state.agendaAdopted && <p className="text-xs text-gray-500 mt-3">Adopted. Changes require a motion.</p>}

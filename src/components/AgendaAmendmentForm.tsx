@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { generateId } from '../utils/idGenerators';
 import type { AgendaAmendmentFormProps } from '../types';
 
 export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendmentFormProps) {
@@ -14,7 +15,12 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
     if (amendmentType === 'add') {
       const positionText = newItemPosition === 'end' ? 'at the end' : newItemPosition === 'beginning' ? 'at the beginning' : `after item ${(newItemPosition as number) + 1}`;
       text = `Amend the agenda by adding "${newItemTitle}" ${positionText}`;
-      agendaAmendment = { action: 'add', title: newItemTitle, position: newItemPosition === 'end' ? 'end' : newItemPosition === 'beginning' ? 'beginning' : (newItemPosition as number) + 1 };
+      agendaAmendment = {
+        action: 'add',
+        title: newItemTitle,
+        position: newItemPosition === 'end' ? 'end' : newItemPosition === 'beginning' ? 'beginning' : (newItemPosition as number) + 1,
+        itemId: generateId()
+      };
     } else if (amendmentType === 'remove') {
       const item = agenda.find(a => a.id === selectedItemId);
       text = `Amend the agenda by removing "${item?.title}"`;

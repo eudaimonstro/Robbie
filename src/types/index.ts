@@ -39,7 +39,7 @@ export interface AgendaAmendment {
   action: 'add' | 'remove' | 'reorder';
   title?: string;
   position?: 'beginning' | 'end' | number;
-  itemId?: number;
+  itemId?: number; // For remove action OR for the new item ID when adding
   fromIndex?: number;
   toIndex?: number;
 }
@@ -87,30 +87,30 @@ export interface MeetingState {
 
 // Action types
 export type MeetingAction =
-  | { type: 'START_MEETING' }
-  | { type: 'END_MEETING' }
-  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; agendaAmendment?: AgendaAmendment }
-  | { type: 'SECOND_MOTION'; seconder: string }
-  | { type: 'DECLINE_SECOND' }
-  | { type: 'OPEN_VOTING' }
+  | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
+  | { type: 'END_MEETING'; timestamp: string }
+  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment }
+  | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
+  | { type: 'DECLINE_SECOND'; timestamp: string }
+  | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }
   | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number }
-  | { type: 'CLOSE_VOTING' }
+  | { type: 'CLOSE_VOTING'; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member }
   | { type: 'LOWER_HAND'; member: Member }
-  | { type: 'RECOGNIZE_SPEAKER'; member: Member }
-  | { type: 'YIELD_FLOOR' }
-  | { type: 'ADD_AGENDA_ITEM'; title: string }
+  | { type: 'RECOGNIZE_SPEAKER'; member: Member; speakerTimerEnd: number | null; timestamp: string }
+  | { type: 'YIELD_FLOOR'; timestamp: string }
+  | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
-  | { type: 'ADOPT_AGENDA' }
-  | { type: 'AGENDA_OBJECTION' }
-  | { type: 'CALL_AGENDA_ITEM'; id: number }
-  | { type: 'COMPLETE_AGENDA_ITEM'; id: number }
+  | { type: 'ADOPT_AGENDA'; timestamp: string }
+  | { type: 'AGENDA_OBJECTION'; timestamp: string }
+  | { type: 'CALL_AGENDA_ITEM'; id: number; timestamp: string }
+  | { type: 'COMPLETE_AGENDA_ITEM'; id: number; timestamp: string }
   | { type: 'REORDER_AGENDA'; fromIndex: number; toIndex: number }
   | { type: 'SET_SPEAKER_TIME_LIMIT'; seconds: number }
   | { type: 'SET_VOTE_TIME_LIMIT'; seconds: number }
-  | { type: 'REQUEST_UNANIMOUS_CONSENT' }
-  | { type: 'OBJECT_TO_CONSENT'; objector: string }
-  | { type: 'UNANIMOUS_CONSENT_PASSED' }
+  | { type: 'REQUEST_UNANIMOUS_CONSENT'; timestamp: string }
+  | { type: 'OBJECT_TO_CONSENT'; objector: string; timestamp: string }
+  | { type: 'UNANIMOUS_CONSENT_PASSED'; timestamp: string }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod };
 
 // Motion definition type

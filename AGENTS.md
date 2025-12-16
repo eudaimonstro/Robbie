@@ -226,7 +226,7 @@ When implementing new features:
 
 ## Best Practices
 - Read and follow: [ReactJS Best Practices](https://www.tatvasoft.com/blog/reactjs-best-practices/)
-- Read and follow: [TypeScript Best Practices](https://basarat.gitbook.io/typescript/type-system/best-practices)
+- Read and follow: [TypeScript Best Practices](https://www.dennisokeeffe.com/blog/2025-03-16-effective-typescript-principles-in-2025)
 - Read and follow: [Redux Best Practices](https://redux.js.org/style-guide/style-guide)
 - Read and follow: [CSS-in-JS Best Practices](https://cssinjs.org/best-practices)
 - Read and follow: [Thining in React Apps](https://reactjs.org/docs/thinking-in-react.html)
