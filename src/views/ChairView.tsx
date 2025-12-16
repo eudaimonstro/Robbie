@@ -179,27 +179,71 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         </div>
       )}
 
-      {state.votingOpen && (
-        <div className="bg-white rounded-lg p-4 shadow">
-          <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
-          {state.voteTimerEnd && (
-            <div className="mb-3">
-              <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
+      {state.votingOpen && (() => {
+        const chair = state.members.find(m => m.role === 'chair');
+        const chairHasVoted = chair && state.voters.includes(chair.id);
+        const { yea, nay } = state.votes;
+        const total = yea + nay;
+        const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
+        const currentlyPassing = yea > threshold;
+        const isTied = yea === nay;
+
+        // Chair can vote to break tie or create tie
+        const canVoteToBreakTie = isTied && !chairHasVoted;
+        const canVoteToCreateTie = !isTied && yea === nay + 1 && !chairHasVoted; // One vote ahead, chair can tie it
+
+        return (
+          <div className="bg-white rounded-lg p-4 shadow">
+            <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
+            {state.voteTimerEnd && (
+              <div className="mb-3">
+                <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{yea}</p><p className="text-green-600">Yea</p></div>
+              <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{nay}</p><p className="text-red-600">Nay</p></div>
+              <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
             </div>
-          )}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{state.votes.yea}</p><p className="text-green-600">Yea</p></div>
-            <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{state.votes.nay}</p><p className="text-red-600">Nay</p></div>
-            <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
+
+            {/* Chair voting rules */}
+            {state.votingMethod !== 'ballot' && !chairHasVoted && (canVoteToBreakTie || canVoteToCreateTie) && chair && (
+              <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-purple-800 font-medium mb-2">
+                  {canVoteToBreakTie && "Chair may vote to break the tie"}
+                  {canVoteToCreateTie && "Chair may vote to create a tie (defeat motion)"}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: chair.id, isChairDecidingVote: true })}
+                    className="bg-green-500 text-white py-2 rounded-lg font-medium"
+                  >
+                    Vote Yea
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: chair.id, isChairDecidingVote: true })}
+                    className="bg-red-500 text-white py-2 rounded-lg font-medium"
+                  >
+                    Vote Nay
+                  </button>
+                </div>
+              </div>
+            )}
+            {state.votingMethod === 'ballot' && !chairHasVoted && chair && (
+              <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+                🔒 Secret Ballot - Chair votes like other members
+              </p>
+            )}
+
+            <button
+              onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
+            >
+              Close & Announce
+            </button>
           </div>
-          <button
-            onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
-          >
-            Close & Announce
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {state.agendaAdopted && state.currentAgendaItem && !state.currentMotion && !state.pendingSecond && (
         <div className="bg-white rounded-lg p-4 shadow">

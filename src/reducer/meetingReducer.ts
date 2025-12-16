@@ -79,11 +79,22 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         meetingLog: log(action.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`)
       };
 
-    case 'CAST_VOTE':
+    case 'CAST_VOTE': {
       if (state.voters.includes(action.voterId)) return state;
+
+      // Check if voter is chair
+      const voter = state.members.find(m => m.id === action.voterId);
+      const isChair = voter?.role === 'chair';
+
+      // Chair can only vote on ballot votes or when it affects outcome
+      if (isChair && state.votingMethod !== 'ballot' && !action.isChairDecidingVote) {
+        return state; // Chair cannot vote with members
+      }
+
       const newVotes = { ...state.votes };
       newVotes[action.vote]++;
       return { ...state, votes: newVotes, voters: [...state.voters, action.voterId] };
+    }
 
     case 'CLOSE_VOTING': {
       const { yea, nay } = state.votes;

@@ -93,7 +93,7 @@ export type MeetingAction =
   | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }
-  | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number }
+  | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number; isChairDecidingVote?: boolean }
   | { type: 'CLOSE_VOTING'; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member }
   | { type: 'LOWER_HAND'; member: Member }
