@@ -225,11 +225,22 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
                 <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
               </div>
             )}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{yea}</p><p className="text-green-600">Yea</p></div>
-              <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{nay}</p><p className="text-red-600">Nay</p></div>
-              <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
-            </div>
+
+            {/* Vote counts - hidden for secret ballots until closed */}
+            {state.votingMethod === 'ballot' ? (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-gray-600 mb-2">🔒 Secret Ballot in Progress</p>
+                <p className="text-2xl font-bold text-gray-700">{state.voters.length}</p>
+                <p className="text-gray-500 text-sm">votes cast</p>
+                <p className="text-gray-400 text-xs mt-1">Results hidden until voting closes</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{yea}</p><p className="text-green-600">Yea</p></div>
+                <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{nay}</p><p className="text-red-600">Nay</p></div>
+                <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
+              </div>
+            )}
 
             {/* Chair voting rules */}
             {state.votingMethod !== 'ballot' && !chairHasVoted && (canVoteToBreakTie || canVoteToCreateTie) && chair && (
