@@ -80,12 +80,11 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         voteTimerEnd: action.voteTimerEnd,
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
+        voterChoices: {},
         meetingLog: log(action.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`)
       };
 
     case 'CAST_VOTE': {
-      if (state.voters.includes(action.voterId)) return state;
-
       // Check if voter is chair
       const voter = state.members.find(m => m.id === action.voterId);
       const isChair = voter?.role === 'chair';
@@ -95,9 +94,30 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         return state; // Chair cannot vote with members
       }
 
+      // Allow vote changing per Robert's Rules (before vote is announced)
+      const previousVote = state.voterChoices[action.voterId];
       const newVotes = { ...state.votes };
+
+      // If changing vote, decrement previous choice
+      if (previousVote) {
+        newVotes[previousVote]--;
+      }
+
+      // Add new vote
       newVotes[action.vote]++;
-      return { ...state, votes: newVotes, voters: [...state.voters, action.voterId] };
+
+      // Update voter choices
+      const newVoterChoices = { ...state.voterChoices, [action.voterId]: action.vote };
+
+      // Add to voters list if first time voting
+      const newVoters = previousVote ? state.voters : [...state.voters, action.voterId];
+
+      return {
+        ...state,
+        votes: newVotes,
+        voters: newVoters,
+        voterChoices: newVoterChoices
+      };
     }
 
     case 'CLOSE_VOTING': {

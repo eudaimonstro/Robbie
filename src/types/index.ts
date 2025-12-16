@@ -73,7 +73,7 @@ export interface Votes {
   abstain: number;
 }
 
-export type VotingMethod = 'voice' | 'rising' | 'standard' | 'ballot' | 'rollcall';
+export type VotingMethod = 'standard' | 'ballot' | 'rollcall';
 
 export type MeetingStage =
   | 'not-started'
@@ -98,6 +98,7 @@ export interface MeetingState {
   pendingSecond: Motion | null;
   votes: Votes;
   voters: number[];
+  voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
   votingOpen: boolean;
   votingMethod: VotingMethod;
   unanimousConsentPending: boolean;

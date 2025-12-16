@@ -17,6 +17,7 @@ export const initialState: MeetingState = {
   pendingSecond: null,
   votes: { yea: 0, nay: 0, abstain: 0 },
   voters: [],
+  voterChoices: {},
   votingOpen: false,
   votingMethod: "standard" as const,
   unanimousConsentPending: false,

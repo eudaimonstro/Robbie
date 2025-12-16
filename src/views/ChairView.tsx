@@ -298,11 +298,9 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
               onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })}
               className="w-full p-2 border rounded-lg mb-3 bg-white"
             >
-              <option value="voice">Voice Vote (fastest)</option>
-              <option value="rising">Rising Vote (show of hands)</option>
-              <option value="standard">Standard Vote (Yea/Nay buttons)</option>
-              <option value="ballot">Secret Ballot</option>
-              <option value="rollcall">Roll Call Vote</option>
+              <option value="standard">Standard Vote (Yea/Nay/Abstain)</option>
+              <option value="ballot">Secret Ballot (anonymous)</option>
+              <option value="rollcall">Roll Call Vote (recorded)</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
