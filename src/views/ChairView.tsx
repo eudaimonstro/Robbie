@@ -327,32 +327,45 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           })()}
 
           <MotionCard motion={state.currentMotion}/>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
-            <select
-              value={state.votingMethod}
-              onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })}
-              className="w-full p-2 border rounded-lg mb-3 bg-white"
-            >
-              <option value="standard">Standard Vote (Yea/Nay/Abstain)</option>
-              <option value="ballot">Secret Ballot (anonymous)</option>
-              <option value="rollcall">Roll Call Vote (recorded)</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })}
-              className="bg-green-500 text-white py-3 rounded-lg font-medium"
-            >
-              Ask for Consent
-            </button>
-            <button
-              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
-              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
-            >
-              Call the Question
-            </button>
-          </div>
+
+          {/* Motions with vote: 'none' don't require voting - chair makes a ruling */}
+          {state.currentMotion.vote === 'none' ? (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 font-medium mb-2">Chair Decision Required</p>
+              <p className="text-blue-700 text-sm">
+                This motion does not require a vote. As chair, you should make a ruling or allow the action.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
+                <select
+                  value={state.votingMethod}
+                  onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })}
+                  className="w-full p-2 border rounded-lg mb-3 bg-white"
+                >
+                  <option value="standard">Standard Vote (Yea/Nay/Abstain)</option>
+                  <option value="ballot">Secret Ballot (anonymous)</option>
+                  <option value="rollcall">Roll Call Vote (recorded)</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })}
+                  className="bg-green-500 text-white py-3 rounded-lg font-medium"
+                >
+                  Ask for Consent
+                </button>
+                <button
+                  onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+                  className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+                >
+                  Call the Question
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -364,19 +377,21 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
             <p className="text-green-800 font-medium mb-2">Waiting for objections...</p>
             <p className="text-green-700 text-sm">If no one objects, motion passes without a vote.</p>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className={`mt-3 ${state.currentMotion?.vote === 'none' ? '' : 'grid grid-cols-2 gap-2'}`}>
             <button
               onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() })}
-              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+              className="bg-green-500 text-white py-3 rounded-lg font-medium w-full"
             >
               No Objection - Pass
             </button>
-            <button
-              onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
-              className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
-            >
-              Proceed to Vote
-            </button>
+            {state.currentMotion?.vote !== 'none' && (
+              <button
+                onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+                className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+              >
+                Proceed to Vote
+              </button>
+            )}
           </div>
         </div>
       )}
