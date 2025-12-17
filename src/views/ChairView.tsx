@@ -14,7 +14,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   const [newAgendaItem, setNewAgendaItem] = useState("");
 
   // Use custom hook for sorted speaker queue with alternation
-  const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance);
+  const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance, state);
 
   // Memoize add agenda item callback
   const handleAddAgendaItem = useCallback(() => {

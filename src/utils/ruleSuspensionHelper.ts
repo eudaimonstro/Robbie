@@ -87,3 +87,24 @@ export function getActiveSuspensions(state: MeetingState): RuleSuspension[] {
       suspension.scope === 'meeting-remainder' || !suspension.actionCompleted
   );
 }
+
+/**
+ * Get warning message for a suspended rule
+ * @param rule - The suspended rule
+ * @returns Warning text about operating under this suspension
+ */
+export function getRuleWarning(rule: SuspendableRule): string {
+  const warnings: Record<SuspendableRule, string> = {
+    'pro-con-alternation': 'Speakers will be recognized in order received, not alternating pro/con',
+    'second-requirement': 'Motions can proceed without a second',
+    'motion-precedence': 'Lower precedence motions may interrupt higher precedence motions',
+    'amendment-depth': 'Amendments can be made beyond the standard 2-level limit',
+    'motion-renewal': 'Previously defeated motions may be renewed',
+    'chair-voting-restriction': 'Chair may vote on all matters, not just tie-breaking',
+    'motion-maker-priority': 'Motion maker does not have priority to speak first',
+    'mover-cannot-second': 'Motion maker may second their own motion',
+    'debate-rules': 'Normal debate rules are suspended - proceed as directed',
+    'order-of-business': 'Business may be taken out of the standard order'
+  };
+  return warnings[rule];
+}

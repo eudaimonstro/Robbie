@@ -10,6 +10,8 @@ export function getValidMotions(state) {
 
   // Check if motion precedence is suspended
   const precedenceSuspended = isRuleSuspended(state, 'motion-precedence');
+  // Check if amendment depth limit is suspended
+  const amendmentDepthSuspended = isRuleSuspended(state, 'amendment-depth');
 
   // Helper to check if a motion was defeated this meeting
   const wasDefeated = (motionType: string) => {
@@ -29,8 +31,9 @@ export function getValidMotions(state) {
     if ((key === 'adoptAgenda' || key === 'amendAgenda') && state.agendaAdopted) return;
     if (key === 'adoptAgenda' && isAgendaAdoptionPending) return;
     if (key === 'mainMotion' && currentPrecedence > 0) return;
-    if (key === 'amendAmendment' && (!hasAmendment || hasSecondaryAmendment)) return;
-    if (key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
+    // Amendment depth enforcement (unless suspended)
+    if (!amendmentDepthSuspended && key === 'amendAmendment' && (!hasAmendment || hasSecondaryAmendment)) return;
+    if (!amendmentDepthSuspended && key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
     // Renewal rule: Cannot renew defeated main motions at same meeting
     if (motion.category === 'main' && wasDefeated(key)) return;
 

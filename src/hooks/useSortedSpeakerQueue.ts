@@ -1,21 +1,27 @@
 import { useMemo } from 'react';
-import type { SpeakerQueueEntry, Motion, DebateStance } from '../types';
+import type { SpeakerQueueEntry, Motion, DebateStance, MeetingState } from '../types';
+import { isRuleSuspended } from '../utils/ruleSuspensionHelper';
 
 /**
  * Custom hook to sort speaker queue with priority for:
  * 1. Motion maker (if they haven't spoken)
- * 2. Alternating between pro/con speakers per Robert's Rules
+ * 2. Alternating between pro/con speakers per Robert's Rules (unless suspended)
  * @param speakerQueue - Array of speaker queue entries with members and stances
  * @param currentMotion - Current motion being discussed (if any)
  * @param lastSpeakerStance - Stance of the last recognized speaker
+ * @param state - Meeting state to check for rule suspensions
  * @returns Sorted speaker queue following parliamentary debate rules
  */
 export function useSortedSpeakerQueue(
   speakerQueue: SpeakerQueueEntry[],
   currentMotion: Motion | null,
-  lastSpeakerStance: DebateStance | null
+  lastSpeakerStance: DebateStance | null,
+  state: MeetingState
 ) {
   return useMemo(() => {
+    // Check if pro/con alternation is suspended
+    const alternationSuspended = isRuleSuspended(state, 'pro-con-alternation');
+
     // Prioritize motion maker if they haven't spoken yet
     const motionMakerId = currentMotion?.moverId;
     const moverHasSpoken = currentMotion?.moverHasSpoken;
@@ -28,9 +34,9 @@ export function useSortedSpeakerQueue(
       if (aIsMover && !bIsMover) return -1;
       if (!aIsMover && bIsMover) return 1;
 
-      // Alternate between pro/con speakers per Robert's Rules
+      // Alternate between pro/con speakers per Robert's Rules (unless suspended)
       // If last speaker was pro, prioritize con speakers; if con, prioritize pro
-      if (lastSpeakerStance && lastSpeakerStance !== 'neutral') {
+      if (!alternationSuspended && lastSpeakerStance && lastSpeakerStance !== 'neutral') {
         const aIsOpposite = (lastSpeakerStance === 'pro' && a.stance === 'con') ||
                            (lastSpeakerStance === 'con' && a.stance === 'pro');
         const bIsOpposite = (lastSpeakerStance === 'pro' && b.stance === 'con') ||
@@ -40,8 +46,8 @@ export function useSortedSpeakerQueue(
         if (!aIsOpposite && bIsOpposite) return 1;
       }
 
-      // Otherwise maintain queue order
+      // Otherwise maintain queue order (or when alternation suspended, use FIFO)
       return 0;
     });
-  }, [speakerQueue, currentMotion, lastSpeakerStance]);
+  }, [speakerQueue, currentMotion, lastSpeakerStance, state]);
 }

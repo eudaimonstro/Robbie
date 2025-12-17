@@ -7,12 +7,16 @@ interface SuspendRulesFormProps {
   onCancel: () => void;
 }
 
-// Tier 1 rules: Most commonly suspended rules per Robert's Rules
-const TIER_1_RULES: SuspendableRule[] = [
+// Common suspendable rules organized by tier
+const COMMON_RULES: SuspendableRule[] = [
+  // Tier 1: Most common
   'second-requirement',
   'motion-precedence',
   'order-of-business',
-  'debate-rules'
+  'debate-rules',
+  // Tier 2: Less common but useful
+  'pro-con-alternation',
+  'amendment-depth'
 ];
 
 export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) {
@@ -58,7 +62,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             onChange={(e) => setRule(e.target.value as SuspendableRule)}
             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
           >
-            {TIER_1_RULES.map((r) => (
+            {COMMON_RULES.map((r) => (
               <option key={r} value={r}>
                 {getRuleName(r)}
               </option>
