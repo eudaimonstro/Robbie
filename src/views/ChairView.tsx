@@ -44,6 +44,28 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"There has been an objection. A motion to adopt the agenda is in order."', note: "Wait for a member to move." };
     if (state.pendingSecond) return { text: '"Is there a second?"', note: "Wait for a second or declare no second." };
     if (state.votingOpen) return { text: '"Those in favor say Aye. Those opposed say No."', note: "Close voting when done." };
+
+    // Check for recently passed or failed vote
+    const lastLog = state.meetingLog[state.meetingLog.length - 1];
+    if (lastLog && lastLog.message.includes('Motion CARRIED') && !state.votingOpen && !state.currentMotion) {
+      // Check if this was a suspension (special handling)
+      if (lastLog.message.includes('[RULE SUSPENDED]')) {
+        const suspensionMatch = lastLog.message.match(/\[RULE SUSPENDED\] ([\w-]+)/);
+        const ruleName = suspensionMatch ? suspensionMatch[1] : 'rule';
+        return { text: '"The motion has carried. The rules have been suspended."', note: `The ${ruleName} is now suspended. Proceed with business under the suspended rules.` };
+      }
+      if (state.currentAgendaItem) {
+        return { text: '"The motion has carried."', note: "Agenda item complete. Move to next item or ask if there is further discussion." };
+      }
+      return { text: '"The motion has carried."', note: "Proceed to next business." };
+    }
+    if (lastLog && lastLog.message.includes('Motion FAILED') && !state.votingOpen && !state.currentMotion) {
+      if (state.currentAgendaItem) {
+        return { text: '"The motion has failed."', note: "Ask if there is further discussion or a substitute motion on this agenda item, or move to complete/call next item." };
+      }
+      return { text: '"The motion has failed."', note: "Ask if there is further business or other motions." };
+    }
+
     if (state.currentMotion) {
       // Check if there was a recent objection
       const lastLog = state.meetingLog[state.meetingLog.length - 1];
