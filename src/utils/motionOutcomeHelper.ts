@@ -1,20 +1,22 @@
-import type { MeetingState, AgendaItem } from '../types';
+import type { MeetingState, AgendaItem, RuleSuspension } from '../types';
 
 /**
  * Helper function to handle motion outcome logic
  * Used by both CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED
  */
-export function applyMotionOutcome(state: MeetingState): {
+export function applyMotionOutcome(state: MeetingState, timestamp: string): {
   tabledMotions: typeof state.tabledMotions;
   agendaAdopted: boolean;
   agendaObjection: boolean;
   agenda: AgendaItem[];
+  newSuspension: RuleSuspension | null;
 } {
   const newStack = state.motionStack.slice(0, -1);
   let tabledMotions = state.tabledMotions;
   let agendaAdopted = state.agendaAdopted;
   let agendaObjection = state.agendaObjection;
   let agenda = state.agenda;
+  let newSuspension: RuleSuspension | null = null;
 
   // Handle table motion
   if (state.currentMotion?.type === 'layOnTable') {
@@ -62,5 +64,24 @@ export function applyMotionOutcome(state: MeetingState): {
     }
   }
 
-  return { tabledMotions, agendaAdopted, agendaObjection, agenda };
+  // Handle rule suspension
+  if (state.currentMotion?.type === 'suspendRules' && state.currentMotion?.ruleSuspension) {
+    const suspension = state.currentMotion.ruleSuspension;
+
+    // Generate new suspension ID (max existing ID + 1)
+    const maxId = state.suspendedRules.reduce((max, s) => Math.max(max, s.id), 0);
+
+    newSuspension = {
+      id: maxId + 1,
+      rule: suspension.rule!,
+      purpose: suspension.purpose!,
+      specificAction: suspension.specificAction!,
+      scope: suspension.scope!,
+      suspendedAt: timestamp,
+      actionCompleted: false,
+      motionId: state.currentMotion.id
+    };
+  }
+
+  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension };
 }

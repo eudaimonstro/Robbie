@@ -41,6 +41,7 @@ export interface Motion {
   whenToUse: string;
   isAgendaAdoption?: boolean;
   agendaAmendment?: AgendaAmendment | null;
+  ruleSuspension?: Partial<RuleSuspension> | null;
   moverHasSpoken?: boolean; // Track if motion maker has had floor for debate
 }
 
@@ -150,7 +151,7 @@ export interface MeetingState {
 export type MeetingAction =
   | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
-  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment }
+  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment; ruleSuspension?: Partial<RuleSuspension> }
   | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }

@@ -6,14 +6,17 @@ import { generateId, generateTimestamp } from '../utils/idGenerators';
 import { MotionCard } from '../components/MotionCard';
 import { HelpTooltip } from '../components/HelpTooltip';
 import { AgendaAmendmentForm } from '../components/AgendaAmendmentForm';
+import { SuspendRulesForm } from '../components/SuspendRulesForm';
+import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { useVoteResults } from '../hooks/useVoteResults';
-import type { ParticipantViewProps } from '../types';
+import type { ParticipantViewProps, SuspendableRule } from '../types';
 
 export function ParticipantView({ state, dispatch, currentUser }: ParticipantViewProps) {
   const [motionText, setMotionText] = useState("");
   const [selectedMotion, setSelectedMotion] = useState("mainMotion");
   const [showAgendaAmendForm, setShowAgendaAmendForm] = useState(false);
+  const [showSuspendRulesForm, setShowSuspendRulesForm] = useState(false);
   const [selectedStance, setSelectedStance] = useState<'pro' | 'con' | 'neutral'>('neutral');
 
   // Memoize expensive computations
@@ -34,6 +37,8 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
   const handleMotionSubmit = useCallback(() => {
     if (selectedMotion === 'amendAgenda') {
       setShowAgendaAmendForm(true);
+    } else if (selectedMotion === 'suspendRules') {
+      setShowSuspendRulesForm(true);
     } else {
       dispatch({
         type: 'MAKE_MOTION',
@@ -62,8 +67,30 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
     setShowAgendaAmendForm(false);
   }, [currentUser, dispatch]);
 
+  const handleSuspendRulesSubmit = useCallback((purpose: string, specificAction: string, scope: 'single-action' | 'meeting-remainder', rule: SuspendableRule) => {
+    const text = `I move to suspend the rules (${rule}) for the following purpose: ${purpose}. Specific action: ${specificAction}`;
+    dispatch({
+      type: 'MAKE_MOTION',
+      motionType: 'suspendRules',
+      text,
+      mover: currentUser.name,
+      moverId: currentUser.id,
+      ruleSuspension: {
+        rule,
+        purpose,
+        specificAction,
+        scope
+      },
+      motionId: generateId(),
+      timestamp: generateTimestamp()
+    });
+    setShowSuspendRulesForm(false);
+  }, [currentUser, dispatch]);
+
   return (
     <div className="space-y-4">
+      <ActiveSuspensionsBanner state={state} />
+
       {hasFloor && (
         <div className="bg-green-100 border border-green-300 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
@@ -387,6 +414,8 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
           <h3 className="font-semibold mb-3 text-gray-800">Make a Motion</h3>
           {showAgendaAmendForm ? (
             <AgendaAmendmentForm agenda={state.agenda} onSubmit={handleAgendaAmendSubmit} onCancel={() => setShowAgendaAmendForm(false)}/>
+          ) : showSuspendRulesForm ? (
+            <SuspendRulesForm onSubmit={handleSuspendRulesSubmit} onCancel={() => setShowSuspendRulesForm(false)}/>
           ) : (
             <>
               <select value={selectedMotion} onChange={(e) => setSelectedMotion(e.target.value)} className="w-full p-3 border rounded-lg mb-3 bg-white">
@@ -407,11 +436,11 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
                   </div>
                 </div>
               )}
-              {selectedMotion !== 'amendAgenda' && (
+              {selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && (
                 <input type="text" placeholder={selectedMotionDef?.phrase || "I move that..."} value={motionText} onChange={(e) => setMotionText(e.target.value)} className="w-full p-3 border rounded-lg mb-3"/>
               )}
-              <button onClick={handleMotionSubmit} disabled={selectedMotion !== 'amendAgenda' && !motionText.trim() && !selectedMotionDef?.phrase} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 font-medium">
-                {selectedMotion === 'amendAgenda' ? 'Configure Amendment...' : 'Submit Motion'}
+              <button onClick={handleMotionSubmit} disabled={selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && !motionText.trim() && !selectedMotionDef?.phrase} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 font-medium">
+                {selectedMotion === 'amendAgenda' ? 'Configure Amendment...' : selectedMotion === 'suspendRules' ? 'Configure Suspension...' : 'Submit Motion'}
               </button>
             </>
           )}

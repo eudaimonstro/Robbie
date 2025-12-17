@@ -1,5 +1,6 @@
 import { MOTIONS } from '../constants/motions';
 import { applyMotionOutcome } from '../utils/motionOutcomeHelper';
+import { isRuleSuspended } from '../utils/ruleSuspensionHelper';
 import type { MeetingState, MeetingAction, MeetingLogEntry } from '../types';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
@@ -38,20 +39,30 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         status: "pending" as const,
         isAgendaAdoption: action.motionType === 'adoptAgenda',
         agendaAmendment: action.agendaAmendment || null,
+        ruleSuspension: action.ruleSuspension || null,
         moverHasSpoken: false
       };
-      if (motion.needsSecond) {
+      // Check if second requirement is suspended
+      const secondSuspended = isRuleSuspended(state, 'second-requirement');
+
+      if (motion.needsSecond && !secondSuspended) {
         return {
           ...state,
           pendingSecond: motion,
           meetingLog: log(action.timestamp, `${action.mover} moves: "${action.text}" (${motion.name}). Awaiting second.`)
         };
       }
+      // If second was bypassed due to suspension, note it in the log
+      const bypassedSecond = motion.needsSecond && secondSuspended;
+      const logMessage = bypassedSecond
+        ? `${action.mover} moves: "${action.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
+        : `${action.mover} raises ${motion.name}.`;
+
       return {
         ...state,
         currentMotion: motion,
         motionStack: [...state.motionStack, motion],
-        meetingLog: log(action.timestamp, `${action.mover} raises ${motion.name}.`)
+        meetingLog: log(action.timestamp, logMessage)
       };
     }
 
@@ -137,12 +148,23 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         : state.defeatedMotions;
 
       // Apply motion outcome if passed
-      const outcome = passed ? applyMotionOutcome(state) : {
+      const outcome = passed ? applyMotionOutcome(state, action.timestamp) : {
         tabledMotions: state.tabledMotions,
         agendaAdopted: state.agendaAdopted,
         agendaObjection: state.agendaObjection,
-        agenda: state.agenda
+        agenda: state.agenda,
+        newSuspension: null
       };
+
+      // Add suspension to state if created
+      const suspendedRules = outcome.newSuspension
+        ? [...state.suspendedRules, outcome.newSuspension]
+        : state.suspendedRules;
+
+      // Add suspension log entry if created
+      const suspensionLog = outcome.newSuspension
+        ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
+        : '';
 
       return {
         ...state,
@@ -151,8 +173,15 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         currentMotion: newStack[newStack.length - 1] || null,
         motionStack: newStack,
         defeatedMotions,
-        ...outcome,
-        meetingLog: log(action.timestamp, `Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.`)
+        suspendedRules,
+        tabledMotions: outcome.tabledMotions,
+        agendaAdopted: outcome.agendaAdopted,
+        agendaObjection: outcome.agendaObjection,
+        agenda: outcome.agenda,
+        meetingLog: log(
+          action.timestamp,
+          `Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.${suspensionLog ? '\n' + suspensionLog : ''}`
+        )
       };
     }
 
@@ -277,15 +306,32 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
 
     case 'UNANIMOUS_CONSENT_PASSED': {
       const newStack = state.motionStack.slice(0, -1);
-      const outcome = applyMotionOutcome(state);
+      const outcome = applyMotionOutcome(state, action.timestamp);
+
+      // Add suspension to state if created
+      const suspendedRules = outcome.newSuspension
+        ? [...state.suspendedRules, outcome.newSuspension]
+        : state.suspendedRules;
+
+      // Add suspension log entry if created
+      const suspensionLog = outcome.newSuspension
+        ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
+        : '';
 
       return {
         ...state,
         unanimousConsentPending: false,
         currentMotion: newStack[newStack.length - 1] || null,
         motionStack: newStack,
-        ...outcome,
-        meetingLog: log(action.timestamp, `Motion CARRIED by unanimous consent.`)
+        suspendedRules,
+        tabledMotions: outcome.tabledMotions,
+        agendaAdopted: outcome.agendaAdopted,
+        agendaObjection: outcome.agendaObjection,
+        agenda: outcome.agenda,
+        meetingLog: log(
+          action.timestamp,
+          `Motion CARRIED by unanimous consent.${suspensionLog ? '\n' + suspensionLog : ''}`
+        )
       };
     }
 

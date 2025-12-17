@@ -4,6 +4,7 @@ import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd }
 import { MotionCard } from '../components/MotionCard';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { CountdownTimer } from '../components/CountdownTimer';
+import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import type { ChairViewProps, VotingMethod } from '../types';
 
@@ -63,6 +64,8 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
 
   return (
     <div className="space-y-4">
+      <ActiveSuspensionsBanner state={state} />
+
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Gavel size={18}/> Meeting Control</h3>
         {!state.meetingActive ? (
