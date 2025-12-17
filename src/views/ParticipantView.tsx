@@ -10,7 +10,7 @@ import { SuspendRulesForm } from '../components/SuspendRulesForm';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { useVoteResults } from '../hooks/useVoteResults';
-import type { ParticipantViewProps, SuspendableRule } from '../types';
+import type { ParticipantViewProps, SuspendableRule, AgendaAmendment, MotionDefinition, CategoryInfo } from '../types';
 
 export function ParticipantView({ state, dispatch, currentUser }: ParticipantViewProps) {
   const [motionText, setMotionText] = useState("");
@@ -53,7 +53,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
     }
   }, [selectedMotion, motionText, selectedMotionDef, currentUser, dispatch]);
 
-  const handleAgendaAmendSubmit = useCallback((text: string, agendaAmendment: any) => {
+  const handleAgendaAmendSubmit = useCallback((text: string, agendaAmendment: AgendaAmendment) => {
     dispatch({
       type: 'MAKE_MOTION',
       motionType: 'amendAgenda',
@@ -419,9 +419,15 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
           ) : (
             <>
               <select value={selectedMotion} onChange={(e) => setSelectedMotion(e.target.value)} className="w-full p-3 border rounded-lg mb-3 bg-white">
-                {Object.entries(validMotions.reduce((acc, m) => { if (!acc[m.category]) acc[m.category] = []; acc[m.category].push(m); return acc; }, {} as any)).map(([cat, motions]: [string, any]) => (
-                  <optgroup key={cat} label={CATEGORY_INFO[cat].label + " Motions"}>
-                    {motions.map((m: any) => <option key={m.key} value={m.key}>{m.name}</option>)}
+                {Object.entries(
+                  validMotions.reduce<Record<string, Array<MotionDefinition & { key: string }>>>((acc, m) => {
+                    if (!acc[m.category]) acc[m.category] = [];
+                    acc[m.category].push(m);
+                    return acc;
+                  }, {})
+                ).map(([cat, motions]) => (
+                  <optgroup key={cat} label={CATEGORY_INFO[cat as keyof typeof CATEGORY_INFO].label + " Motions"}>
+                    {motions.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
                   </optgroup>
                 ))}
               </select>

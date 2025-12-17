@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Gavel, Hand, X, CheckCircle, ChevronRight } from 'lucide-react';
 import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '../utils/idGenerators';
 import { MotionCard } from '../components/MotionCard';
@@ -6,7 +6,7 @@ import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
-import { isRuleSuspended } from '../utils/ruleSuspensionHelper';
+import { getChairScript } from '../utils/chairScriptHelper';
 import type { ChairViewProps, VotingMethod } from '../types';
 
 export function ChairView({ state, dispatch }: ChairViewProps) {
@@ -38,59 +38,8 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     }
   }, [state.members, state.currentAgendaItem, dispatch]);
 
-  // Memoize chair script computation
-  const script = useMemo(() => {
-    if (!state.meetingActive) return null;
-    if (!state.agendaAdopted && !state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"Is there any objection to adopting the agenda?"', note: "If none, click 'No Objection'. If someone objects, click 'Objection Raised'." };
-    if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion && !state.pendingSecond) return { text: '"There has been an objection. A motion to adopt the agenda is in order."', note: "Wait for a member to move." };
-    if (state.pendingSecond) return { text: '"Is there a second?"', note: "Wait for a second or declare no second." };
-    if (state.votingOpen) return { text: '"Those in favor say Aye. Those opposed say No."', note: "Close voting when done." };
-
-    // Check for recently passed or failed vote
-    const lastLog = state.meetingLog[state.meetingLog.length - 1];
-    if (lastLog && lastLog.message.includes('Motion CARRIED') && !state.votingOpen && !state.currentMotion) {
-      // Check if this was a suspension (special handling)
-      if (lastLog.message.includes('[RULE SUSPENDED]')) {
-        const suspensionMatch = lastLog.message.match(/\[RULE SUSPENDED\] ([\w-]+)/);
-        const ruleName = suspensionMatch ? suspensionMatch[1] : 'rule';
-        return { text: '"The motion has carried. The rules have been suspended."', note: `The ${ruleName} is now suspended. Proceed with business under the suspended rules.` };
-      }
-      if (state.currentAgendaItem) {
-        return { text: '"The motion has carried."', note: "Agenda item complete. Move to next item or ask if there is further discussion." };
-      }
-      return { text: '"The motion has carried."', note: "Proceed to next business." };
-    }
-    if (lastLog && lastLog.message.includes('Motion FAILED') && !state.votingOpen && !state.currentMotion) {
-      if (state.currentAgendaItem) {
-        return { text: '"The motion has failed."', note: "Ask if there is further discussion or a substitute motion on this agenda item, or move to complete/call next item." };
-      }
-      return { text: '"The motion has failed."', note: "Ask if there is further business or other motions." };
-    }
-
-    if (state.currentMotion) {
-      // Check if there was a recent objection
-      const lastLog = state.meetingLog[state.meetingLog.length - 1];
-      const recentObjection = lastLog && lastLog.message.includes('objects');
-      const debateRulesSuspended = isRuleSuspended(state, 'debate-rules');
-
-      if (recentObjection) {
-        return { text: '"An objection has been raised. The motion is now open for debate."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "This motion is not debatable - proceed to vote." };
-      }
-
-      // When debate-rules suspended, chair can proceed directly to vote even on debatable motions
-      if (debateRulesSuspended && state.currentMotion.debatable) {
-        return { text: `"Is there any discussion on: ${state.currentMotion.text}?"`, note: "[Debate rules suspended] You may proceed directly to vote without debate if desired." };
-      }
-
-      return { text: state.currentMotion.debatable ? `"Is there any discussion on: ${state.currentMotion.text}?"` : '"This motion is not debatable."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "Proceed to vote." };
-    }
-    if (state.currentAgendaItem) return { text: `"We are now on: ${state.currentAgendaItem.title}"`, note: "Allow discussion or motions." };
-    if (state.agendaAdopted) {
-      const next = state.agenda.find(a => a.status === "pending");
-      return next ? { text: '"We will proceed to the next item."', note: `Next: "${next.title}"` } : { text: '"Is there any new business?"', note: "If none, entertain motion to adjourn." };
-    }
-    return { text: '"Is there any business?"', note: "" };
-  }, [state.meetingActive, state.agendaAdopted, state.agendaObjection, state.currentMotion, state.pendingSecond, state.votingOpen, state.meetingLog, state.currentAgendaItem, state.agenda]);
+  // Get chair script based on current meeting state
+  const script = getChairScript(state);
 
   // Get chair member
   const chair = state.members.find(m => m.role === 'chair');
