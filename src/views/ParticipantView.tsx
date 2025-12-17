@@ -89,7 +89,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
 
   return (
     <div className="space-y-4">
-      <ActiveSuspensionsBanner state={state} />
+      <ActiveSuspensionsBanner state={state} currentUser={currentUser} dispatch={dispatch} />
 
       {hasFloor && (
         <div className="bg-green-100 border border-green-300 rounded-lg p-3">

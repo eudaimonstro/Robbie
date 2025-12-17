@@ -92,9 +92,12 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     return { text: '"Is there any business?"', note: "" };
   }, [state.meetingActive, state.agendaAdopted, state.agendaObjection, state.currentMotion, state.pendingSecond, state.votingOpen, state.meetingLog, state.currentAgendaItem, state.agenda]);
 
+  // Get chair member
+  const chair = state.members.find(m => m.role === 'chair');
+
   return (
     <div className="space-y-4">
-      <ActiveSuspensionsBanner state={state} />
+      <ActiveSuspensionsBanner state={state} currentUser={chair} dispatch={dispatch} />
 
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Gavel size={18}/> Meeting Control</h3>

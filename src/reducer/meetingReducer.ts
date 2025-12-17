@@ -1,6 +1,6 @@
 import { MOTIONS } from '../constants/motions';
 import { applyMotionOutcome } from '../utils/motionOutcomeHelper';
-import { isRuleSuspended } from '../utils/ruleSuspensionHelper';
+import { isRuleSuspended, markSingleActionComplete } from '../utils/ruleSuspensionHelper';
 import type { MeetingState, MeetingAction, MeetingLogEntry } from '../types';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
@@ -19,10 +19,12 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       };
 
     case 'END_MEETING':
+      // All rule suspensions end when meeting adjourns per Robert's Rules
       return {
         ...state,
         meetingActive: false,
         meetingStage: 'adjourned',
+        suspendedRules: [],
         meetingLog: log(action.timestamp, "Meeting adjourned.")
       };
 
@@ -58,10 +60,16 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ? `${action.mover} moves: "${action.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
         : `${action.mover} raises ${motion.name}.`;
 
+      // Auto-complete single-action suspension when used
+      const updatedSuspensions = bypassedSecond
+        ? markSingleActionComplete(state, 'second-requirement')
+        : state.suspendedRules;
+
       return {
         ...state,
         currentMotion: motion,
         motionStack: [...state.motionStack, motion],
+        suspendedRules: updatedSuspensions,
         meetingLog: log(action.timestamp, logMessage)
       };
     }
@@ -412,6 +420,20 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         suspendedRules: [...state.suspendedRules, action.suspension],
         meetingLog: log(action.timestamp, `[RULE SUSPENDED] ${action.suspension.rule}: ${action.suspension.purpose}`)
       };
+
+    case 'RESTORE_RULE': {
+      // Remove the suspension by ID
+      const suspension = state.suspendedRules.find(s => s.id === action.suspensionId);
+      const updatedRules = state.suspendedRules.filter(s => s.id !== action.suspensionId);
+
+      return {
+        ...state,
+        suspendedRules: updatedRules,
+        meetingLog: suspension
+          ? log(action.timestamp, `[RULE RESTORED] ${suspension.rule} restored to normal enforcement`)
+          : state.meetingLog
+      };
+    }
 
     default:
       return state;

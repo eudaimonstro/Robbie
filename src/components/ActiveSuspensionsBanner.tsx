@@ -1,16 +1,26 @@
-import type { MeetingState } from '../types';
+import type { MeetingState, MeetingAction, Member } from '../types';
 import { getActiveSuspensions, getRuleName } from '../utils/ruleSuspensionHelper';
+import { generateTimestamp } from '../utils/idGenerators';
 
 interface ActiveSuspensionsBannerProps {
   state: MeetingState;
+  currentUser?: Member;
+  dispatch?: React.Dispatch<MeetingAction>;
 }
 
-export function ActiveSuspensionsBanner({ state }: ActiveSuspensionsBannerProps) {
+export function ActiveSuspensionsBanner({ state, currentUser, dispatch }: ActiveSuspensionsBannerProps) {
   const activeSuspensions = getActiveSuspensions(state);
+  const isChair = currentUser?.role === 'chair';
 
   if (activeSuspensions.length === 0) {
     return null;
   }
+
+  const handleRestore = (suspensionId: number) => {
+    if (dispatch) {
+      dispatch({ type: 'RESTORE_RULE', suspensionId, timestamp: generateTimestamp() });
+    }
+  };
 
   return (
     <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4">
@@ -45,6 +55,14 @@ export function ActiveSuspensionsBanner({ state }: ActiveSuspensionsBannerProps)
                 <div className="text-gray-700">
                   <span className="font-medium">Allowed:</span> {suspension.specificAction}
                 </div>
+                {isChair && dispatch && (
+                  <button
+                    onClick={() => handleRestore(suspension.id)}
+                    className="mt-2 text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+                  >
+                    Restore Rule
+                  </button>
+                )}
               </div>
             ))}
           </div>
