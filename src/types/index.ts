@@ -180,7 +180,8 @@ export type MeetingAction =
   | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
   | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
   | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string }
-  | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string };
+  | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string }
+  | { type: 'CHAIR_RULING'; ruling: 'sustain' | 'overrule' | 'allow' | 'deny'; explanation?: string; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

@@ -279,11 +279,69 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
 
           {/* Motions with vote: 'none' don't require voting - chair makes a ruling */}
           {state.currentMotion.vote === 'none' ? (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 font-medium mb-2">Chair Decision Required</p>
-              <p className="text-blue-700 text-sm">
-                This motion does not require a vote. As chair, you should make a ruling or allow the action.
-              </p>
+            <div className="mt-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-3">
+                <p className="text-blue-800 font-medium mb-2">⚖️ Chair Ruling Required</p>
+                <p className="text-blue-700 text-sm">
+                  {state.currentMotion.type === 'pointOrder' && 'Rule on whether the point of order is valid.'}
+                  {state.currentMotion.type === 'questionPrivilege' && 'Determine if this is a legitimate question of privilege.'}
+                  {state.currentMotion.type === 'pointInfo' && 'Provide or allow response to the inquiry.'}
+                  {state.currentMotion.type === 'withdrawMotion' && 'Allow or deny the request to withdraw.'}
+                  {state.currentMotion.type === 'division' && 'A member has called for division - take a counted vote.'}
+                </p>
+              </div>
+
+              {state.currentMotion.type === 'pointOrder' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'sustain', timestamp: generateTimestamp() })}
+                    className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
+                  >
+                    Sustain Point
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'overrule', timestamp: generateTimestamp() })}
+                    className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
+                  >
+                    Overrule Point
+                  </button>
+                </div>
+              )}
+
+              {(state.currentMotion.type === 'questionPrivilege' || state.currentMotion.type === 'withdrawMotion') && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })}
+                    className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
+                  >
+                    Allow Request
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'deny', timestamp: generateTimestamp() })}
+                    className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
+                  >
+                    Deny Request
+                  </button>
+                </div>
+              )}
+
+              {state.currentMotion.type === 'pointInfo' && (
+                <button
+                  onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
+                >
+                  Acknowledge & Respond
+                </button>
+              )}
+
+              {state.currentMotion.type === 'division' && (
+                <button
+                  onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', explanation: 'Division called - conducting counted vote', timestamp: generateTimestamp() })}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700"
+                >
+                  Take Counted Vote
+                </button>
+              )}
             </div>
           ) : (
             <>

@@ -435,6 +435,30 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       };
     }
 
+    case 'CHAIR_RULING': {
+      // Handle chair's ruling on motions that don't require a vote
+      // (Point of Order, Question of Privilege, Point of Information, etc.)
+      if (!state.currentMotion) return state;
+
+      const motionText = state.currentMotion.text;
+      const rulingText = action.ruling === 'sustain'
+        ? `The point is well taken.`
+        : action.ruling === 'overrule'
+        ? `The point is not well taken.`
+        : action.ruling === 'allow'
+        ? `The request is granted.`
+        : `The request is denied.`;
+
+      const logMessage = `Chair ruled: ${rulingText}${action.explanation ? ` - ${action.explanation}` : ''} (Re: ${motionText})`;
+
+      return {
+        ...state,
+        currentMotion: null,
+        motionStack: state.motionStack.slice(0, -1),
+        meetingLog: log(action.timestamp, logMessage)
+      };
+    }
+
     default:
       return state;
   }
