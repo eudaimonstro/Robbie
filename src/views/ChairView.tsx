@@ -6,6 +6,7 @@ import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
+import { isRuleSuspended } from '../utils/ruleSuspensionHelper';
 import type { ChairViewProps, VotingMethod } from '../types';
 
 export function ChairView({ state, dispatch }: ChairViewProps) {
@@ -70,10 +71,17 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
       // Check if there was a recent objection
       const lastLog = state.meetingLog[state.meetingLog.length - 1];
       const recentObjection = lastLog && lastLog.message.includes('objects');
+      const debateRulesSuspended = isRuleSuspended(state, 'debate-rules');
 
       if (recentObjection) {
         return { text: '"An objection has been raised. The motion is now open for debate."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "This motion is not debatable - proceed to vote." };
       }
+
+      // When debate-rules suspended, chair can proceed directly to vote even on debatable motions
+      if (debateRulesSuspended && state.currentMotion.debatable) {
+        return { text: `"Is there any discussion on: ${state.currentMotion.text}?"`, note: "[Debate rules suspended] You may proceed directly to vote without debate if desired." };
+      }
+
       return { text: state.currentMotion.debatable ? `"Is there any discussion on: ${state.currentMotion.text}?"` : '"This motion is not debatable."', note: state.currentMotion.debatable ? "Recognize speakers, then call the question." : "Proceed to vote." };
     }
     if (state.currentAgendaItem) return { text: `"We are now on: ${state.currentAgendaItem.title}"`, note: "Allow discussion or motions." };

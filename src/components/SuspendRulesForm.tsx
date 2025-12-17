@@ -7,10 +7,17 @@ interface SuspendRulesFormProps {
   onCancel: () => void;
 }
 
-export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) {
-  // Phase 2: Hardcoded to second-requirement for proof of concept
-  const rule: SuspendableRule = 'second-requirement';
+// Tier 1 rules: Most commonly suspended rules per Robert's Rules
+const TIER_1_RULES: SuspendableRule[] = [
+  'second-requirement',
+  'motion-precedence',
+  'order-of-business',
+  'debate-rules'
+];
 
+export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) {
+  // Phase 3: Dynamic selection of Tier 1 rules
+  const [rule, setRule] = useState<SuspendableRule>('second-requirement');
   const [purpose, setPurpose] = useState('');
   const [specificAction, setSpecificAction] = useState('');
   const [scope, setScope] = useState<'single-action' | 'meeting-remainder'>('meeting-remainder');
@@ -40,14 +47,25 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Rule being suspended (hardcoded for Phase 2) */}
+        {/* Rule selection (Tier 1 rules) */}
         <div className="mb-4">
-          <label className="block text-sm font-semibold mb-2 text-gray-700">
-            Rule to suspend:
+          <label htmlFor="rule" className="block text-sm font-semibold mb-2 text-gray-700">
+            Which rule to suspend? <span className="text-red-600">*</span>
           </label>
-          <div className="p-3 bg-gray-50 border border-gray-300 rounded">
-            <p className="font-semibold text-gray-900">{getRuleName(rule)}</p>
-            <p className="text-xs text-gray-600 mt-1">{getRuleDescription(rule)}</p>
+          <select
+            id="rule"
+            value={rule}
+            onChange={(e) => setRule(e.target.value as SuspendableRule)}
+            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+          >
+            {TIER_1_RULES.map((r) => (
+              <option key={r} value={r}>
+                {getRuleName(r)}
+              </option>
+            ))}
+          </select>
+          <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+            <p className="text-xs text-gray-600">{getRuleDescription(rule)}</p>
           </div>
         </div>
 

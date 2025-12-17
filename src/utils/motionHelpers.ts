@@ -1,4 +1,5 @@
 import { MOTIONS } from '../constants/motions';
+import { isRuleSuspended } from './ruleSuspensionHelper';
 
 export function getValidMotions(state) {
   const currentPrecedence = state.currentMotion?.precedence || 0;
@@ -6,6 +7,9 @@ export function getValidMotions(state) {
   const hasSecondaryAmendment = state.motionStack.some(m => m.type === 'amendAmendment');
   const isAgendaAdoptionPending = state.currentMotion?.type === 'adoptAgenda';
   const validMotions = [];
+
+  // Check if motion precedence is suspended
+  const precedenceSuspended = isRuleSuspended(state, 'motion-precedence');
 
   // Helper to check if a motion was defeated this meeting
   const wasDefeated = (motionType: string) => {
@@ -35,13 +39,20 @@ export function getValidMotions(state) {
     // - Subsidiary: Only when there's a motion to apply them to (currentPrecedence >= 1)
     // - Privileged: Always available when precedence is higher than current
     // - Main: Already filtered above (line 27)
+    // - When motion-precedence suspended: Allow all motions regardless of precedence
 
     if (motion.category === 'incidental') {
       validMotions.push({ key, ...motion });
-    } else if (motion.category === 'subsidiary' && currentPrecedence >= 1 && motion.precedence > currentPrecedence) {
-      validMotions.push({ key, ...motion });
-    } else if (motion.category === 'privileged' && motion.precedence > currentPrecedence) {
-      validMotions.push({ key, ...motion });
+    } else if (motion.category === 'subsidiary' && currentPrecedence >= 1) {
+      // Allow if precedence suspended OR precedence is higher
+      if (precedenceSuspended || motion.precedence > currentPrecedence) {
+        validMotions.push({ key, ...motion });
+      }
+    } else if (motion.category === 'privileged') {
+      // Allow if precedence suspended OR precedence is higher
+      if (precedenceSuspended || motion.precedence > currentPrecedence) {
+        validMotions.push({ key, ...motion });
+      }
     }
   });
   return validMotions;
