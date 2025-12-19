@@ -1,98 +1,35 @@
-import { useState, useReducer } from 'react';
-import { Users, Gavel, Settings, AlertCircle } from 'lucide-react';
-import { initialState } from './reducer/initialState';
-import { meetingReducer } from './reducer/meetingReducer';
-import { ParticipantView } from './views/ParticipantView';
-import { ChairView } from './views/ChairView';
-import { AdminView } from './views/AdminView';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { SocketProvider, useSocket } from './context/SocketContext';
+import { AuthScreen } from './views/AuthScreen';
+import { MeetingApp } from './MeetingApp';
+
+function AppContent() {
+  const { isAuthenticated, isConnected } = useSocket();
+
+  // Show auth screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthScreen />;
+  }
+
+  // Show loading while connecting after auth
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">Connecting to meeting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show meeting app when authenticated and connected
+  return <MeetingApp />;
+}
 
 export default function App() {
-  const [state, dispatch] = useReducer(meetingReducer, initialState);
-  const [view, setView] = useState("participant");
-  const [currentUser, setCurrentUser] = useState(initialState.members[0]);
-
-  const tabs = [
-    { id: "participant", label: "Member", icon: Users },
-    { id: "chair", label: "Chair", icon: Gavel },
-    { id: "admin", label: "Admin", icon: Settings }
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-gradient-to-r from-indigo-700 to-indigo-800 text-white p-4 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-lg">
-            <Gavel size={24}/>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Parliamentary Procedure</h1>
-            <p className="text-indigo-200 text-sm">Robert's Rules of Order</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-4 max-w-lg mx-auto">
-        <nav
-          className="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow"
-          role="tablist"
-          aria-label="Meeting view selection"
-        >
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setView(tab.id)}
-              role="tab"
-              aria-selected={view === tab.id}
-              aria-controls={`${tab.id}-panel`}
-              id={`${tab.id}-tab`}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
-                view === tab.id
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <tab.icon size={18} aria-hidden="true" />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-
-        {view === "participant" && (
-          <div className="mb-4 bg-white rounded-lg p-3 shadow flex items-center gap-3">
-            <label htmlFor="member-select" className="text-gray-600">Acting as:</label>
-            <select
-              id="member-select"
-              value={currentUser.id}
-              onChange={(e) => setCurrentUser(state.members.find(m => m.id === parseInt(e.target.value))!)}
-              className="flex-1 p-2 border rounded-lg bg-white"
-              aria-label="Select which member you are acting as"
-            >
-              {state.members.filter(m => m.role === 'member').map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {!state.meetingActive && view !== "chair" && (
-          <div
-            className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-center"
-            role="status"
-            aria-live="polite"
-          >
-            <AlertCircle size={24} className="mx-auto mb-2 text-amber-500" aria-hidden="true" />
-            <p className="text-amber-800 font-medium">Meeting not started</p>
-            <p className="text-amber-600 text-sm">Waiting for Chair</p>
-          </div>
-        )}
-
-        <ErrorBoundary>
-          {view === "participant" && <ParticipantView state={state} dispatch={dispatch} currentUser={currentUser}/>}
-          {view === "chair" && <ChairView state={state} dispatch={dispatch}/>}
-          {view === "admin" && <AdminView state={state} dispatch={dispatch}/>}
-        </ErrorBoundary>
-      </div>
-    </div>
+    <SocketProvider>
+      <AppContent />
+    </SocketProvider>
   );
 }
