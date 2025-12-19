@@ -1,7 +1,10 @@
 import { MOTIONS } from '../constants/motions';
+import { getNextStage, getStageLogMessage } from '../constants/meetingStages';
 import { applyMotionOutcome } from '../utils/motionOutcomeHelper';
 import { isRuleSuspended, markSingleActionComplete } from '../utils/ruleSuspensionHelper';
-import type { MeetingState, MeetingAction, MeetingLogEntry } from '../types';
+import { generateId } from '../utils/idGenerators';
+import { calculateVoteResult } from '../utils/voteCalculator';
+import type { MeetingState, MeetingAction, MeetingLogEntry, Inquiry } from '../types';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
   // Helper to add log entry (timestamp now comes from action)
@@ -42,7 +45,9 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         isAgendaAdoption: action.motionType === 'adoptAgenda',
         agendaAmendment: action.agendaAmendment || null,
         ruleSuspension: action.ruleSuspension || null,
-        moverHasSpoken: false
+        moverHasSpoken: false,
+        tabledMotionId: action.tabledMotionId,
+        reconsideredMotionId: action.reconsideredMotionId
       };
       // Check if second requirement is suspended
       const secondSuspended = isRuleSuspended(state, 'second-requirement');
@@ -51,6 +56,8 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         return {
           ...state,
           pendingSecond: motion,
+          // Clear lastChairRuling for non-Appeal motions
+          lastChairRuling: action.motionType === 'appeal' ? state.lastChairRuling : null,
           meetingLog: log(action.timestamp, `${action.mover} moves: "${action.text}" (${motion.name}). Awaiting second.`)
         };
       }
@@ -70,6 +77,8 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         currentMotion: motion,
         motionStack: [...state.motionStack, motion],
         suspendedRules: updatedSuspensions,
+        // Clear lastChairRuling for non-Appeal motions
+        lastChairRuling: action.motionType === 'appeal' ? state.lastChairRuling : null,
         meetingLog: log(action.timestamp, logMessage)
       };
     }
@@ -140,14 +149,24 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     }
 
     case 'CLOSE_VOTING': {
-      const { yea, nay } = state.votes;
-      const total = yea + nay;
-      const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
-      const passed = yea > threshold;
+      const voteCalc = calculateVoteResult(
+        state.votes,
+        state.currentMotion?.vote || 'majority'
+      );
+      const { passed, yea, nay } = voteCalc;
       const newStack = state.motionStack.slice(0, -1);
 
+      // Special handling for Appeal
+      const isAppeal = state.currentMotion?.type === 'appeal';
+
+      // For Appeal: majority sustains chair, less than majority overturns
+      // For other motions: majority passes
+      const voteResultText = isAppeal
+        ? (passed ? "Chair's decision SUSTAINED" : "Chair's decision OVERTURNED")
+        : (passed ? "CARRIED" : "FAILED");
+
       // Track defeated motions for renewal rule enforcement
-      const defeatedMotions = !passed && state.currentMotion
+      const defeatedMotions = !passed && state.currentMotion && !isAppeal
         ? [...state.defeatedMotions, {
             type: state.currentMotion.type,
             text: state.currentMotion.text,
@@ -155,13 +174,16 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
           }]
         : state.defeatedMotions;
 
-      // Apply motion outcome if passed
-      const outcome = passed ? applyMotionOutcome(state, action.timestamp) : {
+      // Apply motion outcome if passed (Appeals don't have outcomes to apply)
+      const outcome = passed && !isAppeal ? applyMotionOutcome(state, action.timestamp) : {
         tabledMotions: state.tabledMotions,
         agendaAdopted: state.agendaAdopted,
         agendaObjection: state.agendaObjection,
         agenda: state.agenda,
-        newSuspension: null
+        newSuspension: null,
+        restoredMotion: null,
+        objectionKilledMotion: null,
+        reconsideredMotionId: null
       };
 
       // Add suspension to state if created
@@ -174,21 +196,103 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
         : '';
 
+      // Handle objection to consideration killing main motion
+      let workingStack = newStack;
+      if (outcome.objectionKilledMotion) {
+        workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
+      }
+
+      const objectionLog = outcome.objectionKilledMotion
+        ? `\n[OBJECTION SUSTAINED] Main motion will not be considered: "${outcome.objectionKilledMotion.text}"`
+        : '';
+
+      // Handle reconsider
+      let reconsideredMotion: typeof state.tabledMotions[0] | null = null;
+      let updatedCompletedMotions = state.completedMotions;
+      if (outcome.reconsideredMotionId) {
+        const completedMotion = state.completedMotions.find(cm => cm.id === outcome.reconsideredMotionId);
+        if (completedMotion) {
+          // Reconstruct the motion from completed motion data
+          reconsideredMotion = {
+            id: generateId(), // New ID for the reconsidered motion
+            type: completedMotion.type,
+            name: completedMotion.name,
+            text: completedMotion.text,
+            mover: state.currentMotion?.mover || 'Unknown',
+            moverId: state.currentMotion?.moverId || 0,
+            secondedBy: null,
+            status: 'active' as const,
+            precedence: MOTIONS[completedMotion.type]?.precedence || 1,
+            category: MOTIONS[completedMotion.type]?.category || 'main',
+            interrupt: MOTIONS[completedMotion.type]?.interrupt || false,
+            needsSecond: MOTIONS[completedMotion.type]?.needsSecond || true,
+            debatable: MOTIONS[completedMotion.type]?.debatable || true,
+            amendable: MOTIONS[completedMotion.type]?.amendable || true,
+            reconsidered: MOTIONS[completedMotion.type]?.reconsidered || false,
+            vote: MOTIONS[completedMotion.type]?.vote || 'majority',
+            phrase: MOTIONS[completedMotion.type]?.phrase || '',
+            help: MOTIONS[completedMotion.type]?.help || '',
+            whenToUse: MOTIONS[completedMotion.type]?.whenToUse || '',
+            moverHasSpoken: false
+          };
+          // Mark as reconsidered
+          updatedCompletedMotions = state.completedMotions.map(cm =>
+            cm.id === outcome.reconsideredMotionId ? { ...cm, reconsidered: true } : cm
+          );
+        }
+      }
+
+      const reconsideredLog = reconsideredMotion
+        ? `\n[RECONSIDERED] Motion brought back for new vote: "${reconsideredMotion.text}"`
+        : '';
+
+      // Handle restored/reconsidered motions
+      const motionToRestore = reconsideredMotion || outcome.restoredMotion;
+      const finalStack = motionToRestore
+        ? [...workingStack, motionToRestore]
+        : workingStack;
+
+      const finalCurrentMotion = motionToRestore
+        ? motionToRestore
+        : (workingStack[workingStack.length - 1] || null);
+
+      const restoredLog = outcome.restoredMotion && !reconsideredMotion
+        ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
+        : '';
+
+      // Save completed motion for potential reconsideration
+      // Only save if motion can be reconsidered (per RONR, most motions can be)
+      const completedMotions = state.currentMotion && state.currentMotion.reconsidered
+        ? [...updatedCompletedMotions, {
+            id: state.currentMotion.id,
+            type: state.currentMotion.type,
+            name: state.currentMotion.name,
+            text: state.currentMotion.text,
+            passed,
+            voterChoices: state.voterChoices,
+            timestamp: action.timestamp,
+            reconsidered: false
+          }]
+        : updatedCompletedMotions;
+
       return {
         ...state,
         votingOpen: false,
         voteTimerEnd: null,
-        currentMotion: newStack[newStack.length - 1] || null,
-        motionStack: newStack,
+        currentMotion: finalCurrentMotion,
+        motionStack: finalStack,
         defeatedMotions,
+        completedMotions,
         suspendedRules,
         tabledMotions: outcome.tabledMotions,
         agendaAdopted: outcome.agendaAdopted,
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
+        // Clear lastChairRuling after Appeal is resolved
+        lastChairRuling: isAppeal ? null : state.lastChairRuling,
         meetingLog: log(
           action.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. Motion ${passed ? "CARRIED" : "FAILED"}.${suspensionLog ? '\n' + suspensionLog : ''}`
+          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`
         )
       };
     }
@@ -326,11 +430,34 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
         : '';
 
+      // Handle objection to consideration killing main motion
+      let workingStack = newStack;
+      if (outcome.objectionKilledMotion) {
+        workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
+      }
+
+      // Handle restored motion from table
+      const finalStack = outcome.restoredMotion
+        ? [...workingStack, outcome.restoredMotion]
+        : workingStack;
+
+      const finalCurrentMotion = outcome.restoredMotion
+        ? outcome.restoredMotion
+        : (workingStack[workingStack.length - 1] || null);
+
+      const restoredLog = outcome.restoredMotion
+        ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
+        : '';
+
+      const objectionLog = outcome.objectionKilledMotion
+        ? `\n[OBJECTION SUSTAINED] Main motion will not be considered: "${outcome.objectionKilledMotion.text}"`
+        : '';
+
       return {
         ...state,
         unanimousConsentPending: false,
-        currentMotion: newStack[newStack.length - 1] || null,
-        motionStack: newStack,
+        currentMotion: finalCurrentMotion,
+        motionStack: finalStack,
         suspendedRules,
         tabledMotions: outcome.tabledMotions,
         agendaAdopted: outcome.agendaAdopted,
@@ -338,7 +465,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         agenda: outcome.agenda,
         meetingLog: log(
           action.timestamp,
-          `Motion CARRIED by unanimous consent.${suspensionLog ? '\n' + suspensionLog : ''}`
+          `Motion CARRIED by unanimous consent.${suspensionLog}${restoredLog}${objectionLog}`
         )
       };
     }
@@ -347,36 +474,13 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       return { ...state, votingMethod: action.method };
 
     case 'ADVANCE_MEETING_STAGE': {
-      const stageOrder: Array<typeof state.meetingStage> = [
-        'not-started',
-        'call-to-order',
-        'minutes-approval',
-        'reports',
-        'special-orders',
-        'unfinished-business',
-        'new-business',
-        'announcements',
-        'adjourned'
-      ];
-      const currentIndex = stageOrder.indexOf(state.meetingStage);
-      const nextStage = stageOrder[Math.min(currentIndex + 1, stageOrder.length - 1)];
-
-      const stageMessages: Record<typeof nextStage, string> = {
-        'not-started': '',
-        'call-to-order': 'Meeting called to order',
-        'minutes-approval': 'Reading and approval of minutes',
-        'reports': 'Reports of officers and committees',
-        'special-orders': 'Special orders',
-        'unfinished-business': 'Unfinished business and general orders',
-        'new-business': 'New business',
-        'announcements': 'Announcements',
-        'adjourned': 'Meeting adjourned'
-      };
+      const nextStage = getNextStage(state.meetingStage);
+      const logMessage = getStageLogMessage(nextStage);
 
       return {
         ...state,
         meetingStage: nextStage,
-        meetingLog: stageMessages[nextStage] ? log(action.timestamp, stageMessages[nextStage]) : state.meetingLog
+        meetingLog: logMessage ? log(action.timestamp, logMessage) : state.meetingLog
       };
     }
 
@@ -451,11 +555,219 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
 
       const logMessage = `Chair ruled: ${rulingText}${action.explanation ? ` - ${action.explanation}` : ''} (Re: ${motionText})`;
 
+      // Store this ruling so it can be appealed
+      const lastChairRuling = {
+        ruling: rulingText,
+        motionText,
+        timestamp: action.timestamp
+      };
+
       return {
         ...state,
         currentMotion: null,
         motionStack: state.motionStack.slice(0, -1),
+        lastChairRuling,
         meetingLog: log(action.timestamp, logMessage)
+      };
+    }
+
+    case 'OPEN_NOMINATIONS':
+      return {
+        ...state,
+        nominationsOpen: true,
+        currentNominationPosition: action.position,
+        meetingLog: log(action.timestamp, `Chair: Nominations are now open for ${action.position}.`)
+      };
+
+    case 'NOMINATE': {
+      const nomination = {
+        id: action.nominationId,
+        position: action.position,
+        nomineeName: action.nomineeName,
+        nomineeId: action.nomineeId,
+        nominatedBy: action.nominatedBy,
+        nominatorId: action.nominatorId,
+        timestamp: action.timestamp,
+        declined: false
+      };
+      return {
+        ...state,
+        nominations: [...state.nominations, nomination],
+        meetingLog: log(action.timestamp, `${action.nominatedBy} nominates ${action.nomineeName} for ${action.position}.`)
+      };
+    }
+
+    case 'DECLINE_NOMINATION': {
+      const nomination = state.nominations.find(n => n.id === action.nominationId);
+      if (!nomination) return state;
+
+      return {
+        ...state,
+        nominations: state.nominations.map(n =>
+          n.id === action.nominationId ? { ...n, declined: true } : n
+        ),
+        meetingLog: log(action.timestamp, `${nomination.nomineeName} declines nomination for ${nomination.position}.`)
+      };
+    }
+
+    case 'CLOSE_NOMINATIONS':
+      return {
+        ...state,
+        nominationsOpen: false,
+        meetingLog: log(action.timestamp, `Chair: Nominations for ${state.currentNominationPosition} are now closed.`)
+      };
+
+    case 'START_ELECTION': {
+      // Gather candidates from nominations for this position (excluding declined)
+      const candidates = state.nominations
+        .filter(n => n.position === action.position && !n.declined)
+        .map(n => ({ name: n.nomineeName, id: n.nomineeId }))
+        // Remove duplicates (same person nominated multiple times)
+        .filter((candidate, index, self) =>
+          index === self.findIndex(c => c.name === candidate.name)
+        );
+
+      const election = {
+        id: action.electionId,
+        position: action.position,
+        candidates,
+        requiredVotes: action.requiredVotes,
+        votingInProgress: true,
+        ballotResults: candidates.reduce((acc, c) => ({ ...acc, [c.name]: 0 }), {} as Record<string, number>),
+        votersWhoVoted: [],
+        elected: null
+      };
+
+      return {
+        ...state,
+        currentElection: election,
+        currentNominationPosition: null,
+        meetingLog: log(action.timestamp, `Chair: Voting is now open for ${action.position}. ${candidates.length} candidate(s).`)
+      };
+    }
+
+    case 'CAST_BALLOT': {
+      if (!state.currentElection || !state.currentElection.votingInProgress) return state;
+
+      // Check if voter has already voted
+      if (state.currentElection.votersWhoVoted.includes(action.voterId)) return state;
+
+      return {
+        ...state,
+        currentElection: {
+          ...state.currentElection,
+          ballotResults: {
+            ...state.currentElection.ballotResults,
+            [action.candidateName]: (state.currentElection.ballotResults[action.candidateName] || 0) + 1
+          },
+          votersWhoVoted: [...state.currentElection.votersWhoVoted, action.voterId]
+        }
+      };
+    }
+
+    case 'CLOSE_ELECTION': {
+      if (!state.currentElection) return state;
+
+      const results = state.currentElection.ballotResults;
+      const totalVotes = state.currentElection.votersWhoVoted.length;
+      const requiredVotes = state.currentElection.requiredVotes;
+
+      // Calculate winner based on vote requirement
+      let winner: string | null = null;
+      const sortedCandidates = Object.entries(results).sort((a, b) => b[1] - a[1]);
+
+      if (sortedCandidates.length > 0) {
+        const topCandidate = sortedCandidates[0];
+        const topVotes = topCandidate[1];
+
+        if (requiredVotes === 'majority') {
+          if (topVotes > totalVotes / 2) {
+            winner = topCandidate[0];
+          }
+        } else if (requiredVotes === '2/3') {
+          if (topVotes >= (totalVotes * 2 / 3)) {
+            winner = topCandidate[0];
+          }
+        } else { // plurality
+          winner = topCandidate[0];
+        }
+      }
+
+      const resultsText = sortedCandidates
+        .map(([name, votes]) => `${name}: ${votes} vote(s)`)
+        .join(', ');
+
+      return {
+        ...state,
+        currentElection: {
+          ...state.currentElection,
+          votingInProgress: false,
+          elected: winner
+        },
+        meetingLog: log(action.timestamp, `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner ? `${winner} elected.` : 'No candidate elected (majority not reached).'}`)
+      };
+    }
+
+    case 'DECLARE_ELECTED': {
+      if (!state.currentElection) return state;
+
+      const officer = {
+        position: state.currentElection.position,
+        name: action.candidateName,
+        memberId: state.currentElection.candidates.find(c => c.name === action.candidateName)?.id,
+        electedAt: action.timestamp
+      };
+
+      return {
+        ...state,
+        electedOfficers: [...state.electedOfficers, officer],
+        currentElection: null,
+        meetingLog: log(action.timestamp, `Chair declares ${action.candidateName} elected as ${officer.position}.`)
+      };
+    }
+
+    case 'ASK_INQUIRY': {
+      const newInquiry: Inquiry = {
+        id: action.inquiryId,
+        type: action.inquiryType,
+        question: action.question,
+        askedBy: action.askedBy,
+        askerId: action.askerId,
+        timestamp: action.timestamp
+      };
+
+      const inquiryTypeLabel = action.inquiryType === 'parliamentary'
+        ? 'Parliamentary Inquiry'
+        : 'Request for Information';
+
+      return {
+        ...state,
+        inquiries: [...state.inquiries, newInquiry],
+        meetingLog: log(action.timestamp, `${action.askedBy} raises ${inquiryTypeLabel}: "${action.question}"`)
+      };
+    }
+
+    case 'ANSWER_INQUIRY': {
+      const updatedInquiries = state.inquiries.map(inq =>
+        inq.id === action.inquiryId
+          ? {
+              ...inq,
+              answer: action.answer,
+              answeredBy: action.answeredBy,
+              answeredAt: action.timestamp
+            }
+          : inq
+      );
+
+      const inquiry = state.inquiries.find(inq => inq.id === action.inquiryId);
+      const inquiryTypeLabel = inquiry?.type === 'parliamentary'
+        ? 'Parliamentary Inquiry'
+        : 'Request for Information';
+
+      return {
+        ...state,
+        inquiries: updatedInquiries,
+        meetingLog: log(action.timestamp, `Chair answers ${inquiryTypeLabel}: "${action.answer}"`)
       };
     }
 

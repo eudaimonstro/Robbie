@@ -1,7 +1,8 @@
 import { MOTIONS } from '../constants/motions';
 import { isRuleSuspended } from './ruleSuspensionHelper';
+import type { MeetingState } from '../types';
 
-export function getValidMotions(state) {
+export function getValidMotions(state: MeetingState, currentUserId?: number) {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some(m => m.type === 'amend');
   const hasSecondaryAmendment = state.motionStack.some(m => m.type === 'amendAmendment');
@@ -36,6 +37,28 @@ export function getValidMotions(state) {
     if (!amendmentDepthSuspended && key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
     // Renewal rule: Cannot renew defeated main motions at same meeting
     if (motion.category === 'main' && wasDefeated(key)) return;
+    // Appeal: Only available immediately after a chair ruling
+    if (key === 'appeal' && !state.lastChairRuling) return;
+    // Objection to Consideration: Only for main motions before debate begins
+    if (key === 'objectionConsideration') {
+      const hasMainMotion = state.currentMotion?.category === 'main';
+      const debateStarted = state.currentMotion?.moverHasSpoken || state.recognizedSpeaker !== null;
+      const isActive = state.currentMotion?.status === 'active';
+      if (!hasMainMotion || debateStarted || !isActive) return;
+    }
+    // Reconsider: Only available to voters on prevailing side
+    if (key === 'reconsider') {
+      if (!currentUserId) return; // Need user ID to check eligibility
+      const hasReconsiderableMotions = state.completedMotions.some(cm => {
+        if (cm.reconsidered) return false; // Already reconsidered
+        const userVote = cm.voterChoices[currentUserId];
+        if (!userVote || userVote === 'abstain') return false; // Didn't vote or abstained
+        // Prevailing side: if motion passed, yea voters can reconsider; if failed, nay voters can
+        const onPrevailingSide = cm.passed ? (userVote === 'yea') : (userVote === 'nay');
+        return onPrevailingSide;
+      });
+      if (!hasReconsiderableMotions) return;
+    }
 
     // Motion availability rules per Robert's Rules:
     // - Incidental: Always in order (no fixed precedence)

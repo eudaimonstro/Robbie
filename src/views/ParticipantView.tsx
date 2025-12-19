@@ -7,23 +7,37 @@ import { MotionCard } from '../components/MotionCard';
 import { HelpTooltip } from '../components/HelpTooltip';
 import { AgendaAmendmentForm } from '../components/AgendaAmendmentForm';
 import { SuspendRulesForm } from '../components/SuspendRulesForm';
+import { TakeFromTableForm } from '../components/TakeFromTableForm';
+import { ReconsiderForm } from '../components/ReconsiderForm';
+import { InquiryPanel } from '../components/InquiryPanel';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { useVoteResults } from '../hooks/useVoteResults';
-import type { ParticipantViewProps, SuspendableRule, AgendaAmendment, MotionDefinition, CategoryInfo } from '../types';
+import type { ParticipantViewProps, SuspendableRule, AgendaAmendment, MotionDefinition } from '../types';
 
 export function ParticipantView({ state, dispatch, currentUser }: ParticipantViewProps) {
   const [motionText, setMotionText] = useState("");
   const [selectedMotion, setSelectedMotion] = useState("mainMotion");
   const [showAgendaAmendForm, setShowAgendaAmendForm] = useState(false);
   const [showSuspendRulesForm, setShowSuspendRulesForm] = useState(false);
+  const [showTakeFromTableForm, setShowTakeFromTableForm] = useState(false);
+  const [showReconsiderForm, setShowReconsiderForm] = useState(false);
   const [selectedStance, setSelectedStance] = useState<'pro' | 'con' | 'neutral'>('neutral');
 
   // Memoize expensive computations
-  const validMotions = useMemo(() => getValidMotions(state), [state]);
+  const validMotions = useMemo(() => getValidMotions(state, currentUser.id), [state, currentUser.id]);
   const selectedMotionDef = MOTIONS[selectedMotion];
   const handRaised = useMemo(() => state.speakerQueue.find(s => s.member.id === currentUser.id), [state.speakerQueue, currentUser.id]);
   const hasFloor = state.recognizedSpeaker?.id === currentUser.id;
+
+  // Memoize motion grouping by category to avoid recalculating on every render
+  const groupedMotions = useMemo(() => {
+    return validMotions.reduce<Record<string, Array<MotionDefinition & { key: string }>>>((acc, m) => {
+      if (!acc[m.category]) acc[m.category] = [];
+      acc[m.category].push(m);
+      return acc;
+    }, {});
+  }, [validMotions]);
 
   // Use custom hook for vote results
   const voteResults = useVoteResults(state.meetingLog);
@@ -39,6 +53,10 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       setShowAgendaAmendForm(true);
     } else if (selectedMotion === 'suspendRules') {
       setShowSuspendRulesForm(true);
+    } else if (selectedMotion === 'takeFromTable') {
+      setShowTakeFromTableForm(true);
+    } else if (selectedMotion === 'reconsider') {
+      setShowReconsiderForm(true);
     } else {
       dispatch({
         type: 'MAKE_MOTION',
@@ -85,6 +103,34 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       timestamp: generateTimestamp()
     });
     setShowSuspendRulesForm(false);
+  }, [currentUser, dispatch]);
+
+  const handleTakeFromTableSubmit = useCallback((text: string, tabledMotionId: number) => {
+    dispatch({
+      type: 'MAKE_MOTION',
+      motionType: 'takeFromTable',
+      text,
+      mover: currentUser.name,
+      moverId: currentUser.id,
+      tabledMotionId,
+      motionId: generateId(),
+      timestamp: generateTimestamp()
+    });
+    setShowTakeFromTableForm(false);
+  }, [currentUser, dispatch]);
+
+  const handleReconsiderSubmit = useCallback((text: string, reconsideredMotionId: number) => {
+    dispatch({
+      type: 'MAKE_MOTION',
+      motionType: 'reconsider',
+      text,
+      mover: currentUser.name,
+      moverId: currentUser.id,
+      reconsideredMotionId,
+      motionId: generateId(),
+      timestamp: generateTimestamp()
+    });
+    setShowReconsiderForm(false);
   }, [currentUser, dispatch]);
 
   return (
@@ -206,6 +252,19 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
           )}
           <p className="text-gray-700 mb-2">"{state.currentMotion?.text}"</p>
           <p className="text-sm text-gray-500 mb-4">Requires: {state.currentMotion?.vote === "2/3" ? "Two-thirds" : "Majority"}</p>
+
+          {/* Special notice for Appeal votes */}
+          {state.currentMotion?.type === 'appeal' && state.lastChairRuling && (
+            <div className="mb-4 p-3 bg-purple-50 border-2 border-purple-300 rounded-lg">
+              <p className="text-purple-800 font-semibold text-sm mb-1">⚖️ Appealing Chair's Ruling</p>
+              <p className="text-purple-700 text-xs">
+                <strong>Ruling:</strong> "{state.lastChairRuling.ruling}"
+              </p>
+              <p className="text-purple-600 text-xs mt-2">
+                YEA = Sustain chair | NAY = Overturn chair
+              </p>
+            </div>
+          )}
 
           {(state.votingMethod === 'standard' || state.votingMethod === 'ballot') && (
             <>
@@ -416,16 +475,14 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
             <AgendaAmendmentForm agenda={state.agenda} onSubmit={handleAgendaAmendSubmit} onCancel={() => setShowAgendaAmendForm(false)}/>
           ) : showSuspendRulesForm ? (
             <SuspendRulesForm onSubmit={handleSuspendRulesSubmit} onCancel={() => setShowSuspendRulesForm(false)}/>
+          ) : showTakeFromTableForm ? (
+            <TakeFromTableForm tabledMotions={state.tabledMotions} onSubmit={handleTakeFromTableSubmit} onCancel={() => setShowTakeFromTableForm(false)}/>
+          ) : showReconsiderForm ? (
+            <ReconsiderForm completedMotions={state.completedMotions} currentUserId={currentUser.id} onSubmit={handleReconsiderSubmit} onCancel={() => setShowReconsiderForm(false)}/>
           ) : (
             <>
               <select value={selectedMotion} onChange={(e) => setSelectedMotion(e.target.value)} className="w-full p-3 border rounded-lg mb-3 bg-white">
-                {Object.entries(
-                  validMotions.reduce<Record<string, Array<MotionDefinition & { key: string }>>>((acc, m) => {
-                    if (!acc[m.category]) acc[m.category] = [];
-                    acc[m.category].push(m);
-                    return acc;
-                  }, {})
-                ).map(([cat, motions]) => (
+                {Object.entries(groupedMotions).map(([cat, motions]) => (
                   <optgroup key={cat} label={CATEGORY_INFO[cat as keyof typeof CATEGORY_INFO].label + " Motions"}>
                     {motions.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
                   </optgroup>
@@ -442,16 +499,24 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
                   </div>
                 </div>
               )}
-              {selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && (
+              {selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && selectedMotion !== 'takeFromTable' && selectedMotion !== 'reconsider' && (
                 <input type="text" placeholder={selectedMotionDef?.phrase || "I move that..."} value={motionText} onChange={(e) => setMotionText(e.target.value)} className="w-full p-3 border rounded-lg mb-3"/>
               )}
-              <button onClick={handleMotionSubmit} disabled={selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && !motionText.trim() && !selectedMotionDef?.phrase} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 font-medium">
-                {selectedMotion === 'amendAgenda' ? 'Configure Amendment...' : selectedMotion === 'suspendRules' ? 'Configure Suspension...' : 'Submit Motion'}
+              <button onClick={handleMotionSubmit} disabled={selectedMotion !== 'amendAgenda' && selectedMotion !== 'suspendRules' && selectedMotion !== 'takeFromTable' && selectedMotion !== 'reconsider' && !motionText.trim() && !selectedMotionDef?.phrase} className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 font-medium">
+                {selectedMotion === 'amendAgenda' ? 'Configure Amendment...' : selectedMotion === 'suspendRules' ? 'Configure Suspension...' : selectedMotion === 'takeFromTable' ? 'Select Tabled Motion...' : selectedMotion === 'reconsider' ? 'Select Motion to Reconsider...' : 'Submit Motion'}
               </button>
             </>
           )}
         </div>
       )}
+
+      {/* Inquiries Panel */}
+      <InquiryPanel
+        state={state}
+        dispatch={dispatch}
+        currentUser={currentUser}
+        isChair={false}
+      />
     </div>
   );
 }

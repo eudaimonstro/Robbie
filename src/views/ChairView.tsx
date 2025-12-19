@@ -1,12 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Gavel, Hand, X, CheckCircle, ChevronRight } from 'lucide-react';
 import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '../utils/idGenerators';
 import { MotionCard } from '../components/MotionCard';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
+import { NominationsPanel } from '../components/NominationsPanel';
+import { ElectionPanel } from '../components/ElectionPanel';
+import { InquiryPanel } from '../components/InquiryPanel';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { getChairScript } from '../utils/chairScriptHelper';
+import { DISPLAYABLE_STAGES, isLastActiveStage } from '../constants/meetingStages';
 import type { ChairViewProps, VotingMethod } from '../types';
 
 export function ChairView({ state, dispatch }: ChairViewProps) {
@@ -44,6 +48,41 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   // Get chair member
   const chair = state.members.find(m => m.role === 'chair');
 
+  // Memoize objection alert data to avoid IIFE in render
+  const recentObjection = useMemo(() => {
+    const lastLog = state.meetingLog[state.meetingLog.length - 1];
+    if (lastLog && lastLog.message.includes('objects')) {
+      return lastLog;
+    }
+    return null;
+  }, [state.meetingLog]);
+
+  // Memoize voting panel computed values to avoid IIFE in render
+  const votingData = useMemo(() => {
+    if (!state.votingOpen) return null;
+
+    const chairHasVoted = chair && state.voters.includes(chair.id);
+    const { yea, nay } = state.votes;
+    const total = yea + nay;
+    const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
+    const currentlyPassing = yea > threshold;
+    const isTied = yea === nay;
+
+    // Chair can vote to break tie or create tie
+    const canVoteToBreakTie = isTied && !chairHasVoted;
+    const canVoteToCreateTie = !isTied && yea === nay + 1 && !chairHasVoted;
+
+    return {
+      chairHasVoted,
+      yea,
+      nay,
+      currentlyPassing,
+      isTied,
+      canVoteToBreakTie,
+      canVoteToCreateTie
+    };
+  }, [state.votingOpen, state.voters, state.votes, state.currentMotion?.vote, chair]);
+
   return (
     <div className="space-y-4">
       <ActiveSuspensionsBanner state={state} currentUser={chair} dispatch={dispatch} />
@@ -77,15 +116,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-3 text-gray-800">Order of Business</h3>
           <div className="space-y-2">
-            {[
-              { stage: 'call-to-order', label: 'Call to Order', icon: '🔔' },
-              { stage: 'minutes-approval', label: 'Approval of Minutes', icon: '📝' },
-              { stage: 'reports', label: 'Reports', icon: '📊' },
-              { stage: 'special-orders', label: 'Special Orders', icon: '⭐' },
-              { stage: 'unfinished-business', label: 'Unfinished Business', icon: '📋' },
-              { stage: 'new-business', label: 'New Business', icon: '✨' },
-              { stage: 'announcements', label: 'Announcements', icon: '📢' },
-            ].map((item) => (
+            {DISPLAYABLE_STAGES.map((item) => (
               <div
                 key={item.stage}
                 className={`flex items-center justify-between p-2 rounded ${
@@ -107,7 +138,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <button
             onClick={() => dispatch({ type: 'ADVANCE_MEETING_STAGE', timestamp: generateTimestamp() })}
             className="w-full mt-3 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-medium"
-            disabled={state.meetingStage === 'announcements'}
+            disabled={isLastActiveStage(state.meetingStage)}
           >
             Proceed to Next Stage
           </button>
@@ -261,21 +292,28 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <h3 className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
 
           {/* Show objection alert if recent log entry indicates objection */}
-          {(() => {
-            const lastLog = state.meetingLog[state.meetingLog.length - 1];
-            if (lastLog && lastLog.message.includes('objects')) {
-              return (
-                <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
-                  <p className="text-amber-800 font-semibold mb-1">⚠️ Objection Raised</p>
-                  <p className="text-amber-700 text-sm">{lastLog.message}</p>
-                  <p className="text-amber-600 text-xs mt-2">Motion requires debate and/or formal vote.</p>
-                </div>
-              );
-            }
-            return null;
-          })()}
+          {recentObjection && (
+            <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg">
+              <p className="text-amber-800 font-semibold mb-1">⚠️ Objection Raised</p>
+              <p className="text-amber-700 text-sm">{recentObjection.message}</p>
+              <p className="text-amber-600 text-xs mt-2">Motion requires debate and/or formal vote.</p>
+            </div>
+          )}
 
           <MotionCard motion={state.currentMotion}/>
+
+          {/* Special notice for Appeal */}
+          {state.currentMotion.type === 'appeal' && state.lastChairRuling && (
+            <div className="mt-3 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
+              <p className="text-purple-800 font-semibold mb-2">⚖️ Appeal of Chair's Ruling</p>
+              <p className="text-purple-700 text-sm mb-1">
+                <strong>Ruling being appealed:</strong> "{state.lastChairRuling.ruling}"
+              </p>
+              <p className="text-purple-600 text-xs">
+                Vote YEA to sustain the chair's decision, NAY to overturn it. Majority sustains.
+              </p>
+            </div>
+          )}
 
           {/* Motions with vote: 'none' don't require voting - chair makes a ruling */}
           {state.currentMotion.vote === 'none' ? (
@@ -287,7 +325,6 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
                   {state.currentMotion.type === 'questionPrivilege' && 'Determine if this is a legitimate question of privilege.'}
                   {state.currentMotion.type === 'pointInfo' && 'Provide or allow response to the inquiry.'}
                   {state.currentMotion.type === 'withdrawMotion' && 'Allow or deny the request to withdraw.'}
-                  {state.currentMotion.type === 'division' && 'A member has called for division - take a counted vote.'}
                 </p>
               </div>
 
@@ -331,15 +368,6 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
                 >
                   Acknowledge & Respond
-                </button>
-              )}
-
-              {state.currentMotion.type === 'division' && (
-                <button
-                  onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', explanation: 'Division called - conducting counted vote', timestamp: generateTimestamp() })}
-                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700"
-                >
-                  Take Counted Vote
                 </button>
               )}
             </div>
@@ -403,82 +431,68 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         </div>
       )}
 
-      {state.votingOpen && (() => {
-        const chair = state.members.find(m => m.role === 'chair');
-        const chairHasVoted = chair && state.voters.includes(chair.id);
-        const { yea, nay } = state.votes;
-        const total = yea + nay;
-        const threshold = state.currentMotion?.vote === "2/3" ? total * 2/3 : total / 2;
-        const currentlyPassing = yea > threshold;
-        const isTied = yea === nay;
+      {state.votingOpen && votingData && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
+          {state.voteTimerEnd && (
+            <div className="mb-3">
+              <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
+            </div>
+          )}
 
-        // Chair can vote to break tie or create tie
-        const canVoteToBreakTie = isTied && !chairHasVoted;
-        const canVoteToCreateTie = !isTied && yea === nay + 1 && !chairHasVoted; // One vote ahead, chair can tie it
+          {/* Vote counts - hidden for secret ballots until closed */}
+          {state.votingMethod === 'ballot' ? (
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center">
+              <p className="text-gray-600 mb-2">🔒 Secret Ballot in Progress</p>
+              <p className="text-2xl font-bold text-gray-700">{state.voters.length}</p>
+              <p className="text-gray-500 text-sm">votes cast</p>
+              <p className="text-gray-400 text-xs mt-1">Results hidden until voting closes</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{votingData.yea}</p><p className="text-green-600">Yea</p></div>
+              <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{votingData.nay}</p><p className="text-red-600">Nay</p></div>
+              <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
+            </div>
+          )}
 
-        return (
-          <div className="bg-white rounded-lg p-4 shadow">
-            <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
-            {state.voteTimerEnd && (
-              <div className="mb-3">
-                <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
-              </div>
-            )}
-
-            {/* Vote counts - hidden for secret ballots until closed */}
-            {state.votingMethod === 'ballot' ? (
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center">
-                <p className="text-gray-600 mb-2">🔒 Secret Ballot in Progress</p>
-                <p className="text-2xl font-bold text-gray-700">{state.voters.length}</p>
-                <p className="text-gray-500 text-sm">votes cast</p>
-                <p className="text-gray-400 text-xs mt-1">Results hidden until voting closes</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="bg-green-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-green-700">{yea}</p><p className="text-green-600">Yea</p></div>
-                <div className="bg-red-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-red-700">{nay}</p><p className="text-red-600">Nay</p></div>
-                <div className="bg-gray-100 p-4 rounded-lg text-center"><p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p><p className="text-gray-600">Abstain</p></div>
-              </div>
-            )}
-
-            {/* Chair voting rules */}
-            {state.votingMethod !== 'ballot' && !chairHasVoted && (canVoteToBreakTie || canVoteToCreateTie) && chair && (
-              <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-purple-800 font-medium mb-2">
-                  {canVoteToBreakTie && "Chair may vote to break the tie"}
-                  {canVoteToCreateTie && "Chair may vote to create a tie (defeat motion)"}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: chair.id, isChairDecidingVote: true })}
-                    className="bg-green-500 text-white py-2 rounded-lg font-medium"
-                  >
-                    Vote Yea
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: chair.id, isChairDecidingVote: true })}
-                    className="bg-red-500 text-white py-2 rounded-lg font-medium"
-                  >
-                    Vote Nay
-                  </button>
-                </div>
-              </div>
-            )}
-            {state.votingMethod === 'ballot' && !chairHasVoted && chair && (
-              <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
-                🔒 Secret Ballot - Chair votes like other members
+          {/* Chair voting rules */}
+          {state.votingMethod !== 'ballot' && !votingData.chairHasVoted && (votingData.canVoteToBreakTie || votingData.canVoteToCreateTie) && chair && (
+            <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <p className="text-purple-800 font-medium mb-2">
+                {votingData.canVoteToBreakTie && "Chair may vote to break the tie"}
+                {votingData.canVoteToCreateTie && "Chair may vote to create a tie (defeat motion)"}
               </p>
-            )}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: chair.id, isChairDecidingVote: true })}
+                  className="bg-green-500 text-white py-2 rounded-lg font-medium"
+                >
+                  Vote Yea
+                </button>
+                <button
+                  onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: chair.id, isChairDecidingVote: true })}
+                  className="bg-red-500 text-white py-2 rounded-lg font-medium"
+                >
+                  Vote Nay
+                </button>
+              </div>
+            </div>
+          )}
+          {state.votingMethod === 'ballot' && !votingData.chairHasVoted && chair && (
+            <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+              🔒 Secret Ballot - Chair votes like other members
+            </p>
+          )}
 
-            <button
-              onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
-            >
-              Close & Announce
-            </button>
-          </div>
-        );
-      })()}
+          <button
+            onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
+            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
+          >
+            Close & Announce
+          </button>
+        </div>
+      )}
 
       {state.agendaAdopted && state.currentAgendaItem && !state.currentMotion && !state.pendingSecond && (
         <div className="bg-white rounded-lg p-4 shadow">
@@ -569,6 +583,34 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           </ul>
         )}
       </div>
+
+      {/* Nominations and Elections */}
+      {(state.nominationsOpen || state.currentElection || state.currentNominationPosition || state.electedOfficers.length > 0) && (
+        <>
+          <NominationsPanel
+            state={state}
+            dispatch={dispatch}
+            currentUser={state.members.find(m => m.role === 'chair')!}
+            isChair={true}
+          />
+          {(state.currentElection || (!state.nominationsOpen && state.currentNominationPosition)) && (
+            <ElectionPanel
+              state={state}
+              dispatch={dispatch}
+              currentUser={state.members.find(m => m.role === 'chair')!}
+              isChair={true}
+            />
+          )}
+        </>
+      )}
+
+      {/* Inquiries Panel */}
+      <InquiryPanel
+        state={state}
+        dispatch={dispatch}
+        currentUser={state.members.find(m => m.role === 'chair')!}
+        isChair={true}
+      />
 
       {state.motionStack.length > 0 && (
         <div className="bg-white rounded-lg p-4 shadow">
