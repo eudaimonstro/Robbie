@@ -7,27 +7,14 @@ import type {
   DispatchActionPayload
 } from '@robbie/shared/types/socket';
 import type { MeetingState, MeetingAction } from '@robbie/shared/types';
-import { meetingReducer, initialState } from '@robbie/shared/reducer';
+import { meetingReducer } from '@robbie/shared/reducer';
 import { verifyToken } from '../auth/authController.js';
 import { checkPermission } from './permissionGuard.js';
 import { roomManager } from './roomManager.js';
+import { getStorage } from '../db/meetingStorage.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-
-// In-memory meeting storage for development
-interface MeetingRecord {
-  id: number;
-  code: string;
-  state: MeetingState;
-  stateVersion: number;
-}
-
-const meetings = new Map<string, MeetingRecord>();
-let nextMeetingId = 1;
-
-// In-memory participant roles
-const participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
 
 export function setupSocketHandlers(io: TypedServer) {
   io.on('connection', (socket: TypedSocket) => {
@@ -49,16 +36,17 @@ export function setupSocketHandlers(io: TypedServer) {
         }
 
         // Get or create meeting
-        const meeting = getOrCreateMeeting(data.meetingCode);
+        const storage = getStorage();
+        const meeting = await storage.getOrCreateMeeting(data.meetingCode);
 
         // Get user role (first user is chair, others are members)
-        const participantKey = `${data.meetingCode}:${decoded.userId}`;
-        let role = participantRoles.get(participantKey);
+        const odUserId = String(decoded.userId);
+        let role = await storage.getParticipantRole(data.meetingCode, odUserId);
         if (!role) {
           // First person to join becomes chair
           const existingMembers = roomManager.getMembers(data.meetingCode);
           role = existingMembers.length === 0 ? 'chair' : 'member';
-          participantRoles.set(participantKey, role);
+          await storage.setParticipantRole(data.meetingCode, odUserId, role);
         }
 
         // Store socket data
@@ -132,7 +120,7 @@ export function setupSocketHandlers(io: TypedServer) {
         const enrichedAction = enrichAction(data.action, socket.data);
 
         // Apply action
-        const result = applyAction(socket.data.meetingCode, enrichedAction);
+        const result = await applyAction(socket.data.meetingCode, enrichedAction);
         if (!result.success) {
           callback({
             success: false,
@@ -171,7 +159,8 @@ export function setupSocketHandlers(io: TypedServer) {
           return;
         }
 
-        const meeting = meetings.get(socket.data.meetingCode);
+        const storage = getStorage();
+        const meeting = await storage.getMeeting(socket.data.meetingCode);
         if (!meeting) {
           callback({ success: false, error: 'Meeting not found' });
           return;
@@ -286,26 +275,12 @@ function enrichAction(action: MeetingAction, socketData: SocketData): MeetingAct
   return enriched as MeetingAction;
 }
 
-function getOrCreateMeeting(code: string): MeetingRecord {
-  let meeting = meetings.get(code);
-  if (!meeting) {
-    meeting = {
-      id: nextMeetingId++,
-      code,
-      state: { ...initialState, meetingCode: code },
-      stateVersion: 1
-    };
-    meetings.set(code, meeting);
-    console.log(`Created new meeting: ${code}`);
-  }
-  return meeting;
-}
-
-function applyAction(
+async function applyAction(
   meetingCode: string,
   action: MeetingAction
-): { success: boolean; state?: MeetingState; stateVersion?: number; error?: string } {
-  const meeting = meetings.get(meetingCode);
+): Promise<{ success: boolean; state?: MeetingState; stateVersion?: number; error?: string }> {
+  const storage = getStorage();
+  const meeting = await storage.getMeeting(meetingCode);
   if (!meeting) {
     return { success: false, error: 'Meeting not found' };
   }
@@ -313,10 +288,12 @@ function applyAction(
   try {
     // Apply the reducer
     const newState = meetingReducer(meeting.state, action);
-    meeting.state = newState;
-    meeting.stateVersion++;
+    const newVersion = meeting.stateVersion + 1;
 
-    return { success: true, state: newState, stateVersion: meeting.stateVersion };
+    // Persist the new state
+    await storage.updateMeetingState(meetingCode, newState, newVersion);
+
+    return { success: true, state: newState, stateVersion: newVersion };
   } catch (error) {
     console.error('Error applying action:', error);
     return { success: false, error: 'Failed to apply action' };

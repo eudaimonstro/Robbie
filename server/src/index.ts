@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@robbie/shared/types/socket';
 import { authRouter } from './auth/authController.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
+import { initializeStorage, getStorage } from './db/meetingStorage.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -37,17 +38,35 @@ app.use('/api/auth', authRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'healthy', mode: 'in-memory' });
+  try {
+    const storage = getStorage();
+    res.json({ status: 'healthy', mode: storage.mode });
+  } catch {
+    res.json({ status: 'healthy', mode: 'initializing' });
+  }
 });
 
-// Setup Socket.io handlers
-setupSocketHandlers(io);
+// Initialize storage and start server
+async function start() {
+  try {
+    await initializeStorage();
+    const storage = getStorage();
 
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Mode: in-memory (no database required)`);
-});
+    // Setup Socket.io handlers
+    setupSocketHandlers(io);
+
+    // Start server
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Storage mode: ${storage.mode}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+start();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
