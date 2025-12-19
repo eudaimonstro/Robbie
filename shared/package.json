@@ -1,0 +1,22 @@
+{
+  "name": "@robbie/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./types": "./dist/types/index.js",
+    "./types/socket": "./dist/types/socket.js",
+    "./reducer": "./dist/reducer/index.js",
+    "./constants": "./dist/constants/index.js",
+    "./utils": "./dist/utils/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}
