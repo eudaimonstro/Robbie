@@ -129,18 +129,18 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ❌ **Creating orders**: Fix time to adjourn creates a general/special order
 
 #### Meeting Structure
-- ❌ **Standard order of business**: Call to order, reading minutes, reports, unfinished business, new business
-- ❌ **Minutes**: Recording, reading, approval process
-- ❌ **Committee reports**: Proper handling and adoption
-- ❌ **Nominations and elections**: Complete election procedure
+- ✅ **Standard order of business**: Call to order, reading minutes, reports, unfinished business, new business
+- ✅ **Minutes**: Recording, reading, approval process
+- ✅ **Committee reports**: Proper handling and adoption
+- ✅ **Nominations and elections**: Complete election procedure with majority/plurality/2-3 voting options
 - ❌ **Special meetings**: Different rules than regular meetings
 
 #### Advanced Features
 - ❌ **Executive session**: Closed meetings for confidential matters
 - ✅ **Suspend rules**: Full implementation with 10 suspendable rules, enforcement, and lifecycle management
-- ❌ **Appeal rulings**: Chair decision appeal process
-- ❌ **Parliamentary inquiry**: Question to chair about procedure
-- ❌ **Request for information**: Question to speaker or chair
+- ✅ **Appeal rulings**: Chair decision appeal process with proper voting (yea sustains, nay overturns)
+- ✅ **Parliamentary inquiry**: Question to chair about procedure (via InquiryPanel)
+- ✅ **Request for information**: Question to speaker or chair (via InquiryPanel)
 
 ### 🔍 Rules Requiring Research/Verification
 
@@ -171,12 +171,12 @@ The following need to be checked against official Robert's Rules:
 4. ✅ Add committee report handling
 5. ✅ Improve debate speaker alternation (pro/con)
 
-### Phase 3: Advanced Features (Low Priority)
-1. Add nominations and elections procedures
-2. Implement executive session handling
-3. Add parliamentary inquiry functionality
-4. Implement divide question procedure
-5. Add fill blanks procedure for amendments
+### Phase 3: Advanced Features (Low Priority) ✅ 60% COMPLETE
+1. ✅ Add nominations and elections procedures (NominationsPanel, ElectionPanel)
+2. ❌ Implement executive session handling
+3. ✅ Add parliamentary inquiry functionality (InquiryPanel)
+4. ❌ Implement divide question procedure
+5. ❌ Add fill blanks procedure for amendments
 
 ### Phase 4: Polish & Accuracy (Ongoing)
 1. Verify all motion rules against RONR
@@ -212,11 +212,41 @@ The following need to be checked against official Robert's Rules:
 ### Current Structure
 ```
 src/
-├── components/       # UI components (CountdownTimer, MotionCard, etc.)
+├── components/       # Reusable UI components
+│   ├── ActiveSuspensionsBanner.tsx
+│   ├── AgendaAmendmentForm.tsx
+│   ├── CountdownTimer.tsx
+│   ├── DraggableAgendaList.tsx
+│   ├── ElectionPanel.tsx
+│   ├── HelpTooltip.tsx
+│   ├── InquiryPanel.tsx
+│   ├── MotionCard.tsx
+│   ├── NominationsPanel.tsx
+│   ├── ReconsiderForm.tsx
+│   ├── SuspendRulesForm.tsx
+│   └── TakeFromTableForm.tsx
 ├── constants/        # Motion definitions and categories
-├── reducer/          # State management (meetingReducer)
-├── utils/           # Helper functions (getValidMotions)
-└── App.tsx          # Main app with view components
+│   └── motions.ts
+├── hooks/           # Custom React hooks
+│   ├── useQuorumStatus.ts
+│   ├── useSortedSpeakerQueue.ts
+│   └── useVoteResults.ts
+├── reducer/          # State management
+│   ├── initialState.ts
+│   └── meetingReducer.ts
+├── types/           # TypeScript definitions
+│   └── index.ts
+├── utils/           # Helper functions
+│   ├── chairScriptHelper.ts
+│   ├── idGenerators.ts
+│   ├── motionHelpers.ts
+│   ├── motionOutcomeHelper.ts
+│   └── ruleSuspensionHelper.ts
+├── views/           # View components
+│   ├── AdminView.tsx
+│   ├── ChairView.tsx
+│   └── ParticipantView.tsx
+└── App.tsx          # Main application entry
 ```
 
 ### Suggested Improvements
@@ -258,10 +288,33 @@ When implementing new features:
 ---
 
 **Last Updated**: 2025-12-16
-**Version**: 0.7.0 (Rule Suspension System: ✅ COMPLETE - Phases 1-5 Implemented)
+**Version**: 0.8.0 (Phase 3 Advanced Features: 60% Complete)
 **Contributors**: Claude Code Agent
 
 ## Recent Session Updates (2025-12-16)
+
+### Phase 3 Completed Features (NEW)
+1. ✅ **Nominations and Elections** - Complete RONR-compliant election procedure
+   - NominationsPanel: Open nominations, nominate candidates, decline nominations
+   - ElectionPanel: Majority/plurality/2-3 vote options, ballot casting, winner declaration
+   - Per RONR, nominations do not require a second
+   - Tracks elected officers and election history
+2. ✅ **Parliamentary Inquiry** - Question to chair about procedure (InquiryPanel)
+   - Members can ask procedural questions
+   - Chair provides inline answers
+   - Recorded in meeting log
+3. ✅ **Request for Information** - Question about facts relevant to business (InquiryPanel)
+   - Members can request factual clarification
+   - Both inquiry types can interrupt pending business
+   - Neither requires a second
+4. ✅ **Objection to Consideration** - Block inappropriate main motions
+   - Only available before debate begins on main motion
+   - Requires 2/3 vote to sustain objection
+   - Kills motion immediately if sustained
+5. ✅ **Reconsider Motion** - Bring back completed motions for new vote
+   - Only available to voters on prevailing side (RONR compliant)
+   - Tracks vote history via CompletedMotion interface
+   - Motion can only be reconsidered once
 
 ### Phase 1 Completed Features
 1. ✅ **Agenda Item Voting** - Chair can put agenda items to vote or mark complete without vote
@@ -288,11 +341,14 @@ When implementing new features:
 ### Compliance Status
 - **Phase 1** (Critical Fixes): ✅ 5/5 complete (100%) - PHASE COMPLETE!
 - **Phase 2** (Core Completeness): ✅ 5/5 complete (100%) - PHASE COMPLETE!
-- **Robert's Rules Core Features**: Significantly improved
+- **Phase 3** (Advanced Features): ✅ 3/5 complete (60%) - IN PROGRESS
+- **Robert's Rules Core Features**: Comprehensive coverage
 - **Voting Compliance**: Fully compliant with RONR
 - **Parliamentary Procedure**: Core workflow complete and compliant
 - **Meeting Structure**: Follows standard order of business with full debate alternation
 - **Debate Management**: Fully compliant with pro/con speaker alternation rules
+- **Elections**: Complete nomination and election workflow with multiple vote thresholds
+- **Inquiries**: Parliamentary inquiry and request for information fully supported
 
 ---
 

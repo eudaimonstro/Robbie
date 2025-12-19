@@ -10,6 +10,9 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): {
   agendaObjection: boolean;
   agenda: AgendaItem[];
   newSuspension: RuleSuspension | null;
+  restoredMotion: typeof state.tabledMotions[0] | null;
+  objectionKilledMotion: typeof state.tabledMotions[0] | null;
+  reconsideredMotionId: number | null;
 } {
   const newStack = state.motionStack.slice(0, -1);
   let tabledMotions = state.tabledMotions;
@@ -17,6 +20,9 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): {
   let agendaObjection = state.agendaObjection;
   let agenda = state.agenda;
   let newSuspension: RuleSuspension | null = null;
+  let restoredMotion: typeof state.tabledMotions[0] | null = null;
+  let objectionKilledMotion: typeof state.tabledMotions[0] | null = null;
+  let reconsideredMotionId: number | null = null;
 
   // Handle table motion
   if (state.currentMotion?.type === 'layOnTable') {
@@ -83,5 +89,34 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): {
     };
   }
 
-  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension };
+  // Handle take from table
+  if (state.currentMotion?.type === 'takeFromTable' && state.currentMotion?.tabledMotionId) {
+    const motionId = state.currentMotion.tabledMotionId;
+    const motion = tabledMotions.find(m => m.id === motionId);
+
+    if (motion) {
+      // Remove from tabled motions
+      tabledMotions = tabledMotions.filter(m => m.id !== motionId);
+      // Restore the motion (will be added to stack by reducer)
+      restoredMotion = { ...motion, status: 'active' as const };
+    }
+  }
+
+  // Handle objection to consideration
+  // When objection is sustained (2/3 vote passes), it kills the main motion
+  if (state.currentMotion?.type === 'objectionConsideration') {
+    const mainMotion = newStack.find(m => m.category === 'main');
+    if (mainMotion) {
+      objectionKilledMotion = mainMotion;
+    }
+  }
+
+  // Handle reconsider
+  // When reconsider passes, restore the motion for a new vote
+  if (state.currentMotion?.type === 'reconsider' && state.currentMotion?.reconsideredMotionId) {
+    reconsideredMotionId = state.currentMotion.reconsideredMotionId;
+    // The motion will be restored by the reducer (using completedMotions data)
+  }
+
+  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension, restoredMotion, objectionKilledMotion, reconsideredMotionId };
 }

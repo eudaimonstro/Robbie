@@ -1,10 +1,11 @@
-import React, { useState, useReducer } from 'react';
+import { useState, useReducer } from 'react';
 import { Users, Gavel, Settings, AlertCircle } from 'lucide-react';
 import { initialState } from './reducer/initialState';
 import { meetingReducer } from './reducer/meetingReducer';
 import { ParticipantView } from './views/ParticipantView';
 import { ChairView } from './views/ChairView';
 import { AdminView } from './views/AdminView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [state, dispatch] = useReducer(meetingReducer, initialState);
@@ -32,30 +33,40 @@ export default function App() {
       </header>
 
       <div className="p-4 max-w-lg mx-auto">
-        <div className="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow">
+        <nav
+          className="flex gap-1 mb-4 bg-white rounded-xl p-1 shadow"
+          role="tablist"
+          aria-label="Meeting view selection"
+        >
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setView(tab.id)}
+              role="tab"
+              aria-selected={view === tab.id}
+              aria-controls={`${tab.id}-panel`}
+              id={`${tab.id}-tab`}
               className={`flex-1 py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
                 view === tab.id
                   ? 'bg-indigo-600 text-white shadow'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <tab.icon size={18}/>
+              <tab.icon size={18} aria-hidden="true" />
               {tab.label}
             </button>
           ))}
-        </div>
+        </nav>
 
         {view === "participant" && (
           <div className="mb-4 bg-white rounded-lg p-3 shadow flex items-center gap-3">
-            <span className="text-gray-600">Acting as:</span>
+            <label htmlFor="member-select" className="text-gray-600">Acting as:</label>
             <select
+              id="member-select"
               value={currentUser.id}
               onChange={(e) => setCurrentUser(state.members.find(m => m.id === parseInt(e.target.value))!)}
               className="flex-1 p-2 border rounded-lg bg-white"
+              aria-label="Select which member you are acting as"
             >
               {state.members.filter(m => m.role === 'member').map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
@@ -65,16 +76,22 @@ export default function App() {
         )}
 
         {!state.meetingActive && view !== "chair" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-center">
-            <AlertCircle size={24} className="mx-auto mb-2 text-amber-500"/>
+          <div
+            className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-center"
+            role="status"
+            aria-live="polite"
+          >
+            <AlertCircle size={24} className="mx-auto mb-2 text-amber-500" aria-hidden="true" />
             <p className="text-amber-800 font-medium">Meeting not started</p>
             <p className="text-amber-600 text-sm">Waiting for Chair</p>
           </div>
         )}
 
-        {view === "participant" && <ParticipantView state={state} dispatch={dispatch} currentUser={currentUser}/>}
-        {view === "chair" && <ChairView state={state} dispatch={dispatch}/>}
-        {view === "admin" && <AdminView state={state} dispatch={dispatch}/>}
+        <ErrorBoundary>
+          {view === "participant" && <ParticipantView state={state} dispatch={dispatch} currentUser={currentUser}/>}
+          {view === "chair" && <ChairView state={state} dispatch={dispatch}/>}
+          {view === "admin" && <AdminView state={state} dispatch={dispatch}/>}
+        </ErrorBoundary>
       </div>
     </div>
   );

@@ -91,6 +91,14 @@ export function getChairScript(state: MeetingState): ChairScript | null {
     const recentObjection = lastLog && lastLog.message.includes('objects');
     const debateRulesSuspended = isRuleSuspended(state, 'debate-rules');
 
+    // Special handling for Appeal
+    if (state.currentMotion.type === 'appeal' && state.lastChairRuling) {
+      return {
+        text: '"The chair will entertain debate on the appeal. The chair may speak first to explain the ruling."',
+        note: `Appealing: "${state.lastChairRuling.ruling}" - Vote Yea to sustain chair, Nay to overturn.`
+      };
+    }
+
     if (recentObjection) {
       return {
         text: '"An objection has been raised. The motion is now open for debate."',

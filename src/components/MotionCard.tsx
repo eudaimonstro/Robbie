@@ -13,7 +13,10 @@ export const MotionCard = React.memo(function MotionCard({ motion, showHelp = tr
   };
 
   return (
-    <div className={`p-3 rounded-lg border ${colors[cat.color]?.split(' ').slice(0,2).join(' ')}`}>
+    <article
+      className={`p-3 rounded-lg border ${colors[cat.color]?.split(' ').slice(0,2).join(' ')}`}
+      aria-label={`${motion.name} motion: ${motion.text}`}
+    >
       <div className="flex items-center gap-2 mb-1">
         <span className={`font-medium ${colors[cat.color]?.split(' ')[2]}`}>{motion.name}</span>
         {showHelp && <HelpTooltip motion={motion}/>}
@@ -29,6 +32,6 @@ export const MotionCard = React.memo(function MotionCard({ motion, showHelp = tr
       <p className="text-sm text-gray-500 mt-1">
         Moved by {motion.mover}{motion.secondedBy && `, seconded by ${motion.secondedBy}`}
       </p>
-    </div>
+    </article>
   );
 });

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Users, Settings, Timer } from 'lucide-react';
 import { generateId } from '../utils/idGenerators';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
+import { NominationsPanel } from '../components/NominationsPanel';
+import { ElectionPanel } from '../components/ElectionPanel';
+import { InquiryPanel } from '../components/InquiryPanel';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 import type { AdminViewProps } from '../types';
 
@@ -100,6 +103,55 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         )}
         {state.agendaAdopted && <p className="text-xs text-gray-500 mt-3">Adopted. Changes require a motion.</p>}
       </div>
+
+      {state.tabledMotions.length > 0 && (
+        <div className="bg-white rounded-lg p-4 shadow">
+          <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+            📋 Tabled Motions
+            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{state.tabledMotions.length}</span>
+          </h3>
+          <div className="space-y-2">
+            {state.tabledMotions.map((motion) => (
+              <div key={motion.id} className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="font-medium text-gray-900 text-sm">{motion.name}</p>
+                <p className="text-gray-700 text-xs mt-1">"{motion.text}"</p>
+                <p className="text-gray-500 text-xs mt-1">Moved by {motion.mover}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-3 italic">
+            Use "Take from Table" motion to restore any of these motions
+          </p>
+        </div>
+      )}
+
+      {/* Nominations and Elections */}
+      {(state.nominationsOpen || state.currentElection || state.currentNominationPosition || state.electedOfficers.length > 0) && (
+        <>
+          <NominationsPanel
+            state={state}
+            dispatch={dispatch}
+            currentUser={state.members.find(m => m.role === 'admin')!}
+            isChair={false}
+          />
+          {(state.currentElection || (!state.nominationsOpen && state.currentNominationPosition)) && (
+            <ElectionPanel
+              state={state}
+              dispatch={dispatch}
+              currentUser={state.members.find(m => m.role === 'admin')!}
+              isChair={false}
+            />
+          )}
+        </>
+      )}
+
+      {/* Inquiries Panel */}
+      <InquiryPanel
+        state={state}
+        dispatch={dispatch}
+        currentUser={state.members.find(m => m.role === 'admin')!}
+        isChair={false}
+      />
 
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 text-gray-800">Meeting Log</h3>

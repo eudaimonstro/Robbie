@@ -39,6 +39,7 @@ export const initialState: MeetingState = {
   currentAgendaItem: null,
   tabledMotions: [],
   defeatedMotions: [],
+  completedMotions: [],
   committeeReports: [
     {
       id: 1,
@@ -60,4 +61,11 @@ export const initialState: MeetingState = {
   minutesFromPreviousMeeting: "Meeting minutes from previous session:\n\n1. Meeting called to order at 7:00 PM\n2. Quorum established (5 members present)\n3. Budget proposal for Q4 approved unanimously\n4. New committee formed for community outreach\n5. Meeting adjourned at 8:30 PM",
   minutesApproved: false,
   suspendedRules: [],
+  lastChairRuling: null,
+  nominations: [],
+  nominationsOpen: false,
+  currentNominationPosition: null,
+  currentElection: null,
+  electedOfficers: [],
+  inquiries: [],
 };
