@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { sendVerificationEmail } from './emailService.js';
+import { sendVerificationEmail, getLastCode } from './emailService.js';
 
 export const authRouter = Router();
 
@@ -122,6 +122,16 @@ authRouter.post('/verify', async (req, res) => {
   } catch (error) {
     console.error('Error verifying code:', error);
     res.status(500).json({ error: 'Failed to verify code' });
+  }
+});
+
+// DEV ONLY: Get last verification code (for testing without email)
+authRouter.get('/dev-code', (_req, res) => {
+  const code = getLastCode();
+  if (code) {
+    res.json({ code });
+  } else {
+    res.status(404).json({ error: 'No code generated yet' });
   }
 });
 

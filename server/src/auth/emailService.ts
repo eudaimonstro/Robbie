@@ -9,11 +9,21 @@
  * - etc.
  */
 
+// For testing: returns the code so it can be used for dev bypass
+let lastGeneratedCode: string | null = null;
+
+export function getLastCode(): string | null {
+  return lastGeneratedCode;
+}
+
 export async function sendVerificationEmail(
   email: string,
   code: string,
   meetingCode: string
 ): Promise<void> {
+  // Store code for dev testing endpoint
+  lastGeneratedCode = code;
+
   // TODO: Replace with actual email sending logic
   console.log(`
     ========================================
