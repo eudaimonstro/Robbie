@@ -1,9 +1,9 @@
 [build]
 builder = "RAILPACK"
-buildCommand = "cd /../shared && npm install && npm run build && cd /../server && npm install && npm run build"
+buildCommand = "cd /shared && npm install && npm run build && cd /server && npm install && npm run build"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "cd server && npm start"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
