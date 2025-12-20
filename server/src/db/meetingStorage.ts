@@ -143,6 +143,8 @@ class InMemoryStorage implements StorageProvider {
 // PostgreSQL implementation
 class PostgresStorage implements StorageProvider {
   mode: 'postgresql' = 'postgresql';
+  // Use in-memory for participant roles since users table isn't populated yet
+  private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
 
   async initialize(): Promise<void> {
     console.log('Initializing PostgreSQL storage...');
@@ -208,44 +210,15 @@ class PostgresStorage implements StorageProvider {
   }
 
   async getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null> {
-    // Note: odUserId is an on-demand generated ID, not from users table
-    // We'll store it in a separate runtime map for now since the schema uses user_id references
-    // For full integration, we'd need to modify the schema or add a lookup table
-    const result = await pool.query(
-      `SELECT mp.role FROM meeting_participants mp
-       JOIN meetings m ON mp.meeting_id = m.id
-       WHERE m.code = $1 AND mp.user_id = $2`,
-      [meetingCode, parseInt(odUserId) || 0]
-    );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return result.rows[0].role;
+    // Use in-memory storage for roles (users table not populated yet)
+    const key = `${meetingCode}:${odUserId}`;
+    return this.participantRoles.get(key) || null;
   }
 
   async setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void> {
-    // Get meeting id
-    const meetingResult = await pool.query(
-      `SELECT id FROM meetings WHERE code = $1`,
-      [meetingCode]
-    );
-
-    if (meetingResult.rows.length === 0) {
-      return;
-    }
-
-    const meetingId = meetingResult.rows[0].id;
-    const userId = parseInt(odUserId) || 0;
-
-    // Upsert participant role
-    await pool.query(
-      `INSERT INTO meeting_participants (meeting_id, user_id, role)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (meeting_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-      [meetingId, userId, role]
-    );
+    // Use in-memory storage for roles (users table not populated yet)
+    const key = `${meetingCode}:${odUserId}`;
+    this.participantRoles.set(key, role);
   }
 }
 
