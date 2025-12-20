@@ -82,8 +82,9 @@ export function setupSocketHandlers(io: TypedServer) {
         });
 
       } catch (error) {
-        console.error('Error joining meeting:', error);
-        callback({ success: false, error: 'Failed to join meeting' });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Error joining meeting:', errorMessage, error);
+        callback({ success: false, error: `Failed to join meeting: ${errorMessage}` });
       }
     });
 
