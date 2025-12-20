@@ -771,6 +771,39 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       };
     }
 
+    case 'SET_MEMBER_ROLE': {
+      const targetMember = state.members.find(m => m.id === action.targetMemberId);
+      if (!targetMember) return state;
+
+      // Update the target member's role and demote previous chair if needed
+      const updatedMembers = state.members.map(member => {
+        if (member.id === action.targetMemberId) {
+          return { ...member, role: action.newRole };
+        }
+        // If assigning a new chair, demote the previous chair to member
+        if (action.newRole === 'chair' && action.previousChairId && member.id === action.previousChairId) {
+          return { ...member, role: 'member' as const };
+        }
+        return member;
+      });
+
+      // Build appropriate log message
+      const previousChair = action.previousChairId
+        ? state.members.find(m => m.id === action.previousChairId)
+        : null;
+
+      let logMessage = `${targetMember.name} is now ${action.newRole}.`;
+      if (action.newRole === 'chair' && previousChair) {
+        logMessage = `${targetMember.name} is now chair. ${previousChair.name} is now a member.`;
+      }
+
+      return {
+        ...state,
+        members: updatedMembers,
+        meetingLog: log(action.timestamp, logMessage)
+      };
+    }
+
     default:
       return state;
   }

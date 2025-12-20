@@ -101,6 +101,42 @@ export function setupSocketHandlers(io: TypedServer) {
           return;
         }
 
+        // Special handling for SET_MEMBER_ROLE - additional restrictions beyond permission matrix
+        if (data.action.type === 'SET_MEMBER_ROLE') {
+          const roleAction = data.action as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: string };
+
+          // Chair can only transfer chair role (not assign admin or demote others)
+          if (socket.data.role === 'chair') {
+            if (roleAction.newRole !== 'chair') {
+              callback({
+                success: false,
+                error: 'Chair can only transfer the chair role, not assign other roles',
+                errorCode: 'PERMISSION_DENIED'
+              });
+              return;
+            }
+            // Chair cannot assign chair to themselves
+            if (roleAction.targetMemberId === socket.data.userId) {
+              callback({
+                success: false,
+                error: 'You are already the chair',
+                errorCode: 'INVALID_ACTION'
+              });
+              return;
+            }
+          }
+
+          // Only admins can assign admin role
+          if (socket.data.role !== 'admin' && roleAction.newRole === 'admin') {
+            callback({
+              success: false,
+              error: 'Only admins can assign the admin role',
+              errorCode: 'PERMISSION_DENIED'
+            });
+            return;
+          }
+        }
+
         // Check permission
         const permitted = checkPermission(socket.data.role, data.action.type);
         if (!permitted) {
@@ -118,7 +154,23 @@ export function setupSocketHandlers(io: TypedServer) {
         }
 
         // Enrich action with server-authoritative values
-        const enrichedAction = enrichAction(data.action, socket.data);
+        let enrichedAction = enrichAction(data.action, socket.data);
+
+        // Special enrichment for SET_MEMBER_ROLE - find current chair if assigning new chair
+        if (data.action.type === 'SET_MEMBER_ROLE') {
+          const roleAction = enrichedAction as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: string; previousChairId?: number };
+          if (roleAction.newRole === 'chair') {
+            const storage = getStorage();
+            const meeting = await storage.getMeeting(socket.data.meetingCode!);
+            if (meeting) {
+              const currentChair = meeting.state.members.find(m => m.role === 'chair');
+              if (currentChair && currentChair.id !== roleAction.targetMemberId) {
+                roleAction.previousChairId = currentChair.id;
+              }
+            }
+          }
+          enrichedAction = roleAction as MeetingAction;
+        }
 
         // Apply action
         const result = await applyAction(socket.data.meetingCode, enrichedAction);
@@ -129,6 +181,48 @@ export function setupSocketHandlers(io: TypedServer) {
             errorCode: 'INVALID_STATE'
           });
           return;
+        }
+
+        // Post-action: Update storage and sockets for role changes
+        if (data.action.type === 'SET_MEMBER_ROLE') {
+          const roleAction = enrichedAction as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number };
+          const storage = getStorage();
+
+          // Update target member's role in storage
+          await storage.setParticipantRole(
+            socket.data.meetingCode!,
+            String(roleAction.targetMemberId),
+            roleAction.newRole
+          );
+
+          // If there was a previous chair being demoted, update their role too
+          if (roleAction.previousChairId) {
+            await storage.setParticipantRole(
+              socket.data.meetingCode!,
+              String(roleAction.previousChairId),
+              'member'
+            );
+          }
+
+          // Update roomManager for connected members
+          roomManager.updateMemberRole(socket.data.meetingCode!, roleAction.targetMemberId, roleAction.newRole);
+          if (roleAction.previousChairId) {
+            roomManager.updateMemberRole(socket.data.meetingCode!, roleAction.previousChairId, 'member');
+          }
+
+          // Update socket.data.role for affected sockets
+          const roomName = `meeting:${socket.data.meetingCode}`;
+          const socketsInRoom = await io.in(roomName).fetchSockets();
+          for (const s of socketsInRoom) {
+            if (s.data.userId === roleAction.targetMemberId) {
+              s.data.role = roleAction.newRole;
+            }
+            if (roleAction.previousChairId && s.data.userId === roleAction.previousChairId) {
+              s.data.role = 'member';
+            }
+          }
+
+          console.log(`Role changed: ${roleAction.targetMemberId} is now ${roleAction.newRole}`);
         }
 
         // Broadcast new state to all clients in the room

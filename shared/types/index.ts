@@ -254,7 +254,8 @@ export type MeetingAction =
   | { type: 'CLOSE_ELECTION'; timestamp: string }
   | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
   | { type: 'ASK_INQUIRY'; inquiryType: InquiryType; question: string; askedBy: string; askerId: number; inquiryId: number; timestamp: string }
-  | { type: 'ANSWER_INQUIRY'; inquiryId: number; answer: string; answeredBy: string; timestamp: string };
+  | { type: 'ANSWER_INQUIRY'; inquiryId: number; answer: string; answeredBy: string; timestamp: string }
+  | { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

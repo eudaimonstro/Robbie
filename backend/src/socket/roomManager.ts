@@ -57,6 +57,17 @@ class RoomManager {
     }
     return false;
   }
+
+  updateMemberRole(meetingCode: string, memberId: number, newRole: Member['role']): void {
+    const room = this.rooms.get(meetingCode);
+    if (!room) return;
+
+    for (const [socketId, member] of room.entries()) {
+      if (member.id === memberId) {
+        room.set(socketId, { ...member, role: newRole });
+      }
+    }
+  }
 }
 
 export const roomManager = new RoomManager();

@@ -1155,6 +1155,87 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('SET_MEMBER_ROLE', () => {
+    it('should change member role to admin', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+          { id: 2, name: 'Regular Member', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'admin',
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('admin');
+      expect(state.meetingLog.some(l => l.message.includes('admin'))).toBe(true);
+    });
+
+    it('should transfer chair role and demote previous chair', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Old Chair', role: 'chair', present: true },
+          { id: 2, name: 'New Chair', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'chair',
+        previousChairId: 1,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('chair');
+      expect(state.members.find(m => m.id === 1)?.role).toBe('member');
+      expect(state.meetingLog.some(l => l.message.includes('New Chair is now chair'))).toBe(true);
+    });
+
+    it('should demote admin to member', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+          { id: 2, name: 'Admin Person', role: 'admin', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'member',
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('member');
+    });
+
+    it('should return state unchanged if target member not found', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 999,
+        newRole: 'admin',
+        timestamp: '10:30:00',
+      });
+
+      expect(state).toBe(stateWithMembers);
+    });
+  });
+
   describe('default case', () => {
     it('should return state unchanged for unknown action', () => {
       const state = meetingReducer(initialState, {

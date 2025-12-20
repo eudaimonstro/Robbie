@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Settings, Timer } from 'lucide-react';
 import { generateId } from '@eudaimonstro/robbie-shared/utils';
+import type { Member } from '@eudaimonstro/robbie-shared/types';
 import type { AdminViewProps } from '../types';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { NominationsPanel } from '../components/NominationsPanel';
@@ -12,9 +13,32 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
   const [newItem, setNewItem] = useState("");
   const [speakerTime, setSpeakerTime] = useState(state.speakerTimeLimit);
   const [voteTime, setVoteTime] = useState(state.voteTimeLimit);
+  const [roleChangeTarget, setRoleChangeTarget] = useState<Member | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'member' | 'chair' | 'admin'>('member');
 
   // Use custom hook for quorum status
   const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
+
+  // Find current chair for warning message
+  const currentChair = state.members.find(m => m.role === 'chair');
+
+  const handleRoleChange = () => {
+    if (!roleChangeTarget) return;
+
+    dispatch({
+      type: 'SET_MEMBER_ROLE',
+      targetMemberId: roleChangeTarget.id,
+      newRole: selectedRole,
+      timestamp: new Date().toLocaleTimeString()
+    });
+
+    setRoleChangeTarget(null);
+  };
+
+  const openRoleChangeModal = (member: Member) => {
+    setRoleChangeTarget(member);
+    setSelectedRole(member.role);
+  };
 
   return (
     <div className="space-y-4">
@@ -79,11 +103,62 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
           {state.members.map(m => (
             <li key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="font-medium">{m.name}</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${m.role === 'chair' ? 'bg-purple-100 text-purple-800' : m.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>{m.role}</span>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${m.role === 'chair' ? 'bg-purple-100 text-purple-800' : m.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>{m.role}</span>
+                <button
+                  onClick={() => openRoleChangeModal(m)}
+                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                >
+                  Change
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       </div>
+
+      {/* Role Change Modal */}
+      {roleChangeTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h4 className="font-semibold text-lg mb-4">Change Role for {roleChangeTarget.name}</h4>
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value as 'member' | 'chair' | 'admin')}
+              className="w-full p-2 border rounded-lg mb-4"
+            >
+              <option value="member">Member</option>
+              <option value="chair">Chair</option>
+              <option value="admin">Admin</option>
+            </select>
+            {selectedRole === 'chair' && roleChangeTarget.role !== 'chair' && currentChair && (
+              <p className="text-amber-600 text-sm mb-4 bg-amber-50 p-3 rounded-lg">
+                Note: {currentChair.name} (current chair) will be demoted to member.
+              </p>
+            )}
+            {selectedRole === roleChangeTarget.role && (
+              <p className="text-gray-500 text-sm mb-4">
+                No change - {roleChangeTarget.name} is already {roleChangeTarget.role}.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleRoleChange}
+                disabled={selectedRole === roleChangeTarget.role}
+                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setRoleChangeTarget(null)}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 text-gray-800">Agenda {!state.agendaAdopted && "(Pending)"}</h3>

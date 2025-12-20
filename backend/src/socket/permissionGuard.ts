@@ -41,6 +41,9 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   ADD_COMMITTEE_REPORT: ['admin', 'chair'],
   SET_VOTING_METHOD: ['admin', 'chair'],
 
+  // Role management (admin can assign any role, chair can only transfer chair role)
+  SET_MEMBER_ROLE: ['admin', 'chair'],
+
   // Member actions (all roles can perform)
   MAKE_MOTION: ['member', 'chair', 'admin'],
   SECOND_MOTION: ['member', 'chair', 'admin'],
