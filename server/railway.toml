@@ -1,6 +1,6 @@
 [build]
 builder = "RAILPACK"
-buildCommand = "cd ../shared && npm install && npm run build && cd ../server && npm install && npm run build"
+buildCommand = "cd /app/shared && npm install && npm run build && cd /app/server && npm install && npm run build"
 
 [deploy]
 startCommand = "npm start"

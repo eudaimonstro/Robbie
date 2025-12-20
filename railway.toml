@@ -2,5 +2,4 @@
 builder = "RAILPACK"
 buildCommand = "npm install && npm run build"
 
-[deploy]
-startCommand = "npx serve dist -s -l $PORT"
+# RailPack auto-serves Vite dist folder with Caddy - no startCommand needed
