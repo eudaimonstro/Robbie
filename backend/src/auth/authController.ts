@@ -1,12 +1,44 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { sendVerificationEmail, getLastCode } from './emailService.js';
 
 export const authRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+// Environment checks
+const isProduction = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  if (isProduction) {
+    console.error('FATAL: JWT_SECRET environment variable is required in production');
+    process.exit(1);
+  } else {
+    console.warn('WARNING: Using insecure default JWT_SECRET. Set JWT_SECRET env var for production.');
+  }
+}
+
+const jwtSecret = JWT_SECRET || 'dev-secret-change-in-production';
 const VERIFICATION_EXPIRY_MINUTES = 15;
+
+// Rate limiting for verification requests (prevent email spam)
+const requestVerificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window per IP
+  message: { error: 'Too many verification requests. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiting for verification attempts (prevent brute force)
+const verifyCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window per IP
+  message: { error: 'Too many verification attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // In-memory storage for development (when PostgreSQL is not available)
 interface VerificationRecord {
@@ -29,7 +61,7 @@ const users = new Map<string, UserRecord>();
 let nextUserId = 1;
 
 // Request email verification
-authRouter.post('/request-verification', async (req, res) => {
+authRouter.post('/request-verification', requestVerificationLimiter, async (req, res) => {
   try {
     const { email, name, meetingCode } = req.body;
 
@@ -63,7 +95,7 @@ authRouter.post('/request-verification', async (req, res) => {
 });
 
 // Verify email code and return JWT
-authRouter.post('/verify', async (req, res) => {
+authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
   try {
     const { email, code, meetingCode } = req.body;
 
@@ -106,7 +138,7 @@ authRouter.post('/verify', async (req, res) => {
         name: user.name,
         meetingCode
       },
-      JWT_SECRET,
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
@@ -126,19 +158,22 @@ authRouter.post('/verify', async (req, res) => {
 });
 
 // DEV ONLY: Get last verification code (for testing without email)
-authRouter.get('/dev-code', (_req, res) => {
-  const code = getLastCode();
-  if (code) {
-    res.json({ code });
-  } else {
-    res.status(404).json({ error: 'No code generated yet' });
-  }
-});
+// Disabled in production for security
+if (!isProduction) {
+  authRouter.get('/dev-code', (_req, res) => {
+    const code = getLastCode();
+    if (code) {
+      res.json({ code });
+    } else {
+      res.status(404).json({ error: 'No code generated yet' });
+    }
+  });
+}
 
 // Verify JWT token (for socket connection)
 export function verifyToken(token: string): { userId: number; email: string; name: string; meetingCode: string } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    const decoded = jwt.verify(token, jwtSecret) as {
       userId: number;
       email: string;
       name: string;

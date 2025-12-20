@@ -201,12 +201,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     // Prevent duplicate connections
     if (isConnectingRef.current || socketRef.current?.connected) {
-      console.log('Socket connection already in progress or connected');
       return;
     }
 
     isConnectingRef.current = true;
-    console.log('Creating new socket connection...');
 
     const newSocket: TypedSocket = io(SERVER_URL, {
       autoConnect: true,
@@ -218,8 +216,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      console.log('Socket connected, joining meeting...');
-
       // Join meeting
       newSocket.emit('JOIN_MEETING', {
         meetingCode: authState.meetingCode,
@@ -227,14 +223,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }, (response) => {
         isConnectingRef.current = false;
         if (response.success) {
-          console.log('Successfully joined meeting');
           setState(response.state!);
           setConnectedMembers(response.members || []);
           setIsConnected(true);
           setError(null);
           setSocket(newSocket);
         } else {
-          console.error('Failed to join meeting:', response.error);
           setError(response.error || 'Failed to join meeting');
           if (response.error?.includes('Invalid token')) {
             // Clear auth state on invalid token
@@ -254,13 +248,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
       isConnectingRef.current = false;
       setError(`Connection error: ${err.message}`);
     });
 
-    newSocket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+    newSocket.on('disconnect', () => {
       setIsConnected(false);
       isConnectingRef.current = false;
     });
@@ -290,7 +282,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      console.log('Cleaning up socket connection');
       isConnectingRef.current = false;
       socketRef.current = null;
       newSocket.disconnect();

@@ -18,7 +18,6 @@ type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<str
 
 export function setupSocketHandlers(io: TypedServer) {
   io.on('connection', (socket: TypedSocket) => {
-    console.log(`Socket connected: ${socket.id}`);
 
     // Handle join meeting
     socket.on('JOIN_MEETING', async (data: JoinMeetingPayload, callback) => {
@@ -71,8 +70,6 @@ export function setupSocketHandlers(io: TypedServer) {
           member: { id: decoded.userId, name: decoded.name, role, present: true },
           timestamp: new Date().toISOString()
         });
-
-        console.log(`User ${decoded.name} joined meeting ${data.meetingCode} as ${role}`);
 
         callback({
           success: true,
@@ -222,7 +219,6 @@ export function setupSocketHandlers(io: TypedServer) {
             }
           }
 
-          console.log(`Role changed: ${roleAction.targetMemberId} is now ${roleAction.newRole}`);
         }
 
         // Broadcast new state to all clients in the room
@@ -235,8 +231,6 @@ export function setupSocketHandlers(io: TypedServer) {
             userId: socket.data.userId
           }
         });
-
-        console.log(`Action ${data.action.type} applied by ${socket.data.name}`);
 
         callback({ success: true, stateVersion: result.stateVersion });
 
@@ -296,12 +290,9 @@ function handleDisconnect(socket: TypedSocket) {
       timestamp: new Date().toISOString()
     });
 
-    console.log(`User ${socket.data.name} left meeting ${socket.data.meetingCode}`);
-
     socket.leave(roomName);
     socket.data.meetingCode = null;
   }
-  console.log(`Socket disconnected: ${socket.id}`);
 }
 
 /**
