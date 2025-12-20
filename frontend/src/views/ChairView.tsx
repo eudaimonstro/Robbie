@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Gavel, Hand, X, CheckCircle, ChevronRight } from 'lucide-react';
+import { Gavel, Hand, X, CheckCircle, ChevronRight, UserCheck } from 'lucide-react';
 import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '@eudaimonstro/robbie-shared/utils';
 import { DISPLAYABLE_STAGES, isLastActiveStage } from '@eudaimonstro/robbie-shared/constants';
 import type { ChairViewProps, VotingMethod } from '../types';
@@ -16,6 +16,7 @@ import { getChairScript } from '../utils/chairScriptHelper';
 export function ChairView({ state, dispatch }: ChairViewProps) {
   const [showScript, setShowScript] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState("");
+  const [showTransferConfirm, setShowTransferConfirm] = useState<number | null>(null);
 
   // Use custom hook for sorted speaker queue with alternation
   const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance, state);
@@ -83,6 +84,21 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     };
   }, [state.votingOpen, state.voters, state.votes, state.currentMotion?.vote, chair]);
 
+  // Get non-chair members for transfer
+  const transferableMember = useMemo(() => {
+    return state.members.filter(m => m.role !== 'chair');
+  }, [state.members]);
+
+  const handleTransferChair = useCallback((targetMemberId: number) => {
+    dispatch({
+      type: 'SET_MEMBER_ROLE',
+      targetMemberId,
+      newRole: 'chair',
+      timestamp: generateTimestamp()
+    });
+    setShowTransferConfirm(null);
+  }, [dispatch]);
+
   return (
     <div className="space-y-4">
       <ActiveSuspensionsBanner state={state} currentUser={chair} dispatch={dispatch} />
@@ -108,6 +124,49 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
             >
               Adjourn
             </button>
+
+            {/* Chair Transfer */}
+            {transferableMember.length > 0 && (
+              <div className="border-t pt-3 mt-3">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <UserCheck size={16} />
+                  Transfer Chair Role
+                </h4>
+                <div className="space-y-2">
+                  {transferableMember.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm">{member.name}</span>
+                      {showTransferConfirm === member.id ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleTransferChair(member.id)}
+                            className="bg-purple-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-purple-700"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setShowTransferConfirm(null)}
+                            className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-xs font-medium hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowTransferConfirm(member.id)}
+                          className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                        >
+                          Transfer
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  You will become a regular member after transferring.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
