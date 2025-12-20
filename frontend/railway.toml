@@ -1,7 +1,7 @@
 [build]
-builder = "RAILPACK"
-watchPatterns = ["../shared/**", "src/**", "package.json", "../package.json"]
-buildCommand = "cd .. && npm cache clean --force && npm install && npm run build -w shared && npm run build -w frontend"
+builder = "DOCKERFILE"
+dockerfilePath = "frontend/Dockerfile"
 
 [deploy]
-startCommand = "cd .. && npm run start -w frontend"
+healthcheckPath = "/"
+healthcheckTimeout = 100
