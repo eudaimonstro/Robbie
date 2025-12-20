@@ -1,20 +1,48 @@
 {
-  "name": "@robbie/shared",
+  "name": "@eudaimonstro/robbie-shared",
   "version": "1.0.0",
-  "private": true,
+  "description": "Shared types, reducer, and utilities for Robbie parliamentary procedure app",
+  "private": false,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    "./types": "./dist/types/index.js",
-    "./types/socket": "./dist/types/socket.js",
-    "./reducer": "./dist/reducer/index.js",
-    "./constants": "./dist/constants/index.js",
-    "./utils": "./dist/utils/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./types/socket": {
+      "types": "./dist/types/socket.d.ts",
+      "import": "./dist/types/socket.js"
+    },
+    "./reducer": {
+      "types": "./dist/reducer/index.d.ts",
+      "import": "./dist/reducer/index.js"
+    },
+    "./constants": {
+      "types": "./dist/constants/index.d.ts",
+      "import": "./dist/constants/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eudaimonstro/robbie-shared.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "build": "tsc",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "typescript": "~5.6.2"

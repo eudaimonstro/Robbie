@@ -1,5 +1,0 @@
-[build]
-builder = "RAILPACK"
-buildCommand = "npm install && npm run build"
-
-# RailPack auto-serves Vite dist folder with Caddy - no startCommand needed

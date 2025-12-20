@@ -3,7 +3,6 @@ node_modules/
 
 # Build output
 dist/
-*.tsbuildinfo
 
 # Local env files
 .env
@@ -23,11 +22,3 @@ dist/
 # Logs
 *.log
 npm-debug.log*
-coverage/
-
-# Vite cache
-.vite/
-
-# OS files
-.DS_Store
-Thumbs.db
