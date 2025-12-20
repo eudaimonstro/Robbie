@@ -12,7 +12,9 @@ import { ReconsiderForm } from '../components/ReconsiderForm';
 import { InquiryPanel } from '../components/InquiryPanel';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
+import { QuorumWarning } from '../components/QuorumWarning';
 import { useVoteResults } from '../hooks/useVoteResults';
+import { useQuorumStatus } from '../hooks/useQuorumStatus';
 
 export function ParticipantView({ state, dispatch, currentUser }: ParticipantViewProps) {
   const [motionText, setMotionText] = useState("");
@@ -40,6 +42,9 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
 
   // Use custom hook for vote results
   const voteResults = useVoteResults(state.meetingLog);
+
+  // Use custom hook for quorum status
+  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum);
 
   useEffect(() => {
     if (!validMotions.find(m => m.key === selectedMotion) && validMotions.length > 0) {
@@ -135,6 +140,9 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
   return (
     <div className="space-y-4">
       <ActiveSuspensionsBanner state={state} currentUser={currentUser} dispatch={dispatch} />
+      {state.meetingActive && (
+        <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
+      )}
 
       {hasFloor && (
         <div className="bg-green-100 border border-green-300 rounded-lg p-3">

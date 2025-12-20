@@ -10,7 +10,9 @@ import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { NominationsPanel } from '../components/NominationsPanel';
 import { ElectionPanel } from '../components/ElectionPanel';
 import { InquiryPanel } from '../components/InquiryPanel';
+import { QuorumWarning } from '../components/QuorumWarning';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
+import { useQuorumStatus } from '../hooks/useQuorumStatus';
 import { getChairScript } from '../utils/chairScriptHelper';
 
 export function ChairView({ state, dispatch }: ChairViewProps) {
@@ -20,6 +22,9 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
 
   // Use custom hook for sorted speaker queue with alternation
   const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance, state);
+
+  // Use custom hook for quorum status
+  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum);
 
   // Memoize add agenda item callback
   const handleAddAgendaItem = useCallback(() => {
@@ -102,6 +107,9 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   return (
     <div className="space-y-4">
       <ActiveSuspensionsBanner state={state} currentUser={chair} dispatch={dispatch} />
+      {state.meetingActive && (
+        <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
+      )}
 
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Gavel size={18}/> Meeting Control</h3>

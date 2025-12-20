@@ -7,6 +7,7 @@ import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { NominationsPanel } from '../components/NominationsPanel';
 import { ElectionPanel } from '../components/ElectionPanel';
 import { InquiryPanel } from '../components/InquiryPanel';
+import { QuorumWarning } from '../components/QuorumWarning';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 
 export function AdminView({ state, dispatch }: AdminViewProps) {
@@ -42,6 +43,10 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
   return (
     <div className="space-y-4">
+      {state.meetingActive && (
+        <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
+      )}
+
       <div className="bg-white rounded-lg p-4 shadow">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Timer size={18}/> Time Limits</h3>
         <div className="space-y-3">
