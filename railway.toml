@@ -3,4 +3,4 @@ builder = "railpacks"
 buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "npx serve dist -s -l $PORT"
+startCommand = "npm run preview -- --host --port $PORT"
