@@ -1,5 +1,5 @@
 {
-  "name": "@eudaimonstro/robbie-shared",
+  "name": "@robbie/shared",
   "version": "1.0.0",
   "description": "Shared types, reducer, and utilities for Robbie parliamentary procedure app",
   "private": false,
