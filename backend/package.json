@@ -15,7 +15,7 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1",
     "socket.io": "^4.8.1",
-    "@eudaimonstro/robbie-shared": "*"
+    "@eudaimonstro/robbie-shared": "file:../shared"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
