@@ -1,8 +1,10 @@
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "backend/Dockerfile"
+builder = "RAILPACK"
+watchPatterns = ["shared/**", "backend/**", "package.json", "package-lock.json"]
+buildCommand = "npm install && npm run build -w shared && npm run build -w backend"
 
 [deploy]
+startCommand = "node backend/dist/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"

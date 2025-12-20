@@ -1,7 +1,9 @@
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "frontend/Dockerfile"
+builder = "RAILPACK"
+watchPatterns = ["shared/**", "frontend/**", "package.json", "package-lock.json"]
+buildCommand = "npm install && npm run build -w shared && npm run build -w frontend"
 
 [deploy]
+startCommand = "npx serve frontend/dist -s -l tcp://0.0.0.0:$PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 100
