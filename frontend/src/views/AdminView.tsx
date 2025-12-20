@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Settings, Timer } from 'lucide-react';
-import { generateId } from '@eudaimonstro/robbie-shared/utils';
-import type { Member } from '@eudaimonstro/robbie-shared/types';
+import { generateId } from '@robbie/shared/utils';
+import type { Member } from '@robbie/shared/types';
 import type { AdminViewProps } from '../types';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';
 import { NominationsPanel } from '../components/NominationsPanel';

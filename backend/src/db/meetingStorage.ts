@@ -1,5 +1,5 @@
-import type { MeetingState } from '@eudaimonstro/robbie-shared/types';
-import { initialState } from '@eudaimonstro/robbie-shared/reducer';
+import type { MeetingState } from '@robbie/shared/types';
+import { initialState } from '@robbie/shared/reducer';
 import { pool } from './client.js';
 
 // Embedded schema for PostgreSQL initialization

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { meetingReducer, initialState } from '@eudaimonstro/robbie-shared/reducer';
-import type { MeetingState, Motion } from '@eudaimonstro/robbie-shared/types';
+import { meetingReducer, initialState } from '@robbie/shared/reducer';
+import type { MeetingState, Motion } from '@robbie/shared/types';
 
 // Helper to create a basic motion
 const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({

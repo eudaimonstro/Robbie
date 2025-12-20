@@ -1,5 +1,5 @@
-import type { MeetingState } from '@eudaimonstro/robbie-shared/types';
-import { isRuleSuspended } from '@eudaimonstro/robbie-shared/utils';
+import type { MeetingState } from '@robbie/shared/types';
+import { isRuleSuspended } from '@robbie/shared/utils';
 
 export interface ChairScript {
   text: string;

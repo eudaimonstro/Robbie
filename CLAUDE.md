@@ -8,7 +8,7 @@ Robbie is a real-time collaborative parliamentary procedure application followin
 
 - **frontend/** - React 18 + TypeScript + Vite (port 5173)
 - **backend/** - Express + Socket.io + PostgreSQL (port 3001)
-- **shared/** - Published npm package (@eudaimonstro/robbie-shared)
+- **shared/** - Published npm package (@robbie/shared)
 
 ## Commands
 
@@ -83,9 +83,9 @@ backend/src/
 
 ### Shared Package Exports
 ```typescript
-import { MeetingState, Member } from '@eudaimonstro/robbie-shared/types'
-import { initialState, meetingReducer } from '@eudaimonstro/robbie-shared/reducer'
-import { motionDefinitions } from '@eudaimonstro/robbie-shared/constants'
+import { MeetingState, Member } from '@robbie/shared/types'
+import { initialState, meetingReducer } from '@robbie/shared/reducer'
+import { motionDefinitions } from '@robbie/shared/constants'
 ```
 
 ## Environment Variables

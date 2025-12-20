@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getValidMotions } from '@eudaimonstro/robbie-shared/utils';
-import type { MeetingState, Motion } from '@eudaimonstro/robbie-shared/types';
+import { getValidMotions } from '@robbie/shared/utils';
+import type { MeetingState, Motion } from '@robbie/shared/types';
 
 // Helper to create a minimal meeting state for testing
 const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState => ({

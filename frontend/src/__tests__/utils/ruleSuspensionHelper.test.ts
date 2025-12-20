@@ -6,8 +6,8 @@ import {
   getRuleDescription,
   getActiveSuspensions,
   getRuleWarning
-} from '@eudaimonstro/robbie-shared/utils';
-import type { MeetingState, RuleSuspension } from '@eudaimonstro/robbie-shared/types';
+} from '@robbie/shared/utils';
+import type { MeetingState, RuleSuspension } from '@robbie/shared/types';
 
 // Helper to create a minimal meeting state for testing
 const createMockState = (suspendedRules: RuleSuspension[] = []): MeetingState => ({

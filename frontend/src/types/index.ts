@@ -1,7 +1,7 @@
 // Frontend-specific types (React component props)
 // These types depend on React and are not suitable for the shared package
 
-import type { MeetingState, MeetingAction, Member, Motion, AgendaItem, AgendaAmendment, MotionDefinition } from '@eudaimonstro/robbie-shared/types';
+import type { MeetingState, MeetingAction, Member, Motion, AgendaItem, AgendaAmendment, MotionDefinition } from '@robbie/shared/types';
 
 // Component prop types
 export interface ParticipantViewProps {
@@ -48,4 +48,4 @@ export interface AgendaAmendmentFormProps {
 }
 
 // Re-export shared types for convenience
-export * from '@eudaimonstro/robbie-shared/types';
+export * from '@robbie/shared/types';

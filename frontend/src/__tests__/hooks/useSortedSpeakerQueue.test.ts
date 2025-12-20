@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSortedSpeakerQueue } from '../../hooks/useSortedSpeakerQueue';
-import type { SpeakerQueueEntry, Motion, MeetingState } from '@eudaimonstro/robbie-shared/types';
+import type { SpeakerQueueEntry, Motion, MeetingState } from '@robbie/shared/types';
 
 // Helper to create mock state
 const createMockState = (suspendedRules: MeetingState['suspendedRules'] = []): MeetingState => ({

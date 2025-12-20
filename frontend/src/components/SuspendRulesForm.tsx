@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { SuspendableRule } from '@eudaimonstro/robbie-shared/types';
-import { getRuleName, getRuleDescription } from '@eudaimonstro/robbie-shared/utils';
+import type { SuspendableRule } from '@robbie/shared/types';
+import { getRuleName, getRuleDescription } from '@robbie/shared/utils';
 
 interface SuspendRulesFormProps {
   onSubmit: (purpose: string, specificAction: string, scope: 'single-action' | 'meeting-remainder', rule: SuspendableRule) => void;

@@ -1,4 +1,4 @@
-import type { MeetingAction } from '@eudaimonstro/robbie-shared/types';
+import type { MeetingAction } from '@robbie/shared/types';
 
 type Role = 'member' | 'chair' | 'admin';
 

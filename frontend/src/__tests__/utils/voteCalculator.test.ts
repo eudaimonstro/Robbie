@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateVoteResult, getChairVotingOptions } from '@eudaimonstro/robbie-shared/utils';
+import { calculateVoteResult, getChairVotingOptions } from '@robbie/shared/utils';
 
 describe('voteCalculator', () => {
   describe('calculateVoteResult', () => {

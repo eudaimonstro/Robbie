@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Motion } from '@eudaimonstro/robbie-shared/types';
+import type { Motion } from '@robbie/shared/types';
 
 interface TakeFromTableFormProps {
   tabledMotions: Motion[];

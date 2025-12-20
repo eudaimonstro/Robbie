@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { SpeakerQueueEntry, Motion, DebateStance, MeetingState } from '@eudaimonstro/robbie-shared/types';
-import { isRuleSuspended } from '@eudaimonstro/robbie-shared/utils';
+import type { SpeakerQueueEntry, Motion, DebateStance, MeetingState } from '@robbie/shared/types';
+import { isRuleSuspended } from '@robbie/shared/utils';
 
 /**
  * Custom hook to sort speaker queue with priority for:

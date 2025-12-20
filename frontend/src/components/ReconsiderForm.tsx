@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CompletedMotion } from '@eudaimonstro/robbie-shared/types';
+import type { CompletedMotion } from '@robbie/shared/types';
 
 interface ReconsiderFormProps {
   completedMotions: CompletedMotion[];

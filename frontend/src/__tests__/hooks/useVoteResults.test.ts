@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useVoteResults } from '../../hooks/useVoteResults';
-import type { MeetingLogEntry } from '@eudaimonstro/robbie-shared/types';
+import type { MeetingLogEntry } from '@robbie/shared/types';
 
 describe('useVoteResults', () => {
   it('should return null when meeting log is empty', () => {

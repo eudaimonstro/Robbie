@@ -1,4 +1,4 @@
-import type { Member } from '@eudaimonstro/robbie-shared/types';
+import type { Member } from '@robbie/shared/types';
 
 interface RoomMember extends Member {
   socketId: string;

@@ -1,5 +1,5 @@
-import type { MeetingState, MeetingAction, Member } from '@eudaimonstro/robbie-shared/types';
-import { getActiveSuspensions, getRuleName, getRuleWarning, generateTimestamp } from '@eudaimonstro/robbie-shared/utils';
+import type { MeetingState, MeetingAction, Member } from '@robbie/shared/types';
+import { getActiveSuspensions, getRuleName, getRuleWarning, generateTimestamp } from '@robbie/shared/utils';
 
 interface ActiveSuspensionsBannerProps {
   state: MeetingState;

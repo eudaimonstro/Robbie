@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '@eudaimonstro/robbie-shared/utils';
+import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '@robbie/shared/utils';
 
 describe('idGenerators', () => {
   describe('generateId', () => {

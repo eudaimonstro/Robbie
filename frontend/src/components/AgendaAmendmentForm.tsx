@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generateId } from '@eudaimonstro/robbie-shared/utils';
+import { generateId } from '@robbie/shared/utils';
 import type { AgendaAmendmentFormProps } from '../types';
 
 export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendmentFormProps) {

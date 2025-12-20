@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Gavel, Hand, X, CheckCircle, ChevronRight, UserCheck } from 'lucide-react';
-import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '@eudaimonstro/robbie-shared/utils';
-import { DISPLAYABLE_STAGES, isLastActiveStage } from '@eudaimonstro/robbie-shared/constants';
+import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '@robbie/shared/utils';
+import { DISPLAYABLE_STAGES, isLastActiveStage } from '@robbie/shared/constants';
 import type { ChairViewProps, VotingMethod } from '../types';
 import { MotionCard } from '../components/MotionCard';
 import { DraggableAgendaList } from '../components/DraggableAgendaList';

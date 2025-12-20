@@ -5,9 +5,9 @@ import type {
   SocketData,
   JoinMeetingPayload,
   DispatchActionPayload
-} from '@eudaimonstro/robbie-shared/types/socket';
-import type { MeetingState, MeetingAction } from '@eudaimonstro/robbie-shared/types';
-import { meetingReducer } from '@eudaimonstro/robbie-shared/reducer';
+} from '@robbie/shared/types/socket';
+import type { MeetingState, MeetingAction } from '@robbie/shared/types';
+import { meetingReducer } from '@robbie/shared/reducer';
 import { verifyToken } from '../auth/authController.js';
 import { checkPermission } from './permissionGuard.js';
 import { roomManager } from './roomManager.js';

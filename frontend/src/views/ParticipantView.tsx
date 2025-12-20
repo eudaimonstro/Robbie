@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Hand, ChevronRight, AlertCircle, Vote, MessageSquare, Info, CheckCircle } from 'lucide-react';
-import { MOTIONS, CATEGORY_INFO } from '@eudaimonstro/robbie-shared/constants';
-import { getValidMotions, generateId, generateTimestamp } from '@eudaimonstro/robbie-shared/utils';
+import { MOTIONS, CATEGORY_INFO } from '@robbie/shared/constants';
+import { getValidMotions, generateId, generateTimestamp } from '@robbie/shared/utils';
 import type { ParticipantViewProps, SuspendableRule, AgendaAmendment, MotionDefinition } from '../types';
 import { MotionCard } from '../components/MotionCard';
 import { HelpTooltip } from '../components/HelpTooltip';

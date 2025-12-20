@@ -9,8 +9,8 @@ import {
   type ReactNode
 } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { MeetingState, MeetingAction, Member } from '@eudaimonstro/robbie-shared/types';
-import { initialState } from '@eudaimonstro/robbie-shared/reducer';
+import type { MeetingState, MeetingAction, Member } from '@robbie/shared/types';
+import { initialState } from '@robbie/shared/reducer';
 
 // Socket event types (matching server)
 interface StateUpdatePayload {

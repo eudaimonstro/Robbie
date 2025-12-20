@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@eudaimonstro/robbie-shared/types/socket';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@robbie/shared/types/socket';
 import { authRouter } from './auth/authController.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage } from './db/meetingStorage.js';

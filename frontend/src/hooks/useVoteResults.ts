@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { MeetingLogEntry } from '@eudaimonstro/robbie-shared/types';
+import type { MeetingLogEntry } from '@robbie/shared/types';
 
 /**
  * Custom hook to extract and parse the most recent vote result from meeting log

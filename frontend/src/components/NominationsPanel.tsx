@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { generateId, generateTimestamp } from '@eudaimonstro/robbie-shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@eudaimonstro/robbie-shared/types';
+import { generateId, generateTimestamp } from '@robbie/shared/utils';
+import type { MeetingState, MeetingAction, Member } from '@robbie/shared/types';
 
 interface NominationsPanelProps {
   state: MeetingState;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { HelpTooltip } from './HelpTooltip';
-import { CATEGORY_INFO } from '@eudaimonstro/robbie-shared/constants';
+import { CATEGORY_INFO } from '@robbie/shared/constants';
 import type { MotionCardProps } from '../types';
 
 export const MotionCard = React.memo(function MotionCard({ motion, showHelp = true }: MotionCardProps) {

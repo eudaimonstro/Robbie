@@ -6,7 +6,7 @@ import {
   getStageLogMessage,
   getNextStage,
   isLastActiveStage
-} from '@eudaimonstro/robbie-shared/constants';
+} from '@robbie/shared/constants';
 
 describe('meetingStages', () => {
   describe('MEETING_STAGES', () => {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Member } from '@eudaimonstro/robbie-shared/types';
+import type { Member } from '@robbie/shared/types';
 
 /**
  * Custom hook to compute quorum status

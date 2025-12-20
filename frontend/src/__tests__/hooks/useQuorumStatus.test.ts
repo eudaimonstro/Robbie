@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useQuorumStatus } from '../../hooks/useQuorumStatus';
-import type { Member } from '@eudaimonstro/robbie-shared/types';
+import type { Member } from '@robbie/shared/types';
 
 describe('useQuorumStatus', () => {
   const createMembers = (presentCount: number, totalCount: number): Member[] => {
