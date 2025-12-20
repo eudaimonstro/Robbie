@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
+builder = "railpacks"
 buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "node node_modules/.bin/serve dist -s -l 3000"
+startCommand = "npx serve dist -s -l 3000"
