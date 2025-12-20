@@ -1,6 +1,6 @@
 [build]
 builder = "RAILPACK"
-buildCommand = "npm install && npm run build -w frontend"
+buildCommand = "npm install && npm run build -w shared && npm run build -w frontend"
 
 [deploy]
 startCommand = "npm start -w frontend"
