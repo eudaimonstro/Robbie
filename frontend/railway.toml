@@ -1,7 +1,7 @@
 [build]
 builder = "RAILPACK"
 watchPatterns = ["../shared/**", "src/**", "package.json", "../package.json"]
-buildCommand = "bash ../scripts/build-frontend.sh"
+buildCommand = "cd .. && npm install && npm run build -w shared && npm run build -w frontend"
 
 [deploy]
-startCommand = "npm run start -w frontend"
+startCommand = "cd .. && npm run start -w frontend"
