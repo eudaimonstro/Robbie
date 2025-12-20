@@ -1,9 +1,9 @@
 [build]
 builder = "RAILPACK"
-watchPatterns = ["shared/**", "frontend/**", "package.json", "package-lock.json"]
-buildCommand = "npm install && npm run build -w shared && npm run build -w frontend"
+watchPatterns = ["../shared/**", "./**", "../package.json", "../package-lock.json"]
+buildCommand = "cd .. && npm install && npm run build -w shared && npm run build -w frontend"
 
 [deploy]
-startCommand = "npx serve frontend/dist -s -l tcp://0.0.0.0:$PORT"
+startCommand = "npx serve dist -s -l tcp://0.0.0.0:$PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 100

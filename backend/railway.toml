@@ -1,10 +1,10 @@
 [build]
 builder = "RAILPACK"
-watchPatterns = ["shared/**", "backend/**", "package.json", "package-lock.json"]
-buildCommand = "npm install && npm run build -w shared && npm run build -w backend"
+watchPatterns = ["../shared/**", "./**", "../package.json", "../package-lock.json"]
+buildCommand = "cd .. && npm install && npm run build -w shared && npm run build -w backend"
 
 [deploy]
-startCommand = "node backend/dist/index.js"
+startCommand = "node dist/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
