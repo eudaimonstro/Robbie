@@ -81,11 +81,24 @@ export interface MeetingRecord {
   stateVersion: number;
 }
 
+/** Result of state update with optimistic locking */
+export type UpdateResult =
+  | { success: true }
+  | { success: false; error: 'VERSION_CONFLICT' | 'NOT_FOUND' };
+
 export interface StorageProvider {
   mode: 'in-memory' | 'postgresql';
   initialize(): Promise<void>;
   getOrCreateMeeting(code: string): Promise<MeetingRecord>;
-  updateMeetingState(code: string, state: MeetingState, newVersion: number): Promise<void>;
+  /**
+   * Update meeting state with optimistic locking
+   * @param code - Meeting code
+   * @param state - New state to persist
+   * @param expectedVersion - Version we read before applying changes
+   * @param newVersion - New version to set (typically expectedVersion + 1)
+   * @returns Success or failure with conflict/not-found error
+   */
+  updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult>;
   getMeeting(code: string): Promise<MeetingRecord | null>;
   getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null>;
   setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void>;
@@ -117,12 +130,18 @@ class InMemoryStorage implements StorageProvider {
     return meeting;
   }
 
-  async updateMeetingState(code: string, state: MeetingState, newVersion: number): Promise<void> {
+  async updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult> {
     const meeting = this.meetings.get(code);
-    if (meeting) {
-      meeting.state = state;
-      meeting.stateVersion = newVersion;
+    if (!meeting) {
+      return { success: false, error: 'NOT_FOUND' };
     }
+    // Optimistic locking: check version matches what we read
+    if (meeting.stateVersion !== expectedVersion) {
+      return { success: false, error: 'VERSION_CONFLICT' };
+    }
+    meeting.state = state;
+    meeting.stateVersion = newVersion;
+    return { success: true };
   }
 
   async getMeeting(code: string): Promise<MeetingRecord | null> {
@@ -184,11 +203,23 @@ class PostgresStorage implements StorageProvider {
     };
   }
 
-  async updateMeetingState(code: string, state: MeetingState, newVersion: number): Promise<void> {
-    await pool.query(
-      `UPDATE meetings SET current_state = $1, state_version = $2 WHERE code = $3`,
-      [JSON.stringify(state), newVersion, code]
+  async updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult> {
+    // Optimistic locking: only update if version matches
+    const result = await pool.query(
+      `UPDATE meetings SET current_state = $1, state_version = $2
+       WHERE code = $3 AND state_version = $4`,
+      [JSON.stringify(state), newVersion, code, expectedVersion]
     );
+
+    if (result.rowCount === 0) {
+      // No rows updated - either not found or version mismatch
+      const existing = await this.getMeeting(code);
+      if (!existing) {
+        return { success: false, error: 'NOT_FOUND' };
+      }
+      return { success: false, error: 'VERSION_CONFLICT' };
+    }
+    return { success: true };
   }
 
   async getMeeting(code: string): Promise<MeetingRecord | null> {

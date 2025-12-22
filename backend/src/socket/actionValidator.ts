@@ -422,6 +422,106 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // The reducer handles context-specific validation
       return { valid: true };
 
+    // Proxy voting actions
+    case 'SET_PROXY_SETTINGS':
+      // Always valid - chair setting
+      return { valid: true };
+
+    case 'GRANT_PROXY': {
+      if (!state.allowProxyVoting) {
+        return { valid: false, error: 'Proxy voting is not enabled', errorCode: 'PROXY_VOTING_DISABLED' };
+      }
+      if (action.grantedBy === action.grantedTo) {
+        return { valid: false, error: 'Cannot grant proxy to yourself', errorCode: 'CANNOT_PROXY_SELF' };
+      }
+      const grantingMember = state.members.find(m => m.id === action.grantedBy);
+      if (!grantingMember) {
+        return { valid: false, error: 'Granting member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      const receivingMember = state.members.find(m => m.id === action.grantedTo);
+      if (!receivingMember) {
+        return { valid: false, error: 'Receiving member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      if (!receivingMember.present) {
+        return { valid: false, error: 'Proxy receiver must be present', errorCode: 'RECEIVER_NOT_PRESENT' };
+      }
+      // Check max proxies limit (0 = unlimited)
+      if (state.maxProxiesPerMember > 0) {
+        const currentProxyCount = state.proxies.filter(p => p.grantedTo === action.grantedTo).length;
+        if (currentProxyCount >= state.maxProxiesPerMember) {
+          return { valid: false, error: `Member already holds maximum ${state.maxProxiesPerMember} proxies`, errorCode: 'MAX_PROXIES_REACHED' };
+        }
+      }
+      // Check if granting member already has an active proxy
+      const existingProxy = state.proxies.find(p => p.grantedBy === action.grantedBy);
+      if (existingProxy) {
+        return { valid: false, error: 'Member already has an active proxy', errorCode: 'PROXY_ALREADY_GRANTED' };
+      }
+      return { valid: true };
+    }
+
+    case 'REVOKE_PROXY': {
+      const proxy = state.proxies.find(p => p.id === action.proxyId);
+      if (!proxy) {
+        return { valid: false, error: 'Proxy not found', errorCode: 'PROXY_NOT_FOUND' };
+      }
+      return { valid: true };
+    }
+
+    case 'CAST_PROXY_VOTE': {
+      if (!state.allowProxyVoting) {
+        return { valid: false, error: 'Proxy voting is not enabled', errorCode: 'PROXY_VOTING_DISABLED' };
+      }
+      if (!state.votingOpen) {
+        return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
+      }
+      // Verify the caster has proxy authority for this member
+      const proxy = state.proxies.find(
+        p => p.grantedBy === action.forMemberId && p.grantedTo === action.castById
+      );
+      if (!proxy) {
+        return { valid: false, error: 'No proxy authority for this member', errorCode: 'NO_PROXY_AUTHORITY' };
+      }
+      return { valid: true };
+    }
+
+    // Roll call actions
+    case 'START_ROLL_CALL':
+      if (state.rollCall?.inProgress) {
+        return { valid: false, error: 'Roll call is already in progress', errorCode: 'INVALID_STATE' };
+      }
+      return { valid: true };
+
+    case 'RESPOND_ROLL_CALL': {
+      if (!state.rollCall?.inProgress) {
+        return { valid: false, error: 'Roll call is not in progress', errorCode: 'ROLL_CALL_NOT_IN_PROGRESS' };
+      }
+      const member = state.members.find(m => m.id === action.memberId);
+      if (!member) {
+        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      return { valid: true };
+    }
+
+    case 'COMPLETE_ROLL_CALL':
+      if (!state.rollCall?.inProgress) {
+        return { valid: false, error: 'Roll call is not in progress', errorCode: 'ROLL_CALL_NOT_IN_PROGRESS' };
+      }
+      return { valid: true };
+
+    case 'MARK_ABSENT': {
+      const memberToMark = state.members.find(m => m.id === action.memberId);
+      if (!memberToMark) {
+        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      return { valid: true };
+    }
+
+    // Settings actions
+    case 'SET_AUTO_YIELD':
+      // Always valid - chair setting
+      return { valid: true };
+
     // Actions that are always valid if meeting is active
     case 'ADD_AGENDA_ITEM':
     case 'REMOVE_AGENDA_ITEM':
@@ -436,7 +536,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     default:
-      // Unknown action type - let reducer handle it
-      return { valid: true };
+      // Unknown action type - reject for safety
+      return { valid: false, error: 'Unknown action type', errorCode: 'INVALID_ACTION' };
   }
 }

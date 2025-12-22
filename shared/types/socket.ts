@@ -153,7 +153,17 @@ export type ActionErrorCode =
   | 'REPORT_NOT_FOUND'
   | 'REPORT_ALREADY_PRESENTED'
   // Rule suspension errors
-  | 'SUSPENSION_NOT_FOUND';
+  | 'SUSPENSION_NOT_FOUND'
+  // Proxy voting errors
+  | 'PROXY_VOTING_DISABLED'
+  | 'NO_PROXY_AUTHORITY'
+  | 'PROXY_NOT_FOUND'
+  | 'MAX_PROXIES_REACHED'
+  | 'PROXY_ALREADY_GRANTED'
+  | 'CANNOT_PROXY_SELF'
+  | 'RECEIVER_NOT_PRESENT'
+  // Roll call errors
+  | 'ROLL_CALL_NOT_IN_PROGRESS';
 
 // Auth-related types
 export interface AuthPayload {

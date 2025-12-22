@@ -175,13 +175,13 @@ export async function handleDispatchAction(
       return;
     }
 
-    // Apply action
+    // Apply action with optimistic locking
     const result = await applyAction(meetingCode, enrichedAction);
     if (!result.success) {
       callback({
         success: false,
         error: result.error,
-        errorCode: 'INVALID_STATE'
+        errorCode: result.errorCode || 'INVALID_STATE'
       });
       return;
     }
