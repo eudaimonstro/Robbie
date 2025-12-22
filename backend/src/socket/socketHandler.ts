@@ -14,6 +14,8 @@ import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { actionRateLimiter, joinRateLimiter } from './rateLimiter.js';
 import { validateAction } from './actionValidator.js';
+import { enrichAction } from './actionEnricher.js';
+import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -186,40 +188,15 @@ export function setupSocketHandlers(io: TypedServer) {
           return;
         }
 
-        // Special handling for SET_MEMBER_ROLE - additional restrictions beyond permission matrix
-        if (data.action.type === 'SET_MEMBER_ROLE') {
-          const roleAction = data.action as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: string };
-
-          // Chair can only transfer chair role (not assign admin or demote others)
-          if (socket.data.role === 'chair') {
-            if (roleAction.newRole !== 'chair') {
-              callback({
-                success: false,
-                error: 'Chair can only transfer the chair role, not assign other roles',
-                errorCode: 'PERMISSION_DENIED'
-              });
-              return;
-            }
-            // Chair cannot assign chair to themselves
-            if (roleAction.targetMemberId === socket.data.userId) {
-              callback({
-                success: false,
-                error: 'You are already the chair',
-                errorCode: 'INVALID_ACTION'
-              });
-              return;
-            }
-          }
-
-          // Only admins can assign admin role
-          if (socket.data.role !== 'admin' && roleAction.newRole === 'admin') {
-            callback({
-              success: false,
-              error: 'Only admins can assign the admin role',
-              errorCode: 'PERMISSION_DENIED'
-            });
-            return;
-          }
+        // Validate role change restrictions
+        const roleChangeError = validateRoleChange(data.action, socket.data);
+        if (roleChangeError) {
+          callback({
+            success: false,
+            error: roleChangeError.error,
+            errorCode: roleChangeError.errorCode
+          });
+          return;
         }
 
         // Check permission
@@ -350,45 +327,7 @@ export function setupSocketHandlers(io: TypedServer) {
         }
 
         // Post-action: Update storage and sockets for role changes
-        if (data.action.type === 'SET_MEMBER_ROLE') {
-          const roleAction = enrichedAction as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number };
-          const storage = getStorage();
-
-          // Update target member's role in storage
-          await storage.setParticipantRole(
-            socket.data.meetingCode!,
-            String(roleAction.targetMemberId),
-            roleAction.newRole
-          );
-
-          // If there was a previous chair being demoted, update their role too
-          if (roleAction.previousChairId) {
-            await storage.setParticipantRole(
-              socket.data.meetingCode!,
-              String(roleAction.previousChairId),
-              'member'
-            );
-          }
-
-          // Update roomManager for connected members
-          roomManager.updateMemberRole(socket.data.meetingCode!, roleAction.targetMemberId, roleAction.newRole);
-          if (roleAction.previousChairId) {
-            roomManager.updateMemberRole(socket.data.meetingCode!, roleAction.previousChairId, 'member');
-          }
-
-          // Update socket.data.role for affected sockets
-          const roomName = `meeting:${socket.data.meetingCode}`;
-          const socketsInRoom = await io.in(roomName).fetchSockets();
-          for (const s of socketsInRoom) {
-            if (s.data.userId === roleAction.targetMemberId) {
-              s.data.role = roleAction.newRole;
-            }
-            if (roleAction.previousChairId && s.data.userId === roleAction.previousChairId) {
-              s.data.role = 'member';
-            }
-          }
-
-        }
+        await handleRoleChangePostAction(io, socket.data.meetingCode!, enrichedAction);
 
         // Broadcast new state to all clients in the room
         const roomName = `meeting:${socket.data.meetingCode}`;
@@ -487,72 +426,6 @@ async function handleDisconnect(socket: TypedSocket, io: TypedServer) {
     socket.leave(roomName);
     socket.data.meetingCode = null;
   }
-}
-
-/**
- * Enrich action with server-authoritative values
- * This prevents clients from spoofing their identity
- */
-function enrichAction(action: MeetingAction, socketData: SocketData): MeetingAction {
-  const enriched = { ...action } as MeetingAction & Record<string, unknown>;
-
-  // Override any user-related IDs with authenticated values
-  if ('voterId' in enriched) {
-    enriched.voterId = socketData.userId;
-  }
-  if ('moverId' in enriched) {
-    enriched.moverId = socketData.userId;
-  }
-  if ('askerId' in enriched) {
-    enriched.askerId = socketData.userId;
-  }
-  if ('nominatorId' in enriched) {
-    enriched.nominatorId = socketData.userId;
-  }
-
-  // Override names with authenticated values
-  if ('mover' in enriched) {
-    enriched.mover = socketData.name;
-  }
-  if ('seconder' in enriched) {
-    enriched.seconder = socketData.name;
-  }
-  if ('objector' in enriched) {
-    enriched.objector = socketData.name;
-  }
-  if ('askedBy' in enriched) {
-    enriched.askedBy = socketData.name;
-  }
-  if ('nominatedBy' in enriched) {
-    enriched.nominatedBy = socketData.name;
-  }
-  if ('answeredBy' in enriched) {
-    enriched.answeredBy = socketData.name;
-  }
-
-  // Server generates timestamps
-  if ('timestamp' in enriched) {
-    enriched.timestamp = new Date().toLocaleTimeString();
-  }
-
-  // Server generates IDs
-  if ('motionId' in enriched) {
-    enriched.motionId = Date.now();
-  }
-  if ('nominationId' in enriched) {
-    enriched.nominationId = Date.now();
-  }
-  if ('inquiryId' in enriched) {
-    enriched.inquiryId = Date.now();
-  }
-  if ('electionId' in enriched) {
-    enriched.electionId = Date.now();
-  }
-  if ('itemId' in enriched) {
-    enriched.itemId = Date.now();
-  }
-
-  return enriched as MeetingAction;
 }
 
 async function applyAction(
