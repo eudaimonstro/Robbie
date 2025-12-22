@@ -6,11 +6,12 @@ import { ChairView } from './views/ChairView';
 import { AdminView } from './views/AdminView';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { TestRoleSwitcher } from './components/TestRoleSwitcher';
 
 type ViewType = 'participant' | 'chair' | 'admin';
 
 export function MeetingApp() {
-  const { state, dispatch, currentUser } = useSocket();
+  const { state, dispatch, currentUser, currentUserEmail } = useSocket();
   const [view, setView] = useState<ViewType>("participant");
 
   // Use authenticated user, falling back to first member for compatibility
@@ -143,6 +144,15 @@ export function MeetingApp() {
           {allowedView === "admin" && <AdminView state={state} dispatch={dispatch}/>}
         </ErrorBoundary>
       </div>
+
+      {/* Test role switcher - only visible in DEMO meetings */}
+      {currentUserEmail && (
+        <TestRoleSwitcher
+          meetingCode={state.meetingCode}
+          email={currentUserEmail}
+          currentRole={activeUser?.role || 'member'}
+        />
+      )}
     </div>
   );
 }

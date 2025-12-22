@@ -59,6 +59,7 @@ interface SocketContextValue {
   isConnected: boolean;
   isAuthenticated: boolean;
   currentUser: Member | null;
+  currentUserEmail: string | null;
   connectedMembers: Member[];
   error: string | null;
   login: (email: string, name: string, meetingCode: string) => Promise<void>;
@@ -445,13 +446,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     isConnected,
     isAuthenticated,
     currentUser,
+    currentUserEmail: authState.email || null,
     connectedMembers,
     error,
     login,
     verifyCode,
     logout,
     reconnect
-  }), [state, dispatch, isConnected, isAuthenticated, currentUser, connectedMembers, error, login, verifyCode, logout, reconnect]);
+  }), [state, dispatch, isConnected, isAuthenticated, currentUser, authState.email, connectedMembers, error, login, verifyCode, logout, reconnect]);
 
   return (
     <SocketContext.Provider value={value}>
