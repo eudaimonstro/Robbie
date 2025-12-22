@@ -48,6 +48,8 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   currentElection: null,
   electedOfficers: [],
   inquiries: [],
+  debatePositions: {},
+  dividedQuestionParts: [],
   ...overrides,
 });
 
@@ -368,6 +370,47 @@ describe('applyMotionOutcome', () => {
       const result = applyMotionOutcome(state, '10:00:00');
 
       expect(result.reconsideredMotionId).toBe(42);
+    });
+  });
+
+  describe('divide the question', () => {
+    it('should return divided parts when divideQuestion motion has parts', () => {
+      const mainMotion = createMockMotion({ id: 10, category: 'main', text: 'Original complex motion' });
+      const divideMotion = createMockMotion({
+        id: 20,
+        type: 'divideQuestion',
+        category: 'incidental',
+        dividedParts: ['First part of motion', 'Second part of motion', 'Third part of motion'],
+      });
+
+      const state = createMockState({
+        currentMotion: divideMotion,
+        motionStack: [mainMotion, divideMotion],
+      });
+
+      const result = applyMotionOutcome(state, '10:00:00');
+
+      expect(result.dividedParts).not.toBeNull();
+      expect(result.dividedParts).toHaveLength(3);
+      expect(result.dividedParts![0].text).toBe('First part of motion');
+      expect(result.dividedParts![1].text).toBe('Second part of motion');
+      expect(result.dividedParts![2].text).toBe('Third part of motion');
+      expect(result.dividedMainMotion).not.toBeNull();
+      expect(result.dividedMainMotion!.id).toBe(10);
+    });
+
+    it('should return null dividedParts for non-divideQuestion motions', () => {
+      const mainMotion = createMockMotion({ id: 10 });
+
+      const state = createMockState({
+        currentMotion: mainMotion,
+        motionStack: [mainMotion],
+      });
+
+      const result = applyMotionOutcome(state, '10:00:00');
+
+      expect(result.dividedParts).toBeNull();
+      expect(result.dividedMainMotion).toBeNull();
     });
   });
 });

@@ -30,6 +30,10 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   RESTORE_RULE: ['chair', 'admin'],
   ANSWER_INQUIRY: ['chair', 'admin'],
   PRESENT_COMMITTEE_REPORT: ['chair', 'admin'],
+  START_ROLL_CALL: ['chair', 'admin'],
+  COMPLETE_ROLL_CALL: ['chair', 'admin'],
+  MARK_ABSENT: ['chair', 'admin'],
+  SET_AUTO_YIELD: ['chair', 'admin'],
 
   // Admin-only actions
   SET_SPEAKER_TIME_LIMIT: ['admin'],
@@ -43,6 +47,10 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
 
   // Role management (admin can assign any role, chair can only transfer chair role)
   SET_MEMBER_ROLE: ['admin', 'chair'],
+
+  // Server-only actions (applied automatically by the server on join/leave)
+  ADD_MEMBER: ['admin'],
+  SET_MEMBER_PRESENCE: ['admin'],
 
   // Member actions (all roles can perform)
   MAKE_MOTION: ['member', 'chair', 'admin'],
@@ -58,6 +66,9 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   DECLINE_NOMINATION: ['member', 'chair', 'admin'],
   CAST_BALLOT: ['member', 'chair', 'admin'],
   ASK_INQUIRY: ['member', 'chair', 'admin'],
+  WITHDRAW_MOTION: ['member', 'chair', 'admin'],
+  MODIFY_MOTION: ['member', 'chair', 'admin'],
+  RESPOND_ROLL_CALL: ['member', 'chair', 'admin'],
 };
 
 /**

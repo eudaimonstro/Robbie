@@ -25,7 +25,7 @@ export interface Motion {
   name: string;
   text: string;
   mover: string;
-  moverId?: number;
+  moverId: number;
   secondedBy: string | null;
   status: 'pending' | 'active';
   precedence: number;
@@ -45,6 +45,7 @@ export interface Motion {
   moverHasSpoken?: boolean;
   tabledMotionId?: number;
   reconsideredMotionId?: number;
+  dividedParts?: string[]; // For divideQuestion motion - the parts to split into
 }
 
 export interface AgendaAmendment {
@@ -127,7 +128,7 @@ export interface Nomination {
   id: number;
   position: string;
   nomineeName: string;
-  nomineeId?: number;
+  nomineeId: number;
   nominatedBy: string;
   nominatorId: number;
   timestamp: string;
@@ -137,18 +138,20 @@ export interface Nomination {
 export interface Election {
   id: number;
   position: string;
-  candidates: Array<{ name: string; id?: number }>;
+  candidates: Array<{ name: string; id: number }>;
   requiredVotes: 'majority' | 'plurality' | '2/3';
   votingInProgress: boolean;
   ballotResults: Record<string, number>;
   votersWhoVoted: number[];
   elected: string | null;
+  isRunoff?: boolean;
+  runoffRound?: number;
 }
 
 export interface Officer {
   readonly position: string;
   readonly name: string;
-  readonly memberId?: number;
+  readonly memberId: number;
   readonly electedAt: string;
 }
 
@@ -164,6 +167,22 @@ export interface Inquiry {
   answer?: string;
   answeredBy?: string;
   answeredAt?: string;
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded';
+
+export interface RollCallRecord {
+  memberId: number;
+  memberName: string;
+  status: AttendanceStatus;
+  respondedAt?: string;
+}
+
+export interface RollCallState {
+  inProgress: boolean;
+  startedAt?: string;
+  completedAt?: string;
+  responses: RollCallRecord[];
 }
 
 // State type
@@ -185,6 +204,7 @@ export interface MeetingState {
   speakerQueue: SpeakerQueueEntry[];
   recognizedSpeaker: Member | null;
   lastSpeakerStance: DebateStance | null;
+  debatePositions: Record<number, DebateStance>; // Tracks each member's locked debate stance on current motion
   speakerTimerEnd: number | null;
   voteTimerEnd: number | null;
   speakerTimeLimit: number;
@@ -208,17 +228,20 @@ export interface MeetingState {
   currentElection: Election | null;
   electedOfficers: Officer[];
   inquiries: Inquiry[];
+  dividedQuestionParts: Array<{ id: number; text: string; originalMotionId: number }>; // Pending parts from a divided motion
+  rollCall: RollCallState | null;
+  autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
 }
 
 // Action types
 export type MeetingAction =
   | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
-  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment; ruleSuspension?: Partial<RuleSuspension>; tabledMotionId?: number; reconsideredMotionId?: number }
+  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment; ruleSuspension?: Partial<RuleSuspension>; tabledMotionId?: number; reconsideredMotionId?: number; dividedParts?: string[] }
   | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
-  | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string }
-  | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number; isChairDecidingVote?: boolean }
+  | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
+  | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number; isChairDecidingVote?: boolean; timestamp?: string }
   | { type: 'CLOSE_VOTING'; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
   | { type: 'LOWER_HAND'; member: Member }
@@ -246,7 +269,7 @@ export type MeetingAction =
   | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string }
   | { type: 'CHAIR_RULING'; ruling: 'sustain' | 'overrule' | 'allow' | 'deny'; explanation?: string; timestamp: string }
   | { type: 'OPEN_NOMINATIONS'; position: string; timestamp: string }
-  | { type: 'NOMINATE'; position: string; nomineeName: string; nomineeId?: number; nominatedBy: string; nominatorId: number; nominationId: number; timestamp: string }
+  | { type: 'NOMINATE'; position: string; nomineeName: string; nomineeId: number; nominatedBy: string; nominatorId: number; nominationId: number; timestamp: string }
   | { type: 'DECLINE_NOMINATION'; nominationId: number; timestamp: string }
   | { type: 'CLOSE_NOMINATIONS'; timestamp: string }
   | { type: 'START_ELECTION'; electionId: number; position: string; requiredVotes: 'majority' | 'plurality' | '2/3'; timestamp: string }
@@ -255,7 +278,16 @@ export type MeetingAction =
   | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
   | { type: 'ASK_INQUIRY'; inquiryType: InquiryType; question: string; askedBy: string; askerId: number; inquiryId: number; timestamp: string }
   | { type: 'ANSWER_INQUIRY'; inquiryId: number; answer: string; answeredBy: string; timestamp: string }
-  | { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number; timestamp: string };
+  | { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number; changedBy?: string; changedById?: number; timestamp: string }
+  | { type: 'ADD_MEMBER'; member: Member; timestamp: string }
+  | { type: 'SET_MEMBER_PRESENCE'; memberId: number; present: boolean; timestamp: string }
+  | { type: 'WITHDRAW_MOTION'; requesterId: number; timestamp: string }
+  | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
+  | { type: 'START_ROLL_CALL'; timestamp: string }
+  | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
+  | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
+  | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
+  | { type: 'SET_AUTO_YIELD'; enabled: boolean };
 
 // Motion definition type
 export interface MotionDefinition {
@@ -289,4 +321,53 @@ export interface VoteCalculationResult {
   total: number;
   threshold: number;
   requirement: VoteRequirement;
+}
+
+// Meeting Minutes types
+export interface AttendanceRecord {
+  memberId: number;
+  name: string;
+  role: 'member' | 'chair' | 'admin';
+  status: 'present' | 'absent' | 'excused' | 'late' | 'left-early';
+  arrivedAt?: string;
+  departedAt?: string;
+}
+
+export interface MinutesMotionRecord {
+  id: number;
+  type: string;
+  name: string;
+  text: string;
+  mover: string;
+  moverId: number;
+  seconder?: string;
+  outcome: 'passed' | 'failed' | 'withdrawn' | 'tabled';
+  voteCount?: { yea: number; nay: number; abstain: number };
+  voterChoices?: Record<number, 'yea' | 'nay' | 'abstain'>;
+  timestamp: string;
+}
+
+export interface MinutesElectionRecord {
+  position: string;
+  candidates: string[];
+  winner: string | null;
+  ballotResults: Record<string, number>;
+  wasRunoff: boolean;
+  timestamp: string;
+}
+
+export interface MeetingMinutes {
+  meetingCode: string;
+  startTime: string;
+  endTime?: string;
+  chairName?: string;
+  attendance: AttendanceRecord[];
+  quorumPresent: boolean;
+  agendaItems: Array<{ title: string; status: 'completed' | 'pending' | 'active' }>;
+  motions: MinutesMotionRecord[];
+  elections: MinutesElectionRecord[];
+  electedOfficers: Officer[];
+  announcements: string[];
+  nextMeetingDate?: string;
+  generatedAt: string;
 }

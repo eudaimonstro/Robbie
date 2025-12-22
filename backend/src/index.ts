@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@robbie/shared/types/socket';
@@ -31,6 +32,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
+app.use(cookieParser());
 app.use(express.json());
 
 // Routes

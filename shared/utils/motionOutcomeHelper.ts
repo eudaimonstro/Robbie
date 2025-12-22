@@ -1,27 +1,101 @@
-import type { MeetingState, AgendaItem, RuleSuspension } from '../types/index.js';
+import type { MeetingState, AgendaItem, RuleSuspension, Motion } from '../types/index.js';
+
+export interface DividedPart {
+  id: number;
+  text: string;
+  originalMotionId: number;
+}
+
+export interface MotionOutcome {
+  tabledMotions: Motion[];
+  agendaAdopted: boolean;
+  agendaObjection: boolean;
+  agenda: AgendaItem[];
+  newSuspension: RuleSuspension | null;
+  restoredMotion: Motion | null;
+  objectionKilledMotion: Motion | null;
+  reconsideredMotionId: number | null;
+  dividedParts: DividedPart[] | null;
+  dividedMainMotion: Motion | null;
+}
+
+export interface ProcessedOutcome {
+  suspendedRules: RuleSuspension[];
+  suspensionLog: string;
+  workingStack: Motion[];
+  objectionLog: string;
+  finalStack: Motion[];
+  finalCurrentMotion: Motion | null;
+  restoredLog: string;
+}
+
+/**
+ * Process motion outcome result to compute derived state fields
+ * Reduces duplication between CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED
+ */
+export function processOutcomeResult(
+  outcome: MotionOutcome,
+  currentSuspendedRules: RuleSuspension[],
+  newStack: Motion[],
+  motionToRestore?: Motion | null
+): ProcessedOutcome {
+  // Handle suspended rules
+  const suspendedRules = outcome.newSuspension
+    ? [...currentSuspendedRules, outcome.newSuspension]
+    : currentSuspendedRules;
+
+  const suspensionLog = outcome.newSuspension
+    ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
+    : '';
+
+  // Handle objection killing main motion
+  let workingStack = newStack;
+  if (outcome.objectionKilledMotion) {
+    workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
+  }
+
+  const objectionLog = outcome.objectionKilledMotion
+    ? `\n[OBJECTION SUSTAINED] Main motion will not be considered: "${outcome.objectionKilledMotion.text}"`
+    : '';
+
+  // Handle restored motion (from table or reconsider)
+  const restoreMotion = motionToRestore ?? outcome.restoredMotion;
+  const finalStack = restoreMotion
+    ? [...workingStack, restoreMotion]
+    : workingStack;
+
+  const finalCurrentMotion = restoreMotion
+    ? restoreMotion
+    : (workingStack[workingStack.length - 1] || null);
+
+  const restoredLog = outcome.restoredMotion && !motionToRestore
+    ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
+    : '';
+
+  return {
+    suspendedRules,
+    suspensionLog,
+    workingStack,
+    objectionLog,
+    finalStack,
+    finalCurrentMotion,
+    restoredLog
+  };
+}
 
 /**
  * Helper function to handle motion outcome logic
  * Used by both CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED
  */
-export function applyMotionOutcome(state: MeetingState, timestamp: string): {
-  tabledMotions: typeof state.tabledMotions;
-  agendaAdopted: boolean;
-  agendaObjection: boolean;
-  agenda: AgendaItem[];
-  newSuspension: RuleSuspension | null;
-  restoredMotion: typeof state.tabledMotions[0] | null;
-  objectionKilledMotion: typeof state.tabledMotions[0] | null;
-  reconsideredMotionId: number | null;
-} {
+export function applyMotionOutcome(state: MeetingState, timestamp: string): MotionOutcome {
   const newStack = state.motionStack.slice(0, -1);
-  let tabledMotions = state.tabledMotions;
+  let tabledMotions: Motion[] = state.tabledMotions;
   let agendaAdopted = state.agendaAdopted;
   let agendaObjection = state.agendaObjection;
   let agenda = state.agenda;
   let newSuspension: RuleSuspension | null = null;
-  let restoredMotion: typeof state.tabledMotions[0] | null = null;
-  let objectionKilledMotion: typeof state.tabledMotions[0] | null = null;
+  let restoredMotion: Motion | null = null;
+  let objectionKilledMotion: Motion | null = null;
   let reconsideredMotionId: number | null = null;
 
   // Handle table motion
@@ -118,5 +192,27 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): {
     // The motion will be restored by the reducer (using completedMotions data)
   }
 
-  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension, restoredMotion, objectionKilledMotion, reconsideredMotionId };
+  // Handle divide the question
+  // When passed, split the main motion into parts
+  let dividedParts: DividedPart[] | null = null;
+  let dividedMainMotion: Motion | null = null;
+  if (state.currentMotion?.type === 'divideQuestion' && state.currentMotion?.dividedParts) {
+    const mainMotion = newStack.find(m => m.category === 'main');
+    if (mainMotion && state.currentMotion.dividedParts.length > 0) {
+      dividedMainMotion = mainMotion;
+      // Create divided parts with sequential IDs starting after highest existing ID
+      const maxId = Math.max(
+        ...state.motionStack.map(m => m.id),
+        state.currentMotion.id,
+        0
+      );
+      dividedParts = state.currentMotion.dividedParts.map((text, index) => ({
+        id: maxId + 1 + index,
+        text,
+        originalMotionId: mainMotion.id
+      }));
+    }
+  }
+
+  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension, restoredMotion, objectionKilledMotion, reconsideredMotionId, dividedParts, dividedMainMotion };
 }

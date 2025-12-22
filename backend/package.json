@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@robbie/shared": "file:../shared",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "express-rate-limit": "^8.2.1",
@@ -19,6 +20,7 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/express-rate-limit": "^5.1.3",

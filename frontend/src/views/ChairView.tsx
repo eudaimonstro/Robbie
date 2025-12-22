@@ -19,6 +19,8 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   const [showScript, setShowScript] = useState(true);
   const [newAgendaItem, setNewAgendaItem] = useState("");
   const [showTransferConfirm, setShowTransferConfirm] = useState<number | null>(null);
+  const [speakerTimeExpired, setSpeakerTimeExpired] = useState(false);
+  const [voteTimeExpired, setVoteTimeExpired] = useState(false);
 
   // Use custom hook for sorted speaker queue with alternation
   const sortedQueue = useSortedSpeakerQueue(state.speakerQueue, state.currentMotion, state.lastSpeakerStance, state);
@@ -103,6 +105,33 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     });
     setShowTransferConfirm(null);
   }, [dispatch]);
+
+  // Reset speaker time expired state when speaker changes
+  const recognizedSpeakerId = state.recognizedSpeaker?.id;
+  React.useEffect(() => {
+    setSpeakerTimeExpired(false);
+  }, [recognizedSpeakerId]);
+
+  // Callback when speaker time expires
+  const handleSpeakerTimeExpired = useCallback(() => {
+    setSpeakerTimeExpired(true);
+    // Auto-yield if enabled
+    if (state.autoYieldOnTimeExpired && state.recognizedSpeaker) {
+      dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() });
+    }
+  }, [state.autoYieldOnTimeExpired, state.recognizedSpeaker, dispatch]);
+
+  // Reset vote time expired state when voting closes
+  React.useEffect(() => {
+    if (!state.votingOpen) {
+      setVoteTimeExpired(false);
+    }
+  }, [state.votingOpen]);
+
+  // Callback when vote time expires
+  const handleVoteTimeExpired = useCallback(() => {
+    setVoteTimeExpired(true);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -501,9 +530,25 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
       {state.votingOpen && votingData && (
         <div className="bg-white rounded-lg p-4 shadow">
           <h3 className="font-semibold mb-3 text-gray-800">Voting</h3>
+          {!hasQuorum && (
+            <div className="mb-3 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg">
+              <p className="text-amber-800 font-semibold">⚠️ Voting Without Quorum</p>
+              <p className="text-amber-700 text-sm">Only {presentCount} of {state.quorum} required members are present. This vote may need to be ratified later.</p>
+            </div>
+          )}
           {state.voteTimerEnd && (
             <div className="mb-3">
-              <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />
+              <CountdownTimer
+                endTime={state.voteTimerEnd}
+                label="Voting Time"
+                onExpired={handleVoteTimeExpired}
+              />
+              {voteTimeExpired && (
+                <div className="mt-2 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg animate-pulse">
+                  <p className="text-amber-800 font-semibold">⏰ Voting time has expired</p>
+                  <p className="text-amber-700 text-sm">Consider closing the vote or extending the voting period.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -607,11 +652,34 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
       )}
 
       <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Hand size={18}/> Speaker Queue <span className="bg-gray-200 text-gray-700 text-sm px-2 py-0.5 rounded-full">{state.speakerQueue.length}</span></h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2 text-gray-800"><Hand size={18}/> Speaker Queue <span className="bg-gray-200 text-gray-700 text-sm px-2 py-0.5 rounded-full">{state.speakerQueue.length}</span></h3>
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={state.autoYieldOnTimeExpired}
+              onChange={(e) => dispatch({ type: 'SET_AUTO_YIELD', enabled: e.target.checked })}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Auto-yield on timeout
+          </label>
+        </div>
         {state.recognizedSpeaker && (
           <div className="mb-3 p-3 bg-green-100 rounded-lg">
             <div className="text-green-800 font-medium mb-2"><strong>{state.recognizedSpeaker.name}</strong> has the floor</div>
-            {state.speakerTimerEnd && <CountdownTimer endTime={state.speakerTimerEnd} label="Speaking Time" />}
+            {state.speakerTimerEnd && (
+              <CountdownTimer
+                endTime={state.speakerTimerEnd}
+                label="Speaking Time"
+                onExpired={handleSpeakerTimeExpired}
+              />
+            )}
+            {speakerTimeExpired && (
+              <div className="mt-2 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg animate-pulse">
+                <p className="text-amber-800 font-semibold">⏰ Speaking time has expired</p>
+                <p className="text-amber-700 text-sm">Consider asking the speaker to yield the floor or extend their time.</p>
+              </div>
+            )}
           </div>
         )}
         {state.speakerQueue.length === 0 ? <p className="text-gray-500 text-center py-4">No one waiting</p> : (

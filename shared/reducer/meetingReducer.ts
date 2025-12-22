@@ -1,10 +1,48 @@
 import { MOTIONS } from '../constants/motions.js';
 import { getNextStage, getStageLogMessage } from '../constants/meetingStages.js';
-import { applyMotionOutcome } from '../utils/motionOutcomeHelper.js';
+import {
+  LOG_MEETING_CALLED_TO_ORDER,
+  LOG_MEETING_ADJOURNED,
+  LOG_MOTION_FAILED_NO_SECOND,
+  LOG_AGENDA_ADOPTED,
+  LOG_AGENDA_OBJECTION,
+  LOG_UNANIMOUS_CONSENT_REQUESTED,
+  LOG_MINUTES_APPROVED,
+  LOG_QUORUM_WARNING,
+  logMotionMade,
+  logMotionSeconded,
+  logMotionWithdrawn,
+  logMotionModified,
+  logRollCallVote,
+  logSpeakerRecognized,
+  logSpeakerYields,
+  logAgendaItemCalled,
+  logAgendaItemCompleted,
+  logUnanimousConsentObjection,
+  logUnanimousConsentPassed,
+  logCommitteeReportPresented,
+  logRuleSuspended,
+  logNominationsOpened,
+  logNomination,
+  logNominationDeclined,
+  logNominationsClosed,
+  logElectionVotingOpen,
+  logElectionClosed,
+  logElected,
+  logInquiryRaised,
+  logInquiryAnswered,
+  logMemberJoined,
+  logMemberPresenceChanged,
+  LOG_ROLL_CALL_STARTED,
+  logRollCallResponse,
+  logRollCallComplete,
+  logMemberMarkedAbsent
+} from '../constants/logMessages.js';
+import { applyMotionOutcome, processOutcomeResult } from '../utils/motionOutcomeHelper.js';
 import { isRuleSuspended, markSingleActionComplete } from '../utils/ruleSuspensionHelper.js';
 import { generateId } from '../utils/idGenerators.js';
 import { calculateVoteResult } from '../utils/voteCalculator.js';
-import type { MeetingState, MeetingAction, MeetingLogEntry, Inquiry } from '../types/index.js';
+import type { MeetingState, MeetingAction, MeetingLogEntry, Inquiry, Officer, RollCallRecord } from '../types/index.js';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
   // Helper to add log entry (timestamp now comes from action)
@@ -18,7 +56,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         meetingActive: true,
         meetingStage: 'call-to-order',
         meetingCode: action.meetingCode,
-        meetingLog: log(action.timestamp, "Meeting called to order.")
+        meetingLog: log(action.timestamp, LOG_MEETING_CALLED_TO_ORDER)
       };
 
     case 'END_MEETING':
@@ -28,7 +66,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         meetingActive: false,
         meetingStage: 'adjourned',
         suspendedRules: [],
-        meetingLog: log(action.timestamp, "Meeting adjourned.")
+        meetingLog: log(action.timestamp, LOG_MEETING_ADJOURNED)
       };
 
     case 'MAKE_MOTION': {
@@ -47,7 +85,8 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ruleSuspension: action.ruleSuspension || null,
         moverHasSpoken: false,
         tabledMotionId: action.tabledMotionId,
-        reconsideredMotionId: action.reconsideredMotionId
+        reconsideredMotionId: action.reconsideredMotionId,
+        dividedParts: action.dividedParts
       };
       // Check if second requirement is suspended
       const secondSuspended = isRuleSuspended(state, 'second-requirement');
@@ -58,7 +97,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
           pendingSecond: motion,
           // Clear lastChairRuling for non-Appeal motions
           lastChairRuling: action.motionType === 'appeal' ? state.lastChairRuling : null,
-          meetingLog: log(action.timestamp, `${action.mover} moves: "${action.text}" (${motion.name}). Awaiting second.`)
+          meetingLog: log(action.timestamp, logMotionMade(action.mover, action.text, motion.name))
         };
       }
       // If second was bypassed due to suspension, note it in the log
@@ -91,17 +130,97 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         pendingSecond: null,
         currentMotion: seconded,
         motionStack: [...state.motionStack, seconded],
-        meetingLog: log(action.timestamp, `${action.seconder} seconds the motion.`)
+        meetingLog: log(action.timestamp, logMotionSeconded(action.seconder))
       };
 
     case 'DECLINE_SECOND':
       return {
         ...state,
         pendingSecond: null,
-        meetingLog: log(action.timestamp, "Motion fails for lack of a second.")
+        meetingLog: log(action.timestamp, LOG_MOTION_FAILED_NO_SECOND)
       };
 
-    case 'OPEN_VOTING':
+    case 'WITHDRAW_MOTION': {
+      // Motion can be withdrawn if it's pending a second or is the current motion
+      // Chair grants withdrawal request; mover must match
+      const motionToWithdraw = state.pendingSecond || state.currentMotion;
+      if (!motionToWithdraw) {
+        return state; // No motion to withdraw
+      }
+      if (motionToWithdraw.moverId !== action.requesterId) {
+        return state; // Only the mover can withdraw their motion
+      }
+
+      if (state.pendingSecond) {
+        // Motion not yet seconded - can be withdrawn freely
+        return {
+          ...state,
+          pendingSecond: null,
+          meetingLog: log(action.timestamp, logMotionWithdrawn(state.pendingSecond.mover))
+        };
+      }
+
+      // Motion is already seconded - remove from stack
+      const newStack = state.motionStack.slice(0, -1);
+      const previousMotion = newStack.length > 0 ? newStack[newStack.length - 1] : null;
+
+      return {
+        ...state,
+        currentMotion: previousMotion,
+        motionStack: newStack,
+        votingOpen: false,
+        unanimousConsentPending: false,
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        debatePositions: {},
+        meetingLog: log(action.timestamp, logMotionWithdrawn(motionToWithdraw.mover))
+      };
+    }
+
+    case 'MODIFY_MOTION': {
+      // Motion maker can modify their motion before debate begins
+      // Works for both pendingSecond and currentMotion (before mover speaks)
+      const motionToModify = state.pendingSecond || state.currentMotion;
+      if (!motionToModify) {
+        return state; // No motion to modify
+      }
+      if (motionToModify.moverId !== action.requesterId) {
+        return state; // Only the mover can modify their motion
+      }
+      // Cannot modify after debate has begun (someone has spoken)
+      if (state.currentMotion && state.currentMotion.moverHasSpoken) {
+        return state; // Debate has begun - use amendment instead
+      }
+
+      const modifiedMotion = {
+        ...motionToModify,
+        text: action.newText
+      };
+
+      if (state.pendingSecond) {
+        // Motion not yet seconded
+        return {
+          ...state,
+          pendingSecond: modifiedMotion,
+          meetingLog: log(action.timestamp, logMotionModified(motionToModify.mover, action.newText))
+        };
+      }
+
+      // Motion is current - update in stack too
+      const newStack = [...state.motionStack.slice(0, -1), modifiedMotion];
+      return {
+        ...state,
+        currentMotion: modifiedMotion,
+        motionStack: newStack,
+        meetingLog: log(action.timestamp, logMotionModified(motionToModify.mover, action.newText))
+      };
+    }
+
+    case 'OPEN_VOTING': {
+      let logEntries = log(action.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`);
+      if (action.withoutQuorum) {
+        logEntries = [...logEntries, { time: action.timestamp, message: LOG_QUORUM_WARNING }];
+      }
       return {
         ...state,
         votingOpen: true,
@@ -109,8 +228,9 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
         voterChoices: {},
-        meetingLog: log(action.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`)
+        meetingLog: logEntries
       };
+    }
 
     case 'CAST_VOTE': {
       // Check if voter is chair
@@ -140,11 +260,17 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       // Add to voters list if first time voting
       const newVoters = previousVote ? state.voters : [...state.voters, action.voterId];
 
+      // Log roll call votes individually (when timestamp provided and roll call method)
+      const rollCallLog = state.votingMethod === 'rollcall' && action.timestamp && voter && !previousVote
+        ? log(action.timestamp, logRollCallVote(voter.name, action.vote))
+        : state.meetingLog;
+
       return {
         ...state,
         votes: newVotes,
         voters: newVoters,
-        voterChoices: newVoterChoices
+        voterChoices: newVoterChoices,
+        meetingLog: rollCallLog
       };
     }
 
@@ -183,38 +309,19 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         newSuspension: null,
         restoredMotion: null,
         objectionKilledMotion: null,
-        reconsideredMotionId: null
+        reconsideredMotionId: null,
+        dividedParts: null,
+        dividedMainMotion: null
       };
 
-      // Add suspension to state if created
-      const suspendedRules = outcome.newSuspension
-        ? [...state.suspendedRules, outcome.newSuspension]
-        : state.suspendedRules;
-
-      // Add suspension log entry if created
-      const suspensionLog = outcome.newSuspension
-        ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
-        : '';
-
-      // Handle objection to consideration killing main motion
-      let workingStack = newStack;
-      if (outcome.objectionKilledMotion) {
-        workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
-      }
-
-      const objectionLog = outcome.objectionKilledMotion
-        ? `\n[OBJECTION SUSTAINED] Main motion will not be considered: "${outcome.objectionKilledMotion.text}"`
-        : '';
-
-      // Handle reconsider
+      // Handle reconsider - reconstruct motion from completed motions
       let reconsideredMotion: typeof state.tabledMotions[0] | null = null;
       let updatedCompletedMotions = state.completedMotions;
       if (outcome.reconsideredMotionId) {
         const completedMotion = state.completedMotions.find(cm => cm.id === outcome.reconsideredMotionId);
         if (completedMotion) {
-          // Reconstruct the motion from completed motion data
           reconsideredMotion = {
-            id: generateId(), // New ID for the reconsidered motion
+            id: generateId(),
             type: completedMotion.type,
             name: completedMotion.name,
             text: completedMotion.text,
@@ -235,7 +342,6 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
             whenToUse: MOTIONS[completedMotion.type]?.whenToUse || '',
             moverHasSpoken: false
           };
-          // Mark as reconsidered
           updatedCompletedMotions = state.completedMotions.map(cm =>
             cm.id === outcome.reconsideredMotionId ? { ...cm, reconsidered: true } : cm
           );
@@ -246,22 +352,35 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ? `\n[RECONSIDERED] Motion brought back for new vote: "${reconsideredMotion.text}"`
         : '';
 
-      // Handle restored/reconsidered motions
-      const motionToRestore = reconsideredMotion || outcome.restoredMotion;
-      const finalStack = motionToRestore
-        ? [...workingStack, motionToRestore]
-        : workingStack;
+      // Handle divide the question - special processing
+      let dividedQuestionParts = state.dividedQuestionParts;
+      let divideLog = '';
+      let workingStack = newStack;
+      if (outcome.dividedParts && outcome.dividedMainMotion) {
+        // Remove the original main motion from the stack
+        workingStack = workingStack.filter(m => m.id !== outcome.dividedMainMotion!.id);
 
-      const finalCurrentMotion = motionToRestore
-        ? motionToRestore
-        : (workingStack[workingStack.length - 1] || null);
+        // Create the first part as a new main motion
+        const firstPart = outcome.dividedParts[0];
+        const firstPartMotion = {
+          ...outcome.dividedMainMotion,
+          id: firstPart.id,
+          text: firstPart.text,
+          status: 'active' as const,
+          moverHasSpoken: false
+        };
+        workingStack = [...workingStack, firstPartMotion];
 
-      const restoredLog = outcome.restoredMotion && !reconsideredMotion
-        ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
-        : '';
+        // Store remaining parts for sequential processing
+        dividedQuestionParts = outcome.dividedParts.slice(1);
+
+        divideLog = `\n[DIVIDED] Original motion split into ${outcome.dividedParts.length} parts. Now considering: "${firstPart.text}"`;
+      }
+
+      // Process common outcome fields using helper
+      const processed = processOutcomeResult(outcome, state.suspendedRules, workingStack, reconsideredMotion);
 
       // Save completed motion for potential reconsideration
-      // Only save if motion can be reconsidered (per RONR, most motions can be)
       const completedMotions = state.currentMotion && state.currentMotion.reconsidered
         ? [...updatedCompletedMotions, {
             id: state.currentMotion.id,
@@ -279,32 +398,59 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ...state,
         votingOpen: false,
         voteTimerEnd: null,
-        currentMotion: finalCurrentMotion,
-        motionStack: finalStack,
+        currentMotion: processed.finalCurrentMotion,
+        motionStack: processed.finalStack,
         defeatedMotions,
         completedMotions,
-        suspendedRules,
+        suspendedRules: processed.suspendedRules,
         tabledMotions: outcome.tabledMotions,
         agendaAdopted: outcome.agendaAdopted,
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
-        // Clear lastChairRuling after Appeal is resolved
         lastChairRuling: isAppeal ? null : state.lastChairRuling,
+        debatePositions: {}, // Reset debate positions when motion resolves
+        dividedQuestionParts,
         meetingLog: log(
           action.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`
+          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`
         )
       };
     }
 
-    case 'RAISE_HAND':
+    case 'RAISE_HAND': {
       if (state.speakerQueue.find(s => s.member.id === action.member.id)) return state;
+
+      // Check for side-switching (member already spoke with different stance)
+      // Only enforce for pro/con, neutral is always allowed
+      if (action.stance !== 'neutral') {
+        const previousStance = state.debatePositions[action.member.id];
+        if (previousStance && previousStance !== action.stance) {
+          // Member is trying to switch sides - check if debate rules are suspended
+          const debateRulesSuspended = isRuleSuspended(state, 'debate-rules');
+          if (!debateRulesSuspended) {
+            return state; // Reject - can't switch sides
+          }
+        }
+      }
+
       return { ...state, speakerQueue: [...state.speakerQueue, { member: action.member, stance: action.stance }] };
+    }
 
     case 'LOWER_HAND':
       return { ...state, speakerQueue: state.speakerQueue.filter(s => s.member.id !== action.member.id) };
 
     case 'RECOGNIZE_SPEAKER': {
+      // Enforce motion-maker-priority rule: mover speaks first unless rule is suspended
+      if (state.currentMotion && state.currentMotion.debatable && !state.currentMotion.moverHasSpoken) {
+        const isMover = state.currentMotion.moverId === action.member.id;
+        const prioritySuspended = isRuleSuspended(state, 'motion-maker-priority');
+
+        // If not the mover and rule is active, reject the recognition
+        if (!isMover && !prioritySuspended) {
+          return state;
+        }
+      }
+
       // Mark motion maker as having spoken if they're being recognized
       const updatedMotion = state.currentMotion && state.currentMotion.moverId === action.member.id
         ? { ...state.currentMotion, moverHasSpoken: true }
@@ -315,15 +461,21 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ? state.motionStack.map(m => m.id === updatedMotion.id ? updatedMotion : m)
         : state.motionStack;
 
+      // Lock member's debate position (pro/con/neutral) when they speak
+      const updatedDebatePositions = action.stance !== 'neutral'
+        ? { ...state.debatePositions, [action.member.id]: action.stance }
+        : state.debatePositions;
+
       return {
         ...state,
         currentMotion: updatedMotion,
         motionStack: updatedStack,
         recognizedSpeaker: action.member,
         lastSpeakerStance: action.stance,
+        debatePositions: updatedDebatePositions,
         speakerTimerEnd: action.speakerTimerEnd,
         speakerQueue: state.speakerQueue.filter(s => s.member.id !== action.member.id),
-        meetingLog: log(action.timestamp, `Chair recognizes ${action.member.name}.`)
+        meetingLog: log(action.timestamp, logSpeakerRecognized(action.member.name))
       };
     }
 
@@ -332,7 +484,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ...state,
         recognizedSpeaker: null,
         speakerTimerEnd: null,
-        meetingLog: log(action.timestamp, `${state.recognizedSpeaker?.name} yields the floor.`)
+        meetingLog: log(action.timestamp, logSpeakerYields(state.recognizedSpeaker?.name))
       };
 
     case 'ADD_AGENDA_ITEM':
@@ -349,14 +501,14 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ...state,
         agendaAdopted: true,
         agendaObjection: false,
-        meetingLog: log(action.timestamp, "Agenda adopted by unanimous consent.")
+        meetingLog: log(action.timestamp, LOG_AGENDA_ADOPTED)
       };
 
     case 'AGENDA_OBJECTION':
       return {
         ...state,
         agendaObjection: true,
-        meetingLog: log(action.timestamp, "Objection raised to agenda.")
+        meetingLog: log(action.timestamp, LOG_AGENDA_OBJECTION)
       };
 
     case 'CALL_AGENDA_ITEM': {
@@ -372,7 +524,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ...state,
         currentAgendaItem: item || null,
         agenda: updatedAgenda,
-        meetingLog: log(action.timestamp, `Chair calls: "${item?.title}"`)
+        meetingLog: log(action.timestamp, logAgendaItemCalled(item?.title))
       };
     }
 
@@ -384,7 +536,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         ...state,
         currentAgendaItem: null,
         agenda: updatedAgenda,
-        meetingLog: log(action.timestamp, `Completed: "${state.currentAgendaItem?.title}"`)
+        meetingLog: log(action.timestamp, logAgendaItemCompleted(state.currentAgendaItem?.title))
       };
     }
 
@@ -420,52 +572,48 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       const newStack = state.motionStack.slice(0, -1);
       const outcome = applyMotionOutcome(state, action.timestamp);
 
-      // Add suspension to state if created
-      const suspendedRules = outcome.newSuspension
-        ? [...state.suspendedRules, outcome.newSuspension]
-        : state.suspendedRules;
-
-      // Add suspension log entry if created
-      const suspensionLog = outcome.newSuspension
-        ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
-        : '';
-
-      // Handle objection to consideration killing main motion
+      // Handle divide the question - special processing
+      let dividedQuestionParts = state.dividedQuestionParts;
+      let divideLog = '';
       let workingStack = newStack;
-      if (outcome.objectionKilledMotion) {
-        workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
+      if (outcome.dividedParts && outcome.dividedMainMotion) {
+        // Remove the original main motion from the stack
+        workingStack = workingStack.filter(m => m.id !== outcome.dividedMainMotion!.id);
+
+        // Create the first part as a new main motion
+        const firstPart = outcome.dividedParts[0];
+        const firstPartMotion = {
+          ...outcome.dividedMainMotion,
+          id: firstPart.id,
+          text: firstPart.text,
+          status: 'active' as const,
+          moverHasSpoken: false
+        };
+        workingStack = [...workingStack, firstPartMotion];
+
+        // Store remaining parts for sequential processing
+        dividedQuestionParts = outcome.dividedParts.slice(1);
+
+        divideLog = `\n[DIVIDED] Original motion split into ${outcome.dividedParts.length} parts. Now considering: "${firstPart.text}"`;
       }
 
-      // Handle restored motion from table
-      const finalStack = outcome.restoredMotion
-        ? [...workingStack, outcome.restoredMotion]
-        : workingStack;
-
-      const finalCurrentMotion = outcome.restoredMotion
-        ? outcome.restoredMotion
-        : (workingStack[workingStack.length - 1] || null);
-
-      const restoredLog = outcome.restoredMotion
-        ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
-        : '';
-
-      const objectionLog = outcome.objectionKilledMotion
-        ? `\n[OBJECTION SUSTAINED] Main motion will not be considered: "${outcome.objectionKilledMotion.text}"`
-        : '';
+      const processed = processOutcomeResult(outcome, state.suspendedRules, workingStack);
 
       return {
         ...state,
         unanimousConsentPending: false,
-        currentMotion: finalCurrentMotion,
-        motionStack: finalStack,
-        suspendedRules,
+        currentMotion: processed.finalCurrentMotion,
+        motionStack: processed.finalStack,
+        suspendedRules: processed.suspendedRules,
         tabledMotions: outcome.tabledMotions,
         agendaAdopted: outcome.agendaAdopted,
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
+        debatePositions: {}, // Reset debate positions when motion resolves
+        dividedQuestionParts,
         meetingLog: log(
           action.timestamp,
-          `Motion CARRIED by unanimous consent.${suspensionLog}${restoredLog}${objectionLog}`
+          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${divideLog}`
         )
       };
     }
@@ -693,9 +841,49 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         }
       }
 
+      // Determine if each result is a write-in (not in official candidates)
+      const officialCandidateNames = new Set(state.currentElection.candidates.map(c => c.name));
       const resultsText = sortedCandidates
-        .map(([name, votes]) => `${name}: ${votes} vote(s)`)
+        .map(([name, votes]) => {
+          const isWriteIn = !officialCandidateNames.has(name);
+          return `${name}${isWriteIn ? ' (write-in)' : ''}: ${votes} vote(s)`;
+        })
         .join(', ');
+
+      // Check for tie at the top
+      const topVotes = sortedCandidates[0]?.[1] ?? 0;
+      const tiedCandidates = sortedCandidates.filter(([, votes]) => votes === topVotes);
+
+      // Trigger runoff if there's a tie at top AND (plurality with tie OR no winner found)
+      const hasTie = tiedCandidates.length > 1;
+      const needsRunoff = hasTie && (requiredVotes === 'plurality' || !winner);
+
+      if (needsRunoff) {
+        // Get candidate info for tied candidates (look up IDs for known members)
+        const tiedCandidateInfo = tiedCandidates.map(([name]) => {
+          const officialCandidate = state.currentElection!.candidates.find(c => c.name === name);
+          const member = state.members.find(m => m.name === name);
+          return { name, id: officialCandidate?.id ?? member?.id ?? 0 };
+        });
+
+        const runoffRound = (state.currentElection.runoffRound ?? 0) + 1;
+        const tiedNames = tiedCandidates.map(([name]) => name).join(', ');
+
+        return {
+          ...state,
+          currentElection: {
+            ...state.currentElection,
+            candidates: tiedCandidateInfo,
+            ballotResults: {},
+            votersWhoVoted: [],
+            votingInProgress: true, // Keep voting open for runoff
+            elected: null,
+            isRunoff: true,
+            runoffRound
+          },
+          meetingLog: log(action.timestamp, `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. TIE between: ${tiedNames}. Runoff vote (round ${runoffRound}) now open.`)
+        };
+      }
 
       return {
         ...state,
@@ -711,18 +899,34 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'DECLARE_ELECTED': {
       if (!state.currentElection) return state;
 
-      const officer = {
+      // Check if candidate is an official nominee
+      const nominatedCandidate = state.currentElection.candidates.find(c => c.name === action.candidateName);
+
+      // Check if candidate received any votes (either nominated or write-in)
+      const hasVotes = action.candidateName in state.currentElection.ballotResults;
+
+      // Allow declaring if they're a nominated candidate OR received write-in votes
+      if (!nominatedCandidate && !hasVotes) return state;
+
+      // For write-ins, try to find their memberId from the members list
+      const memberId = nominatedCandidate?.id ??
+        state.members.find(m => m.name === action.candidateName)?.id ??
+        0; // 0 indicates write-in not found in members
+
+      const isWriteIn = !nominatedCandidate;
+      const officer: Officer = {
         position: state.currentElection.position,
         name: action.candidateName,
-        memberId: state.currentElection.candidates.find(c => c.name === action.candidateName)?.id,
+        memberId,
         electedAt: action.timestamp
       };
 
+      const writeInNote = isWriteIn ? ' (write-in candidate)' : '';
       return {
         ...state,
         electedOfficers: [...state.electedOfficers, officer],
         currentElection: null,
-        meetingLog: log(action.timestamp, `Chair declares ${action.candidateName} elected as ${officer.position}.`)
+        meetingLog: log(action.timestamp, `Chair declares ${action.candidateName}${writeInNote} elected as ${officer.position}.`)
       };
     }
 
@@ -775,6 +979,8 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
       const targetMember = state.members.find(m => m.id === action.targetMemberId);
       if (!targetMember) return state;
 
+      const oldRole = targetMember.role;
+
       // Update the target member's role and demote previous chair if needed
       const updatedMembers = state.members.map(member => {
         if (member.id === action.targetMemberId) {
@@ -787,20 +993,161 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
         return member;
       });
 
-      // Build appropriate log message
+      // Build audit log message including who made the change
       const previousChair = action.previousChairId
         ? state.members.find(m => m.id === action.previousChairId)
         : null;
 
-      let logMessage = `${targetMember.name} is now ${action.newRole}.`;
+      // changedBy is optional (added by server enrichment), fallback to 'System' if not present
+      const changedBy = action.changedBy || 'System';
+
+      let logMessage: string;
       if (action.newRole === 'chair' && previousChair) {
-        logMessage = `${targetMember.name} is now chair. ${previousChair.name} is now a member.`;
+        logMessage = `[ROLE CHANGE] ${changedBy} transferred chair to ${targetMember.name}. ${previousChair.name} is now a member.`;
+      } else {
+        logMessage = `[ROLE CHANGE] ${changedBy} changed ${targetMember.name}'s role from ${oldRole} to ${action.newRole}.`;
       }
 
       return {
         ...state,
         members: updatedMembers,
         meetingLog: log(action.timestamp, logMessage)
+      };
+    }
+
+    case 'ADD_MEMBER': {
+      // Don't add if member already exists
+      if (state.members.some(m => m.id === action.member.id)) {
+        return state;
+      }
+      return {
+        ...state,
+        members: [...state.members, action.member],
+        meetingLog: log(action.timestamp, logMemberJoined(action.member.name))
+      };
+    }
+
+    case 'SET_MEMBER_PRESENCE': {
+      const member = state.members.find(m => m.id === action.memberId);
+      if (!member) return state;
+
+      // No change needed if presence is already correct
+      if (member.present === action.present) return state;
+
+      const updatedMembers = state.members.map(m =>
+        m.id === action.memberId ? { ...m, present: action.present } : m
+      );
+
+      return {
+        ...state,
+        members: updatedMembers,
+        meetingLog: log(action.timestamp, logMemberPresenceChanged(member.name, action.present))
+      };
+    }
+
+    case 'START_ROLL_CALL': {
+      // Initialize roll call with all members as not-responded
+      const responses: RollCallRecord[] = state.members.map(member => ({
+        memberId: member.id,
+        memberName: member.name,
+        status: 'not-responded' as const
+      }));
+
+      return {
+        ...state,
+        rollCall: {
+          inProgress: true,
+          startedAt: action.timestamp,
+          responses
+        },
+        meetingLog: log(action.timestamp, LOG_ROLL_CALL_STARTED)
+      };
+    }
+
+    case 'RESPOND_ROLL_CALL': {
+      if (!state.rollCall || !state.rollCall.inProgress) return state;
+
+      const member = state.members.find(m => m.id === action.memberId);
+      if (!member) return state;
+
+      // Update the response for this member
+      const updatedResponses = state.rollCall.responses.map(r =>
+        r.memberId === action.memberId
+          ? { ...r, status: action.status, respondedAt: action.timestamp }
+          : r
+      );
+
+      // Also update member presence based on response
+      const isPresent = action.status === 'present';
+      const updatedMembers = state.members.map(m =>
+        m.id === action.memberId ? { ...m, present: isPresent } : m
+      );
+
+      return {
+        ...state,
+        rollCall: {
+          ...state.rollCall,
+          responses: updatedResponses
+        },
+        members: updatedMembers,
+        meetingLog: log(action.timestamp, logRollCallResponse(member.name, action.status))
+      };
+    }
+
+    case 'COMPLETE_ROLL_CALL': {
+      if (!state.rollCall || !state.rollCall.inProgress) return state;
+
+      // Count attendance
+      const present = state.rollCall.responses.filter(r => r.status === 'present').length;
+      const absent = state.rollCall.responses.filter(r => r.status === 'absent').length;
+      const excused = state.rollCall.responses.filter(r => r.status === 'excused').length;
+
+      return {
+        ...state,
+        rollCall: {
+          ...state.rollCall,
+          inProgress: false,
+          completedAt: action.timestamp
+        },
+        meetingLog: log(action.timestamp, logRollCallComplete(present, absent, excused))
+      };
+    }
+
+    case 'MARK_ABSENT': {
+      const member = state.members.find(m => m.id === action.memberId);
+      if (!member) return state;
+
+      // Update member presence
+      const updatedMembers = state.members.map(m =>
+        m.id === action.memberId ? { ...m, present: false } : m
+      );
+
+      // If roll call is in progress, also update the roll call response
+      let updatedRollCall = state.rollCall;
+      if (state.rollCall) {
+        const newStatus = action.excused ? 'excused' : 'absent';
+        updatedRollCall = {
+          ...state.rollCall,
+          responses: state.rollCall.responses.map(r =>
+            r.memberId === action.memberId
+              ? { ...r, status: newStatus as 'absent' | 'excused', respondedAt: action.timestamp }
+              : r
+          )
+        };
+      }
+
+      return {
+        ...state,
+        members: updatedMembers,
+        rollCall: updatedRollCall,
+        meetingLog: log(action.timestamp, logMemberMarkedAbsent(member.name, action.excused))
+      };
+    }
+
+    case 'SET_AUTO_YIELD': {
+      return {
+        ...state,
+        autoYieldOnTimeExpired: action.enabled
       };
     }
 

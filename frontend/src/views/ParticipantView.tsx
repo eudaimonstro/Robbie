@@ -252,6 +252,12 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
             {state.votingMethod === 'ballot' && 'Secret Ballot'}
             {state.votingMethod === 'rollcall' && 'Roll Call Vote'}
           </h3>
+          {!hasQuorum && (
+            <div className="mb-3 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg">
+              <p className="text-amber-800 font-semibold text-sm">⚠️ Voting Without Quorum</p>
+              <p className="text-amber-700 text-xs">Only {presentCount} of {state.quorum} required members are present.</p>
+            </div>
+          )}
           {state.voteTimerEnd && (
             <div className="mb-3">
               <CountdownTimer endTime={state.voteTimerEnd} label="Voting Time" />

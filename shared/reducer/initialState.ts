@@ -24,6 +24,7 @@ export const initialState: MeetingState = {
   speakerQueue: [],
   recognizedSpeaker: null,
   lastSpeakerStance: null,
+  debatePositions: {},
   speakerTimerEnd: null,
   voteTimerEnd: null,
   speakerTimeLimit: 120,
@@ -68,4 +69,7 @@ export const initialState: MeetingState = {
   currentElection: null,
   electedOfficers: [],
   inquiries: [],
+  dividedQuestionParts: [],
+  rollCall: null,
+  autoYieldOnTimeExpired: false,
 };

@@ -22,6 +22,41 @@ if (!JWT_SECRET) {
 const jwtSecret = JWT_SECRET || 'dev-secret-change-in-production';
 const VERIFICATION_EXPIRY_MINUTES = 15;
 
+// Input validation patterns (matching frontend)
+const MEETING_CODE_PATTERN = /^[A-Z0-9]{4,8}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VERIFICATION_CODE_PATTERN = /^\d{6}$/;
+
+function validateInput(email: string, name: string, meetingCode: string): string | null {
+  // Validate email
+  const trimmedEmail = email?.trim()?.toLowerCase();
+  if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
+    return 'Invalid email address';
+  }
+
+  // Validate name
+  const trimmedName = name?.trim();
+  if (!trimmedName || trimmedName.length < 2 || trimmedName.length > 100) {
+    return 'Name must be between 2 and 100 characters';
+  }
+
+  // Validate meeting code
+  const trimmedCode = meetingCode?.trim()?.toUpperCase();
+  if (!trimmedCode || !MEETING_CODE_PATTERN.test(trimmedCode)) {
+    return 'Meeting code must be 4-8 alphanumeric characters';
+  }
+
+  return null;
+}
+
+function sanitizeInputs(email: string, name: string, meetingCode: string) {
+  return {
+    email: email.trim().toLowerCase(),
+    name: name.trim(),
+    meetingCode: meetingCode.trim().toUpperCase()
+  };
+}
+
 // Rate limiting for verification requests (prevent email spam)
 const requestVerificationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -60,6 +95,36 @@ const verifications = new Map<string, VerificationRecord>();
 const users = new Map<string, UserRecord>();
 let nextUserId = 1;
 
+// Cleanup expired verification records every 15 minutes
+const CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+function cleanupExpiredVerifications(): number {
+  const now = new Date();
+  let removedCount = 0;
+
+  for (const [key, record] of verifications.entries()) {
+    if (record.expiresAt < now) {
+      verifications.delete(key);
+      removedCount++;
+    }
+  }
+
+  if (removedCount > 0) {
+    console.log(`Cleaned up ${removedCount} expired verification records`);
+  }
+
+  return removedCount;
+}
+
+// Start cleanup interval
+const cleanupInterval = setInterval(cleanupExpiredVerifications, CLEANUP_INTERVAL_MS);
+
+// Ensure cleanup interval doesn't prevent process from exiting
+cleanupInterval.unref();
+
+// Export for testing
+export { cleanupExpiredVerifications };
+
 // Request email verification
 authRouter.post('/request-verification', requestVerificationLimiter, async (req, res) => {
   try {
@@ -69,23 +134,32 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
       return res.status(400).json({ error: 'Missing required fields: email, name, meetingCode' });
     }
 
+    // Validate inputs
+    const validationError = validateInput(email, name, meetingCode);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
+    // Sanitize inputs
+    const sanitized = sanitizeInputs(email, name, meetingCode);
+
     // Generate 6-digit verification code
     const token = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MINUTES * 60 * 1000);
 
     // Store verification token in memory
-    const key = `${email}:${meetingCode}`;
+    const key = `${sanitized.email}:${sanitized.meetingCode}`;
     verifications.set(key, {
-      email,
-      name,
-      meetingCode,
+      email: sanitized.email,
+      name: sanitized.name,
+      meetingCode: sanitized.meetingCode,
       token,
       expiresAt,
       verified: false
     });
 
     // Send verification email (logs to console in dev)
-    await sendVerificationEmail(email, token, meetingCode);
+    await sendVerificationEmail(sanitized.email, token, sanitized.meetingCode);
 
     res.json({ success: true, message: 'Verification code sent' });
   } catch (error) {
@@ -103,12 +177,22 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: email, code, meetingCode' });
     }
 
+    // Validate verification code format
+    const trimmedCode = code?.trim();
+    if (!trimmedCode || !VERIFICATION_CODE_PATTERN.test(trimmedCode)) {
+      return res.status(400).json({ error: 'Verification code must be 6 digits' });
+    }
+
+    // Sanitize email and meeting code for lookup
+    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedMeetingCode = meetingCode.trim().toUpperCase();
+
     // Find and validate verification token
-    const key = `${email}:${meetingCode}`;
+    const key = `${sanitizedEmail}:${sanitizedMeetingCode}`;
     const verification = verifications.get(key);
 
     if (!verification ||
-        verification.token !== code ||
+        verification.token !== trimmedCode ||
         verification.verified ||
         verification.expiresAt < new Date()) {
       return res.status(401).json({ error: 'Invalid or expired verification code' });
@@ -118,14 +202,14 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
     verification.verified = true;
 
     // Create or find user
-    let user = users.get(email);
+    let user = users.get(sanitizedEmail);
     if (!user) {
       user = {
         id: nextUserId++,
-        email,
+        email: sanitizedEmail,
         name: verification.name
       };
-      users.set(email, user);
+      users.set(sanitizedEmail, user);
     } else {
       user.name = verification.name;
     }
@@ -136,15 +220,24 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
         userId: user.id,
         email: user.email,
         name: user.name,
-        meetingCode
+        meetingCode: sanitizedMeetingCode
       },
       jwtSecret,
       { expiresIn: '24h' }
     );
 
+    // Set HttpOnly cookie with the token
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isProduction, // Only send over HTTPS in production
+      sameSite: isProduction ? 'strict' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/'
+    });
+
     res.json({
       success: true,
-      token,
+      token, // Still return token for Socket.io (will be removed once cookie auth works)
       user: {
         id: user.id,
         email: user.email,
@@ -155,6 +248,17 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
     console.error('Error verifying code:', error);
     res.status(500).json({ error: 'Failed to verify code' });
   }
+});
+
+// Logout - clear the auth cookie
+authRouter.post('/logout', (_req, res) => {
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
+    path: '/'
+  });
+  res.json({ success: true });
 });
 
 // DEV ONLY: Get last verification code (for testing without email)

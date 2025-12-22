@@ -55,9 +55,9 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
   );
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow">
-      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-        🗳️ Election
+    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="election-heading">
+      <h3 id="election-heading" className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+        <span aria-hidden="true">🗳️</span> Election
       </h3>
 
       {/* Chair - Start Election */}
@@ -119,13 +119,14 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
           </div>
 
           {!hasVoted ? (
-            <div className="space-y-2 mb-3">
-              <p className="text-sm font-medium text-gray-700">Cast Your Ballot:</p>
+            <div className="space-y-2 mb-3" role="group" aria-labelledby="ballot-label">
+              <p id="ballot-label" className="text-sm font-medium text-gray-700">Cast Your Ballot:</p>
               {state.currentElection.candidates.map((candidate) => (
                 <button
                   key={candidate.name}
                   onClick={() => handleCastBallot(candidate.name)}
                   className="w-full py-3 px-4 bg-white border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 text-left font-medium transition-colors"
+                  aria-label={`Vote for ${candidate.name}`}
                 >
                   {candidate.name}
                 </button>
@@ -205,6 +206,6 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

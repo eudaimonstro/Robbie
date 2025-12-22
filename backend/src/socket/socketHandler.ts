@@ -12,9 +12,27 @@ import { verifyToken } from '../auth/authController.js';
 import { checkPermission } from './permissionGuard.js';
 import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
+import { actionRateLimiter, joinRateLimiter } from './rateLimiter.js';
+import { validateAction } from './actionValidator.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+
+/**
+ * Extract auth_token from cookie header
+ */
+function getTokenFromCookie(socket: TypedSocket): string | null {
+  const cookieHeader = socket.handshake.headers.cookie;
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    if (key && value) acc[key] = value;
+    return acc;
+  }, {} as Record<string, string>);
+
+  return cookies['auth_token'] || null;
+}
 
 export function setupSocketHandlers(io: TypedServer) {
   io.on('connection', (socket: TypedSocket) => {
@@ -22,9 +40,30 @@ export function setupSocketHandlers(io: TypedServer) {
     // Handle join meeting
     socket.on('JOIN_MEETING', async (data: JoinMeetingPayload, callback) => {
       try {
-        const decoded = verifyToken(data.token);
+        // Try provided token first, fallback to HttpOnly cookie
+        let token = data.token;
+        let decoded = token ? verifyToken(token) : null;
+
+        if (!decoded) {
+          // Try to get token from HttpOnly cookie
+          const cookieToken = getTokenFromCookie(socket);
+          if (cookieToken) {
+            decoded = verifyToken(cookieToken);
+          }
+        }
+
         if (!decoded) {
           callback({ success: false, error: 'Invalid token' });
+          return;
+        }
+
+        // Rate limit join attempts per user
+        if (!joinRateLimiter.consume(decoded.userId)) {
+          const retryAfter = joinRateLimiter.getRetryAfter(decoded.userId);
+          callback({
+            success: false,
+            error: `Too many join attempts. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`
+          });
           return;
         }
 
@@ -65,16 +104,54 @@ export function setupSocketHandlers(io: TypedServer) {
           present: true
         });
 
-        // Notify others
+        const memberData = { id: decoded.userId, name: decoded.name, role, present: true };
+        const timestamp = new Date().toISOString();
+
+        // Add member to state if not already present
+        let currentState = meeting.state;
+        let currentVersion = meeting.stateVersion;
+
+        if (!currentState.members.some(m => m.id === decoded.userId)) {
+          const addResult = await applyAction(data.meetingCode, {
+            type: 'ADD_MEMBER',
+            member: memberData,
+            timestamp
+          });
+          if (addResult.success && addResult.state) {
+            currentState = addResult.state;
+            currentVersion = addResult.stateVersion!;
+          }
+        }
+
+        // Set member presence to true
+        const presenceResult = await applyAction(data.meetingCode, {
+          type: 'SET_MEMBER_PRESENCE',
+          memberId: decoded.userId,
+          present: true,
+          timestamp
+        });
+        if (presenceResult.success && presenceResult.state) {
+          currentState = presenceResult.state;
+          currentVersion = presenceResult.stateVersion!;
+        }
+
+        // Notify others of member joined
         socket.to(roomName).emit('MEMBER_JOINED', {
-          member: { id: decoded.userId, name: decoded.name, role, present: true },
-          timestamp: new Date().toISOString()
+          member: memberData,
+          timestamp
+        });
+
+        // Broadcast updated state to all (including the joiner via callback)
+        io.to(roomName).emit('STATE_UPDATE', {
+          state: currentState,
+          stateVersion: currentVersion,
+          triggeredBy: { actionType: 'MEMBER_JOINED', userId: decoded.userId }
         });
 
         callback({
           success: true,
-          state: meeting.state,
-          stateVersion: meeting.stateVersion,
+          state: currentState,
+          stateVersion: currentVersion,
           members: roomManager.getMembers(data.meetingCode)
         });
 
@@ -87,7 +164,7 @@ export function setupSocketHandlers(io: TypedServer) {
 
     // Handle leave meeting
     socket.on('LEAVE_MEETING', () => {
-      handleDisconnect(socket);
+      handleDisconnect(socket, io);
     });
 
     // Handle action dispatch
@@ -95,6 +172,17 @@ export function setupSocketHandlers(io: TypedServer) {
       try {
         if (!socket.data.meetingCode || !socket.data.userId) {
           callback({ success: false, error: 'Not in a meeting', errorCode: 'NOT_AUTHENTICATED' });
+          return;
+        }
+
+        // Rate limit actions per user
+        if (!actionRateLimiter.consume(socket.data.userId)) {
+          const retryAfter = actionRateLimiter.getRetryAfter(socket.data.userId);
+          callback({
+            success: false,
+            error: `Too many actions. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`,
+            errorCode: 'RATE_LIMITED'
+          });
           return;
         }
 
@@ -150,23 +238,104 @@ export function setupSocketHandlers(io: TypedServer) {
           return;
         }
 
+        // Fetch meeting state once for validation and enrichment
+        const storage = getStorage();
+        const meeting = await storage.getMeeting(socket.data.meetingCode!);
+        if (!meeting) {
+          callback({
+            success: false,
+            error: 'Meeting not found',
+            errorCode: 'MEETING_NOT_FOUND'
+          });
+          return;
+        }
+
+        // Quorum warning for voting actions (allow but log warning)
+        let votingWithoutQuorum = false;
+        if (data.action.type === 'OPEN_VOTING') {
+          const presentCount = meeting.state.members.filter(m => m.present).length;
+          if (presentCount < meeting.state.quorum) {
+            votingWithoutQuorum = true;
+            console.warn(`[QUORUM WARNING] Vote opened without quorum in meeting ${socket.data.meetingCode}: ${presentCount} of ${meeting.state.quorum} required`);
+          }
+        }
+
+        // Voter membership validation
+        if (data.action.type === 'CAST_VOTE') {
+          const voter = meeting.state.members.find(m => m.id === socket.data.userId);
+          if (!voter) {
+            callback({
+              success: false,
+              error: 'You are not a member of this meeting',
+              errorCode: 'NOT_A_MEMBER'
+            });
+            return;
+          }
+          if (!voter.present) {
+            callback({
+              success: false,
+              error: 'You must be present to vote',
+              errorCode: 'NOT_PRESENT'
+            });
+            return;
+          }
+          if (!meeting.state.votingOpen) {
+            callback({
+              success: false,
+              error: 'Voting is not open',
+              errorCode: 'VOTING_CLOSED'
+            });
+            return;
+          }
+        }
+
         // Enrich action with server-authoritative values
         let enrichedAction = enrichAction(data.action, socket.data);
 
-        // Special enrichment for SET_MEMBER_ROLE - find current chair if assigning new chair
+        // Special enrichment for OPEN_VOTING - add quorum warning flag
+        if (data.action.type === 'OPEN_VOTING' && votingWithoutQuorum) {
+          enrichedAction = { ...enrichedAction, withoutQuorum: true } as MeetingAction;
+        }
+
+        // Special enrichment for SET_MEMBER_ROLE - add audit info and find current chair if needed
         if (data.action.type === 'SET_MEMBER_ROLE') {
-          const roleAction = enrichedAction as { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: string; previousChairId?: number };
+          const roleAction = enrichedAction as {
+            type: 'SET_MEMBER_ROLE';
+            targetMemberId: number;
+            newRole: string;
+            previousChairId?: number;
+            changedBy: string;
+            changedById: number;
+          };
+
+          // Add audit fields
+          roleAction.changedBy = socket.data.name;
+          roleAction.changedById = socket.data.userId;
+
+          // Find current chair if assigning new chair
           if (roleAction.newRole === 'chair') {
-            const storage = getStorage();
-            const meeting = await storage.getMeeting(socket.data.meetingCode!);
-            if (meeting) {
-              const currentChair = meeting.state.members.find(m => m.role === 'chair');
-              if (currentChair && currentChair.id !== roleAction.targetMemberId) {
-                roleAction.previousChairId = currentChair.id;
-              }
+            const currentChair = meeting.state.members.find(m => m.role === 'chair');
+            if (currentChair && currentChair.id !== roleAction.targetMemberId) {
+              roleAction.previousChairId = currentChair.id;
             }
           }
           enrichedAction = roleAction as MeetingAction;
+        }
+
+        // Pre-validate action before applying
+        const validation = validateAction(meeting.state, enrichedAction);
+        if (!validation.valid) {
+          callback({
+            success: false,
+            error: validation.error,
+            errorCode: validation.errorCode
+          });
+          socket.emit('ACTION_REJECTED', {
+            clientSequence: data.clientSequence,
+            reason: validation.error || 'Action validation failed',
+            errorCode: validation.errorCode || 'VALIDATION_FAILED'
+          });
+          return;
         }
 
         // Apply action
@@ -269,25 +438,50 @@ export function setupSocketHandlers(io: TypedServer) {
 
     // Handle disconnect
     socket.on('disconnect', () => {
-      handleDisconnect(socket);
+      handleDisconnect(socket, io);
     });
   });
 }
 
-function handleDisconnect(socket: TypedSocket) {
+async function handleDisconnect(socket: TypedSocket, io: TypedServer) {
   if (socket.data.meetingCode && socket.data.userId) {
-    const roomName = `meeting:${socket.data.meetingCode}`;
+    const meetingCode = socket.data.meetingCode;
+    const roomName = `meeting:${meetingCode}`;
+    const timestamp = new Date().toISOString();
 
-    roomManager.removeMember(socket.data.meetingCode, socket.id);
+    roomManager.removeMember(meetingCode, socket.id);
 
+    // Check if user still has other connections in this meeting
+    const stillConnected = roomManager.isMemberConnected(meetingCode, socket.data.userId);
+
+    if (!stillConnected) {
+      // Update member presence in state
+      const presenceResult = await applyAction(meetingCode, {
+        type: 'SET_MEMBER_PRESENCE',
+        memberId: socket.data.userId,
+        present: false,
+        timestamp
+      });
+
+      // Broadcast state update if presence changed
+      if (presenceResult.success && presenceResult.state) {
+        io.to(roomName).emit('STATE_UPDATE', {
+          state: presenceResult.state,
+          stateVersion: presenceResult.stateVersion!,
+          triggeredBy: { actionType: 'MEMBER_LEFT', userId: socket.data.userId }
+        });
+      }
+    }
+
+    // Notify others of member left
     socket.to(roomName).emit('MEMBER_LEFT', {
       member: {
         id: socket.data.userId,
         name: socket.data.name,
         role: socket.data.role,
-        present: false
+        present: stillConnected
       },
-      timestamp: new Date().toISOString()
+      timestamp
     });
 
     socket.leave(roomName);

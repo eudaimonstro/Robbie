@@ -71,6 +71,39 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
+// Validation patterns
+const MEETING_CODE_PATTERN = /^[A-Z0-9]{4,8}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateMeetingCode(code: string): string | null {
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed) return 'Meeting code is required';
+  if (!MEETING_CODE_PATTERN.test(trimmed)) return 'Meeting code must be 4-8 alphanumeric characters';
+  return null;
+}
+
+function validateEmail(email: string): string | null {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) return 'Email is required';
+  if (!EMAIL_PATTERN.test(trimmed)) return 'Please enter a valid email address';
+  return null;
+}
+
+function validateName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Name is required';
+  if (trimmed.length < 2) return 'Name must be at least 2 characters';
+  if (trimmed.length > 100) return 'Name must be 100 characters or less';
+  return null;
+}
+
+function validateVerificationCode(code: string): string | null {
+  const trimmed = code.trim();
+  if (!trimmed) return 'Verification code is required';
+  if (!/^\d{6}$/.test(trimmed)) return 'Verification code must be 6 digits';
+  return null;
+}
+
 interface AuthState {
   email: string;
   name: string;
@@ -90,6 +123,29 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Ref to track if we're currently connecting to prevent duplicate connections
   const isConnectingRef = useRef(false);
   const socketRef = useRef<TypedSocket | null>(null);
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to set error with auto-clear
+  const setTemporaryError = useCallback((message: string, duration = 5000) => {
+    // Clear any existing timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+    setError(message);
+    errorTimeoutRef.current = setTimeout(() => {
+      setError(null);
+      errorTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
+  // Cleanup error timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Don't restore token on mount - require fresh login each session
   // This prevents stale token issues where we have token but no meetingCode
@@ -120,11 +176,41 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Request verification code
   const login = useCallback(async (email: string, name: string, meetingCode: string) => {
     setError(null);
+
+    // Sanitize inputs
+    const sanitizedEmail = email.trim().toLowerCase();
+    const sanitizedName = name.trim();
+    const sanitizedCode = meetingCode.trim().toUpperCase();
+
+    // Validate inputs
+    const emailError = validateEmail(sanitizedEmail);
+    if (emailError) {
+      setError(emailError);
+      throw new Error(emailError);
+    }
+
+    const nameError = validateName(sanitizedName);
+    if (nameError) {
+      setError(nameError);
+      throw new Error(nameError);
+    }
+
+    const codeError = validateMeetingCode(sanitizedCode);
+    if (codeError) {
+      setError(codeError);
+      throw new Error(codeError);
+    }
+
     try {
       const response = await fetch(`${SERVER_URL}/api/auth/request-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, meetingCode })
+        credentials: 'include', // Include cookies for CORS
+        body: JSON.stringify({
+          email: sanitizedEmail,
+          name: sanitizedName,
+          meetingCode: sanitizedCode
+        })
       });
 
       const data = await response.json();
@@ -132,7 +218,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || 'Failed to send verification code');
       }
 
-      setAuthState(prev => ({ ...prev, email, name, meetingCode }));
+      setAuthState(prev => ({
+        ...prev,
+        email: sanitizedEmail,
+        name: sanitizedName,
+        meetingCode: sanitizedCode
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send verification code');
       throw err;
@@ -142,13 +233,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Verify code and get token
   const verifyCode = useCallback(async (code: string): Promise<boolean> => {
     setError(null);
+
+    // Validate code format
+    const codeError = validateVerificationCode(code);
+    if (codeError) {
+      setError(codeError);
+      return false;
+    }
+
+    const sanitizedCode = code.trim();
+
     try {
       const response = await fetch(`${SERVER_URL}/api/auth/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies - server sets HttpOnly auth_token cookie
         body: JSON.stringify({
           email: authState.email,
-          code,
+          code: sanitizedCode,
           meetingCode: authState.meetingCode
         })
       });
@@ -158,8 +260,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || 'Invalid verification code');
       }
 
-      // Store token
-      localStorage.setItem('authToken', data.token);
+      // Token is now also stored in HttpOnly cookie by server
+      // We keep it in state for Socket.io handshake (fallback)
       setAuthState(prev => ({
         ...prev,
         token: data.token,
@@ -175,7 +277,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   // Logout
   const logout = useCallback(() => {
-    localStorage.removeItem('authToken');
+    // Clear auth_token cookie by calling logout endpoint
+    fetch(`${SERVER_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(() => { /* Ignore logout errors */ });
+
     if (socketRef.current) {
       socketRef.current.emit('LEAVE_MEETING');
       socketRef.current.disconnect();
@@ -210,7 +317,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
+      withCredentials: true // Include cookies for HttpOnly auth
     });
 
     socketRef.current = newSocket;
@@ -273,8 +381,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     newSocket.on('ACTION_REJECTED', ({ reason }) => {
-      setError(reason);
-      setTimeout(() => setError(null), 5000);
+      setTemporaryError(reason);
     });
 
     newSocket.on('ERROR', ({ message }) => {
@@ -286,9 +393,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [authState.token, authState.meetingCode]);
+  }, [authState.token, authState.meetingCode, setTemporaryError]);
 
-  // Dispatch action through socket
+  // Dispatch action through socket with timeout
   const dispatch = useCallback(async (action: MeetingAction): Promise<boolean> => {
     const currentSocket = socketRef.current;
     if (!currentSocket || !isConnected) {
@@ -299,18 +406,28 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const sequence = clientSequence + 1;
     setClientSequence(sequence);
 
-    return new Promise((resolve) => {
+    const TIMEOUT_MS = 10000; // 10 second timeout
+
+    const actionPromise = new Promise<boolean>((resolve) => {
       currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
         if (response.success) {
           resolve(true);
         } else {
-          setError(response.error || 'Action failed');
-          setTimeout(() => setError(null), 5000);
+          setTemporaryError(response.error || 'Action failed');
           resolve(false);
         }
       });
     });
-  }, [isConnected, clientSequence]);
+
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        setTemporaryError('Action timed out. Please try again.');
+        resolve(false);
+      }, TIMEOUT_MS);
+    });
+
+    return Promise.race([actionPromise, timeoutPromise]);
+  }, [isConnected, clientSequence, setTemporaryError]);
 
   // Reconnect
   const reconnect = useCallback(() => {

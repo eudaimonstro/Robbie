@@ -1,24 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import type { CountdownTimerProps } from '../types';
 
-export const CountdownTimer = React.memo(function CountdownTimer({ endTime, label }: CountdownTimerProps) {
+export const CountdownTimer = React.memo(function CountdownTimer({ endTime, label, onExpired }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const hasExpiredRef = useRef(false);
 
   useEffect(() => {
-    if (!endTime) return;
+    if (!endTime) {
+      hasExpiredRef.current = false;
+      return;
+    }
 
     const updateTimer = () => {
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
       setTimeLeft(remaining);
+
+      // Call onExpired callback once when timer reaches zero
+      if (remaining === 0 && !hasExpiredRef.current && onExpired) {
+        hasExpiredRef.current = true;
+        onExpired();
+      }
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [endTime]);
+  }, [endTime, onExpired]);
 
   if (!endTime) return null;
 

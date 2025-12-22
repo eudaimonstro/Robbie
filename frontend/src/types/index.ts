@@ -32,6 +32,7 @@ export interface HelpTooltipProps {
 export interface CountdownTimerProps {
   readonly endTime: number | null;
   readonly label: string;
+  readonly onExpired?: () => void;
 }
 
 export interface DraggableAgendaListProps {

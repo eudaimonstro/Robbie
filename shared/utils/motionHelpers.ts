@@ -6,6 +6,50 @@ export interface ValidMotion extends MotionDefinition {
   key: string;
 }
 
+/**
+ * Normalize text for comparison (case-insensitive, trimmed, collapse whitespace)
+ */
+export function normalizeMotionText(text: string): string {
+  return text.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Check if two motion texts are substantially similar (same subject matter)
+ */
+export function isSimilarMotionSubject(text1: string, text2: string): boolean {
+  const norm1 = normalizeMotionText(text1);
+  const norm2 = normalizeMotionText(text2);
+  // Exact match after normalization
+  if (norm1 === norm2) return true;
+  // Check if one contains the other (substring match for similar subject)
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+  // Check for significant word overlap (>50% of words in common)
+  const words1 = new Set(norm1.split(' ').filter(w => w.length > 3)); // Skip short words
+  const words2 = new Set(norm2.split(' ').filter(w => w.length > 3));
+  if (words1.size === 0 || words2.size === 0) return false;
+  const commonWords = [...words1].filter(w => words2.has(w)).length;
+  const overlapRatio = commonWords / Math.min(words1.size, words2.size);
+  return overlapRatio >= 0.5;
+}
+
+/**
+ * Check if a motion with given type and text was defeated this meeting
+ */
+export function wasMotionDefeated(
+  state: MeetingState,
+  motionType: string,
+  motionText?: string
+): boolean {
+  if (!state.defeatedMotions?.length) return false;
+  // For main motions, check subject matter; for others, just check type
+  if (motionType === 'mainMotion' && motionText) {
+    return state.defeatedMotions.some(
+      dm => dm.type === motionType && isSimilarMotionSubject(dm.text, motionText)
+    );
+  }
+  return state.defeatedMotions.some(dm => dm.type === motionType);
+}
+
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some(m => m.type === 'amend');
@@ -18,10 +62,8 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
   // Check if amendment depth limit is suspended
   const amendmentDepthSuspended = isRuleSuspended(state, 'amendment-depth');
 
-  // Helper to check if a motion was defeated this meeting
-  const wasDefeated = (motionType: string) => {
-    return state.defeatedMotions?.some(dm => dm.type === motionType) || false;
-  };
+  // Use the exported wasMotionDefeated for checking defeated motions
+  const wasDefeated = (motionType: string) => wasMotionDefeated(state, motionType);
 
   // When agenda objection exists and no current motion, prioritize agenda motions
   // but don't block privileged motions (they're always in order)
@@ -39,8 +81,10 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
     // Amendment depth enforcement (unless suspended)
     if (!amendmentDepthSuspended && key === 'amendAmendment' && (!hasAmendment || hasSecondaryAmendment)) return;
     if (!amendmentDepthSuspended && key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
-    // Renewal rule: Cannot renew defeated main motions at same meeting
-    if (motion.category === 'main' && wasDefeated(key)) return;
+    // Renewal rule: For non-mainMotion main motions (like adoptAgenda, takeFromTable),
+    // block if that specific type was defeated.
+    // For mainMotion, allow the type but individual motions are blocked by subject-matter check in validator.
+    if (motion.category === 'main' && key !== 'mainMotion' && wasDefeated(key)) return;
     // Appeal: Only available immediately after a chair ruling
     if (key === 'appeal' && !state.lastChairRuling) return;
     // Objection to Consideration: Only for main motions before debate begins

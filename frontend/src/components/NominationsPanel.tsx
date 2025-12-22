@@ -63,9 +63,9 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
   );
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow">
-      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-        🗳️ Nominations and Elections
+    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="nominations-heading">
+      <h3 id="nominations-heading" className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+        <span aria-hidden="true">🗳️</span> Nominations and Elections
       </h3>
 
       {/* Chair Controls - Open Nominations */}
@@ -96,9 +96,9 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
       {/* Active Nominations */}
       {state.nominationsOpen && state.currentNominationPosition && (
         <div className="mb-4">
-          <div className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3">
+          <div className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3" role="status" aria-live="polite">
             <p className="font-semibold text-green-900">
-              ✅ Nominations are open for: {state.currentNominationPosition}
+              <span aria-hidden="true">✅</span> Nominations are open for: {state.currentNominationPosition}
             </p>
             <p className="text-xs text-green-700 mt-1">
               Per RONR, nominations do not require a second. Members may nominate themselves.
@@ -197,6 +197,6 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
