@@ -1,3 +1,7 @@
+/**
+ * Action Validator Tests
+ * Tests for validating meeting actions before dispatch
+ */
 import { describe, it, expect } from 'vitest';
 import { validateAction } from '../socket/actionValidator.js';
 import { initialState } from '@robbie/shared/reducer';
