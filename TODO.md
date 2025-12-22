@@ -6,11 +6,15 @@ This file tracks all pending tasks and improvements for the Robbie project.
 
 ## Backend
 
-### Email Service
-- [ ] **Replace placeholder email service with actual provider** ([backend/src/auth/emailService.ts:27](backend/src/auth/emailService.ts#L27))
-  - Current: Console logging verification codes (dev mode)
-  - Options: SendGrid, Mailgun, AWS SES, Postmark
-  - Requires: `EMAIL_API_KEY` environment variable
+### Production Deployment
+- [ ] **Configure email provider environment variables**
+  - Set one of: `SENDGRID_API_KEY`, `RESEND_API_KEY`, or `SMTP_*` variables
+  - Set `EMAIL_FROM` for sender address
+  - See [backend/src/auth/emailService.ts](backend/src/auth/emailService.ts) for configuration options
+
+- [ ] **Enable PostgreSQL persistence**
+  - Set `DATABASE_URL` environment variable
+  - Meeting state currently stored in-memory (lost on restart)
 
 ---
 
@@ -96,3 +100,14 @@ mobile/
   - Mobile verify screen: Dynamic code input sizing based on screen width
   - Mobile: Fixed touchTargets.button reference
   - Mobile: Changed orientation to "default" for tablet landscape support
+- [x] Production-ready email service
+  - Supports SMTP, SendGrid, and Resend providers
+  - Beautiful HTML email templates for verification codes
+  - Auto-detects provider from environment variables
+  - Falls back to console logging in development
+- [x] JWT security hardening
+  - Fail-fast in production if JWT_SECRET missing
+  - Require minimum 32-character secret in production
+- [x] Backend action validator tests
+  - 38 comprehensive tests for action validation
+  - Covers motions, voting, proxy, roll call, agenda actions

@@ -8,18 +8,33 @@ export const authRouter = Router();
 
 // Environment checks
 const isProduction = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
+// JWT_SECRET must be set in production - fail fast with clear error
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
   if (isProduction) {
-    console.error('FATAL: JWT_SECRET environment variable is required in production');
-    process.exit(1);
-  } else {
-    console.warn('WARNING: Using insecure default JWT_SECRET. Set JWT_SECRET env var for production.');
+    if (!secret) {
+      console.error('FATAL: JWT_SECRET environment variable is required in production');
+      process.exit(1);
+    }
+    if (secret.length < 32) {
+      console.error('FATAL: JWT_SECRET must be at least 32 characters in production');
+      process.exit(1);
+    }
+    return secret;
   }
+
+  // Development mode
+  if (!secret) {
+    console.warn('WARNING: Using insecure default JWT_SECRET. Set JWT_SECRET env var for production.');
+    return 'dev-secret-do-not-use-in-production';
+  }
+
+  return secret;
 }
 
-const jwtSecret = JWT_SECRET || 'dev-secret-change-in-production';
+const jwtSecret = getJwtSecret();
 const VERIFICATION_EXPIRY_MINUTES = 15;
 
 // Input validation patterns (matching frontend)
