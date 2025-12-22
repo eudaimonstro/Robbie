@@ -310,6 +310,95 @@ if (!isProduction) {
   });
 }
 
+// TEST ONLY: Change user role for testing different views
+// Only available when ENABLE_TEST_AUTH=true
+if (TEST_AUTH_ENABLED) {
+  authRouter.post('/test-role', async (req, res) => {
+    try {
+      const { email, meetingCode, role } = req.body;
+
+      if (!email || !meetingCode || !role) {
+        return res.status(400).json({ error: 'Missing required fields: email, meetingCode, role' });
+      }
+
+      const validRoles = ['member', 'chair', 'admin'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: 'Invalid role. Must be: member, chair, or admin' });
+      }
+
+      const sanitizedEmail = email.trim().toLowerCase();
+      const sanitizedMeetingCode = meetingCode.trim().toUpperCase();
+
+      // Find user
+      const user = users.get(sanitizedEmail);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found. Verify first.' });
+      }
+
+      // Import modules dynamically to avoid circular dependency
+      const { getStorage } = await import('../db/meetingStorage.js');
+      const { applyAction } = await import('../socket/stateManager.js');
+      const storage = getStorage();
+
+      // Update role in storage (for permission checks)
+      const odUserId = `${user.id}:${user.email}`;
+      await storage.setParticipantRole(sanitizedMeetingCode, odUserId, role);
+
+      // Also update the member's role in the meeting state
+      const meeting = await storage.getMeeting(sanitizedMeetingCode);
+      if (meeting) {
+        const member = meeting.state.members.find(m => m.id === user.id);
+        if (member) {
+          // Find current chair if we're making someone else chair
+          let previousChairId: number | undefined;
+          if (role === 'chair') {
+            const currentChair = meeting.state.members.find(m => m.role === 'chair');
+            if (currentChair && currentChair.id !== user.id) {
+              previousChairId = currentChair.id;
+            }
+          }
+
+          // Apply SET_MEMBER_ROLE action to update the state
+          await applyAction(sanitizedMeetingCode, {
+            type: 'SET_MEMBER_ROLE',
+            targetMemberId: user.id,
+            newRole: role,
+            previousChairId,
+            changedBy: 'Test Mode',
+            changedById: 0,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Generate new JWT with role hint (for debugging)
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          meetingCode: sanitizedMeetingCode,
+          testRole: role // Hint for debugging, not used for auth
+        },
+        jwtSecret,
+        { expiresIn: '24h' }
+      );
+
+      console.log(`🧪 TEST: Changed role for ${user.email} in ${sanitizedMeetingCode} to ${role}`);
+
+      res.json({
+        success: true,
+        message: `Role changed to ${role}. Refresh the page to see the new view.`,
+        token,
+        role
+      });
+    } catch (error) {
+      console.error('Error changing test role:', error);
+      res.status(500).json({ error: 'Failed to change role' });
+    }
+  });
+}
+
 // Verify JWT token (for socket connection)
 export function verifyToken(token: string): { userId: number; email: string; name: string; meetingCode: string } | null {
   try {
