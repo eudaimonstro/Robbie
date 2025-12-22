@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import type { Member } from '@robbie/shared/types';
+import type { Member, ProxyAuthorization } from '@robbie/shared/types';
+
+interface QuorumOptions {
+  proxiesCountForQuorum?: boolean;
+  proxies?: ProxyAuthorization[];
+}
 
 /**
  * Custom hook to compute quorum status for the meeting
@@ -9,28 +14,51 @@ import type { Member } from '@robbie/shared/types';
  *
  * @param members - Array of meeting members
  * @param quorum - Required number of members for quorum
+ * @param options - Optional settings:
+ *   - `proxiesCountForQuorum`: Whether absent members with proxies count toward quorum
+ *   - `proxies`: Array of active proxy authorizations
  * @returns Quorum status object:
- *   - `presentCount`: Number of members currently marked as present
+ *   - `presentCount`: Number of members currently marked as present (physical)
+ *   - `effectiveCount`: Present + proxy-represented members (if proxies count)
  *   - `totalMembers`: Total number of members in the meeting
  *   - `hasQuorum`: Boolean indicating if quorum requirement is met
+ *   - `proxyCount`: Number of absent members represented by proxy
  *
  * @example
  * ```tsx
- * const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
- * if (!hasQuorum) {
- *   console.warn(`Only ${presentCount}/${quorum} members present`);
- * }
+ * const { presentCount, effectiveCount, hasQuorum } = useQuorumStatus(
+ *   state.members,
+ *   state.quorum,
+ *   { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
+ * );
  * ```
  */
-export function useQuorumStatus(members: Member[], quorum: number) {
+export function useQuorumStatus(
+  members: Member[],
+  quorum: number,
+  options?: QuorumOptions
+) {
   return useMemo(() => {
     const presentCount = members.filter(m => m.present).length;
-    const hasQuorum = presentCount >= quorum;
+
+    // Count absent members who have granted proxies to present members
+    let proxyCount = 0;
+    if (options?.proxiesCountForQuorum && options?.proxies) {
+      const presentMemberIds = new Set(members.filter(m => m.present).map(m => m.id));
+      proxyCount = options.proxies.filter(p =>
+        presentMemberIds.has(p.grantedTo) && !presentMemberIds.has(p.grantedBy)
+      ).length;
+    }
+
+    const effectiveCount = presentCount + proxyCount;
+    const hasQuorum = effectiveCount >= quorum;
 
     return {
       presentCount,
+      effectiveCount,
       totalMembers: members.length,
-      hasQuorum
+      hasQuorum,
+      proxyCount
     };
-  }, [members, quorum]);
+  }, [members, quorum, options?.proxiesCountForQuorum, options?.proxies]);
 }

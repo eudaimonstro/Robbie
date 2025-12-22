@@ -45,7 +45,11 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
 
   // Use custom hooks
   const voteResults = useVoteResults(state.meetingLog);
-  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum);
+  const { presentCount, effectiveCount, hasQuorum } = useQuorumStatus(
+    state.members,
+    state.quorum,
+    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
+  );
 
   useEffect(() => {
     if (!validMotions.find(m => m.key === selectedMotion) && validMotions.length > 0) {

@@ -171,6 +171,23 @@ export interface Inquiry {
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded';
 
+// Proxy voting types
+export interface ProxyAuthorization {
+  readonly id: number;
+  readonly grantedBy: number;      // Absent member's ID
+  readonly grantedTo: number;      // Proxy holder's ID
+  readonly grantedByName: string;  // For display
+  readonly grantedToName: string;  // For display
+  readonly grantedAt: string;      // Timestamp
+  readonly scope: 'all' | 'single-vote';  // For all votes or just next one
+}
+
+export interface ProxyVoteRecord {
+  readonly memberId: number;       // The member whose vote this represents
+  readonly castBy: number;         // The proxy holder who cast it
+  readonly vote: 'yea' | 'nay' | 'abstain';
+}
+
 export interface RollCallRecord {
   memberId: number;
   memberName: string;
@@ -231,6 +248,12 @@ export interface MeetingState {
   dividedQuestionParts: Array<{ id: number; text: string; originalMotionId: number }>; // Pending parts from a divided motion
   rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
+  // Proxy voting
+  allowProxyVoting: boolean;       // Whether proxy voting is enabled
+  maxProxiesPerMember: number;     // Max proxies one member can hold (0 = unlimited)
+  proxiesCountForQuorum: boolean;  // Whether proxy holders count absent members toward quorum
+  proxies: ProxyAuthorization[];   // Active proxy authorizations
+  proxyVotes: ProxyVoteRecord[];   // Proxy votes cast in current vote (reset when voting opens)
 }
 
 // Action types
@@ -287,7 +310,12 @@ export type MeetingAction =
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
   | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
-  | { type: 'SET_AUTO_YIELD'; enabled: boolean };
+  | { type: 'SET_AUTO_YIELD'; enabled: boolean }
+  // Proxy voting actions
+  | { type: 'SET_PROXY_SETTINGS'; allowProxyVoting: boolean; maxProxiesPerMember: number; proxiesCountForQuorum: boolean; timestamp: string }
+  | { type: 'GRANT_PROXY'; proxyId: number; grantedBy: number; grantedTo: number; grantedByName: string; grantedToName: string; scope: 'all' | 'single-vote'; timestamp: string }
+  | { type: 'REVOKE_PROXY'; proxyId: number; timestamp: string }
+  | { type: 'CAST_PROXY_VOTE'; vote: 'yea' | 'nay' | 'abstain'; forMemberId: number; castById: number; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

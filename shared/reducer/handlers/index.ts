@@ -11,4 +11,5 @@ export { electionHandler } from './electionHandlers.js';
 export { inquiryHandler } from './inquiryHandlers.js';
 export { ruleSuspensionHandler } from './ruleSuspensionHandlers.js';
 export { committeeHandler } from './committeeHandlers.js';
+export { proxyHandler } from './proxyHandlers.js';
 export type { ActionHandler } from './types.js';

@@ -1,6 +1,7 @@
-import React from 'react';
-import { Vote } from 'lucide-react';
-import type { MeetingState, MeetingAction, Member } from '@robbie/shared/types';
+import React, { useMemo, useCallback } from 'react';
+import { Vote, Users } from 'lucide-react';
+import { generateTimestamp } from '@robbie/shared/utils';
+import type { MeetingState, MeetingAction, Member, ProxyAuthorization } from '@robbie/shared/types';
 import { CountdownTimer } from '../CountdownTimer';
 
 interface VotingPanelProps {
@@ -18,6 +19,33 @@ export const VotingPanel = React.memo(function VotingPanel({
   hasQuorum,
   presentCount
 }: VotingPanelProps) {
+  // Get proxies held by current user
+  const heldProxies = useMemo(() => {
+    if (!state.allowProxyVoting) return [];
+    return state.proxies.filter(p => p.grantedTo === currentUser.id);
+  }, [state.proxies, state.allowProxyVoting, currentUser.id]);
+
+  // Get which proxy votes have been cast
+  const proxyVotesCast = useMemo(() => {
+    const cast: Record<number, 'yea' | 'nay' | 'abstain'> = {};
+    for (const pv of state.proxyVotes) {
+      if (pv.castBy === currentUser.id) {
+        cast[pv.memberId] = pv.vote;
+      }
+    }
+    return cast;
+  }, [state.proxyVotes, currentUser.id]);
+
+  const handleProxyVote = useCallback((forMemberId: number, vote: 'yea' | 'nay' | 'abstain') => {
+    dispatch({
+      type: 'CAST_PROXY_VOTE',
+      vote,
+      forMemberId,
+      castById: currentUser.id,
+      timestamp: generateTimestamp()
+    });
+  }, [dispatch, currentUser.id]);
+
   if (!state.votingOpen) {
     return null;
   }
@@ -115,6 +143,16 @@ export const VotingPanel = React.memo(function VotingPanel({
           ✓ Vote recorded
         </p>
       )}
+
+      {/* Proxy Voting Section */}
+      {heldProxies.length > 0 && (
+        <ProxyVotingSection
+          proxies={heldProxies}
+          proxyVotesCast={proxyVotesCast}
+          onProxyVote={handleProxyVote}
+          votingMethod={state.votingMethod}
+        />
+      )}
     </section>
   );
 });
@@ -169,6 +207,83 @@ function VoteButtons({
       >
         ABSTAIN{userVote === 'abstain' ? ' ✓' : ''}
       </button>
+    </div>
+  );
+}
+
+// Sub-component for proxy voting
+function ProxyVotingSection({
+  proxies,
+  proxyVotesCast,
+  onProxyVote,
+  votingMethod
+}: {
+  proxies: ProxyAuthorization[];
+  proxyVotesCast: Record<number, 'yea' | 'nay' | 'abstain'>;
+  onProxyVote: (forMemberId: number, vote: 'yea' | 'nay' | 'abstain') => void;
+  votingMethod: string;
+}) {
+  const yeaLabel = votingMethod === 'rollcall' ? 'AYE' : 'YEA';
+  const nayLabel = votingMethod === 'rollcall' ? 'NO' : 'NAY';
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+        <Users size={16} aria-hidden="true" />
+        Cast Proxy Votes ({proxies.length})
+      </h4>
+      <div className="space-y-3">
+        {proxies.map(proxy => {
+          const castVote = proxyVotesCast[proxy.grantedBy];
+          return (
+            <div key={proxy.id} className="bg-indigo-50 rounded-lg p-3">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Voting for: <span className="text-indigo-700">{proxy.grantedByName}</span>
+                {proxy.scope === 'single-vote' && (
+                  <span className="text-xs text-amber-600 ml-2">(single vote only)</span>
+                )}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => onProxyVote(proxy.grantedBy, 'yea')}
+                  className={`py-2 rounded font-bold text-sm transition-all ${
+                    castVote === 'yea'
+                      ? 'bg-green-600 text-white ring-2 ring-green-300'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  {yeaLabel}{castVote === 'yea' ? ' ✓' : ''}
+                </button>
+                <button
+                  onClick={() => onProxyVote(proxy.grantedBy, 'nay')}
+                  className={`py-2 rounded font-bold text-sm transition-all ${
+                    castVote === 'nay'
+                      ? 'bg-red-600 text-white ring-2 ring-red-300'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                >
+                  {nayLabel}{castVote === 'nay' ? ' ✓' : ''}
+                </button>
+                <button
+                  onClick={() => onProxyVote(proxy.grantedBy, 'abstain')}
+                  className={`py-2 rounded font-bold text-sm transition-all ${
+                    castVote === 'abstain'
+                      ? 'bg-gray-600 text-white ring-2 ring-gray-400'
+                      : 'bg-gray-400 text-white hover:bg-gray-500'
+                  }`}
+                >
+                  ABSTAIN{castVote === 'abstain' ? ' ✓' : ''}
+                </button>
+              </div>
+              {castVote && (
+                <p className="text-center text-green-600 mt-2 text-sm font-medium">
+                  ✓ Proxy vote recorded
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

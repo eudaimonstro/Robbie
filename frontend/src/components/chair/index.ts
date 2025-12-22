@@ -10,3 +10,4 @@ export { UnanimousConsentPanel } from './UnanimousConsentPanel';
 export { PendingSecondPanel } from './PendingSecondPanel';
 export { ChairScriptPanel } from './ChairScriptPanel';
 export { MotionStackPanel } from './MotionStackPanel';
+export { ProxyManagementPanel } from './ProxyManagementPanel';

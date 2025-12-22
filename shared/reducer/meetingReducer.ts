@@ -12,7 +12,8 @@ import {
   electionHandler,
   inquiryHandler,
   ruleSuspensionHandler,
-  committeeHandler
+  committeeHandler,
+  proxyHandler
 } from './handlers/index.js';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
@@ -111,6 +112,13 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'ADD_COMMITTEE_REPORT':
     case 'PRESENT_COMMITTEE_REPORT':
       return committeeHandler(state, action, log);
+
+    // Proxy voting
+    case 'SET_PROXY_SETTINGS':
+    case 'GRANT_PROXY':
+    case 'REVOKE_PROXY':
+    case 'CAST_PROXY_VOTE':
+      return proxyHandler(state, action, log);
 
     default: {
       // Exhaustive check - TypeScript will error here if any action type is unhandled

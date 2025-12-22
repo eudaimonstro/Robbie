@@ -21,6 +21,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
         voterChoices: {},
+        proxyVotes: [],  // Reset proxy votes for new vote
         meetingLog: logEntries
       };
     }

@@ -17,7 +17,8 @@ import {
   UnanimousConsentPanel,
   PendingSecondPanel,
   ChairScriptPanel,
-  MotionStackPanel
+  MotionStackPanel,
+  ProxyManagementPanel
 } from '../components/chair';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
@@ -31,8 +32,12 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     state
   );
 
-  // Use custom hook for quorum status
-  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum);
+  // Use custom hook for quorum status (with proxy support)
+  const { presentCount, effectiveCount, hasQuorum, proxyCount } = useQuorumStatus(
+    state.members,
+    state.quorum,
+    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
+  );
 
   // Get chair member
   const chair = useMemo(
@@ -74,10 +79,12 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         state={state}
         dispatch={dispatch}
         hasQuorum={hasQuorum}
-        presentCount={presentCount}
+        presentCount={effectiveCount}
       />
 
       <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
+
+      <ProxyManagementPanel state={state} dispatch={dispatch} />
 
       {/* Nominations and Elections - only render when chair is defined */}
       {chair && (state.nominationsOpen ||

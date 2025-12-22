@@ -69,6 +69,12 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   WITHDRAW_MOTION: ['member', 'chair', 'admin'],
   MODIFY_MOTION: ['member', 'chair', 'admin'],
   RESPOND_ROLL_CALL: ['member', 'chair', 'admin'],
+
+  // Proxy voting actions
+  SET_PROXY_SETTINGS: ['admin', 'chair'],  // Admin/chair can enable/configure proxy voting
+  GRANT_PROXY: ['admin', 'chair'],          // Admin/chair grants proxies on behalf of absent members
+  REVOKE_PROXY: ['admin', 'chair'],         // Admin/chair can revoke proxies
+  CAST_PROXY_VOTE: ['member', 'chair', 'admin'],  // Proxy holders can cast proxy votes
 };
 
 /**
