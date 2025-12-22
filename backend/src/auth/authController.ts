@@ -234,8 +234,9 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       verification.verified = true;
     }
 
-    // Determine user name from verification record or request body (for test auth)
-    const userName = verification?.name || name?.trim() || 'Test User';
+    // Determine user name from verification record, request body, or derive from email
+    const derivedName = sanitizedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    const userName = verification?.name || name?.trim() || derivedName || 'Participant';
 
     // Create or find user
     let user = users.get(sanitizedEmail);

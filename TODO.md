@@ -96,6 +96,18 @@ mobile/
 
 ## Completed
 
+- [x] Remove placeholder data from initialState
+  - Members: Added dynamically when users join (first user becomes chair)
+  - Agenda: Chair adds items before/during meeting
+  - Committee Reports: Chair adds as needed
+  - Previous Minutes: Can be set via admin interface
+- [x] Test role switcher for DEMO meetings
+  - Purple flask button in bottom-right corner
+  - Allows quick switching between member/chair/admin views
+  - Only visible in DEMO meetings with ENABLE_TEST_AUTH=true
+- [x] Auth persistence across page reloads
+  - Auth state saved to localStorage after verification
+  - Restored on page load for seamless experience
 - [x] Member-controlled proxy authorization system
 - [x] Mobile app resend verification code fix
 - [x] Environment-based API URL configuration for mobile

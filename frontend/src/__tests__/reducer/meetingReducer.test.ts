@@ -1,6 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '@robbie/shared/reducer';
-import type { MeetingState, Motion } from '@robbie/shared/types';
+import type { MeetingState, Motion, Member } from '@robbie/shared/types';
+
+// Mock members for testing (initialState now starts with empty members array)
+const mockMembers: Member[] = [
+  { id: 1, name: 'Alice', role: 'member', present: true },
+  { id: 2, name: 'Bob', role: 'member', present: true },
+  { id: 3, name: 'Carol', role: 'member', present: true },
+  { id: 4, name: 'David', role: 'chair', present: true },
+  { id: 5, name: 'Eve', role: 'admin', present: true },
+];
+
+// Helper to create initial state with members for testing
+const createTestState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
+  ...initialState,
+  members: mockMembers,
+  ...overrides,
+});
 
 // Helper to create a basic motion
 const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
@@ -512,7 +528,7 @@ describe('meetingReducer', () => {
 
   describe('RAISE_HAND', () => {
     it('should add member to speaker queue', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const state = meetingReducer(initialState, {
         type: 'RAISE_HAND',
         member,
@@ -525,7 +541,7 @@ describe('meetingReducer', () => {
     });
 
     it('should not add duplicate member', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithHand: MeetingState = {
         ...initialState,
         speakerQueue: [{ member, stance: 'pro' }],
@@ -541,7 +557,7 @@ describe('meetingReducer', () => {
     });
 
     it('should reject raising hand with opposite stance after speaking (side-switching)', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithPreviousStance: MeetingState = {
         ...initialState,
         debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
@@ -559,7 +575,7 @@ describe('meetingReducer', () => {
     });
 
     it('should allow raising hand with same stance after speaking', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithPreviousStance: MeetingState = {
         ...initialState,
         debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
@@ -576,7 +592,7 @@ describe('meetingReducer', () => {
     });
 
     it('should allow neutral stance regardless of previous stance', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithPreviousStance: MeetingState = {
         ...initialState,
         debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
@@ -595,7 +611,7 @@ describe('meetingReducer', () => {
 
   describe('LOWER_HAND', () => {
     it('should remove member from speaker queue', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithHand: MeetingState = {
         ...initialState,
         speakerQueue: [{ member, stance: 'pro' }],
@@ -612,7 +628,7 @@ describe('meetingReducer', () => {
 
   describe('RECOGNIZE_SPEAKER', () => {
     it('should set recognized speaker and remove from queue', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithHand: MeetingState = {
         ...initialState,
         speakerQueue: [{ member, stance: 'pro' }],
@@ -632,8 +648,8 @@ describe('meetingReducer', () => {
     });
 
     it('should reject recognition of non-mover when mover has not spoken on debatable motion', () => {
-      const mover = initialState.members[0];
-      const otherMember = initialState.members[1];
+      const mover = mockMembers[0];
+      const otherMember = mockMembers[1];
       const motion = {
         id: 1,
         type: 'mainMotion',
@@ -659,6 +675,7 @@ describe('meetingReducer', () => {
 
       const stateWithMotion: MeetingState = {
         ...initialState,
+        members: mockMembers,
         currentMotion: motion,
         motionStack: [motion],
         speakerQueue: [{ member: otherMember, stance: 'con' }],
@@ -679,7 +696,7 @@ describe('meetingReducer', () => {
     });
 
     it('should allow mover to be recognized first', () => {
-      const mover = initialState.members[0];
+      const mover = mockMembers[0];
       const motion = {
         id: 1,
         type: 'mainMotion',
@@ -723,8 +740,8 @@ describe('meetingReducer', () => {
     });
 
     it('should allow non-mover after mover has spoken', () => {
-      const mover = initialState.members[0];
-      const otherMember = initialState.members[1];
+      const mover = mockMembers[0];
+      const otherMember = mockMembers[1];
       const motion = {
         id: 1,
         type: 'mainMotion',
@@ -750,6 +767,7 @@ describe('meetingReducer', () => {
 
       const stateWithMotion: MeetingState = {
         ...initialState,
+        members: mockMembers,
         currentMotion: motion,
         motionStack: [motion],
         speakerQueue: [{ member: otherMember, stance: 'con' }],
@@ -769,9 +787,10 @@ describe('meetingReducer', () => {
 
   describe('YIELD_FLOOR', () => {
     it('should clear recognized speaker', () => {
-      const member = initialState.members[0];
+      const member = mockMembers[0];
       const stateWithSpeaker: MeetingState = {
         ...initialState,
+        members: mockMembers,
         recognizedSpeaker: member,
       };
 
