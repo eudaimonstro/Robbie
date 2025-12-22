@@ -52,13 +52,9 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
         throw new Error(data.error || 'Failed to change role');
       }
 
-      // Store new token if returned
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token);
-      }
-
-      // Reload page to apply new role
-      window.location.reload();
+      // Close the dialog - the STATE_UPDATE from the server will update the UI
+      setIsOpen(false);
+      setIsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to change role');
       setIsLoading(false);
