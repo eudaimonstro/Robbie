@@ -75,6 +75,11 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   GRANT_PROXY: ['admin', 'chair'],          // Admin/chair grants proxies on behalf of absent members
   REVOKE_PROXY: ['admin', 'chair'],         // Admin/chair can revoke proxies
   CAST_PROXY_VOTE: ['member', 'chair', 'admin'],  // Proxy holders can cast proxy votes
+  // Member-initiated proxy request actions
+  REQUEST_PROXY: ['member', 'chair', 'admin'],    // Members can request proxies
+  ACCEPT_PROXY: ['member', 'chair', 'admin'],     // Members can accept proxy requests
+  DECLINE_PROXY: ['member', 'chair', 'admin'],    // Members can decline proxy requests
+  CANCEL_PROXY_REQUEST: ['member', 'chair', 'admin'],  // Members can cancel their own requests
 };
 
 /**

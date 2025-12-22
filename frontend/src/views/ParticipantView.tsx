@@ -13,7 +13,7 @@ import { InquiryPanel } from '../components/InquiryPanel';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { QuorumWarning } from '../components/QuorumWarning';
-import { VotingPanel, SpeakerRecognitionPanel, VoteResultsPanel } from '../components/participant';
+import { VotingPanel, SpeakerRecognitionPanel, VoteResultsPanel, ProxyRequestPanel, ProxyAcceptancePanel } from '../components/participant';
 import { useVoteResults } from '../hooks/useVoteResults';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 
@@ -150,16 +150,19 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
       )}
 
+      {/* Proxy acceptance panel - shown for members who have pending proxy requests */}
+      <ProxyAcceptancePanel state={state} dispatch={dispatch} currentUser={currentUser} />
+
       {/* Floor control when recognized */}
       {hasFloor && (
-        <div className="bg-green-100 border border-green-300 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-green-800 font-medium">You have the floor</span>
+        <div className="bg-green-100 border-2 border-green-300 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-green-800 font-semibold text-lg">You have the floor</span>
             <button
               onClick={() => dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() })}
-              className="text-green-700 text-sm underline"
+              className="min-h-[40px] px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
             >
-              Yield
+              Yield Floor
             </button>
           </div>
           {state.speakerTimerEnd && (
@@ -190,6 +193,9 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         currentUser={currentUser}
         handRaised={handRaised}
       />
+
+      {/* Proxy request panel - shown for absent members who want to delegate their vote */}
+      <ProxyRequestPanel state={state} dispatch={dispatch} currentUser={currentUser} />
 
       {/* Agenda Display */}
       {state.agendaAdopted && (
@@ -301,7 +307,7 @@ function CurrentBusinessPanel({
           </div>
           <button
             onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
-            className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg"
+            className="w-full min-h-[56px] bg-amber-500 text-white py-4 rounded-xl hover:bg-amber-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
           >
             I Object to the Agenda!
           </button>
@@ -375,7 +381,7 @@ function PendingSecondSection({
       ) : (
         <button
           onClick={() => dispatch({ type: 'SECOND_MOTION', seconder: currentUser.name, timestamp: generateTimestamp() })}
-          className="w-full bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 font-semibold text-lg"
+          className="w-full min-h-[56px] bg-amber-500 text-white py-4 rounded-xl hover:bg-amber-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
         >
           I Second This Motion
         </button>
@@ -408,7 +414,7 @@ function UnanimousConsentSection({
       </div>
       <button
         onClick={() => dispatch({ type: 'OBJECT_TO_CONSENT', objector: currentUser.name, timestamp: generateTimestamp() })}
-        className="w-full bg-red-500 text-white py-3 rounded-lg hover:bg-red-600 font-semibold text-lg"
+        className="w-full min-h-[56px] bg-red-500 text-white py-4 rounded-xl hover:bg-red-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
       >
         I Object!
       </button>
@@ -443,7 +449,7 @@ function MotionSelector({
       <select
         value={selectedMotion}
         onChange={(e) => setSelectedMotion(e.target.value)}
-        className="w-full p-3 border rounded-lg mb-3 bg-white"
+        className="w-full min-h-[48px] p-3 border rounded-xl mb-3 bg-white text-base"
         aria-label="Select motion type"
       >
         {Object.entries(groupedMotions).map(([cat, motions]) => (
@@ -475,7 +481,7 @@ function MotionSelector({
             value={motionText}
             onChange={(e) => setMotionText(e.target.value.slice(0, 500))}
             maxLength={500}
-            className="w-full p-3 border rounded-lg"
+            className="w-full min-h-[48px] p-3 border rounded-xl text-base"
             aria-label="Motion text"
             aria-describedby="motion-char-count"
           />
@@ -488,7 +494,7 @@ function MotionSelector({
       <button
         onClick={onSubmit}
         disabled={needsText}
-        className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 font-medium"
+        className="w-full min-h-[48px] bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
       >
         {selectedMotion === 'amendAgenda' ? 'Configure Amendment...' :
          selectedMotion === 'suspendRules' ? 'Configure Suspension...' :

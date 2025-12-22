@@ -57,69 +57,71 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
         />
       )}
 
+      {/* Meeting controls - always full width */}
       <MeetingControlPanel state={state} dispatch={dispatch} />
 
-      <OrderOfBusinessPanel state={state} dispatch={dispatch} />
-
-      <MinutesApprovalPanel state={state} dispatch={dispatch} />
-
-      <CommitteeReportsPanel state={state} dispatch={dispatch} />
-
-      <ChairScriptPanel state={state} />
-
-      <AgendaPanel state={state} dispatch={dispatch} />
-
-      <PendingSecondPanel state={state} dispatch={dispatch} />
-
-      <PendingMotionPanel state={state} dispatch={dispatch} />
-
-      <UnanimousConsentPanel state={state} dispatch={dispatch} />
-
-      <VotingPanel
-        state={state}
-        dispatch={dispatch}
-        hasQuorum={hasQuorum}
-        presentCount={effectiveCount}
-      />
-
-      <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
-
-      <ProxyManagementPanel state={state} dispatch={dispatch} />
-
-      {/* Nominations and Elections - only render when chair is defined */}
-      {chair && (state.nominationsOpen ||
-        state.currentElection ||
-        state.currentNominationPosition ||
-        state.electedOfficers.length > 0) && (
-        <>
-          <NominationsPanel
+      {/* Responsive grid layout for tablet/desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left column: Current business */}
+        <div className="space-y-4">
+          <OrderOfBusinessPanel state={state} dispatch={dispatch} />
+          <MinutesApprovalPanel state={state} dispatch={dispatch} />
+          <CommitteeReportsPanel state={state} dispatch={dispatch} />
+          <ChairScriptPanel state={state} />
+          <AgendaPanel state={state} dispatch={dispatch} />
+          <PendingSecondPanel state={state} dispatch={dispatch} />
+          <PendingMotionPanel state={state} dispatch={dispatch} />
+          <UnanimousConsentPanel state={state} dispatch={dispatch} />
+          <VotingPanel
             state={state}
             dispatch={dispatch}
-            currentUser={chair}
-            isChair={true}
+            hasQuorum={hasQuorum}
+            presentCount={effectiveCount}
           />
-          {(state.currentElection ||
-            (!state.nominationsOpen && state.currentNominationPosition)) && (
-            <ElectionPanel
+        </div>
+
+        {/* Right column: Speaker queue and members */}
+        <div className="space-y-4">
+          <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
+          <ProxyManagementPanel state={state} dispatch={dispatch} />
+
+          {/* Nominations and Elections - only render when chair is defined */}
+          {chair && (state.nominationsOpen ||
+            state.currentElection ||
+            state.currentNominationPosition ||
+            state.electedOfficers.length > 0) && (
+            <>
+              <NominationsPanel
+                state={state}
+                dispatch={dispatch}
+                currentUser={chair}
+                isChair={true}
+              />
+              {(state.currentElection ||
+                (!state.nominationsOpen && state.currentNominationPosition)) && (
+                <ElectionPanel
+                  state={state}
+                  dispatch={dispatch}
+                  currentUser={chair}
+                  isChair={true}
+                />
+              )}
+            </>
+          )}
+
+          {/* Inquiries Panel - only render when chair is defined */}
+          {chair && (
+            <InquiryPanel
               state={state}
               dispatch={dispatch}
               currentUser={chair}
               isChair={true}
             />
           )}
-        </>
-      )}
+        </div>
+      </div>
 
-      {/* Inquiries Panel - only render when chair is defined */}
-      {chair && (
-        <InquiryPanel
-          state={state}
-          dispatch={dispatch}
-          currentUser={chair}
-          isChair={true}
-        />
-      )}
-
+      {/* Motion stack - full width at bottom */}
       <MotionStackPanel state={state} />
     </div>
   );

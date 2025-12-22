@@ -78,4 +78,7 @@ export const initialState: MeetingState = {
   proxiesCountForQuorum: false,  // By default, proxies don't count for quorum
   proxies: [],
   proxyVotes: [],
+  // Member-controlled proxy authorization (disabled by default)
+  allowMemberProxyGrant: false,
+  pendingProxyRequests: [],
 };

@@ -6,7 +6,8 @@
   "workspaces": [
     "shared",
     "frontend",
-    "backend"
+    "backend",
+    "mobile"
   ],
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
@@ -17,7 +18,9 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
     "test": "npm run test --workspaces --if-present",
-    "test:frontend": "npm run test -w frontend"
+    "test:frontend": "npm run test -w frontend",
+    "test:mobile": "npm run test -w mobile",
+    "test:mobile:coverage": "npm run test:coverage -w mobile"
   },
   "engines": {
     "node": ">=18.0.0"

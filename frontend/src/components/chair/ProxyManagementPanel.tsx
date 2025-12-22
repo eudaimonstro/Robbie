@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Users, UserPlus, UserMinus, Settings } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Settings, Clock, X } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie/shared/types';
+import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie/shared/types';
 
 interface ProxyManagementPanelProps {
   state: MeetingState;
@@ -15,9 +15,15 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
   const [showSettings, setShowSettings] = useState(false);
   const [maxProxies, setMaxProxies] = useState(state.maxProxiesPerMember);
   const [countForQuorum, setCountForQuorum] = useState(state.proxiesCountForQuorum);
+  const [allowMemberGrant, setAllowMemberGrant] = useState(state.allowMemberProxyGrant);
   const [selectedAbsentMember, setSelectedAbsentMember] = useState<number | ''>('');
   const [selectedProxyHolder, setSelectedProxyHolder] = useState<number | ''>('');
   const [proxyScope, setProxyScope] = useState<'all' | 'single-vote'>('all');
+
+  // Get pending proxy requests
+  const pendingRequests = useMemo(() => {
+    return state.pendingProxyRequests.filter(r => r.status === 'pending');
+  }, [state.pendingProxyRequests]);
 
   // Get absent members who don't already have a proxy
   const absentMembersWithoutProxy = useMemo(() => {
@@ -69,10 +75,19 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
       allowProxyVoting: state.allowProxyVoting,
       maxProxiesPerMember: maxProxies,
       proxiesCountForQuorum: countForQuorum,
+      allowMemberProxyGrant: allowMemberGrant,
       timestamp: generateTimestamp()
     });
     setShowSettings(false);
-  }, [dispatch, state.allowProxyVoting, maxProxies, countForQuorum]);
+  }, [dispatch, state.allowProxyVoting, maxProxies, countForQuorum, allowMemberGrant]);
+
+  const handleCancelRequest = useCallback((requestId: number) => {
+    dispatch({
+      type: 'CANCEL_PROXY_REQUEST',
+      requestId,
+      timestamp: generateTimestamp()
+    });
+  }, [dispatch]);
 
   const handleGrantProxy = useCallback(() => {
     if (selectedAbsentMember === '' || selectedProxyHolder === '') return;
@@ -165,6 +180,20 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
             />
             <span className="text-sm text-gray-600">Proxies count toward quorum</span>
           </label>
+          <label className="flex items-center gap-2 mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allowMemberGrant}
+              onChange={(e) => setAllowMemberGrant(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-600">Allow members to request their own proxies</span>
+          </label>
+          {allowMemberGrant && (
+            <p className="text-xs text-amber-600 mb-3">
+              Members can send proxy requests to other members, who must accept before the proxy is active.
+            </p>
+          )}
           <button
             onClick={handleSaveSettings}
             className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
@@ -283,6 +312,36 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               </div>
             )}
           </div>
+
+          {/* Pending Proxy Requests (when member grants enabled) */}
+          {state.allowMemberProxyGrant && pendingRequests.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                <Clock size={14} /> Pending Requests ({pendingRequests.length})
+              </h4>
+              <div className="space-y-2">
+                {pendingRequests.map(request => (
+                  <div key={request.id} className="p-2 bg-amber-50 rounded border border-amber-200 flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium text-gray-800">{request.requestedByName}</span>
+                      <span className="text-gray-500"> → </span>
+                      <span className="font-medium text-gray-800">{request.requestedForName}</span>
+                      <span className="text-xs text-gray-400 ml-1">
+                        ({request.scope === 'single-vote' ? 'single vote' : 'all votes'})
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleCancelRequest(request.id)}
+                      className="text-red-600 hover:text-red-700 p-1"
+                      title="Cancel request"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </section>

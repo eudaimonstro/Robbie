@@ -162,6 +162,11 @@ export type ActionErrorCode =
   | 'PROXY_ALREADY_GRANTED'
   | 'CANNOT_PROXY_SELF'
   | 'RECEIVER_NOT_PRESENT'
+  // Member proxy request errors
+  | 'MEMBER_PROXY_DISABLED'
+  | 'REQUEST_PENDING'
+  | 'REQUEST_NOT_FOUND'
+  | 'REQUEST_NOT_PENDING'
   // Roll call errors
   | 'ROLL_CALL_NOT_IN_PROGRESS';
 

@@ -68,7 +68,7 @@ export function MeetingApp() {
 
       <ConnectionStatus />
 
-      <div className="p-4 max-w-lg mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto">
         {/* View switcher - only visible to admins */}
         {canSwitchViews && (
           <nav
@@ -84,7 +84,7 @@ export function MeetingApp() {
                 aria-selected={view === tab.id}
                 aria-controls={`${tab.id}-panel`}
                 id={`${tab.id}-tab`}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
+                className={`flex-1 min-h-[48px] py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 touch-manipulation active:scale-[0.98] transition-transform ${
                   view === tab.id
                     ? 'bg-indigo-600 text-white shadow'
                     : 'text-gray-600 hover:bg-gray-100'

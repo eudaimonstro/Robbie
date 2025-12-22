@@ -157,7 +157,7 @@ export const VotingPanel = React.memo(function VotingPanel({
   );
 });
 
-// Sub-component for vote buttons
+// Sub-component for vote buttons with touch-optimized targets
 function VoteButtons({
   dispatch,
   currentUserId,
@@ -172,38 +172,48 @@ function VoteButtons({
   const yeaLabel = method === 'rollcall' ? 'AYE' : 'YEA';
   const nayLabel = method === 'rollcall' ? 'NO' : 'NAY';
 
+  const baseButtonClass = `
+    min-h-[56px] py-4 rounded-xl font-bold text-lg
+    transition-all duration-150 ease-out
+    touch-manipulation active:scale-[0.97]
+    focus:outline-none focus:ring-2 focus:ring-offset-2
+  `.trim().replace(/\s+/g, ' ');
+
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: currentUserId })}
-        className={`py-${method === 'rollcall' ? '3' : '4'} rounded-lg font-bold text-lg transition-all ${
+        className={`${baseButtonClass} focus:ring-green-500 ${
           userVote === 'yea'
-            ? 'bg-green-600 text-white ring-4 ring-green-300'
+            ? 'bg-green-600 text-white ring-4 ring-green-300 scale-[1.02]'
             : 'bg-green-500 text-white hover:bg-green-600'
         }`}
         aria-pressed={userVote === 'yea'}
+        aria-label={`Vote ${yeaLabel}`}
       >
         {yeaLabel}{userVote === 'yea' ? ' ✓' : ''}
       </button>
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: currentUserId })}
-        className={`py-${method === 'rollcall' ? '3' : '4'} rounded-lg font-bold text-lg transition-all ${
+        className={`${baseButtonClass} focus:ring-red-500 ${
           userVote === 'nay'
-            ? 'bg-red-600 text-white ring-4 ring-red-300'
+            ? 'bg-red-600 text-white ring-4 ring-red-300 scale-[1.02]'
             : 'bg-red-500 text-white hover:bg-red-600'
         }`}
         aria-pressed={userVote === 'nay'}
+        aria-label={`Vote ${nayLabel}`}
       >
         {nayLabel}{userVote === 'nay' ? ' ✓' : ''}
       </button>
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'abstain', voterId: currentUserId })}
-        className={`py-${method === 'rollcall' ? '3' : '4'} rounded-lg font-bold transition-all ${
+        className={`${baseButtonClass} col-span-2 sm:col-span-1 focus:ring-gray-500 ${
           userVote === 'abstain'
-            ? 'bg-gray-600 text-white ring-4 ring-gray-400'
+            ? 'bg-gray-600 text-white ring-4 ring-gray-400 scale-[1.02]'
             : 'bg-gray-400 text-white hover:bg-gray-500'
         }`}
         aria-pressed={userVote === 'abstain'}
+        aria-label="Abstain from vote"
       >
         ABSTAIN{userVote === 'abstain' ? ' ✓' : ''}
       </button>
@@ -211,7 +221,7 @@ function VoteButtons({
   );
 }
 
-// Sub-component for proxy voting
+// Sub-component for proxy voting with touch-optimized targets
 function ProxyVotingSection({
   proxies,
   proxyVotesCast,
@@ -226,19 +236,26 @@ function ProxyVotingSection({
   const yeaLabel = votingMethod === 'rollcall' ? 'AYE' : 'YEA';
   const nayLabel = votingMethod === 'rollcall' ? 'NO' : 'NAY';
 
+  const proxyButtonClass = `
+    min-h-[48px] py-3 rounded-lg font-bold text-sm
+    transition-all duration-150 ease-out
+    touch-manipulation active:scale-[0.97]
+    focus:outline-none focus:ring-2 focus:ring-offset-1
+  `.trim().replace(/\s+/g, ' ');
+
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
       <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
         <Users size={16} aria-hidden="true" />
         Cast Proxy Votes ({proxies.length})
       </h4>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {proxies.map(proxy => {
           const castVote = proxyVotesCast[proxy.grantedBy];
           return (
-            <div key={proxy.id} className="bg-indigo-50 rounded-lg p-3">
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Voting for: <span className="text-indigo-700">{proxy.grantedByName}</span>
+            <div key={proxy.id} className="bg-indigo-50 rounded-xl p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                Voting for: <span className="text-indigo-700 font-semibold">{proxy.grantedByName}</span>
                 {proxy.scope === 'single-vote' && (
                   <span className="text-xs text-amber-600 ml-2">(single vote only)</span>
                 )}
@@ -246,37 +263,40 @@ function ProxyVotingSection({
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'yea')}
-                  className={`py-2 rounded font-bold text-sm transition-all ${
+                  className={`${proxyButtonClass} focus:ring-green-500 ${
                     castVote === 'yea'
                       ? 'bg-green-600 text-white ring-2 ring-green-300'
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
+                  aria-label={`Vote ${yeaLabel} for ${proxy.grantedByName}`}
                 >
                   {yeaLabel}{castVote === 'yea' ? ' ✓' : ''}
                 </button>
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'nay')}
-                  className={`py-2 rounded font-bold text-sm transition-all ${
+                  className={`${proxyButtonClass} focus:ring-red-500 ${
                     castVote === 'nay'
                       ? 'bg-red-600 text-white ring-2 ring-red-300'
                       : 'bg-red-500 text-white hover:bg-red-600'
                   }`}
+                  aria-label={`Vote ${nayLabel} for ${proxy.grantedByName}`}
                 >
                   {nayLabel}{castVote === 'nay' ? ' ✓' : ''}
                 </button>
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'abstain')}
-                  className={`py-2 rounded font-bold text-sm transition-all ${
+                  className={`${proxyButtonClass} focus:ring-gray-500 ${
                     castVote === 'abstain'
                       ? 'bg-gray-600 text-white ring-2 ring-gray-400'
                       : 'bg-gray-400 text-white hover:bg-gray-500'
                   }`}
+                  aria-label={`Abstain for ${proxy.grantedByName}`}
                 >
                   ABSTAIN{castVote === 'abstain' ? ' ✓' : ''}
                 </button>
               </div>
               {castVote && (
-                <p className="text-center text-green-600 mt-2 text-sm font-medium">
+                <p className="text-center text-green-600 mt-3 text-sm font-medium">
                   ✓ Proxy vote recorded
                 </p>
               )}

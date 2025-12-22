@@ -118,6 +118,10 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'GRANT_PROXY':
     case 'REVOKE_PROXY':
     case 'CAST_PROXY_VOTE':
+    case 'REQUEST_PROXY':
+    case 'ACCEPT_PROXY':
+    case 'DECLINE_PROXY':
+    case 'CANCEL_PROXY_REQUEST':
       return proxyHandler(state, action, log);
 
     default: {

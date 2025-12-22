@@ -498,6 +498,80 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
+    // Member-initiated proxy request actions
+    case 'REQUEST_PROXY': {
+      if (!state.allowProxyVoting) {
+        return { valid: false, error: 'Proxy voting is not enabled', errorCode: 'PROXY_VOTING_DISABLED' };
+      }
+      if (!state.allowMemberProxyGrant) {
+        return { valid: false, error: 'Member proxy requests are not enabled', errorCode: 'MEMBER_PROXY_DISABLED' };
+      }
+      if (action.requestedBy === action.requestedFor) {
+        return { valid: false, error: 'Cannot request yourself as proxy holder', errorCode: 'CANNOT_PROXY_SELF' };
+      }
+      const requestingMember = state.members.find(m => m.id === action.requestedBy);
+      if (!requestingMember) {
+        return { valid: false, error: 'Requesting member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      const designatedHolder = state.members.find(m => m.id === action.requestedFor);
+      if (!designatedHolder) {
+        return { valid: false, error: 'Designated proxy holder not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      // Check for existing pending request
+      const existingRequest = state.pendingProxyRequests.find(
+        r => r.requestedBy === action.requestedBy && r.status === 'pending'
+      );
+      if (existingRequest) {
+        return { valid: false, error: 'You already have a pending proxy request', errorCode: 'REQUEST_PENDING' };
+      }
+      // Check for existing active proxy
+      const existingProxy = state.proxies.find(p => p.grantedBy === action.requestedBy);
+      if (existingProxy) {
+        return { valid: false, error: 'You already have an active proxy', errorCode: 'PROXY_ALREADY_GRANTED' };
+      }
+      return { valid: true };
+    }
+
+    case 'ACCEPT_PROXY': {
+      const request = state.pendingProxyRequests.find(r => r.id === action.requestId);
+      if (!request) {
+        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
+      }
+      if (request.status !== 'pending') {
+        return { valid: false, error: 'Request is no longer pending', errorCode: 'REQUEST_NOT_PENDING' };
+      }
+      // Check max proxies limit
+      if (state.maxProxiesPerMember > 0) {
+        const currentCount = state.proxies.filter(p => p.grantedTo === request.requestedFor).length;
+        if (currentCount >= state.maxProxiesPerMember) {
+          return { valid: false, error: `You already hold maximum ${state.maxProxiesPerMember} proxies`, errorCode: 'MAX_PROXIES_REACHED' };
+        }
+      }
+      return { valid: true };
+    }
+
+    case 'DECLINE_PROXY': {
+      const request = state.pendingProxyRequests.find(r => r.id === action.requestId);
+      if (!request) {
+        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
+      }
+      if (request.status !== 'pending') {
+        return { valid: false, error: 'Request is no longer pending', errorCode: 'REQUEST_NOT_PENDING' };
+      }
+      return { valid: true };
+    }
+
+    case 'CANCEL_PROXY_REQUEST': {
+      const request = state.pendingProxyRequests.find(r => r.id === action.requestId);
+      if (!request) {
+        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
+      }
+      if (request.status !== 'pending') {
+        return { valid: false, error: 'Request is no longer pending', errorCode: 'REQUEST_NOT_PENDING' };
+      }
+      return { valid: true };
+    }
+
     // Roll call actions
     case 'START_ROLL_CALL':
       if (state.rollCall?.inProgress) {
