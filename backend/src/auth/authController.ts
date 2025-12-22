@@ -37,6 +37,16 @@ function getJwtSecret(): string {
 const jwtSecret = getJwtSecret();
 const VERIFICATION_EXPIRY_MINUTES = 15;
 
+// Test mode configuration - allows bypassing email verification for testing
+// Enable with ENABLE_TEST_AUTH=true environment variable
+const TEST_AUTH_ENABLED = process.env.ENABLE_TEST_AUTH === 'true';
+const TEST_MEETING_CODE = process.env.TEST_MEETING_CODE || 'DEMO';
+const TEST_VERIFICATION_CODE = process.env.TEST_VERIFICATION_CODE || '000000';
+
+if (TEST_AUTH_ENABLED) {
+  console.log(`🧪 TEST AUTH ENABLED - Meeting code: ${TEST_MEETING_CODE}, Verification code: ${TEST_VERIFICATION_CODE}`);
+}
+
 // Input validation patterns (matching frontend)
 const MEETING_CODE_PATTERN = /^[A-Z0-9]{4,8}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -186,7 +196,7 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
 // Verify email code and return JWT
 authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
   try {
-    const { email, code, meetingCode } = req.body;
+    const { email, code, meetingCode, name } = req.body;
 
     if (!email || !code || !meetingCode) {
       return res.status(400).json({ error: 'Missing required fields: email, code, meetingCode' });
@@ -202,19 +212,30 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
     const sanitizedEmail = email.trim().toLowerCase();
     const sanitizedMeetingCode = meetingCode.trim().toUpperCase();
 
-    // Find and validate verification token
+    // Check for test auth bypass
+    const isTestAuth = TEST_AUTH_ENABLED &&
+                       sanitizedMeetingCode === TEST_MEETING_CODE &&
+                       trimmedCode === TEST_VERIFICATION_CODE;
+
+    // Find verification record (may not exist for test auth)
     const key = `${sanitizedEmail}:${sanitizedMeetingCode}`;
     const verification = verifications.get(key);
 
-    if (!verification ||
-        verification.token !== trimmedCode ||
-        verification.verified ||
-        verification.expiresAt < new Date()) {
-      return res.status(401).json({ error: 'Invalid or expired verification code' });
+    if (!isTestAuth) {
+      // Validate verification token
+      if (!verification ||
+          verification.token !== trimmedCode ||
+          verification.verified ||
+          verification.expiresAt < new Date()) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Mark as verified
+      verification.verified = true;
     }
 
-    // Mark as verified
-    verification.verified = true;
+    // Determine user name from verification record or request body (for test auth)
+    const userName = verification?.name || name?.trim() || 'Test User';
 
     // Create or find user
     let user = users.get(sanitizedEmail);
@@ -222,11 +243,11 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       user = {
         id: nextUserId++,
         email: sanitizedEmail,
-        name: verification.name
+        name: userName
       };
       users.set(sanitizedEmail, user);
     } else {
-      user.name = verification.name;
+      user.name = userName;
     }
 
     // Generate JWT

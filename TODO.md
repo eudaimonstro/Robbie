@@ -18,6 +18,14 @@ This file tracks all pending tasks and improvements for the Robbie project.
   - Graceful shutdown with connection cleanup
   - Action logging for audit trail included
 
+### Testing
+- **Test authentication bypass** (for testing without email)
+  - Set `ENABLE_TEST_AUTH=true` to enable
+  - Default meeting code: `DEMO` (or customize with `TEST_MEETING_CODE`)
+  - Default verification code: `000000` (or customize with `TEST_VERIFICATION_CODE`)
+  - Use any email address with the test meeting code
+  - Optionally pass `name` in verify request body
+
 ---
 
 ## Frontend
