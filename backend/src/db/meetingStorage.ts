@@ -89,6 +89,7 @@ export type UpdateResult =
 export interface StorageProvider {
   mode: 'in-memory' | 'postgresql';
   initialize(): Promise<void>;
+  shutdown(): Promise<void>;
   getOrCreateMeeting(code: string): Promise<MeetingRecord>;
   /**
    * Update meeting state with optimistic locking
@@ -102,6 +103,10 @@ export interface StorageProvider {
   getMeeting(code: string): Promise<MeetingRecord | null>;
   getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null>;
   setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void>;
+  /**
+   * Log an action for audit trail (optional - implemented in PostgreSQL mode)
+   */
+  logAction?(meetingCode: string, actionType: string, payload: unknown, userId?: number): Promise<void>;
 }
 
 // In-memory implementation
@@ -113,6 +118,12 @@ class InMemoryStorage implements StorageProvider {
 
   async initialize(): Promise<void> {
     console.log('Using in-memory storage (no DATABASE_URL configured)');
+  }
+
+  async shutdown(): Promise<void> {
+    console.log('In-memory storage shutdown (data cleared)');
+    this.meetings.clear();
+    this.participantRoles.clear();
   }
 
   async getOrCreateMeeting(code: string): Promise<MeetingRecord> {
@@ -251,6 +262,46 @@ class PostgresStorage implements StorageProvider {
     const key = `${meetingCode}:${odUserId}`;
     this.participantRoles.set(key, role);
   }
+
+  async shutdown(): Promise<void> {
+    console.log('Closing PostgreSQL connections...');
+    await pool.end();
+    console.log('PostgreSQL connections closed');
+  }
+
+  async logAction(meetingCode: string, actionType: string, payload: unknown, userId?: number): Promise<void> {
+    try {
+      // Get meeting ID
+      const meetingResult = await pool.query(
+        'SELECT id FROM meetings WHERE code = $1',
+        [meetingCode]
+      );
+
+      if (meetingResult.rows.length === 0) {
+        console.warn(`Cannot log action: meeting ${meetingCode} not found`);
+        return;
+      }
+
+      const meetingId = meetingResult.rows[0].id;
+
+      // Get next sequence number
+      const seqResult = await pool.query(
+        'SELECT COALESCE(MAX(sequence_number), 0) + 1 as next_seq FROM meeting_actions WHERE meeting_id = $1',
+        [meetingId]
+      );
+      const sequenceNumber = seqResult.rows[0].next_seq;
+
+      // Insert action log
+      await pool.query(
+        `INSERT INTO meeting_actions (meeting_id, action_type, action_payload, user_id, sequence_number)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [meetingId, actionType, JSON.stringify(payload), userId || null, sequenceNumber]
+      );
+    } catch (error) {
+      // Log but don't fail - action logging is non-critical
+      console.error('Failed to log action:', error);
+    }
+  }
 }
 
 // Factory function
@@ -276,4 +327,11 @@ export function getStorage(): StorageProvider {
     throw new Error('Storage not initialized. Call initializeStorage() first.');
   }
   return storageInstance;
+}
+
+export async function shutdownStorage(): Promise<void> {
+  if (storageInstance) {
+    await storageInstance.shutdown();
+    storageInstance = null;
+  }
 }

@@ -6,7 +6,7 @@ import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@robbie/shared/types/socket';
 import { authRouter } from './auth/authController.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
-import { initializeStorage, getStorage } from './db/meetingStorage.js';
+import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -71,10 +71,30 @@ async function start() {
 start();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down...');
-  httpServer.close(() => {
-    console.log('Server closed');
+async function shutdown(signal: string) {
+  console.log(`${signal} received, shutting down gracefully...`);
+
+  // Close HTTP server (stop accepting new connections)
+  httpServer.close(async () => {
+    console.log('HTTP server closed');
+
+    // Close database connections
+    try {
+      await shutdownStorage();
+    } catch (error) {
+      console.error('Error during storage shutdown:', error);
+    }
+
+    console.log('Shutdown complete');
     process.exit(0);
   });
-});
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

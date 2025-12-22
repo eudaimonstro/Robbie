@@ -1,11 +1,36 @@
 import { describe, it, expect } from 'vitest';
 import { validateAction } from '../socket/actionValidator.js';
 import { initialState } from '@robbie/shared/reducer';
-import type { MeetingState, Member } from '@robbie/shared/types';
+import type { MeetingState, Member, DebateStance } from '@robbie/shared/types';
 
 // Helper to create a member
 function createMember(id: number, role: 'admin' | 'chair' | 'member' = 'member', present = true): Member {
-  return { id, name: `Member ${id}`, email: `member${id}@test.com`, role, present };
+  return { id, name: `Member ${id}`, role, present };
+}
+
+// Helper to create a complete Motion object
+function createMotion(overrides: Partial<{ id: number; mover: string; moverId: number; text: string; debatable: boolean }> = {}) {
+  return {
+    id: overrides.id ?? 1,
+    type: 'mainMotion',
+    name: 'Main Motion',
+    text: overrides.text ?? 'Test motion',
+    mover: overrides.mover ?? 'Member 2',
+    moverId: overrides.moverId ?? 2,
+    secondedBy: null,
+    status: 'active' as const,
+    precedence: 0,
+    category: 'main' as const,
+    interrupt: false,
+    needsSecond: true,
+    debatable: overrides.debatable ?? true,
+    amendable: true,
+    reconsidered: false,
+    vote: 'majority' as const,
+    phrase: 'I move that...',
+    help: 'Help text',
+    whenToUse: 'When to use',
+  };
 }
 
 // Helper to create active meeting state
@@ -24,13 +49,13 @@ function activeMeetingState(): MeetingState {
 describe('actionValidator', () => {
   describe('START_MEETING', () => {
     it('should allow starting inactive meeting', () => {
-      const result = validateAction(initialState, { type: 'START_MEETING', timestamp: '' });
+      const result = validateAction(initialState, { type: 'START_MEETING', meetingCode: 'TEST', timestamp: '' });
       expect(result.valid).toBe(true);
     });
 
     it('should reject starting already active meeting', () => {
       const state = { ...initialState, meetingActive: true };
-      const result = validateAction(state, { type: 'START_MEETING', timestamp: '' });
+      const result = validateAction(state, { type: 'START_MEETING', meetingCode: 'TEST', timestamp: '' });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MEETING_ALREADY_ACTIVE');
     });
@@ -57,9 +82,9 @@ describe('actionValidator', () => {
         type: 'MAKE_MOTION',
         motionType: 'mainMotion',
         text: 'Test motion',
+        mover: 'Member 2',
         moverId: 2,
-        moverName: 'Member 2',
-        id: 1,
+        motionId: 1,
         timestamp: '',
       });
       expect(result.valid).toBe(true);
@@ -70,9 +95,9 @@ describe('actionValidator', () => {
         type: 'MAKE_MOTION',
         motionType: 'mainMotion',
         text: 'Test motion',
+        mover: 'Member 2',
         moverId: 2,
-        moverName: 'Member 2',
-        id: 1,
+        motionId: 1,
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -85,9 +110,9 @@ describe('actionValidator', () => {
         type: 'MAKE_MOTION',
         motionType: 'mainMotion',
         text: 'x'.repeat(501),
+        mover: 'Member 2',
         moverId: 2,
-        moverName: 'Member 2',
-        id: 1,
+        motionId: 1,
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -98,11 +123,11 @@ describe('actionValidator', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {
         type: 'MAKE_MOTION',
-        motionType: 'invalid-motion-type' as any,
+        motionType: 'invalid-motion-type',
         text: 'Test',
+        mover: 'Member 2',
         moverId: 2,
-        moverName: 'Member 2',
-        id: 1,
+        motionId: 1,
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -114,23 +139,11 @@ describe('actionValidator', () => {
     it('should allow seconding when motion is pending', () => {
       const state: MeetingState = {
         ...activeMeetingState(),
-        pendingSecond: {
-          id: 1,
-          type: 'main',
-          text: 'Test',
-          moverId: 2,
-          moverName: 'Member 2',
-          debatable: true,
-          amendable: true,
-          requiresSecond: true,
-          vote: 'majority',
-          timestamp: '',
-        },
+        pendingSecond: createMotion(),
       };
       const result = validateAction(state, {
         type: 'SECOND_MOTION',
-        seconderId: 3,
-        seconderName: 'Member 3',
+        seconder: 'Member 3',
         timestamp: '',
       });
       expect(result.valid).toBe(true);
@@ -140,8 +153,7 @@ describe('actionValidator', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {
         type: 'SECOND_MOTION',
-        seconderId: 3,
-        seconderName: 'Member 3',
+        seconder: 'Member 3',
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -153,18 +165,7 @@ describe('actionValidator', () => {
     const votingState = (): MeetingState => ({
       ...activeMeetingState(),
       votingOpen: true,
-      currentMotion: {
-        id: 1,
-        type: 'main',
-        text: 'Test',
-        moverId: 2,
-        moverName: 'Member 2',
-        debatable: true,
-        amendable: true,
-        requiresSecond: true,
-        vote: 'majority',
-        timestamp: '',
-      },
+      currentMotion: createMotion(),
       voters: [],
       voterChoices: {},
     });
@@ -174,7 +175,6 @@ describe('actionValidator', () => {
         type: 'CAST_VOTE',
         vote: 'yea',
         voterId: 2,
-        timestamp: '',
       });
       expect(result.valid).toBe(true);
     });
@@ -185,7 +185,6 @@ describe('actionValidator', () => {
         type: 'CAST_VOTE',
         vote: 'yea',
         voterId: 2,
-        timestamp: '',
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('VOTING_NOT_OPEN');
@@ -197,7 +196,6 @@ describe('actionValidator', () => {
         type: 'CAST_VOTE',
         vote: 'yea',
         voterId: 2,
-        timestamp: '',
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('ALREADY_VOTED');
@@ -209,7 +207,6 @@ describe('actionValidator', () => {
         type: 'CAST_VOTE',
         vote: 'yea',
         voterId: 1, // Chair
-        timestamp: '',
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('CHAIR_CANNOT_VOTE');
@@ -222,7 +219,6 @@ describe('actionValidator', () => {
         vote: 'yea',
         voterId: 1,
         isChairDecidingVote: true,
-        timestamp: '',
       });
       expect(result.valid).toBe(true);
     });
@@ -231,18 +227,7 @@ describe('actionValidator', () => {
   describe('RAISE_HAND', () => {
     const debatableState = (): MeetingState => ({
       ...activeMeetingState(),
-      currentMotion: {
-        id: 1,
-        type: 'main',
-        text: 'Test',
-        moverId: 2,
-        moverName: 'Member 2',
-        debatable: true,
-        amendable: true,
-        requiresSecond: true,
-        vote: 'majority',
-        timestamp: '',
-      },
+      currentMotion: createMotion(),
       speakerQueue: [],
       debatePositions: {},
     });
@@ -251,8 +236,7 @@ describe('actionValidator', () => {
       const result = validateAction(debatableState(), {
         type: 'RAISE_HAND',
         member: createMember(3),
-        stance: 'for',
-        timestamp: '',
+        stance: 'pro' as DebateStance,
       });
       expect(result.valid).toBe(true);
     });
@@ -262,8 +246,7 @@ describe('actionValidator', () => {
       const result = validateAction(state, {
         type: 'RAISE_HAND',
         member: createMember(3),
-        stance: 'for',
-        timestamp: '',
+        stance: 'pro' as DebateStance,
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('NO_CURRENT_MOTION');
@@ -272,16 +255,12 @@ describe('actionValidator', () => {
     it('should reject when motion is not debatable', () => {
       const state: MeetingState = {
         ...debatableState(),
-        currentMotion: {
-          ...debatableState().currentMotion!,
-          debatable: false,
-        },
+        currentMotion: createMotion({ debatable: false }),
       };
       const result = validateAction(state, {
         type: 'RAISE_HAND',
         member: createMember(3),
-        stance: 'for',
-        timestamp: '',
+        stance: 'pro' as DebateStance,
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MOTION_NOT_DEBATABLE');
@@ -291,13 +270,12 @@ describe('actionValidator', () => {
       const member = createMember(3);
       const state: MeetingState = {
         ...debatableState(),
-        speakerQueue: [{ member, stance: 'for', timestamp: '' }],
+        speakerQueue: [{ member, stance: 'pro' as DebateStance }],
       };
       const result = validateAction(state, {
         type: 'RAISE_HAND',
         member,
-        stance: 'for',
-        timestamp: '',
+        stance: 'pro' as DebateStance,
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('ALREADY_IN_QUEUE');
@@ -307,13 +285,12 @@ describe('actionValidator', () => {
       const member = createMember(3);
       const state: MeetingState = {
         ...debatableState(),
-        debatePositions: { 3: 'for' },
+        debatePositions: { 3: 'pro' as DebateStance },
       };
       const result = validateAction(state, {
         type: 'RAISE_HAND',
         member,
-        stance: 'against',
-        timestamp: '',
+        stance: 'con' as DebateStance,
       });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('CANNOT_SWITCH_SIDES');
@@ -335,7 +312,7 @@ describe('actionValidator', () => {
         const state = proxyEnabledState();
         const result = validateAction(state, {
           type: 'GRANT_PROXY',
-          id: 1,
+          proxyId: 1,
           grantedBy: 2,
           grantedByName: 'Member 2',
           grantedTo: 3,
@@ -350,7 +327,7 @@ describe('actionValidator', () => {
         const state = { ...proxyEnabledState(), allowProxyVoting: false };
         const result = validateAction(state, {
           type: 'GRANT_PROXY',
-          id: 1,
+          proxyId: 1,
           grantedBy: 2,
           grantedByName: 'Member 2',
           grantedTo: 3,
@@ -366,7 +343,7 @@ describe('actionValidator', () => {
         const state = proxyEnabledState();
         const result = validateAction(state, {
           type: 'GRANT_PROXY',
-          id: 1,
+          proxyId: 1,
           grantedBy: 2,
           grantedByName: 'Member 2',
           grantedTo: 2,
@@ -382,13 +359,13 @@ describe('actionValidator', () => {
         const state: MeetingState = {
           ...proxyEnabledState(),
           proxies: [
-            { id: 1, grantedBy: 10, grantedByName: 'M10', grantedTo: 3, grantedToName: 'M3', scope: 'all', timestamp: '' },
-            { id: 2, grantedBy: 11, grantedByName: 'M11', grantedTo: 3, grantedToName: 'M3', scope: 'all', timestamp: '' },
+            { id: 1, grantedBy: 10, grantedByName: 'M10', grantedTo: 3, grantedToName: 'M3', scope: 'all', grantedAt: '' },
+            { id: 2, grantedBy: 11, grantedByName: 'M11', grantedTo: 3, grantedToName: 'M3', scope: 'all', grantedAt: '' },
           ],
         };
         const result = validateAction(state, {
           type: 'GRANT_PROXY',
-          id: 3,
+          proxyId: 3,
           grantedBy: 2,
           grantedByName: 'Member 2',
           grantedTo: 3,
@@ -531,7 +508,7 @@ describe('actionValidator', () => {
       const result = validateAction(state, {
         type: 'RESPOND_ROLL_CALL',
         memberId: 2,
-        response: 'present',
+        status: 'present',
         timestamp: '',
       });
       expect(result.valid).toBe(true);
@@ -542,7 +519,7 @@ describe('actionValidator', () => {
       const result = validateAction(state, {
         type: 'RESPOND_ROLL_CALL',
         memberId: 2,
-        response: 'present',
+        status: 'present',
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -574,7 +551,7 @@ describe('actionValidator', () => {
       const state: MeetingState = {
         ...activeMeetingState(),
         agendaAdopted: true,
-        agenda: [{ id: 1, title: 'Item 1', status: 'pending', order: 0 }],
+        agenda: [{ id: 1, title: 'Item 1', status: 'pending' }],
       };
       const result = validateAction(state, {
         type: 'CALL_AGENDA_ITEM',
@@ -587,7 +564,7 @@ describe('actionValidator', () => {
     it('should reject calling item before agenda adoption', () => {
       const state: MeetingState = {
         ...activeMeetingState(),
-        agenda: [{ id: 1, title: 'Item 1', status: 'pending', order: 0 }],
+        agenda: [{ id: 1, title: 'Item 1', status: 'pending' }],
       };
       const result = validateAction(state, {
         type: 'CALL_AGENDA_ITEM',
@@ -603,8 +580,9 @@ describe('actionValidator', () => {
     it('should reject unknown action types', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {
-        type: 'INVALID_UNKNOWN_ACTION' as any,
-      });
+        type: 'INVALID_UNKNOWN_ACTION',
+        timestamp: '',
+      } as any);
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('INVALID_ACTION');
     });

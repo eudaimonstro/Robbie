@@ -12,9 +12,11 @@ This file tracks all pending tasks and improvements for the Robbie project.
   - Set `EMAIL_FROM` for sender address
   - See [backend/src/auth/emailService.ts](backend/src/auth/emailService.ts) for configuration options
 
-- [ ] **Enable PostgreSQL persistence**
-  - Set `DATABASE_URL` environment variable
-  - Meeting state currently stored in-memory (lost on restart)
+- [ ] **Enable PostgreSQL persistence (ready to use)**
+  - Set `DATABASE_URL` environment variable to enable
+  - SSL support auto-detected for cloud databases
+  - Graceful shutdown with connection cleanup
+  - Action logging for audit trail included
 
 ---
 
@@ -111,3 +113,8 @@ mobile/
 - [x] Backend action validator tests
   - 38 comprehensive tests for action validation
   - Covers motions, voting, proxy, roll call, agenda actions
+- [x] PostgreSQL persistence improvements
+  - SSL support for cloud databases (auto-detected)
+  - Graceful shutdown with connection cleanup
+  - Action logging for audit trail
+  - Optimistic locking for concurrent updates
