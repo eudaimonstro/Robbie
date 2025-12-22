@@ -202,11 +202,11 @@ const value = useMemo(() => ({
 
 | Package | Functions | Documented | Coverage |
 |---------|-----------|------------|----------|
-| shared/utils | 25 | 4 | 16% |
-| shared/reducer | 14 | 2 | 14% |
-| backend/socket | 12 | 3 | 25% |
+| shared/utils | 30 | 30 | 100% |
+| shared/reducer | 14 | 14 | 100% |
+| backend/socket | 12 | 12 | 100% |
 | frontend/hooks | 3 | 3 | 100% |
-| frontend/utils | 8 | 1 | 12% |
+| frontend/utils | 8 | 8 | 100% |
 
 ---
 
