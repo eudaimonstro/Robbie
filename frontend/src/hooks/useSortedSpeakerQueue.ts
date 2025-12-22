@@ -3,14 +3,29 @@ import type { SpeakerQueueEntry, Motion, DebateStance, MeetingState } from '@rob
 import { isRuleSuspended } from '@robbie/shared/utils';
 
 /**
- * Custom hook to sort speaker queue with priority for:
- * 1. Motion maker (if they haven't spoken)
- * 2. Alternating between pro/con speakers per Robert's Rules (unless suspended)
+ * Custom hook to sort speaker queue following Robert's Rules of Order debate conventions
+ *
+ * Sorting priorities (in order):
+ * 1. Motion maker - gets first speaking opportunity if they haven't spoken yet
+ * 2. Pro/con alternation - alternates between supporters and opponents of the motion
+ *    (can be suspended via 'pro-con-alternation' rule suspension)
+ * 3. FIFO order - maintains original queue order as tiebreaker
+ *
  * @param speakerQueue - Array of speaker queue entries with members and stances
  * @param currentMotion - Current motion being discussed (if any)
- * @param lastSpeakerStance - Stance of the last recognized speaker
+ * @param lastSpeakerStance - Stance of the last recognized speaker ('pro' | 'con' | 'neutral')
  * @param state - Meeting state to check for rule suspensions
- * @returns Sorted speaker queue following parliamentary debate rules
+ * @returns Sorted speaker queue array following parliamentary debate rules
+ *
+ * @example
+ * ```tsx
+ * const sortedQueue = useSortedSpeakerQueue(
+ *   state.speakerQueue,
+ *   state.currentMotion,
+ *   state.lastSpeakerStance,
+ *   state
+ * );
+ * ```
  */
 export function useSortedSpeakerQueue(
   speakerQueue: SpeakerQueueEntry[],

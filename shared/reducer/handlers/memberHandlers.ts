@@ -19,21 +19,42 @@ export const memberHandler: ActionHandler = (state, action, log) => {
 
     case 'SET_MEMBER_ROLE': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_MEMBER_ROLE' }>;
-      // If making someone chair, demote current chair first
-      const updatedMembers = state.members.map(m => {
-        if (m.id === typedAction.targetMemberId) {
-          return { ...m, role: typedAction.newRole };
+      const targetMember = state.members.find(m => m.id === typedAction.targetMemberId);
+      if (!targetMember) return state;
+
+      const oldRole = targetMember.role;
+
+      // Update the target member's role and demote previous chair if needed
+      const updatedMembers = state.members.map(member => {
+        if (member.id === typedAction.targetMemberId) {
+          return { ...member, role: typedAction.newRole };
         }
-        // If target is becoming chair, demote current chair
-        if (typedAction.newRole === 'chair' && m.role === 'chair') {
-          return { ...m, role: 'member' as const };
+        // If assigning a new chair, demote the previous chair to member
+        if (typedAction.newRole === 'chair' && typedAction.previousChairId && member.id === typedAction.previousChairId) {
+          return { ...member, role: 'member' as const };
         }
-        return m;
+        return member;
       });
+
+      // Build audit log message including who made the change
+      const previousChair = typedAction.previousChairId
+        ? state.members.find(m => m.id === typedAction.previousChairId)
+        : null;
+
+      // changedBy is optional (added by server enrichment), fallback to 'System' if not present
+      const changedBy = typedAction.changedBy || 'System';
+
+      let logMessage: string;
+      if (typedAction.newRole === 'chair' && previousChair) {
+        logMessage = `[ROLE CHANGE] ${changedBy} transferred chair to ${targetMember.name}. ${previousChair.name} is now a member.`;
+      } else {
+        logMessage = `[ROLE CHANGE] ${changedBy} changed ${targetMember.name}'s role from ${oldRole} to ${typedAction.newRole}.`;
+      }
 
       return {
         ...state,
-        members: updatedMembers
+        members: updatedMembers,
+        meetingLog: log(typedAction.timestamp, logMessage)
       };
     }
 
@@ -52,6 +73,7 @@ export const memberHandler: ActionHandler = (state, action, log) => {
     }
 
     default:
-      return undefined;
+      // This handler only receives its specific actions from the main reducer
+      return state;
   }
 };

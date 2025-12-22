@@ -3,11 +3,12 @@ import type { MeetingState, MeetingAction, MeetingLogEntry } from '../../types/i
 export type { MeetingState, MeetingAction, MeetingLogEntry };
 
 /**
- * A handler function that processes a specific action type
- * Returns the new state, or undefined if it doesn't handle this action
+ * A handler function that processes a specific subset of action types
+ * Always returns a valid MeetingState. The main reducer routes actions
+ * to the correct handler, so each handler only receives its own actions.
  */
 export type ActionHandler = (
   state: MeetingState,
   action: MeetingAction,
   log: (timestamp: string, msg: string) => MeetingLogEntry[]
-) => MeetingState | undefined;
+) => MeetingState;

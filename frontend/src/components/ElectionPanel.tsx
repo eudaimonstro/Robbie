@@ -54,6 +54,30 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
     [state.currentElection?.votersWhoVoted, currentUser.id]
   );
 
+  // Memoize sorted ballot results to avoid sorting on every render
+  const sortedBallotResults = useMemo(() => {
+    if (!state.currentElection?.ballotResults) return [];
+    return Object.entries(state.currentElection.ballotResults)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, votes]) => ({
+        name,
+        votes,
+        percentage: state.currentElection!.votersWhoVoted.length > 0
+          ? Math.round((votes / state.currentElection!.votersWhoVoted.length) * 100)
+          : 0
+      }));
+  }, [state.currentElection?.ballotResults, state.currentElection?.votersWhoVoted.length]);
+
+  // Memoize candidate list for election start
+  const eligibleCandidates = useMemo(() => {
+    if (!state.currentNominationPosition) return '';
+    return state.nominations
+      .filter(n => n.position === state.currentNominationPosition && !n.declined)
+      .map(n => n.nomineeName)
+      .filter((name, index, self) => self.indexOf(name) === index)
+      .join(', ') || 'None';
+  }, [state.nominations, state.currentNominationPosition]);
+
   return (
     <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="election-heading">
       <h3 id="election-heading" className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
@@ -67,12 +91,7 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
             Ready to conduct election for: {state.currentNominationPosition}
           </p>
           <p className="text-sm text-gray-700 mb-3">
-            Candidates:{' '}
-            {state.nominations
-              .filter(n => n.position === state.currentNominationPosition && !n.declined)
-              .map(n => n.nomineeName)
-              .filter((name, index, self) => self.indexOf(name) === index)
-              .join(', ') || 'None'}
+            Candidates: {eligibleCandidates}
           </p>
 
           <div className="mb-3">
@@ -161,20 +180,14 @@ export function ElectionPanel({ state, dispatch, currentUser, isChair = false }:
             </p>
 
             <div className="space-y-2 mb-3">
-              {Object.entries(state.currentElection.ballotResults)
-                .sort((a, b) => b[1] - a[1])
-                .map(([name, votes]) => (
-                  <div key={name} className="flex items-center justify-between p-2 bg-white rounded border">
-                    <span className="font-medium">{name}</span>
-                    <span className="text-gray-600">
-                      {votes} vote{votes !== 1 ? 's' : ''} (
-                      {state.currentElection!.votersWhoVoted.length > 0
-                        ? Math.round((votes / state.currentElection!.votersWhoVoted.length) * 100)
-                        : 0}
-                      %)
-                    </span>
-                  </div>
-                ))}
+              {sortedBallotResults.map(({ name, votes, percentage }) => (
+                <div key={name} className="flex items-center justify-between p-2 bg-white rounded border">
+                  <span className="font-medium">{name}</span>
+                  <span className="text-gray-600">
+                    {votes} vote{votes !== 1 ? 's' : ''} ({percentage}%)
+                  </span>
+                </div>
+              ))}
             </div>
 
             {state.currentElection.elected ? (

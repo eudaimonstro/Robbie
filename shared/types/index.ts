@@ -305,8 +305,10 @@ export interface MotionDefinition {
   readonly whenToUse: string;
 }
 
+export type CategoryColor = 'purple' | 'amber' | 'blue' | 'emerald';
+
 export interface CategoryInfo {
-  readonly color: 'purple' | 'amber' | 'blue' | 'emerald';
+  readonly color: CategoryColor;
   readonly label: string;
 }
 

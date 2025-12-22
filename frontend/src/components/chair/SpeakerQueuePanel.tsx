@@ -10,6 +10,66 @@ interface SpeakerQueuePanelProps {
   sortedQueue: SpeakerQueueEntry[];
 }
 
+// Memoized list item to avoid recreating click handlers on every render
+interface SpeakerListItemProps {
+  entry: SpeakerQueueEntry;
+  index: number;
+  isMotionMaker: boolean;
+  speakerTimeLimit: number;
+  dispatch: React.Dispatch<MeetingAction>;
+}
+
+const SpeakerListItem = React.memo(function SpeakerListItem({
+  entry,
+  index,
+  isMotionMaker,
+  speakerTimeLimit,
+  dispatch
+}: SpeakerListItemProps) {
+  const stanceIcon = entry.stance === 'pro' ? '✓' : entry.stance === 'con' ? '✗' : '○';
+  const stanceColor = entry.stance === 'pro' ? 'text-green-600' : entry.stance === 'con' ? 'text-red-600' : 'text-gray-500';
+  const stanceLabel = entry.stance === 'pro' ? 'For' : entry.stance === 'con' ? 'Against' : 'Neutral';
+
+  const handleRecognize = useCallback(() => {
+    dispatch({
+      type: 'RECOGNIZE_SPEAKER',
+      member: entry.member,
+      stance: entry.stance,
+      speakerTimerEnd: calculateTimerEnd(speakerTimeLimit),
+      timestamp: generateTimestamp()
+    });
+  }, [dispatch, entry.member, entry.stance, speakerTimeLimit]);
+
+  return (
+    <li
+      className={`flex items-center justify-between p-3 rounded-lg ${
+        isMotionMaker ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50'
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        <span>{index + 1}. {entry.member.name}</span>
+        <span className={`text-xs font-medium ${stanceColor}`} title={stanceLabel}>
+          {stanceIcon} {stanceLabel}
+        </span>
+        {isMotionMaker && (
+          <span className="ml-2 text-xs text-indigo-600 font-medium">
+            (Motion Maker - speaks first)
+          </span>
+        )}
+      </span>
+      <button
+        onClick={handleRecognize}
+        className={`px-4 py-1 rounded text-sm text-white ${
+          isMotionMaker ? 'bg-indigo-600' : 'bg-blue-500'
+        }`}
+        aria-label={`Recognize ${entry.member.name} to speak`}
+      >
+        Recognize
+      </button>
+    </li>
+  );
+});
+
 export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
   state,
   dispatch,
@@ -85,44 +145,16 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
             const motionMakerId = state.currentMotion?.moverId;
             const moverHasSpoken = state.currentMotion?.moverHasSpoken;
             const isMotionMaker = motionMakerId === entry.member.id && !moverHasSpoken;
-            const stanceIcon = entry.stance === 'pro' ? '✓' : entry.stance === 'con' ? '✗' : '○';
-            const stanceColor = entry.stance === 'pro' ? 'text-green-600' : entry.stance === 'con' ? 'text-red-600' : 'text-gray-500';
-            const stanceLabel = entry.stance === 'pro' ? 'For' : entry.stance === 'con' ? 'Against' : 'Neutral';
 
             return (
-              <li
+              <SpeakerListItem
                 key={entry.member.id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  isMotionMaker ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>{i + 1}. {entry.member.name}</span>
-                  <span className={`text-xs font-medium ${stanceColor}`} title={stanceLabel}>
-                    {stanceIcon} {stanceLabel}
-                  </span>
-                  {isMotionMaker && (
-                    <span className="ml-2 text-xs text-indigo-600 font-medium">
-                      (Motion Maker - speaks first)
-                    </span>
-                  )}
-                </span>
-                <button
-                  onClick={() => dispatch({
-                    type: 'RECOGNIZE_SPEAKER',
-                    member: entry.member,
-                    stance: entry.stance,
-                    speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
-                    timestamp: generateTimestamp()
-                  })}
-                  className={`px-4 py-1 rounded text-sm text-white ${
-                    isMotionMaker ? 'bg-indigo-600' : 'bg-blue-500'
-                  }`}
-                  aria-label={`Recognize ${entry.member.name} to speak`}
-                >
-                  Recognize
-                </button>
-              </li>
+                entry={entry}
+                index={i}
+                isMotionMaker={isMotionMaker}
+                speakerTimeLimit={state.speakerTimeLimit}
+                dispatch={dispatch}
+              />
             );
           })}
         </ul>

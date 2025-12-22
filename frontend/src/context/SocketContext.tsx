@@ -436,7 +436,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value: SocketContextValue = {
+  // Memoize the context value to prevent unnecessary re-renders of consumers
+  const value = useMemo<SocketContextValue>(() => ({
     state,
     dispatch,
     isConnected,
@@ -448,7 +449,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     verifyCode,
     logout,
     reconnect
-  };
+  }), [state, dispatch, isConnected, isAuthenticated, currentUser, connectedMembers, error, login, verifyCode, logout, reconnect]);
 
   return (
     <SocketContext.Provider value={value}>

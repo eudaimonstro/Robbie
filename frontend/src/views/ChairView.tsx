@@ -79,8 +79,8 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
 
       <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
 
-      {/* Nominations and Elections */}
-      {(state.nominationsOpen ||
+      {/* Nominations and Elections - only render when chair is defined */}
+      {chair && (state.nominationsOpen ||
         state.currentElection ||
         state.currentNominationPosition ||
         state.electedOfficers.length > 0) && (
@@ -88,7 +88,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <NominationsPanel
             state={state}
             dispatch={dispatch}
-            currentUser={chair!}
+            currentUser={chair}
             isChair={true}
           />
           {(state.currentElection ||
@@ -96,20 +96,22 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
             <ElectionPanel
               state={state}
               dispatch={dispatch}
-              currentUser={chair!}
+              currentUser={chair}
               isChair={true}
             />
           )}
         </>
       )}
 
-      {/* Inquiries Panel */}
-      <InquiryPanel
-        state={state}
-        dispatch={dispatch}
-        currentUser={chair!}
-        isChair={true}
-      />
+      {/* Inquiries Panel - only render when chair is defined */}
+      {chair && (
+        <InquiryPanel
+          state={state}
+          dispatch={dispatch}
+          currentUser={chair}
+          isChair={true}
+        />
+      )}
 
       <MotionStackPanel state={state} />
     </div>

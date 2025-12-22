@@ -3,14 +3,31 @@ import type { MeetingLogEntry } from '@robbie/shared/types';
 
 /**
  * Custom hook to extract and parse the most recent vote result from meeting log
+ *
+ * Searches the meeting log in reverse order to find the most recent CARRIED or FAILED
+ * vote result, then parses the vote counts and looks up the associated motion text.
+ *
  * @param meetingLog - Array of meeting log entries
- * @returns Object containing vote counts, outcome, and motion text, or null if no recent vote
+ * @returns Vote result object or null if no recent vote found:
+ *   - `yea`: Number of yes votes
+ *   - `nay`: Number of no votes
+ *   - `outcome`: 'CARRIED' | 'FAILED'
+ *   - `passed`: Boolean shorthand for outcome === 'CARRIED'
+ *   - `motionText`: Text of the motion that was voted on (if found)
+ *   - `timestamp`: Time when the vote was recorded
+ *
+ * @example
+ * ```tsx
+ * const voteResult = useVoteResults(state.meetingLog);
+ * if (voteResult) {
+ *   console.log(`Motion ${voteResult.passed ? 'passed' : 'failed'}: ${voteResult.yea}-${voteResult.nay}`);
+ * }
+ * ```
  */
 export function useVoteResults(meetingLog: MeetingLogEntry[]) {
   return useMemo(() => {
-    // Find the most recent vote result in the meeting log
-    const recentLogs = meetingLog.slice().reverse();
-    const voteResult = recentLogs.find(log => log.message.includes('CARRIED') || log.message.includes('FAILED'));
+    // Find the most recent vote result in the meeting log (search backwards)
+    const voteResult = meetingLog.findLast(log => log.message.includes('CARRIED') || log.message.includes('FAILED'));
 
     if (!voteResult) return null;
 

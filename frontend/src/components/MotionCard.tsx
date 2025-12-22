@@ -1,24 +1,33 @@
 import React from 'react';
 import { HelpTooltip } from './HelpTooltip';
-import { CATEGORY_INFO } from '@robbie/shared/constants';
+import { CATEGORY_INFO, type CategoryColor } from '@robbie/shared/constants';
 import type { MotionCardProps } from '../types';
+
+// Pre-computed color classes to avoid string operations on every render
+const containerColors: Record<CategoryColor, string> = {
+  purple: "bg-purple-50 border-purple-200",
+  amber: "bg-amber-50 border-amber-200",
+  blue: "bg-blue-50 border-blue-200",
+  emerald: "bg-emerald-50 border-emerald-200"
+};
+
+const textColors: Record<CategoryColor, string> = {
+  purple: "text-purple-700",
+  amber: "text-amber-700",
+  blue: "text-blue-700",
+  emerald: "text-emerald-700"
+};
 
 export const MotionCard = React.memo(function MotionCard({ motion, showHelp = true }: MotionCardProps) {
   const cat = CATEGORY_INFO[motion.category];
-  const colors = {
-    purple: "bg-purple-50 border-purple-200 text-purple-700",
-    amber: "bg-amber-50 border-amber-200 text-amber-700",
-    blue: "bg-blue-50 border-blue-200 text-blue-700",
-    emerald: "bg-emerald-50 border-emerald-200 text-emerald-700"
-  };
 
   return (
     <article
-      className={`p-3 rounded-lg border ${colors[cat.color]?.split(' ').slice(0,2).join(' ')}`}
+      className={`p-3 rounded-lg border ${containerColors[cat.color]}`}
       aria-label={`${motion.name} motion: ${motion.text}`}
     >
       <div className="flex items-center gap-2 mb-1">
-        <span className={`font-medium ${colors[cat.color]?.split(' ')[2]}`}>{motion.name}</span>
+        <span className={`font-medium ${textColors[cat.color]}`}>{motion.name}</span>
         {showHelp && <HelpTooltip motion={motion}/>}
       </div>
       <p className="text-gray-700">"{motion.text}"</p>

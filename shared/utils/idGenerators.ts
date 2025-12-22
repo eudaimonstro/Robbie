@@ -33,10 +33,19 @@ export function generateMeetingCode(): string {
   return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+/**
+ * Generate a human-readable timestamp for the current time
+ * @returns Time string in locale format (e.g., "10:30:45 AM")
+ */
 export function generateTimestamp(): string {
   return new Date().toLocaleTimeString();
 }
 
+/**
+ * Calculate the end timestamp for a timer
+ * @param secondsFromNow - Number of seconds until timer expires
+ * @returns Unix timestamp (ms) when timer ends, or null if no timer
+ */
 export function calculateTimerEnd(secondsFromNow: number): number | null {
   return secondsFromNow > 0 ? Date.now() + secondsFromNow * 1000 : null;
 }

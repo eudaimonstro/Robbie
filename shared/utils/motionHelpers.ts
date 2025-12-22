@@ -50,6 +50,25 @@ export function wasMotionDefeated(
   return state.defeatedMotions.some(dm => dm.type === motionType);
 }
 
+/**
+ * Get all motions that are currently valid/in-order based on meeting state
+ *
+ * Applies Robert's Rules precedence and availability logic:
+ * - Main motions only when no other motion is pending
+ * - Subsidiary motions only when there's a motion to apply them to
+ * - Privileged motions always available when precedence allows
+ * - Incidental motions always in order
+ *
+ * Also enforces:
+ * - Amendment depth limits (primary and secondary only)
+ * - Renewal prohibitions (defeated motions can't be renewed same session)
+ * - Special rules (appeal only after chair ruling, objection before debate, etc.)
+ * - Rule suspension overrides when applicable
+ *
+ * @param state - Current meeting state
+ * @param currentUserId - Optional user ID for checking reconsider eligibility
+ * @returns Array of valid motions with their definitions
+ */
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some(m => m.type === 'amend');

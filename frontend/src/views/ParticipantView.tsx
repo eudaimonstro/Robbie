@@ -312,7 +312,7 @@ function CurrentBusinessPanel({
       )}
 
       {state.pendingSecond ? (
-        <PendingSecondSection state={state} dispatch={dispatch} currentUser={currentUser} />
+        <PendingSecondSection state={state} dispatch={dispatch} currentUser={currentUser} pendingSecond={state.pendingSecond} />
       ) : state.unanimousConsentPending ? (
         <UnanimousConsentSection state={state} dispatch={dispatch} currentUser={currentUser} />
       ) : state.currentMotion ? (
@@ -336,11 +336,13 @@ function CurrentBusinessPanel({
 function PendingSecondSection({
   state,
   dispatch,
-  currentUser
+  currentUser,
+  pendingSecond
 }: {
   state: ParticipantViewProps['state'];
   dispatch: ParticipantViewProps['dispatch'];
   currentUser: ParticipantViewProps['currentUser'];
+  pendingSecond: NonNullable<ParticipantViewProps['state']['pendingSecond']>;
 }) {
   return (
     <div className="space-y-3">
@@ -354,12 +356,12 @@ function PendingSecondSection({
         <p className="text-amber-800 font-semibold mb-2 flex items-center gap-2">
           <AlertCircle size={18} aria-hidden="true" /> Awaiting Second
         </p>
-        <p className="text-gray-800">"{state.pendingSecond!.text}"</p>
+        <p className="text-gray-800">"{pendingSecond.text}"</p>
         <p className="text-sm text-gray-600 mt-1">
-          {state.pendingSecond!.name} by {state.pendingSecond!.mover}
+          {pendingSecond.name} by {pendingSecond.mover}
         </p>
       </div>
-      {state.pendingSecond!.mover === currentUser.name ? (
+      {pendingSecond.mover === currentUser.name ? (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
           <p className="text-blue-800 font-medium mb-1">You moved this motion</p>
           <p className="text-blue-600 text-sm">

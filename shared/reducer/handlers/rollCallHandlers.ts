@@ -108,6 +108,7 @@ export const rollCallHandler: ActionHandler = (state, action, log) => {
     }
 
     default:
-      return undefined;
+      // This handler only receives its specific actions from the main reducer
+      return state;
   }
 };

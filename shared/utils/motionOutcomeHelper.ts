@@ -84,8 +84,22 @@ export function processOutcomeResult(
 }
 
 /**
- * Helper function to handle motion outcome logic
- * Used by both CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED
+ * Compute the side effects of a motion passing
+ *
+ * Handles all motion types that have special effects when adopted:
+ * - LAY_ON_TABLE: Moves the main motion to tabled motions
+ * - ADOPT_AGENDA / AMEND_AGENDA: Updates agenda state
+ * - SUSPEND_RULES: Creates a new rule suspension record
+ * - TAKE_FROM_TABLE: Restores a tabled motion to the stack
+ * - OBJECTION_CONSIDERATION: Kills the main motion if sustained
+ * - RECONSIDER: Marks motion for reconsideration
+ * - DIVIDE_QUESTION: Splits main motion into parts
+ *
+ * Used by both CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED handlers
+ *
+ * @param state - Current meeting state
+ * @param timestamp - ISO timestamp for when the outcome was determined
+ * @returns MotionOutcome object with all computed side effects
  */
 export function applyMotionOutcome(state: MeetingState, timestamp: string): MotionOutcome {
   const newStack = state.motionStack.slice(0, -1);

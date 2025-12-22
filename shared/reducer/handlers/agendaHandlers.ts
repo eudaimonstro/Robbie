@@ -38,6 +38,7 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         agendaAdopted: true,
+        agendaObjection: false,
         meetingLog: log(typedAction.timestamp, LOG_AGENDA_ADOPTED)
       };
     }
@@ -53,29 +54,37 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
 
     case 'CALL_AGENDA_ITEM': {
       const typedAction = action as Extract<MeetingAction, { type: 'CALL_AGENDA_ITEM' }>;
-      const item = state.agenda.find(i => i.id === typedAction.id);
-      if (!item) return state;
+      const item = state.agenda.find(a => a.id === typedAction.id);
+      const updatedAgenda = state.agenda.map(a =>
+        a.id === typedAction.id
+          ? { ...a, status: 'active' as const }
+          : a.status === 'active'
+          ? { ...a, status: 'pending' as const }
+          : a
+      );
       return {
         ...state,
-        currentAgendaItem: { ...item, status: 'active' as const },
-        agenda: state.agenda.map(i => i.id === typedAction.id ? { ...i, status: 'active' as const } : i),
-        meetingLog: log(typedAction.timestamp, logAgendaItemCalled(item.title))
+        currentAgendaItem: item || null,
+        agenda: updatedAgenda,
+        meetingLog: log(typedAction.timestamp, logAgendaItemCalled(item?.title))
       };
     }
 
     case 'COMPLETE_AGENDA_ITEM': {
       const typedAction = action as Extract<MeetingAction, { type: 'COMPLETE_AGENDA_ITEM' }>;
-      const item = state.agenda.find(i => i.id === typedAction.id);
-      if (!item) return state;
+      const updatedAgenda = state.agenda.map(a =>
+        a.id === typedAction.id ? { ...a, status: 'completed' as const } : a
+      );
       return {
         ...state,
         currentAgendaItem: null,
-        agenda: state.agenda.map(i => i.id === typedAction.id ? { ...i, status: 'completed' as const } : i),
-        meetingLog: log(typedAction.timestamp, logAgendaItemCompleted(item.title))
+        agenda: updatedAgenda,
+        meetingLog: log(typedAction.timestamp, logAgendaItemCompleted(state.currentAgendaItem?.title))
       };
     }
 
     default:
-      return undefined;
+      // This handler only receives its specific actions from the main reducer
+      return state;
   }
 };

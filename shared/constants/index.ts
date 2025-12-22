@@ -1,4 +1,5 @@
 export { MOTIONS, CATEGORY_INFO } from './motions.js';
+export type { CategoryColor } from '../types/index.js';
 export {
   MEETING_STAGES,
   DISPLAYABLE_STAGES,

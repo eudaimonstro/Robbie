@@ -53,6 +53,12 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
     [state.inquiries]
   );
 
+  // Memoize the recent answered inquiries (last 5, reversed for display)
+  const recentAnsweredInquiries = useMemo(
+    () => answeredInquiries.slice(-5).reverse(),
+    [answeredInquiries]
+  );
+
   return (
     <div className="bg-white rounded-lg p-4 shadow">
       <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
@@ -172,13 +178,13 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
       )}
 
       {/* Answered Inquiries - All Views */}
-      {answeredInquiries.length > 0 && (
+      {recentAnsweredInquiries.length > 0 && (
         <div className="mt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">
-            Recent Q&A ({answeredInquiries.slice(-5).length}):
+            Recent Q&A ({recentAnsweredInquiries.length}):
           </p>
           <div className="space-y-2">
-            {answeredInquiries.slice(-5).reverse().map((inquiry) => (
+            {recentAnsweredInquiries.map((inquiry) => (
               <div key={inquiry.id} className="p-2 bg-green-50 border border-green-200 rounded text-sm">
                 <div className="mb-1">
                   <span className="text-xs font-semibold text-green-900 uppercase">
