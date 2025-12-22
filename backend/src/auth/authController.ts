@@ -359,7 +359,7 @@ if (TEST_AUTH_ENABLED) {
           }
 
           // Apply SET_MEMBER_ROLE action to update the state
-          await applyAction(sanitizedMeetingCode, {
+          const result = await applyAction(sanitizedMeetingCode, {
             type: 'SET_MEMBER_ROLE',
             targetMemberId: user.id,
             newRole: role,
@@ -368,6 +368,20 @@ if (TEST_AUTH_ENABLED) {
             changedById: 0,
             timestamp: new Date().toISOString()
           });
+
+          // Broadcast state update to all connected clients in the meeting room
+          if (result.success) {
+            const { getIoInstance } = await import('../socket/ioInstance.js');
+            const io = getIoInstance();
+            if (io) {
+              const roomName = `meeting:${sanitizedMeetingCode}`;
+              io.to(roomName).emit('STATE_UPDATE', {
+                state: result.state,
+                stateVersion: result.stateVersion,
+                triggeredBy: { actionType: 'SET_MEMBER_ROLE', userId: user.id }
+              });
+            }
+          }
         }
       }
 

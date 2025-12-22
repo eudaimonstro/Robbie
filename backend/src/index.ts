@@ -7,6 +7,7 @@ import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@ro
 import { authRouter } from './auth/authController.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
+import { setIoInstance } from './socket/ioInstance.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -26,6 +27,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
     credentials: true
   }
 });
+
+// Store io instance for access from other modules (e.g., authController)
+setIoInstance(io);
 
 // Middleware
 app.use(cors({

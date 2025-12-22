@@ -148,14 +148,27 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Don't restore token on mount - require fresh login each session
-  // This prevents stale token issues where we have token but no meetingCode
-  const [authState, setAuthState] = useState<AuthState>({
-    email: '',
-    name: '',
-    meetingCode: '',
-    token: null,
-    userId: null
+  // Restore auth state from localStorage on mount
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    try {
+      const saved = localStorage.getItem('robbie_auth');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validate the saved state has required fields
+        if (parsed.token && parsed.meetingCode && parsed.email && parsed.userId) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Invalid stored data, ignore
+    }
+    return {
+      email: '',
+      name: '',
+      meetingCode: '',
+      token: null,
+      userId: null
+    };
   });
 
   // User needs both token AND meetingCode to be considered authenticated
@@ -263,11 +276,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
       // Token is now also stored in HttpOnly cookie by server
       // We keep it in state for Socket.io handshake (fallback)
-      setAuthState(prev => ({
-        ...prev,
+      const newAuthState = {
+        email: authState.email,
+        name: authState.name,
+        meetingCode: authState.meetingCode,
         token: data.token,
         userId: data.user.id
-      }));
+      };
+      setAuthState(newAuthState);
+
+      // Persist auth state for page reload recovery
+      try {
+        localStorage.setItem('robbie_auth', JSON.stringify(newAuthState));
+      } catch {
+        // localStorage may be unavailable in some contexts
+      }
 
       return true;
     } catch (err) {
@@ -286,6 +309,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       // Log logout failures but continue with local cleanup
       console.warn('Logout request failed:', err.message || 'Network error');
     });
+
+    // Clear persisted auth state
+    try {
+      localStorage.removeItem('robbie_auth');
+    } catch {
+      // localStorage may be unavailable
+    }
 
     if (socketRef.current) {
       socketRef.current.emit('LEAVE_MEETING');
@@ -344,6 +374,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setError(response.error || 'Failed to join meeting');
           if (response.error?.includes('Invalid token')) {
             // Clear auth state on invalid token
+            try {
+              localStorage.removeItem('robbie_auth');
+            } catch {
+              // localStorage may be unavailable
+            }
             newSocket.disconnect();
             socketRef.current = null;
             setAuthState({
