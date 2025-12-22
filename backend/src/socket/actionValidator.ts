@@ -37,6 +37,10 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.meetingActive) {
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
+      // Validate motion text length
+      if (action.text && action.text.length > 500) {
+        return { valid: false, error: 'Motion text exceeds 500 character limit', errorCode: 'INVALID_ACTION' };
+      }
       const definition = MOTIONS[action.motionType];
       if (!definition) {
         return { valid: false, error: `Unknown motion type: ${action.motionType}`, errorCode: 'UNKNOWN_MOTION_TYPE' };
@@ -141,6 +145,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       if (!action.newText || action.newText.trim().length === 0) {
         return { valid: false, error: 'New motion text cannot be empty', errorCode: 'INVALID_ACTION' };
+      }
+      if (action.newText.length > 500) {
+        return { valid: false, error: 'Motion text exceeds 500 character limit', errorCode: 'INVALID_ACTION' };
       }
       return { valid: true };
     }
@@ -358,6 +365,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.meetingActive) {
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
+      if (action.question && action.question.length > 500) {
+        return { valid: false, error: 'Question exceeds 500 character limit', errorCode: 'INVALID_ACTION' };
+      }
       return { valid: true };
 
     case 'ANSWER_INQUIRY': {
@@ -367,6 +377,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       if (inquiry.answer) {
         return { valid: false, error: 'Inquiry is already answered', errorCode: 'INQUIRY_ALREADY_ANSWERED' };
+      }
+      if (action.answer && action.answer.length > 1000) {
+        return { valid: false, error: 'Answer exceeds 1000 character limit', errorCode: 'INVALID_ACTION' };
       }
       return { valid: true };
     }

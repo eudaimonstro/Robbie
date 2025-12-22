@@ -468,14 +468,21 @@ function MotionSelector({
       )}
 
       {!isSpecialMotion && (
-        <input
-          type="text"
-          placeholder={selectedMotionDef?.phrase || "I move that..."}
-          value={motionText}
-          onChange={(e) => setMotionText(e.target.value)}
-          className="w-full p-3 border rounded-lg mb-3"
-          aria-label="Motion text"
-        />
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder={selectedMotionDef?.phrase || "I move that..."}
+            value={motionText}
+            onChange={(e) => setMotionText(e.target.value.slice(0, 500))}
+            maxLength={500}
+            className="w-full p-3 border rounded-lg"
+            aria-label="Motion text"
+            aria-describedby="motion-char-count"
+          />
+          <div id="motion-char-count" className="text-xs text-gray-500 text-right mt-1">
+            {motionText.length}/500
+          </div>
+        </div>
       )}
 
       <button

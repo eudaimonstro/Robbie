@@ -281,7 +281,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     fetch(`${SERVER_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include'
-    }).catch(() => { /* Ignore logout errors */ });
+    }).catch((err) => {
+      // Log logout failures but continue with local cleanup
+      console.warn('Logout request failed:', err.message || 'Network error');
+    });
 
     if (socketRef.current) {
       socketRef.current.emit('LEAVE_MEETING');
@@ -340,7 +343,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setError(response.error || 'Failed to join meeting');
           if (response.error?.includes('Invalid token')) {
             // Clear auth state on invalid token
-            localStorage.removeItem('authToken');
             newSocket.disconnect();
             socketRef.current = null;
             setAuthState({
