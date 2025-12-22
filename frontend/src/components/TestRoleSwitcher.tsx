@@ -20,8 +20,8 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Only show in DEMO meetings
-  if (meetingCode !== 'DEMO') {
+  // Only show in DEMO meetings (case-insensitive check)
+  if (!meetingCode || meetingCode.toUpperCase() !== 'DEMO') {
     return null;
   }
 
