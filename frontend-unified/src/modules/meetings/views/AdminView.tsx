@@ -91,12 +91,12 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* No Chair Warning - Show when meeting not started and no chair */}
       {!state.meetingActive && !currentChair && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 shadow">
+        <div className="bg-accent-50 dark:bg-accent-900/20 border-2 border-accent-300 dark:border-accent-700 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="text-amber-600" size={20} />
-            <h3 className="font-semibold text-amber-800">No Chair Appointed</h3>
+            <AlertTriangle className="text-accent-600 dark:text-accent-400" size={20} />
+            <h3 className="font-semibold text-accent-800 dark:text-accent-300">No Chair Appointed</h3>
           </div>
-          <p className="text-amber-700 text-sm mb-4">
+          <p className="text-accent-700 dark:text-accent-400 text-sm mb-4">
             A chair must be appointed before the meeting can begin. Select a member below to appoint as chair.
           </p>
           {eligibleForChair.length > 0 ? (
@@ -104,7 +104,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
               <select
                 value={selectedChairId}
                 onChange={(e) => setSelectedChairId(e.target.value ? Number(e.target.value) : '')}
-                className="flex-1 p-2 border border-amber-300 rounded-lg bg-white"
+                className="flex-1 p-2 border border-accent-300 dark:border-accent-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
               >
                 <option value="">Select a member...</option>
                 {eligibleForChair.map(m => (
@@ -114,14 +114,14 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
               <button
                 onClick={handleAppointChair}
                 disabled={!selectedChairId}
-                className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-accent-600 text-white px-4 py-2 rounded-lg hover:bg-accent-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Crown size={16} />
                 Appoint Chair
               </button>
             </div>
           ) : (
-            <p className="text-amber-600 text-sm italic">
+            <p className="text-accent-600 dark:text-accent-400 text-sm italic">
               No members have joined yet. Waiting for members to join...
             </p>
           )}
@@ -130,88 +130,88 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* Chair Status - Show when meeting not started but chair exists */}
       {!state.meetingActive && currentChair && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow">
+        <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2">
-            <Crown className="text-green-600" size={20} />
-            <span className="font-semibold text-green-800">Chair: {currentChair.name}</span>
+            <Crown className="text-success-600 dark:text-success-400" size={20} />
+            <span className="font-semibold text-success-800 dark:text-success-300">Chair: {currentChair.name}</span>
           </div>
-          <p className="text-green-700 text-sm mt-2">
+          <p className="text-success-700 dark:text-success-400 text-sm mt-2">
             Waiting for the chair to call the meeting to order.
           </p>
         </div>
       )}
 
-      <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Timer size={18}/> Time Limits</h3>
+      <div className="card p-4">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Timer size={18}/> Time Limits</h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Speaker Time Limit (seconds)</label>
+            <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Speaker Time Limit (seconds)</label>
             <div className="flex gap-2">
               <input
                 type="number"
                 min="0"
                 value={speakerTime}
                 onChange={(e) => setSpeakerTime(parseInt(e.target.value) || 0)}
-                className="flex-1 p-2 border rounded-lg"
+                className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
               />
               <button
                 onClick={() => dispatch({ type: 'SET_SPEAKER_TIME_LIMIT', seconds: speakerTime })}
-                className="bg-indigo-600 text-white px-4 rounded-lg text-sm"
+                className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700"
               >
                 Set
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">Set to 0 to disable timer</p>
+            <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Vote Time Limit (seconds)</label>
+            <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Vote Time Limit (seconds)</label>
             <div className="flex gap-2">
               <input
                 type="number"
                 min="0"
                 value={voteTime}
                 onChange={(e) => setVoteTime(parseInt(e.target.value) || 0)}
-                className="flex-1 p-2 border rounded-lg"
+                className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
               />
               <button
                 onClick={() => dispatch({ type: 'SET_VOTE_TIME_LIMIT', seconds: voteTime })}
-                className="bg-indigo-600 text-white px-4 rounded-lg text-sm"
+                className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700"
               >
                 Set
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">Set to 0 to disable timer</p>
+            <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Settings size={18}/> Meeting Settings</h3>
+      <div className="card p-4">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Settings size={18}/> Meeting Settings</h3>
         <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Quorum Requirement</label>
+          <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Quorum Requirement</label>
           <div className="flex gap-2">
             <input
               type="number"
               min="1"
               value={quorumValue}
               onChange={(e) => setQuorumValue(Math.max(1, parseInt(e.target.value) || 1))}
-              className="flex-1 p-2 border rounded-lg"
+              className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
             />
             <button
               onClick={() => dispatch({ type: 'SET_QUORUM', quorum: quorumValue, timestamp: generateTimestamp() })}
               disabled={quorumValue === state.quorum}
-              className="bg-indigo-600 text-white px-4 rounded-lg text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
             >
               Set
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Minimum members required for quorum</p>
+          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Minimum members required for quorum</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 bg-gray-50 rounded-lg"><p className="text-gray-500 text-sm">Required</p><p className="font-semibold text-lg">{state.quorum}</p></div>
-          <div className="p-3 bg-gray-50 rounded-lg"><p className="text-gray-500 text-sm">Present</p><p className="font-semibold text-lg">{presentCount} / {totalMembers}</p></div>
+          <div className="p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg"><p className="text-secondary-500 dark:text-secondary-400 text-sm">Required</p><p className="font-semibold text-lg text-secondary-900 dark:text-white">{state.quorum}</p></div>
+          <div className="p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg"><p className="text-secondary-500 dark:text-secondary-400 text-sm">Present</p><p className="font-semibold text-lg text-secondary-900 dark:text-white">{presentCount} / {totalMembers}</p></div>
         </div>
-        <div className={`mt-3 p-3 rounded-lg ${hasQuorum ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        <div className={`mt-3 p-3 rounded-lg ${hasQuorum ? 'bg-success-100 dark:bg-success-900/30 text-success-800 dark:text-success-300' : 'bg-danger-100 dark:bg-danger-900/30 text-danger-800 dark:text-danger-300'}`}>
           {hasQuorum ? '✓ Quorum present' : '✗ No quorum'}
         </div>
       </div>
@@ -225,7 +225,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
           />
           <Link
             to="/"
-            className="flex items-center justify-center gap-2 w-full py-2 px-4 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-2 px-4 text-sm text-meeting-600 dark:text-meeting-400 hover:text-meeting-700 dark:hover:text-meeting-300 hover:bg-meeting-50 dark:hover:bg-meeting-900/20 rounded-lg transition-colors"
           >
             <FileText size={16} />
             Open Documents Dashboard
@@ -233,26 +233,26 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800"><Users size={18}/> Members</h3>
+      <div className="card p-4">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Users size={18}/> Members</h3>
         <ul className="space-y-2">
           {state.members.map(m => (
-            <li key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <li key={m.id} className="flex items-center justify-between p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
               <div className="flex items-center gap-2">
-                <span className="font-medium">{m.name}</span>
+                <span className="font-medium text-secondary-900 dark:text-white">{m.name}</span>
                 <button
                   onClick={() => openRenameModal(m)}
-                  className="text-gray-400 hover:text-indigo-600 p-1"
+                  className="text-secondary-400 hover:text-meeting-600 dark:hover:text-meeting-400 p-1"
                   title="Rename member"
                 >
                   <Pencil size={14} />
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${m.role === 'chair' ? 'bg-purple-100 text-purple-800' : m.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>{m.role}</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${m.role === 'chair' ? 'bg-meeting-100 dark:bg-meeting-900/30 text-meeting-800 dark:text-meeting-300' : m.role === 'admin' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300' : 'bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300'}`}>{m.role}</span>
                 <button
                   onClick={() => openRoleChangeModal(m)}
-                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  className="text-meeting-600 dark:text-meeting-400 hover:text-meeting-800 dark:hover:text-meeting-300 text-sm font-medium"
                 >
                   Change Role
                 </button>
@@ -264,25 +264,25 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* Role Change Modal */}
       {roleChangeTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h4 className="font-semibold text-lg mb-4">Change Role for {roleChangeTarget.name}</h4>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-secondary-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h4 className="font-semibold text-lg mb-4 text-secondary-900 dark:text-white">Change Role for {roleChangeTarget.name}</h4>
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value as 'member' | 'chair' | 'admin')}
-              className="w-full p-2 border rounded-lg mb-4"
+              className="w-full p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg mb-4 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
             >
               <option value="member">Member</option>
               <option value="chair">Chair</option>
               <option value="admin">Admin</option>
             </select>
             {selectedRole === 'chair' && roleChangeTarget.role !== 'chair' && currentChair && (
-              <p className="text-amber-600 text-sm mb-4 bg-amber-50 p-3 rounded-lg">
+              <p className="text-accent-600 dark:text-accent-400 text-sm mb-4 bg-accent-50 dark:bg-accent-900/20 p-3 rounded-lg">
                 Note: {currentChair.name} (current chair) will be demoted to member.
               </p>
             )}
             {selectedRole === roleChangeTarget.role && (
-              <p className="text-gray-500 text-sm mb-4">
+              <p className="text-secondary-500 dark:text-secondary-400 text-sm mb-4">
                 No change - {roleChangeTarget.name} is already {roleChangeTarget.role}.
               </p>
             )}
@@ -290,13 +290,13 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
               <button
                 onClick={handleRoleChange}
                 disabled={selectedRole === roleChangeTarget.role}
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 bg-meeting-600 text-white py-2 rounded-lg hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
               >
                 Confirm
               </button>
               <button
                 onClick={() => setRoleChangeTarget(null)}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                className="flex-1 bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300 py-2 rounded-lg hover:bg-secondary-300 dark:hover:bg-secondary-600"
               >
                 Cancel
               </button>
@@ -307,19 +307,19 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* Rename Modal */}
       {renameTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h4 className="font-semibold text-lg mb-4">Rename {renameTarget.name}</h4>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-secondary-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h4 className="font-semibold text-lg mb-4 text-secondary-900 dark:text-white">Rename {renameTarget.name}</h4>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Enter new name"
-              className="w-full p-2 border rounded-lg mb-4"
+              className="w-full p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg mb-4 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
               autoFocus
             />
             {newName.trim().length > 0 && newName.trim().length < 2 && (
-              <p className="text-red-500 text-sm mb-4">
+              <p className="text-danger-500 dark:text-danger-400 text-sm mb-4">
                 Name must be at least 2 characters.
               </p>
             )}
@@ -327,13 +327,13 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
               <button
                 onClick={handleRename}
                 disabled={!newName.trim() || newName.trim().length < 2 || newName.trim() === renameTarget.name}
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 bg-meeting-600 text-white py-2 rounded-lg hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
               >
                 Save
               </button>
               <button
                 onClick={() => { setRenameTarget(null); setNewName(''); }}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                className="flex-1 bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300 py-2 rounded-lg hover:bg-secondary-300 dark:hover:bg-secondary-600"
               >
                 Cancel
               </button>
@@ -342,41 +342,41 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 text-gray-800">Agenda {!state.agendaAdopted && "(Pending)"}</h3>
-        {!state.agendaAdopted && <p className="text-sm text-amber-600 mb-3">Drag to reorder before adoption.</p>}
+      <div className="card p-4">
+        <h3 className="font-semibold mb-3 text-secondary-800 dark:text-white">Agenda {!state.agendaAdopted && "(Pending)"}</h3>
+        {!state.agendaAdopted && <p className="text-sm text-accent-600 dark:text-accent-400 mb-3">Drag to reorder before adoption.</p>}
         <DraggableAgendaList agenda={state.agenda} dispatch={dispatch} disabled={state.agendaAdopted} showStatus={state.agendaAdopted}/>
         {!state.agendaAdopted && (
           <div className="flex gap-2 mt-3">
-            <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="New item" className="flex-1 p-3 border rounded-lg"/>
+            <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="New item" className="flex-1 p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"/>
             <button
               onClick={() => { dispatch({ type: 'ADD_AGENDA_ITEM', title: newItem, itemId: generateId() }); setNewItem(""); }}
               disabled={!newItem.trim()}
-              className="bg-indigo-600 text-white px-6 rounded-lg disabled:bg-gray-300"
+              className="bg-meeting-600 text-white px-6 rounded-lg hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600"
             >
               Add
             </button>
           </div>
         )}
-        {state.agendaAdopted && <p className="text-xs text-gray-500 mt-3">Adopted. Changes require a motion.</p>}
+        {state.agendaAdopted && <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-3">Adopted. Changes require a motion.</p>}
       </div>
 
       {state.tabledMotions.length > 0 && (
-        <div className="bg-white rounded-lg p-4 shadow">
-          <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+        <div className="card p-4">
+          <h3 className="font-semibold mb-3 text-secondary-800 dark:text-white flex items-center gap-2">
             📋 Tabled Motions
-            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{state.tabledMotions.length}</span>
+            <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 text-xs px-2 py-0.5 rounded-full">{state.tabledMotions.length}</span>
           </h3>
           <div className="space-y-2">
             {state.tabledMotions.map((motion) => (
-              <div key={motion.id} className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <p className="font-medium text-gray-900 text-sm">{motion.name}</p>
-                <p className="text-gray-700 text-xs mt-1">"{motion.text}"</p>
-                <p className="text-gray-500 text-xs mt-1">Moved by {motion.mover}</p>
+              <div key={motion.id} className="p-3 bg-secondary-50 dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg">
+                <p className="font-medium text-secondary-900 dark:text-white text-sm">{motion.name}</p>
+                <p className="text-secondary-700 dark:text-secondary-300 text-xs mt-1">"{motion.text}"</p>
+                <p className="text-secondary-500 dark:text-secondary-400 text-xs mt-1">Moved by {motion.mover}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-3 italic">
+          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-3 italic">
             Use "Take from Table" motion to restore any of these motions
           </p>
         </div>
@@ -410,12 +410,12 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         isChair={false}
       />
 
-      <div className="bg-white rounded-lg p-4 shadow">
-        <h3 className="font-semibold mb-3 text-gray-800">Meeting Log</h3>
-        <div className="max-h-64 overflow-y-auto bg-gray-50 rounded-lg p-3">
-          {state.meetingLog.length === 0 ? <p className="text-gray-500 text-center py-4">Not started</p> : (
+      <div className="card p-4">
+        <h3 className="font-semibold mb-3 text-secondary-800 dark:text-white">Meeting Log</h3>
+        <div className="max-h-64 overflow-y-auto bg-secondary-50 dark:bg-secondary-800 rounded-lg p-3">
+          {state.meetingLog.length === 0 ? <p className="text-secondary-500 dark:text-secondary-400 text-center py-4">Not started</p> : (
             <ul className="space-y-1 text-sm font-mono">
-              {state.meetingLog.map((e, i) => <li key={i} className="text-gray-700"><span className="text-gray-400">[{e.time}]</span> {e.message}</li>)}
+              {state.meetingLog.map((e, i) => <li key={i} className="text-secondary-700 dark:text-secondary-300"><span className="text-secondary-400 dark:text-secondary-500">[{e.time}]</span> {e.message}</li>)}
             </ul>
           )}
         </div>

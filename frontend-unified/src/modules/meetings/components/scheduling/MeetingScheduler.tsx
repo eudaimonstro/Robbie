@@ -103,20 +103,20 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+    <div className="max-w-7xl mx-auto">
+      <div className="card w-full max-w-2xl mx-auto overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-700 to-indigo-800 text-white p-6">
+        <div className="bg-gradient-to-r from-meeting-700 to-meeting-800 text-white p-6">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="bg-white/20 p-2 rounded-lg hover:bg-white/30"
+              className="bg-white/20 p-2 rounded-lg hover:bg-white/30 transition-colors"
             >
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold">Schedule Meeting</h1>
-              <p className="text-indigo-200 text-sm">
+              <p className="text-meeting-200 text-sm">
                 {step === 'details' ? 'Step 1: Meeting Details' : 'Step 2: Build Agenda'}
               </p>
             </div>
@@ -126,27 +126,27 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
         {/* Content */}
         <div className="p-6">
           {/* Meeting code display */}
-          <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="mb-6 bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-indigo-600 font-medium">Meeting Code</p>
-                <p className="text-2xl font-mono font-bold text-indigo-800">{meetingCode}</p>
+                <p className="text-sm text-meeting-600 dark:text-meeting-400 font-medium">Meeting Code</p>
+                <p className="text-2xl font-mono font-bold text-meeting-800 dark:text-meeting-300">{meetingCode}</p>
               </div>
               <button
                 onClick={handleCopyCode}
-                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                className="flex items-center gap-2 px-3 py-2 bg-meeting-600 text-white rounded-lg hover:bg-meeting-700 text-sm transition-colors"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p className="text-xs text-indigo-600 mt-2">
+            <p className="text-xs text-meeting-600 dark:text-meeting-400 mt-2">
               Share this code with participants to join your meeting
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="mb-4 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
@@ -160,7 +160,7 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Meeting Title
                 </label>
                 <input
@@ -168,12 +168,12 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Board Meeting - January 2025"
-                  className="w-full p-3 border rounded-lg"
+                  className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Description
                 </label>
                 <textarea
@@ -181,12 +181,12 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional meeting description..."
                   rows={3}
-                  className="w-full p-3 border rounded-lg resize-none"
+                  className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   <Calendar size={16} className="inline mr-1" />
                   Date & Time
                 </label>
@@ -194,14 +194,14 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                   type="datetime-local"
                   value={scheduledFor}
                   onChange={(e) => setScheduledFor(e.target.value)}
-                  className="w-full p-3 border rounded-lg"
+                  className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white"
                 />
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700"
+                  className="flex-1 flex items-center justify-center gap-2 bg-meeting-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-meeting-700 transition-colors"
                 >
                   Next: Build Agenda
                   <ArrowRight size={20} />
@@ -212,25 +212,25 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
             <>
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 size={32} className="animate-spin text-indigo-600" />
+                  <Loader2 size={32} className="animate-spin text-meeting-600" />
                 </div>
               ) : packet ? (
                 <>
                   {/* Editable details summary */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="mb-6 p-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-gray-800">
+                      <h3 className="font-medium text-secondary-800 dark:text-white">
                         {title || 'Untitled Meeting'}
                       </h3>
                       <button
                         onClick={() => setStep('details')}
-                        className="text-sm text-indigo-600 hover:underline"
+                        className="text-sm text-meeting-600 dark:text-meeting-400 hover:underline"
                       >
                         Edit Details
                       </button>
                     </div>
                     {scheduledFor && (
-                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                      <p className="text-sm text-secondary-600 dark:text-secondary-400 flex items-center gap-1">
                         <Clock size={14} />
                         {new Date(scheduledFor).toLocaleString()}
                       </p>
@@ -242,10 +242,10 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                     onPacketUpdate={setPacket}
                   />
 
-                  <div className="flex gap-3 pt-6 mt-6 border-t">
+                  <div className="flex gap-3 pt-6 mt-6 border-t border-secondary-200 dark:border-secondary-700">
                     <button
                       onClick={() => setStep('details')}
-                      className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                      className="flex-1 py-3 px-4 border border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors"
                     >
                       Back
                     </button>
@@ -254,7 +254,7 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                         handleSaveDetails();
                         onJoinMeeting(meetingCode);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700"
+                      className="flex-1 flex items-center justify-center gap-2 bg-success-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-success-700 transition-colors"
                     >
                       {isSaving ? (
                         <Loader2 size={20} className="animate-spin" />
@@ -268,7 +268,7 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-secondary-500 dark:text-secondary-400">
                   Unable to load meeting packet.
                 </div>
               )}

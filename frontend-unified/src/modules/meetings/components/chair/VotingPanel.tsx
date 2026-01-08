@@ -65,13 +65,13 @@ export const VotingPanel = React.memo(function VotingPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="voting-heading">
-      <h3 id="voting-heading" className="font-semibold mb-3 text-gray-800">Voting</h3>
+    <section className="card p-4" aria-labelledby="voting-heading">
+      <h3 id="voting-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">Voting</h3>
 
       {!hasQuorum && (
-        <div className="mb-3 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg" role="alert">
-          <p className="text-amber-800 font-semibold">⚠️ Voting Without Quorum</p>
-          <p className="text-amber-700 text-sm">
+        <div className="mb-3 p-3 bg-accent-100 dark:bg-accent-900/30 border-2 border-accent-400 dark:border-accent-600 rounded-lg" role="alert">
+          <p className="text-accent-800 dark:text-accent-300 font-semibold">⚠️ Voting Without Quorum</p>
+          <p className="text-accent-700 dark:text-accent-400 text-sm">
             Only {presentCount} of {state.quorum} required members are present. This vote may need to be ratified later.
           </p>
         </div>
@@ -85,9 +85,9 @@ export const VotingPanel = React.memo(function VotingPanel({
             onExpired={handleVoteTimeExpired}
           />
           {voteTimeExpired && (
-            <div className="mt-2 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg animate-pulse" role="alert">
-              <p className="text-amber-800 font-semibold">⏰ Voting time has expired</p>
-              <p className="text-amber-700 text-sm">Consider closing the vote or extending the voting period.</p>
+            <div className="mt-2 p-3 bg-accent-100 dark:bg-accent-900/30 border-2 border-accent-400 dark:border-accent-600 rounded-lg animate-pulse" role="alert">
+              <p className="text-accent-800 dark:text-accent-300 font-semibold">⏰ Voting time has expired</p>
+              <p className="text-accent-700 dark:text-accent-400 text-sm">Consider closing the vote or extending the voting period.</p>
             </div>
           )}
         </div>
@@ -95,25 +95,25 @@ export const VotingPanel = React.memo(function VotingPanel({
 
       {/* Vote counts - hidden for secret ballots until closed */}
       {state.votingMethod === 'ballot' ? (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center">
-          <p className="text-gray-600 mb-2">🔒 Secret Ballot in Progress</p>
-          <p className="text-2xl font-bold text-gray-700">{state.voters.length}</p>
-          <p className="text-gray-500 text-sm">votes cast</p>
-          <p className="text-gray-400 text-xs mt-1">Results hidden until voting closes</p>
+        <div className="mb-4 p-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg text-center">
+          <p className="text-secondary-600 dark:text-secondary-400 mb-2">🔒 Secret Ballot in Progress</p>
+          <p className="text-2xl font-bold text-secondary-700 dark:text-secondary-200">{state.voters.length}</p>
+          <p className="text-secondary-500 dark:text-secondary-400 text-sm">votes cast</p>
+          <p className="text-secondary-400 dark:text-secondary-500 text-xs mt-1">Results hidden until voting closes</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-green-100 p-4 rounded-lg text-center">
-            <p className="text-3xl font-bold text-green-700">{votingData.yea}</p>
-            <p className="text-green-600">Yea</p>
+          <div className="bg-success-100 dark:bg-success-900/30 p-4 rounded-lg text-center">
+            <p className="text-3xl font-bold text-success-700 dark:text-success-300">{votingData.yea}</p>
+            <p className="text-success-600 dark:text-success-400">Yea</p>
           </div>
-          <div className="bg-red-100 p-4 rounded-lg text-center">
-            <p className="text-3xl font-bold text-red-700">{votingData.nay}</p>
-            <p className="text-red-600">Nay</p>
+          <div className="bg-danger-100 dark:bg-danger-900/30 p-4 rounded-lg text-center">
+            <p className="text-3xl font-bold text-danger-700 dark:text-danger-300">{votingData.nay}</p>
+            <p className="text-danger-600 dark:text-danger-400">Nay</p>
           </div>
-          <div className="bg-gray-100 p-4 rounded-lg text-center">
-            <p className="text-3xl font-bold text-gray-700">{state.votes.abstain}</p>
-            <p className="text-gray-600">Abstain</p>
+          <div className="bg-secondary-100 dark:bg-secondary-800 p-4 rounded-lg text-center">
+            <p className="text-3xl font-bold text-secondary-700 dark:text-secondary-200">{state.votes.abstain}</p>
+            <p className="text-secondary-600 dark:text-secondary-400">Abstain</p>
           </div>
         </div>
       )}
@@ -121,21 +121,21 @@ export const VotingPanel = React.memo(function VotingPanel({
       {/* Chair voting rules */}
       {state.votingMethod !== 'ballot' && !votingData.chairHasVoted &&
        (votingData.canVoteToBreakTie || votingData.canVoteToCreateTie) && chair && (
-        <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-          <p className="text-purple-800 font-medium mb-2">
+        <div className="mb-3 p-3 bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg">
+          <p className="text-meeting-800 dark:text-meeting-300 font-medium mb-2">
             {votingData.canVoteToBreakTie && "Chair may vote to break the tie"}
             {votingData.canVoteToCreateTie && "Chair may vote to create a tie (defeat motion)"}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: chair.id, isChairDecidingVote: true })}
-              className="bg-green-500 text-white py-2 rounded-lg font-medium"
+              className="bg-success-500 text-white py-2 rounded-lg font-medium hover:bg-success-600"
             >
               Vote Yea
             </button>
             <button
               onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: chair.id, isChairDecidingVote: true })}
-              className="bg-red-500 text-white py-2 rounded-lg font-medium"
+              className="bg-danger-500 text-white py-2 rounded-lg font-medium hover:bg-danger-600"
             >
               Vote Nay
             </button>
@@ -144,14 +144,14 @@ export const VotingPanel = React.memo(function VotingPanel({
       )}
 
       {state.votingMethod === 'ballot' && !votingData.chairHasVoted && chair && (
-        <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3 bg-secondary-50 dark:bg-secondary-800 p-2 rounded">
           🔒 Secret Ballot - Chair votes like other members
         </p>
       )}
 
       <button
         onClick={() => dispatch({ type: 'CLOSE_VOTING', timestamp: generateTimestamp() })}
-        className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium"
+        className="w-full bg-meeting-600 text-white py-3 rounded-lg font-medium hover:bg-meeting-700"
       >
         Close & Announce
       </button>

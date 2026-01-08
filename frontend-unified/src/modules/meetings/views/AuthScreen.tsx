@@ -61,17 +61,17 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
+      <div className="card w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-700 to-indigo-800 text-white p-6">
+        <div className="bg-gradient-to-r from-meeting-700 to-meeting-800 text-white p-6">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-3 rounded-xl">
               <Gavel size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Parliamentary Procedure</h1>
-              <p className="text-indigo-200">Robert's Rules of Order</p>
+              <h1 className="text-2xl font-bold">Live Meeting</h1>
+              <p className="text-meeting-200">Robert's Rules of Order</p>
             </div>
           </div>
         </div>
@@ -80,23 +80,23 @@ export function AuthScreen() {
         <div className="p-6">
           {step === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              <h2 className="text-xl font-semibold text-secondary-800 dark:text-white mb-4">
                 Join a Meeting
               </h2>
 
               <div>
-                <label htmlFor="meetingCode" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="meetingCode" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Meeting Code
                 </label>
                 <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
                   <input
                     id="meetingCode"
                     type="text"
                     value={meetingCode}
                     onChange={(e) => setMeetingCode(e.target.value.toUpperCase())}
                     placeholder="ABC123"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase"
+                    className="w-full pl-10 pr-4 py-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500 uppercase"
                     required
                     maxLength={8}
                   />
@@ -104,46 +104,46 @@ export function AuthScreen() {
               </div>
 
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Your Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
                   <input
                     id="name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Jane Smith"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full pl-10 pr-4 py-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
                   <input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="jane@example.com"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full pl-10 pr-4 py-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500"
                     required
                   />
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-secondary-500 dark:text-secondary-400 mt-1">
                   We'll send a verification code to this email
                 </p>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg">
                   {error}
                 </div>
               )}
@@ -151,7 +151,7 @@ export function AuthScreen() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-meeting-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-meeting-700 focus:ring-2 focus:ring-offset-2 focus:ring-meeting-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -168,17 +168,17 @@ export function AuthScreen() {
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
+                  <div className="w-full border-t border-secondary-300 dark:border-secondary-600" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">or</span>
+                  <span className="px-2 bg-white dark:bg-secondary-800 text-secondary-500">or</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setStep('schedule')}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-secondary-300 dark:border-secondary-600 rounded-lg font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-700"
               >
                 <Calendar size={20} />
                 Schedule a New Meeting
@@ -186,15 +186,15 @@ export function AuthScreen() {
             </form>
           ) : (
             <form onSubmit={handleVerify} className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+              <h2 className="text-xl font-semibold text-secondary-800 dark:text-white mb-2">
                 Enter Verification Code
               </h2>
-              <p className="text-gray-600 mb-4">
-                We sent a 6-digit code to <strong>{email}</strong>
+              <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+                We sent a 6-digit code to <strong className="text-secondary-900 dark:text-white">{email}</strong>
               </p>
 
               <div>
-                <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="code" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                   Verification Code
                 </label>
                 <input
@@ -203,7 +203,7 @@ export function AuthScreen() {
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="000000"
-                  className="w-full text-center text-2xl tracking-widest py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full text-center text-2xl tracking-widest py-4 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500"
                   required
                   maxLength={6}
                   autoComplete="one-time-code"
@@ -211,7 +211,7 @@ export function AuthScreen() {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg">
                   {error}
                 </div>
               )}
@@ -219,7 +219,7 @@ export function AuthScreen() {
               <button
                 type="submit"
                 disabled={isLoading || verificationCode.length !== 6}
-                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-meeting-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-meeting-700 focus:ring-2 focus:ring-offset-2 focus:ring-meeting-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -237,7 +237,7 @@ export function AuthScreen() {
               <button
                 type="button"
                 onClick={() => setStep('login')}
-                className="w-full text-gray-600 py-2 hover:text-gray-800"
+                className="w-full text-secondary-600 dark:text-secondary-400 py-2 hover:text-secondary-800 dark:hover:text-secondary-200"
               >
                 Back to login
               </button>
