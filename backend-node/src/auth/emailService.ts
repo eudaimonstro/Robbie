@@ -1,0 +1,264 @@
+/**
+ * Email service for sending verification codes
+ *
+ * Supports multiple providers:
+ * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
+ * - SendGrid API
+ * - Resend API
+ * - Development mode (console logging)
+ *
+ * Configuration via environment variables:
+ *
+ * For SMTP:
+ *   SMTP_HOST=smtp.example.com
+ *   SMTP_PORT=587
+ *   SMTP_USER=your-username
+ *   SMTP_PASS=your-password
+ *   EMAIL_FROM=noreply@yourdomain.com
+ *
+ * For SendGrid:
+ *   SENDGRID_API_KEY=SG.xxxxx
+ *   EMAIL_FROM=noreply@yourdomain.com
+ *
+ * For Resend:
+ *   RESEND_API_KEY=re_xxxxx
+ *   EMAIL_FROM=noreply@yourdomain.com
+ */
+
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
+
+// For testing: returns the code so it can be used for dev bypass
+let lastGeneratedCode: string | null = null;
+
+export function getLastCode(): string | null {
+  return lastGeneratedCode;
+}
+
+// Email configuration
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Robbie <noreply@robbie.app>';
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Determine email provider based on environment variables
+type EmailProvider = 'smtp' | 'sendgrid' | 'resend' | 'development';
+
+function detectProvider(): EmailProvider {
+  if (process.env.SENDGRID_API_KEY) return 'sendgrid';
+  if (process.env.RESEND_API_KEY) return 'resend';
+  if (process.env.SMTP_HOST) return 'smtp';
+  return 'development';
+}
+
+const emailProvider = detectProvider();
+
+// Create transporter based on provider
+let transporter: Transporter | null = null;
+
+function createTransporter(): Transporter | null {
+  switch (emailProvider) {
+    case 'smtp':
+      return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+    case 'sendgrid':
+      // SendGrid uses SMTP with API key as password
+      return nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        auth: {
+          user: 'apikey',
+          pass: process.env.SENDGRID_API_KEY,
+        },
+      });
+
+    case 'resend':
+      // Resend uses SMTP with API key as password
+      return nodemailer.createTransport({
+        host: 'smtp.resend.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: 'resend',
+          pass: process.env.RESEND_API_KEY,
+        },
+      });
+
+    case 'development':
+    default:
+      return null;
+  }
+}
+
+// Initialize transporter
+transporter = createTransporter();
+
+// Log provider on startup
+if (isProduction && emailProvider === 'development') {
+  console.error(
+    'WARNING: No email provider configured in production!\n' +
+    'Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY'
+  );
+} else {
+  console.log(`Email service initialized: ${emailProvider}`);
+}
+
+/**
+ * Generate HTML email template for verification code
+ */
+function generateEmailHtml(code: string, meetingCode: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification Code</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 32px 24px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Robbie</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Parliamentary Procedure Made Easy</p>
+    </div>
+
+    <!-- Content -->
+    <div style="padding: 32px 24px;">
+      <h2 style="color: #18181b; margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Your Verification Code</h2>
+      <p style="color: #52525b; margin: 0 0 24px 0; font-size: 15px; line-height: 1.6;">
+        Enter this code to join meeting <strong style="color: #18181b;">${meetingCode}</strong>:
+      </p>
+
+      <!-- Code Box -->
+      <div style="background-color: #f4f4f5; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
+        <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #4f46e5; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">${code}</span>
+      </div>
+
+      <p style="color: #71717a; margin: 0; font-size: 13px; line-height: 1.5;">
+        This code expires in <strong>15 minutes</strong>. If you didn't request this code, you can safely ignore this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #fafafa; padding: 16px 24px; border-top: 1px solid #e4e4e7;">
+      <p style="color: #a1a1aa; margin: 0; font-size: 12px; text-align: center;">
+        &copy; ${new Date().getFullYear()} Robbie. Powered by Robert's Rules of Order.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Generate plain text email for verification code
+ */
+function generateEmailText(code: string, meetingCode: string): string {
+  return `Your Verification Code for Robbie
+
+Enter this code to join meeting ${meetingCode}:
+
+${code}
+
+This code expires in 15 minutes.
+
+If you didn't request this code, you can safely ignore this email.
+
+---
+Robbie - Parliamentary Procedure Made Easy
+`;
+}
+
+/**
+ * Send verification email
+ * @param email - Recipient email address
+ * @param code - 6-digit verification code
+ * @param meetingCode - Meeting code being joined
+ */
+export async function sendVerificationEmail(
+  email: string,
+  code: string,
+  meetingCode: string
+): Promise<void> {
+  // Always store code for dev testing endpoint
+  lastGeneratedCode = code;
+
+  // Development mode - just log to console
+  if (emailProvider === 'development') {
+    console.log(`
+    ========================================
+    VERIFICATION EMAIL (Development Mode)
+    ========================================
+    To: ${email}
+    Meeting Code: ${meetingCode}
+    Verification Code: ${code}
+    ========================================
+
+    To enable email sending, set one of:
+    - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+    - SENDGRID_API_KEY
+    - RESEND_API_KEY
+    `);
+    return;
+  }
+
+  // Production mode - send actual email
+  if (!transporter) {
+    throw new Error('Email transporter not configured');
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: EMAIL_FROM,
+      to: email,
+      subject: `Your verification code for meeting ${meetingCode}`,
+      text: generateEmailText(code, meetingCode),
+      html: generateEmailHtml(code, meetingCode),
+    });
+
+    console.log(`Verification email sent to ${email}: ${info.messageId}`);
+  } catch (error) {
+    console.error('Failed to send verification email:', error);
+    throw new Error('Failed to send verification email. Please try again.');
+  }
+}
+
+/**
+ * Verify email configuration is working
+ * Call this on startup to catch configuration errors early
+ */
+export async function verifyEmailConfiguration(): Promise<boolean> {
+  if (emailProvider === 'development') {
+    console.log('Email service running in development mode (console logging)');
+    return true;
+  }
+
+  if (!transporter) {
+    console.error('Email transporter not available');
+    return false;
+  }
+
+  try {
+    await transporter.verify();
+    console.log('Email configuration verified successfully');
+    return true;
+  } catch (error) {
+    console.error('Email configuration verification failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Get current email provider for health checks
+ */
+export function getEmailProvider(): EmailProvider {
+  return emailProvider;
+}

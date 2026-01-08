@@ -1,0 +1,447 @@
+[
+  {
+    "category": "functional",
+    "description": "Create root-level section",
+    "steps": [
+      "Step 1: Create document with version",
+      "Step 2: Send POST to /api/versions/{version_id}/sections",
+      "Step 3: Verify response status code is 201",
+      "Step 4: Verify section has no parent_id"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create section with title and content",
+    "steps": [
+      "Step 1: Create version",
+      "Step 2: Create section with title and content fields",
+      "Step 3: Verify response contains title and content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create section with number_label",
+    "steps": [
+      "Step 1: Create version",
+      "Step 2: Create section with number_label 'Article I'",
+      "Step 3: Verify response contains correct number_label"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create child section under parent",
+    "steps": [
+      "Step 1: Create version with root section",
+      "Step 2: Send POST to /api/sections/{parent_id}/children",
+      "Step 3: Verify response contains child section with correct parent_id"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Child section position auto-increments",
+    "steps": [
+      "Step 1: Create parent section",
+      "Step 2: Add first child, verify position is 0",
+      "Step 3: Add second child, verify position is 1",
+      "Step 4: Add third child, verify position is 2"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get section tree structure",
+    "steps": [
+      "Step 1: Create version with nested sections",
+      "Step 2: Send GET to /api/versions/{version_id}/tree",
+      "Step 3: Verify response contains nested structure with children arrays"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get section by ID",
+    "steps": [
+      "Step 1: Create a section",
+      "Step 2: Send GET to /api/sections/{section_id}",
+      "Step 3: Verify response contains correct section data"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Update section content",
+    "steps": [
+      "Step 1: Create a section",
+      "Step 2: Send PUT to /api/sections/{section_id} with new content",
+      "Step 3: Verify response contains updated content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Update section title",
+    "steps": [
+      "Step 1: Create a section",
+      "Step 2: Send PUT to /api/sections/{section_id} with new title",
+      "Step 3: Verify response contains updated title"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Delete section",
+    "steps": [
+      "Step 1: Create a section",
+      "Step 2: Send DELETE to /api/sections/{section_id}",
+      "Step 3: Verify response status code is 204",
+      "Step 4: Verify section no longer in version tree"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Delete section cascades to children",
+    "steps": [
+      "Step 1: Create parent section with children",
+      "Step 2: Delete parent section",
+      "Step 3: Verify all children are also deleted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get section breadcrumb path",
+    "steps": [
+      "Step 1: Create deeply nested section structure",
+      "Step 2: Send GET to /api/sections/{section_id}/path",
+      "Step 3: Verify response contains full path from root to section"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend section tree expands and collapses",
+    "steps": [
+      "Step 1: Create document with nested sections",
+      "Step 2: Navigate to document page",
+      "Step 3: Click to expand a section with children",
+      "Step 4: Verify children are visible",
+      "Step 5: Click to collapse",
+      "Step 6: Verify children are hidden"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend Add Section button opens editor modal",
+    "steps": [
+      "Step 1: Navigate to document page",
+      "Step 2: Click 'Add Section' button",
+      "Step 3: Verify section editor modal opens",
+      "Step 4: Verify editor has title, content, and number_label fields"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend creating section via editor adds to tree",
+    "steps": [
+      "Step 1: Open section editor modal",
+      "Step 2: Fill in title and content",
+      "Step 3: Click save",
+      "Step 4: Verify modal closes",
+      "Step 5: Verify new section appears in tree"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend editing section updates content",
+    "steps": [
+      "Step 1: Create document with section",
+      "Step 2: Click edit button on section",
+      "Step 3: Modify content in editor",
+      "Step 4: Save changes",
+      "Step 5: Verify section content is updated"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend delete section shows confirmation dialog",
+    "steps": [
+      "Step 1: Create document with section",
+      "Step 2: Click delete button on section",
+      "Step 3: Verify confirmation dialog appears",
+      "Step 4: Verify dialog shows section title"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend confirming delete removes section",
+    "steps": [
+      "Step 1: Click delete on section",
+      "Step 2: Confirm deletion in dialog",
+      "Step 3: Verify section is removed from tree"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend add child section to parent",
+    "steps": [
+      "Step 1: Create document with parent section",
+      "Step 2: Click add child button on section",
+      "Step 3: Fill in child section details",
+      "Step 4: Save",
+      "Step 5: Verify child appears under parent"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment changes reference correct sections",
+    "steps": [
+      "Step 1: Create version with sections",
+      "Step 2: Create amendment with modify change targeting section",
+      "Step 3: Verify target_section_id references valid section"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section annotation field is stored and returned",
+    "steps": [
+      "Step 1: Create section with annotation",
+      "Step 2: Get section",
+      "Step 3: Verify annotation is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Apply amendment ADD change creates new section",
+    "steps": [
+      "Step 1: Create and pass amendment with ADD change",
+      "Step 2: Apply amendment",
+      "Step 3: Verify new version has the added section"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Apply amendment MODIFY change updates section",
+    "steps": [
+      "Step 1: Create and pass amendment with MODIFY change",
+      "Step 2: Apply amendment",
+      "Step 3: Verify new version has modified content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Apply amendment DELETE change removes section",
+    "steps": [
+      "Step 1: Create and pass amendment with DELETE change",
+      "Step 2: Apply amendment",
+      "Step 3: Verify new version doesn't have deleted section"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment service clones sections correctly",
+    "steps": [
+      "Step 1: Apply amendment to document with nested sections",
+      "Step 2: Verify all sections are cloned to new version",
+      "Step 3: Verify parent-child relationships preserved"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Large section content is stored correctly",
+    "steps": [
+      "Step 1: Create section with very long content",
+      "Step 2: Retrieve section",
+      "Step 3: Verify content is complete"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section position 0 is valid",
+    "steps": [
+      "Step 1: Create section with position 0",
+      "Step 2: Verify section is created correctly",
+      "Step 3: Verify it appears first in tree"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Deep section nesting works (5+ levels)",
+    "steps": [
+      "Step 1: Create section with 5+ levels of nesting",
+      "Step 2: Get section tree",
+      "Step 3: Verify all levels are returned correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section path returns correct hierarchy",
+    "steps": [
+      "Step 1: Create deeply nested section",
+      "Step 2: Get path for deepest section",
+      "Step 3: Verify path includes all ancestors"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend section editor validates required fields",
+    "steps": [
+      "Step 1: Open section editor",
+      "Step 2: Attempt to save without content",
+      "Step 3: Verify validation message or disabled save"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Cascade delete works for section -> children",
+    "steps": [
+      "Step 1: Create section with child sections",
+      "Step 2: Delete parent section",
+      "Step 3: Verify children are deleted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section title is optional",
+    "steps": [
+      "Step 1: Create section with only content",
+      "Step 2: Verify section is created",
+      "Step 3: Verify title is null"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section content is optional",
+    "steps": [
+      "Step 1: Create section with only title",
+      "Step 2: Verify section is created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section number_label accepts various formats",
+    "steps": [
+      "Step 1: Create section with '1'",
+      "Step 2: Create section with 'Article I'",
+      "Step 3: Create section with 'A.1.a'",
+      "Step 4: Verify all formats stored correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section content supports markdown",
+    "steps": [
+      "Step 1: Create section with markdown content",
+      "Step 2: Retrieve section",
+      "Step 3: Verify markdown is preserved"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section ordering respects position field",
+    "steps": [
+      "Step 1: Create sections with positions 2, 0, 1",
+      "Step 2: Get section tree",
+      "Step 3: Verify order is 0, 1, 2"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment change target_section_id validation",
+    "steps": [
+      "Step 1: Create modify change with invalid section ID",
+      "Step 2: Verify appropriate handling"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Full text rendering includes all section content",
+    "steps": [
+      "Step 1: Create version with multiple sections",
+      "Step 2: Get full text",
+      "Step 3: Verify all content included"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Full text rendering respects section hierarchy",
+    "steps": [
+      "Step 1: Create version with nested sections",
+      "Step 2: Get full text",
+      "Step 3: Verify indentation reflects hierarchy"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section tree builds correct nested structure",
+    "steps": [
+      "Step 1: Create parent with 2 children, one child has 2 grandchildren",
+      "Step 2: Get tree",
+      "Step 3: Verify correct nesting levels"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Section editor preserves content on cancel",
+    "steps": [
+      "Step 1: Open editor with existing section",
+      "Step 2: Make changes",
+      "Step 3: Cancel without saving",
+      "Step 4: Re-open editor",
+      "Step 5: Verify original content restored"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API performance: Section tree under 300ms",
+    "steps": [
+      "Step 1: Create version with 50 nested sections",
+      "Step 2: Time GET /api/versions/{id}/tree",
+      "Step 3: Verify response under 300ms"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Accessibility: Heading hierarchy is logical",
+    "steps": [
+      "Step 1: List all headings",
+      "Step 2: Verify h1 > h2 > h3 hierarchy",
+      "Step 3: Verify no skipped levels"
+    ],
+    "passes": true
+  }
+]

@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "total_features": 510,
+  "files": [
+    {
+      "filename": "api_organizations.json",
+      "category": "api_organizations",
+      "count": 36,
+      "passing": 36,
+      "failing": 0
+    },
+    {
+      "filename": "api_documents.json",
+      "category": "api_documents",
+      "count": 27,
+      "passing": 27,
+      "failing": 0
+    },
+    {
+      "filename": "api_versions.json",
+      "category": "api_versions",
+      "count": 62,
+      "passing": 62,
+      "failing": 0
+    },
+    {
+      "filename": "api_sections.json",
+      "category": "api_sections",
+      "count": 43,
+      "passing": 43,
+      "failing": 0
+    },
+    {
+      "filename": "api_amendments.json",
+      "category": "api_amendments",
+      "count": 72,
+      "passing": 72,
+      "failing": 0
+    },
+    {
+      "filename": "api_meetings.json",
+      "category": "api_meetings",
+      "count": 36,
+      "passing": 36,
+      "failing": 0
+    },
+    {
+      "filename": "ui_forms.json",
+      "category": "ui_forms",
+      "count": 101,
+      "passing": 101,
+      "failing": 0
+    },
+    {
+      "filename": "ui_navigation.json",
+      "category": "ui_navigation",
+      "count": 4,
+      "passing": 4,
+      "failing": 0
+    },
+    {
+      "filename": "styles.json",
+      "category": "styles",
+      "count": 112,
+      "passing": 112,
+      "failing": 0
+    },
+    {
+      "filename": "e2e_workflows.json",
+      "category": "e2e_workflows",
+      "count": 17,
+      "passing": 17,
+      "failing": 0
+    }
+  ]
+}

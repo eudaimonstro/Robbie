@@ -1,0 +1,50 @@
+{
+  "name": "robbie-bylawyer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Combined parliamentary procedure application with bylaws version control",
+  "workspaces": [
+    "shared",
+    "backend-node",
+    "backend-bylawyer",
+    "frontend-unified",
+    "frontend-robbie",
+    "frontend-bylawyer",
+    "mobile"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend-unified\"",
+    "dev:unified": "concurrently \"npm run dev:backend\" \"npm run dev:frontend-unified\"",
+    "dev:robbie": "concurrently \"npm run dev:backend\" \"npm run dev:frontend-robbie\"",
+    "dev:bylawyer": "concurrently \"npm run dev:backend\" \"npm run dev:frontend-bylawyer\"",
+    "dev:legacy": "concurrently \"npm run dev:backend\" \"npm run dev:frontend-robbie\" \"npm run dev:frontend-bylawyer\"",
+
+    "dev:backend": "npm run dev -w backend-node",
+    "dev:backend-robbie": "npm run dev -w backend-node",
+    "dev:backend-bylawyer": "npm run dev -w backend-bylawyer",
+    "dev:frontend-unified": "npm run dev -w frontend-unified",
+    "dev:frontend-robbie": "npm run dev -w frontend-robbie",
+    "dev:frontend-bylawyer": "npm run dev -w frontend-bylawyer",
+
+    "build": "npm run build:shared && npm run build:backends && npm run build:frontends",
+    "build:shared": "npm run build -w shared",
+    "build:backends": "npm run build -w backend-node && npm run build -w backend-bylawyer",
+    "build:frontends": "npm run build -w frontend-unified && npm run build -w frontend-robbie && npm run build -w frontend-bylawyer",
+
+    "test": "npm run test -w frontend-robbie",
+    "test:coverage": "npm run test:coverage -w frontend-robbie",
+
+    "db:generate": "npm run db:generate -w backend-node",
+    "db:push": "npm run db:push -w backend-node",
+    "db:migrate": "npm run db:migrate -w backend-node",
+    "db:studio": "npm run db:studio -w backend-node"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

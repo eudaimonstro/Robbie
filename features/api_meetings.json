@@ -1,0 +1,350 @@
+[
+  {
+    "category": "functional",
+    "description": "Create meeting",
+    "steps": [
+      "Step 1: Create organization",
+      "Step 2: Send POST to /api/organizations/{org_id}/meetings with title and scheduled_date",
+      "Step 3: Verify response status code is 201",
+      "Step 4: Verify meeting status is 'scheduled'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create meeting with type 'regular'",
+    "steps": [
+      "Step 1: Create meeting with meeting_type 'regular'",
+      "Step 2: Verify response contains correct meeting_type"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create meeting with type 'special'",
+    "steps": [
+      "Step 1: Create meeting with meeting_type 'special'",
+      "Step 2: Verify response contains correct meeting_type"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create meeting with type 'annual'",
+    "steps": [
+      "Step 1: Create meeting with meeting_type 'annual'",
+      "Step 2: Verify response contains correct meeting_type"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create meeting with type 'emergency'",
+    "steps": [
+      "Step 1: Create meeting with meeting_type 'emergency'",
+      "Step 2: Verify response contains correct meeting_type"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create meeting with location",
+    "steps": [
+      "Step 1: Create meeting with location field",
+      "Step 2: Verify response contains location"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get meeting by ID",
+    "steps": [
+      "Step 1: Create a meeting",
+      "Step 2: Send GET to /api/meetings/{meeting_id}",
+      "Step 3: Verify response contains correct meeting data"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Update meeting title",
+    "steps": [
+      "Step 1: Create a meeting",
+      "Step 2: Send PUT to /api/meetings/{id} with new title",
+      "Step 3: Verify response contains updated title"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Update meeting status",
+    "steps": [
+      "Step 1: Create a meeting",
+      "Step 2: Update status to 'in_progress'",
+      "Step 3: Verify response contains updated status"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Delete meeting",
+    "steps": [
+      "Step 1: Create a meeting",
+      "Step 2: Send DELETE to /api/meetings/{id}",
+      "Step 3: Verify response status code is 204"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Record vote with abstain count",
+    "steps": [
+      "Step 1: Create proposed amendment",
+      "Step 2: Record vote with abstain_count",
+      "Step 3: Verify vote contains abstain_count"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get vote by ID",
+    "steps": [
+      "Step 1: Record a vote",
+      "Step 2: Send GET to /api/votes/{vote_id}",
+      "Step 3: Verify response contains correct vote data"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "List votes for meeting",
+    "steps": [
+      "Step 1: Record multiple votes in a meeting",
+      "Step 2: Send GET to /api/meetings/{meeting_id}/votes",
+      "Step 3: Verify response contains all votes for that meeting"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Delete vote",
+    "steps": [
+      "Step 1: Record a vote",
+      "Step 2: Send DELETE to /api/votes/{vote_id}",
+      "Step 3: Verify response status code is 204"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend dashboard shows upcoming meetings count",
+    "steps": [
+      "Step 1: Create scheduled meetings",
+      "Step 2: Navigate to dashboard",
+      "Step 3: Verify upcoming meetings card shows correct count"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend meetings page lists all meetings",
+    "steps": [
+      "Step 1: Create meetings",
+      "Step 2: Navigate to /meetings",
+      "Step 3: Verify all meetings are listed"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend meeting list shows type badges",
+    "steps": [
+      "Step 1: Create meetings with different types",
+      "Step 2: Navigate to meetings page",
+      "Step 3: Verify each meeting shows correct type badge"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend meeting detail shows scheduled date",
+    "steps": [
+      "Step 1: Create meeting",
+      "Step 2: Navigate to /meetings/{id}",
+      "Step 3: Verify scheduled date is displayed"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend meeting detail shows location",
+    "steps": [
+      "Step 1: Create meeting with location",
+      "Step 2: Navigate to meeting detail",
+      "Step 3: Verify location is displayed"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting notes field is stored",
+    "steps": [
+      "Step 1: Create meeting with notes",
+      "Step 2: Get meeting",
+      "Step 3: Verify notes are present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote requires field is stored",
+    "steps": [
+      "Step 1: Create vote with requires field",
+      "Step 2: Get vote",
+      "Step 3: Verify requires is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting created_at is set automatically",
+    "steps": [
+      "Step 1: Create meeting",
+      "Step 2: Verify created_at is set"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote recorded_at is set automatically",
+    "steps": [
+      "Step 1: Record vote",
+      "Step 2: Verify recorded_at is set"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Cascade delete works for meeting -> votes",
+    "steps": [
+      "Step 1: Create meeting with votes",
+      "Step 2: Delete meeting",
+      "Step 3: Verify votes are deleted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Upcoming meetings filtered by status",
+    "steps": [
+      "Step 1: Create scheduled and completed meetings",
+      "Step 2: View upcoming meetings",
+      "Step 3: Verify only scheduled meetings shown"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting status defaults to scheduled",
+    "steps": [
+      "Step 1: Create meeting",
+      "Step 2: Verify status is 'scheduled'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting type defaults to regular",
+    "steps": [
+      "Step 1: Create meeting without specifying type",
+      "Step 2: Verify type is 'regular'"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting scheduled_date is required",
+    "steps": [
+      "Step 1: Try to create meeting without scheduled_date",
+      "Step 2: Verify 422 validation error"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting status can be updated",
+    "steps": [
+      "Step 1: Create scheduled meeting",
+      "Step 2: Update to in_progress",
+      "Step 3: Update to completed",
+      "Step 4: Verify all transitions work"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote yea_count defaults to 0",
+    "steps": [
+      "Step 1: Check vote schema",
+      "Step 2: Verify default value"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote nay_count defaults to 0",
+    "steps": [
+      "Step 1: Check vote schema",
+      "Step 2: Verify default value"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote abstain_count defaults to 0",
+    "steps": [
+      "Step 1: Check vote schema",
+      "Step 2: Verify default value"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote result is calculated correctly for tie",
+    "steps": [
+      "Step 1: Record vote with yea=5, nay=5",
+      "Step 2: Verify result is 'failed' (tie = fail)"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Vote summary includes all counts",
+    "steps": [
+      "Step 1: Create vote with all counts",
+      "Step 2: Get vote summary",
+      "Step 3: Verify format includes yea-nay-abstain"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Meeting detail shows all votes",
+    "steps": [
+      "Step 1: Create meeting with multiple votes",
+      "Step 2: View meeting detail",
+      "Step 3: Verify all votes listed"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: POST /api/meetings/{id}/votes records vote",
+    "steps": [
+      "Step 1: Send POST with vote data",
+      "Step 2: Verify 201 status",
+      "Step 3: Verify vote recorded"
+    ],
+    "passes": true
+  }
+]

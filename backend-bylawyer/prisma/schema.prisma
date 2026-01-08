@@ -1,0 +1,197 @@
+// Bylawyer Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Organization that owns documents
+model Organization {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  documents   Document[]
+  meetings    Meeting[]
+}
+
+// Document type enum
+enum DocType {
+  bylaws
+  standing_rules
+  policy
+}
+
+// Governing document (bylaws, standing rules, policy)
+model Document {
+  id               String    @id @default(uuid())
+  organizationId   String
+  title            String
+  docType          DocType   @default(bylaws)
+  currentVersionId String?
+  createdAt        DateTime  @default(now())
+
+  // Sharing
+  shareToken       String?   @unique
+  shareEnabled     Boolean   @default(false)
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions         Version[]
+  amendments       Amendment[]
+
+  @@index([organizationId])
+}
+
+// Immutable snapshot of a document at a point in time
+model Version {
+  id            String    @id @default(uuid())
+  documentId    String
+  versionNumber Int
+  effectiveDate DateTime?
+  adoptedAt     DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sections      Section[]
+
+  @@index([documentId, effectiveDate])
+}
+
+// Hierarchical section within a version
+model Section {
+  id          String    @id @default(uuid())
+  versionId   String
+  parentId    String?
+  position    Int       @default(0)
+  numberLabel String?
+  title       String?
+  content     String?
+  annotation  String?
+
+  version     Version   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  parent      Section?  @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Section[] @relation("SectionHierarchy")
+
+  @@index([versionId, parentId, position])
+}
+
+// Amendment status enum
+enum AmendmentStatus {
+  draft
+  proposed
+  passed
+  failed
+  tabled
+  withdrawn
+}
+
+// Change type enum
+enum ChangeType {
+  add
+  modify
+  delete
+  renumber
+}
+
+// Proposed change to a document
+model Amendment {
+  id                 String          @id @default(uuid())
+  documentId         String
+  title              String
+  description        String?
+  status             AmendmentStatus @default(draft)
+  proposedAt         DateTime?
+  decidedAt          DateTime?
+  resultingVersionId String?
+  createdAt          DateTime        @default(now())
+
+  // Robbie integration - synced from parliamentary meetings
+  robbieMeetingCode  String?
+  robbieMotionId     Int?
+  robbieVoteData     Json?
+
+  document           Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  changes            AmendmentChange[]
+  votes              Vote[]
+
+  @@unique([robbieMeetingCode, robbieMotionId])
+  @@index([documentId, status])
+  @@index([robbieMeetingCode])
+}
+
+// Specific change within an amendment
+model AmendmentChange {
+  id              String     @id @default(uuid())
+  amendmentId     String
+  changeType      ChangeType
+  targetSectionId String?
+  newContent      String?
+  newNumberLabel  String?
+  newTitle        String?
+  position        Int        @default(0)
+
+  amendment       Amendment  @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+}
+
+// Meeting type enum
+enum MeetingType {
+  regular
+  special
+  annual
+  emergency
+}
+
+// Meeting status enum
+enum MeetingStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+// Vote result enum
+enum VoteResult {
+  passed
+  failed
+  tabled
+}
+
+// Meeting where votes occur
+model Meeting {
+  id             String        @id @default(uuid())
+  organizationId String
+  title          String        @default("Meeting")
+  scheduledDate  DateTime
+  meetingType    MeetingType   @default(regular)
+  location       String?
+  status         MeetingStatus @default(scheduled)
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  votes          Vote[]
+}
+
+// Vote on an amendment
+model Vote {
+  id           String     @id @default(uuid())
+  meetingId    String
+  amendmentId  String
+  yeaCount     Int        @default(0)
+  nayCount     Int        @default(0)
+  abstainCount Int        @default(0)
+  result       VoteResult
+  requires     String?
+  recordedAt   DateTime   @default(now())
+
+  meeting      Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  amendment    Amendment  @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+}

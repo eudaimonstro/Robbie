@@ -1,0 +1,638 @@
+[
+  {
+    "category": "functional",
+    "description": "Create first version of document",
+    "steps": [
+      "Step 1: Create a document",
+      "Step 2: Send POST to /api/documents/{doc_id}/versions",
+      "Step 3: Verify response status code is 201",
+      "Step 4: Verify version_number is 1"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create version with notes",
+    "steps": [
+      "Step 1: Create a document",
+      "Step 2: Send POST to /api/documents/{doc_id}/versions with notes field",
+      "Step 3: Verify response contains the notes"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Create version with effective date",
+    "steps": [
+      "Step 1: Create a document with a version",
+      "Step 2: Send POST to create new version with effective_date",
+      "Step 3: Verify response contains the effective_date"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version numbers increment automatically",
+    "steps": [
+      "Step 1: Create a document",
+      "Step 2: Create first version, verify version_number is 1",
+      "Step 3: Create second version, verify version_number is 2",
+      "Step 4: Create third version, verify version_number is 3"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Creating version updates document current_version_id",
+    "steps": [
+      "Step 1: Create a document",
+      "Step 2: Create a version",
+      "Step 3: Get document and verify current_version_id matches new version"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "List all versions of document",
+    "steps": [
+      "Step 1: Create document with multiple versions",
+      "Step 2: Send GET to /api/documents/{doc_id}/versions",
+      "Step 3: Verify response contains all versions",
+      "Step 4: Verify versions are ordered by version_number descending"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get version by ID",
+    "steps": [
+      "Step 1: Create a version",
+      "Step 2: Send GET to /api/versions/{version_id}",
+      "Step 3: Verify response contains correct version data"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Update version metadata",
+    "steps": [
+      "Step 1: Create a version",
+      "Step 2: Send PUT to /api/versions/{version_id} with new notes",
+      "Step 3: Verify response contains updated notes"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "New version clones sections from current version",
+    "steps": [
+      "Step 1: Create document with version and sections",
+      "Step 2: Create new version",
+      "Step 3: Get section tree for new version",
+      "Step 4: Verify sections were cloned with same content",
+      "Step 5: Verify section IDs are different from original"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get document version effective on specific date",
+    "steps": [
+      "Step 1: Create document with versions having different effective dates",
+      "Step 2: Send GET to /api/documents/{doc_id}/at-date?date=YYYY-MM-DD",
+      "Step 3: Verify response returns correct version for that date"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Return 404 when no version effective on date",
+    "steps": [
+      "Step 1: Create document with version effective in future",
+      "Step 2: Query for date before any effective date",
+      "Step 3: Verify response status code is 404"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "List sections for version",
+    "steps": [
+      "Step 1: Create version with multiple sections",
+      "Step 2: Send GET to /api/versions/{version_id}/sections",
+      "Step 3: Verify response contains all sections",
+      "Step 4: Verify sections are ordered by position"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get version as full text",
+    "steps": [
+      "Step 1: Create version with multiple sections",
+      "Step 2: Send GET to /api/versions/{version_id}/text",
+      "Step 3: Verify response contains rendered text of all sections"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff two versions returns structured changes",
+    "steps": [
+      "Step 1: Create document with two versions having different content",
+      "Step 2: Send GET to /api/versions/{v1}/diff/{v2}",
+      "Step 3: Verify response contains changes array with add/modify/delete types"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff detects added sections",
+    "steps": [
+      "Step 1: Create version 1 with 2 sections",
+      "Step 2: Create version 2 with 3 sections",
+      "Step 3: Diff versions",
+      "Step 4: Verify diff contains 'add' type change"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff detects deleted sections",
+    "steps": [
+      "Step 1: Create version 1 with 3 sections",
+      "Step 2: Create version 2 with 2 sections",
+      "Step 3: Diff versions",
+      "Step 4: Verify diff contains 'delete' type change"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff detects modified sections",
+    "steps": [
+      "Step 1: Create version 1 with section content A",
+      "Step 2: Create version 2 with same section but content B",
+      "Step 3: Diff versions",
+      "Step 4: Verify diff contains 'modify' type change with old and new content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Get unified diff text between versions",
+    "steps": [
+      "Step 1: Create two versions with different content",
+      "Step 2: Send GET to /api/versions/{v1}/diff-text/{v2}",
+      "Step 3: Verify response contains unified diff format string"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Apply passed amendment creates new version",
+    "steps": [
+      "Step 1: Create document with version and sections",
+      "Step 2: Create amendment with changes and pass it",
+      "Step 3: Send POST to /api/amendments/{id}/apply",
+      "Step 4: Verify new version is created",
+      "Step 5: Verify amendment resulting_version_id is set"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend document page shows version selector",
+    "steps": [
+      "Step 1: Create document with multiple versions",
+      "Step 2: Navigate to document page",
+      "Step 3: Verify version selector dropdown is present",
+      "Step 4: Verify all versions are listed in dropdown"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend changing version updates section tree",
+    "steps": [
+      "Step 1: Create document with versions having different sections",
+      "Step 2: Navigate to document page",
+      "Step 3: Select different version from dropdown",
+      "Step 4: Verify section tree updates to show selected version content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend New Version button opens modal",
+    "steps": [
+      "Step 1: Navigate to document page",
+      "Step 2: Click 'New Version' button",
+      "Step 3: Verify version creation modal opens"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend creating version updates selector",
+    "steps": [
+      "Step 1: Click New Version button",
+      "Step 2: Enter version notes",
+      "Step 3: Click Create Version",
+      "Step 4: Verify new version appears in selector",
+      "Step 5: Verify new version is selected"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend Compare button navigates to diff page",
+    "steps": [
+      "Step 1: Navigate to document page",
+      "Step 2: Click 'Compare' button",
+      "Step 3: Verify navigation to /documents/{id}/diff"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend diff page shows version selectors",
+    "steps": [
+      "Step 1: Create document with multiple versions",
+      "Step 2: Navigate to diff page",
+      "Step 3: Verify two version selector dropdowns are present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend diff page displays changes",
+    "steps": [
+      "Step 1: Create document with versions having different content",
+      "Step 2: Navigate to diff page",
+      "Step 3: Select two versions",
+      "Step 4: Verify diff display shows changes"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend diff highlights additions in green",
+    "steps": [
+      "Step 1: View diff with added content",
+      "Step 2: Verify added sections/content has green highlighting"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend diff highlights deletions in red",
+    "steps": [
+      "Step 1: View diff with deleted content",
+      "Step 2: Verify deleted sections/content has red highlighting"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend diff highlights modifications in yellow",
+    "steps": [
+      "Step 1: View diff with modified content",
+      "Step 2: Verify modified sections have yellow highlighting"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend clicking Apply creates new version",
+    "steps": [
+      "Step 1: View passed amendment",
+      "Step 2: Click Apply button",
+      "Step 3: Verify success message",
+      "Step 4: Verify new version was created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version sections maintain parent-child relationships",
+    "steps": [
+      "Step 1: Create version with nested sections",
+      "Step 2: Get section tree",
+      "Step 3: Verify parent-child relationships are correct"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version adopted_at timestamp is stored",
+    "steps": [
+      "Step 1: Create version with adopted_at",
+      "Step 2: Get version",
+      "Step 3: Verify adopted_at is present"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version service increments version numbers",
+    "steps": [
+      "Step 1: Check version_service logic",
+      "Step 2: Create multiple versions",
+      "Step 3: Verify sequential numbering"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff algorithm handles renamed sections",
+    "steps": [
+      "Step 1: Create version with section",
+      "Step 2: Create new version with renamed section (same position)",
+      "Step 3: Diff versions",
+      "Step 4: Verify rename is detected as modify"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff algorithm handles moved sections",
+    "steps": [
+      "Step 1: Create version with section at position 0",
+      "Step 2: Create version with same section at position 2",
+      "Step 3: Diff versions",
+      "Step 4: Verify move is detected"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Point-in-time query finds correct version",
+    "steps": [
+      "Step 1: Create version effective Jan 1",
+      "Step 2: Create version effective Feb 1",
+      "Step 3: Create version effective Mar 1",
+      "Step 4: Query for Jan 15, verify returns Jan 1 version",
+      "Step 5: Query for Feb 15, verify returns Feb 1 version"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Point-in-time query handles same-day versions",
+    "steps": [
+      "Step 1: Create multiple versions with same effective date",
+      "Step 2: Query for that date",
+      "Step 3: Verify consistent behavior"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version created_at is set automatically",
+    "steps": [
+      "Step 1: Create version",
+      "Step 2: Verify created_at is set"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Cascade delete works for document -> versions",
+    "steps": [
+      "Step 1: Create document with versions",
+      "Step 2: Delete document",
+      "Step 3: Verify versions are deleted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Cascade delete works for version -> sections",
+    "steps": [
+      "Step 1: Create version with sections",
+      "Step 2: Delete version",
+      "Step 3: Verify sections are deleted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend version notes displayed in info bar",
+    "steps": [
+      "Step 1: Create version with notes",
+      "Step 2: Navigate to document page",
+      "Step 3: Select that version",
+      "Step 4: Verify notes shown in info bar"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend effective date displayed for version",
+    "steps": [
+      "Step 1: Create version with effective date",
+      "Step 2: Navigate to document page",
+      "Step 3: Verify effective date shown in selector and info bar"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Frontend current version marked in selector",
+    "steps": [
+      "Step 1: Create document with versions",
+      "Step 2: Navigate to document page",
+      "Step 3: Verify current version shows '(Current)' label"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Document current_version_id is nullable initially",
+    "steps": [
+      "Step 1: Create document without creating version",
+      "Step 2: Verify current_version_id is null"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version effective_date accepts ISO format",
+    "steps": [
+      "Step 1: Create version with effective_date '2024-06-15'",
+      "Step 2: Verify date is stored correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version effective_date is optional",
+    "steps": [
+      "Step 1: Create version without effective_date",
+      "Step 2: Verify version is created",
+      "Step 3: Verify effective_date is null"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version notes can be multi-line",
+    "steps": [
+      "Step 1: Create version with multi-line notes",
+      "Step 2: Retrieve version",
+      "Step 3: Verify line breaks preserved"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff returns old_version_id and new_version_id",
+    "steps": [
+      "Step 1: Get diff between versions",
+      "Step 2: Verify response includes version IDs"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff handles empty versions",
+    "steps": [
+      "Step 1: Create two empty versions",
+      "Step 2: Get diff",
+      "Step 3: Verify empty changes array"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Diff handles identical versions",
+    "steps": [
+      "Step 1: Create version with sections",
+      "Step 2: Create identical version",
+      "Step 3: Get diff",
+      "Step 4: Verify no changes detected"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment apply creates version with incremented number",
+    "steps": [
+      "Step 1: Document has version 3",
+      "Step 2: Apply passed amendment",
+      "Step 3: Verify new version is 4"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment apply sets resulting_version_id",
+    "steps": [
+      "Step 1: Apply passed amendment",
+      "Step 2: Get amendment",
+      "Step 3: Verify resulting_version_id is set to new version"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Amendment apply updates document current_version_id",
+    "steps": [
+      "Step 1: Apply passed amendment",
+      "Step 2: Get document",
+      "Step 3: Verify current_version_id is new version"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Version selector shows effective date when available",
+    "steps": [
+      "Step 1: Create versions with effective dates",
+      "Step 2: View version selector",
+      "Step 3: Verify dates displayed in dropdown"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Document page shows correct version count",
+    "steps": [
+      "Step 1: Create document with 5 versions",
+      "Step 2: View document page",
+      "Step 3: Verify selector shows all 5 versions"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API performance: Diff calculation under 500ms",
+    "steps": [
+      "Step 1: Create versions with 100 sections each",
+      "Step 2: Time diff endpoint",
+      "Step 3: Verify response under 500ms"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: GET /api/documents/{id}/versions returns list",
+    "steps": [
+      "Step 1: Send GET request",
+      "Step 2: Verify 200 status",
+      "Step 3: Verify array of versions"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: POST /api/documents/{id}/versions creates version",
+    "steps": [
+      "Step 1: Send POST request",
+      "Step 2: Verify 201 status",
+      "Step 3: Verify version created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: GET /api/versions/{id}/tree returns section tree",
+    "steps": [
+      "Step 1: Send GET request",
+      "Step 2: Verify 200 status",
+      "Step 3: Verify nested structure"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: GET /api/versions/{id}/diff/{other_id} returns diff",
+    "steps": [
+      "Step 1: Send GET with two version IDs",
+      "Step 2: Verify 200 status",
+      "Step 3: Verify changes array"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: POST /api/versions/{id}/sections creates section",
+    "steps": [
+      "Step 1: Send POST with section data",
+      "Step 2: Verify 201 status",
+      "Step 3: Verify section created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "API endpoint: POST /api/amendments/{id}/apply creates version",
+    "steps": [
+      "Step 1: Send POST on passed amendment",
+      "Step 2: Verify success response",
+      "Step 3: Verify new version created"
+    ],
+    "passes": true
+  }
+]
