@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Settings, Timer, Crown, AlertTriangle, Pencil, FileText } from 'lucide-react';
+import { Crown, AlertTriangle, FileText } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { Member } from '@robbie-bylawyer/shared/types';
 import type { AdminViewProps } from '../types';
@@ -10,6 +10,13 @@ import { ElectionPanel } from '../components/ElectionPanel';
 import { InquiryPanel } from '../components/InquiryPanel';
 import { QuorumWarning } from '../components/QuorumWarning';
 import { BylawyerLinkPanel } from '../components/BylawyerLinkPanel';
+import {
+  RoleChangeModal,
+  RenameModal,
+  MembersPanel,
+  TimeLimitsPanel,
+  MeetingSettingsPanel
+} from '../components/admin';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 import { useSocket } from '../context/SocketContext';
 import { useMeetingOrganization } from '../context/OrganizationBridge';
@@ -27,34 +34,28 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [newName, setNewName] = useState('');
 
-  // Use custom hook for quorum status
   const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
-
-  // Find current chair for warning message
   const currentChair = state.members.find(m => m.role === 'chair');
-
-  // Get members eligible to be chair (present members who aren't already chair)
   const eligibleForChair = state.members.filter(m => m.present && m.role !== 'chair');
+  const adminUser = state.members.find(m => m.role === 'admin');
 
-  const handleRoleChange = () => {
+  const handleRoleChange = useCallback(() => {
     if (!roleChangeTarget) return;
-
     dispatch({
       type: 'SET_MEMBER_ROLE',
       targetMemberId: roleChangeTarget.id,
       newRole: selectedRole,
       timestamp: generateTimestamp()
     });
-
     setRoleChangeTarget(null);
-  };
+  }, [roleChangeTarget, selectedRole, dispatch]);
 
-  const openRoleChangeModal = (member: Member) => {
+  const openRoleChangeModal = useCallback((member: Member) => {
     setRoleChangeTarget(member);
     setSelectedRole(member.role);
-  };
+  }, []);
 
-  const handleAppointChair = () => {
+  const handleAppointChair = useCallback(() => {
     if (!selectedChairId) return;
     dispatch({
       type: 'SET_MEMBER_ROLE',
@@ -63,14 +64,14 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
       timestamp: generateTimestamp()
     });
     setSelectedChairId('');
-  };
+  }, [selectedChairId, dispatch]);
 
-  const openRenameModal = (member: Member) => {
+  const openRenameModal = useCallback((member: Member) => {
     setRenameTarget(member);
     setNewName(member.name);
-  };
+  }, []);
 
-  const handleRename = () => {
+  const handleRename = useCallback(() => {
     if (!renameTarget || !newName.trim() || newName.trim().length < 2) return;
     dispatch({
       type: 'RENAME_MEMBER',
@@ -81,7 +82,12 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
     });
     setRenameTarget(null);
     setNewName('');
-  };
+  }, [renameTarget, newName, currentUser, dispatch]);
+
+  const closeRenameModal = useCallback(() => {
+    setRenameTarget(null);
+    setNewName('');
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -89,7 +95,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
       )}
 
-      {/* No Chair Warning - Show when meeting not started and no chair */}
+      {/* No Chair Warning */}
       {!state.meetingActive && !currentChair && (
         <div className="bg-accent-50 dark:bg-accent-900/20 border-2 border-accent-300 dark:border-accent-700 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2 mb-3">
@@ -128,7 +134,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         </div>
       )}
 
-      {/* Chair Status - Show when meeting not started but chair exists */}
+      {/* Chair Status */}
       {!state.meetingActive && currentChair && (
         <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2">
@@ -141,80 +147,23 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         </div>
       )}
 
-      <div className="card p-4">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Timer size={18}/> Time Limits</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Speaker Time Limit (seconds)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min="0"
-                value={speakerTime}
-                onChange={(e) => setSpeakerTime(parseInt(e.target.value) || 0)}
-                className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
-              />
-              <button
-                onClick={() => dispatch({ type: 'SET_SPEAKER_TIME_LIMIT', seconds: speakerTime })}
-                className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700"
-              >
-                Set
-              </button>
-            </div>
-            <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Vote Time Limit (seconds)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min="0"
-                value={voteTime}
-                onChange={(e) => setVoteTime(parseInt(e.target.value) || 0)}
-                className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
-              />
-              <button
-                onClick={() => dispatch({ type: 'SET_VOTE_TIME_LIMIT', seconds: voteTime })}
-                className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700"
-              >
-                Set
-              </button>
-            </div>
-            <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
-          </div>
-        </div>
-      </div>
+      <TimeLimitsPanel
+        speakerTime={speakerTime}
+        setSpeakerTime={setSpeakerTime}
+        voteTime={voteTime}
+        setVoteTime={setVoteTime}
+        dispatch={dispatch}
+      />
 
-      <div className="card p-4">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Settings size={18}/> Meeting Settings</h3>
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Quorum Requirement</label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min="1"
-              value={quorumValue}
-              onChange={(e) => setQuorumValue(Math.max(1, parseInt(e.target.value) || 1))}
-              className="flex-1 p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
-            />
-            <button
-              onClick={() => dispatch({ type: 'SET_QUORUM', quorum: quorumValue, timestamp: generateTimestamp() })}
-              disabled={quorumValue === state.quorum}
-              className="bg-meeting-600 text-white px-4 rounded-lg text-sm hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
-            >
-              Set
-            </button>
-          </div>
-          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Minimum members required for quorum</p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg"><p className="text-secondary-500 dark:text-secondary-400 text-sm">Required</p><p className="font-semibold text-lg text-secondary-900 dark:text-white">{state.quorum}</p></div>
-          <div className="p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg"><p className="text-secondary-500 dark:text-secondary-400 text-sm">Present</p><p className="font-semibold text-lg text-secondary-900 dark:text-white">{presentCount} / {totalMembers}</p></div>
-        </div>
-        <div className={`mt-3 p-3 rounded-lg ${hasQuorum ? 'bg-success-100 dark:bg-success-900/30 text-success-800 dark:text-success-300' : 'bg-danger-100 dark:bg-danger-900/30 text-danger-800 dark:text-danger-300'}`}>
-          {hasQuorum ? '✓ Quorum present' : '✗ No quorum'}
-        </div>
-      </div>
+      <MeetingSettingsPanel
+        quorumValue={quorumValue}
+        setQuorumValue={setQuorumValue}
+        currentQuorum={state.quorum}
+        presentCount={presentCount}
+        totalMembers={totalMembers}
+        hasQuorum={hasQuorum}
+        dispatch={dispatch}
+      />
 
       {/* Bylawyer Integration */}
       {state.meetingCode && (
@@ -233,113 +182,31 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
         </div>
       )}
 
-      <div className="card p-4">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"><Users size={18}/> Members</h3>
-        <ul className="space-y-2">
-          {state.members.map(m => (
-            <li key={m.id} className="flex items-center justify-between p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-secondary-900 dark:text-white">{m.name}</span>
-                <button
-                  onClick={() => openRenameModal(m)}
-                  className="text-secondary-400 hover:text-meeting-600 dark:hover:text-meeting-400 p-1"
-                  title="Rename member"
-                >
-                  <Pencil size={14} />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${m.role === 'chair' ? 'bg-meeting-100 dark:bg-meeting-900/30 text-meeting-800 dark:text-meeting-300' : m.role === 'admin' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300' : 'bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300'}`}>{m.role}</span>
-                <button
-                  onClick={() => openRoleChangeModal(m)}
-                  className="text-meeting-600 dark:text-meeting-400 hover:text-meeting-800 dark:hover:text-meeting-300 text-sm font-medium"
-                >
-                  Change Role
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <MembersPanel
+        members={state.members}
+        onRoleChange={openRoleChangeModal}
+        onRename={openRenameModal}
+      />
 
-      {/* Role Change Modal */}
       {roleChangeTarget && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-secondary-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h4 className="font-semibold text-lg mb-4 text-secondary-900 dark:text-white">Change Role for {roleChangeTarget.name}</h4>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as 'member' | 'chair' | 'admin')}
-              className="w-full p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg mb-4 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
-            >
-              <option value="member">Member</option>
-              <option value="chair">Chair</option>
-              <option value="admin">Admin</option>
-            </select>
-            {selectedRole === 'chair' && roleChangeTarget.role !== 'chair' && currentChair && (
-              <p className="text-accent-600 dark:text-accent-400 text-sm mb-4 bg-accent-50 dark:bg-accent-900/20 p-3 rounded-lg">
-                Note: {currentChair.name} (current chair) will be demoted to member.
-              </p>
-            )}
-            {selectedRole === roleChangeTarget.role && (
-              <p className="text-secondary-500 dark:text-secondary-400 text-sm mb-4">
-                No change - {roleChangeTarget.name} is already {roleChangeTarget.role}.
-              </p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleRoleChange}
-                disabled={selectedRole === roleChangeTarget.role}
-                className="flex-1 bg-meeting-600 text-white py-2 rounded-lg hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setRoleChangeTarget(null)}
-                className="flex-1 bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300 py-2 rounded-lg hover:bg-secondary-300 dark:hover:bg-secondary-600"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <RoleChangeModal
+          member={roleChangeTarget}
+          selectedRole={selectedRole}
+          setSelectedRole={setSelectedRole}
+          currentChair={currentChair}
+          onConfirm={handleRoleChange}
+          onCancel={() => setRoleChangeTarget(null)}
+        />
       )}
 
-      {/* Rename Modal */}
       {renameTarget && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-secondary-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h4 className="font-semibold text-lg mb-4 text-secondary-900 dark:text-white">Rename {renameTarget.name}</h4>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter new name"
-              className="w-full p-2 border border-secondary-300 dark:border-secondary-600 rounded-lg mb-4 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
-              autoFocus
-            />
-            {newName.trim().length > 0 && newName.trim().length < 2 && (
-              <p className="text-danger-500 dark:text-danger-400 text-sm mb-4">
-                Name must be at least 2 characters.
-              </p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleRename}
-                disabled={!newName.trim() || newName.trim().length < 2 || newName.trim() === renameTarget.name}
-                className="flex-1 bg-meeting-600 text-white py-2 rounded-lg hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => { setRenameTarget(null); setNewName(''); }}
-                className="flex-1 bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300 py-2 rounded-lg hover:bg-secondary-300 dark:hover:bg-secondary-600"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <RenameModal
+          member={renameTarget}
+          newName={newName}
+          setNewName={setNewName}
+          onConfirm={handleRename}
+          onCancel={closeRenameModal}
+        />
       )}
 
       <div className="card p-4">
@@ -383,19 +250,19 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
       )}
 
       {/* Nominations and Elections */}
-      {(state.nominationsOpen || state.currentElection || state.currentNominationPosition || state.electedOfficers.length > 0) && (
+      {adminUser && (state.nominationsOpen || state.currentElection || state.currentNominationPosition || state.electedOfficers.length > 0) && (
         <>
           <NominationsPanel
             state={state}
             dispatch={dispatch}
-            currentUser={state.members.find(m => m.role === 'admin')!}
+            currentUser={adminUser}
             isChair={false}
           />
           {(state.currentElection || (!state.nominationsOpen && state.currentNominationPosition)) && (
             <ElectionPanel
               state={state}
               dispatch={dispatch}
-              currentUser={state.members.find(m => m.role === 'admin')!}
+              currentUser={adminUser}
               isChair={false}
             />
           )}
@@ -403,19 +270,27 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
       )}
 
       {/* Inquiries Panel */}
-      <InquiryPanel
-        state={state}
-        dispatch={dispatch}
-        currentUser={state.members.find(m => m.role === 'admin')!}
-        isChair={false}
-      />
+      {adminUser && (
+        <InquiryPanel
+          state={state}
+          dispatch={dispatch}
+          currentUser={adminUser}
+          isChair={false}
+        />
+      )}
 
       <div className="card p-4">
         <h3 className="font-semibold mb-3 text-secondary-800 dark:text-white">Meeting Log</h3>
         <div className="max-h-64 overflow-y-auto bg-secondary-50 dark:bg-secondary-800 rounded-lg p-3">
-          {state.meetingLog.length === 0 ? <p className="text-secondary-500 dark:text-secondary-400 text-center py-4">Not started</p> : (
+          {state.meetingLog.length === 0 ? (
+            <p className="text-secondary-500 dark:text-secondary-400 text-center py-4">Not started</p>
+          ) : (
             <ul className="space-y-1 text-sm font-mono">
-              {state.meetingLog.map((e, i) => <li key={i} className="text-secondary-700 dark:text-secondary-300"><span className="text-secondary-400 dark:text-secondary-500">[{e.time}]</span> {e.message}</li>)}
+              {state.meetingLog.map((e, i) => (
+                <li key={i} className="text-secondary-700 dark:text-secondary-300">
+                  <span className="text-secondary-400 dark:text-secondary-500">[{e.time}]</span> {e.message}
+                </li>
+              ))}
             </ul>
           )}
         </div>

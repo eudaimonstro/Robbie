@@ -1,26 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
-import { AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import type { BylawAmendmentFormProps, BylawChangeType, BylawAmendment } from '../types';
-import { bylawSync, type Document, type SectionTree, type MeetingOrganizationResponse } from '../../../api/client';
-import { useToast } from '../../../context/ToastContext';
-
-// Extend SectionTree with depth for flattened display
-interface FlatSection extends SectionTree {
-  depth: number;
-}
+import {
+  useBylawAmendmentData,
+  ChangeTypeSelector,
+  SectionSelector,
+  ContentFields,
+  DeletePreview,
+  LoadingState,
+  ErrorState,
+  NoOrgLinkedState,
+  NoDocumentsState,
+  LoadingSections
+} from './bylawAmendment';
 
 export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAmendmentFormProps) {
-  const { showToast } = useToast();
-  const [linkedOrg, setLinkedOrg] = useState<MeetingOrganizationResponse | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [sections, setSections] = useState<SectionTree[]>([]);
-  const [flatSections, setFlatSections] = useState<FlatSection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingSections, setLoadingSections] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    linkedOrg,
+    documents,
+    flatSections,
+    loading,
+    loadingSections,
+    error,
+    selectedDocumentId,
+    setSelectedDocumentId,
+  } = useBylawAmendmentData(meetingCode);
 
   // Form state
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
   const [changeType, setChangeType] = useState<BylawChangeType>('modify');
   const [targetSectionId, setTargetSectionId] = useState<string>('');
   const [parentSectionId, setParentSectionId] = useState<string>('');
@@ -28,86 +33,25 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   const [newTitle, setNewTitle] = useState<string>('');
   const [newNumberLabel, setNewNumberLabel] = useState<string>('');
 
-  // Flatten sections tree for dropdown
-  const flattenSections = useCallback((sectionList: SectionTree[], depth = 0): FlatSection[] => {
-    const result: FlatSection[] = [];
-    for (const section of sectionList) {
-      result.push({ ...section, depth });
-      if (section.children && section.children.length > 0) {
-        result.push(...flattenSections(section.children, depth + 1));
-      }
-    }
-    return result;
-  }, []);
-
-  // Fetch linked organization
-  useEffect(() => {
-    async function fetchLinkedOrg() {
-      try {
-        const data = await bylawSync.getMeetingOrganization(meetingCode);
-        setLinkedOrg(data);
-      } catch (err) {
-        console.error('Error fetching linked organization:', err);
-        setError('Could not connect to server');
-        showToast('error', 'Could not connect to server');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchLinkedOrg();
-  }, [meetingCode, showToast]);
-
-  // Fetch documents when org is linked
-  useEffect(() => {
-    if (!linkedOrg?.linked || !linkedOrg.organization) return;
-
-    async function fetchDocuments() {
-      try {
-        const data = await bylawSync.getOrganizationDocuments(linkedOrg!.organization!.id);
-        setDocuments(data);
-        if (data.length > 0) {
-          setSelectedDocumentId(data[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching documents:', err);
-        showToast('error', 'Failed to load documents');
-      }
-    }
-    fetchDocuments();
-  }, [linkedOrg, showToast]);
-
-  // Fetch sections when document is selected
-  useEffect(() => {
-    if (!selectedDocumentId) {
-      setSections([]);
-      setFlatSections([]);
-      return;
-    }
-
-    async function fetchSections() {
-      setLoadingSections(true);
-      try {
-        // Fetch the latest version's section tree
-        const data = await bylawSync.getDocumentSections(selectedDocumentId);
-        setSections(data);
-        setFlatSections(flattenSections(data));
-        if (data.length > 0 && flattenSections(data).length > 0) {
-          setTargetSectionId(flattenSections(data)[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching sections:', err);
-        showToast('error', 'Failed to load document sections');
-      } finally {
-        setLoadingSections(false);
-      }
-    }
-    fetchSections();
-  }, [selectedDocumentId, flattenSections, showToast]);
-
   const selectedDocument = documents.find(d => d.id === selectedDocumentId);
   const selectedSection = flatSections.find(s => s.id === targetSectionId);
 
-  const handleSubmit = () => {
+  const buildMotionText = useCallback((): string => {
+    const parentSection = flatSections.find(s => s.id === parentSectionId);
+
+    switch (changeType) {
+      case 'add':
+        return `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.number_label} "${parentSection.title}"` : ''}: "${newTitle}"`;
+      case 'modify':
+        return `I move to amend the bylaws by modifying ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
+      case 'delete':
+        return `I move to amend the bylaws by deleting ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
+      case 'renumber':
+        return `I move to amend the bylaws by renumbering ${selectedSection?.number_label || 'section'} to ${newNumberLabel}`;
+    }
+  }, [changeType, flatSections, parentSectionId, selectedSection, newTitle, newNumberLabel]);
+
+  const handleSubmit = useCallback(() => {
     if (!selectedDocumentId) return;
 
     const bylawAmendment: BylawAmendment = {
@@ -116,142 +60,76 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       changeType,
     };
 
-    let text = '';
-
     switch (changeType) {
       case 'add':
         bylawAmendment.parentSectionId = parentSectionId || undefined;
         bylawAmendment.newTitle = newTitle;
         bylawAmendment.newContent = newContent;
         bylawAmendment.newNumberLabel = newNumberLabel || undefined;
-        const parentSection = flatSections.find(s => s.id === parentSectionId);
-        text = `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.number_label} "${parentSection.title}"` : ''}: "${newTitle}"`;
         break;
-
       case 'modify':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
         bylawAmendment.newContent = newContent;
         if (newTitle) bylawAmendment.newTitle = newTitle;
-        text = `I move to amend the bylaws by modifying ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
         break;
-
       case 'delete':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
-        text = `I move to amend the bylaws by deleting ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
         break;
-
       case 'renumber':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
         bylawAmendment.newNumberLabel = newNumberLabel;
-        text = `I move to amend the bylaws by renumbering ${selectedSection?.number_label || 'section'} to ${newNumberLabel}`;
         break;
     }
 
-    onSubmit(text, bylawAmendment);
-  };
+    onSubmit(buildMotionText(), bylawAmendment);
+  }, [selectedDocumentId, selectedDocument, changeType, parentSectionId, newTitle, newContent, newNumberLabel, targetSectionId, selectedSection, onSubmit, buildMotionText]);
 
-  const canSubmit = () => {
+  const canSubmit = useCallback((): boolean => {
     if (!selectedDocumentId) return false;
     switch (changeType) {
       case 'add':
-        return newTitle.trim() && newContent.trim();
+        return newTitle.trim().length > 0 && newContent.trim().length > 0;
       case 'modify':
-        return targetSectionId && newContent.trim();
+        return targetSectionId.length > 0 && newContent.trim().length > 0;
       case 'delete':
-        return !!targetSectionId;
+        return targetSectionId.length > 0;
       case 'renumber':
-        return targetSectionId && newNumberLabel.trim();
+        return targetSectionId.length > 0 && newNumberLabel.trim().length > 0;
       default:
         return false;
     }
-  };
+  }, [selectedDocumentId, changeType, newTitle, newContent, targetSectionId, newNumberLabel]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="animate-spin text-indigo-600" size={24} />
-        <span className="ml-2 text-gray-600">Loading...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-700">
-            <AlertCircle size={18} />
-            <span>{error}</span>
-          </div>
-        </div>
-        <button onClick={onCancel} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  if (!linkedOrg?.linked || !linkedOrg.organization) {
-    return (
-      <div className="space-y-4">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-amber-700 mb-2">
-            <AlertCircle size={18} />
-            <span className="font-medium">No Organization Linked</span>
-          </div>
-          <p className="text-amber-600 text-sm">
-            This meeting must be linked to a Bylawyer organization to propose bylaw amendments.
-            Ask the meeting administrator to link this meeting in the Admin panel.
-          </p>
-        </div>
-        <button onClick={onCancel} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  if (documents.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-amber-700 mb-2">
-            <FileText size={18} />
-            <span className="font-medium">No Documents Found</span>
-          </div>
-          <p className="text-amber-600 text-sm">
-            The linked organization "{linkedOrg.organization.name}" has no bylaw documents.
-            Create a document in Bylawyer first.
-          </p>
-        </div>
-        <button onClick={onCancel} className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
-          Cancel
-        </button>
-      </div>
-    );
-  }
+  // Early returns for status states
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState error={error} onCancel={onCancel} />;
+  if (!linkedOrg?.linked || !linkedOrg.organization) return <NoOrgLinkedState onCancel={onCancel} />;
+  if (documents.length === 0) return <NoDocumentsState orgName={linkedOrg.organization.name} onCancel={onCancel} />;
 
   return (
     <div className="space-y-4">
-      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-        <p className="text-sm text-indigo-700">
+      {/* Organization Info Banner */}
+      <div className="bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg p-3">
+        <p className="text-sm text-meeting-700 dark:text-meeting-300">
           Proposing amendment for <span className="font-medium">{linkedOrg.organization.name}</span>
         </p>
       </div>
 
       {/* Document Selection */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Document</label>
+        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+          Document
+        </label>
         <select
           value={selectedDocumentId}
           onChange={(e) => setSelectedDocumentId(e.target.value)}
-          className="w-full p-3 border rounded-lg bg-white"
+          className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
         >
           {documents.map(doc => (
             <option key={doc.id} value={doc.id}>{doc.title}</option>
@@ -260,133 +138,48 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       </div>
 
       {/* Change Type Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Amendment Type</label>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { value: 'add' as const, label: 'Add', icon: '+' },
-            { value: 'modify' as const, label: 'Modify', icon: '✎' },
-            { value: 'delete' as const, label: 'Delete', icon: '−' },
-            { value: 'renumber' as const, label: 'Renumber', icon: '#' }
-          ].map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setChangeType(opt.value)}
-              className={`p-3 rounded-lg border-2 text-center ${changeType === opt.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}
-            >
-              <span className="text-xl block">{opt.icon}</span>
-              <span className="text-xs">{opt.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <ChangeTypeSelector value={changeType} onChange={setChangeType} />
 
       {loadingSections ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="animate-spin text-gray-400" size={20} />
-          <span className="ml-2 text-gray-500 text-sm">Loading sections...</span>
-        </div>
+        <LoadingSections />
       ) : (
         <>
           {/* Section Selection - for modify, delete, renumber */}
           {changeType !== 'add' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Section to {changeType === 'modify' ? 'Modify' : changeType === 'delete' ? 'Delete' : 'Renumber'}
-              </label>
-              <select
-                value={targetSectionId}
-                onChange={(e) => setTargetSectionId(e.target.value)}
-                className="w-full p-3 border rounded-lg bg-white"
-              >
-                <option value="">Select a section...</option>
-                {flatSections.map(section => (
-                  <option key={section.id} value={section.id}>
-                    {'  '.repeat(section.depth)}{section.number_label} {section.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SectionSelector
+              label={`Section to ${changeType === 'modify' ? 'Modify' : changeType === 'delete' ? 'Delete' : 'Renumber'}`}
+              value={targetSectionId}
+              onChange={setTargetSectionId}
+              sections={flatSections}
+            />
           )}
 
           {/* Parent Section - for add */}
           {changeType === 'add' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Parent Section (optional)</label>
-              <select
-                value={parentSectionId}
-                onChange={(e) => setParentSectionId(e.target.value)}
-                className="w-full p-3 border rounded-lg bg-white"
-              >
-                <option value="">Top level (no parent)</option>
-                {flatSections.map(section => (
-                  <option key={section.id} value={section.id}>
-                    {'  '.repeat(section.depth)}{section.number_label} {section.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SectionSelector
+              label="Parent Section (optional)"
+              value={parentSectionId}
+              onChange={setParentSectionId}
+              sections={flatSections}
+              allowEmpty
+              emptyLabel="Top level (no parent)"
+            />
           )}
 
-          {/* New Number Label - for add or renumber */}
-          {(changeType === 'add' || changeType === 'renumber') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {changeType === 'add' ? 'Section Number (optional)' : 'New Section Number'}
-              </label>
-              <input
-                type="text"
-                value={newNumberLabel}
-                onChange={(e) => setNewNumberLabel(e.target.value)}
-                placeholder={changeType === 'add' ? 'e.g., Article V, Section 3' : 'e.g., Article VI'}
-                className="w-full p-3 border rounded-lg"
-              />
-            </div>
-          )}
-
-          {/* Title - for add or modify */}
-          {(changeType === 'add' || changeType === 'modify') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {changeType === 'add' ? 'Section Title' : 'New Title (optional)'}
-              </label>
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder={changeType === 'add' ? 'Enter section title...' : 'Leave blank to keep current title'}
-                className="w-full p-3 border rounded-lg"
-              />
-            </div>
-          )}
-
-          {/* Content - for add or modify */}
-          {(changeType === 'add' || changeType === 'modify') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {changeType === 'add' ? 'Section Content' : 'New Content'}
-              </label>
-              <textarea
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                placeholder="Enter the section content..."
-                rows={4}
-                className="w-full p-3 border rounded-lg resize-y"
-              />
-            </div>
-          )}
+          {/* Dynamic Content Fields */}
+          <ContentFields
+            changeType={changeType}
+            newTitle={newTitle}
+            setNewTitle={setNewTitle}
+            newContent={newContent}
+            setNewContent={setNewContent}
+            newNumberLabel={newNumberLabel}
+            setNewNumberLabel={setNewNumberLabel}
+          />
 
           {/* Preview for delete */}
           {changeType === 'delete' && selectedSection && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-red-800 mb-1">Section to be deleted:</p>
-              <p className="text-sm text-red-700">
-                <strong>{selectedSection.number_label}</strong> {selectedSection.title}
-              </p>
-              {selectedSection.content && (
-                <p className="text-xs text-red-600 mt-1 line-clamp-2">{selectedSection.content}</p>
-              )}
-            </div>
+            <DeletePreview section={selectedSection} />
           )}
         </>
       )}
@@ -395,14 +188,14 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       <div className="flex gap-2 pt-2">
         <button
           onClick={onCancel}
-          className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="flex-1 py-3 rounded-lg border border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={!canSubmit()}
-          className="flex-1 py-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 font-medium"
+          className="flex-1 py-3 rounded-lg bg-meeting-600 text-white hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed font-medium"
         >
           Submit Motion
         </button>
