@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Clock, ChevronRight, Building2, GitBranch, Calendar } from 'lucide-react'
+import { FileText, Clock, ChevronRight, Building2, GitBranch, Calendar, Users, ExternalLink } from 'lucide-react'
 import { useOrganization } from '../../../context/OrganizationContext'
 import { documents as documentsApi, amendments as amendmentsApi, meetings as meetingsApi, Document, Amendment, Meeting } from '../../../api/client'
 import { LoadingPage } from '../../../components/ui/LoadingSpinner'
@@ -76,13 +76,22 @@ export default function HomePage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-          Dashboard
-        </h2>
-        <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-          Welcome to {currentOrganization.name}
-        </p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
+            Dashboard
+          </h2>
+          <p className="text-secondary-600 dark:text-secondary-400 mt-1">
+            Welcome to {currentOrganization.name}
+          </p>
+        </div>
+        <Link
+          to="/meetings"
+          className="btn-primary flex items-center gap-2"
+        >
+          <Users className="w-4 h-4" />
+          Join Live Meeting
+        </Link>
       </div>
 
       {/* Stats Cards */}
@@ -251,12 +260,19 @@ export default function HomePage() {
                 ))}
               </div>
             )}
-            <div className="px-4 py-2 border-t border-secondary-200 dark:border-secondary-700">
+            <div className="px-4 py-2 border-t border-secondary-200 dark:border-secondary-700 flex justify-between">
               <Link
                 to="/bylawyer-meetings"
                 className="text-sm text-primary-600 hover:text-primary-700"
               >
                 View all meetings
+              </Link>
+              <Link
+                to="/meetings"
+                className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Live
               </Link>
             </div>
           </div>

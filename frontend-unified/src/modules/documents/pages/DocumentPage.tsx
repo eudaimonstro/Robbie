@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ChevronRight, Edit, GitCompare, Plus, Clock, FileText, Download, ChevronDown, Share2 } from 'lucide-react'
+import { ChevronRight, Edit, GitCompare, Plus, Clock, FileText, Download, ChevronDown, Share2, Users } from 'lucide-react'
 import {
   documents as documentsApi,
   versions as versionsApi,
@@ -398,6 +398,14 @@ export default function DocumentPage() {
               <Share2 className="w-4 h-4 mr-2" />
               Share
             </button>
+
+            <Link
+              to="/meetings"
+              className="btn-secondary btn-sm"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Meetings
+            </Link>
 
             <button
               onClick={() => setAmendmentModalOpen(true)}

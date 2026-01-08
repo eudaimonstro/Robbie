@@ -5,12 +5,23 @@
  * It includes its own SocketProvider for Socket.io connections.
  */
 
+import { useEffect } from 'react';
 import { SocketProvider, useSocket } from './context/SocketContext';
+import { MeetingOrganizationProvider } from './context/OrganizationBridge';
 import { AuthScreen } from './views/AuthScreen';
 import { MeetingApp } from './views/MeetingApp';
+import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { isAuthenticated, isConnected } = useSocket();
+  const { isAuthenticated, isConnected, error } = useSocket();
+  const { showToast } = useToast();
+
+  // Forward socket errors to toast notifications
+  useEffect(() => {
+    if (error) {
+      showToast('error', error);
+    }
+  }, [error, showToast]);
 
   // Show auth screen if not authenticated
   if (!isAuthenticated) {
@@ -35,11 +46,14 @@ function MeetingsContent() {
 
 export default function MeetingsModule() {
   return (
-    <SocketProvider>
-      <MeetingsContent />
-    </SocketProvider>
+    <MeetingOrganizationProvider>
+      <SocketProvider>
+        <MeetingsContent />
+      </SocketProvider>
+    </MeetingOrganizationProvider>
   );
 }
 
 // Re-export for use in other parts of the app if needed
 export { SocketProvider, useSocket } from './context/SocketContext';
+export { MeetingOrganizationProvider, useMeetingOrganization } from './context/OrganizationBridge';

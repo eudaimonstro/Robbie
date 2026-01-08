@@ -1,34 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, FileText, Loader2 } from 'lucide-react';
 import type { BylawAmendmentFormProps, BylawChangeType, BylawAmendment } from '../types';
+import { bylawSync, type Document, type SectionTree, type MeetingOrganizationResponse } from '../../../api/client';
+import { useToast } from '../../../context/ToastContext';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-
-interface BylawyerDocument {
-  id: string;
-  title: string;
-  type: string;
-}
-
-interface BylawyerSection {
-  id: string;
-  numberLabel: string;
-  title: string;
-  content: string;
+// Extend SectionTree with depth for flattened display
+interface FlatSection extends SectionTree {
   depth: number;
-  children?: BylawyerSection[];
-}
-
-interface LinkedOrganization {
-  linked: boolean;
-  organization: { id: string; name: string; slug: string } | null;
 }
 
 export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAmendmentFormProps) {
-  const [linkedOrg, setLinkedOrg] = useState<LinkedOrganization | null>(null);
-  const [documents, setDocuments] = useState<BylawyerDocument[]>([]);
-  const [sections, setSections] = useState<BylawyerSection[]>([]);
-  const [flatSections, setFlatSections] = useState<BylawyerSection[]>([]);
+  const { showToast } = useToast();
+  const [linkedOrg, setLinkedOrg] = useState<MeetingOrganizationResponse | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [sections, setSections] = useState<SectionTree[]>([]);
+  const [flatSections, setFlatSections] = useState<FlatSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingSections, setLoadingSections] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +29,8 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   const [newNumberLabel, setNewNumberLabel] = useState<string>('');
 
   // Flatten sections tree for dropdown
-  const flattenSections = useCallback((sectionList: BylawyerSection[], depth = 0): BylawyerSection[] => {
-    const result: BylawyerSection[] = [];
+  const flattenSections = useCallback((sectionList: SectionTree[], depth = 0): FlatSection[] => {
+    const result: FlatSection[] = [];
     for (const section of sectionList) {
       result.push({ ...section, depth });
       if (section.children && section.children.length > 0) {
@@ -58,20 +44,18 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   useEffect(() => {
     async function fetchLinkedOrg() {
       try {
-        const response = await fetch(`${SERVER_URL}/api/bylawyer/meeting/${meetingCode}/organization`);
-        if (response.ok) {
-          const data = await response.json();
-          setLinkedOrg(data);
-        }
+        const data = await bylawSync.getMeetingOrganization(meetingCode);
+        setLinkedOrg(data);
       } catch (err) {
         console.error('Error fetching linked organization:', err);
         setError('Could not connect to server');
+        showToast('error', 'Could not connect to server');
       } finally {
         setLoading(false);
       }
     }
     fetchLinkedOrg();
-  }, [meetingCode]);
+  }, [meetingCode, showToast]);
 
   // Fetch documents when org is linked
   useEffect(() => {
@@ -79,20 +63,18 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
 
     async function fetchDocuments() {
       try {
-        const response = await fetch(`${SERVER_URL}/api/bylawyer/organizations/${linkedOrg!.organization!.id}/documents`);
-        if (response.ok) {
-          const data = await response.json();
-          setDocuments(data);
-          if (data.length > 0) {
-            setSelectedDocumentId(data[0].id);
-          }
+        const data = await bylawSync.getOrganizationDocuments(linkedOrg!.organization!.id);
+        setDocuments(data);
+        if (data.length > 0) {
+          setSelectedDocumentId(data[0].id);
         }
       } catch (err) {
         console.error('Error fetching documents:', err);
+        showToast('error', 'Failed to load documents');
       }
     }
     fetchDocuments();
-  }, [linkedOrg]);
+  }, [linkedOrg, showToast]);
 
   // Fetch sections when document is selected
   useEffect(() => {
@@ -106,23 +88,21 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       setLoadingSections(true);
       try {
         // Fetch the latest version's section tree
-        const response = await fetch(`${SERVER_URL}/api/bylawyer/documents/${selectedDocumentId}/sections`);
-        if (response.ok) {
-          const data = await response.json();
-          setSections(data);
-          setFlatSections(flattenSections(data));
-          if (data.length > 0 && flattenSections(data).length > 0) {
-            setTargetSectionId(flattenSections(data)[0].id);
-          }
+        const data = await bylawSync.getDocumentSections(selectedDocumentId);
+        setSections(data);
+        setFlatSections(flattenSections(data));
+        if (data.length > 0 && flattenSections(data).length > 0) {
+          setTargetSectionId(flattenSections(data)[0].id);
         }
       } catch (err) {
         console.error('Error fetching sections:', err);
+        showToast('error', 'Failed to load document sections');
       } finally {
         setLoadingSections(false);
       }
     }
     fetchSections();
-  }, [selectedDocumentId, flattenSections]);
+  }, [selectedDocumentId, flattenSections, showToast]);
 
   const selectedDocument = documents.find(d => d.id === selectedDocumentId);
   const selectedSection = flatSections.find(s => s.id === targetSectionId);
@@ -145,31 +125,31 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
         bylawAmendment.newContent = newContent;
         bylawAmendment.newNumberLabel = newNumberLabel || undefined;
         const parentSection = flatSections.find(s => s.id === parentSectionId);
-        text = `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.numberLabel} "${parentSection.title}"` : ''}: "${newTitle}"`;
+        text = `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.number_label} "${parentSection.title}"` : ''}: "${newTitle}"`;
         break;
 
       case 'modify':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.numberLabel} "${selectedSection.title}"` : undefined;
+        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
         bylawAmendment.newContent = newContent;
         if (newTitle) bylawAmendment.newTitle = newTitle;
-        text = `I move to amend the bylaws by modifying ${selectedSection?.numberLabel || 'section'} "${selectedSection?.title || 'selected section'}"`;
+        text = `I move to amend the bylaws by modifying ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
         break;
 
       case 'delete':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.numberLabel} "${selectedSection.title}"` : undefined;
-        text = `I move to amend the bylaws by deleting ${selectedSection?.numberLabel || 'section'} "${selectedSection?.title || 'selected section'}"`;
+        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
+        text = `I move to amend the bylaws by deleting ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
         break;
 
       case 'renumber':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.numberLabel} "${selectedSection.title}"` : undefined;
+        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
         bylawAmendment.newNumberLabel = newNumberLabel;
-        text = `I move to amend the bylaws by renumbering ${selectedSection?.numberLabel || 'section'} to ${newNumberLabel}`;
+        text = `I move to amend the bylaws by renumbering ${selectedSection?.number_label || 'section'} to ${newNumberLabel}`;
         break;
     }
 
@@ -322,7 +302,7 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
                 <option value="">Select a section...</option>
                 {flatSections.map(section => (
                   <option key={section.id} value={section.id}>
-                    {'  '.repeat(section.depth)}{section.numberLabel} {section.title}
+                    {'  '.repeat(section.depth)}{section.number_label} {section.title}
                   </option>
                 ))}
               </select>
@@ -341,7 +321,7 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
                 <option value="">Top level (no parent)</option>
                 {flatSections.map(section => (
                   <option key={section.id} value={section.id}>
-                    {'  '.repeat(section.depth)}{section.numberLabel} {section.title}
+                    {'  '.repeat(section.depth)}{section.number_label} {section.title}
                   </option>
                 ))}
               </select>
@@ -401,7 +381,7 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm font-medium text-red-800 mb-1">Section to be deleted:</p>
               <p className="text-sm text-red-700">
-                <strong>{selectedSection.numberLabel}</strong> {selectedSection.title}
+                <strong>{selectedSection.number_label}</strong> {selectedSection.title}
               </p>
               {selectedSection.content && (
                 <p className="text-xs text-red-600 mt-1 line-clamp-2">{selectedSection.content}</p>

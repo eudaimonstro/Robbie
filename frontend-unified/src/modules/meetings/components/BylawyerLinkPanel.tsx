@@ -1,43 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { Building2, Link, Unlink, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
-
-interface BylawyerOrganization {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-}
-
-interface LinkedOrganization {
-  linked: boolean;
-  organization: BylawyerOrganization | null;
-  warning?: string;
-}
+import { bylawSync, type LinkedOrganization } from '../../../api/client';
+import { useToast } from '../../../context/ToastContext';
 
 interface BylawyerLinkPanelProps {
   meetingCode: string;
+  suggestedOrgId?: string;
 }
 
-export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
-  const [organizations, setOrganizations] = useState<BylawyerOrganization[]>([]);
-  const [linkedOrg, setLinkedOrg] = useState<LinkedOrganization | null>(null);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+interface LinkedOrgState {
+  linked: boolean;
+  organization: LinkedOrganization | null;
+  warning?: string;
+}
+
+export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkPanelProps) {
+  const { showToast } = useToast();
+  const [organizations, setOrganizations] = useState<LinkedOrganization[]>([]);
+  const [linkedOrg, setLinkedOrg] = useState<LinkedOrgState | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(suggestedOrgId || '');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [bylawyerAvailable, setBylawyerAvailable] = useState(true);
+
+  // Update selectedOrgId when suggestedOrgId changes
+  useEffect(() => {
+    if (suggestedOrgId && !selectedOrgId) {
+      setSelectedOrgId(suggestedOrgId);
+    }
+  }, [suggestedOrgId, selectedOrgId]);
 
   // Fetch the current linked organization
   const fetchLinkedOrg = useCallback(async () => {
     if (!meetingCode) return;
     try {
-      const response = await fetch(`${SERVER_URL}/api/bylawyer/meeting/${meetingCode}/organization`);
-      if (response.ok) {
-        const data = await response.json();
-        setLinkedOrg(data);
-        setBylawyerAvailable(true);
-      }
+      const data = await bylawSync.getMeetingOrganization(meetingCode);
+      setLinkedOrg(data);
+      setBylawyerAvailable(true);
     } catch (err) {
       console.error('Error fetching linked organization:', err);
     }
@@ -47,30 +46,17 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
   const fetchOrganizations = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await fetch(`${SERVER_URL}/api/bylawyer/organizations`);
-
-      if (!response.ok) {
-        if (response.status === 503) {
-          setBylawyerAvailable(false);
-          setError('Bylawyer service is unavailable');
-        } else {
-          throw new Error('Failed to fetch organizations');
-        }
-        return;
-      }
-
-      const data = await response.json();
+      const data = await bylawSync.getOrganizations();
       setOrganizations(data);
       setBylawyerAvailable(true);
     } catch (err) {
       console.error('Error fetching organizations:', err);
       setBylawyerAvailable(false);
-      setError('Could not connect to Bylawyer');
+      showToast('error', 'Could not connect to Bylawyer');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchOrganizations();
@@ -82,26 +68,13 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
 
     try {
       setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${SERVER_URL}/api/bylawyer/link-meeting`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          meetingCode,
-          organizationId: selectedOrgId
-        })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to link meeting');
-      }
-
+      await bylawSync.linkMeeting(meetingCode, selectedOrgId);
       await fetchLinkedOrg();
       setSelectedOrgId('');
+      showToast('success', 'Meeting linked to organization');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to link meeting');
+      const message = err instanceof Error ? err.message : 'Failed to link meeting';
+      showToast('error', message);
     } finally {
       setLoading(false);
     }
@@ -112,20 +85,12 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
 
     try {
       setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${SERVER_URL}/api/bylawyer/link-meeting/${meetingCode}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to unlink meeting');
-      }
-
+      await bylawSync.unlinkMeeting(meetingCode);
       setLinkedOrg({ linked: false, organization: null });
+      showToast('success', 'Meeting unlinked from organization');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to unlink meeting');
+      const message = err instanceof Error ? err.message : 'Failed to unlink meeting';
+      showToast('error', message);
     } finally {
       setLoading(false);
     }
@@ -135,6 +100,9 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
     fetchOrganizations();
     fetchLinkedOrg();
   };
+
+  // Find the suggested org name if we have one
+  const suggestedOrg = suggestedOrgId ? organizations.find(o => o.id === suggestedOrgId) : null;
 
   // Show compact unavailable state if Bylawyer is not available
   if (!bylawyerAvailable) {
@@ -176,12 +144,6 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-          <p className="text-red-700 text-sm">{error}</p>
-        </div>
-      )}
-
       {linkedOrg?.linked && linkedOrg.organization ? (
         <div className="space-y-3">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -193,15 +155,13 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
             {linkedOrg.organization.description && (
               <p className="text-green-700 text-sm mt-1">{linkedOrg.organization.description}</p>
             )}
-            <a
-              href={`http://localhost:5174/org/${linkedOrg.organization.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <RouterLink
+              to="/"
               className="inline-flex items-center gap-1 text-green-600 hover:text-green-700 text-sm mt-2"
             >
-              View in Bylawyer
+              View Documents
               <ExternalLink size={12} />
-            </a>
+            </RouterLink>
           </div>
 
           <button
@@ -236,6 +196,7 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
               {organizations.map(org => (
                 <option key={org.id} value={org.id}>
                   {org.name}
+                  {org.id === suggestedOrgId ? ' (Current)' : ''}
                 </option>
               ))}
             </select>
@@ -249,9 +210,15 @@ export function BylawyerLinkPanel({ meetingCode }: BylawyerLinkPanelProps) {
             </button>
           </div>
 
+          {suggestedOrg && !linkedOrg?.linked && (
+            <p className="text-indigo-600 text-xs">
+              Suggested: {suggestedOrg.name} (your current organization)
+            </p>
+          )}
+
           {organizations.length === 0 && !loading && (
             <p className="text-gray-500 text-sm italic">
-              No organizations found. Create one in Bylawyer first.
+              No organizations found. Create one in the Documents section first.
             </p>
           )}
         </div>

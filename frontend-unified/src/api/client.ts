@@ -613,3 +613,66 @@ export interface PublicVersion {
   adopted_at: string | null
   notes: string | null
 }
+
+// Robbie-Bylawyer Integration (bylaw sync)
+export interface LinkedOrganization {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+}
+
+export interface MeetingOrganizationResponse {
+  linked: boolean
+  organization: LinkedOrganization | null
+  warning?: string
+}
+
+export interface LinkMeetingResponse {
+  success: boolean
+  meetingCode: string
+  organization: LinkedOrganization
+}
+
+export interface SyncStatusResponse {
+  synced: boolean
+  amendmentId?: string
+  status?: string
+  applied?: boolean
+}
+
+// Bylaw Sync API - for Robbie/Bylawyer integration
+export const bylawSync = {
+  // Get all organizations (for linking dropdown)
+  getOrganizations: () =>
+    request<LinkedOrganization[]>('/bylawyer/organizations'),
+
+  // Link a Robbie meeting to a Bylawyer organization
+  linkMeeting: (meetingCode: string, organizationId: string) =>
+    request<LinkMeetingResponse>('/bylawyer/link-meeting', {
+      method: 'POST',
+      body: JSON.stringify({ meetingCode, organizationId }),
+    }),
+
+  // Unlink a meeting from its organization
+  unlinkMeeting: (meetingCode: string) =>
+    request<{ success: boolean }>(`/bylawyer/link-meeting/${meetingCode}`, {
+      method: 'DELETE',
+    }),
+
+  // Get the organization linked to a meeting
+  getMeetingOrganization: (meetingCode: string) =>
+    request<MeetingOrganizationResponse>(`/bylawyer/meeting/${meetingCode}/organization`),
+
+  // Get documents for a linked organization
+  getOrganizationDocuments: (orgId: string) =>
+    request<Document[]>(`/bylawyer/organizations/${orgId}/documents`),
+
+  // Get section tree for a document
+  getDocumentSections: (docId: string) =>
+    request<SectionTree[]>(`/bylawyer/documents/${docId}/sections`),
+
+  // Check sync status for a motion
+  getSyncStatus: (meetingCode: string, motionId: number) =>
+    request<SyncStatusResponse>(`/robbie/sync-status/${meetingCode}/${motionId}`),
+}

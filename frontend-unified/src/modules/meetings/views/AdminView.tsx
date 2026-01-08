@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Users, Settings, Timer, Crown, AlertTriangle, Pencil } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, Settings, Timer, Crown, AlertTriangle, Pencil, FileText } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { Member } from '@robbie-bylawyer/shared/types';
 import type { AdminViewProps } from '../types';
@@ -11,9 +12,11 @@ import { QuorumWarning } from '../components/QuorumWarning';
 import { BylawyerLinkPanel } from '../components/BylawyerLinkPanel';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 import { useSocket } from '../context/SocketContext';
+import { useMeetingOrganization } from '../context/OrganizationBridge';
 
 export function AdminView({ state, dispatch }: AdminViewProps) {
   const { currentUser } = useSocket();
+  const { currentOrganization } = useMeetingOrganization();
   const [newItem, setNewItem] = useState("");
   const [speakerTime, setSpeakerTime] = useState(state.speakerTimeLimit);
   const [voteTime, setVoteTime] = useState(state.voteTimeLimit);
@@ -215,7 +218,19 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* Bylawyer Integration */}
       {state.meetingCode && (
-        <BylawyerLinkPanel meetingCode={state.meetingCode} />
+        <div className="space-y-2">
+          <BylawyerLinkPanel
+            meetingCode={state.meetingCode}
+            suggestedOrgId={currentOrganization?.id}
+          />
+          <Link
+            to="/"
+            className="flex items-center justify-center gap-2 w-full py-2 px-4 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+          >
+            <FileText size={16} />
+            Open Documents Dashboard
+          </Link>
+        </div>
       )}
 
       <div className="bg-white rounded-lg p-4 shadow">
