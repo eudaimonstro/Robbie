@@ -23,7 +23,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",
     "react-router-dom": "^6.30.3",
-    "serve": "^14.2.5",
+    "serve": "^14.2.6",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
