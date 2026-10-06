@@ -10,9 +10,11 @@ Decisions made on 2026-10-06, when the owner handed over product decisions:
 
 - **Product name: Robbie.** "Robbie-Bylawyer" was the monorepo's name, not a product name. The app says Robbie everywhere; the documents side is a section of it, not a second product.
 - **Phones use the web app.** Participants open a link or scan a QR code and use the responsive web app. The Expo app stays building and minimally working (it gets the terms step) but gets no new features in the MVP. Spec M10 is deferred.
-- **People without a device are first-class.** The chair or secretary marks them present from the organization's roster, and the chair enters show-of-hands counts for them. Device votes and floor counts combine into one result.
+- **People without a device are first-class.** Most of an HOA's homeowners will never have an account, so the organization records how many eligible voting members it has (the quorum denominator, for example 142 lots), and the chair or secretary enters a headcount of people in the room without a device, with names when they want them in the minutes. Members with accounts are present when their device is connected or when they are marked present from the roster. Quorum is device-present plus marked-present plus the headcount, over the eligible count. Votes work the same way: device votes count one each, and the chair enters show-of-hands counts for the rest. The counts the chair enters are kept apart from device data, summed at the moment of decision, and shown separately on the display so the room can check them.
+- **Phones lock.** A locked phone must not cost its owner their vote. Presence survives a short disconnection, and reconnecting during a vote restores the right to vote in it.
 - **Meeting roles come from the organization.** A meeting is created from an organization by a secretary or above; its creator chairs unless they hand over. Organization members join as members; anyone else with the code joins as a non-voting guest. `ADMIN_EMAILS` goes away.
-- **One design language for the whole app**, built once and used by every new screen. The live meeting screens (chair console, phone view, display view) are redesigned, not re-themed.
+- **One design language for the whole app.** The token and utility system in `frontend-unified/src/styles/index.css` already exists and the documents side uses it; the live meeting screens (chair console, phone view, display view) are designed fresh on it, and the rest of the meetings module moves off raw palette classes.
+- **The wire protocol stays.** `JOIN_MEETING { meetingCode }` does not change; the server derives the role from the organization and the meeting's packet. That is what keeps the mobile app working without new features.
 
 ## The acceptance scenario
 
