@@ -136,7 +136,7 @@ const unifiedDist = path.join(__dirname, '../../frontend-unified/dist');
 
 // Serve unified frontend at root
 app.use(express.static(unifiedDist));
-app.get('*', (_req, res) => {
+app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(unifiedDist, 'index.html'));
 });
 

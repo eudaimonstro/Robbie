@@ -56,3 +56,6 @@ mobile/android/
 # Compiled by tsc -b from vite.config.ts; Vite would load a stale .js over the .ts
 frontend-unified/vite.config.js
 frontend-unified/vite.config.d.ts
+
+# Generated Prisma client (prisma generate)
+backend-node/src/generated/

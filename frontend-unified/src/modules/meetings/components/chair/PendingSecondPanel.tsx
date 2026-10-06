@@ -17,7 +17,7 @@ export const PendingSecondPanel = React.memo(function PendingSecondPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="pending-second-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="pending-second-heading">
       <h3 id="pending-second-heading" className="font-semibold mb-2 text-amber-700">
         Awaiting Second
       </h3>

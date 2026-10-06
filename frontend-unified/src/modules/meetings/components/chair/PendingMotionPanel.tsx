@@ -31,7 +31,7 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="pending-motion-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="pending-motion-heading">
       <h3 id="pending-motion-heading" className="font-semibold mb-3 text-gray-800">
         Pending Motion
       </h3>

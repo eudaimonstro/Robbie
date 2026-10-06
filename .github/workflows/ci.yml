@@ -33,16 +33,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Build shared package
         run: npm run build:shared
@@ -68,6 +68,9 @@ jobs:
       - name: Type-check frontend-unified
         run: npx tsc --noEmit -p frontend-unified/tsconfig.json
 
+      - name: Type-check mobile
+        run: npx tsc --noEmit -p mobile/tsconfig.json
+
       - name: Test shared
         run: npm run test:run -w shared
 
@@ -76,6 +79,9 @@ jobs:
 
       - name: Test frontend-unified
         run: npm run test:run -w frontend-unified
+
+      - name: Test mobile
+        run: npm run test:run -w mobile
 
       - name: Build all
         run: npm run build

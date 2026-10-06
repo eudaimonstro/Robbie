@@ -121,7 +121,7 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
             type="checkbox"
             checked={state.autoYieldOnTimeExpired}
             onChange={(e) => dispatch({ type: 'SET_AUTO_YIELD', enabled: e.target.checked })}
-            className="rounded border-secondary-300 dark:border-secondary-600 text-meeting-600 focus:ring-meeting-500"
+            className="rounded-sm border-secondary-300 dark:border-secondary-600 text-meeting-600 focus:ring-meeting-500"
           />
           Auto-yield on timeout
         </label>

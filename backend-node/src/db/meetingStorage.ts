@@ -89,8 +89,7 @@ export interface MeetingRecord {
 
 /** Result of state update with optimistic locking */
 export type UpdateResult =
-  | { success: true }
-  | { success: false; error: 'VERSION_CONFLICT' | 'NOT_FOUND' };
+  { success: true } | { success: false; error: 'VERSION_CONFLICT' | 'NOT_FOUND' };
 
 export interface StorageProvider {
   mode: 'in-memory' | 'postgresql';

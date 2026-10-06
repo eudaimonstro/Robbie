@@ -147,7 +147,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('light')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'light'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="Light theme"
@@ -159,7 +159,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('dark')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'dark'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="Dark theme"
@@ -171,7 +171,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('system')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'system'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="System theme"
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('light')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'light'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="Light theme"
@@ -255,7 +255,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('dark')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'dark'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="Dark theme"
@@ -267,7 +267,7 @@ export default function SettingsPage() {
                     onClick={() => setTheme('system')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                       theme === 'system'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-sm'
+                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
                         : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
                     }`}
                     aria-label="System theme"

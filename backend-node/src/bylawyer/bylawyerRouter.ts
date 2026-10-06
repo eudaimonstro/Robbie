@@ -9,6 +9,7 @@ import { Router, type Router as RouterType, type RequestHandler } from 'express'
 import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../middleware/logger.js';
+import type { RouteParams } from '../middleware/validate.js';
 
 export const bylawyerRouter: RouterType = Router();
 
@@ -16,7 +17,7 @@ export const bylawyerRouter: RouterType = Router();
  * GET /api/bylawyer/organizations
  * List all organizations
  */
-const listOrganizations: RequestHandler = async (_req, res) => {
+const listOrganizations: RequestHandler<RouteParams> = async (_req, res) => {
   try {
     const organizations = await prisma.organization.findMany({
       orderBy: { name: 'asc' },
@@ -37,7 +38,7 @@ bylawyerRouter.get('/organizations', listOrganizations);
  * GET /api/bylawyer/organizations/:orgId
  * Get a specific organization
  */
-const getOrganization: RequestHandler = async (req, res) => {
+const getOrganization: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { orgId } = req.params;
     const organization = await prisma.organization.findUnique({
@@ -64,7 +65,7 @@ bylawyerRouter.get('/organizations/:orgId', getOrganization);
  * GET /api/bylawyer/organizations/:orgId/documents
  * Get documents for an organization
  */
-const getOrganizationDocuments: RequestHandler = async (req, res) => {
+const getOrganizationDocuments: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { orgId } = req.params;
 
@@ -99,7 +100,7 @@ bylawyerRouter.get('/organizations/:orgId/documents', getOrganizationDocuments);
  * Link a Robbie meeting to a Bylawyer organization
  * Body: { meetingCode: string, organizationId: string }
  */
-const linkMeeting: RequestHandler = async (req, res) => {
+const linkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode, organizationId } = req.body;
 
@@ -150,7 +151,7 @@ bylawyerRouter.post('/link-meeting', linkMeeting);
  * DELETE /api/bylawyer/link-meeting/:meetingCode
  * Unlink a Robbie meeting from its Bylawyer organization
  */
-const unlinkMeeting: RequestHandler = async (req, res) => {
+const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
 
@@ -177,7 +178,7 @@ bylawyerRouter.delete('/link-meeting/:meetingCode', unlinkMeeting);
  * GET /api/bylawyer/meeting/:meetingCode/organization
  * Get the linked Bylawyer organization for a meeting
  */
-const getMeetingOrganization: RequestHandler = async (req, res) => {
+const getMeetingOrganization: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
 
@@ -226,7 +227,7 @@ bylawyerRouter.get('/meeting/:meetingCode/organization', getMeetingOrganization)
  * GET /api/bylawyer/documents/:docId/sections
  * Get sections for a document's latest version
  */
-const getDocumentSections: RequestHandler = async (req, res) => {
+const getDocumentSections: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { docId } = req.params;
 

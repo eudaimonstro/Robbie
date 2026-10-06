@@ -29,7 +29,7 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
 
   if (handRaised) {
     return (
-      <section className="bg-white rounded-xl p-4 shadow" aria-labelledby="speaker-heading">
+      <section className="bg-white rounded-xl p-4 shadow-sm" aria-labelledby="speaker-heading">
         <h3
           id="speaker-heading"
           className="font-semibold mb-3 flex items-center gap-2 text-gray-800"
@@ -62,7 +62,7 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
           </div>
           <button
             onClick={() => dispatch({ type: 'LOWER_HAND', member: currentUser })}
-            className="w-full min-h-[48px] py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+            className="w-full min-h-[48px] py-3 bg-gray-500 text-white rounded-xl font-medium hover:bg-gray-600 touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
           >
             Lower Hand
           </button>
@@ -75,13 +75,13 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
     min-h-[48px] py-3 px-4 rounded-xl text-sm font-semibold
     transition-all duration-150 ease-out
     touch-manipulation active:scale-[0.97]
-    focus:outline-none focus:ring-2 focus:ring-offset-2
+    focus:outline-hidden focus:ring-2 focus:ring-offset-2
   `
     .trim()
     .replace(/\s+/g, ' ');
 
   return (
-    <section className="bg-white rounded-xl p-4 shadow" aria-labelledby="speaker-heading">
+    <section className="bg-white rounded-xl p-4 shadow-sm" aria-labelledby="speaker-heading">
       <h3 id="speaker-heading" className="font-semibold mb-3 flex items-center gap-2 text-gray-800">
         <Hand size={18} aria-hidden="true" /> Seek Recognition
       </h3>
@@ -133,7 +133,7 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
           onClick={() =>
             dispatch({ type: 'RAISE_HAND', member: currentUser, stance: selectedStance })
           }
-          className="w-full min-h-[56px] py-4 bg-blue-500 text-white rounded-xl font-semibold text-lg hover:bg-blue-600 touch-manipulation active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+          className="w-full min-h-[56px] py-4 bg-blue-500 text-white rounded-xl font-semibold text-lg hover:bg-blue-600 touch-manipulation active:scale-[0.98] transition-all focus:outline-hidden focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
         >
           ✋ Raise Hand to Speak
         </button>

@@ -1,5 +1,5 @@
 import { prisma } from '../../db/prisma.js';
-import { Amendment, AmendmentChange, Version } from '@prisma/client';
+import { Amendment, AmendmentChange, Version } from '../../generated/prisma/client.js';
 
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
 

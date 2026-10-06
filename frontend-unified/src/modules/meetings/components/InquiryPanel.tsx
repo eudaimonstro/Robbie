@@ -68,7 +68,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
   );
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow">
+    <div className="bg-white rounded-lg p-4 shadow-sm">
       <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">Ask a Question</h3>
 
       {/* Submit Question Form */}
@@ -118,12 +118,12 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAskInquiry()}
-              className="flex-1 p-2 border rounded text-sm"
+              className="flex-1 p-2 border rounded-sm text-sm"
             />
             <button
               onClick={handleAskInquiry}
               disabled={!question.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
             >
               Ask
             </button>
@@ -168,12 +168,12 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                         setAnswerText({ ...answerText, [inquiry.id]: e.target.value })
                       }
                       onKeyPress={(e) => e.key === 'Enter' && handleAnswerInquiry(inquiry.id)}
-                      className="flex-1 p-2 border rounded text-sm"
+                      className="flex-1 p-2 border rounded-sm text-sm"
                     />
                     <button
                       onClick={() => handleAnswerInquiry(inquiry.id)}
                       disabled={!answerText[inquiry.id]?.trim()}
-                      className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 text-xs font-medium"
+                      className="px-3 py-2 bg-green-600 text-white rounded-sm hover:bg-green-700 disabled:bg-gray-300 text-xs font-medium"
                     >
                       Answer
                     </button>
@@ -195,7 +195,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
             {recentAnsweredInquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
-                className="p-2 bg-green-50 border border-green-200 rounded text-sm"
+                className="p-2 bg-green-50 border border-green-200 rounded-sm text-sm"
               >
                 <div className="mb-1">
                   <span className="text-xs font-semibold text-green-900 uppercase">

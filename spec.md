@@ -158,6 +158,8 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 
 ### M9. Web client completion
 
+**Blocker (found 2026-10-05):** joining a live meeting in the web client never gets past "Connecting to meeting...". The socket client opens and closes a WebSocket roughly every 15ms. Each reconnect rejoins the meeting, and the server logs hundreds of `Concurrency conflict` retries per second. This reproduces on `main` and on `19cfca8`, before M1, so it predates the M1 and dependency work. It's the first thing to fix in the meetings module, and the M9 Playwright smoke test should cover joining a meeting so it can't silently regress.
+
 API mismatches (the client calls endpoints that don't exist):
 
 - The public share page is broken: the client calls `/public/documents/:token/...` but the backend serves `/share/:token/...`.
@@ -166,12 +168,14 @@ API mismatches (the client calls endpoints that don't exist):
 - Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
 - The client reads `error.detail`, but the backend sends `{ error: { code, message } }`, so every error shows as "HTTP 4xx". The same bug exists in mobile.
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
+- The documents UI reads snake_case fields (`created_at`, `effective_date`, `scheduled_date`), but the Prisma-backed API returns camelCase (`createdAt`, `effectiveDate`). Every date shows "Invalid Date" or is missing (home list, document page, amendments, settings). It also breaks IDs: the amendment page requests `/api/documents/undefined` because it reads `document_id`.
 
 Other work:
 
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
+- Document page header: the action buttons (version picker, Export, Compare, Share, Meetings, New Amendment) overflow underneath the Pending Amendments card at 1280px width.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
 - Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.
@@ -184,10 +188,12 @@ Other work:
 - Filter the motion list to motions currently in order (today it lists all of them).
 - Mount the proxy request and acceptance UI or remove it.
 - Restore the session on launch. Use `shared/types/socket` instead of redefined event types.
-- Fix the existing breakage first. `tsc` has 2 errors: the `MotionCard` test fixture uses a removed `timestamp` field, and `app/(meeting)/motions.tsx` imports `@robbie-bylawyer/shared/utils/idGenerators`, which doesn't resolve. jest also finds 0 tests. Mobile is not in CI yet, so add it once these pass.
+- **Done 2026-10-05:** the existing breakage is fixed. `tsc` is clean, jest runs all 53 tests (it previously found none), the app is on Expo SDK 57, and CI type-checks and tests mobile.
 - Done when: a participant can join, queue, make a motion, and vote against a dev backend, with jest coverage of the join and vote flows.
 
 ### M11. Cleanup and documentation
+
+**Progress 2026-10-05:** the legacy apps and the stale per-workspace lockfiles are deleted. `frontend-robbie/AGENTS.md` and `BEST_PRACTICES.md` moved to `docs/`. CLAUDE.md and README no longer reference the legacy apps. The rest of this milestone remains.
 
 - Delete `backend-bylawyer/`, `frontend-robbie/`, `frontend-bylawyer/`. First move the useful parts of `frontend-robbie/AGENTS.md` (RONR implementation status) and `BEST_PRACTICES.md` into `docs/`, and port the hook tests (M1).
 - Rewrite `README.md` and `docs/INTEGRATION_PLAN.md` for the single backend, Postgres, ports 3001/5173, and the real sync design.
@@ -207,6 +213,18 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
 - Nightly `pg_dump` plus an uploads tarball, kept on the VPS and copied off-host. The restore steps are documented and tested once.
 - A real transactional email provider is required in production, and the app refuses to start without one. The VPS should not send mail directly.
 - Boot-time config validation (zod) and a `/api/health` that checks the database, used as the compose healthcheck. Pino logs to stdout with Docker log rotation, and dependency audit runs in CI.
+
+**Dependency status (2026-10-05, branch `chore/dependency-updates`):** everything is on its latest version except where a concrete constraint applies.
+
+- **Updated:** Node 24 (current LTS), Express 5, Prisma 7, TypeScript 6.0, React 19.2, React Router 7, Vite 8, Vitest 5, Tailwind 4, Expo SDK 57 (React Native 0.86), nodemailer 10, lucide-react 1, react-markdown 10, jsdom 30, concurrently 10, GitHub Actions v7.
+- **Held, and why:**
+  - React 19.2.3 rather than 19.3 for the web app too: Expo SDK 57 pins React exactly, and React Native's renderer requires the same React it resolves, so the repo shares one copy. Move both when Expo moves.
+  - React Native 0.86 and its native modules (async-storage 2.2, screens, safe-area): pinned by Expo SDK 57.
+  - jest 29: jest-expo 57 is built on it. This is also why the only npm-deprecated packages (`glob` 7, `inflight`, `rimraf` 3) remain.
+  - TypeScript 7: typescript-eslint doesn't support it yet; 6.0 is the newest it supports.
+  - `@types/node` 24: matches the Node 24 runtime. Node 26 becomes LTS on 2026-10-28, so revisit then.
+  - Prisma 8: still a release candidate.
+- **Remaining audit (66: 0 critical, 50 high, 16 moderate):** almost all are inside Expo's and jest's own pinned dependency trees. Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15; these are dev-time only, and this is a Postgres project. Wait for upstream releases; forcing `overrides` broke the dependency tree when tried.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
   **Target VPS (surveyed 2026-10-05):**

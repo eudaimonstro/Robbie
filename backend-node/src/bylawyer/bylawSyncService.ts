@@ -8,7 +8,7 @@
  */
 
 import type { MeetingState, MeetingAction, CompletedMotion } from '@robbie-bylawyer/shared/types';
-import type { ChangeType, AmendmentStatus } from '@prisma/client';
+import type { ChangeType, AmendmentStatus } from '../generated/prisma/client.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { AmendmentService } from './services/amendmentService.js';

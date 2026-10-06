@@ -89,7 +89,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 shadow-lg animate-slide-up ${colors[toast.type]}`}
       role="alert"
     >
-      <Icon className={`w-5 h-5 flex-shrink-0 ${iconColors[toast.type]}`} />
+      <Icon className={`w-5 h-5 shrink-0 ${iconColors[toast.type]}`} />
       <p className="flex-1 text-sm font-medium">{toast.message}</p>
       <button
         onClick={onRemove}

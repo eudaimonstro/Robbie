@@ -8,7 +8,7 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import { AmendmentService } from '../services/amendmentService.js';
-import type { ChangeType, AmendmentStatus } from '@prisma/client';
+import type { ChangeType, AmendmentStatus } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
 import { syncMotionBody, syncStatusParams } from '../../schemas/robbie.js';
 import { logger } from '../../middleware/logger.js';

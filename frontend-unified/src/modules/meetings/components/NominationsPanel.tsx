@@ -80,7 +80,7 @@ export function NominationsPanel({
   );
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="nominations-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="nominations-heading">
       <h3
         id="nominations-heading"
         className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
@@ -100,12 +100,12 @@ export function NominationsPanel({
               placeholder="e.g., President, Secretary, Treasurer"
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="flex-1 p-2 border rounded text-sm"
+              className="flex-1 p-2 border rounded-sm text-sm"
             />
             <button
               onClick={handleOpenNominations}
               disabled={!position.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
             >
               Open Nominations
             </button>
@@ -142,12 +142,12 @@ export function NominationsPanel({
                 value={nomineeName}
                 onChange={(e) => setNomineeName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleNominate()}
-                className="flex-1 p-2 border rounded text-sm"
+                className="flex-1 p-2 border rounded-sm text-sm"
               />
               <button
                 onClick={handleNominate}
                 disabled={!nomineeName.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
               >
                 Nominate
               </button>
@@ -184,7 +184,7 @@ export function NominationsPanel({
                       {!nomination.declined && nomination.nomineeId === currentUser.id && (
                         <button
                           onClick={() => handleDeclineNomination(nomination.id)}
-                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
+                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-sm hover:bg-red-200"
                         >
                           Decline
                         </button>
@@ -200,7 +200,7 @@ export function NominationsPanel({
           {isChair && (
             <button
               onClick={handleCloseNominations}
-              className="w-full py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm font-medium"
+              className="w-full py-2 bg-gray-600 text-white rounded-sm hover:bg-gray-700 text-sm font-medium"
             >
               Close Nominations
             </button>
@@ -214,7 +214,10 @@ export function NominationsPanel({
           <p className="text-sm font-medium text-gray-700 mb-2">Elected Officers:</p>
           <div className="space-y-2">
             {state.electedOfficers.map((officer, index) => (
-              <div key={index} className="p-2 bg-green-50 border border-green-200 rounded text-sm">
+              <div
+                key={index}
+                className="p-2 bg-green-50 border border-green-200 rounded-sm text-sm"
+              >
                 <span className="font-medium">{officer.position}:</span>{' '}
                 <span className="text-green-800">{officer.name}</span>
               </div>

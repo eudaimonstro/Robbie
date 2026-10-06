@@ -46,7 +46,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
     <div className="bg-white border-2 border-amber-500 rounded-lg p-6 shadow-lg max-w-md mx-auto">
       <h3 className="text-xl font-bold mb-4 text-amber-900">Suspend the Rules</h3>
 
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded">
+      <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-sm">
         <p className="text-sm font-semibold text-amber-900 mb-1">⚠️ Requires 2/3 vote</p>
         <p className="text-xs text-amber-800">
           This motion requires approval by two-thirds of the assembly.
@@ -63,7 +63,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             id="rule"
             value={rule}
             onChange={(e) => setRule(e.target.value as SuspendableRule)}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mb-2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 mb-2"
           >
             {COMMON_RULES.map((r) => (
               <option key={r} value={r}>
@@ -71,7 +71,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
               </option>
             ))}
           </select>
-          <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+          <div className="p-2 bg-gray-50 border border-gray-200 rounded-sm">
             <p className="text-xs text-gray-600">{getRuleDescription(rule)}</p>
           </div>
         </div>
@@ -87,7 +87,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             placeholder="e.g., 'Emergency situation requires immediate action'"
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
             required
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -109,7 +109,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             value={specificAction}
             onChange={(e) => setSpecificAction(e.target.value)}
             placeholder="e.g., 'Allow motion to proceed without a second'"
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
             required
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -153,13 +153,13 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-sm hover:bg-gray-300 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors font-semibold"
+            className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-sm hover:bg-amber-700 transition-colors font-semibold"
           >
             Submit Motion
           </button>

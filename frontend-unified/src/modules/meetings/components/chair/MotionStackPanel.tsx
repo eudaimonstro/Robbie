@@ -14,7 +14,7 @@ export const MotionStackPanel = React.memo(function MotionStackPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="motion-stack-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="motion-stack-heading">
       <h3 id="motion-stack-heading" className="font-semibold mb-3 text-gray-800">
         Motion Stack
       </h3>

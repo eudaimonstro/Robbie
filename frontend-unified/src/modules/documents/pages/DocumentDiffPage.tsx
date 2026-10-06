@@ -289,13 +289,13 @@ function DiffChangeItem({ change }: { change: DiffChange }) {
         <div className="grid grid-cols-2 gap-4 mt-3">
           <div>
             <p className="text-xs font-medium text-secondary-500 mb-1">Old Content</p>
-            <div className="diff-delete p-3 rounded text-sm">
+            <div className="diff-delete p-3 rounded-sm text-sm">
               {change.old_content || <span className="italic text-secondary-400">(empty)</span>}
             </div>
           </div>
           <div>
             <p className="text-xs font-medium text-secondary-500 mb-1">New Content</p>
-            <div className="diff-add p-3 rounded text-sm">
+            <div className="diff-add p-3 rounded-sm text-sm">
               {change.new_content || <span className="italic text-secondary-400">(empty)</span>}
             </div>
           </div>
@@ -303,11 +303,11 @@ function DiffChangeItem({ change }: { change: DiffChange }) {
       )}
 
       {change.type === 'add' && change.new_content && (
-        <div className="diff-add p-3 rounded text-sm mt-2">{change.new_content}</div>
+        <div className="diff-add p-3 rounded-sm text-sm mt-2">{change.new_content}</div>
       )}
 
       {change.type === 'delete' && change.old_content && (
-        <div className="diff-delete p-3 rounded text-sm mt-2">{change.old_content}</div>
+        <div className="diff-delete p-3 rounded-sm text-sm mt-2">{change.old_content}</div>
       )}
     </div>
   );

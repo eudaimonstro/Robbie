@@ -9,7 +9,7 @@ interface PendingAmendmentsPanelProps {
 
 export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendmentsPanelProps) {
   return (
-    <div className="w-80 flex-shrink-0">
+    <div className="w-80 shrink-0">
       <div className="card sticky top-6">
         <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
           <h3 className="font-semibold text-secondary-900 dark:text-white text-sm">

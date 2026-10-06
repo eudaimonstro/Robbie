@@ -59,7 +59,7 @@ export const PendingSecondSection = React.memo(function PendingSecondSection({
               timestamp: generateTimestamp(),
             })
           }
-          className="w-full min-h-[56px] bg-accent-500 text-white py-4 rounded-xl hover:bg-accent-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2"
+          className="w-full min-h-[56px] bg-accent-500 text-white py-4 rounded-xl hover:bg-accent-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-accent-400 focus:ring-offset-2"
         >
           I Second This Motion
         </button>

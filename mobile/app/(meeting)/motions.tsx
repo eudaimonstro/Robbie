@@ -6,7 +6,7 @@ import { useSocket } from '../../context/SocketContext';
 import { Button, Card } from '../../components/ui';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { MOTIONS, CATEGORY_INFO } from '@robbie-bylawyer/shared/constants';
-import { generateId } from '@robbie-bylawyer/shared/utils/idGenerators';
+import { generateId } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 
 // Motion categories in display order

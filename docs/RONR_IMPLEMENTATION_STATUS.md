@@ -1,8 +1,13 @@
 # Parliamentary Procedure App - Robert's Rules Implementation Guide
 
+> Carried over from the legacy `frontend-robbie` app. Some status entries predate
+> the 2026-10-05 code audit; `spec.md` (M7 for Robert's Rules, M9 for the web client)
+> has the verified current state.
+
 This document tracks the implementation status of Robert's Rules of Order (RONR) in the Robbie parliamentary procedure application.
 
 ## Reference
+
 - **Primary Source**: Robert's Rules of Order Newly Revised (12th Edition)
 - **Online Reference**: https://robertsrules.org/
 
@@ -11,6 +16,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 ### ✅ Implemented Features
 
 #### Motion System
+
 - **Precedence Ranking**: All motions have correct precedence values (1-13)
 - **Motion Categories**:
   - Privileged Motions (precedence 9-13)
@@ -25,12 +31,14 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
   - Vote requirement (majority, 2/3, none)
 
 #### Implemented Motions (30 total)
+
 1. **Privileged** (5): Fix Time to Adjourn, Adjourn, Recess, Question of Privilege, Call for Orders of Day
 2. **Incidental** (7): Appeal, Objection to Consideration, Point of Information, Point of Order, Suspend Rules, Withdraw Motion, Division
 3. **Subsidiary** (7): Lay on Table, Previous Question, Limit/Extend Debate, Postpone Definite, Refer to Committee, Amend, Amend Amendment, Postpone Indefinitely
 4. **Main** (4): Main Motion, Take from Table, Reconsider, Adopt Agenda
 
 #### Meeting Flow
+
 - ✅ Meeting start/end (Call to Order/Adjourn)
 - ✅ Agenda adoption with unanimous consent
 - ✅ Agenda objection handling
@@ -40,6 +48,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ **Agenda item voting**: Chair can put items to vote or mark complete without vote (NEW)
 
 #### Parliamentary Procedure
+
 - ✅ Second requirement enforcement
 - ✅ Motion stacking (subsidiary motions on main motions)
 - ✅ Valid motion calculation based on current state
@@ -52,6 +61,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ **Motion maker priority**: Maker prioritized in speaker queue, highlighted (NEW)
 
 #### Voting System
+
 - ✅ Three vote options: Yea, Nay, Abstain
 - ✅ Majority vote calculation (>50% of yea+nay)
 - ✅ Two-thirds vote calculation (≥66.67% of yea+nay)
@@ -64,6 +74,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ **Visual vote feedback**: Selected option highlighted with ring + checkmark
 
 #### Time Management (NEW)
+
 - ✅ Configurable speaker time limits
 - ✅ Configurable voting time limits
 - ✅ Visual countdown timers
@@ -71,6 +82,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ Auto-start on recognition/vote opening
 
 #### Rule Suspension System (NEW)
+
 - ✅ **10 Suspendable Rules**: Complete coverage of commonly suspended parliamentary rules
   - Tier 1 (Most Common): second-requirement, motion-precedence, order-of-business, debate-rules
   - Tier 2 (Useful): pro-con-alternation, amendment-depth
@@ -86,6 +98,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ **Active Suspension Display**: Shows purpose, allowed action, effect warning, and scope badge
 
 #### Administrative
+
 - ✅ Member management
 - ✅ Role assignment (member/chair/admin)
 - ✅ Quorum tracking
@@ -95,6 +108,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 ### ⚠️ Partially Implemented / Needs Verification
 
 #### Motion Handling
+
 - ✅ **Motion precedence enforcement**: ✅ IMPLEMENTED - Subsidiary motions only available when main motion exists (RONR compliant)
 - ✅ **Amendment depth**: Currently allows amendment of amendment, but not beyond (correct per RONR)
 - ⚠️ **Reconsideration rules**: Need to verify timing restrictions (must be moved by someone on prevailing side, same meeting or next)
@@ -102,11 +116,13 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ⚠️ **Previous Question**: Need to verify it applies only to immediately pending question unless specified otherwise
 
 #### Debate Rules
+
 - ✅ **Speaking order**: ✅ IMPLEMENTED - Full pro/con speaker alternation per Robert's Rules
 - ⚠️ **Speaking limits**: Time limits implemented, but no enforcement of "twice per day per question" rule
 - ✅ **Maker speaks first**: ✅ IMPLEMENTED - motion maker prioritized in speaker queue
 
 #### Voting
+
 - ⚠️ **Abstention handling**: Currently counted separately, need to verify they shouldn't affect vote calculation
 - ✅ **Chair voting**: ✅ IMPLEMENTED - Chair only votes to break/create ties or in ballot votes
 - ✅ **Vote methods**: ✅ IMPLEMENTED - Three digital methods: standard, ballot, roll call
@@ -115,6 +131,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 ### ❌ Missing Critical Features
 
 #### Core Parliamentary Procedure
+
 - ✅ **Unanimous consent**: ✅ IMPLEMENTED - Chair can request, members can object
 - ❌ **General consent**: Quick approval mechanism for non-controversial items (similar to unanimous consent)
 - ✅ **Voting methods**: ✅ IMPLEMENTED - All five methods available
@@ -122,6 +139,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ✅ **Making vs. Seconding**: ✅ IMPLEMENTED - Mover cannot second their own motion
 
 #### Motion Rules
+
 - ❌ **Renewal of motions**: Rules about when defeated motions can be brought up again
 - ❌ **Withdrawal of motions**: Need permission of assembly after stated by chair
 - ❌ **Fill blanks**: Special procedure for amendments with multiple options
@@ -129,6 +147,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ❌ **Creating orders**: Fix time to adjourn creates a general/special order
 
 #### Meeting Structure
+
 - ✅ **Standard order of business**: Call to order, reading minutes, reports, unfinished business, new business
 - ✅ **Minutes**: Recording, reading, approval process
 - ✅ **Committee reports**: Proper handling and adoption
@@ -136,6 +155,7 @@ This document tracks the implementation status of Robert's Rules of Order (RONR)
 - ❌ **Special meetings**: Different rules than regular meetings
 
 #### Advanced Features
+
 - ❌ **Executive session**: Closed meetings for confidential matters
 - ✅ **Suspend rules**: Full implementation with 10 suspendable rules, enforcement, and lifecycle management
 - ✅ **Appeal rulings**: Chair decision appeal process with proper voting (yea sustains, nay overturns)
@@ -158,6 +178,7 @@ The following need to be checked against official Robert's Rules:
 ## Implementation Priority
 
 ### Phase 1: Critical Fixes (High Priority) ✅ 100% COMPLETE
+
 1. ✅ Fix chair voting rules (only votes to break/create ties)
 2. ✅ Implement unanimous consent procedure
 3. ✅ Add multiple voting methods (voice, rising, ballot, roll call, standard)
@@ -165,6 +186,7 @@ The following need to be checked against official Robert's Rules:
 5. ✅ Prevent seconding your own motion
 
 ### Phase 2: Core Completeness (Medium Priority) ✅ 100% COMPLETE
+
 1. ✅ Implement standard order of business
 2. ✅ Add minutes recording and approval
 3. ✅ Implement renewal rules for defeated motions
@@ -172,6 +194,7 @@ The following need to be checked against official Robert's Rules:
 5. ✅ Improve debate speaker alternation (pro/con)
 
 ### Phase 3: Advanced Features (Low Priority) ✅ 60% COMPLETE
+
 1. ✅ Add nominations and elections procedures (NominationsPanel, ElectionPanel)
 2. ❌ Implement executive session handling
 3. ✅ Add parliamentary inquiry functionality (InquiryPanel)
@@ -179,6 +202,7 @@ The following need to be checked against official Robert's Rules:
 5. ❌ Add fill blanks procedure for amendments
 
 ### Phase 4: Polish & Accuracy (Ongoing)
+
 1. Verify all motion rules against RONR
 2. Add comprehensive help system with examples
 3. Implement meeting minutes export
@@ -188,6 +212,7 @@ The following need to be checked against official Robert's Rules:
 ## Testing Requirements
 
 ### Rules to Test
+
 - [ ] Motion precedence enforcement (can't move lower precedence over higher)
 - [ ] Amendment depth limits (max 2 levels: primary + secondary amendment)
 - [ ] Second requirement (all motions requiring seconds fail without one)
@@ -199,6 +224,7 @@ The following need to be checked against official Robert's Rules:
 - [ ] Agenda adoption (unanimous consent vs. motion to adopt)
 
 ### Edge Cases
+
 - [ ] Multiple amendments on same motion
 - [ ] Vote ending in tie
 - [ ] Quorum lost during meeting
@@ -210,6 +236,7 @@ The following need to be checked against official Robert's Rules:
 ## Architecture Notes
 
 ### Current Structure
+
 ```
 src/
 ├── components/       # Reusable UI components
@@ -250,6 +277,7 @@ src/
 ```
 
 ### Suggested Improvements
+
 1. **Separate business logic**: Move parliamentary rules to dedicated service
 2. **Rule validation**: Create rule validator that checks if actions are allowed
 3. **Meeting history**: Add state persistence and history tracking
@@ -281,9 +309,8 @@ When implementing new features:
 - App should educate users about proper procedure, not just enforce it
 
 ## Best Practices
+
 - Read and follow: BEST_PRACTICES.md
-
-
 
 ---
 
@@ -294,6 +321,7 @@ When implementing new features:
 ## Recent Session Updates (2025-12-16)
 
 ### Phase 3 Completed Features (NEW)
+
 1. ✅ **Nominations and Elections** - Complete RONR-compliant election procedure
    - NominationsPanel: Open nominations, nominate candidates, decline nominations
    - ElectionPanel: Majority/plurality/2-3 vote options, ballot casting, winner declaration
@@ -317,6 +345,7 @@ When implementing new features:
    - Motion can only be reconsidered once
 
 ### Phase 1 Completed Features
+
 1. ✅ **Agenda Item Voting** - Chair can put agenda items to vote or mark complete without vote
 2. ✅ **Unanimous Consent Procedure** - Full implementation with objection handling
 3. ✅ **Three Voting Methods** - Standard, Ballot, Roll Call (Voice/Rising removed as not applicable to digital)
@@ -332,6 +361,7 @@ When implementing new features:
 13. ✅ **Motion Engine Fix** - Subsidiary motions only available when main motion exists (critical RONR compliance fix)
 
 ### Phase 2 Completed Features (NEW)
+
 1. ✅ **Standard Order of Business** - Full 8-stage meeting progression with visual tracking
 2. ✅ **Minutes Approval System** - Reading, display, and approval of previous meeting minutes
 3. ✅ **Motion Renewal Rules** - Defeated motions cannot be renewed at same meeting (RONR compliant)
@@ -339,6 +369,7 @@ When implementing new features:
 5. ✅ **Debate Speaker Alternation** - Pro/con speaker alternation per Robert's Rules with visual stance indicators
 
 ### Compliance Status
+
 - **Phase 1** (Critical Fixes): ✅ 5/5 complete (100%) - PHASE COMPLETE!
 - **Phase 2** (Core Completeness): ✅ 5/5 complete (100%) - PHASE COMPLETE!
 - **Phase 3** (Advanced Features): ✅ 3/5 complete (60%) - IN PROGRESS
@@ -357,7 +388,9 @@ When implementing new features:
 Complete implementation of the "Suspend the Rules" feature per Robert's Rules §25.
 
 ### Phase 1: Foundation ✅ COMPLETE
+
 **Goal**: Type-safe infrastructure without breaking existing features
+
 - ✅ Added SuspendableRule union type (10 rules)
 - ✅ Added RuleSuspension interface to track active suspensions
 - ✅ Created ruleSuspensionHelper.ts utility with core functions
@@ -366,7 +399,9 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ All tests passed, zero functional changes
 
 ### Phase 2: Proof of Concept ✅ COMPLETE
+
 **Goal**: End-to-end implementation of ONE rule (second-requirement)
+
 - ✅ Created SuspendRulesForm component (hardcoded to second-requirement)
 - ✅ Created ActiveSuspensionsBanner for visual indicators
 - ✅ Implemented suspension outcome in motionOutcomeHelper
@@ -375,7 +410,9 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ Integration tested and verified
 
 ### Phase 3: Tier 1 Rules ✅ COMPLETE
+
 **Goal**: All common suspension scenarios (4 most-used rules)
+
 - ✅ Expanded SuspendRulesForm to dynamic dropdown for all Tier 1 rules
 - ✅ Implemented motion-precedence suspension in motionHelpers.ts
 - ✅ Implemented debate-rules suspension with chair guidance
@@ -384,7 +421,9 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ Comprehensive testing of all Tier 1 rules
 
 ### Phase 4: Advanced Features ✅ COMPLETE
+
 **Goal**: Automation and chair controls
+
 - ✅ Single-action auto-completion tracking for all rules
 - ✅ Chair restoration controls (RESTORE_RULE action + UI buttons)
 - ✅ Enhanced ActiveSuspensionsBanner with chair-only restore buttons
@@ -393,7 +432,9 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ Chair script guidance for suspension outcomes
 
 ### Phase 5: Tier 2 Rules + Polish ✅ COMPLETE
+
 **Goal**: Comprehensive coverage + enhanced UX
+
 - ✅ Added Tier 2 rules to SuspendRulesForm (pro-con-alternation, amendment-depth)
 - ✅ Implemented pro-con-alternation suspension in useSortedSpeakerQueue
 - ✅ Implemented amendment-depth suspension in motionHelpers.ts
@@ -409,31 +450,38 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 ### Architecture & Files Modified
 
 **Core Types** (src/types/index.ts)
+
 - SuspendableRule: Union type of 10 suspendable rules
 - RuleSuspension: Interface tracking id, rule, purpose, specificAction, scope, timestamps
 - MeetingState.suspendedRules: Array of active suspensions
 - MeetingAction: SUSPEND_RULE_APPROVED, RESTORE_RULE actions
 
 **Utilities** (src/utils/)
+
 - ruleSuspensionHelper.ts: isRuleSuspended(), markSingleActionComplete(), getRuleName(), getRuleDescription(), getActiveSuspensions(), getRuleWarning()
 - motionOutcomeHelper.ts: Creates RuleSuspension when suspend motion passes
 - motionHelpers.ts: Checks motion-precedence and amendment-depth suspensions
 
 **Components** (src/components/)
+
 - SuspendRulesForm.tsx: UI form for configuring suspensions (Tier 1 + 2 rules)
 - ActiveSuspensionsBanner.tsx: Visual indicator with warnings and chair controls
 
 **State Management** (src/reducer/)
+
 - meetingReducer.ts: SUSPEND_RULE_APPROVED handler, RESTORE_RULE handler, second-requirement bypass, auto-cleanup on END_MEETING
 
 **Views** (src/views/)
+
 - ChairView.tsx: Chair script guidance, passes chair member to banner
 - ParticipantView.tsx: Integration of SuspendRulesForm, passes currentUser to banner
 
 **Hooks** (src/hooks/)
+
 - useSortedSpeakerQueue.ts: Checks pro-con-alternation suspension
 
 ### RONR Compliance Checklist
+
 - ✅ Requires 2/3 vote (configured in motions.ts)
 - ✅ Must specify which rule to suspend (enforced by UI dropdown)
 - ✅ Must specify why suspending (required "purpose" field)
@@ -445,6 +493,7 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ Chair can restore rules early (RESTORE_RULE action)
 
 ### Testing Coverage
+
 - ✅ Unit tests: All helper functions verified
 - ✅ Integration tests: Full flow tested (submit → vote → suspend → verify enforcement)
 - ✅ Scope tracking: Single-action auto-completes correctly
@@ -452,6 +501,7 @@ Complete implementation of the "Suspend the Rules" feature per Robert's Rules §
 - ✅ Build verification: All phases built successfully without errors
 
 ### Success Metrics
+
 - ✅ Users can suspend all 10 rules via proper 2/3 vote motion
 - ✅ System correctly enforces/skips suspended rules
 - ✅ Meeting log accurately records suspensions and restorations

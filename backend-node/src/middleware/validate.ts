@@ -1,6 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import type { RequestHandler } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
 
 interface ValidationSchemas {
@@ -9,17 +8,30 @@ interface ValidationSchemas {
   query?: ZodSchema;
 }
 
-export function validate(schemas: ValidationSchemas) {
-  return (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Route params for routes without wildcards. Express 5's default ParamsDictionary allows
+ * string[] values (from wildcard routes), which none of these routes use.
+ */
+export type RouteParams = Record<string, string>;
+
+export function validate(schemas: ValidationSchemas): RequestHandler<RouteParams> {
+  return (req, res, next) => {
     try {
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params) as ParamsDictionary;
+        req.params = schemas.params.parse(req.params) as RouteParams;
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query) as ParsedQs;
+        // req.query is a read-only getter in Express 5; shadow it with the parsed value
+        Object.defineProperty(req, 'query', {
+          value: schemas.query.parse(req.query) as ParsedQs,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
       }
       if (schemas.body) {
-        req.body = schemas.body.parse(req.body);
+        // Express 5 leaves req.body undefined when the request has no body
+        req.body = schemas.body.parse(req.body ?? {});
       }
       next();
     } catch (error) {

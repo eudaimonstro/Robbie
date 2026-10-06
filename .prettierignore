@@ -5,8 +5,4 @@ build/
 package-lock.json
 prisma/migrations/
 .expo/
-
-# Legacy apps, slated for removal (spec M11)
-backend-bylawyer/
-frontend-robbie/
-frontend-bylawyer/
+backend-node/src/generated/

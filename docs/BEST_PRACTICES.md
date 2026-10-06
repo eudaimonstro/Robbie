@@ -1,5 +1,9 @@
 # Best Practices Implementation Status
 
+> Carried over from the legacy `frontend-robbie` app. Some status entries predate
+> the 2026-10-05 code audit; `spec.md` (M7 for Robert's Rules, M9 for the web client)
+> has the verified current state.
+
 This document tracks how the Robbie parliamentary procedure app follows industry best practices for React, TypeScript, state management, and code organization.
 
 ## TypeScript Best Practices
@@ -125,6 +129,7 @@ This document tracks how the Robbie parliamentary procedure app follows industry
 ### ✅ Implemented
 
 1. **Directory Structure**
+
    ```
    src/
    ├── components/      # Reusable UI components (13 total)
@@ -355,6 +360,7 @@ This document tracks how the Robbie parliamentary procedure app follows industry
 **Current Status**: 80% of best practices implemented
 
 **Strong Areas**:
+
 - ✅ TypeScript type safety (comprehensive types - 20+ interfaces, readonly modifiers)
 - ✅ Component organization (modular structure - 13 components)
 - ✅ **Pure reducer functions (Redux compliant)**
@@ -368,11 +374,13 @@ This document tracks how the Robbie parliamentary procedure app follows industry
 - ✅ **ARIA accessibility support**
 
 **Areas for Improvement**:
+
 - Testing (0% coverage)
 - Keyboard navigation and focus management
 - Documentation (JSDoc, inline comments)
 
 **Recent Improvements** (2025-12-16):
+
 - ✅ Removed all side effects from reducer
 - ✅ Extracted duplicate logic to helpers
 - ✅ Updated all action types with required data
@@ -390,6 +398,7 @@ This document tracks how the Robbie parliamentary procedure app follows industry
 - ✅ Added ARIA labels and roles for accessibility ⭐ NEW
 
 **Next Steps** (Priority Order):
+
 1. ✅ ~~Implement React.memo() for performance optimization~~ DONE
 2. ✅ ~~Add useCallback/useMemo for expensive operations~~ DONE
 3. ✅ ~~Extract custom hooks for reusable logic~~ DONE

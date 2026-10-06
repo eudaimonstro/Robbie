@@ -25,13 +25,7 @@ export default function ShareModal({
   const [regenerating, setRegenerating] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchShareStatus();
-    }
-  }, [isOpen, documentId]);
-
-  const fetchShareStatus = async () => {
+  async function fetchShareStatus() {
     try {
       setLoading(true);
       const status = await documentsApi.getShareStatus(documentId);
@@ -41,7 +35,13 @@ export default function ShareModal({
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchShareStatus();
+    }
+  }, [isOpen, documentId]);
 
   const handleEnableSharing = async () => {
     try {
@@ -180,7 +180,7 @@ export default function ShareModal({
                 {showRegenerateConfirm ? (
                   <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <p className="font-medium text-warning-800 dark:text-warning-200">
                           Regenerate share link?

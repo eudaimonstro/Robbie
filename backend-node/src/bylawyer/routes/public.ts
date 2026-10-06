@@ -1,6 +1,6 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import type { Section } from '@prisma/client';
+import type { Section } from '../../generated/prisma/client.js';
 import { logger } from '../../middleware/logger.js';
 
 export const publicRouter: RouterType = Router();

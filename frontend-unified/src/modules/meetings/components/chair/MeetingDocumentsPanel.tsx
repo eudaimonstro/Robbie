@@ -28,11 +28,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    loadPacket();
-  }, [meetingCode]);
-
-  const loadPacket = async () => {
+  async function loadPacket() {
     setIsLoading(true);
     setError(null);
     try {
@@ -43,7 +39,11 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
     } finally {
       setIsLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    loadPacket();
+  }, [meetingCode]);
 
   const toggleItem = (itemId: string) => {
     setExpandedItems((prev) => {
@@ -64,7 +64,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   if (isLoading) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow">
+      <section className="bg-white rounded-lg p-4 shadow-sm">
         <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
           <Folder size={18} />
           Meeting Documents
@@ -78,7 +78,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   if (error) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow">
+      <section className="bg-white rounded-lg p-4 shadow-sm">
         <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
           <Folder size={18} />
           Meeting Documents
@@ -90,7 +90,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   if (!packet || totalDocs === 0) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow">
+      <section className="bg-white rounded-lg p-4 shadow-sm">
         <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
           <Folder size={18} />
           Meeting Documents
@@ -101,7 +101,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow">
+    <section className="bg-white rounded-lg p-4 shadow-sm">
       <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
         <Folder size={18} />
         Meeting Documents
@@ -149,11 +149,11 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
   const isFile = attachment.type === 'uploaded_file';
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
+    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-sm text-sm">
       {isFile ? (
-        <FileText size={16} className="text-gray-500 flex-shrink-0" />
+        <FileText size={16} className="text-gray-500 shrink-0" />
       ) : (
-        <Paperclip size={16} className="text-indigo-500 flex-shrink-0" />
+        <Paperclip size={16} className="text-indigo-500 shrink-0" />
       )}
       <span className="flex-1 truncate">{attachment.displayName}</span>
       {isFile ? (

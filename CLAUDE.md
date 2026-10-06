@@ -37,9 +37,6 @@ robbie-bylawyer/
 │               ├── components/ # chair/, participant/, mobile/, scheduling/
 │               ├── hooks/      # useQuorumStatus, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
-├── frontend-robbie/     # LEGACY - migrated to frontend-unified
-├── frontend-bylawyer/   # LEGACY - migrated to frontend-unified
-├── backend-bylawyer/    # LEGACY - migrated to backend-node
 ├── mobile/              # @robbie-bylawyer/mobile - React Native + Expo
 └── features/            # Feature specifications for Bylawyer
 ```
@@ -50,11 +47,9 @@ robbie-bylawyer/
 
 ```bash
 npm install              # Install all workspace dependencies
-npm run dev              # Start backend + unified frontend (default)
-npm run dev:unified      # Same as above
-npm run dev:legacy       # Start backend + both legacy frontends
-npm run dev:robbie       # Start backend + legacy Robbie frontend only
-npm run dev:bylawyer     # Start backend + legacy Bylawyer frontend only
+npm run dev              # Start backend + unified frontend
+npm run dev:backend      # Backend only
+npm run dev:frontend     # Unified frontend only
 ```
 
 ### Building
@@ -62,15 +57,17 @@ npm run dev:bylawyer     # Start backend + legacy Bylawyer frontend only
 ```bash
 npm run build            # Build all workspaces
 npm run build:shared     # Build shared package (required first if changed)
-npm run build:backends   # Build backend-node
-npm run build:frontends  # Build both frontends
+npm run build:backend    # Build backend-node
+npm run build:frontend   # Build frontend-unified
 ```
 
 ### Testing
 
 ```bash
-npm run test             # Run frontend-robbie tests
+npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
+npm run lint             # ESLint
+npm run format:check     # Prettier
 ```
 
 ### Database
@@ -78,8 +75,8 @@ npm run test:coverage    # Run tests with coverage report
 ```bash
 # In backend-node directory:
 npm run db:generate      # Generate Prisma client
-npm run db:push          # Push Bylawyer schema to database
-npm run db:migrate       # Run migrations
+npm run db:migrate       # Create/apply migrations in development (prisma migrate dev)
+npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
 ```
 
@@ -226,12 +223,6 @@ Uses Vite proxy to backend on port 3001 (no env var needed for dev)
 VITE_SERVER_URL=http://localhost:3001  # For production builds
 ```
 
-### Frontend Legacy (Robbie/Bylawyer)
-
-```
-VITE_SERVER_URL=http://localhost:3001
-```
-
 ## Key Conventions
 
 1. **Pure Reducer (Robbie):** Never add Date.now(), Math.random(), or side effects to the reducer. Use `idGenerators` before dispatch.
@@ -247,6 +238,10 @@ VITE_SERVER_URL=http://localhost:3001
 6. **UUID Primary Keys (Bylawyer):** For future distribution/sync capabilities.
 
 7. **Single Database:** Both Robbie and Bylawyer share the same PostgreSQL database (`robbie`).
+
+8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`. Use migrations, not `db:push`.
+
+9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react`, `react-dom` and `@types/node` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React and React Native libraries resolve them. React must be the exact version Expo pins for mobile (React Native's renderer requires it), so web, mobile and root move together. Update `@types/react` with Expo's template version, and keep `@types/node` on the runtime's major (Node 24, see `.nvmrc`).
 
 ## Feature Specifications
 

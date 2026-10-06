@@ -26,7 +26,7 @@ export const UnanimousConsentSection = React.memo(function UnanimousConsentSecti
         <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3">
           Chair is asking: "Is there any objection?"
         </p>
-        <p className="text-xs text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-900/40 p-2 rounded">
+        <p className="text-xs text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-900/40 p-2 rounded-sm">
           If no one objects, this motion will pass without a vote.
         </p>
       </div>
@@ -38,7 +38,7 @@ export const UnanimousConsentSection = React.memo(function UnanimousConsentSecti
             timestamp: generateTimestamp(),
           })
         }
-        className="w-full min-h-[56px] bg-danger-500 text-white py-4 rounded-xl hover:bg-danger-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-danger-400 focus:ring-offset-2"
+        className="w-full min-h-[56px] bg-danger-500 text-white py-4 rounded-xl hover:bg-danger-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-danger-400 focus:ring-offset-2"
       >
         I Object!
       </button>

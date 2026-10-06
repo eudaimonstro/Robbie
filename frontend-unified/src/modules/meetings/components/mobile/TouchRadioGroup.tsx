@@ -140,7 +140,7 @@ export function TouchRadioGroup<T extends string>({
               />
 
               {option.icon && (
-                <span className="flex-shrink-0" aria-hidden="true">
+                <span className="shrink-0" aria-hidden="true">
                   {option.icon}
                 </span>
               )}

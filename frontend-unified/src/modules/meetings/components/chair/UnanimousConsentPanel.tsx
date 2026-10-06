@@ -17,7 +17,10 @@ export const UnanimousConsentPanel = React.memo(function UnanimousConsentPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="unanimous-consent-heading">
+    <section
+      className="bg-white rounded-lg p-4 shadow-sm"
+      aria-labelledby="unanimous-consent-heading"
+    >
       <h3 id="unanimous-consent-heading" className="font-semibold mb-3 text-gray-800">
         Unanimous Consent Requested
       </h3>

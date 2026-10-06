@@ -26,7 +26,7 @@ export const QuorumWarning = React.memo(function QuorumWarning({
     >
       <div className="flex items-center gap-3">
         <AlertTriangle
-          className="h-5 w-5 text-accent-600 dark:text-accent-400 flex-shrink-0"
+          className="h-5 w-5 text-accent-600 dark:text-accent-400 shrink-0"
           aria-hidden="true"
         />
         <div>

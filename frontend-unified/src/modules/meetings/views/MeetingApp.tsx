@@ -102,7 +102,7 @@ export function MeetingApp() {
         {/* View switcher - only visible to admins */}
         {canSwitchViews && (
           <nav
-            className="flex gap-1 bg-white dark:bg-secondary-800 rounded-xl p-1 shadow-sm border border-secondary-200 dark:border-secondary-700"
+            className="flex gap-1 bg-white dark:bg-secondary-800 rounded-xl p-1 shadow-xs border border-secondary-200 dark:border-secondary-700"
             role="tablist"
             aria-label="Meeting view selection"
           >
@@ -116,7 +116,7 @@ export function MeetingApp() {
                 id={`${tab.id}-tab`}
                 className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 touch-manipulation active:scale-[0.98] transition-all ${
                   view === tab.id
-                    ? 'bg-meeting-600 text-white shadow-sm'
+                    ? 'bg-meeting-600 text-white shadow-xs'
                     : 'text-secondary-600 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-700'
                 }`}
               >
@@ -164,14 +164,14 @@ export function MeetingApp() {
               ) : (
                 <button
                   onClick={openRenameModal}
-                  className="p-1 text-secondary-400 hover:text-meeting-600 hover:bg-meeting-50 dark:hover:bg-meeting-900/30 rounded transition-colors"
+                  className="p-1 text-secondary-400 hover:text-meeting-600 hover:bg-meeting-50 dark:hover:bg-meeting-900/30 rounded-sm transition-colors"
                   title="Change your name (one-time only)"
                   aria-label="Change your display name"
                 >
                   <Pencil size={14} />
                 </button>
               )}
-              <span className="text-xs bg-secondary-100 dark:bg-secondary-700 text-secondary-600 dark:text-secondary-300 px-2 py-1 rounded capitalize">
+              <span className="text-xs bg-secondary-100 dark:bg-secondary-700 text-secondary-600 dark:text-secondary-300 px-2 py-1 rounded-sm capitalize">
                 {activeUser.role}
               </span>
             </div>
@@ -300,7 +300,7 @@ export function MeetingApp() {
               <div className="flex items-start gap-2">
                 <AlertCircle
                   size={16}
-                  className="text-accent-600 dark:text-accent-400 mt-0.5 flex-shrink-0"
+                  className="text-accent-600 dark:text-accent-400 mt-0.5 shrink-0"
                 />
                 <div className="text-sm text-accent-800 dark:text-accent-300">
                   <p className="font-medium">Use a name others will recognize</p>

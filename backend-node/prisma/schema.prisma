@@ -1,12 +1,14 @@
 // Bylawyer Database Schema
 generator client {
-  provider = "prisma-client-js"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
+// Connection URLs live in prisma.config.ts (CLI) and src/db/prisma.ts (runtime adapter)
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 // Organization that owns documents

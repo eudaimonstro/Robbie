@@ -51,7 +51,7 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
       inline-flex items-center justify-center gap-2
       font-medium rounded-xl
       transition-all duration-150 ease-out
-      focus:outline-none focus:ring-2 focus:ring-offset-2
+      focus:outline-hidden focus:ring-2 focus:ring-offset-2
       active:scale-[0.98]
       disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
       touch-manipulation
@@ -81,9 +81,9 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
           </>
         ) : (
           <>
-            {icon && iconPosition === 'left' && <span className="flex-shrink-0">{icon}</span>}
+            {icon && iconPosition === 'left' && <span className="shrink-0">{icon}</span>}
             {children}
-            {icon && iconPosition === 'right' && <span className="flex-shrink-0">{icon}</span>}
+            {icon && iconPosition === 'right' && <span className="shrink-0">{icon}</span>}
           </>
         )}
       </button>

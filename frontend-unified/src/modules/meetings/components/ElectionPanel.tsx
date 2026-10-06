@@ -93,7 +93,7 @@ export function ElectionPanel({
   }, [state.nominations, state.currentNominationPosition]);
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="election-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="election-heading">
       <h3
         id="election-heading"
         className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
@@ -121,7 +121,7 @@ export function ElectionPanel({
                 onChange={(e) =>
                   setRequiredVotes(e.target.value as 'majority' | 'plurality' | '2/3')
                 }
-                className="w-full p-2 border rounded text-sm"
+                className="w-full p-2 border rounded-sm text-sm"
               >
                 <option value="majority">Majority (more than half)</option>
                 <option value="plurality">Plurality (most votes wins)</option>
@@ -131,7 +131,7 @@ export function ElectionPanel({
 
             <button
               onClick={handleStartElection}
-              className="w-full py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
+              className="w-full py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 font-medium"
             >
               Start Election
             </button>
@@ -184,7 +184,7 @@ export function ElectionPanel({
           {isChair && (
             <button
               onClick={handleCloseElection}
-              className="w-full py-2 bg-gray-600 text-white rounded hover:bg-gray-700 font-medium"
+              className="w-full py-2 bg-gray-600 text-white rounded-sm hover:bg-gray-700 font-medium"
             >
               Close Election
             </button>
@@ -204,7 +204,7 @@ export function ElectionPanel({
               {sortedBallotResults.map(({ name, votes, percentage }) => (
                 <div
                   key={name}
-                  className="flex items-center justify-between p-2 bg-white rounded border"
+                  className="flex items-center justify-between p-2 bg-white rounded-sm border"
                 >
                   <span className="font-medium">{name}</span>
                   <span className="text-gray-600">
@@ -215,13 +215,13 @@ export function ElectionPanel({
             </div>
 
             {state.currentElection.elected ? (
-              <div className="p-3 bg-green-50 border border-green-300 rounded mb-3">
+              <div className="p-3 bg-green-50 border border-green-300 rounded-sm mb-3">
                 <p className="font-semibold text-green-900">
                   🎉 {state.currentElection.elected} has been elected!
                 </p>
               </div>
             ) : (
-              <div className="p-3 bg-amber-50 border border-amber-300 rounded mb-3">
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-sm mb-3">
                 <p className="font-semibold text-amber-900">⚠️ No candidate elected</p>
                 <p className="text-xs text-amber-700 mt-1">
                   The required {state.currentElection.requiredVotes} vote was not achieved.
@@ -234,7 +234,7 @@ export function ElectionPanel({
           {isChair && state.currentElection.elected && (
             <button
               onClick={() => handleDeclareElected(state.currentElection!.elected!)}
-              className="w-full py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
+              className="w-full py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 font-medium"
             >
               Officially Declare Elected
             </button>

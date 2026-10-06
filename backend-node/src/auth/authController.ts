@@ -162,7 +162,7 @@ export { cleanupExpiredVerifications };
 // Request email verification
 authRouter.post('/request-verification', requestVerificationLimiter, async (req, res) => {
   try {
-    const { email, name, meetingCode } = req.body;
+    const { email, name, meetingCode } = req.body ?? {};
 
     if (!email || !name || !meetingCode) {
       return res.status(400).json({ error: 'Missing required fields: email, name, meetingCode' });
@@ -205,7 +205,7 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
 // Verify email code and return JWT
 authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
   try {
-    const { email, code, meetingCode, name } = req.body;
+    const { email, code, meetingCode, name } = req.body ?? {};
 
     if (!email || !code || !meetingCode) {
       return res.status(400).json({ error: 'Missing required fields: email, code, meetingCode' });
@@ -331,7 +331,7 @@ if (!isProduction) {
 if (TEST_AUTH_ENABLED) {
   authRouter.post('/test-role', async (req, res) => {
     try {
-      const { email, meetingCode, role } = req.body;
+      const { email, meetingCode, role } = req.body ?? {};
 
       if (!email || !meetingCode || !role) {
         return res.status(400).json({ error: 'Missing required fields: email, meetingCode, role' });

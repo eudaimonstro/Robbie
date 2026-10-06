@@ -110,7 +110,7 @@ export const MotionSelector = React.memo(function MotionSelector({
       <button
         onClick={onSubmit}
         disabled={needsText}
-        className="w-full min-h-[48px] bg-meeting-600 text-white py-3 rounded-xl hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-700 disabled:cursor-not-allowed font-medium touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-meeting-400 focus:ring-offset-2"
+        className="w-full min-h-[48px] bg-meeting-600 text-white py-3 rounded-xl hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-700 disabled:cursor-not-allowed font-medium touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-meeting-400 focus:ring-offset-2"
       >
         {getButtonLabel()}
       </button>

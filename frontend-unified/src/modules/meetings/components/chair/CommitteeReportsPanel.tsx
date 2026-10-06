@@ -17,7 +17,7 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="reports-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="reports-heading">
       <h3 id="reports-heading" className="font-semibold mb-3 text-gray-800">
         <span aria-hidden="true">📊</span> Committee Reports
       </h3>
@@ -45,7 +45,7 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
               </div>
               <p className="text-sm text-gray-700 mb-2">{report.summary}</p>
               {report.recommendations && (
-                <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-sm p-2 mb-2">
                   <p className="text-xs font-semibold text-amber-800 mb-1">Recommendations:</p>
                   <p className="text-xs text-amber-900">{report.recommendations}</p>
                 </div>
