@@ -762,6 +762,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_PROXY_AUTHORITY',
         };
       }
+      // A proxy may cast or change the member's vote, but not replace one cast in person
+      const votedInPerson =
+        state.voters.includes(action.forMemberId) &&
+        !state.proxyVotes.some((pv) => pv.memberId === action.forMemberId);
+      if (votedInPerson) {
+        return {
+          valid: false,
+          error: 'This member has already voted in person',
+          errorCode: 'ALREADY_VOTED',
+        };
+      }
       return { valid: true };
     }
 

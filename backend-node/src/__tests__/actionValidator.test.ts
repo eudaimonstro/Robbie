@@ -420,6 +420,54 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('CAST_PROXY_VOTE', () => {
+    // Member 3 gave a proxy to member 2
+    const proxyState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
+      ...activeMeetingState(),
+      votingOpen: true,
+      allowProxyVoting: true,
+      currentMotion: createMotion(),
+      proxies: [
+        {
+          id: 1,
+          grantedBy: 3,
+          grantedTo: 2,
+          grantedByName: 'Member 3',
+          grantedToName: 'Member 2',
+          grantedAt: '',
+          scope: 'all',
+        },
+      ],
+      ...overrides,
+    });
+    const castForMember3 = (state: MeetingState) =>
+      validateAction(state, {
+        type: 'CAST_PROXY_VOTE',
+        vote: 'nay',
+        forMemberId: 3,
+        castById: 2,
+        timestamp: '',
+      });
+
+    it('allows the holder to vote for the member', () => {
+      expect(castForMember3(proxyState()).valid).toBe(true);
+    });
+
+    it('allows the holder to change a proxy vote', () => {
+      const state = proxyState({
+        voters: [3],
+        voterChoices: { 3: 'yea' },
+        proxyVotes: [{ memberId: 3, castBy: 2, vote: 'yea' }],
+      });
+      expect(castForMember3(state).valid).toBe(true);
+    });
+
+    it('rejects replacing a vote the member cast in person', () => {
+      const state = proxyState({ voters: [3], voterChoices: { 3: 'yea' } });
+      expect(castForMember3(state).errorCode).toBe('ALREADY_VOTED');
+    });
+  });
+
   describe('RAISE_HAND', () => {
     const debatableState = (): MeetingState => ({
       ...activeMeetingState(),
