@@ -40,14 +40,26 @@ export function processOutcomeResult(
   newStack: Motion[],
   motionToRestore?: Motion | null,
 ): ProcessedOutcome {
+  // Rules suspended for a single action are back in force once a question is decided: that
+  // decision is taken to be the action they were suspended for. (This can end one early when
+  // another question, such as an amendment, is decided first; the chair can suspend again.)
+  const expiring = currentSuspendedRules.filter(
+    (s) => s.scope === 'single-action' && !s.actionCompleted,
+  );
+  const settledRules = currentSuspendedRules.map((s) =>
+    expiring.includes(s) ? { ...s, actionCompleted: true } : s,
+  );
+
   // Handle suspended rules
   const suspendedRules = outcome.newSuspension
-    ? [...currentSuspendedRules, outcome.newSuspension]
-    : currentSuspendedRules;
+    ? [...settledRules, outcome.newSuspension]
+    : settledRules;
 
-  const suspensionLog = outcome.newSuspension
-    ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
-    : '';
+  const suspensionLog =
+    (outcome.newSuspension
+      ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
+      : '') +
+    expiring.map((s) => `\n[RULE RESTORED] ${s.rule} restored after its single action`).join('');
 
   // Handle objection killing main motion
   let workingStack = newStack;
