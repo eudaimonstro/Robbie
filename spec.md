@@ -224,8 +224,7 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
 - **Majors not taken:**
   - Tailwind 4 is a migration, and v3 is still maintained.
   - TypeScript 7: typescript-eslint doesn't support it yet (6.0 is the newest it supports, and is in use).
-  - Express 5: v4 is still supported.
-  - `@types/node` stays on 22 to match the runtime, and `@types/express` stays on 4 to match Express 4.
+  - Prisma 8 is still a release candidate.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
   **Target VPS (surveyed 2026-10-05):**
