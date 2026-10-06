@@ -147,6 +147,40 @@ agendaItemsRouter.get('/agenda-items/:id', validate({ params: uuidParam }), asyn
 });
 
 /**
+ * PUT /api/agenda-items/reorder
+ * Reorder agenda items within a packet
+ * Body: { itemIds: string[] } (in desired order)
+ */
+agendaItemsRouter.put(
+  '/agenda-items/reorder',
+  validate({ body: reorderAgendaItemsBody }),
+  async (req, res) => {
+    try {
+      const { itemIds } = req.body;
+
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ error: 'itemIds array required' });
+      }
+
+      // Update positions
+      const updates = itemIds.map((id, index) =>
+        prisma.meetingAgendaItem.update({
+          where: { id },
+          data: { position: index },
+        }),
+      );
+
+      await prisma.$transaction(updates);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reordering agenda items');
+      res.status(500).json({ error: 'Failed to reorder agenda items' });
+    }
+  },
+);
+
+/**
  * PUT /api/agenda-items/:id
  * Update agenda item
  * Body: { title?, description?, estimatedMinutes?, presenter?, position? }
@@ -221,40 +255,6 @@ agendaItemsRouter.delete('/agenda-items/:id', validate({ params: uuidParam }), a
     res.status(500).json({ error: 'Failed to delete agenda item' });
   }
 });
-
-/**
- * PUT /api/agenda-items/reorder
- * Reorder agenda items within a packet
- * Body: { itemIds: string[] } (in desired order)
- */
-agendaItemsRouter.put(
-  '/agenda-items/reorder',
-  validate({ body: reorderAgendaItemsBody }),
-  async (req, res) => {
-    try {
-      const { itemIds } = req.body;
-
-      if (!Array.isArray(itemIds) || itemIds.length === 0) {
-        return res.status(400).json({ error: 'itemIds array required' });
-      }
-
-      // Update positions
-      const updates = itemIds.map((id, index) =>
-        prisma.meetingAgendaItem.update({
-          where: { id },
-          data: { position: index },
-        }),
-      );
-
-      await prisma.$transaction(updates);
-
-      res.json({ success: true });
-    } catch (error) {
-      logger.error({ err: error }, 'Error reordering agenda items');
-      res.status(500).json({ error: 'Failed to reorder agenda items' });
-    }
-  },
-);
 
 /**
  * POST /api/agenda-items/bulk

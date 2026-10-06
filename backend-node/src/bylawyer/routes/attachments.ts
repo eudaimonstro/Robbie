@@ -282,6 +282,40 @@ attachmentsRouter.get(
 );
 
 /**
+ * PUT /api/attachments/reorder
+ * Reorder attachments within a packet or agenda item
+ * Body: { attachmentIds: string[] } (in desired order)
+ */
+attachmentsRouter.put(
+  '/attachments/reorder',
+  validate({ body: reorderAttachmentsBody }),
+  async (req, res) => {
+    try {
+      const { attachmentIds } = req.body;
+
+      if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
+        return res.status(400).json({ error: 'attachmentIds array required' });
+      }
+
+      // Update positions
+      const updates = attachmentIds.map((id, index) =>
+        prisma.attachment.update({
+          where: { id },
+          data: { position: index },
+        }),
+      );
+
+      await prisma.$transaction(updates);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reordering attachments');
+      res.status(500).json({ error: 'Failed to reorder attachments' });
+    }
+  },
+);
+
+/**
  * PUT /api/attachments/:id
  * Update attachment metadata
  * Body: { displayName?, description?, position? }
@@ -354,37 +388,3 @@ attachmentsRouter.delete('/attachments/:id', validate({ params: uuidParam }), as
     res.status(500).json({ error: 'Failed to delete attachment' });
   }
 });
-
-/**
- * PUT /api/attachments/reorder
- * Reorder attachments within a packet or agenda item
- * Body: { attachmentIds: string[] } (in desired order)
- */
-attachmentsRouter.put(
-  '/attachments/reorder',
-  validate({ body: reorderAttachmentsBody }),
-  async (req, res) => {
-    try {
-      const { attachmentIds } = req.body;
-
-      if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
-        return res.status(400).json({ error: 'attachmentIds array required' });
-      }
-
-      // Update positions
-      const updates = attachmentIds.map((id, index) =>
-        prisma.attachment.update({
-          where: { id },
-          data: { position: index },
-        }),
-      );
-
-      await prisma.$transaction(updates);
-
-      res.json({ success: true });
-    } catch (error) {
-      logger.error({ err: error }, 'Error reordering attachments');
-      res.status(500).json({ error: 'Failed to reorder attachments' });
-    }
-  },
-);
