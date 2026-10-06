@@ -10,7 +10,11 @@ import {
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { OrgError } from '../../orgs/orgError.js';
-import { createOwnedOrganization, userOrganizations } from '../../orgs/organizationService.js';
+import {
+  createOwnedOrganization,
+  slugTaken,
+  userOrganizations,
+} from '../../orgs/organizationService.js';
 import { fromParam, requireRole, signedInOnly } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfSlug } from '../../orgs/resolvers.js';
 
@@ -67,7 +71,7 @@ organizationsRouter.post(
       // Check for existing slug
       const existing = await prisma.organization.findUnique({ where: { slug } });
       if (existing) {
-        return res.status(400).json({ error: `Organization with slug '${slug}' already exists` });
+        return res.status(400).json({ error: slugTaken(slug) });
       }
 
       const org = await createOwnedOrganization(req.user!.id, { name, slug, description });

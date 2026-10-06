@@ -1,4 +1,4 @@
-import type { Organization, OrgRole, Prisma } from '../generated/prisma/client.js';
+import { Prisma, type Organization, type OrgRole } from '../generated/prisma/client.js';
 import { prisma } from '../db/prisma.js';
 import { OrgError } from './orgError.js';
 
@@ -32,7 +32,15 @@ export async function userOrganizations(
   };
 }
 
-/** Create an organization with the user as its owner */
+/** The answer when an organization's slug is taken */
+export function slugTaken(slug: string): string {
+  return `Organization with slug '${slug}' already exists`;
+}
+
+/**
+ * Create an organization with the user as its owner. A slug taken meanwhile (the route checks
+ * first) is a 400, like the route's check.
+ */
 export async function createOwnedOrganization(
   userId: number,
   data: { name: string; slug: string; description?: string },
@@ -44,9 +52,21 @@ export async function createOwnedOrganization(
     if (owned >= MAX_OWNED_ORGANIZATIONS) {
       throw new OrgError(429, `You can own at most ${MAX_OWNED_ORGANIZATIONS} organizations`);
     }
-    const org = await tx.organization.create({
-      data: { ...data, members: { create: { userId, role: 'owner' } } },
-    });
-    return { ...org, role: 'owner' as const };
+    try {
+      const org = await tx.organization.create({
+        data: { ...data, members: { create: { userId, role: 'owner' } } },
+      });
+      return { ...org, role: 'owner' as const };
+    } catch (error) {
+      // The slug is the only unique column of an organization that isn't generated
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        error.meta?.modelName === 'Organization'
+      ) {
+        throw new OrgError(400, slugTaken(data.slug));
+      }
+      throw error;
+    }
   });
 }

@@ -117,6 +117,30 @@ describe('organizations', () => {
     expect(results.map((r) => r.status).sort()).toEqual([201, 201, 429]);
   });
 
+  it('refuses a taken slug, also when two creations arrive together', async () => {
+    const taken = await call('post', '/api/organizations', {
+      cookie: f.users.owner.cookie,
+      body: { name: 'Again', slug: f.orgA.slug },
+    });
+    expect(taken.status).toBe(400);
+    expect(taken.body).toEqual({ error: "Organization with slug 'org-a' already exists" });
+
+    // Different users, so the owner limit's lock doesn't order them
+    const [ann, bob] = await Promise.all([signIn('ann@example.org'), signIn('bob@example.org')]);
+    const results = await Promise.all(
+      [ann, bob].map((user) =>
+        call('post', '/api/organizations', {
+          cookie: user.cookie,
+          body: { name: 'Garden Club', slug: 'garden' },
+        }),
+      ),
+    );
+    expect(results.map((r) => r.status).sort()).toEqual([201, 400]);
+    expect(results.find((r) => r.status === 400)!.body).toEqual({
+      error: "Organization with slug 'garden' already exists",
+    });
+  });
+
   it('changes only the name and description', async () => {
     const res = await call('put', `/api/organizations/${f.orgA.id}`, {
       cookie: f.users.admin.cookie,
