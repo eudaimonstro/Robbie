@@ -4,6 +4,17 @@ import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { getChairScript } from '../chairScriptHelper';
 
+const pendingMotion = {
+  ...MOTIONS.mainMotion,
+  id: 1,
+  type: 'mainMotion',
+  text: 'Approve the budget',
+  mover: 'Member 1',
+  moverId: 1,
+  secondedBy: 'Member 2',
+  status: 'active' as const,
+};
+
 // Runs a vote through the reducer so the log has the messages the app really writes
 function afterVote(yeas: number, nays: number): MeetingState {
   const motion = {
@@ -35,6 +46,19 @@ function afterVote(yeas: number, nays: number): MeetingState {
 describe('getChairScript', () => {
   it('announces a motion that carried', () => {
     expect(getChairScript(afterVote(3, 1))?.text).toBe('"The motion has carried."');
+  });
+
+  it('announces a motion adopted by unanimous consent', () => {
+    let state: MeetingState = {
+      ...initialState,
+      meetingActive: true,
+      agendaAdopted: true,
+      currentMotion: pendingMotion,
+      motionStack: [pendingMotion],
+    };
+    state = meetingReducer(state, { type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: '10:05' });
+    state = meetingReducer(state, { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:06' });
+    expect(getChairScript(state)?.text).toBe('"The motion has carried."');
   });
 
   it('announces a motion that failed', () => {

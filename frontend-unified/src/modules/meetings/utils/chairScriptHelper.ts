@@ -56,9 +56,13 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   }
 
   // Check for recently passed or failed vote. The reducer logs the result as
-  // "Vote: Yea X, Nay Y. CARRIED." (or FAILED), followed by any outcome notes.
+  // "Vote: Yea X, Nay Y. CARRIED." (or FAILED), or "Motion CARRIED by unanimous consent.",
+  // followed by any outcome notes.
   const lastLog = state.meetingLog[state.meetingLog.length - 1];
-  const voteOutcome = lastLog?.message.match(/^Vote: Yea \d+, Nay \d+\. (CARRIED|FAILED)\./)?.[1];
+  const outcomeMatch = lastLog?.message.match(
+    /^(?:Vote: Yea \d+, Nay \d+\. (CARRIED|FAILED)\.|Motion (CARRIED) by unanimous consent\.)/,
+  );
+  const voteOutcome = outcomeMatch?.[1] ?? outcomeMatch?.[2];
 
   if (voteOutcome === 'CARRIED' && !state.votingOpen && !state.currentMotion) {
     // Check if this was a suspension (special handling)
