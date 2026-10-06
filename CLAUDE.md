@@ -241,7 +241,7 @@ VITE_SERVER_URL=http://localhost:3001  # For production builds
 
 8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`. Use migrations, not `db:push`.
 
-9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react` and `react-dom` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React libraries resolve them. Keep their versions aligned with `frontend-unified` (and `@types/react` with mobile's Expo SDK), or you get two copies and confusing type or hook errors.
+9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react`, `react-dom` and `@types/node` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React and React Native libraries resolve them. React must be the exact version Expo pins for mobile (React Native's renderer requires it), so web, mobile and root move together. Update `@types/react` with Expo's template version, and keep `@types/node` on the runtime's major (Node 24, see `.nvmrc`).
 
 ## Feature Specifications
 

@@ -188,7 +188,7 @@ Other work:
 - Filter the motion list to motions currently in order (today it lists all of them).
 - Mount the proxy request and acceptance UI or remove it.
 - Restore the session on launch. Use `shared/types/socket` instead of redefined event types.
-- Fix the existing breakage first. `tsc` has 2 errors: the `MotionCard` test fixture uses a removed `timestamp` field, and `app/(meeting)/motions.tsx` imports `@robbie-bylawyer/shared/utils/idGenerators`, which doesn't resolve. jest also finds 0 tests. Mobile is not in CI yet, so add it once these pass.
+- **Done 2026-10-05:** the existing breakage is fixed. `tsc` is clean, jest runs all 53 tests (it previously found none), the app is on Expo SDK 57, and CI type-checks and tests mobile.
 - Done when: a participant can join, queue, make a motion, and vote against a dev backend, with jest coverage of the join and vote flows.
 
 ### M11. Cleanup and documentation
@@ -214,18 +214,17 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
 - A real transactional email provider is required in production, and the app refuses to start without one. The VPS should not send mail directly.
 - Boot-time config validation (zod) and a `/api/health` that checks the database, used as the compose healthcheck. Pino logs to stdout with Docker log rotation, and dependency audit runs in CI.
 
-**Dependency status (2026-10-05, branch `chore/dependency-updates`):** Prisma 7, React 19, React Router 7, Vite 8, Vitest 5, TypeScript 5.9, nodemailer 10 and GitHub Actions v7 are done. Deferred on purpose:
+**Dependency status (2026-10-05, branch `chore/dependency-updates`):** everything is on its latest version except where a concrete constraint applies.
 
-- **Expo SDK 54 (mobile) is held.** Apple hasn't approved Expo Go past SDK 54, so upgrading would lock out iOS testers using the App Store app; do it with M10. As a consequence, the only packages npm marks deprecated (`glob` 7, `inflight`, `rimraf` 3) remain, because `jest-expo` 54 pins jest 29.
-- **Mobile React resolution:** root `react` is 19.3 (web), while `mobile/node_modules/react` is 19.1 (Expo pin). Root-installed React Native libraries resolve the root copy, a different React from mobile's own code. This isn't new (it was 18 vs 19.1 before), but check it first in M10 if mobile hits "invalid hook call" errors.
-- **Remaining audit (70: 0 critical, 52 high, 18 moderate):**
-  - Most are mobile/Expo and jest tooling, waiting on the SDK upgrade.
-  - Tailwind 3's build tooling is deferred with Tailwind 4.
-  - Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15. These are dev-time only, and this is a Postgres project. Wait for Prisma's own update; forcing `overrides` here broke the dependency tree when tried.
-- **Majors not taken:**
-  - Tailwind 4 is a migration, and v3 is still maintained.
-  - TypeScript 7: typescript-eslint doesn't support it yet (6.0 is the newest it supports, and is in use).
-  - Prisma 8 is still a release candidate.
+- **Updated:** Node 24 (current LTS), Express 5, Prisma 7, TypeScript 6.0, React 19.2, React Router 7, Vite 8, Vitest 5, Tailwind 4, Expo SDK 57 (React Native 0.86), nodemailer 10, lucide-react 1, react-markdown 10, jsdom 30, concurrently 10, GitHub Actions v7.
+- **Held, and why:**
+  - React 19.2.3 rather than 19.3 for the web app too: Expo SDK 57 pins React exactly, and React Native's renderer requires the same React it resolves, so the repo shares one copy. Move both when Expo moves.
+  - React Native 0.86 and its native modules (async-storage 2.2, screens, safe-area): pinned by Expo SDK 57.
+  - jest 29: jest-expo 57 is built on it. This is also why the only npm-deprecated packages (`glob` 7, `inflight`, `rimraf` 3) remain.
+  - TypeScript 7: typescript-eslint doesn't support it yet; 6.0 is the newest it supports.
+  - `@types/node` 24: matches the Node 24 runtime. Node 26 becomes LTS on 2026-10-28, so revisit then.
+  - Prisma 8: still a release candidate.
+- **Remaining audit (66: 0 critical, 50 high, 16 moderate):** almost all are inside Expo's and jest's own pinned dependency trees. Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15; these are dev-time only, and this is a Postgres project. Wait for upstream releases; forcing `overrides` broke the dependency tree when tried.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
   **Target VPS (surveyed 2026-10-05):**
