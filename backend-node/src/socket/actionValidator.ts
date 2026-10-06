@@ -7,7 +7,12 @@
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
-import { isSecondaryAmendmentInOrder, wasMotionDefeated } from '@robbie-bylawyer/shared/utils';
+import {
+  canChairVoteDecide,
+  isRuleSuspended,
+  isSecondaryAmendmentInOrder,
+  wasMotionDefeated,
+} from '@robbie-bylawyer/shared/utils';
 
 export interface ValidationResult {
   valid: boolean;
@@ -140,17 +145,23 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       // A member who has voted may change the vote until the result is announced (RONR); the
       // reducer moves the count from the old choice to the new one
-      // Chair voting restriction (unless suspended or deciding vote)
-      if (!action.isChairDecidingVote) {
+      // Chair voting restriction (unless suspended): the chair votes only when the vote would
+      // change the result. That is checked here, not taken from the client's flag.
+      {
         const voter = state.members.find((m) => m.id === action.voterId);
-        if (voter?.role === 'chair') {
-          const ruleActive = !state.suspendedRules.some(
-            (s) => s.rule === 'chair-voting-restriction' && !s.actionCompleted,
-          );
-          if (ruleActive) {
+        if (voter?.role === 'chair' && !isRuleSuspended(state, 'chair-voting-restriction')) {
+          // Judge on the other members' votes, leaving out a vote the chair already cast
+          const previous = state.voterChoices[action.voterId];
+          const othersVotes = previous
+            ? { ...state.votes, [previous]: state.votes[previous] - 1 }
+            : state.votes;
+          const decides =
+            action.isChairDecidingVote &&
+            canChairVoteDecide(othersVotes, state.currentMotion?.vote ?? 'majority');
+          if (!decides) {
             return {
               valid: false,
-              error: 'Chair cannot vote except to break ties',
+              error: "The chair votes only when the chair's vote would change the result",
               errorCode: 'CHAIR_CANNOT_VOTE',
             };
           }

@@ -47,4 +47,18 @@ describe('chair VotingPanel', () => {
 
     expect(screen.queryByText('Chair may vote to break the tie')).not.toBeNull();
   });
+
+  it('offers no deciding vote before anyone has voted', () => {
+    const state = votingState([member(1, 'chair'), member(2, 'member')]);
+    render(
+      <VotingPanel
+        state={{ ...state, votes: { yea: 0, nay: 0, abstain: 0 }, voters: [] }}
+        dispatch={vi.fn()}
+        hasQuorum
+        presentCount={2}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Vote Yea' })).toBeNull();
+  });
 });

@@ -392,15 +392,23 @@ describe('actionValidator', () => {
       expect(result.errorCode).toBe('CHAIR_CANNOT_VOTE');
     });
 
-    it('should allow chair deciding vote', () => {
-      const state = votingState();
-      const result = validateAction(state, {
-        type: 'CAST_VOTE',
-        vote: 'yea',
-        voterId: 1,
-        isChairDecidingVote: true,
+    describe("the chair's deciding vote", () => {
+      const decidingVote = (yea: number, nay: number) =>
+        validateAction(
+          { ...votingState(), votes: { yea, nay, abstain: 0 } },
+          { type: 'CAST_VOTE', vote: 'yea', voterId: 1, isChairDecidingVote: true },
+        );
+
+      it('is allowed when it would change the result', () => {
+        expect(decidingVote(2, 2).valid).toBe(true);
+        expect(decidingVote(3, 2).valid).toBe(true);
       });
-      expect(result.valid).toBe(true);
+
+      it('is rejected before anyone has voted or when it would not change the result', () => {
+        // The client's isChairDecidingVote flag alone must not let the chair vote
+        expect(decidingVote(0, 0).errorCode).toBe('CHAIR_CANNOT_VOTE');
+        expect(decidingVote(5, 2).errorCode).toBe('CHAIR_CANNOT_VOTE');
+      });
     });
   });
 

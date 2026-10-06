@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { calculateVoteResult, getChairVotingOptions } from '../../utils/index.js';
+import {
+  calculateVoteResult,
+  getChairVotingOptions,
+  canChairVoteDecide,
+} from '../../utils/index.js';
 
 describe('voteCalculator', () => {
   describe('calculateVoteResult', () => {
@@ -62,6 +66,30 @@ describe('voteCalculator', () => {
       const result = calculateVoteResult({ yea: 0, nay: 0, abstain: 0 }, 'majority');
       expect(result.passed).toBe(false);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('canChairVoteDecide', () => {
+    const votes = (yea: number, nay: number) => ({ yea, nay, abstain: 0 });
+
+    it('is false before anyone has voted', () => {
+      expect(canChairVoteDecide(votes(0, 0), 'majority')).toBe(false);
+    });
+
+    it('is true when the chair can break or make a tie', () => {
+      expect(canChairVoteDecide(votes(2, 2), 'majority')).toBe(true);
+      expect(canChairVoteDecide(votes(3, 2), 'majority')).toBe(true);
+    });
+
+    it('is false when the chair cannot change a majority result', () => {
+      expect(canChairVoteDecide(votes(5, 2), 'majority')).toBe(false);
+    });
+
+    it('is true when the chair can make or block two-thirds', () => {
+      // 5-3 falls short of two-thirds; with the chair, 6-3 reaches it
+      expect(canChairVoteDecide(votes(5, 3), '2/3')).toBe(true);
+      // 6-4 falls short either way
+      expect(canChairVoteDecide(votes(6, 4), '2/3')).toBe(false);
     });
   });
 

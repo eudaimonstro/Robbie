@@ -5,7 +5,11 @@ export {
   calculateTimerEnd,
 } from './idGenerators.js';
 
-export { calculateVoteResult, getChairVotingOptions } from './voteCalculator.js';
+export {
+  calculateVoteResult,
+  getChairVotingOptions,
+  canChairVoteDecide,
+} from './voteCalculator.js';
 
 export {
   isRuleSuspended,

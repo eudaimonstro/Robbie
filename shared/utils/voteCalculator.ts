@@ -32,6 +32,23 @@ export function calculateVoteResult(
 }
 
 /**
+ * RONR: the chair votes (outside a ballot) only when the chair's vote would change the result,
+ * for example to break or make a tie, or to reach or block two-thirds. That is judged on the
+ * votes already cast, so it is never true before anyone has voted.
+ * @param votes - Current vote counts, without the chair's vote
+ * @param requirement - The vote requirement of the pending question
+ */
+export function canChairVoteDecide(votes: Votes, requirement: VoteRequirement): boolean {
+  if (votes.yea + votes.nay === 0) return false;
+  const passes = (v: Votes) => calculateVoteResult(v, requirement).passed;
+  const now = passes(votes);
+  return (
+    passes({ ...votes, yea: votes.yea + 1 }) !== now ||
+    passes({ ...votes, nay: votes.nay + 1 }) !== now
+  );
+}
+
+/**
  * Check if chair can cast a deciding vote
  * @param votes - Current vote counts
  * @returns Object indicating if chair can break or create a tie
