@@ -32,13 +32,15 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [expandedDocs, setExpandedDocs] = useState(true);
 
+  // Reload on navigation too: creating a document navigates to it, and deleting one navigates
+  // away. The client caches the list and clears the cache on any write, so this is cheap.
   useEffect(() => {
     if (currentOrganization) {
       documentsApi.list(currentOrganization.id).then(setDocuments).catch(console.error);
     } else {
       setDocuments([]);
     }
-  }, [currentOrganization]);
+  }, [currentOrganization, location.pathname]);
 
   const isActive = (path: string) => {
     if (path === '/') {
