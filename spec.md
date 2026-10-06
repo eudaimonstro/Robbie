@@ -212,6 +212,20 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
 - Nightly `pg_dump` plus an uploads tarball, kept on the VPS and copied off-host. The restore steps are documented and tested once.
 - A real transactional email provider is required in production, and the app refuses to start without one. The VPS should not send mail directly.
 - Boot-time config validation (zod) and a `/api/health` that checks the database, used as the compose healthcheck. Pino logs to stdout with Docker log rotation, and dependency audit runs in CI.
+
+**Dependency status (2026-10-05, branch `chore/dependency-updates`):** Prisma 7, React 19, React Router 7, Vite 8, Vitest 5, TypeScript 5.9, nodemailer 10 and GitHub Actions v7 are done. Deferred on purpose:
+
+- **Expo SDK 54 (mobile) is held.** Apple hasn't approved Expo Go past SDK 54, so upgrading would lock out iOS testers using the App Store app; do it with M10. As a consequence, the only packages npm marks deprecated (`glob` 7, `inflight`, `rimraf` 3) remain, because `jest-expo` 54 pins jest 29.
+- **Mobile React resolution:** root `react` is 19.3 (web), while `mobile/node_modules/react` is 19.1 (Expo pin). Root-installed React Native libraries resolve the root copy, a different React from mobile's own code. This isn't new (it was 18 vs 19.1 before), but check it first in M10 if mobile hits "invalid hook call" errors.
+- **Remaining audit (70: 0 critical, 52 high, 18 moderate):**
+  - Most are mobile/Expo and jest tooling, waiting on the SDK upgrade.
+  - Tailwind 3's build tooling is deferred with Tailwind 4.
+  - Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15. These are dev-time only, and this is a Postgres project. Wait for Prisma's own update; forcing `overrides` here broke the dependency tree when tried.
+- **Majors not taken:**
+  - Tailwind 4 is a migration, and v3 is still maintained.
+  - TypeScript 6/7: typescript-eslint doesn't support 7 yet, and 6 turns the `baseUrl` deprecation into an error.
+  - Express 5: v4 is still supported.
+  - `@types/node` stays on 22 to match the runtime, and `@types/express` stays on 4 to match Express 4.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
   **Target VPS (surveyed 2026-10-05):**

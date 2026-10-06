@@ -47,7 +47,7 @@ robbie-bylawyer/
 
 ## Tech Stack
 
-- **Runtime:** Node.js 20+
+- **Runtime:** Node.js 22.12+
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS
 - **Backend:** Express, Socket.io, Prisma, PostgreSQL
 - **Mobile:** React Native, Expo
@@ -57,8 +57,8 @@ robbie-bylawyer/
 
 ### Prerequisites
 
-- Node.js 18 or higher
-- npm 9 or higher
+- Node.js 22.12 or higher
+- npm 10 or higher
 
 ### Setup
 
@@ -68,8 +68,9 @@ git clone <repository-url>
 cd robbie-bylawyer
 npm install
 
-# Setup Bylawyer database
-npm run db:push
+# Start PostgreSQL and apply database migrations
+docker compose up -d
+npm run db:migrate
 
 # Start development servers
 npm run dev

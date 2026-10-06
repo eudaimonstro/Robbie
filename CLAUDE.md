@@ -75,8 +75,8 @@ npm run format:check     # Prettier
 ```bash
 # In backend-node directory:
 npm run db:generate      # Generate Prisma client
-npm run db:push          # Push Bylawyer schema to database
-npm run db:migrate       # Run migrations
+npm run db:migrate       # Create/apply migrations in development (prisma migrate dev)
+npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
 ```
 
@@ -239,7 +239,9 @@ VITE_SERVER_URL=http://localhost:3001  # For production builds
 
 7. **Single Database:** Both Robbie and Bylawyer share the same PostgreSQL database (`robbie`).
 
-8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`.
+8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`. Use migrations, not `db:push`.
+
+9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react` and `react-dom` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React libraries resolve them. Keep their versions aligned with `frontend-unified` (and `@types/react` with mobile's Expo SDK), or you get two copies and confusing type or hook errors.
 
 ## Feature Specifications
 
