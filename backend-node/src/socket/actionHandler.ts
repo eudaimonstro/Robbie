@@ -252,6 +252,21 @@ export async function handleDispatchAction(
     // Post-action: Update storage and sockets for role changes
     await handleRoleChangePostAction(io, meetingCode, enrichedAction);
 
+    // Broadcast new state to all clients in the room, after the role change (so a new chair's
+    // socket already has its permissions) and before the bylaw sync (so the vote result isn't
+    // held up by database work). Clients ignore a state older than the one they have.
+    const roomName = `meeting:${meetingCode}`;
+    io.to(roomName).emit('STATE_UPDATE', {
+      state: result.state,
+      stateVersion: result.stateVersion,
+      triggeredBy: {
+        actionType: data.action.type,
+        userId,
+      },
+    });
+
+    callback({ success: true, stateVersion: result.stateVersion });
+
     // Post-action: Sync bylaw amendments to Bylawyer after vote closes
     if (enrichedAction.type === 'CLOSE_VOTING') {
       try {
@@ -269,19 +284,6 @@ export async function handleDispatchAction(
         logger.error({ err: syncError }, 'Bylaw sync error');
       }
     }
-
-    // Broadcast new state to all clients in the room
-    const roomName = `meeting:${meetingCode}`;
-    io.to(roomName).emit('STATE_UPDATE', {
-      state: result.state,
-      stateVersion: result.stateVersion,
-      triggeredBy: {
-        actionType: data.action.type,
-        userId,
-      },
-    });
-
-    callback({ success: true, stateVersion: result.stateVersion });
   } catch (error) {
     logger.error({ err: error }, 'Error dispatching action');
     callback({ success: false, error: 'Failed to process action', errorCode: 'INVALID_ACTION' });

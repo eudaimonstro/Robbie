@@ -29,6 +29,8 @@ export function useSocketConnection(
 
   const isConnectingRef = useRef(false);
   const socketRef = useRef<TypedSocket | null>(null);
+  // Version of the state on screen, so an update that arrives late can't roll it back
+  const stateVersionRef = useRef(0);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read the latest onInvalidToken through a ref so a caller passing a new function each
@@ -89,6 +91,7 @@ export function useSocketConnection(
         (response) => {
           isConnectingRef.current = false;
           if (response.success) {
+            stateVersionRef.current = response.stateVersion ?? 0;
             setState(response.state!);
             setConnectedMembers(response.members || []);
             setIsConnected(true);
@@ -116,6 +119,8 @@ export function useSocketConnection(
     });
 
     newSocket.on('STATE_UPDATE', (data: StateUpdatePayload) => {
+      if (data.stateVersion < stateVersionRef.current) return;
+      stateVersionRef.current = data.stateVersion;
       setState(data.state);
       setConnectedMembers(data.state.members.filter((m) => m.present));
     });

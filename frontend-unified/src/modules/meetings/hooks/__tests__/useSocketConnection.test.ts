@@ -67,7 +67,9 @@ describe('useSocketConnection', () => {
           handlers[event] = handler;
         }),
         emit: vi.fn((event: string, _data: unknown, callback?: Handler) => {
-          if (event === 'JOIN_MEETING') callback?.({ success: true, state: initialState });
+          if (event === 'JOIN_MEETING') {
+            callback?.({ success: true, state: initialState, stateVersion: 1 });
+          }
           if (event === 'DISPATCH_ACTION') callback?.({ success: true });
         }),
         connect: vi.fn(),
@@ -83,6 +85,21 @@ describe('useSocketConnection', () => {
 
     afterEach(() => {
       vi.useRealTimers();
+    });
+
+    it('keeps the newest state when updates arrive out of order', () => {
+      const handlers = connectedSocket();
+      const { result } = renderHook(() => useSocketConnection(authState, () => {}));
+      act(() => handlers.connect());
+
+      const update = (stateVersion: number, quorum: number) => ({
+        state: { ...initialState, quorum },
+        stateVersion,
+      });
+      act(() => handlers.STATE_UPDATE(update(5, 5)));
+      act(() => handlers.STATE_UPDATE(update(4, 4)));
+
+      expect(result.current.state.quorum).toBe(5);
     });
 
     it('reports no timeout for an action the server acknowledged', async () => {
