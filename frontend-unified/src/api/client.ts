@@ -21,26 +21,10 @@ function setCache<T>(key: string, data: T): void {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-// Invalidate cache for related endpoints on mutations
-function invalidateCache(endpoint: string): void {
-  // Invalidate exact match and related list endpoints
-  const parts = endpoint.split('/');
-  cache.delete(endpoint);
-
-  // Invalidate parent list endpoints
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const parentPath = parts.slice(0, i).join('/');
-    if (parentPath) {
-      cache.delete(parentPath);
-    }
-  }
-
-  // Invalidate all list endpoints that might be affected
-  for (const key of cache.keys()) {
-    if (key.includes(parts[1]) || endpoint.includes(key.split('/')[1])) {
-      cache.delete(key);
-    }
-  }
+// A write can change data behind many endpoints (applying an amendment changes the document,
+// its versions and its amendments), so any successful write clears the whole cache
+function invalidateCache(): void {
+  cache.clear();
 }
 
 // Retry configuration
@@ -152,7 +136,7 @@ async function request<T>(
       if (response.status === 204) {
         // Invalidate cache on successful mutations
         if (!isGet) {
-          invalidateCache(endpoint);
+          invalidateCache();
         }
         return undefined as T;
       }
@@ -166,7 +150,7 @@ async function request<T>(
 
       // Invalidate cache on successful mutations
       if (!isGet) {
-        invalidateCache(endpoint);
+        invalidateCache();
       }
 
       return data;
