@@ -262,7 +262,9 @@ export function MeetingApp() {
           {allowedView === 'participant' && (
             <ParticipantView state={state} dispatch={dispatch} currentUser={activeUser} />
           )}
-          {allowedView === 'chair' && <ChairView state={state} dispatch={dispatch} />}
+          {allowedView === 'chair' && (
+            <ChairView state={state} dispatch={dispatch} currentUser={activeUser} />
+          )}
           {allowedView === 'admin' && <AdminView state={state} dispatch={dispatch} />}
         </ErrorBoundary>
       </div>

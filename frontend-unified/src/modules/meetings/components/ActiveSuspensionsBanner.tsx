@@ -18,7 +18,8 @@ export function ActiveSuspensionsBanner({
   dispatch,
 }: ActiveSuspensionsBannerProps) {
   const activeSuspensions = getActiveSuspensions(state);
-  const isChair = currentUser?.role === 'chair';
+  // Chairs and admins may restore a rule (the server permits both)
+  const canRestore = currentUser?.role === 'chair' || currentUser?.role === 'admin';
 
   if (activeSuspensions.length === 0) {
     return null;
@@ -71,7 +72,7 @@ export function ActiveSuspensionsBanner({
                   <span className="font-semibold text-amber-900">⚠️ Effect:</span>{' '}
                   <span className="text-amber-800">{getRuleWarning(suspension.rule)}</span>
                 </div>
-                {isChair && dispatch && (
+                {canRestore && dispatch && (
                   <button
                     onClick={() => handleRestore(suspension.id)}
                     className="mt-2 text-xs bg-gray-600 text-white px-3 py-1 rounded-sm hover:bg-gray-700 transition-colors"

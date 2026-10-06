@@ -24,7 +24,7 @@ import {
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 
-export function ChairView({ state, dispatch }: ChairViewProps) {
+export function ChairView({ state, dispatch, currentUser }: ChairViewProps) {
   // Use custom hook for sorted speaker queue with alternation
   const sortedQueue = useSortedSpeakerQueue(
     state.speakerQueue,
@@ -39,8 +39,12 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     proxies: state.proxies,
   });
 
-  // Get chair member
-  const chair = useMemo(() => state.members.find((m) => m.role === 'chair'), [state.members]);
+  // The presiding officer: the member in the chair role, or the signed-in admin when the
+  // meeting has no chair (the server lets admins perform every chair action)
+  const chair = useMemo(
+    () => state.members.find((m) => m.role === 'chair') ?? currentUser,
+    [state.members, currentUser],
+  );
 
   return (
     <div className="space-y-4">
@@ -61,7 +65,7 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <MinutesApprovalPanel state={state} dispatch={dispatch} />
           <CommitteeReportsPanel state={state} dispatch={dispatch} />
           <ChairScriptPanel state={state} />
-          <AgendaPanel state={state} dispatch={dispatch} />
+          <AgendaPanel state={state} dispatch={dispatch} presiding={chair} />
           <PendingSecondPanel state={state} dispatch={dispatch} />
           <PendingMotionPanel state={state} dispatch={dispatch} />
           <UnanimousConsentPanel state={state} dispatch={dispatch} />

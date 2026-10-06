@@ -1,15 +1,21 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { DraggableAgendaList } from '../DraggableAgendaList';
 
 interface AgendaPanelProps {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
+  /** The presiding officer, who moves an agenda item to a vote */
+  presiding?: Member;
 }
 
-export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: AgendaPanelProps) {
+export const AgendaPanel = React.memo(function AgendaPanel({
+  state,
+  dispatch,
+  presiding,
+}: AgendaPanelProps) {
   const [newAgendaItem, setNewAgendaItem] = useState('');
 
   const handleAddAgendaItem = useCallback(() => {
@@ -17,21 +23,19 @@ export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: 
     setNewAgendaItem('');
   }, [newAgendaItem, dispatch]);
 
-  const chair = useMemo(() => state.members.find((m) => m.role === 'chair'), [state.members]);
-
   const handlePutToVote = useCallback(() => {
-    if (chair && state.currentAgendaItem) {
+    if (presiding && state.currentAgendaItem) {
       dispatch({
         type: 'MAKE_MOTION',
         motionType: 'mainMotion',
         text: `Approve: ${state.currentAgendaItem.title}`,
         mover: 'Chair',
-        moverId: chair.id,
+        moverId: presiding.id,
         motionId: generateId(),
         timestamp: generateTimestamp(),
       });
     }
-  }, [chair, state.currentAgendaItem, dispatch]);
+  }, [presiding, state.currentAgendaItem, dispatch]);
 
   // Show adoption panel if not adopted and no motion pending
   if (state.meetingActive && !state.agendaAdopted && !state.currentMotion && !state.pendingSecond) {

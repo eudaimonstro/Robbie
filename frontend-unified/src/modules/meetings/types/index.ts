@@ -22,6 +22,8 @@ export interface ParticipantViewProps {
 export interface ChairViewProps {
   readonly state: MeetingState;
   readonly dispatch: React.Dispatch<MeetingAction>;
+  /** The signed-in user; presides when no member holds the chair role (an admin) */
+  readonly currentUser?: Member;
 }
 
 export interface AdminViewProps {
