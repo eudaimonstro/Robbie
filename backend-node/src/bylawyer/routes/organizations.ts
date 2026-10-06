@@ -9,8 +9,14 @@ import {
 } from '../../schemas/organizations.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
+import { OrgError } from '../../orgs/orgError.js';
+import { createOwnedOrganization, userOrganizations } from '../../orgs/organizationService.js';
+import { fromParam, requireRole, signedInOnly } from '../../orgs/requireRole.js';
+import { orgOfOrganization, orgOfSlug } from '../../orgs/resolvers.js';
 
 export const organizationsRouter: RouterType = Router();
+
+const byOrganization = fromParam('id', orgOfOrganization);
 
 // Generate URL-friendly slug from name
 function generateSlug(name: string): string {
@@ -20,34 +26,26 @@ function generateSlug(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// List all organizations
+// List the signed-in user's organizations, each with the user's role
 organizationsRouter.get(
   '/organizations',
   validate({ query: listOrganizationsQuery }),
+  signedInOnly(),
   async (req, res) => {
     try {
       const activeOnly = req.query.active_only !== 'false';
-      const where = activeOnly ? { isActive: true } : undefined;
 
       if (req.query.page) {
         const pagination = getPagination(req);
-        const [organizations, total] = await Promise.all([
-          prisma.organization.findMany({
-            where,
-            orderBy: { name: 'asc' },
-            skip: pagination.skip,
-            take: pagination.limit,
-          }),
-          prisma.organization.count({ where }),
-        ]);
+        const { organizations, total } = await userOrganizations(req.user!.id, {
+          activeOnly,
+          skip: pagination.skip,
+          take: pagination.limit,
+        });
         return res.json(paginatedResponse(organizations, total, pagination));
       }
 
-      const organizations = await prisma.organization.findMany({
-        where,
-        orderBy: { name: 'asc' },
-      });
-
+      const { organizations } = await userOrganizations(req.user!.id, { activeOnly });
       res.json(organizations);
     } catch (error) {
       logger.error({ err: error }, 'Failed to list organizations');
@@ -56,10 +54,11 @@ organizationsRouter.get(
   },
 );
 
-// Create organization
+// Create an organization; the creator becomes its owner
 organizationsRouter.post(
   '/organizations',
   validate({ body: createOrganizationBody }),
+  signedInOnly(),
   async (req, res) => {
     try {
       const { name, slug: providedSlug, description } = req.body;
@@ -71,12 +70,12 @@ organizationsRouter.post(
         return res.status(400).json({ error: `Organization with slug '${slug}' already exists` });
       }
 
-      const org = await prisma.organization.create({
-        data: { name, slug, description },
-      });
-
+      const org = await createOwnedOrganization(req.user!.id, { name, slug, description });
       res.status(201).json(org);
     } catch (error) {
+      if (error instanceof OrgError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       logger.error({ err: error }, 'Failed to create organization');
       res.status(500).json({ error: 'Failed to create organization' });
     }
@@ -84,45 +83,32 @@ organizationsRouter.post(
 );
 
 // Get organization by slug
-organizationsRouter.get('/organizations/by-slug/:slug', async (req, res) => {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { slug: req.params.slug },
-    });
+organizationsRouter.get(
+  '/organizations/by-slug/:slug',
+  requireRole('viewer', fromParam('slug', orgOfSlug)),
+  async (req, res) => {
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { slug: req.params.slug },
+      });
 
-    if (!org) {
-      return res.status(404).json({ error: 'Organization not found' });
+      if (!org) {
+        return res.status(404).json({ error: 'Organization not found' });
+      }
+
+      res.json(org);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get organization');
+      res.status(500).json({ error: 'Failed to get organization' });
     }
-
-    res.json(org);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get organization');
-    res.status(500).json({ error: 'Failed to get organization' });
-  }
-});
+  },
+);
 
 // Get organization by ID
-organizationsRouter.get('/organizations/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!org) {
-      return res.status(404).json({ error: 'Organization not found' });
-    }
-
-    res.json(org);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get organization');
-    res.status(500).json({ error: 'Failed to get organization' });
-  }
-});
-
-// Update organization
-organizationsRouter.put(
+organizationsRouter.get(
   '/organizations/:id',
-  validate({ params: uuidParam, body: updateOrganizationBody }),
+  validate({ params: uuidParam }),
+  requireRole('viewer', byOrganization),
   async (req, res) => {
     try {
       const org = await prisma.organization.findUnique({
@@ -133,9 +119,24 @@ organizationsRouter.put(
         return res.status(404).json({ error: 'Organization not found' });
       }
 
+      res.json(org);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get organization');
+      res.status(500).json({ error: 'Failed to get organization' });
+    }
+  },
+);
+
+// Update the organization's name and description
+organizationsRouter.put(
+  '/organizations/:id',
+  validate({ params: uuidParam, body: updateOrganizationBody }),
+  requireRole('admin', byOrganization),
+  async (req, res) => {
+    try {
       const updated = await prisma.organization.update({
         where: { id: req.params.id },
-        data: req.body,
+        data: { name: req.body.name, description: req.body.description },
       });
 
       res.json(updated);
@@ -150,16 +151,9 @@ organizationsRouter.put(
 organizationsRouter.delete(
   '/organizations/:id',
   validate({ params: uuidParam }),
+  requireRole('owner', byOrganization),
   async (req, res) => {
     try {
-      const org = await prisma.organization.findUnique({
-        where: { id: req.params.id },
-      });
-
-      if (!org) {
-        return res.status(404).json({ error: 'Organization not found' });
-      }
-
       await prisma.organization.delete({ where: { id: req.params.id } });
       res.status(204).send();
     } catch (error) {

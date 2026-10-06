@@ -25,7 +25,6 @@ const PUBLIC_ROUTES = new Set(['/api/health']);
 // Routers whose routes don't have rules yet. Each task that adds a router's rules removes it
 // here; Task 13 removes the list.
 const NOT_YET_RULED = new Set<unknown>([
-  routes.organizationsRouter,
   routes.documentsRouter,
   routes.versionsRouter,
   routes.sectionsRouter,

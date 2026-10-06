@@ -9,14 +9,10 @@ export const createOrganizationBody = z.object({
   description: z.string().max(2000).optional(),
 });
 
+// Only the name and description change here; zod drops any other field
 export const updateOrganizationBody = z.object({
   name: z.string().min(1).max(200).optional(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
-    .optional(),
   description: z.string().max(2000).optional(),
-  isActive: z.boolean().optional(),
 });
 
 export const listOrganizationsQuery = z.object({
