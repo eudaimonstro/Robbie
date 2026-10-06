@@ -126,7 +126,7 @@ model Amendment {
 
   // Robbie integration - synced from parliamentary meetings
   robbieMeetingCode  String?
-  robbieMotionId     Int?
+  robbieMotionId     BigInt?
   robbieVoteData     Json?
 
   document           Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)

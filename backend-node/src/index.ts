@@ -41,6 +41,12 @@ import { errorHandler } from './middleware/errorHandler.js';
 const PORT = process.env.PORT || 3001;
 
 const app = express();
+
+// Prisma returns BIGINT columns (Amendment.robbieMotionId) as BigInt, which JSON.stringify
+// cannot serialize. Motion IDs stay below Number.MAX_SAFE_INTEGER, so send them as numbers.
+app.set('json replacer', (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? Number(value) : value,
+);
 const httpServer = createServer(app);
 
 // Allow any localhost port in development
