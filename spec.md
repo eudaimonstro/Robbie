@@ -50,6 +50,9 @@ Ordered by dependency. M1 through M4 block any real use.
 
 Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the server loses every user and restarts `nextUserId` at 1, so an old 24-hour JWT can resolve to a different person.
 
+- **Done 2026-10-06:** users, sessions and sign-in codes are in Postgres; sign-in is once for the whole app by emailed code; sessions are server-side (httpOnly cookie for web, bearer token for mobile) and last 30 days from last use; every API route and socket requires a session; the code-revealing dev endpoint, test-role endpoint and JWT are gone.
+  - Web: a `/sign-in` page (email, code, then a display name for new users); every route except `/sign-in` and `/share` requires a session and returns to the page after sign-in; a user menu with Settings, Sign out and Sign out on all devices; "Your name" in Settings; meetings join by code only, with the meetings module's own sign-in removed.
+  - Mobile: the same email, code and name steps; the session token is kept in the secure store and restored on launch; meetings join by code; sign out ends the server session.
 - Store users and verification codes in Postgres (the `users` and `email_verifications` tables already exist and are unused). Move them under Prisma (see M5).
 - Per-email and per-code attempt limits on verification, not only per-IP. Invalidate the code after N failures.
 - Remove the global `lastGeneratedCode` and `GET /api/auth/dev-code`. Replace with a test-only email transport that tests read directly. Never log codes at `info`.
@@ -177,7 +180,7 @@ API mismatches (the client calls endpoints that don't exist):
 - Header search calls `/search`, which doesn't exist, and the error is swallowed.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
 - **Fixed 2026-10-06:** agenda item and attachment reordering (the `reorder` routes are now registered before `/:id`).
-- `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
+- **Fixed 2026-10-06:** the meetings module no longer falls back to `http://localhost:3001`. From the dev app that origin is a different origin, and fetch sends cookies only to its own origin by default, so the session cookie wasn't sent and every packet, agenda item and attachment call got 401. The scheduling API now calls same-origin `/api` through the client's `apiFetch`, which reports a 401 as a lost session like the rest of the client, and the meeting socket connects to the page's origin (Vite proxies `/socket.io`) unless `VITE_SERVER_URL` is set.
 - **Fixed 2026-10-06:** the API is now camelCase end to end. The documents UI typed every field in snake_case while most responses were camelCase, so every date showed "Invalid Date", the version picker was empty, and the amendment page requested `/api/documents/undefined`. The same fix covered: effective dates showing a day early west of UTC, every recorded vote displaying as Failed (the UI read a `passed` field the API never sends), and API errors showing as a bare "HTTP 4xx".
 
 Other work:
@@ -223,7 +226,8 @@ Other work:
 - Scope: join, raise hand, speaker queue, vote, view agenda and current motion, make in-order motions. Chair and admin stay web-only.
 - **Done 2026-10-06:** the motion list shows only motions currently in order, leaving out the five special motions (made from the web app, as the screen says); a motion with no typed details uses its standard wording.
 - Mount the proxy request and acceptance UI or remove it.
-- Restore the session on launch. Use `shared/types/socket` instead of redefined event types.
+- **Done 2026-10-06:** the session is restored on launch (token in the secure store).
+- Use `shared/types/socket` instead of redefined event types.
 - **Fixed 2026-10-06:** mobile members can vote when the chair holds a vote without quorum (with a warning, as on the web), and sign-in errors show the server's message.
 - **Done 2026-10-05:** the existing breakage is fixed. `tsc` is clean, jest runs all 53 tests (it previously found none), the app is on Expo SDK 57, and CI type-checks and tests mobile.
 - Done when: a participant can join, queue, make a motion, and vote against a dev backend, with jest coverage of the join and vote flows.

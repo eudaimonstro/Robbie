@@ -96,7 +96,6 @@ Copy `backend-node/.env.example` to `backend-node/.env` and configure:
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
-JWT_SECRET=your-secret-key
 DATABASE_URL=postgresql://...
 ```
 

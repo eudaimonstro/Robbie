@@ -1,13 +1,24 @@
 import type { Server, Socket } from 'socket.io';
 import type {
+  ActionResponse,
   ClientToServerEvents,
+  JoinMeetingResponse,
   ServerToClientEvents,
   SocketData,
+  StateResponse,
 } from '@robbie-bylawyer/shared/types/socket';
 import { handleJoinMeeting } from './joinHandler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { handleDispatchAction } from './actionHandler.js';
 import { handleRequestState } from './stateRequestHandler.js';
+import { socketAuth } from './socketAuth.js';
+import {
+  guardedEvent,
+  isDispatchPayload,
+  isJoinPayload,
+  runEvent,
+  safeAck,
+} from './socketEvents.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -32,30 +43,36 @@ type TypedServer = Server<
  * - stateRequestHandler.ts: REQUEST_STATE event
  */
 export function setupSocketHandlers(io: TypedServer) {
+  // Every connection must be signed in (see socketAuth)
+  io.use(socketAuth());
+
+  // Every listener goes through socketEvents: a bad payload, a missing callback or a failed
+  // handler must never become an unhandled rejection, which would stop the server
   io.on('connection', (socket: TypedSocket) => {
-    // Handle join meeting
-    socket.on('JOIN_MEETING', (data, callback) => {
-      handleJoinMeeting(socket, io, data, callback);
-    });
+    socket.on(
+      'JOIN_MEETING',
+      guardedEvent('JOIN_MEETING', isJoinPayload, (data, ack: (r: JoinMeetingResponse) => void) =>
+        handleJoinMeeting(socket, io, data, ack),
+      ),
+    );
 
-    // Handle leave meeting
     socket.on('LEAVE_MEETING', () => {
-      handleDisconnect(socket, io);
+      runEvent('LEAVE_MEETING', handleDisconnect(socket, io));
     });
 
-    // Handle action dispatch
-    socket.on('DISPATCH_ACTION', (data, callback) => {
-      handleDispatchAction(socket, io, data, callback);
+    socket.on(
+      'DISPATCH_ACTION',
+      guardedEvent('DISPATCH_ACTION', isDispatchPayload, (data, ack: (r: ActionResponse) => void) =>
+        handleDispatchAction(socket, io, data, ack),
+      ),
+    );
+
+    socket.on('REQUEST_STATE', (callback: unknown) => {
+      runEvent('REQUEST_STATE', handleRequestState(socket, safeAck<StateResponse>(callback)));
     });
 
-    // Handle state request
-    socket.on('REQUEST_STATE', (callback) => {
-      handleRequestState(socket, callback);
-    });
-
-    // Handle disconnect
     socket.on('disconnect', () => {
-      handleDisconnect(socket, io);
+      runEvent('disconnect', handleDisconnect(socket, io));
     });
   });
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Settings, Building2, Trash2, Sun, Moon, Monitor } from 'lucide-react';
+import { Settings, Building2, UserCircle, Trash2, Sun, Moon, Monitor } from 'lucide-react';
 import { useOrganization } from '../../../context/OrganizationContext';
+import { useSession } from '../../../context/SessionContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { organizations as organizationsApi } from '../../../api/client';
 import Modal from '../../../components/ui/Modal';
@@ -11,6 +12,24 @@ export default function SettingsPage() {
   const { currentOrganization, refreshOrganizations, setCurrentOrganization } = useOrganization();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
+  const { user, setName } = useSession();
+
+  // Display name
+  const [displayName, setDisplayName] = useState(user?.name ?? '');
+  const [savingName, setSavingName] = useState(false);
+
+  const handleSaveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingName(true);
+      await setName(displayName.trim());
+      showToast('success', 'Name updated');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Failed to update your name');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   // Edit organization
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -72,6 +91,41 @@ export default function SettingsPage() {
         <p className="text-secondary-600 dark:text-secondary-400 mt-1">
           Manage your organization settings
         </p>
+      </div>
+
+      {/* Your name */}
+      <div className="card mb-6">
+        <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
+          <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+            <UserCircle className="w-5 h-5" />
+            Your name
+          </h3>
+        </div>
+        <form onSubmit={handleSaveName} className="p-6">
+          <label htmlFor="displayName" className="label">
+            Your name
+          </label>
+          <input
+            type="text"
+            id="displayName"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="input"
+            minLength={2}
+            maxLength={100}
+            required
+          />
+          <p className="text-sm text-secondary-500 mt-1">Shown to others in meetings.</p>
+          <div className="flex justify-end mt-4">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={savingName || displayName.trim() === user?.name}
+            >
+              {savingName ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {currentOrganization ? (

@@ -28,7 +28,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/robbie
-      JWT_SECRET: test-secret
+      INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
       NODE_ENV: test
 
     steps:
@@ -76,6 +76,9 @@ jobs:
 
       - name: Test backend-node
         run: npm run test:run -w backend-node
+
+      - name: Integration tests backend-node
+        run: npm run test:integration -w backend-node
 
       - name: Test frontend-unified
         run: npm run test:run -w frontend-unified

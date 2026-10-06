@@ -24,6 +24,7 @@ vi.mock('../socket/stateManager.js', () => ({ applyAction }));
 
 const { roomManager } = await import('../socket/roomManager.js');
 const { handleDisconnect } = await import('../socket/disconnectHandler.js');
+const { actionRateLimiter, joinRateLimiter } = await import('../socket/rateLimiter.js');
 
 describe('handleDisconnect', () => {
   beforeEach(() => {
@@ -45,5 +46,29 @@ describe('handleDisconnect', () => {
 
     expect(applyAction).toHaveBeenCalledOnce();
     expect(emit).not.toHaveBeenCalledWith('STATE_UPDATE', expect.anything());
+
+    // Leaving a meeting doesn't sign the socket out
+    expect(socket.data.userId).toBe(1);
+    expect(socket.data.meetingCode).toBeNull();
+  });
+
+  it("doesn't reset the user's join or action allowance when they leave", async () => {
+    const userId = 42;
+    roomManager.addMember('TEST01', 'spender', { ...member, id: userId });
+    while (joinRateLimiter.consume(userId));
+    while (actionRateLimiter.consume(userId));
+    const emit = vi.fn();
+    const socket = {
+      id: 'spender',
+      data: { meetingCode: 'TEST01', userId, name: 'Member', email: 'm@x', role: 'member' },
+      to: () => ({ emit }),
+      leave: vi.fn(),
+    };
+
+    await handleDisconnect(socket as never, { to: () => ({ emit }) } as never);
+
+    // Leaving and joining again must not buy a fresh allowance
+    expect(joinRateLimiter.getRemaining(userId)).toBe(0);
+    expect(actionRateLimiter.getRemaining(userId)).toBe(0);
   });
 });

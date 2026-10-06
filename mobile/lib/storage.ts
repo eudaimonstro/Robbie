@@ -1,62 +1,40 @@
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEYS = {
-  AUTH_TOKEN: 'robbie_auth_token',
-  PENDING_AUTH: 'robbie_pending_auth',
-} as const;
+const TOKEN_KEY = 'robbie_session_token';
+const MEETING_KEY = 'robbie_meeting_code';
 
-interface PendingAuth {
-  email: string;
-  name: string;
-  meetingCode: string;
-}
-
-/**
- * Store the JWT auth token
- */
+/** The session token, kept in the device's secure store */
 export async function storeToken(token: string): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
-/**
- * Retrieve the stored JWT auth token
- */
 export async function getToken(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  return SecureStore.getItemAsync(TOKEN_KEY);
 }
 
-/**
- * Remove the stored JWT auth token
- */
 export async function removeToken(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
 /**
- * Store pending auth state (email, name, meetingCode) during verification
+ * The meeting last joined, to rejoin after the app restarts. It's kept with the user who joined
+ * it, so someone else signing in on the same phone starts at the join screen instead of in the
+ * previous user's meeting.
  */
-export async function storePendingAuth(data: PendingAuth): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.PENDING_AUTH, JSON.stringify(data));
+export async function storeMeetingCode(userId: number, code: string | null): Promise<void> {
+  if (code) await AsyncStorage.setItem(MEETING_KEY, JSON.stringify({ userId, code }));
+  else await AsyncStorage.removeItem(MEETING_KEY);
 }
 
-/**
- * Retrieve pending auth state
- */
-export async function getPendingAuth(): Promise<PendingAuth | null> {
-  const data = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_AUTH);
-  return data ? JSON.parse(data) : null;
-}
-
-/**
- * Remove pending auth state after successful verification
- */
-export async function removePendingAuth(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEYS.PENDING_AUTH);
-}
-
-/**
- * Clear all stored auth data (for logout)
- */
-export async function clearAuthData(): Promise<void> {
-  await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.PENDING_AUTH]);
+export async function getMeetingCode(userId: number): Promise<string | null> {
+  try {
+    const saved = JSON.parse((await AsyncStorage.getItem(MEETING_KEY)) ?? 'null') as {
+      userId?: number;
+      code?: string;
+    } | null;
+    return saved && saved.userId === userId && saved.code ? saved.code : null;
+  } catch {
+    return null;
+  }
 }

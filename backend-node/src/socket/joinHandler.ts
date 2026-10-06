@@ -6,7 +6,6 @@ import type {
   JoinMeetingPayload,
   JoinMeetingResponse,
 } from '@robbie-bylawyer/shared/types/socket';
-import { verifyToken } from '../auth/authController.js';
 import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
@@ -29,25 +28,6 @@ type TypedServer = Server<
 >;
 
 /**
- * Extract auth_token from cookie header
- */
-function getTokenFromCookie(socket: TypedSocket): string | null {
-  const cookieHeader = socket.handshake.headers.cookie;
-  if (!cookieHeader) return null;
-
-  const cookies = cookieHeader.split(';').reduce(
-    (acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      if (key && value) acc[key] = value;
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
-
-  return cookies['auth_token'] || null;
-}
-
-/**
  * Handle JOIN_MEETING socket event
  */
 export async function handleJoinMeeting(
@@ -57,22 +37,12 @@ export async function handleJoinMeeting(
   callback: (response: JoinMeetingResponse) => void,
 ): Promise<void> {
   try {
-    // Try provided token first, fallback to HttpOnly cookie
-    const token = data.token;
-    let decoded = token ? verifyToken(token) : null;
-
-    if (!decoded) {
-      // Try to get token from HttpOnly cookie
-      const cookieToken = getTokenFromCookie(socket);
-      if (cookieToken) {
-        decoded = verifyToken(cookieToken);
-      }
-    }
-
-    if (!decoded) {
-      callback({ success: false, error: 'Invalid token' });
-      return;
-    }
+    // The socket was authenticated at connection (socketAuth)
+    const decoded = {
+      userId: socket.data.userId,
+      email: socket.data.email,
+      name: socket.data.name,
+    };
 
     // Rate limit join attempts per user
     if (!joinRateLimiter.consume(decoded.userId)) {
@@ -84,11 +54,12 @@ export async function handleJoinMeeting(
       return;
     }
 
-    // Verify meeting code matches token
-    if (decoded.meetingCode !== data.meetingCode) {
-      callback({ success: false, error: 'Token not valid for this meeting' });
+    const meetingCode = data.meetingCode?.trim().toUpperCase() ?? '';
+    if (!/^[A-Z0-9]{4,8}$/.test(meetingCode)) {
+      callback({ success: false, error: 'Meeting code must be 4-8 letters or digits' });
       return;
     }
+    data = { ...data, meetingCode };
 
     // A socket already in another meeting leaves it first, as on disconnect; otherwise it
     // kept receiving that meeting's updates and its member stayed present there

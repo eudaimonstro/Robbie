@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { useSocketConnection } from '../useSocketConnection';
-import type { AuthState } from '../../types/socket';
 
 const io = vi.hoisted(() =>
   vi.fn(() => ({
@@ -16,69 +15,126 @@ const io = vi.hoisted(() =>
 
 vi.mock('socket.io-client', () => ({ io }));
 
-const authState: AuthState = {
-  email: 'chair@example.com',
-  name: 'Test Chair',
-  meetingCode: 'DEMO',
-  token: 'test-token',
-  userId: 1,
-};
+type Handler = (...args: unknown[]) => void;
+
+// A socket that joins on connect and acknowledges each action at once
+function connectedSocket() {
+  const handlers: Record<string, Handler> = {};
+  const socket = {
+    connected: true,
+    on: vi.fn((event: string, handler: Handler) => {
+      handlers[event] = handler;
+    }),
+    emit: vi.fn((event: string, _data: unknown, callback?: Handler) => {
+      if (event === 'JOIN_MEETING') {
+        callback?.({ success: true, state: initialState, stateVersion: 1 });
+      }
+      if (event === 'DISPATCH_ACTION') callback?.({ success: true });
+    }),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  };
+  io.mockReturnValueOnce(socket as never);
+  return { handlers, socket };
+}
 
 describe('useSocketConnection', () => {
   beforeEach(() => {
     io.mockClear();
   });
 
-  it('keeps one socket when the onInvalidToken callback changes identity', () => {
+  it('opens no socket without a meeting code', () => {
+    renderHook(() => useSocketConnection(null, () => {}));
+
+    expect(io).not.toHaveBeenCalled();
+  });
+
+  it('keeps one socket when the onNotSignedIn callback changes identity', () => {
     const { rerender } = renderHook(
-      ({ onInvalidToken }) => useSocketConnection(authState, onInvalidToken),
+      ({ onNotSignedIn }) => useSocketConnection('DEMO', onNotSignedIn),
       {
-        initialProps: { onInvalidToken: () => {} },
+        initialProps: { onNotSignedIn: () => {} },
       },
     );
 
     // Callers commonly pass a new function on each render
-    rerender({ onInvalidToken: () => {} });
-    rerender({ onInvalidToken: () => {} });
+    rerender({ onNotSignedIn: () => {} });
+    rerender({ onNotSignedIn: () => {} });
 
     expect(io).toHaveBeenCalledTimes(1);
   });
 
   it('opens a new socket when the meeting changes', () => {
-    const onInvalidToken = () => {};
-    const { rerender } = renderHook(({ auth }) => useSocketConnection(auth, onInvalidToken), {
-      initialProps: { auth: authState },
+    const onNotSignedIn = () => {};
+    const { rerender } = renderHook(({ code }) => useSocketConnection(code, onNotSignedIn), {
+      initialProps: { code: 'DEMO' },
     });
 
-    rerender({ auth: { ...authState, meetingCode: 'OTHER1' } });
+    rerender({ code: 'OTHER1' });
 
     expect(io).toHaveBeenCalledTimes(2);
   });
 
+  it('connects to the page origin when no server URL is configured', () => {
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+
+    expect(io).toHaveBeenCalledWith(expect.objectContaining({ withCredentials: true }));
+  });
+
+  it('shows an error when the server ends the connection', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() => handlers.disconnect('io server disconnect'));
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.error).toBe('Disconnected by the server.');
+  });
+
+  it('shows no error for a dropped connection that reconnects by itself', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() => handlers.disconnect('transport close'));
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('joins with only the meeting code', () => {
+    const { handlers, socket } = connectedSocket();
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    const join = socket.emit.mock.calls.find(([event]) => event === 'JOIN_MEETING');
+    expect(join?.[1]).toEqual({ meetingCode: 'DEMO' });
+  });
+
+  it('reports a lost session when the connection is refused as not signed in', () => {
+    const { handlers } = connectedSocket();
+    const onNotSignedIn = vi.fn();
+    const { result } = renderHook(() => useSocketConnection('DEMO', onNotSignedIn));
+
+    act(() => handlers.connect_error(new Error('Not signed in')));
+
+    expect(onNotSignedIn).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('shows other connection errors without reporting a lost session', () => {
+    const { handlers } = connectedSocket();
+    const onNotSignedIn = vi.fn();
+    const { result } = renderHook(() => useSocketConnection('DEMO', onNotSignedIn));
+
+    act(() => handlers.connect_error(new Error('xhr poll error')));
+
+    expect(onNotSignedIn).not.toHaveBeenCalled();
+    expect(result.current.error).toBe('Connection error: xhr poll error');
+  });
+
   describe('dispatch', () => {
-    type Handler = (...args: unknown[]) => void;
-
-    // A socket that joins on connect and acknowledges each action at once
-    function connectedSocket() {
-      const handlers: Record<string, Handler> = {};
-      const socket = {
-        connected: true,
-        on: vi.fn((event: string, handler: Handler) => {
-          handlers[event] = handler;
-        }),
-        emit: vi.fn((event: string, _data: unknown, callback?: Handler) => {
-          if (event === 'JOIN_MEETING') {
-            callback?.({ success: true, state: initialState, stateVersion: 1 });
-          }
-          if (event === 'DISPATCH_ACTION') callback?.({ success: true });
-        }),
-        connect: vi.fn(),
-        disconnect: vi.fn(),
-      };
-      io.mockReturnValueOnce(socket as never);
-      return handlers;
-    }
-
     beforeEach(() => {
       vi.useFakeTimers();
     });
@@ -88,8 +144,8 @@ describe('useSocketConnection', () => {
     });
 
     it('keeps the newest state when updates arrive out of order', () => {
-      const handlers = connectedSocket();
-      const { result } = renderHook(() => useSocketConnection(authState, () => {}));
+      const { handlers } = connectedSocket();
+      const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
       act(() => handlers.connect());
 
       const update = (stateVersion: number, quorum: number) => ({
@@ -103,8 +159,8 @@ describe('useSocketConnection', () => {
     });
 
     it('reports no timeout for an action the server acknowledged', async () => {
-      const handlers = connectedSocket();
-      const { result } = renderHook(() => useSocketConnection(authState, () => {}));
+      const { handlers } = connectedSocket();
+      const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
       act(() => handlers.connect());
 
       let succeeded: boolean | undefined;

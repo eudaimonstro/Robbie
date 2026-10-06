@@ -66,6 +66,7 @@ npm run build:frontend   # Build frontend-unified
 ```bash
 npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
+npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint
 npm run format:check     # Prettier
 ```
@@ -96,7 +97,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 **Robbie Features:**
 
 - Socket.io for real-time meeting state synchronization
-- Email-based authentication with verification codes
+- Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
 - Meeting storage (PostgreSQL or in-memory fallback)
 - Parliamentary procedure state management
 
@@ -125,12 +126,14 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/meetings` - Join/create live meeting (Robbie)
 - `/meetings/:code` - Active meeting with Socket.io (Robbie)
 - `/settings` - App settings
+- `/sign-in` - Sign in by emailed code (public, as is `/share/:shareToken`)
 
 **State Management:**
 
 - `ThemeContext` - Global dark mode
 - `ToastContext` - Global notifications
 - `OrganizationContext` - Current organization
+- `SessionContext` - signed-in user (cookie session); `RequireSession` guards every route except `/sign-in` and `/share`
 - `SocketContext` - Socket.io connection (meetings module only, wraps meeting routes)
 
 ### Robbie Meetings Module (modules/meetings)
@@ -211,16 +214,15 @@ When a bylaw amendment motion passes in Robbie:
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
-JWT_SECRET=dev-secret-change-in-prod
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
 ### Frontend Unified
 
-Uses Vite proxy to backend on port 3001 (no env var needed for dev)
+Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST client always calls same-origin `/api`, so production must serve the API on the app's origin (or behind a reverse proxy).
 
 ```
-VITE_SERVER_URL=http://localhost:3001  # For production builds
+VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to a different origin
 ```
 
 ## Key Conventions

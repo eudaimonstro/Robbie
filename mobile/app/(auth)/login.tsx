@@ -10,23 +10,18 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSocket } from '../../context/SocketContext';
+import { useSession } from '../../context/SessionContext';
 import { Button, Input, Card } from '../../components/ui';
 import { colors, spacing, typography } from '../../theme';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, error } = useSocket();
+  const { requestCode } = useSession();
 
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [meetingCode, setMeetingCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<{
-    email?: string;
-    name?: string;
-    meetingCode?: string;
-  }>({});
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{ email?: string }>({});
 
   const validateForm = () => {
     const errors: typeof validationErrors = {};
@@ -37,18 +32,6 @@ export default function LoginScreen() {
       errors.email = 'Please enter a valid email';
     }
 
-    if (!name.trim()) {
-      errors.name = 'Name is required';
-    } else if (name.trim().length < 2) {
-      errors.name = 'Name must be at least 2 characters';
-    }
-
-    if (!meetingCode.trim()) {
-      errors.meetingCode = 'Meeting code is required';
-    } else if (!/^[A-Za-z0-9]{4,8}$/.test(meetingCode.trim())) {
-      errors.meetingCode = 'Meeting code must be 4-8 alphanumeric characters';
-    }
-
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -57,12 +40,15 @@ export default function LoginScreen() {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setError(null);
     try {
-      await login(email.trim(), name.trim(), meetingCode.trim().toUpperCase());
-      router.push('/(auth)/verify');
+      const address = email.trim();
+      await requestCode(address);
+      router.push({ pathname: '/(auth)/verify', params: { email: address } });
     } catch (err) {
-      // Error is already set in context
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to send verification code');
+      const message = err instanceof Error ? err.message : "Couldn't send the code";
+      setError(message);
+      Alert.alert('Error', message);
     } finally {
       setIsLoading(false);
     }
@@ -79,8 +65,8 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Join a Meeting</Text>
-            <Text style={styles.subtitle}>Enter your details to join the meeting</Text>
+            <Text style={styles.title}>Sign In</Text>
+            <Text style={styles.subtitle}>Enter your email to sign in</Text>
           </View>
 
           <Card style={styles.card}>
@@ -96,34 +82,6 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoComplete="email"
               error={validationErrors.email}
-              containerStyle={styles.inputContainer}
-            />
-
-            <Input
-              label="Your Name"
-              value={name}
-              onChangeText={(text) => {
-                setName(text);
-                setValidationErrors((prev) => ({ ...prev, name: undefined }));
-              }}
-              placeholder="John Smith"
-              autoCapitalize="words"
-              autoComplete="name"
-              error={validationErrors.name}
-              containerStyle={styles.inputContainer}
-            />
-
-            <Input
-              label="Meeting Code"
-              value={meetingCode}
-              onChangeText={(text) => {
-                setMeetingCode(text.toUpperCase());
-                setValidationErrors((prev) => ({ ...prev, meetingCode: undefined }));
-              }}
-              placeholder="ABC123"
-              autoCapitalize="characters"
-              maxLength={8}
-              error={validationErrors.meetingCode}
               containerStyle={styles.inputContainer}
             />
 

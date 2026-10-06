@@ -6,7 +6,6 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
 import { applyAction } from './stateManager.js';
-import { actionRateLimiter, joinRateLimiter } from './rateLimiter.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -71,15 +70,11 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
 
     socket.leave(roomName);
 
-    // Clean up rate limiter buckets to prevent memory leaks
-    actionRateLimiter.remove(socket.data.userId);
-    joinRateLimiter.remove(socket.data.userId);
+    // The user's rate limit buckets stay: removing them here gave anyone who left and joined
+    // again a fresh allowance. The limiters' periodic cleanup frees idle buckets.
 
-    // Clear all socket.data fields to prevent data leakage on socket reuse
+    // The socket leaves the meeting but stays signed in (its identity came from its session)
     socket.data.meetingCode = null;
-    socket.data.userId = null as unknown as number;
-    socket.data.email = null as unknown as string;
-    socket.data.name = null as unknown as string;
     socket.data.role = null as unknown as 'member' | 'chair' | 'admin';
   }
 }

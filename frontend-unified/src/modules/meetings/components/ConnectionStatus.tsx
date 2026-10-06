@@ -2,7 +2,8 @@ import { Wifi, WifiOff, RefreshCw, LogOut, Users } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
 export function ConnectionStatus() {
-  const { isConnected, connectedMembers, currentUser, logout, reconnect, error } = useSocket();
+  const { isConnected, connectedMembers, currentUser, leaveMeeting, reconnect, error } =
+    useSocket();
 
   return (
     <div className="flex items-center gap-4">
@@ -44,7 +45,7 @@ export function ConnectionStatus() {
         </div>
       )}
 
-      {/* Current user & logout */}
+      {/* Current user & leave meeting */}
       <div className="flex items-center gap-2">
         {currentUser && (
           <span className="text-sm text-secondary-600 dark:text-secondary-400 hidden sm:inline">
@@ -52,7 +53,7 @@ export function ConnectionStatus() {
           </span>
         )}
         <button
-          onClick={logout}
+          onClick={leaveMeeting}
           className="p-1.5 hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-lg text-secondary-500 dark:text-secondary-400 hover:text-danger-600 dark:hover:text-danger-400 transition-colors"
           title="Leave meeting"
         >

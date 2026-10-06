@@ -10,9 +10,9 @@ import {
   Pressable,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSocket } from '../../context/SocketContext';
+import { useSession } from '../../context/SessionContext';
 import { Button, Card } from '../../components/ui';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 
@@ -20,7 +20,9 @@ const CODE_LENGTH = 6;
 
 export default function VerifyScreen() {
   const router = useRouter();
-  const { verifyCode, resendCode, pendingEmail, error } = useSocket();
+  const { verify, requestCode } = useSession();
+  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const email = (Array.isArray(params.email) ? params.email[0] : params.email) ?? '';
   const { width: screenWidth } = useWindowDimensions();
 
   // Calculate responsive input size based on screen width
@@ -30,9 +32,13 @@ export default function VerifyScreen() {
 
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<Array<TextInput | null>>(Array(CODE_LENGTH).fill(null));
+  // Set while a code is being checked. A ref, since the auto-submit can run from a render whose
+  // isLoading is already stale.
+  const isSubmittingRef = useRef(false);
 
   // Start resend cooldown on mount
   useEffect(() => {
@@ -83,21 +89,21 @@ export default function VerifyScreen() {
       Alert.alert('Error', 'Please enter the complete 6-digit code');
       return;
     }
+    if (isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setIsLoading(true);
+    setError(null);
     try {
-      const success = await verifyCode(fullCode);
-      if (!success) {
-        // Clear code on failure
-        setCode(Array(CODE_LENGTH).fill(''));
-        inputRefs.current[0]?.focus();
-      }
-      // Navigation happens automatically via root layout when authenticated
+      await verify(email, fullCode);
+      // Navigation happens automatically via root layout once signed in
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Verification failed');
+      // Show the server's message ("That code is wrong or has expired") and start over
+      setError(err instanceof Error ? err.message : 'Verification failed');
       setCode(Array(CODE_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -107,7 +113,8 @@ export default function VerifyScreen() {
 
     setIsResending(true);
     try {
-      await resendCode();
+      await requestCode(email);
+      setError(null);
       // Reset cooldown on successful resend
       setResendCooldown(60);
       // Clear any existing code
@@ -138,7 +145,7 @@ export default function VerifyScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Enter Verification Code</Text>
             <Text style={styles.subtitle}>
-              We sent a 6-digit code to{pendingEmail ? `\n${pendingEmail}` : ' your email'}
+              We sent a 6-digit code to{email ? `\n${email}` : ' your email'}
             </Text>
           </View>
 
@@ -156,6 +163,7 @@ export default function VerifyScreen() {
                     digit && styles.codeInputFilled,
                   ]}
                   value={digit}
+                  accessibilityLabel={`Digit ${index + 1}`}
                   onChangeText={(value) => handleCodeChange(value, index)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"

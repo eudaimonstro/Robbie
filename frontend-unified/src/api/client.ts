@@ -27,6 +27,43 @@ function invalidateCache(): void {
   cache.clear();
 }
 
+// Called when a request answers 401 (the session has ended), so the app can show sign-in.
+// Calls under /auth/ are excluded: a 401 there is an answer (a wrong code, or "not signed in"
+// from /auth/me), not a lost session.
+let signedOutHandler: (() => void) | null = null;
+
+export function setSignedOutHandler(handler: (() => void) | null): void {
+  signedOutHandler = handler;
+}
+
+function noteUnauthorized(endpoint: string, status: number): void {
+  if (status === 401 && !endpoint.startsWith('/auth/')) {
+    cache.clear();
+    signedOutHandler?.();
+  }
+}
+
+/** An error response from the API, with its HTTP status */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+/**
+ * A plain same-origin fetch of `/api${endpoint}`, for callers that read the response
+ * themselves. A 401 is reported as a lost session, the same as for the rest of the client.
+ */
+export async function apiFetch(endpoint: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(`${API_BASE}${endpoint}`, init);
+  noteUnauthorized(endpoint, response.status);
+  return response;
+}
+
 // Retry configuration
 const MAX_RETRIES = 3;
 const INITIAL_DELAY = 1000; // 1 second
@@ -121,7 +158,9 @@ async function request<T>(
       });
 
       if (!response.ok) {
-        if (shouldRetry(response.status, attempt)) {
+        noteUnauthorized(endpoint, response.status);
+
+        if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt)) {
           const delay = getRetryDelay(attempt);
           console.warn(
             `Request failed with ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
@@ -130,7 +169,7 @@ async function request<T>(
           continue;
         }
 
-        throw new Error(await errorMessage(response));
+        throw new HttpError(await errorMessage(response), response.status);
       }
 
       if (response.status === 204) {
@@ -159,6 +198,7 @@ async function request<T>(
 
       // Retry on network errors
       if (
+        !endpoint.startsWith('/auth/') &&
         attempt < MAX_RETRIES &&
         (err instanceof TypeError || (err as Error).message === 'Failed to fetch')
       ) {
@@ -665,4 +705,45 @@ export const bylawSync = {
   // Check sync status for a motion
   getSyncStatus: (meetingCode: string, motionId: number) =>
     request<SyncStatusResponse>(`/robbie/sync-status/${meetingCode}/${motionId}`),
+};
+
+export interface SessionUser {
+  id: number;
+  email: string;
+  name: string | null;
+}
+
+export const auth = {
+  /** The signed-in user, or null when there is no session */
+  me: async (): Promise<SessionUser | null> => {
+    const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'same-origin' });
+    if (response.status === 401) return null;
+    if (!response.ok) throw new Error(await errorMessage(response));
+    return ((await response.json()) as { user: SessionUser }).user;
+  },
+  requestCode: (email: string) =>
+    request<{ success: boolean }>(
+      '/auth/request-code',
+      { method: 'POST', body: JSON.stringify({ email }) },
+      false,
+    ),
+  verify: async (email: string, code: string) =>
+    (
+      await request<{ user: SessionUser }>(
+        '/auth/verify',
+        { method: 'POST', body: JSON.stringify({ email, code }) },
+        false,
+      )
+    ).user,
+  updateName: async (name: string) =>
+    (
+      await request<{ user: SessionUser }>(
+        '/auth/me',
+        { method: 'PATCH', body: JSON.stringify({ name }) },
+        false,
+      )
+    ).user,
+  signOut: () => request<{ success: boolean }>('/auth/sign-out', { method: 'POST' }, false),
+  signOutEverywhere: () =>
+    request<{ success: boolean }>('/auth/sign-out-everywhere', { method: 'POST' }, false),
 };

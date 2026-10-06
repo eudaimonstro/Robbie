@@ -8,12 +8,12 @@
 import { useEffect } from 'react';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
-import { AuthScreen } from './views/AuthScreen';
+import { JoinMeetingScreen } from './views/JoinMeetingScreen';
 import { MeetingApp } from './views/MeetingApp';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { isAuthenticated, isConnected, error, reconnect, logout } = useSocket();
+  const { meetingCode, isConnected, error, reconnect, leaveMeeting } = useSocket();
   const { showToast } = useToast();
 
   // Forward socket errors to toast notifications
@@ -23,12 +23,12 @@ function MeetingsContent() {
     }
   }, [error, showToast]);
 
-  // Show auth screen if not authenticated
-  if (!isAuthenticated) {
-    return <AuthScreen />;
+  // No meeting yet: ask for its code
+  if (!meetingCode) {
+    return <JoinMeetingScreen />;
   }
 
-  // Show loading while connecting after auth. The meeting view (with its Reconnect and Leave
+  // Show loading while connecting to the meeting. The meeting view (with its Reconnect and Leave
   // buttons) isn't shown until connected, so this screen needs its own way out: the socket
   // stops retrying after a few attempts, and a failed join doesn't retry at all.
   if (!isConnected) {
@@ -53,7 +53,7 @@ function MeetingsContent() {
                 Try again
               </button>
             )}
-            <button onClick={logout} className="btn-secondary btn-sm">
+            <button onClick={leaveMeeting} className="btn-secondary btn-sm">
               Leave meeting
             </button>
           </div>
@@ -62,7 +62,7 @@ function MeetingsContent() {
     );
   }
 
-  // Show meeting app when authenticated and connected
+  // Show the meeting once connected
   return <MeetingApp />;
 }
 
