@@ -51,6 +51,28 @@ describe('route protection', () => {
     expect(res.status).not.toBe(401);
   });
 
+  it('checks the session before reading an upload', async () => {
+    const small = await request(app)
+      .post('/api/attachments/upload')
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('%PDF-1.4 hello'));
+    expect(small.status).toBe(401);
+
+    // Over the parser's 10 MB limit: reading it first would answer 413, not 401
+    const large = await request(app)
+      .post('/api/attachments/upload')
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.alloc(11 * 1024 * 1024));
+    expect(large.status).toBe(401);
+
+    const signedIn = await request(app)
+      .post('/api/attachments/upload')
+      .set('Cookie', cookie)
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('%PDF-1.4 hello'));
+    expect(signedIn.status).not.toBe(401);
+  });
+
   it('keeps health and public share links open', async () => {
     expect((await request(app).get('/api/health')).status).toBe(200);
     expect((await request(app).get('/api/share/not-a-real-token')).status).not.toBe(401);

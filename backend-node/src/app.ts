@@ -66,9 +66,11 @@ app.use(
 );
 app.use(cookieParser() as unknown as express.RequestHandler);
 
-// Raw body parser for file uploads (before JSON parser)
+// Raw body parser for file uploads (before JSON parser). Check the session first, so nobody
+// can make the server read 10 MB without signing in.
 app.use(
   '/api/attachments/upload',
+  authenticate,
   express.raw({
     type: [
       'application/pdf',
