@@ -58,6 +58,17 @@ describe('enrichAction', () => {
       expect(enriched.mover).toBe('Member');
     });
 
+    it("uses the member's current name, so a rename shows on later actions", () => {
+      // The login token still carries the old name ('Member')
+      const members = [{ id: 20, name: 'Renamed Member', role: 'member' as const, present: true }];
+      const enriched = enrichAction(
+        { type: 'MAKE_MOTION', motionId: 1, mover: 'x', moverId: 99 } as unknown as MeetingAction,
+        member,
+        members,
+      ) as unknown as Record<string, unknown>;
+      expect(enriched.mover).toBe('Renamed Member');
+    });
+
     it('sets a proxy request to come from the signed-in user', () => {
       expect(enrich({ type: 'REQUEST_PROXY', requestedBy: 99 }).requestedBy).toBe(20);
     });

@@ -176,7 +176,7 @@ export async function handleDispatchAction(
     }
 
     // Enrich action with server-authoritative values
-    let enrichedAction = enrichAction(data.action, socket.data);
+    let enrichedAction = enrichAction(data.action, socket.data, meeting.state.members);
 
     // Special enrichment for OPEN_VOTING - add quorum warning flag
     if (data.action.type === 'OPEN_VOTING' && votingWithoutQuorum) {

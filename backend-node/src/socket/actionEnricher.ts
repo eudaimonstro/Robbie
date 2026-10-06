@@ -1,4 +1,4 @@
-import type { MeetingAction } from '@robbie-bylawyer/shared/types';
+import type { MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import type { SocketData } from '@robbie-bylawyer/shared/types/socket';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 
@@ -15,8 +15,15 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
  * Enrich action with server-authoritative values
  * This prevents clients from spoofing their identity
  */
-export function enrichAction(action: MeetingAction, socketData: SocketData): MeetingAction {
+export function enrichAction(
+  action: MeetingAction,
+  socketData: SocketData,
+  members: readonly Member[] = [],
+): MeetingAction {
   const enriched = { ...action } as MeetingAction & Record<string, unknown>;
+  // The member's current name: the login token keeps the name given at sign-in, so a member
+  // renamed since would otherwise be stamped with the old one
+  const name = members.find((m) => m.id === socketData.userId)?.name ?? socketData.name;
 
   // Override any user-related IDs with authenticated values
   if ('voterId' in enriched) {
@@ -56,22 +63,22 @@ export function enrichAction(action: MeetingAction, socketData: SocketData): Mee
 
   // Override names with authenticated values
   if ('mover' in enriched) {
-    enriched.mover = socketData.name;
+    enriched.mover = name;
   }
   if ('seconder' in enriched) {
-    enriched.seconder = socketData.name;
+    enriched.seconder = name;
   }
   if ('objector' in enriched) {
-    enriched.objector = socketData.name;
+    enriched.objector = name;
   }
   if ('askedBy' in enriched) {
-    enriched.askedBy = socketData.name;
+    enriched.askedBy = name;
   }
   if ('nominatedBy' in enriched) {
-    enriched.nominatedBy = socketData.name;
+    enriched.nominatedBy = name;
   }
   if ('answeredBy' in enriched) {
-    enriched.answeredBy = socketData.name;
+    enriched.answeredBy = name;
   }
 
   // Server generates timestamps using shared utility for consistency
