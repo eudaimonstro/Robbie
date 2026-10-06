@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction, RollCallRecord } from '../../types/index.js';
+import type { MeetingAction, RollCallRecord } from '../../types/index.js';
 import {
   LOG_ROLL_CALL_STARTED,
   logRollCallResponse,

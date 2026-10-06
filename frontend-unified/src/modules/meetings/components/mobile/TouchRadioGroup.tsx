@@ -58,11 +58,10 @@ export function TouchRadioGroup<T extends string>({
   disabled = false,
   required = false,
 }: TouchRadioGroupProps<T>) {
-  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [, setFocusedIndex] = useState<number>(-1);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>, index: number) => {
-      const enabledOptions = options.filter((_, i) => !disabled);
       const currentIndex = index;
 
       switch (e.key) {

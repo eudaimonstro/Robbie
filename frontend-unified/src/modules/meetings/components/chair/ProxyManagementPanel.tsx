@@ -1,12 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Users, UserPlus, UserMinus, Settings, Clock, X } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type {
-  MeetingState,
-  MeetingAction,
-  Member,
-  PendingProxyRequest,
-} from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 
 interface ProxyManagementPanelProps {
   state: MeetingState;

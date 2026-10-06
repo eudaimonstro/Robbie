@@ -39,7 +39,7 @@ export default function MeetingsPage() {
             (a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime(),
           ),
         );
-      } catch (err) {
+      } catch {
         showToast('error', 'Failed to load meetings');
       } finally {
         setLoading(false);
@@ -66,7 +66,7 @@ export default function MeetingsPage() {
       setCreateModalOpen(false);
       resetForm();
       showToast('success', 'Meeting created');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to create meeting');
     } finally {
       setCreating(false);

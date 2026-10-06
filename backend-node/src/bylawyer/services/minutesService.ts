@@ -7,7 +7,6 @@
 
 import { prisma } from '../../db/prisma.js';
 import type { MeetingMinutes } from '@robbie-bylawyer/shared/types';
-import { formatMinutesAsMarkdown } from '@robbie-bylawyer/shared/utils';
 import { logger } from '../../middleware/logger.js';
 
 export type MinutesDocumentResult =
@@ -38,7 +37,7 @@ export async function createMinutesDocument(
     const documentTitle = `Meeting Minutes - ${meetingDate}`;
 
     // Try to find organization from meeting packet if not provided
-    let orgId = organizationId;
+    const orgId = organizationId;
     if (!orgId) {
       const packet = await prisma.meetingPacket.findUnique({
         where: { robbieCode: minutes.meetingCode },
@@ -177,7 +176,7 @@ async function createMinutesSections(versionId: string, minutes: MeetingMinutes)
   let position = 0;
 
   // Header section
-  const headerSection = await prisma.section.create({
+  await prisma.section.create({
     data: {
       versionId,
       position: position++,
@@ -284,7 +283,7 @@ async function createMinutesSections(versionId: string, minutes: MeetingMinutes)
     await prisma.section.create({
       data: {
         versionId,
-        position: position++,
+        position,
         numberLabel: 'VI',
         title: 'Announcements',
         content: minutes.announcements.map((a) => `• ${a}`).join('\n'),
@@ -439,16 +438,9 @@ export async function autoGenerateMinutes(
   organizationId?: string,
 ): Promise<MinutesDocumentResult> {
   // First, try to find if there's a linked organization via meeting packet
-  let orgId = organizationId;
+  const orgId = organizationId;
 
-  if (!orgId) {
-    // Check if meeting packet exists and try to find linked org
-    const packet = await prisma.meetingPacket.findUnique({
-      where: { robbieCode: meetingCode },
-    });
-
-    // Future: could add organizationId to MeetingPacket for direct linking
-  }
+  // Future: look up the organization through the meeting packet once MeetingPacket links to one
 
   const result = await createMinutesDocument(minutes, orgId);
 

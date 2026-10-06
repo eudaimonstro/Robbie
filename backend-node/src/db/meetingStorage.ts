@@ -146,7 +146,7 @@ export interface StorageProvider {
 
 // In-memory implementation
 class InMemoryStorage implements StorageProvider {
-  mode: 'in-memory' = 'in-memory';
+  mode = 'in-memory' as const;
   private meetings = new Map<string, MeetingRecord>();
   private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
   private nextMeetingId = 1;
@@ -238,7 +238,7 @@ class InMemoryStorage implements StorageProvider {
 
 // PostgreSQL implementation
 class PostgresStorage implements StorageProvider {
-  mode: 'postgresql' = 'postgresql';
+  mode = 'postgresql' as const;
   // Use in-memory for participant roles since users table isn't populated yet
   private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
 

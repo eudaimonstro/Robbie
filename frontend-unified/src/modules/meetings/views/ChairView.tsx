@@ -34,11 +34,10 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
   );
 
   // Use custom hook for quorum status (with proxy support)
-  const { presentCount, effectiveCount, hasQuorum, proxyCount } = useQuorumStatus(
-    state.members,
-    state.quorum,
-    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies },
-  );
+  const { presentCount, effectiveCount, hasQuorum } = useQuorumStatus(state.members, state.quorum, {
+    proxiesCountForQuorum: state.proxiesCountForQuorum,
+    proxies: state.proxies,
+  });
 
   // Get chair member
   const chair = useMemo(() => state.members.find((m) => m.role === 'chair'), [state.members]);

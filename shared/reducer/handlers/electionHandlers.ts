@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction, Officer } from '../../types/index.js';
+import type { MeetingAction, Officer } from '../../types/index.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {

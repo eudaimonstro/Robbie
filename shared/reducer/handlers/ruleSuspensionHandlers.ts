@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import type { ActionHandler } from './types.js';
 
 export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {

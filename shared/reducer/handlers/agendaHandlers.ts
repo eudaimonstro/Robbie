@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import {
   LOG_AGENDA_ADOPTED,
   LOG_AGENDA_OBJECTION,

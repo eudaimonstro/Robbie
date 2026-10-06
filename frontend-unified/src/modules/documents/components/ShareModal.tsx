@@ -36,7 +36,7 @@ export default function ShareModal({
       setLoading(true);
       const status = await documentsApi.getShareStatus(documentId);
       setShareStatus(status);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to load sharing status');
     } finally {
       setLoading(false);
@@ -49,7 +49,7 @@ export default function ShareModal({
       const status = await documentsApi.enableSharing(documentId);
       setShareStatus(status);
       showToast('success', 'Sharing enabled');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to enable sharing');
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ export default function ShareModal({
         setShareStatus({ ...shareStatus, share_enabled: false });
       }
       showToast('success', 'Sharing disabled');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to disable sharing');
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export default function ShareModal({
       setShareStatus(status);
       setShowRegenerateConfirm(false);
       showToast('success', 'New share link generated. Old links no longer work.');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to regenerate share link');
     } finally {
       setRegenerating(false);
@@ -96,7 +96,7 @@ export default function ShareModal({
       await navigator.clipboard.writeText(getFullShareUrl());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to copy link');
     } finally {
       setCopying(false);

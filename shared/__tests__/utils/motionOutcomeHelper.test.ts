@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyMotionOutcome } from '../../utils/index.js';
-import type { MeetingState, Motion, AgendaItem } from '../../types/index.js';
+import type { MeetingState, Motion } from '../../types/index.js';
 
 // Helper to create a minimal meeting state for testing
 const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState => ({

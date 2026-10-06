@@ -31,7 +31,7 @@ export default function SettingsPage() {
       await refreshOrganizations();
       setEditModalOpen(false);
       showToast('success', 'Organization updated');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to update organization');
     } finally {
       setSaving(false);
@@ -48,7 +48,7 @@ export default function SettingsPage() {
       await refreshOrganizations();
       setDeleteDialogOpen(false);
       showToast('success', 'Organization deleted');
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to delete organization');
     } finally {
       setDeleting(false);

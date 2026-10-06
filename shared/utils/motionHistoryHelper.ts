@@ -1,4 +1,4 @@
-import type { MeetingState, CompletedMotion, Motion } from '../types/index.js';
+import type { MeetingState } from '../types/index.js';
 
 export type MotionOutcome = 'passed' | 'failed' | 'tabled' | 'pending';
 

@@ -72,7 +72,7 @@ export default function AmendmentDetailPage() {
       await deleteChange(deletingChange.id);
       setDeleteChangeDialogOpen(false);
       setDeletingChange(null);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to delete change');
     } finally {
       setDeletingChangeLoading(false);
@@ -84,7 +84,7 @@ export default function AmendmentDetailPage() {
       setActionLoading(true);
       await action();
       closeDialog();
-    } catch (err) {
+    } catch {
       // Error already shown by hook
     } finally {
       setActionLoading(false);

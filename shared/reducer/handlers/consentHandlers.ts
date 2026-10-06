@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import { applyMotionOutcome, processOutcomeResult } from '../../utils/motionOutcomeHelper.js';
 import type { ActionHandler } from './types.js';
 

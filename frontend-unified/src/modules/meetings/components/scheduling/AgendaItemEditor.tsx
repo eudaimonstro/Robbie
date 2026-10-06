@@ -24,7 +24,6 @@ interface AgendaItemEditorProps {
 export function AgendaItemEditor({
   item,
   robbieCode,
-  packetId,
   onUpdate,
   onDelete,
   onAttachmentAdded,

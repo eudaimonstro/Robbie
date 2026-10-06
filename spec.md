@@ -170,7 +170,8 @@ Other work:
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
-- Replace `alert()` validation. Fix `TestRoleSwitcher`'s hooks-after-return bug or remove it from production builds. Delete the unused mobile-layout components or use them.
+- Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
+- Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.
 - Settings: real version and environment instead of hard-coded "1.0.0" and "Development", members (M3), org rules (M5), account.
 - Done when: Playwright smoke tests cover sign in, create org and document, invite a member, draft and propose an amendment, run a meeting with a two-thirds vote, view the resulting version, approve minutes, open the public share link, in both light and dark themes.

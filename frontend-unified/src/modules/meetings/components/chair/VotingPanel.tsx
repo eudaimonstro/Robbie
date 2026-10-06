@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import { CountdownTimer } from '../CountdownTimer';
 
 interface VotingPanelProps {

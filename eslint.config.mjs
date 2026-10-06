@@ -27,7 +27,10 @@ export default tseslint.config(
     },
     rules: {
       'no-console': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
@@ -42,9 +45,16 @@ export default tseslint.config(
     },
     rules: {
       'no-console': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
       ...reactHooks.configs.recommended.rules,
+      // React Compiler rules: existing "reset state when a prop changes" effects and manual
+      // memoization trip these. Warn until they're refactored with tests (spec M9).
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },

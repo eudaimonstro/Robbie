@@ -11,13 +11,6 @@ const mockMembers: Member[] = [
   { id: 5, name: 'Eve', role: 'admin', present: true },
 ];
 
-// Helper to create initial state with members for testing
-const createTestState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
-  ...initialState,
-  members: mockMembers,
-  ...overrides,
-});
-
 // Helper to create a basic motion
 const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
   id: 1,

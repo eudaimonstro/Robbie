@@ -46,7 +46,7 @@ export function ExportDropdown({ selectedVersion }: ExportDropdownProps) {
       }
 
       showToast('success', `Exported as ${format.toUpperCase()}`);
-    } catch (err) {
+    } catch {
       showToast('error', `Failed to export as ${format.toUpperCase()}`);
     } finally {
       setExporting(false);

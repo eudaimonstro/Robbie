@@ -72,7 +72,7 @@ export function useMeetingData(
       }
       setAllAmendments(all);
       setProposedAmendments(proposed);
-    } catch (err) {
+    } catch {
       setError('Failed to load meeting');
       showToast('error', 'Failed to load meeting');
     } finally {

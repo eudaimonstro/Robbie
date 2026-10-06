@@ -90,7 +90,7 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
         try {
           const tree = await versionsApi.getTree(version.id);
           setSectionTree(tree);
-        } catch (err) {
+        } catch {
           showToast('error', 'Failed to load version');
         }
       }
@@ -147,7 +147,7 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
         await sectionsApi.reorder(selectedVersion.id, updates);
         await refreshTree();
         showToast('success', 'Section order updated');
-      } catch (err) {
+      } catch {
         showToast('error', 'Failed to reorder sections');
         await refreshTree();
       }

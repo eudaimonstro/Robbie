@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Gavel, UserCheck } from 'lucide-react';
 import { generateMeetingCode, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 
 interface MeetingControlPanelProps {
   state: MeetingState;

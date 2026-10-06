@@ -30,7 +30,6 @@ interface AmendmentActionDialogsProps {
 
 export function AmendmentActionDialogs({
   deleteChangeDialogOpen,
-  deletingChange,
   deletingChangeLoading,
   onDeleteChangeClose,
   onDeleteChangeConfirm,

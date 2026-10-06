@@ -1,5 +1,5 @@
 import { prisma } from '../../db/prisma.js';
-import { Amendment, AmendmentChange, Section, Version } from '@prisma/client';
+import { Amendment, AmendmentChange, Version } from '@prisma/client';
 
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
 
@@ -42,7 +42,7 @@ export class AmendmentService {
     });
 
     // Clone sections from current version and build ID map
-    let idMap: Record<string, string> = {};
+    const idMap: Record<string, string> = {};
 
     if (oldCurrentVersionId) {
       const oldSections = await prisma.section.findMany({

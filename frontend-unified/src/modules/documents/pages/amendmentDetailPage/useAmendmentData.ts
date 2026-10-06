@@ -49,7 +49,7 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
         const tree = await versionsApi.getTree(doc.current_version_id);
         setSectionTree(tree);
       }
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to load amendment');
     } finally {
       setLoading(false);

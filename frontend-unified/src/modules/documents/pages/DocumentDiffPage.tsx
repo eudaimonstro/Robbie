@@ -61,7 +61,7 @@ export default function DocumentDiffPage() {
           setLeftVersionId(vers[0].id);
           setRightVersionId(vers[0].id);
         }
-      } catch (err) {
+      } catch {
         showToast('error', 'Failed to load document');
       } finally {
         setLoading(false);
@@ -85,7 +85,7 @@ export default function DocumentDiffPage() {
 
         // Update URL
         setSearchParams({ left: leftVersionId, right: rightVersionId });
-      } catch (err) {
+      } catch {
         showToast('error', 'Failed to load diff');
         setDiff(null);
       } finally {

@@ -13,15 +13,8 @@ import {
   reorderAttachmentsBody,
 } from '../../schemas/attachments.js';
 import { uuidParam } from '../../schemas/common.js';
-import {
-  storeFile,
-  readFile,
-  deleteFile,
-  getFullPath,
-  validateFile,
-} from '../services/fileStorage.js';
+import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fileStorage.js';
 import fs from 'fs';
-import path from 'path';
 import { logger } from '../../middleware/logger.js';
 
 export const attachmentsRouter: RouterType = Router();

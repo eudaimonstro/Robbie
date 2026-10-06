@@ -1,15 +1,7 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import { getNextStage, getStageLogMessage } from '../../constants/meetingStages.js';
 import { LOG_MEETING_CALLED_TO_ORDER, LOG_MEETING_ADJOURNED } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
-
-type LifecycleAction = Extract<
-  MeetingAction,
-  | { type: 'START_MEETING' }
-  | { type: 'END_MEETING' }
-  | { type: 'ADVANCE_MEETING_STAGE' }
-  | { type: 'SET_MEETING_STAGE' }
->;
 
 export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {

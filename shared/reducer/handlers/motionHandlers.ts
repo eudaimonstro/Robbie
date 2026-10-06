@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import { MOTIONS } from '../../constants/motions.js';
 import {
   LOG_MOTION_FAILED_NO_SECOND,

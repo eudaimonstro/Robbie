@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member, Motion } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { MotionCard } from '../MotionCard';
 
 interface PendingSecondSectionProps {

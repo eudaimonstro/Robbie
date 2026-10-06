@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import { LOG_MINUTES_APPROVED, logQuorumChanged } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 

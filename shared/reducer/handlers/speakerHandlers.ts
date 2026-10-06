@@ -1,4 +1,4 @@
-import type { MeetingState, MeetingAction } from '../../types/index.js';
+import type { MeetingAction } from '../../types/index.js';
 import { logSpeakerRecognized, logSpeakerYields } from '../../constants/logMessages.js';
 import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
 import type { ActionHandler } from './types.js';

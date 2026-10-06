@@ -90,7 +90,7 @@ export default function DocumentPage() {
       await handleDeleteSection(deletingSection.id);
       setDeleteDialogOpen(false);
       setDeletingSection(null);
-    } catch (err) {
+    } catch {
       showToast('error', 'Failed to delete section');
     } finally {
       setDeleting(false);

@@ -56,7 +56,7 @@ export async function handleJoinMeeting(
 ): Promise<void> {
   try {
     // Try provided token first, fallback to HttpOnly cookie
-    let token = data.token;
+    const token = data.token;
     let decoded = token ? verifyToken(token) : null;
 
     if (!decoded) {

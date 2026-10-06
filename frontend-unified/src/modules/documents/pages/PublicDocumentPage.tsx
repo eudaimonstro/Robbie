@@ -100,7 +100,7 @@ export default function PublicDocumentPage() {
       try {
         const tree = await publicDocuments.getTree(shareToken, version.id);
         setSectionTree(tree);
-      } catch (err) {
+      } catch {
         showToast('error', 'Failed to load version');
       }
     }
@@ -126,7 +126,7 @@ export default function PublicDocumentPage() {
       }
 
       showToast('success', `Exported as ${format.toUpperCase()}`);
-    } catch (err) {
+    } catch {
       showToast('error', `Failed to export as ${format.toUpperCase()}`);
     } finally {
       setExporting(false);
