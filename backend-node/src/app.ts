@@ -25,9 +25,14 @@ import {
   agendaItemsRouter,
 } from './bylawyer/routes/index.js';
 import { httpLogger } from './middleware/logger.js';
+import { trustProxyHops } from './middleware/trustProxy.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export const app = express();
+
+// The per-IP rate limits need the client's address: behind a reverse proxy, trust that many hops
+// of X-Forwarded-For (TRUST_PROXY=1 behind Caddy). By default trust none.
+app.set('trust proxy', trustProxyHops(process.env.TRUST_PROXY));
 
 // Prisma returns BIGINT columns (Amendment.robbieMotionId) as BigInt, which JSON.stringify
 // cannot serialize. Motion IDs stay below Number.MAX_SAFE_INTEGER, so send them as numbers.

@@ -8,4 +8,9 @@ describe('app', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('healthy');
   });
+
+  it('trusts no proxy by default, so clients cannot forge X-Forwarded-For', () => {
+    expect(app.get('trust proxy')).toBe(0);
+    expect(app.get('trust proxy fn')('203.0.113.9', 0)).toBe(false);
+  });
 });
