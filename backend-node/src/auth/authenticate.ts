@@ -22,13 +22,16 @@ export function sessionCookieOptions(): CookieOptions {
   };
 }
 
-/** The session token a request carries: a bearer token (mobile), else the cookie (web) */
+/**
+ * The session token a request carries: a bearer token (mobile), else the cookie (web). The
+ * cookie is unknown because cookie-parser turns a crafted "j:{...}" value into an object.
+ */
 export function sessionTokenFrom(
-  cookie: string | undefined,
+  cookie: unknown,
   authorization: string | undefined,
 ): string | null {
   if (authorization?.startsWith('Bearer ')) return authorization.slice(7).trim() || null;
-  return cookie || null;
+  return typeof cookie === 'string' && cookie ? cookie : null;
 }
 
 /** Require a signed-in user: 401 without a valid session, 503 if it can't be checked */

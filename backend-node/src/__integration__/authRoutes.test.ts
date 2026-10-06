@@ -82,6 +82,14 @@ describe('auth routes', () => {
     expect(sessionCookie(res)).toBeUndefined();
   });
 
+  it('treats a JSON session cookie as no session', async () => {
+    // cookie-parser turns a "j:" value into an object
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', `session=${encodeURIComponent('j:{"a":1}')}`);
+    expect(res.status).toBe(401);
+  });
+
   it('sets the display name', async () => {
     const cookie = sessionCookie(await signIn('ann@example.org'))!;
     const res = await request(app)
