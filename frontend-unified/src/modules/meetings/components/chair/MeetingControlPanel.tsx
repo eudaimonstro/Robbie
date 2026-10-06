@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Gavel, UserCheck } from 'lucide-react';
-import { generateMeetingCode, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 
 interface MeetingControlPanelProps {
@@ -46,7 +46,6 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
           onClick={() =>
             dispatch({
               type: 'START_MEETING',
-              meetingCode: generateMeetingCode(),
               timestamp: generateTimestamp(),
             })
           }

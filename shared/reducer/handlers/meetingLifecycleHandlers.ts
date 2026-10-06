@@ -10,7 +10,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ...state,
         meetingActive: true,
         meetingStage: 'call-to-order',
-        meetingCode: (action as Extract<MeetingAction, { type: 'START_MEETING' }>).meetingCode,
         meetingLog: log(
           (action as Extract<MeetingAction, { type: 'START_MEETING' }>).timestamp,
           LOG_MEETING_CALLED_TO_ORDER,

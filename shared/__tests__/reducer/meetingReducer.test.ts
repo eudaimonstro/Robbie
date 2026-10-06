@@ -34,22 +34,22 @@ const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
 
 describe('meetingReducer', () => {
   describe('START_MEETING', () => {
-    it('should start the meeting', () => {
-      const state = meetingReducer(initialState, {
-        type: 'START_MEETING',
-        meetingCode: 'ABC123',
-        timestamp: '10:00:00',
-      });
+    it('should start the meeting and keep the code it was created with', () => {
+      // The server creates each meeting's state with its room code; starting the
+      // meeting must not replace it (links, packets and minutes are keyed by it)
+      const state = meetingReducer(
+        { ...initialState, meetingCode: 'DEMO' },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
 
       expect(state.meetingActive).toBe(true);
-      expect(state.meetingCode).toBe('ABC123');
+      expect(state.meetingCode).toBe('DEMO');
       expect(state.meetingStage).toBe('call-to-order');
     });
 
     it('should add a log entry', () => {
       const state = meetingReducer(initialState, {
         type: 'START_MEETING',
-        meetingCode: 'ABC123',
         timestamp: '10:00:00',
       });
 

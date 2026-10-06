@@ -63,7 +63,6 @@ describe('actionValidator', () => {
     it('should allow starting inactive meeting', () => {
       const result = validateAction(initialState, {
         type: 'START_MEETING',
-        meetingCode: 'TEST',
         timestamp: '',
       });
       expect(result.valid).toBe(true);
@@ -73,7 +72,6 @@ describe('actionValidator', () => {
       const state = { ...initialState, meetingActive: true };
       const result = validateAction(state, {
         type: 'START_MEETING',
-        meetingCode: 'TEST',
         timestamp: '',
       });
       expect(result.valid).toBe(false);

@@ -295,7 +295,7 @@ export interface MeetingState {
 
 // Action types
 export type MeetingAction =
-  | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
+  | { type: 'START_MEETING'; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
   | {
       type: 'MAKE_MOTION';
