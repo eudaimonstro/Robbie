@@ -8,6 +8,7 @@
 import { Router, type Router as RouterType, type RequestHandler } from 'express';
 import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
+import { logger } from '../middleware/logger.js';
 
 export const bylawyerRouter: RouterType = Router();
 
@@ -22,7 +23,7 @@ const listOrganizations: RequestHandler = async (_req, res) => {
     });
     res.json(organizations);
   } catch (error) {
-    console.error('Error fetching organizations:', error);
+    logger.error({ err: error }, 'Error fetching organizations');
     res.status(500).json({
       error: 'Failed to fetch organizations',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -49,7 +50,7 @@ const getOrganization: RequestHandler = async (req, res) => {
 
     res.json(organization);
   } catch (error) {
-    console.error('Error fetching organization:', error);
+    logger.error({ err: error }, 'Error fetching organization');
     res.status(500).json({
       error: 'Failed to fetch organization',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -83,7 +84,7 @@ const getOrganizationDocuments: RequestHandler = async (req, res) => {
 
     res.json(documents);
   } catch (error) {
-    console.error('Error fetching documents:', error);
+    logger.error({ err: error }, 'Error fetching documents');
     res.status(500).json({
       error: 'Failed to fetch documents',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -135,7 +136,7 @@ const linkMeeting: RequestHandler = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error linking meeting to organization:', error);
+    logger.error({ err: error }, 'Error linking meeting to organization');
     res.status(500).json({
       error: 'Failed to link meeting to organization',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -162,7 +163,7 @@ const unlinkMeeting: RequestHandler = async (req, res) => {
 
     res.json({ success: true, meetingCode });
   } catch (error) {
-    console.error('Error unlinking meeting from organization:', error);
+    logger.error({ err: error }, 'Error unlinking meeting from organization');
     res.status(500).json({
       error: 'Failed to unlink meeting from organization',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -211,7 +212,7 @@ const getMeetingOrganization: RequestHandler = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting meeting organization:', error);
+    logger.error({ err: error }, 'Error getting meeting organization');
     res.status(500).json({
       error: 'Failed to get meeting organization',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -268,7 +269,7 @@ const getDocumentSections: RequestHandler = async (req, res) => {
 
     res.json(buildTree());
   } catch (error) {
-    console.error('Error fetching document sections:', error);
+    logger.error({ err: error }, 'Error fetching document sections');
     res.status(500).json({
       error: 'Failed to fetch sections',
       details: error instanceof Error ? error.message : 'Unknown error'

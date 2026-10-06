@@ -5,6 +5,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../middleware/logger.js';
 
 export const prisma = new PrismaClient();
 
@@ -13,7 +14,7 @@ export const prisma = new PrismaClient();
  */
 export async function connectPrisma(): Promise<void> {
   await prisma.$connect();
-  console.log('Connected to Bylawyer database (Prisma)');
+  logger.info('Connected to Bylawyer database (Prisma)');
 }
 
 /**
@@ -21,5 +22,5 @@ export async function connectPrisma(): Promise<void> {
  */
 export async function disconnectPrisma(): Promise<void> {
   await prisma.$disconnect();
-  console.log('Disconnected from Bylawyer database');
+  logger.info('Disconnected from Bylawyer database');
 }

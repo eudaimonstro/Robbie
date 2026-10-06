@@ -12,6 +12,7 @@ import type { ChangeType, AmendmentStatus } from '@prisma/client';
 import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { AmendmentService } from './services/amendmentService.js';
+import { logger } from '../middleware/logger.js';
 
 interface SyncResult {
   success: boolean;
@@ -43,7 +44,7 @@ export async function checkAndSyncBylawAmendment(
 
   // Check if the motion had bylaw amendment data
   if (!votedMotion.bylawAmendment) {
-    console.warn(`[BYLAW_SYNC] bylawAmendment motion ${votedMotion.id} missing bylawAmendment data`);
+    logger.warn({ motionId: votedMotion.id }, 'bylawAmendment motion missing bylawAmendment data');
     return null;
   }
 
@@ -54,7 +55,7 @@ export async function checkAndSyncBylawAmendment(
 
   if (!completedMotion) {
     // Motion wasn't completed (might have been tabled or something)
-    console.log(`[BYLAW_SYNC] Motion ${votedMotion.id} not in completedMotions, skipping sync`);
+    logger.info({ motionId: votedMotion.id }, 'Motion not in completedMotions, skipping sync');
     return null;
   }
 
@@ -63,7 +64,7 @@ export async function checkAndSyncBylawAmendment(
   const orgId = await storage.getBylawyerOrgId(meetingCode);
 
   if (!orgId) {
-    console.log(`[BYLAW_SYNC] Meeting ${meetingCode} not linked to Bylawyer org, skipping sync`);
+    logger.info({ meetingCode }, 'Meeting not linked to Bylawyer org, skipping sync');
     return null;
   }
 
@@ -84,7 +85,7 @@ async function syncMotionToBylawyer(
   try {
     const bylawAmendment = votedMotion.bylawAmendment!;
 
-    console.log(`[BYLAW_SYNC] Syncing motion ${votedMotion.id} to Bylawyer (passed: ${completedMotion.passed})`);
+    logger.info({ motionId: votedMotion.id, passed: completedMotion.passed }, 'Syncing motion to Bylawyer');
 
     // Check if this motion has already been synced
     const existingAmendment = await prisma.amendment.findFirst({
@@ -95,7 +96,7 @@ async function syncMotionToBylawyer(
     });
 
     if (existingAmendment) {
-      console.log(`[BYLAW_SYNC] Motion ${votedMotion.id} already synced`);
+      logger.info({ motionId: votedMotion.id }, 'Motion already synced');
       return {
         success: true,
         amendmentId: existingAmendment.id,
@@ -109,7 +110,7 @@ async function syncMotionToBylawyer(
     });
 
     if (!document) {
-      console.error(`[BYLAW_SYNC] Document not found: ${bylawAmendment.documentId}`);
+      logger.error({ documentId: bylawAmendment.documentId }, 'Document not found for bylaw sync');
       return {
         success: false,
         error: `Document not found: ${bylawAmendment.documentId}`
@@ -180,14 +181,11 @@ async function syncMotionToBylawyer(
         applied = true;
       } catch (applyError: any) {
         // Log but don't fail - the amendment is still created
-        console.error('[BYLAW_SYNC] Failed to auto-apply amendment:', applyError.message);
+        logger.error({ err: applyError }, 'Failed to auto-apply amendment');
       }
     }
 
-    console.log(`[BYLAW_SYNC] Sync successful:`, {
-      amendmentId: amendment.id,
-      applied
-    });
+    logger.info({ amendmentId: amendment.id, applied }, 'Bylaw sync successful');
 
     return {
       success: true,
@@ -195,7 +193,7 @@ async function syncMotionToBylawyer(
       applied
     };
   } catch (error: any) {
-    console.error(`[BYLAW_SYNC] Sync error:`, error.message);
+    logger.error({ err: error }, 'Bylaw sync error');
     return {
       success: false,
       error: error.message
@@ -233,7 +231,7 @@ export async function checkSyncStatus(
       applied: !!amendment.resultingVersionId
     };
   } catch (error) {
-    console.error('[BYLAW_SYNC] Error checking sync status:', error);
+    logger.error({ err: error }, 'Error checking sync status');
     return { synced: false };
   }
 }

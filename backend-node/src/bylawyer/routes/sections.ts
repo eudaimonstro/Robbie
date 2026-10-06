@@ -1,11 +1,14 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { Section } from '@prisma/client';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam, versionIdParam } from '../../schemas/common.js';
+import { createSectionBody, updateSectionBody, reorderSectionsBody } from '../../schemas/sections.js';
 
 export const sectionsRouter: RouterType = Router();
 
 // List sections for a version
-sectionsRouter.get('/versions/:versionId/sections', async (req, res) => {
+sectionsRouter.get('/versions/:versionId/sections', validate({ params: versionIdParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.versionId }
@@ -27,7 +30,7 @@ sectionsRouter.get('/versions/:versionId/sections', async (req, res) => {
 });
 
 // Reorder sections
-sectionsRouter.put('/versions/:versionId/sections/reorder', async (req, res) => {
+sectionsRouter.put('/versions/:versionId/sections/reorder', validate({ params: versionIdParam, body: reorderSectionsBody }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.versionId }
@@ -82,7 +85,7 @@ sectionsRouter.put('/versions/:versionId/sections/reorder', async (req, res) => 
 });
 
 // Create section
-sectionsRouter.post('/versions/:versionId/sections', async (req, res) => {
+sectionsRouter.post('/versions/:versionId/sections', validate({ params: versionIdParam, body: createSectionBody }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.versionId }
@@ -123,7 +126,7 @@ sectionsRouter.post('/versions/:versionId/sections', async (req, res) => {
 });
 
 // Get section by ID
-sectionsRouter.get('/sections/:id', async (req, res) => {
+sectionsRouter.get('/sections/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const section = await prisma.section.findUnique({
       where: { id: req.params.id }
@@ -140,7 +143,7 @@ sectionsRouter.get('/sections/:id', async (req, res) => {
 });
 
 // Update section
-sectionsRouter.put('/sections/:id', async (req, res) => {
+sectionsRouter.put('/sections/:id', validate({ params: uuidParam, body: updateSectionBody }), async (req, res) => {
   try {
     const section = await prisma.section.findUnique({
       where: { id: req.params.id }
@@ -169,7 +172,7 @@ sectionsRouter.put('/sections/:id', async (req, res) => {
 });
 
 // Delete section
-sectionsRouter.delete('/sections/:id', async (req, res) => {
+sectionsRouter.delete('/sections/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const section = await prisma.section.findUnique({
       where: { id: req.params.id }
@@ -188,7 +191,7 @@ sectionsRouter.delete('/sections/:id', async (req, res) => {
 });
 
 // Add child section
-sectionsRouter.post('/sections/:id/children', async (req, res) => {
+sectionsRouter.post('/sections/:id/children', validate({ params: uuidParam, body: createSectionBody }), async (req, res) => {
   try {
     const parent = await prisma.section.findUnique({
       where: { id: req.params.id },
@@ -222,7 +225,7 @@ sectionsRouter.post('/sections/:id/children', async (req, res) => {
 });
 
 // Get section path
-sectionsRouter.get('/sections/:id/path', async (req, res) => {
+sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async (req, res) => {
   try {
     const path: Array<{ id: string; number_label: string | null; title: string | null }> = [];
     let currentId: string | null = req.params.id;

@@ -9,6 +9,9 @@ import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import { AmendmentService } from '../services/amendmentService.js';
 import type { ChangeType, AmendmentStatus } from '@prisma/client';
+import { validate } from '../../middleware/validate.js';
+import { syncMotionBody, syncStatusParams } from '../../schemas/robbie.js';
+import { logger } from '../../middleware/logger.js';
 
 export const robbieRouter: RouterType = Router();
 
@@ -47,7 +50,7 @@ interface SyncMotionRequest {
  * Sync a passed bylaw amendment motion from Robbie to Bylawyer.
  * Creates an amendment with status 'passed' and optionally applies it.
  */
-robbieRouter.post('/sync-motion', async (req, res) => {
+robbieRouter.post('/sync-motion', validate({ body: syncMotionBody }), async (req, res) => {
   try {
     const body = req.body as SyncMotionRequest;
 
@@ -140,7 +143,7 @@ robbieRouter.post('/sync-motion', async (req, res) => {
         newVersion = await service.applyAmendment(amendment);
       } catch (applyError: any) {
         // Log but don't fail - the amendment is still created
-        console.error('Failed to auto-apply amendment:', applyError.message);
+        logger.error({ err: applyError }, 'Failed to auto-apply amendment');
       }
     }
 
@@ -163,7 +166,7 @@ robbieRouter.post('/sync-motion', async (req, res) => {
       applied: !!newVersion
     });
   } catch (error: any) {
-    console.error('Error syncing motion from Robbie:', error);
+    logger.error({ err: error }, 'Error syncing motion from Robbie');
     res.status(500).json({
       error: 'Failed to sync motion',
       details: error.message
@@ -220,7 +223,7 @@ robbieRouter.get('/meetings/:amendmentId', async (req, res) => {
       robbieUrl: `http://localhost:5173/meeting/${amendment.robbieMeetingCode}`
     });
   } catch (error: any) {
-    console.error('Error getting Robbie meeting details:', error);
+    logger.error({ err: error }, 'Error getting Robbie meeting details');
     res.status(500).json({
       error: 'Failed to get meeting details',
       details: error.message
@@ -259,7 +262,7 @@ robbieRouter.get('/amendments', async (req, res) => {
       changes: a.changes
     })));
   } catch (error: any) {
-    console.error('Error listing Robbie amendments:', error);
+    logger.error({ err: error }, 'Error listing Robbie amendments');
     res.status(500).json({
       error: 'Failed to list amendments',
       details: error.message
@@ -272,7 +275,7 @@ robbieRouter.get('/amendments', async (req, res) => {
  *
  * Check if a specific motion has been synced.
  */
-robbieRouter.get('/sync-status/:meetingCode/:motionId', async (req, res) => {
+robbieRouter.get('/sync-status/:meetingCode/:motionId', validate({ params: syncStatusParams }), async (req, res) => {
   try {
     const { meetingCode, motionId } = req.params;
 
@@ -301,7 +304,7 @@ robbieRouter.get('/sync-status/:meetingCode/:motionId', async (req, res) => {
       applied: !!amendment.resultingVersionId
     });
   } catch (error: any) {
-    console.error('Error checking sync status:', error);
+    logger.error({ err: error }, 'Error checking sync status');
     res.status(500).json({
       error: 'Failed to check sync status',
       details: error.message

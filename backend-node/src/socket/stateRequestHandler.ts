@@ -6,6 +6,7 @@ import type {
   StateResponse
 } from '@robbie-bylawyer/shared/types/socket';
 import { getStorage } from '../db/meetingStorage.js';
+import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
@@ -36,7 +37,7 @@ export async function handleRequestState(
     });
 
   } catch (error) {
-    console.error('Error fetching state:', error);
+    logger.error({ err: error }, 'Error fetching state');
     callback({ success: false, error: 'Failed to fetch state' });
   }
 }

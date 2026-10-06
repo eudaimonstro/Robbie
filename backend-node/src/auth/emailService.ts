@@ -27,6 +27,7 @@
 
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { logger } from '../middleware/logger.js';
 
 // For testing: returns the code so it can be used for dev bypass
 let lastGeneratedCode: string | null = null;
@@ -101,12 +102,11 @@ transporter = createTransporter();
 
 // Log provider on startup
 if (isProduction && emailProvider === 'development') {
-  console.error(
-    'WARNING: No email provider configured in production!\n' +
-    'Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY'
+  logger.error(
+    'No email provider configured in production. Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY'
   );
 } else {
-  console.log(`Email service initialized: ${emailProvider}`);
+  logger.info({ emailProvider }, 'Email service initialized');
 }
 
 /**
@@ -193,20 +193,7 @@ export async function sendVerificationEmail(
 
   // Development mode - just log to console
   if (emailProvider === 'development') {
-    console.log(`
-    ========================================
-    VERIFICATION EMAIL (Development Mode)
-    ========================================
-    To: ${email}
-    Meeting Code: ${meetingCode}
-    Verification Code: ${code}
-    ========================================
-
-    To enable email sending, set one of:
-    - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-    - SENDGRID_API_KEY
-    - RESEND_API_KEY
-    `);
+    logger.info({ to: email, meetingCode, verificationCode: code }, 'Verification email (development mode)');
     return;
   }
 
@@ -224,9 +211,9 @@ export async function sendVerificationEmail(
       html: generateEmailHtml(code, meetingCode),
     });
 
-    console.log(`Verification email sent to ${email}: ${info.messageId}`);
+    logger.info({ to: email, messageId: info.messageId }, 'Verification email sent');
   } catch (error) {
-    console.error('Failed to send verification email:', error);
+    logger.error({ err: error }, 'Failed to send verification email');
     throw new Error('Failed to send verification email. Please try again.');
   }
 }
@@ -237,21 +224,21 @@ export async function sendVerificationEmail(
  */
 export async function verifyEmailConfiguration(): Promise<boolean> {
   if (emailProvider === 'development') {
-    console.log('Email service running in development mode (console logging)');
+    logger.info('Email service running in development mode');
     return true;
   }
 
   if (!transporter) {
-    console.error('Email transporter not available');
+    logger.error('Email transporter not available');
     return false;
   }
 
   try {
     await transporter.verify();
-    console.log('Email configuration verified successfully');
+    logger.info('Email configuration verified successfully');
     return true;
   } catch (error) {
-    console.error('Email configuration verification failed:', error);
+    logger.error({ err: error }, 'Email configuration verification failed');
     return false;
   }
 }

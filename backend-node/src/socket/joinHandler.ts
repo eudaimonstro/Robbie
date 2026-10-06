@@ -11,6 +11,7 @@ import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
+import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -162,7 +163,7 @@ export async function handleJoinMeeting(
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Error joining meeting:', errorMessage, error);
+    logger.error({ err: error }, 'Error joining meeting');
     callback({ success: false, error: `Failed to join meeting: ${errorMessage}` });
   }
 }

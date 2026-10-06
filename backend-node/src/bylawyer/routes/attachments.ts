@@ -6,6 +6,9 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { linkDocumentBody, updateAttachmentBody, reorderAttachmentsBody } from '../../schemas/attachments.js';
+import { uuidParam } from '../../schemas/common.js';
 import {
   storeFile,
   readFile,
@@ -15,6 +18,7 @@ import {
 } from '../services/fileStorage.js';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../../middleware/logger.js';
 
 export const attachmentsRouter: RouterType = Router();
 
@@ -106,7 +110,7 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
 
     res.status(201).json(attachment);
   } catch (error) {
-    console.error('Error uploading file:', error);
+    logger.error({ err: error }, 'Error uploading file');
     res.status(500).json({ error: 'Failed to upload file' });
   }
 });
@@ -116,7 +120,7 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
  * Link a Bylawyer document as an attachment
  * Body: { documentId, versionId?, packetId?, agendaItemId?, displayName?, description? }
  */
-attachmentsRouter.post('/attachments/link-document', async (req, res) => {
+attachmentsRouter.post('/attachments/link-document', validate({ body: linkDocumentBody }), async (req, res) => {
   try {
     const { documentId, versionId, packetId, agendaItemId, displayName, description } = req.body;
 
@@ -191,7 +195,7 @@ attachmentsRouter.post('/attachments/link-document', async (req, res) => {
 
     res.status(201).json(attachment);
   } catch (error) {
-    console.error('Error linking document:', error);
+    logger.error({ err: error }, 'Error linking document');
     res.status(500).json({ error: 'Failed to link document' });
   }
 });
@@ -200,7 +204,7 @@ attachmentsRouter.post('/attachments/link-document', async (req, res) => {
  * GET /api/attachments/:id
  * Get attachment metadata
  */
-attachmentsRouter.get('/attachments/:id', async (req, res) => {
+attachmentsRouter.get('/attachments/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -219,7 +223,7 @@ attachmentsRouter.get('/attachments/:id', async (req, res) => {
 
     res.json(attachment);
   } catch (error) {
-    console.error('Error getting attachment:', error);
+    logger.error({ err: error }, 'Error getting attachment');
     res.status(500).json({ error: 'Failed to get attachment' });
   }
 });
@@ -228,7 +232,7 @@ attachmentsRouter.get('/attachments/:id', async (req, res) => {
  * GET /api/attachments/:id/download
  * Download uploaded file
  */
-attachmentsRouter.get('/attachments/:id/download', async (req, res) => {
+attachmentsRouter.get('/attachments/:id/download', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -265,7 +269,7 @@ attachmentsRouter.get('/attachments/:id/download', async (req, res) => {
     const readStream = fs.createReadStream(fullPath);
     readStream.pipe(res);
   } catch (error) {
-    console.error('Error downloading file:', error);
+    logger.error({ err: error }, 'Error downloading file');
     res.status(500).json({ error: 'Failed to download file' });
   }
 });
@@ -275,7 +279,7 @@ attachmentsRouter.get('/attachments/:id/download', async (req, res) => {
  * Update attachment metadata
  * Body: { displayName?, description?, position? }
  */
-attachmentsRouter.put('/attachments/:id', async (req, res) => {
+attachmentsRouter.put('/attachments/:id', validate({ params: uuidParam, body: updateAttachmentBody }), async (req, res) => {
   try {
     const { id } = req.params;
     const { displayName, description, position } = req.body;
@@ -304,7 +308,7 @@ attachmentsRouter.put('/attachments/:id', async (req, res) => {
 
     res.json(updated);
   } catch (error) {
-    console.error('Error updating attachment:', error);
+    logger.error({ err: error }, 'Error updating attachment');
     res.status(500).json({ error: 'Failed to update attachment' });
   }
 });
@@ -313,7 +317,7 @@ attachmentsRouter.put('/attachments/:id', async (req, res) => {
  * DELETE /api/attachments/:id
  * Delete attachment (and file if uploaded)
  */
-attachmentsRouter.delete('/attachments/:id', async (req, res) => {
+attachmentsRouter.delete('/attachments/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -335,7 +339,7 @@ attachmentsRouter.delete('/attachments/:id', async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting attachment:', error);
+    logger.error({ err: error }, 'Error deleting attachment');
     res.status(500).json({ error: 'Failed to delete attachment' });
   }
 });
@@ -345,7 +349,7 @@ attachmentsRouter.delete('/attachments/:id', async (req, res) => {
  * Reorder attachments within a packet or agenda item
  * Body: { attachmentIds: string[] } (in desired order)
  */
-attachmentsRouter.put('/attachments/reorder', async (req, res) => {
+attachmentsRouter.put('/attachments/reorder', validate({ body: reorderAttachmentsBody }), async (req, res) => {
   try {
     const { attachmentIds } = req.body;
 
@@ -365,7 +369,7 @@ attachmentsRouter.put('/attachments/reorder', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Error reordering attachments:', error);
+    logger.error({ err: error }, 'Error reordering attachments');
     res.status(500).json({ error: 'Failed to reorder attachments' });
   }
 });

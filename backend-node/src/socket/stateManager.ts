@@ -2,6 +2,7 @@ import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types'
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { meetingReducer } from '@robbie-bylawyer/shared/reducer';
 import { getStorage } from '../db/meetingStorage.js';
+import { logger } from '../middleware/logger.js';
 
 /** Validation result for action pre-checks */
 export interface ValidationResult {
@@ -84,17 +85,17 @@ export async function applyAction(
 
       // VERSION_CONFLICT - retry with fresh state
       if (attempt < MAX_RETRIES - 1) {
-        console.log(`Concurrency conflict for ${meetingCode}, retrying (attempt ${attempt + 2}/${MAX_RETRIES})`);
+        logger.info({ meetingCode, attempt: attempt + 2, maxRetries: MAX_RETRIES }, 'Concurrency conflict, retrying');
         continue;
       }
     } catch (error) {
-      console.error('Error applying action:', error);
+      logger.error({ err: error }, 'Error applying action');
       return { success: false, error: 'Failed to apply action' };
     }
   }
 
   // All retries exhausted
-  console.warn(`Concurrency conflict for ${meetingCode} after ${MAX_RETRIES} attempts`);
+  logger.warn({ meetingCode, maxRetries: MAX_RETRIES }, 'Concurrency conflict after all retry attempts');
   return {
     success: false,
     error: 'State was modified by another user. Please try again.',

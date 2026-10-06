@@ -6,6 +6,10 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { createPacketBody, updatePacketBody } from '../../schemas/packets.js';
+import { uuidParam } from '../../schemas/common.js';
+import { logger } from '../../middleware/logger.js';
 
 export const packetsRouter: RouterType = Router();
 
@@ -76,7 +80,7 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
 
     res.json(packet);
   } catch (error) {
-    console.error('Error getting packet:', error);
+    logger.error({ err: error }, 'Error getting packet');
     res.status(500).json({ error: 'Failed to get meeting packet' });
   }
 });
@@ -86,7 +90,7 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
  * Create a new meeting packet
  * Body: { robbieCode, title?, description?, scheduledFor? }
  */
-packetsRouter.post('/packets', async (req, res) => {
+packetsRouter.post('/packets', validate({ body: createPacketBody }), async (req, res) => {
   try {
     const { robbieCode, title, description, scheduledFor } = req.body;
 
@@ -123,7 +127,7 @@ packetsRouter.post('/packets', async (req, res) => {
 
     res.status(201).json(packet);
   } catch (error) {
-    console.error('Error creating packet:', error);
+    logger.error({ err: error }, 'Error creating packet');
     res.status(500).json({ error: 'Failed to create meeting packet' });
   }
 });
@@ -133,7 +137,7 @@ packetsRouter.post('/packets', async (req, res) => {
  * Update packet metadata
  * Body: { title?, description?, scheduledFor? }
  */
-packetsRouter.put('/packets/:id', async (req, res) => {
+packetsRouter.put('/packets/:id', validate({ params: uuidParam, body: updatePacketBody }), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, scheduledFor } = req.body;
@@ -166,7 +170,7 @@ packetsRouter.put('/packets/:id', async (req, res) => {
 
     res.json(updated);
   } catch (error) {
-    console.error('Error updating packet:', error);
+    logger.error({ err: error }, 'Error updating packet');
     res.status(500).json({ error: 'Failed to update meeting packet' });
   }
 });
@@ -175,7 +179,7 @@ packetsRouter.put('/packets/:id', async (req, res) => {
  * DELETE /api/packets/:id
  * Delete packet and all its contents
  */
-packetsRouter.delete('/packets/:id', async (req, res) => {
+packetsRouter.delete('/packets/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -194,7 +198,7 @@ packetsRouter.delete('/packets/:id', async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting packet:', error);
+    logger.error({ err: error }, 'Error deleting packet');
     res.status(500).json({ error: 'Failed to delete meeting packet' });
   }
 });
@@ -203,7 +207,7 @@ packetsRouter.delete('/packets/:id', async (req, res) => {
  * GET /api/packets/:id/summary
  * Get a summary of packet contents (counts, titles)
  */
-packetsRouter.get('/packets/:id/summary', async (req, res) => {
+packetsRouter.get('/packets/:id/summary', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -244,7 +248,7 @@ packetsRouter.get('/packets/:id/summary', async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error getting packet summary:', error);
+    logger.error({ err: error }, 'Error getting packet summary');
     res.status(500).json({ error: 'Failed to get packet summary' });
   }
 });

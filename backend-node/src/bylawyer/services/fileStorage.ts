@@ -8,6 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { logger } from '../../middleware/logger.js';
 
 // Configurable upload directory (defaults to ./uploads relative to project root)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
@@ -68,7 +69,7 @@ async function ensureDir(dirPath: string): Promise<void> {
  */
 export async function initializeStorage(): Promise<void> {
   await ensureDir(UPLOAD_DIR);
-  console.log(`File storage initialized at: ${UPLOAD_DIR}`);
+  logger.info({ uploadDir: UPLOAD_DIR }, 'File storage initialized');
 }
 
 /**
@@ -197,6 +198,6 @@ export async function cleanupMeetingFiles(robbieCode: string): Promise<void> {
     const meetingDir = path.join(UPLOAD_DIR, robbieCode);
     await fs.rm(meetingDir, { recursive: true, force: true });
   } catch (error) {
-    console.error(`Failed to clean up files for meeting ${robbieCode}:`, error);
+    logger.error({ err: error, robbieCode }, 'Failed to clean up files for meeting');
   }
 }

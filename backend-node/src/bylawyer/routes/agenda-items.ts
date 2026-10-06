@@ -5,7 +5,12 @@
  */
 
 import { Router, type Router as RouterType } from 'express';
+import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { createAgendaItemBody, updateAgendaItemBody, reorderAgendaItemsBody, bulkCreateAgendaItemsBody } from '../../schemas/agenda-items.js';
+import { uuidParam } from '../../schemas/common.js';
+import { logger } from '../../middleware/logger.js';
 
 export const agendaItemsRouter: RouterType = Router();
 
@@ -13,7 +18,7 @@ export const agendaItemsRouter: RouterType = Router();
  * GET /api/packets/:packetId/agenda
  * List agenda items for a packet
  */
-agendaItemsRouter.get('/packets/:packetId/agenda', async (req, res) => {
+agendaItemsRouter.get('/packets/:packetId/agenda', validate({ params: z.object({ packetId: z.string().uuid() }) }), async (req, res) => {
   try {
     const { packetId } = req.params;
 
@@ -42,7 +47,7 @@ agendaItemsRouter.get('/packets/:packetId/agenda', async (req, res) => {
 
     res.json(items);
   } catch (error) {
-    console.error('Error listing agenda items:', error);
+    logger.error({ err: error }, 'Error listing agenda items');
     res.status(500).json({ error: 'Failed to list agenda items' });
   }
 });
@@ -52,7 +57,7 @@ agendaItemsRouter.get('/packets/:packetId/agenda', async (req, res) => {
  * Create agenda item
  * Body: { title, description?, estimatedMinutes?, presenter? }
  */
-agendaItemsRouter.post('/packets/:packetId/agenda', async (req, res) => {
+agendaItemsRouter.post('/packets/:packetId/agenda', validate({ params: z.object({ packetId: z.string().uuid() }), body: createAgendaItemBody }), async (req, res) => {
   try {
     const { packetId } = req.params;
     const { title, description, estimatedMinutes, presenter } = req.body;
@@ -90,7 +95,7 @@ agendaItemsRouter.post('/packets/:packetId/agenda', async (req, res) => {
 
     res.status(201).json(item);
   } catch (error) {
-    console.error('Error creating agenda item:', error);
+    logger.error({ err: error }, 'Error creating agenda item');
     res.status(500).json({ error: 'Failed to create agenda item' });
   }
 });
@@ -99,7 +104,7 @@ agendaItemsRouter.post('/packets/:packetId/agenda', async (req, res) => {
  * GET /api/agenda-items/:id
  * Get a single agenda item
  */
-agendaItemsRouter.get('/agenda-items/:id', async (req, res) => {
+agendaItemsRouter.get('/agenda-items/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -123,7 +128,7 @@ agendaItemsRouter.get('/agenda-items/:id', async (req, res) => {
 
     res.json(item);
   } catch (error) {
-    console.error('Error getting agenda item:', error);
+    logger.error({ err: error }, 'Error getting agenda item');
     res.status(500).json({ error: 'Failed to get agenda item' });
   }
 });
@@ -133,7 +138,7 @@ agendaItemsRouter.get('/agenda-items/:id', async (req, res) => {
  * Update agenda item
  * Body: { title?, description?, estimatedMinutes?, presenter?, position? }
  */
-agendaItemsRouter.put('/agenda-items/:id', async (req, res) => {
+agendaItemsRouter.put('/agenda-items/:id', validate({ params: uuidParam, body: updateAgendaItemBody }), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, estimatedMinutes, presenter, position } = req.body;
@@ -169,7 +174,7 @@ agendaItemsRouter.put('/agenda-items/:id', async (req, res) => {
 
     res.json(updated);
   } catch (error) {
-    console.error('Error updating agenda item:', error);
+    logger.error({ err: error }, 'Error updating agenda item');
     res.status(500).json({ error: 'Failed to update agenda item' });
   }
 });
@@ -178,7 +183,7 @@ agendaItemsRouter.put('/agenda-items/:id', async (req, res) => {
  * DELETE /api/agenda-items/:id
  * Delete agenda item (cascades to attachments)
  */
-agendaItemsRouter.delete('/agenda-items/:id', async (req, res) => {
+agendaItemsRouter.delete('/agenda-items/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -195,7 +200,7 @@ agendaItemsRouter.delete('/agenda-items/:id', async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error('Error deleting agenda item:', error);
+    logger.error({ err: error }, 'Error deleting agenda item');
     res.status(500).json({ error: 'Failed to delete agenda item' });
   }
 });
@@ -205,7 +210,7 @@ agendaItemsRouter.delete('/agenda-items/:id', async (req, res) => {
  * Reorder agenda items within a packet
  * Body: { itemIds: string[] } (in desired order)
  */
-agendaItemsRouter.put('/agenda-items/reorder', async (req, res) => {
+agendaItemsRouter.put('/agenda-items/reorder', validate({ body: reorderAgendaItemsBody }), async (req, res) => {
   try {
     const { itemIds } = req.body;
 
@@ -225,7 +230,7 @@ agendaItemsRouter.put('/agenda-items/reorder', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Error reordering agenda items:', error);
+    logger.error({ err: error }, 'Error reordering agenda items');
     res.status(500).json({ error: 'Failed to reorder agenda items' });
   }
 });
@@ -235,7 +240,7 @@ agendaItemsRouter.put('/agenda-items/reorder', async (req, res) => {
  * Create multiple agenda items at once (for importing)
  * Body: { packetId, items: Array<{ title, description?, estimatedMinutes?, presenter? }> }
  */
-agendaItemsRouter.post('/agenda-items/bulk', async (req, res) => {
+agendaItemsRouter.post('/agenda-items/bulk', validate({ body: bulkCreateAgendaItemsBody }), async (req, res) => {
   try {
     const { packetId, items } = req.body;
 
@@ -278,7 +283,7 @@ agendaItemsRouter.post('/agenda-items/bulk', async (req, res) => {
 
     res.status(201).json(created);
   } catch (error) {
-    console.error('Error bulk creating agenda items:', error);
+    logger.error({ err: error }, 'Error bulk creating agenda items');
     res.status(500).json({ error: 'Failed to create agenda items' });
   }
 });

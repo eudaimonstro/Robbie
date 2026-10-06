@@ -1,11 +1,15 @@
 import { Router, type Router as RouterType } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam, orgIdParam } from '../../schemas/common.js';
+import { createDocumentBody, updateDocumentBody, atDateQuery } from '../../schemas/documents.js';
+import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 
 export const documentsRouter: RouterType = Router();
 
 // List documents for an organization
-documentsRouter.get('/organizations/:orgId/documents', async (req, res) => {
+documentsRouter.get('/organizations/:orgId/documents', validate({ params: orgIdParam }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.orgId }
@@ -15,8 +19,19 @@ documentsRouter.get('/organizations/:orgId/documents', async (req, res) => {
       return res.status(404).json({ error: 'Organization not found' });
     }
 
+    const where = { organizationId: req.params.orgId };
+
+    if (req.query.page) {
+      const pagination = getPagination(req);
+      const [documents, total] = await Promise.all([
+        prisma.document.findMany({ where, orderBy: { title: 'asc' }, skip: pagination.skip, take: pagination.limit }),
+        prisma.document.count({ where }),
+      ]);
+      return res.json(paginatedResponse(documents, total, pagination));
+    }
+
     const documents = await prisma.document.findMany({
-      where: { organizationId: req.params.orgId },
+      where,
       orderBy: { title: 'asc' }
     });
 
@@ -27,7 +42,7 @@ documentsRouter.get('/organizations/:orgId/documents', async (req, res) => {
 });
 
 // Create document
-documentsRouter.post('/organizations/:orgId/documents', async (req, res) => {
+documentsRouter.post('/organizations/:orgId/documents', validate({ params: orgIdParam, body: createDocumentBody }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.orgId }
@@ -52,7 +67,7 @@ documentsRouter.post('/organizations/:orgId/documents', async (req, res) => {
 });
 
 // Get document by ID
-documentsRouter.get('/documents/:id', async (req, res) => {
+documentsRouter.get('/documents/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -69,7 +84,7 @@ documentsRouter.get('/documents/:id', async (req, res) => {
 });
 
 // Update document
-documentsRouter.put('/documents/:id', async (req, res) => {
+documentsRouter.put('/documents/:id', validate({ params: uuidParam, body: updateDocumentBody }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -91,7 +106,7 @@ documentsRouter.put('/documents/:id', async (req, res) => {
 });
 
 // Delete document
-documentsRouter.delete('/documents/:id', async (req, res) => {
+documentsRouter.delete('/documents/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -109,7 +124,7 @@ documentsRouter.delete('/documents/:id', async (req, res) => {
 });
 
 // Get document at date
-documentsRouter.get('/documents/:id/at-date', async (req, res) => {
+documentsRouter.get('/documents/:id/at-date', validate({ params: uuidParam, query: atDateQuery }), async (req, res) => {
   try {
     const targetDate = new Date(req.query.date as string);
 
@@ -145,7 +160,7 @@ documentsRouter.get('/documents/:id/at-date', async (req, res) => {
 });
 
 // Enable sharing
-documentsRouter.post('/documents/:id/share', async (req, res) => {
+documentsRouter.post('/documents/:id/share', validate({ params: uuidParam }), async (req, res) => {
   try {
     let doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -173,7 +188,7 @@ documentsRouter.post('/documents/:id/share', async (req, res) => {
 });
 
 // Disable sharing
-documentsRouter.delete('/documents/:id/share', async (req, res) => {
+documentsRouter.delete('/documents/:id/share', validate({ params: uuidParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -195,7 +210,7 @@ documentsRouter.delete('/documents/:id/share', async (req, res) => {
 });
 
 // Regenerate share token
-documentsRouter.post('/documents/:id/share/regenerate', async (req, res) => {
+documentsRouter.post('/documents/:id/share/regenerate', validate({ params: uuidParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }
@@ -223,7 +238,7 @@ documentsRouter.post('/documents/:id/share/regenerate', async (req, res) => {
 });
 
 // Get share status
-documentsRouter.get('/documents/:id/share', async (req, res) => {
+documentsRouter.get('/documents/:id/share', validate({ params: uuidParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.id }

@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { logger } from '../middleware/logger.js';
 
 const { Pool } = pg;
 
@@ -30,10 +31,10 @@ export const pool = new Pool(
 // Log connection errors (only relevant when DATABASE_URL is set)
 if (process.env.DATABASE_URL) {
   pool.on('error', (err) => {
-    console.error('Unexpected database error:', err);
+    logger.error({ err }, 'Unexpected database error');
   });
 
   pool.on('connect', () => {
-    console.log('PostgreSQL client connected');
+    logger.info('PostgreSQL client connected');
   });
 }

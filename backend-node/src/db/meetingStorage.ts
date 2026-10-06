@@ -1,6 +1,7 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { pool } from './client.js';
+import { logger } from '../middleware/logger.js';
 
 // Embedded schema for PostgreSQL initialization
 const SCHEMA_SQL = `
@@ -134,11 +135,11 @@ class InMemoryStorage implements StorageProvider {
   private nextMeetingId = 1;
 
   async initialize(): Promise<void> {
-    console.log('Using in-memory storage (no DATABASE_URL configured)');
+    logger.info('Using in-memory storage (no DATABASE_URL configured)');
   }
 
   async shutdown(): Promise<void> {
-    console.log('In-memory storage shutdown (data cleared)');
+    logger.info('In-memory storage shutdown (data cleared)');
     this.meetings.clear();
     this.participantRoles.clear();
   }
@@ -153,7 +154,7 @@ class InMemoryStorage implements StorageProvider {
         stateVersion: 1
       };
       this.meetings.set(code, meeting);
-      console.log(`Created new meeting: ${code}`);
+      logger.info({ code }, 'Created new meeting');
     }
     return meeting;
   }
@@ -213,13 +214,13 @@ class PostgresStorage implements StorageProvider {
   private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
 
   async initialize(): Promise<void> {
-    console.log('Initializing PostgreSQL storage...');
+    logger.info('Initializing PostgreSQL storage');
 
     try {
       await pool.query(SCHEMA_SQL);
-      console.log('Database schema initialized');
+      logger.info('Database schema initialized');
     } catch (error) {
-      console.error('Error initializing schema:', error);
+      logger.error({ err: error }, 'Error initializing schema');
       throw error;
     }
   }
@@ -241,7 +242,7 @@ class PostgresStorage implements StorageProvider {
       [code, JSON.stringify(newState)]
     );
 
-    console.log(`Created new meeting: ${code}`);
+    logger.info({ code }, 'Created new meeting');
     return {
       id: result.rows[0].id,
       code: result.rows[0].code,
@@ -301,9 +302,9 @@ class PostgresStorage implements StorageProvider {
   }
 
   async shutdown(): Promise<void> {
-    console.log('Closing PostgreSQL connections...');
+    logger.info('Closing PostgreSQL connections');
     await pool.end();
-    console.log('PostgreSQL connections closed');
+    logger.info('PostgreSQL connections closed');
   }
 
   async logAction(meetingCode: string, actionType: string, payload: unknown, userId?: number): Promise<void> {
@@ -315,7 +316,7 @@ class PostgresStorage implements StorageProvider {
       );
 
       if (meetingResult.rows.length === 0) {
-        console.warn(`Cannot log action: meeting ${meetingCode} not found`);
+        logger.warn({ meetingCode }, 'Cannot log action: meeting not found');
         return;
       }
 
@@ -336,7 +337,7 @@ class PostgresStorage implements StorageProvider {
       );
     } catch (error) {
       // Log but don't fail - action logging is non-critical
-      console.error('Failed to log action:', error);
+      logger.error({ err: error }, 'Failed to log action');
     }
   }
 

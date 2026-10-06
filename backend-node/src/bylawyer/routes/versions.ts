@@ -1,6 +1,10 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { Section } from '@prisma/client';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam, docIdParam } from '../../schemas/common.js';
+import { createVersionBody, updateVersionBody, diffParams } from '../../schemas/versions.js';
+import { logger } from '../../middleware/logger.js';
 
 export const versionsRouter: RouterType = Router();
 
@@ -80,7 +84,7 @@ function renderMarkdown(sections: Section[], parentId: string | null = null, dep
 }
 
 // List versions for a document
-versionsRouter.get('/documents/:docId/versions', async (req, res) => {
+versionsRouter.get('/documents/:docId/versions', validate({ params: docIdParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.docId }
@@ -102,7 +106,7 @@ versionsRouter.get('/documents/:docId/versions', async (req, res) => {
 });
 
 // Create version
-versionsRouter.post('/documents/:docId/versions', async (req, res) => {
+versionsRouter.post('/documents/:docId/versions', validate({ params: docIdParam, body: createVersionBody }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.docId }
@@ -175,13 +179,13 @@ versionsRouter.post('/documents/:docId/versions', async (req, res) => {
 
     res.status(201).json(newVersion);
   } catch (error) {
-    console.error(error);
+    logger.error({ err: error }, 'Failed to create version');
     res.status(500).json({ error: 'Failed to create version' });
   }
 });
 
 // Get version by ID
-versionsRouter.get('/versions/:id', async (req, res) => {
+versionsRouter.get('/versions/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id }
@@ -198,7 +202,7 @@ versionsRouter.get('/versions/:id', async (req, res) => {
 });
 
 // Get version tree
-versionsRouter.get('/versions/:id/tree', async (req, res) => {
+versionsRouter.get('/versions/:id/tree', validate({ params: uuidParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id },
@@ -216,7 +220,7 @@ versionsRouter.get('/versions/:id/tree', async (req, res) => {
 });
 
 // Get version text
-versionsRouter.get('/versions/:id/text', async (req, res) => {
+versionsRouter.get('/versions/:id/text', validate({ params: uuidParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id },
@@ -234,7 +238,7 @@ versionsRouter.get('/versions/:id/text', async (req, res) => {
 });
 
 // Diff versions
-versionsRouter.get('/versions/:id/diff/:otherId', async (req, res) => {
+versionsRouter.get('/versions/:id/diff/:otherId', validate({ params: diffParams }), async (req, res) => {
   try {
     const version1 = await prisma.version.findUnique({
       where: { id: req.params.id },
@@ -330,7 +334,7 @@ versionsRouter.get('/versions/:id/diff/:otherId', async (req, res) => {
 });
 
 // Update version
-versionsRouter.put('/versions/:id', async (req, res) => {
+versionsRouter.put('/versions/:id', validate({ params: uuidParam, body: updateVersionBody }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id }
@@ -356,7 +360,7 @@ versionsRouter.put('/versions/:id', async (req, res) => {
 });
 
 // Delete version
-versionsRouter.delete('/versions/:id', async (req, res) => {
+versionsRouter.delete('/versions/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id }
@@ -394,7 +398,7 @@ versionsRouter.delete('/versions/:id', async (req, res) => {
 });
 
 // Export as markdown
-versionsRouter.get('/versions/:id/export/markdown', async (req, res) => {
+versionsRouter.get('/versions/:id/export/markdown', validate({ params: uuidParam }), async (req, res) => {
   try {
     const version = await prisma.version.findUnique({
       where: { id: req.params.id },

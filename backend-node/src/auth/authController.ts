@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { sendVerificationEmail, getLastCode } from './emailService.js';
+import { logger } from '../middleware/logger.js';
 
 export const authRouter = Router();
 
@@ -15,11 +16,11 @@ function getJwtSecret(): string {
 
   if (isProduction) {
     if (!secret) {
-      console.error('FATAL: JWT_SECRET environment variable is required in production');
+      logger.error('FATAL: JWT_SECRET environment variable is required in production');
       process.exit(1);
     }
     if (secret.length < 32) {
-      console.error('FATAL: JWT_SECRET must be at least 32 characters in production');
+      logger.error('FATAL: JWT_SECRET must be at least 32 characters in production');
       process.exit(1);
     }
     return secret;
@@ -27,7 +28,7 @@ function getJwtSecret(): string {
 
   // Development mode
   if (!secret) {
-    console.warn('WARNING: Using insecure default JWT_SECRET. Set JWT_SECRET env var for production.');
+    logger.warn('Using insecure default JWT_SECRET. Set JWT_SECRET env var for production.');
     return 'dev-secret-do-not-use-in-production';
   }
 
@@ -45,11 +46,11 @@ const TEST_MEETING_CODE = process.env.TEST_MEETING_CODE || 'DEMO';
 const TEST_VERIFICATION_CODE = process.env.TEST_VERIFICATION_CODE || '000000';
 
 if (process.env.ENABLE_TEST_AUTH === 'true' && isProduction) {
-  console.warn('⚠️ WARNING: ENABLE_TEST_AUTH is set but ignored in production for security');
+  logger.warn('ENABLE_TEST_AUTH is set but ignored in production for security');
 }
 
 if (TEST_AUTH_ENABLED) {
-  console.log(`🧪 TEST AUTH ENABLED - Meeting code: ${TEST_MEETING_CODE}, Verification code: ${TEST_VERIFICATION_CODE}`);
+  logger.info({ testMeetingCode: TEST_MEETING_CODE, testVerificationCode: TEST_VERIFICATION_CODE }, 'TEST AUTH ENABLED');
 }
 
 // Input validation patterns (matching frontend)
@@ -140,7 +141,7 @@ function cleanupExpiredVerifications(): number {
   }
 
   if (removedCount > 0) {
-    console.log(`Cleaned up ${removedCount} expired verification records`);
+    logger.info({ removedCount }, 'Cleaned up expired verification records');
   }
 
   return removedCount;
@@ -193,7 +194,7 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
 
     res.json({ success: true, message: 'Verification code sent' });
   } catch (error) {
-    console.error('Error requesting verification:', error);
+    logger.error({ err: error }, 'Error requesting verification');
     res.status(500).json({ error: 'Failed to send verification email' });
   }
 });
@@ -287,7 +288,7 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error verifying code:', error);
+    logger.error({ err: error }, 'Error verifying code');
     res.status(500).json({ error: 'Failed to verify code' });
   }
 });
@@ -404,7 +405,7 @@ if (TEST_AUTH_ENABLED) {
         { expiresIn: '24h' }
       );
 
-      console.log(`🧪 TEST: Changed role for ${user.email} in ${sanitizedMeetingCode} to ${role}`);
+      logger.info({ email: user.email, meetingCode: sanitizedMeetingCode, role }, 'TEST: Changed role');
 
       res.json({
         success: true,
@@ -413,7 +414,7 @@ if (TEST_AUTH_ENABLED) {
         role
       });
     } catch (error) {
-      console.error('Error changing test role:', error);
+      logger.error({ err: error }, 'Error changing test role');
       res.status(500).json({ error: 'Failed to change role' });
     }
   });

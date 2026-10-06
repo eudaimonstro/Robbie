@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,6 +31,8 @@ import {
   agendaItemsRouter
 } from './bylawyer/routes/index.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
+import { logger, httpLogger } from './middleware/logger.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -52,6 +55,12 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string,
 
 // Store io instance for access from other modules (e.g., authController)
 setIoInstance(io);
+
+// Security headers
+app.use(helmet());
+
+// Request logging
+app.use(httpLogger);
 
 // Middleware
 app.use(cors({
@@ -97,26 +106,13 @@ app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
 
+// Global error handler (must be after all routes)
+app.use(errorHandler);
+
 // Static file serving for production builds
 const unifiedDist = path.join(__dirname, '../../frontend-unified/dist');
 
-// Legacy paths for backward compatibility during transition
-const robbieDist = path.join(__dirname, '../../frontend-robbie/dist');
-const bylawyerDist = path.join(__dirname, '../../frontend-bylawyer/dist');
-
-// Serve legacy Bylawyer frontend at /bylawyer-legacy (for transition)
-app.use('/bylawyer-legacy', express.static(bylawyerDist));
-app.get('/bylawyer-legacy/*', (_req, res) => {
-  res.sendFile(path.join(bylawyerDist, 'index.html'));
-});
-
-// Serve legacy Robbie frontend at /robbie-legacy (for transition)
-app.use('/robbie-legacy', express.static(robbieDist));
-app.get('/robbie-legacy/*', (_req, res) => {
-  res.sendFile(path.join(robbieDist, 'index.html'));
-});
-
-// Serve unified frontend at root (must be last)
+// Serve unified frontend at root
 app.use(express.static(unifiedDist));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(unifiedDist, 'index.html'));
@@ -136,12 +132,12 @@ async function start() {
 
     // Start server - bind to 0.0.0.0 for Railway
     httpServer.listen(Number(PORT), '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Storage mode: ${storage.mode}`);
-      console.log(`Frontend: unified (legacy available at /robbie-legacy and /bylawyer-legacy)`);
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`Storage mode: ${storage.mode}`);
+      logger.info('Frontend: unified');
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error({ err: error }, 'Failed to start server');
     process.exit(1);
   }
 }
@@ -150,27 +146,27 @@ start();
 
 // Graceful shutdown
 async function shutdown(signal: string) {
-  console.log(`${signal} received, shutting down gracefully...`);
+  logger.info(`${signal} received, shutting down gracefully...`);
 
   // Close HTTP server (stop accepting new connections)
   httpServer.close(async () => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
 
     // Close database connections
     try {
       await shutdownStorage();
       await disconnectPrisma();
     } catch (error) {
-      console.error('Error during storage shutdown:', error);
+      logger.error({ err: error }, 'Error during storage shutdown');
     }
 
-    console.log('Shutdown complete');
+    logger.info('Shutdown complete');
     process.exit(0);
   });
 
   // Force shutdown after 10 seconds
   setTimeout(() => {
-    console.error('Forced shutdown after timeout');
+    logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10000);
 }

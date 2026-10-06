@@ -15,6 +15,7 @@ import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 import { applyAction } from './stateManager.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
+import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -94,7 +95,7 @@ export async function handleDispatchAction(
       const presentCount = meeting.state.members.reduce((count, m) => count + (m.present ? 1 : 0), 0);
       if (presentCount < meeting.state.quorum) {
         votingWithoutQuorum = true;
-        console.warn(`[QUORUM WARNING] Vote opened without quorum in meeting ${meetingCode}: ${presentCount} of ${meeting.state.quorum} required`);
+        logger.warn({ meetingCode, presentCount, quorumRequired: meeting.state.quorum }, 'Vote opened without quorum');
       }
     }
 
@@ -240,11 +241,11 @@ export async function handleDispatchAction(
           result.state    // New state (after action was applied)
         );
         if (syncResult) {
-          console.log(`[ACTION_HANDLER] Bylaw sync result:`, syncResult);
+          logger.info({ syncResult }, 'Bylaw sync result');
         }
       } catch (syncError) {
         // Log but don't fail the action - sync is best-effort
-        console.error('[ACTION_HANDLER] Bylaw sync error:', syncError);
+        logger.error({ err: syncError }, 'Bylaw sync error');
       }
     }
 
@@ -262,7 +263,7 @@ export async function handleDispatchAction(
     callback({ success: true, stateVersion: result.stateVersion });
 
   } catch (error) {
-    console.error('Error dispatching action:', error);
+    logger.error({ err: error }, 'Error dispatching action');
     callback({ success: false, error: 'Failed to process action', errorCode: 'INVALID_ACTION' });
   }
 }

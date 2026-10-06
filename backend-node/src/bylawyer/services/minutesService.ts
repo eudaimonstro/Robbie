@@ -8,6 +8,7 @@
 import { prisma } from '../../db/prisma.js';
 import type { MeetingMinutes } from '@robbie-bylawyer/shared/types';
 import { formatMinutesAsMarkdown } from '@robbie-bylawyer/shared/utils';
+import { logger } from '../../middleware/logger.js';
 
 export type MinutesDocumentResult =
   | { success: true; documentId: string; versionId: string; documentTitle: string }
@@ -117,7 +118,7 @@ export async function createMinutesDocument(
       documentTitle
     };
   } catch (error) {
-    console.error('Error creating minutes document:', error);
+    logger.error({ err: error }, 'Error creating minutes document');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

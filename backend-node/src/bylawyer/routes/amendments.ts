@@ -1,11 +1,15 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import { AmendmentService } from '../services/amendmentService.js';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam, docIdParam } from '../../schemas/common.js';
+import { createAmendmentBody, updateAmendmentBody, createAmendmentChangeBody, applyAmendmentQuery } from '../../schemas/amendments.js';
+import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 
 export const amendmentsRouter: RouterType = Router();
 
 // List amendments for a document
-amendmentsRouter.get('/documents/:docId/amendments', async (req, res) => {
+amendmentsRouter.get('/documents/:docId/amendments', validate({ params: docIdParam }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.docId }
@@ -15,8 +19,19 @@ amendmentsRouter.get('/documents/:docId/amendments', async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
+    const where = { documentId: req.params.docId };
+
+    if (req.query.page) {
+      const pagination = getPagination(req);
+      const [amendments, total] = await Promise.all([
+        prisma.amendment.findMany({ where, include: { changes: true }, orderBy: { createdAt: 'desc' }, skip: pagination.skip, take: pagination.limit }),
+        prisma.amendment.count({ where }),
+      ]);
+      return res.json(paginatedResponse(amendments, total, pagination));
+    }
+
     const amendments = await prisma.amendment.findMany({
-      where: { documentId: req.params.docId },
+      where,
       include: { changes: true },
       orderBy: { createdAt: 'desc' }
     });
@@ -28,7 +43,7 @@ amendmentsRouter.get('/documents/:docId/amendments', async (req, res) => {
 });
 
 // Create amendment
-amendmentsRouter.post('/documents/:docId/amendments', async (req, res) => {
+amendmentsRouter.post('/documents/:docId/amendments', validate({ params: docIdParam, body: createAmendmentBody }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: req.params.docId }
@@ -54,7 +69,7 @@ amendmentsRouter.post('/documents/:docId/amendments', async (req, res) => {
 });
 
 // Get amendment by ID
-amendmentsRouter.get('/amendments/:id', async (req, res) => {
+amendmentsRouter.get('/amendments/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id },
@@ -72,7 +87,7 @@ amendmentsRouter.get('/amendments/:id', async (req, res) => {
 });
 
 // Update amendment
-amendmentsRouter.put('/amendments/:id', async (req, res) => {
+amendmentsRouter.put('/amendments/:id', validate({ params: uuidParam, body: updateAmendmentBody }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -102,7 +117,7 @@ amendmentsRouter.put('/amendments/:id', async (req, res) => {
 });
 
 // Delete amendment
-amendmentsRouter.delete('/amendments/:id', async (req, res) => {
+amendmentsRouter.delete('/amendments/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -124,7 +139,7 @@ amendmentsRouter.delete('/amendments/:id', async (req, res) => {
 });
 
 // Propose amendment
-amendmentsRouter.post('/amendments/:id/propose', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/propose', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -154,7 +169,7 @@ amendmentsRouter.post('/amendments/:id/propose', async (req, res) => {
 });
 
 // Withdraw amendment
-amendmentsRouter.post('/amendments/:id/withdraw', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/withdraw', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -184,7 +199,7 @@ amendmentsRouter.post('/amendments/:id/withdraw', async (req, res) => {
 });
 
 // Pass amendment
-amendmentsRouter.post('/amendments/:id/pass', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/pass', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -214,7 +229,7 @@ amendmentsRouter.post('/amendments/:id/pass', async (req, res) => {
 });
 
 // Fail amendment
-amendmentsRouter.post('/amendments/:id/fail', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/fail', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -244,7 +259,7 @@ amendmentsRouter.post('/amendments/:id/fail', async (req, res) => {
 });
 
 // Table amendment
-amendmentsRouter.post('/amendments/:id/table', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/table', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -271,7 +286,7 @@ amendmentsRouter.post('/amendments/:id/table', async (req, res) => {
 });
 
 // Untable amendment
-amendmentsRouter.post('/amendments/:id/untable', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/untable', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -298,7 +313,7 @@ amendmentsRouter.post('/amendments/:id/untable', async (req, res) => {
 });
 
 // List amendment changes
-amendmentsRouter.get('/amendments/:id/changes', async (req, res) => {
+amendmentsRouter.get('/amendments/:id/changes', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }
@@ -320,7 +335,7 @@ amendmentsRouter.get('/amendments/:id/changes', async (req, res) => {
 });
 
 // Add amendment change
-amendmentsRouter.post('/amendments/:id/changes', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/changes', validate({ params: uuidParam, body: createAmendmentChangeBody }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id },
@@ -358,7 +373,7 @@ amendmentsRouter.post('/amendments/:id/changes', async (req, res) => {
 });
 
 // Delete amendment change
-amendmentsRouter.delete('/changes/:id', async (req, res) => {
+amendmentsRouter.delete('/changes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const change = await prisma.amendmentChange.findUnique({
       where: { id: req.params.id }
@@ -384,7 +399,7 @@ amendmentsRouter.delete('/changes/:id', async (req, res) => {
 });
 
 // Alternate delete endpoint
-amendmentsRouter.delete('/amendment-changes/:id', async (req, res) => {
+amendmentsRouter.delete('/amendment-changes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const change = await prisma.amendmentChange.findUnique({
       where: { id: req.params.id }
@@ -410,7 +425,7 @@ amendmentsRouter.delete('/amendment-changes/:id', async (req, res) => {
 });
 
 // Apply amendment
-amendmentsRouter.post('/amendments/:id/apply', async (req, res) => {
+amendmentsRouter.post('/amendments/:id/apply', validate({ params: uuidParam, query: applyAmendmentQuery }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id },
@@ -455,7 +470,7 @@ amendmentsRouter.post('/amendments/:id/apply', async (req, res) => {
 });
 
 // Preview amendment
-amendmentsRouter.get('/amendments/:id/preview', async (req, res) => {
+amendmentsRouter.get('/amendments/:id/preview', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id },

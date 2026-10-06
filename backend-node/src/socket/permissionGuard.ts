@@ -1,4 +1,5 @@
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
+import { logger } from '../middleware/logger.js';
 
 type Role = 'member' | 'chair' | 'admin';
 
@@ -97,7 +98,7 @@ export function checkPermission(role: Role, actionType: MeetingAction['type']): 
   const allowedRoles = PERMISSIONS[actionType];
 
   if (!allowedRoles) {
-    console.warn(`Unknown action type: ${actionType}`);
+    logger.warn({ actionType }, 'Unknown action type');
     return false;
   }
 

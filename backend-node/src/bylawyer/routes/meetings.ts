@@ -1,10 +1,14 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam, orgIdParam } from '../../schemas/common.js';
+import { createMeetingBody, updateMeetingBody, createVoteBody } from '../../schemas/meetings.js';
+import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 
 export const meetingsRouter: RouterType = Router();
 
 // List meetings for an organization
-meetingsRouter.get('/organizations/:orgId/meetings', async (req, res) => {
+meetingsRouter.get('/organizations/:orgId/meetings', validate({ params: orgIdParam }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.orgId }
@@ -14,8 +18,19 @@ meetingsRouter.get('/organizations/:orgId/meetings', async (req, res) => {
       return res.status(404).json({ error: 'Organization not found' });
     }
 
+    const where = { organizationId: req.params.orgId };
+
+    if (req.query.page) {
+      const pagination = getPagination(req);
+      const [meetings, total] = await Promise.all([
+        prisma.meeting.findMany({ where, orderBy: { scheduledDate: 'desc' }, skip: pagination.skip, take: pagination.limit }),
+        prisma.meeting.count({ where }),
+      ]);
+      return res.json(paginatedResponse(meetings, total, pagination));
+    }
+
     const meetings = await prisma.meeting.findMany({
-      where: { organizationId: req.params.orgId },
+      where,
       orderBy: { scheduledDate: 'desc' }
     });
 
@@ -26,7 +41,7 @@ meetingsRouter.get('/organizations/:orgId/meetings', async (req, res) => {
 });
 
 // Create meeting
-meetingsRouter.post('/organizations/:orgId/meetings', async (req, res) => {
+meetingsRouter.post('/organizations/:orgId/meetings', validate({ params: orgIdParam, body: createMeetingBody }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.orgId }
@@ -54,7 +69,7 @@ meetingsRouter.post('/organizations/:orgId/meetings', async (req, res) => {
 });
 
 // Get meeting by ID
-meetingsRouter.get('/meetings/:id', async (req, res) => {
+meetingsRouter.get('/meetings/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id }
@@ -71,7 +86,7 @@ meetingsRouter.get('/meetings/:id', async (req, res) => {
 });
 
 // Update meeting
-meetingsRouter.put('/meetings/:id', async (req, res) => {
+meetingsRouter.put('/meetings/:id', validate({ params: uuidParam, body: updateMeetingBody }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id }
@@ -101,7 +116,7 @@ meetingsRouter.put('/meetings/:id', async (req, res) => {
 });
 
 // Delete meeting
-meetingsRouter.delete('/meetings/:id', async (req, res) => {
+meetingsRouter.delete('/meetings/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id }
@@ -119,7 +134,7 @@ meetingsRouter.delete('/meetings/:id', async (req, res) => {
 });
 
 // Record vote
-meetingsRouter.post('/meetings/:id/votes', async (req, res) => {
+meetingsRouter.post('/meetings/:id/votes', validate({ params: uuidParam, body: createVoteBody }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id }
@@ -178,7 +193,7 @@ meetingsRouter.post('/meetings/:id/votes', async (req, res) => {
 });
 
 // Get vote by ID
-meetingsRouter.get('/votes/:id', async (req, res) => {
+meetingsRouter.get('/votes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const vote = await prisma.vote.findUnique({
       where: { id: req.params.id }
@@ -195,7 +210,7 @@ meetingsRouter.get('/votes/:id', async (req, res) => {
 });
 
 // Delete vote
-meetingsRouter.delete('/votes/:id', async (req, res) => {
+meetingsRouter.delete('/votes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const vote = await prisma.vote.findUnique({
       where: { id: req.params.id }
@@ -213,7 +228,7 @@ meetingsRouter.delete('/votes/:id', async (req, res) => {
 });
 
 // List votes for meeting
-meetingsRouter.get('/meetings/:id/votes', async (req, res) => {
+meetingsRouter.get('/meetings/:id/votes', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id }
@@ -234,7 +249,7 @@ meetingsRouter.get('/meetings/:id/votes', async (req, res) => {
 });
 
 // List votes for amendment
-meetingsRouter.get('/amendments/:id/votes', async (req, res) => {
+meetingsRouter.get('/amendments/:id/votes', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
       where: { id: req.params.id }

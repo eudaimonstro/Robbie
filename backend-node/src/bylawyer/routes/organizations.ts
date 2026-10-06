@@ -1,5 +1,9 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { validate } from '../../middleware/validate.js';
+import { uuidParam } from '../../schemas/common.js';
+import { createOrganizationBody, updateOrganizationBody, listOrganizationsQuery } from '../../schemas/organizations.js';
+import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -12,12 +16,22 @@ function generateSlug(name: string): string {
 }
 
 // List all organizations
-organizationsRouter.get('/organizations', async (req, res) => {
+organizationsRouter.get('/organizations', validate({ query: listOrganizationsQuery }), async (req, res) => {
   try {
     const activeOnly = req.query.active_only !== 'false';
+    const where = activeOnly ? { isActive: true } : undefined;
+
+    if (req.query.page) {
+      const pagination = getPagination(req);
+      const [organizations, total] = await Promise.all([
+        prisma.organization.findMany({ where, orderBy: { name: 'asc' }, skip: pagination.skip, take: pagination.limit }),
+        prisma.organization.count({ where }),
+      ]);
+      return res.json(paginatedResponse(organizations, total, pagination));
+    }
 
     const organizations = await prisma.organization.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where,
       orderBy: { name: 'asc' }
     });
 
@@ -28,7 +42,7 @@ organizationsRouter.get('/organizations', async (req, res) => {
 });
 
 // Create organization
-organizationsRouter.post('/organizations', async (req, res) => {
+organizationsRouter.post('/organizations', validate({ body: createOrganizationBody }), async (req, res) => {
   try {
     const { name, slug: providedSlug, description } = req.body;
     const slug = providedSlug || generateSlug(name);
@@ -67,7 +81,7 @@ organizationsRouter.get('/organizations/by-slug/:slug', async (req, res) => {
 });
 
 // Get organization by ID
-organizationsRouter.get('/organizations/:id', async (req, res) => {
+organizationsRouter.get('/organizations/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.id }
@@ -84,7 +98,7 @@ organizationsRouter.get('/organizations/:id', async (req, res) => {
 });
 
 // Update organization
-organizationsRouter.put('/organizations/:id', async (req, res) => {
+organizationsRouter.put('/organizations/:id', validate({ params: uuidParam, body: updateOrganizationBody }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.id }
@@ -106,7 +120,7 @@ organizationsRouter.put('/organizations/:id', async (req, res) => {
 });
 
 // Delete organization
-organizationsRouter.delete('/organizations/:id', async (req, res) => {
+organizationsRouter.delete('/organizations/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.id }
