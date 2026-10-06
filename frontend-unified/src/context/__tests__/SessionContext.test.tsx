@@ -104,12 +104,26 @@ describe('SessionProvider', () => {
     expect(result.current.status).toBe('signedIn');
   });
 
-  it('is signed out when the server answers the sign-out with an error', async () => {
+  it('stays signed in when a proxy answers the sign-out with an error', async () => {
     client.me.mockResolvedValueOnce(ann);
     const { result } = renderHook(() => useSession(), { wrapper });
     await waitFor(() => expect(result.current.status).toBe('signedIn'));
 
-    client.signOut.mockRejectedValueOnce(new HttpError('Failed to sign out', 500));
+    client.signOut.mockRejectedValueOnce(new HttpError('HTTP 502', 502));
+    await act(() =>
+      expect(result.current.signOut()).rejects.toThrow(
+        "Couldn't sign out. Check your connection and try again.",
+      ),
+    );
+    expect(result.current.status).toBe('signedIn');
+  });
+
+  it('is signed out when the sign-out finds the session already ended', async () => {
+    client.me.mockResolvedValueOnce(ann);
+    const { result } = renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('signedIn'));
+
+    client.signOut.mockRejectedValueOnce(new HttpError('Not signed in', 401));
     await act(() => result.current.signOut());
     expect(result.current.status).toBe('signedOut');
   });

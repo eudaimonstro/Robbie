@@ -101,10 +101,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       await auth.signOut();
     } catch (err) {
-      // The server clears the cookie before anything can fail, so any answer means signed out.
-      // Without one the cookie and session are still there: showing signed out would leave
-      // the next person at this computer signed in as this user.
-      if (!(err instanceof HttpError)) throw new Error(SIGN_OUT_FAILED, { cause: err });
+      // Only a 401 (the session had already ended) confirms it. A network failure, or a 502
+      // from the proxy that never reached the server, leaves the cookie and session in place:
+      // showing signed out would leave the next person at this computer signed in as this user.
+      // A 500 that did clear the cookie is harmless, since a retry then succeeds.
+      if (!(err instanceof HttpError && err.status === 401)) {
+        throw new Error(SIGN_OUT_FAILED, { cause: err });
+      }
     }
     markSignedOut();
   }, [markSignedOut]);
