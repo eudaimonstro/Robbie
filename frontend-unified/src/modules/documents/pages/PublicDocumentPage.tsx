@@ -51,29 +51,27 @@ export default function PublicDocumentPage() {
       setLoading(true);
       setError(null);
 
-      const [fetchedDoc, vers] = await Promise.all([
-        publicDocuments.get(shareToken),
-        publicDocuments.getVersions(shareToken),
-      ]);
+      const shared = await publicDocuments.get(shareToken);
 
-      setDoc(fetchedDoc);
-      setVersions(vers);
+      setDoc({ ...shared.document, currentVersionId: shared.currentVersion?.id ?? null });
+      setVersions(shared.versions);
 
-      // Select current version or latest
-      const currentVersion = fetchedDoc.currentVersionId
-        ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
-        : vers[vers.length - 1];
-
-      if (currentVersion) {
-        setSelectedVersion(currentVersion);
-        const tree = await publicDocuments.getTree(shareToken, currentVersion.id);
-        setSectionTree(tree);
+      // Show the current version, or the latest one if none is marked current
+      if (shared.currentVersion) {
+        setSelectedVersion(shared.currentVersion);
+        setSectionTree(shared.currentVersion.sections);
+      } else if (shared.versions.length > 0) {
+        const latest = await publicDocuments.getVersion(shareToken, shared.versions[0].id);
+        setSelectedVersion(latest);
+        setSectionTree(latest.sections);
       }
     } catch (err: unknown) {
       console.error(err);
       if (err && typeof err === 'object' && 'message' in err) {
         const errorObj = err as { message: string };
-        if (errorObj.message.includes('404')) {
+        // The API reports a bad link as "Document not found" and a disabled share as
+        // "Sharing is disabled for this document"
+        if (/not found|disabled/i.test(errorObj.message)) {
           setError(
             'This document is not available. The link may be invalid or sharing may have been disabled.',
           );
@@ -99,8 +97,8 @@ export default function PublicDocumentPage() {
     if (version) {
       setSelectedVersion(version);
       try {
-        const tree = await publicDocuments.getTree(shareToken, version.id);
-        setSectionTree(tree);
+        const shared = await publicDocuments.getVersion(shareToken, version.id);
+        setSectionTree(shared.sections);
       } catch {
         showToast('error', 'Failed to load version');
       }

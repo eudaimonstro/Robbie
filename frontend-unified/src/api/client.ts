@@ -237,11 +237,10 @@ export const documents = {
 
 // Public (readonly) document access
 export const publicDocuments = {
-  get: (shareToken: string) => request<PublicDocument>(`/public/documents/${shareToken}`),
-  getVersions: (shareToken: string) =>
-    request<PublicVersion[]>(`/public/documents/${shareToken}/versions`),
-  getTree: (shareToken: string, versionId: string) =>
-    request<SectionTree[]>(`/public/documents/${shareToken}/versions/${versionId}/tree`),
+  // Document, all versions, and the current version with its section tree
+  get: (shareToken: string) => request<SharedDocument>(`/share/${shareToken}`),
+  getVersion: (shareToken: string, versionId: string) =>
+    request<SharedVersion>(`/share/${shareToken}/versions/${versionId}`),
 };
 
 // Versions
@@ -604,6 +603,21 @@ export interface PublicVersion {
   effectiveDate: string | null;
   adoptedAt: string | null;
   notes: string | null;
+}
+
+export interface SharedVersion extends PublicVersion {
+  sections: SectionTree[];
+}
+
+export interface SharedDocument {
+  document: {
+    id: string;
+    title: string;
+    docType: string;
+    organization: { id: string; name: string; slug: string };
+  };
+  versions: PublicVersion[];
+  currentVersion: SharedVersion | null;
 }
 
 // Robbie-Bylawyer Integration (bylaw sync)
