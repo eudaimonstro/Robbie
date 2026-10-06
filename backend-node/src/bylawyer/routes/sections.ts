@@ -9,8 +9,15 @@ import {
   reorderSectionsBody,
 } from '../../schemas/sections.js';
 import { logger } from '../../middleware/logger.js';
+import { findParentProblem } from '../sectionParent.js';
 
 export const sectionsRouter: RouterType = Router();
+
+const findSectionRef = (id: string) =>
+  prisma.section.findUnique({
+    where: { id },
+    select: { id: true, versionId: true, parentId: true },
+  });
 
 // List sections for a version
 sectionsRouter.get(
@@ -118,6 +125,13 @@ sectionsRouter.post(
       }
 
       const parentId = req.body.parent_id || req.body.parentId || null;
+      const parentProblem = await findParentProblem(
+        { versionId: req.params.versionId, parentId },
+        findSectionRef,
+      );
+      if (parentProblem) {
+        return res.status(400).json({ error: parentProblem });
+      }
 
       // Find max position among siblings
       const maxSection = await prisma.section.findFirst({
@@ -181,10 +195,27 @@ sectionsRouter.put(
         return res.status(404).json({ error: 'Section not found' });
       }
 
+      // A parent given as null moves the section to the root
+      const parentId =
+        req.body.parent_id !== undefined
+          ? req.body.parent_id
+          : req.body.parentId !== undefined
+            ? req.body.parentId
+            : section.parentId;
+      if (parentId !== section.parentId) {
+        const parentProblem = await findParentProblem(
+          { versionId: section.versionId, sectionId: section.id, parentId },
+          findSectionRef,
+        );
+        if (parentProblem) {
+          return res.status(400).json({ error: parentProblem });
+        }
+      }
+
       const updated = await prisma.section.update({
         where: { id: req.params.id },
         data: {
-          parentId: req.body.parent_id ?? req.body.parentId ?? section.parentId,
+          parentId,
           position: req.body.position ?? section.position,
           numberLabel: req.body.number_label ?? req.body.numberLabel ?? section.numberLabel,
           title: req.body.title ?? section.title,
@@ -264,8 +295,11 @@ sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async 
   try {
     const path: Array<{ id: string; numberLabel: string | null; title: string | null }> = [];
     let currentId: string | null = req.params.id;
+    // Stop at a cycle in the data rather than looping forever
+    const seen = new Set<string>();
 
-    while (currentId) {
+    while (currentId && !seen.has(currentId)) {
+      seen.add(currentId);
       const section: Section | null = await prisma.section.findUnique({
         where: { id: currentId },
       });
