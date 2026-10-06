@@ -1,7 +1,11 @@
 import { Router, type RequestHandler, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import type { Prisma } from '../../generated/prisma/client.js';
-import { AmendmentService, AmendmentConflictError } from '../services/amendmentService.js';
+import type { AmendmentStatus, Prisma } from '../../generated/prisma/client.js';
+import {
+  AmendmentService,
+  AmendmentAppliedError,
+  AmendmentConflictError,
+} from '../services/amendmentService.js';
 import { validate, type RouteParams } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
 import {
@@ -32,6 +36,24 @@ async function lockDraft(tx: Prisma.TransactionClient, amendmentId: string): Pro
   const rows = await tx.$queryRaw<Array<{ status: string }>>`
     SELECT status FROM "Amendment" WHERE id = ${amendmentId} FOR UPDATE`;
   return rows[0]?.status === 'draft';
+}
+
+/**
+ * Change an amendment's status only if it is still in one of `from`, so a status change since
+ * the caller's read can't be overtaken (a propose can't bring back a withdrawn amendment).
+ * Answers the amendment with its changes, or null if it had left `from`.
+ */
+async function transition(
+  id: string,
+  from: AmendmentStatus[],
+  data: Prisma.AmendmentUpdateManyMutationInput,
+) {
+  const { count } = await prisma.amendment.updateMany({
+    where: { id, status: { in: from } },
+    data,
+  });
+  if (count === 0) return null;
+  return prisma.amendment.findUniqueOrThrow({ where: { id }, include: { changes: true } });
 }
 
 // List amendments for a document
@@ -226,18 +248,13 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'draft') {
+      const updated = await transition(req.params.id, ['draft'], {
+        status: 'proposed',
+        proposedAt: new Date(),
+      });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only propose draft amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'proposed',
-          proposedAt: new Date(),
-        },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -262,18 +279,13 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (!['draft', 'proposed'].includes(amendment.status)) {
+      const updated = await transition(req.params.id, ['draft', 'proposed'], {
+        status: 'withdrawn',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
         return res.status(400).json({ error: 'Cannot withdraw this amendment' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'withdrawn',
-          decidedAt: new Date(),
-        },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -298,18 +310,13 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'proposed') {
+      const updated = await transition(req.params.id, ['proposed'], {
+        status: 'passed',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only pass proposed amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'passed',
-          decidedAt: new Date(),
-        },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -334,18 +341,13 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'proposed') {
+      const updated = await transition(req.params.id, ['proposed'], {
+        status: 'failed',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only fail proposed amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'failed',
-          decidedAt: new Date(),
-        },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -370,15 +372,10 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'proposed') {
+      const updated = await transition(req.params.id, ['proposed'], { status: 'tabled' });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only table proposed amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: { status: 'tabled' },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -403,15 +400,10 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'tabled') {
+      const updated = await transition(req.params.id, ['tabled'], { status: 'proposed' });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only untable tabled amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: { status: 'proposed' },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -623,6 +615,9 @@ amendmentsRouter.post(
     } catch (error: any) {
       if (error instanceof AmendmentConflictError) {
         return res.status(409).json({ error: error.message });
+      }
+      if (error instanceof AmendmentAppliedError) {
+        return res.status(400).json({ error: error.message });
       }
       // Other failures are logged, not echoed: a database error's text describes the schema
       logger.error({ err: error }, 'Failed to apply amendment');

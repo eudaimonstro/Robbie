@@ -227,6 +227,21 @@ describe('amendment drafts', () => {
     expect(proposed.changes.map((c) => c.id)).toEqual([change.id]);
   });
 
+  it('accept an edit that changes nothing only while a draft', async () => {
+    const draft = await call('put', `/api/amendments/${f.draft}`, {
+      cookie: f.users.member.cookie,
+      body: {},
+    });
+    expect(draft.status).toBe(200);
+    expect(draft.body).toMatchObject({ id: f.draft, title: 'A draft amendment' });
+    const proposed = await call('put', `/api/amendments/${f.proposed}`, {
+      cookie: f.users.secretary.cookie,
+      body: {},
+    });
+    expect(proposed.status).toBe(400);
+    expect(proposed.body).toEqual({ error: 'Can only update draft amendments' });
+  });
+
   it('can be edited by a secretary, whoever created them', async () => {
     const res = await call('put', `/api/amendments/${f.draft}`, {
       cookie: f.users.secretary.cookie,
@@ -267,5 +282,58 @@ describe('amendment changes', () => {
     expect(
       (await addChange({ targetSectionId: f.section, parentSectionId: f.section })).status,
     ).toBe(201);
+  });
+});
+
+describe('amendment status changes', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    f = await seedFixture();
+  });
+
+  const post = (id: string, action: string) =>
+    call('post', `/api/amendments/${id}/${action}`, { cookie: f.users.secretary.cookie });
+
+  it('are refused from the wrong status', async () => {
+    await prisma.amendment.update({ where: { id: f.draft }, data: { status: 'withdrawn' } });
+    const refusals: Array<[string, string]> = [
+      ['propose', 'Can only propose draft amendments'],
+      ['withdraw', 'Cannot withdraw this amendment'],
+      ['pass', 'Can only pass proposed amendments'],
+      ['fail', 'Can only fail proposed amendments'],
+      ['table', 'Can only table proposed amendments'],
+      ['untable', 'Can only untable tabled amendments'],
+    ];
+    for (const [action, error] of refusals) {
+      const res = await post(f.draft, action);
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error });
+    }
+    const amendment = await prisma.amendment.findUniqueOrThrow({ where: { id: f.draft } });
+    expect(amendment.status).toBe('withdrawn');
+  });
+
+  it("don't bring back an amendment withdrawn at the same time", async () => {
+    const [propose, withdraw] = await Promise.all([
+      post(f.draft, 'propose'),
+      post(f.draft, 'withdraw'),
+    ]);
+    // Withdrawing works from draft and from proposed, so in either order it wins; a propose
+    // that comes second is refused
+    expect(withdraw.status).toBe(200);
+    expect([200, 400]).toContain(propose.status);
+    const amendment = await prisma.amendment.findUniqueOrThrow({ where: { id: f.draft } });
+    expect(amendment.status).toBe('withdrawn');
+  });
+
+  it('apply a passed amendment once, also when applies arrive together', async () => {
+    const before = await prisma.version.count({ where: { documentId: f.doc } });
+    const results = await Promise.all([post(f.passed, 'apply'), post(f.passed, 'apply')]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
+    expect(results.find((r) => r.status === 400)!.body).toEqual({
+      error: 'Amendment has already been applied',
+    });
+    expect(await prisma.version.count({ where: { documentId: f.doc } })).toBe(before + 1);
   });
 });
