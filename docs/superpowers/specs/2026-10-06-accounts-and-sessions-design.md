@@ -158,4 +158,14 @@ Two trade-offs are accepted for now. Both are candidates for later work.
 - **Anyone can keep a person from signing in.** Someone who knows a person's email can request codes for it, which replaces the person's code, and burn each code's attempts with wrong guesses. Staying within the per-IP limits is enough to keep this up.
 - **There is no daily cap on wrong guesses per email.** The limits allow 5 codes an hour with 5 attempts each, so about 25 guesses an hour, even from one address. Each guess has a one in a million chance, but over a year that adds up to roughly a one in five chance of getting in.
 
+Smaller gaps, to pick up in part 2 or 3:
+
+- A socket's name falls back to the user's email until they set a display name.
+- `PATCH /api/auth/me` doesn't rename sockets that are already connected; the new name shows after they reconnect.
+- A socket stays connected after its session expires. Only signing out disconnects it.
+- A sign-out that races a connecting socket can miss it, so that socket stays connected.
+- Cookie-authenticated sockets have no Origin check. `SameSite=Lax` keeps the cookie from other sites, but not from sibling subdomains, which count as the same site.
+- `JOIN_MEETING` still creates a meeting for any valid code. Part 3 decides who may create one.
+- An invalid `TRUST_PROXY` stops the server with a stack trace rather than a logged error.
+
 **Deployment.** Production must set `NODE_ENV=production`. That makes the cookie `Secure`, refuses the test code, and stops the server from starting without an email provider. Behind Caddy it must also set `TRUST_PROXY=1`, or the per-IP limits see every client as Caddy's address.
