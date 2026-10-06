@@ -1,5 +1,5 @@
 import type { CookieOptions, NextFunction, Request, Response } from 'express';
-import { findSession, type SessionUser } from './sessionService.js';
+import { SESSION_LIFETIME_MS, findSession, type SessionUser } from './sessionService.js';
 import { logger } from '../middleware/logger.js';
 
 export const SESSION_COOKIE = 'session';
@@ -41,6 +41,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     if (!session) return res.status(401).json({ error: 'Not signed in' });
     req.user = session.user;
     req.sessionId = session.sessionId;
+    // The server extended the session, so extend the web cookie too, or the browser drops it
+    // 30 days after sign-in however active the user is
+    const bearer = req.headers.authorization?.startsWith('Bearer ');
+    if (session.extended && !bearer) {
+      res.cookie(SESSION_COOKIE, token, { ...sessionCookieOptions(), maxAge: SESSION_LIFETIME_MS });
+    }
     next();
   } catch (error) {
     logger.error({ err: error }, 'Failed to check the session');

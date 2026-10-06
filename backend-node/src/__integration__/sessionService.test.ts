@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prisma } from '../db/prisma.js';
 import {
   SESSION_LIFETIME_MS,
@@ -25,6 +25,7 @@ describe('sessionService', () => {
     expect(found).toEqual({
       sessionId,
       user: { id: userId, email: 'ann@example.org', name: 'Ann' },
+      extended: false,
     });
     const stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });
     expect(stored.tokenHash).not.toContain(token);
@@ -41,14 +42,32 @@ describe('sessionService', () => {
     const start = new Date('2026-01-01T00:00:00Z');
     const { token, sessionId } = await createSession(userId, 'web', start);
 
-    await findSession(token, new Date(start.getTime() + 30 * 60 * 1000));
+    const soon = await findSession(token, new Date(start.getTime() + 30 * 60 * 1000));
+    expect(soon?.extended).toBe(false);
     let stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });
     expect(stored.expiresAt.getTime()).toBe(start.getTime() + SESSION_LIFETIME_MS);
 
     const later = new Date(start.getTime() + 2 * HOUR);
-    await findSession(token, later);
+    expect((await findSession(token, later))?.extended).toBe(true);
     stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });
     expect(stored.expiresAt.getTime()).toBe(later.getTime() + SESSION_LIFETIME_MS);
+  });
+
+  it('treats a session signed out while it is being extended as unknown, not an error', async () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const { token, sessionId } = await createSession(userId, 'web', start);
+    // Read the session as findSession will, then sign it out before the extension is written
+    const stale = await prisma.session.findUniqueOrThrow({
+      where: { id: sessionId },
+      include: { user: true },
+    });
+    await deleteSession(sessionId);
+    const read = vi.spyOn(prisma.session, 'findUnique').mockResolvedValueOnce(stale as never);
+    try {
+      await expect(findSession(token, new Date(start.getTime() + 2 * HOUR))).resolves.toBeNull();
+    } finally {
+      read.mockRestore();
+    }
   });
 
   it('deletes one session, or all of a user', async () => {

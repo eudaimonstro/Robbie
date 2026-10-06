@@ -17,6 +17,8 @@ export interface SessionUser {
 export interface ActiveSession {
   sessionId: string;
   user: SessionUser;
+  /** True when this use pushed expiresAt out, so a web cookie should be re-sent to match */
+  extended: boolean;
 }
 
 /** Start a session; the token is returned once and only its hash is stored */
@@ -40,7 +42,7 @@ export async function createSession(
   return { token, sessionId: session.id, expiresAt };
 }
 
-/** The session and user for a token, or null if unknown or expired. Use extends it. */
+/** The session and user for a token, or null if unknown, expired or signed out. Use extends it. */
 export async function findSession(
   token: string,
   now: Date = new Date(),
@@ -51,15 +53,19 @@ export async function findSession(
   });
   if (!session || session.expiresAt <= now) return null;
 
+  let extended = false;
   if (now.getTime() - session.lastUsedAt.getTime() >= EXTEND_AFTER_MS) {
-    await prisma.session.update({
+    // updateMany, not update: a session signed out since it was read is simply not found
+    const updated = await prisma.session.updateMany({
       where: { id: session.id },
       data: { lastUsedAt: now, expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS) },
     });
+    if (updated.count === 0) return null;
+    extended = true;
   }
 
   const { id, email, name } = session.user;
-  return { sessionId: session.id, user: { id, email, name } };
+  return { sessionId: session.id, user: { id, email, name }, extended };
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

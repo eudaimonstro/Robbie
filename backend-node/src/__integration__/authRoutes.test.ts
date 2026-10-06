@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
 import { captureEmailsForTests } from '../auth/emailService.js';
+import { createSession } from '../auth/sessionService.js';
+import { prisma } from '../db/prisma.js';
 import { resetAccounts } from './db.js';
 
 let outbox: Array<{ to: string; code: string }>;
@@ -29,6 +31,8 @@ describe('auth routes', () => {
     const cookie = sessionCookie(res);
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).toMatch(/Max-Age=2592000/);
+    expect(cookie).toMatch(/Path=\//);
   });
 
   it('gives a mobile client its token in the body, and no cookie', async () => {
@@ -49,6 +53,33 @@ describe('auth routes', () => {
     expect(meToo.body.user.email).toBe('bo@example.org');
 
     expect((await request(app).get('/api/auth/me')).status).toBe(401);
+  });
+
+  it('re-sends the cookie when a web session is extended', async () => {
+    const userId = (await prisma.user.create({ data: { email: 'ann@example.org' } })).id;
+    const lastUsed = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const { token } = await createSession(userId, 'web', lastUsed);
+
+    const res = await request(app).get('/api/auth/me').set('Cookie', `session=${token}`);
+    expect(res.status).toBe(200);
+    const cookie = sessionCookie(res);
+    expect(cookie).toContain(`session=${token}`);
+    expect(cookie).toMatch(/Max-Age=2592000/);
+    expect(cookie).toMatch(/HttpOnly/i);
+
+    // Used again within the hour: not extended, so no new cookie
+    const again = await request(app).get('/api/auth/me').set('Cookie', `session=${token}`);
+    expect(sessionCookie(again)).toBeUndefined();
+  });
+
+  it('never sends a cookie to a bearer client whose session is extended', async () => {
+    const userId = (await prisma.user.create({ data: { email: 'ann@example.org' } })).id;
+    const lastUsed = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const { token } = await createSession(userId, 'mobile', lastUsed);
+
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(sessionCookie(res)).toBeUndefined();
   });
 
   it('sets the display name', async () => {

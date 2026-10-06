@@ -4,6 +4,7 @@ import { socketAuth } from '../socket/socketAuth.js';
 const session = {
   sessionId: 's-1',
   user: { id: 7, email: 'ann@example.org', name: 'Ann' },
+  extended: false,
 };
 
 function fakeSocket(handshake: { auth?: Record<string, unknown>; cookie?: string }) {
