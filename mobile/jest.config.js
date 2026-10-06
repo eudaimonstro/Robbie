@@ -6,6 +6,10 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // The shared package only exports an "import" condition, which Jest's resolver doesn't use.
+    // Point it at the built package (npm run build:shared), as the type-checker sees it.
+    '^@robbie-bylawyer/shared/(types|reducer|constants|utils)$':
+      '<rootDir>/../shared/dist/$1/index.js',
   },
   collectCoverageFrom: [
     'components/**/*.{ts,tsx}',

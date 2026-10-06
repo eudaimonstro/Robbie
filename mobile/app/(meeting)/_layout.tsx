@@ -18,6 +18,12 @@ export default function MeetingLayout() {
       }}
     >
       <Stack.Screen
+        name="join"
+        options={{
+          title: 'Join Meeting',
+        }}
+      />
+      <Stack.Screen
         name="index"
         options={{
           title: 'Meeting',

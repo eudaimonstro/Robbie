@@ -14,7 +14,7 @@ import type { MeetingAction, DebateStance } from '@robbie-bylawyer/shared/types'
 
 export default function MeetingScreen() {
   const router = useRouter();
-  const { state, dispatch, currentUser, isConnected, logout, reconnect } = useSocket();
+  const { state, dispatch, currentUser, isConnected, leaveMeeting, reconnect } = useSocket();
 
   // Get quorum status
   const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum, {
@@ -195,8 +195,8 @@ export default function MeetingScreen() {
         <View style={styles.userSection}>
           <Text style={styles.userName}>{currentUser.name}</Text>
           <Text style={styles.userRole}>{currentUser.role}</Text>
-          <Pressable onPress={logout}>
-            <Text style={styles.logoutText}>Leave Meeting</Text>
+          <Pressable onPress={leaveMeeting}>
+            <Text style={styles.logoutText}>Leave meeting</Text>
           </Pressable>
         </View>
       </ScrollView>

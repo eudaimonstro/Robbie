@@ -2,32 +2,45 @@ import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SessionProvider, useSession } from '../context/SessionContext';
 import { SocketProvider, useSocket } from '../context/SocketContext';
 import { colors } from '../theme';
 
 function RootLayoutNav() {
-  const { isAuthenticated, isConnected, isLoading } = useSocket();
+  const { status, user } = useSession();
+  const { isConnected, isLoading, meetingCode } = useSocket();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (status === 'loading') return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inMeetingGroup = segments[0] === '(meeting)';
+    const [group, screen] = segments as string[];
 
-    if (isAuthenticated && isConnected) {
-      // User is authenticated and connected, go to meeting
-      if (!inMeetingGroup) {
-        router.replace('/(meeting)');
-      }
-    } else if (!isAuthenticated) {
-      // User is not authenticated, go to login
-      if (!inAuthGroup) {
-        router.replace('/(auth)/login');
-      }
+    if (status === 'signedOut') {
+      if (group !== '(auth)' || screen === 'name') router.replace('/(auth)/login');
+      return;
     }
-  }, [isAuthenticated, isConnected, isLoading, segments, router]);
+    if (!user?.name) {
+      if (screen !== 'name') router.replace('/(auth)/name');
+      return;
+    }
+    // Wait for the remembered meeting, so a restart doesn't flash the join screen
+    if (isLoading) return;
+    if (isConnected) {
+      if (group !== '(meeting)' || screen === 'join') router.replace('/(meeting)');
+      return;
+    }
+    if (!meetingCode) {
+      if (group !== '(meeting)' || screen !== 'join') router.replace('/(meeting)/join');
+      return;
+    }
+    // Joining, or reconnecting after a dropped connection: stay on the meeting screens
+    if (group !== '(meeting)') router.replace('/(meeting)/join');
+  }, [status, user?.name, isConnected, isLoading, meetingCode, segments, router]);
+
+  // Restoring the session on launch
+  if (status === 'loading') return null;
 
   return (
     <>
@@ -56,9 +69,11 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <SocketProvider>
-        <RootLayoutNav />
-      </SocketProvider>
+      <SessionProvider>
+        <SocketProvider>
+          <RootLayoutNav />
+        </SocketProvider>
+      </SessionProvider>
     </SafeAreaProvider>
   );
 }
