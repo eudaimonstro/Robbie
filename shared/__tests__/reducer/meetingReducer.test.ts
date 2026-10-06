@@ -1463,6 +1463,35 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('agenda item bookkeeping', () => {
+    const agenda = [
+      { id: 1, title: 'Budget', status: 'pending' as const },
+      { id: 2, title: 'Picnic', status: 'pending' as const },
+    ];
+
+    it('records the called item as active in both places', () => {
+      const state = meetingReducer(
+        { ...initialState, agendaAdopted: true, agenda },
+        { type: 'CALL_AGENDA_ITEM', id: 1, timestamp: '10:00:00' },
+      );
+      expect(state.agenda[0].status).toBe('active');
+      expect(state.currentAgendaItem?.status).toBe('active');
+    });
+
+    it('keeps the current item when a different one is completed', () => {
+      const called = meetingReducer(
+        { ...initialState, agendaAdopted: true, agenda },
+        { type: 'CALL_AGENDA_ITEM', id: 1, timestamp: '10:00:00' },
+      );
+      const state = meetingReducer(called, {
+        type: 'COMPLETE_AGENDA_ITEM',
+        id: 2,
+        timestamp: '10:05:00',
+      });
+      expect(state.currentAgendaItem?.id).toBe(1);
+    });
+  });
+
   describe('RESTORE_RULE', () => {
     it('should remove rule suspension', () => {
       const stateWithSuspension: MeetingState = {

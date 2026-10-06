@@ -68,7 +68,8 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       );
       return {
         ...state,
-        currentAgendaItem: item || null,
+        // The updated entry, so its status reads 'active' here as in the agenda
+        currentAgendaItem: updatedAgenda.find((a) => a.id === typedAction.id) ?? null,
         agenda: updatedAgenda,
         meetingLog: log(typedAction.timestamp, logAgendaItemCalled(item?.title)),
       };
@@ -79,14 +80,13 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       const updatedAgenda = state.agenda.map((a) =>
         a.id === typedAction.id ? { ...a, status: 'completed' as const } : a,
       );
+      const completed = state.agenda.find((a) => a.id === typedAction.id);
       return {
         ...state,
-        currentAgendaItem: null,
+        currentAgendaItem:
+          state.currentAgendaItem?.id === typedAction.id ? null : state.currentAgendaItem,
         agenda: updatedAgenda,
-        meetingLog: log(
-          typedAction.timestamp,
-          logAgendaItemCompleted(state.currentAgendaItem?.title),
-        ),
+        meetingLog: log(typedAction.timestamp, logAgendaItemCompleted(completed?.title)),
       };
     }
 
