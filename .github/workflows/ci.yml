@@ -50,6 +50,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate -w backend-node
 
+      - name: Apply database migrations
+        run: npm run db:deploy -w backend-node
+
       - name: Format check
         run: npm run format:check
 
