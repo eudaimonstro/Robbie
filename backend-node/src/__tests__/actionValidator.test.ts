@@ -155,6 +155,45 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('NOMINATE', () => {
+    const state: MeetingState = {
+      ...activeMeetingState(),
+      nominationsOpen: true,
+      currentNominationPosition: 'Treasurer',
+      nominations: [
+        {
+          id: 1,
+          position: 'Treasurer',
+          nomineeName: 'Pat Outsider',
+          nomineeId: 0, // not a member of the meeting
+          nominatedBy: 'Member 2',
+          nominatorId: 2,
+          timestamp: '',
+          declined: false,
+        },
+      ],
+    };
+    const nominate = (nomineeName: string, nomineeId: number) =>
+      validateAction(state, {
+        type: 'NOMINATE',
+        position: 'Treasurer',
+        nomineeName,
+        nomineeId,
+        nominatedBy: 'Member 3',
+        nominatorId: 3,
+        nominationId: 2,
+        timestamp: '',
+      });
+
+    it('accepts a second nominee from outside the meeting', () => {
+      expect(nominate('Sam Outsider', 0).valid).toBe(true);
+    });
+
+    it('rejects the same nominee twice', () => {
+      expect(nominate('pat outsider', 0).errorCode).toBe('ALREADY_NOMINATED');
+    });
+  });
+
   describe('SET_MEETING_STAGE', () => {
     const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
       validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);

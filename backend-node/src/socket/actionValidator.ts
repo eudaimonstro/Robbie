@@ -470,9 +470,16 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'WRONG_POSITION',
         };
       }
-      // Check if already nominated
+      // Check if already nominated. A nominee from outside the meeting has no member ID (0),
+      // so they are told apart by name.
+      const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const alreadyNominated = state.nominations.some(
-        (n) => n.position === action.position && n.nomineeId === action.nomineeId && !n.declined,
+        (n) =>
+          n.position === action.position &&
+          !n.declined &&
+          (action.nomineeId
+            ? n.nomineeId === action.nomineeId
+            : !n.nomineeId && sameName(n.nomineeName, action.nomineeName)),
       );
       if (alreadyNominated) {
         return {
