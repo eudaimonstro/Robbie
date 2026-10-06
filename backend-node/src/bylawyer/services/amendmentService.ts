@@ -223,9 +223,9 @@ export class AmendmentService {
     // Build a mutable copy of the section tree
     const sectionsCopy = currentVersion.sections.map((s) => ({
       id: s.id,
-      parent_id: s.parentId,
+      parentId: s.parentId,
       position: s.position,
-      number_label: s.numberLabel,
+      numberLabel: s.numberLabel,
       title: s.title,
       content: s.content,
       annotation: s.annotation,
@@ -240,14 +240,14 @@ export class AmendmentService {
     for (const change of sortedChanges) {
       if (change.changeType === 'add') {
         const parentId = change.targetSectionId;
-        const siblings = sectionsCopy.filter((s) => s.parent_id === parentId && !s.deleted);
+        const siblings = sectionsCopy.filter((s) => s.parentId === parentId && !s.deleted);
         const maxPos = siblings.length > 0 ? Math.max(...siblings.map((s) => s.position)) : -1;
 
         sectionsCopy.push({
           id: `new-${change.id}`,
-          parent_id: parentId,
+          parentId: parentId,
           position: maxPos + 1,
-          number_label: change.newNumberLabel,
+          numberLabel: change.newNumberLabel,
           title: change.newTitle,
           content: change.newContent,
           annotation: null,
@@ -260,7 +260,7 @@ export class AmendmentService {
         if (section) {
           if (change.newContent !== null) section.content = change.newContent;
           if (change.newTitle !== null) section.title = change.newTitle;
-          if (change.newNumberLabel !== null) section.number_label = change.newNumberLabel;
+          if (change.newNumberLabel !== null) section.numberLabel = change.newNumberLabel;
           section.modified = true;
         }
       } else if (change.changeType === 'delete') {
@@ -270,7 +270,7 @@ export class AmendmentService {
             section.deleted = true;
             // Also delete children
             sectionsCopy
-              .filter((s) => s.parent_id === sectionId)
+              .filter((s) => s.parentId === sectionId)
               .forEach((child) => markDeleted(child.id));
           }
         };
@@ -278,7 +278,7 @@ export class AmendmentService {
       } else if (change.changeType === 'renumber') {
         const section = sectionsCopy.find((s) => s.id === change.targetSectionId);
         if (section && change.newNumberLabel !== null) {
-          section.number_label = change.newNumberLabel;
+          section.numberLabel = change.newNumberLabel;
           section.modified = true;
         }
       }
@@ -287,7 +287,7 @@ export class AmendmentService {
     // Build tree from flat list
     const buildTree = (parentId: string | null = null): any[] => {
       return sectionsCopy
-        .filter((s) => s.parent_id === parentId)
+        .filter((s) => s.parentId === parentId)
         .sort((a, b) => a.position - b.position)
         .map((s) => ({
           ...s,

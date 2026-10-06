@@ -525,12 +525,12 @@ amendmentsRouter.post(
       res.json({
         version: {
           id: newVersion.id,
-          document_id: newVersion.documentId,
-          version_number: newVersion.versionNumber,
-          effective_date: newVersion.effectiveDate?.toISOString() || null,
-          adopted_at: newVersion.adoptedAt?.toISOString() || null,
+          documentId: newVersion.documentId,
+          versionNumber: newVersion.versionNumber,
+          effectiveDate: newVersion.effectiveDate?.toISOString() || null,
+          adoptedAt: newVersion.adoptedAt?.toISOString() || null,
           notes: newVersion.notes,
-          created_at: newVersion.createdAt.toISOString(),
+          createdAt: newVersion.createdAt.toISOString(),
         },
       });
     } catch (error: any) {
@@ -558,8 +558,8 @@ amendmentsRouter.get(
       const previewTree = await service.previewAmendment(amendment);
 
       res.json({
-        amendment_id: amendment.id,
-        amendment_title: amendment.title,
+        amendmentId: amendment.id,
+        amendmentTitle: amendment.title,
         sections: previewTree,
       });
     } catch (error) {

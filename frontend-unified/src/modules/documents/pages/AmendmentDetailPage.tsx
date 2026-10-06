@@ -140,19 +140,19 @@ export default function AmendmentDetailPage() {
         <div className="flex items-center gap-6 text-sm">
           <div className="flex items-center gap-1 text-secondary-600">
             <Clock className="w-4 h-4" />
-            Created: {new Date(amendment.created_at).toLocaleString()}
+            Created: {new Date(amendment.createdAt).toLocaleString()}
           </div>
-          {amendment.proposed_at && (
+          {amendment.proposedAt && (
             <div className="text-secondary-600">
-              Proposed: {new Date(amendment.proposed_at).toLocaleString()}
+              Proposed: {new Date(amendment.proposedAt).toLocaleString()}
             </div>
           )}
-          {amendment.decided_at && (
+          {amendment.decidedAt && (
             <div className="text-secondary-600">
-              Decided: {new Date(amendment.decided_at).toLocaleString()}
+              Decided: {new Date(amendment.decidedAt).toLocaleString()}
             </div>
           )}
-          {amendment.resulting_version_id && (
+          {amendment.resultingVersionId && (
             <div className="text-success-600">Applied to new version</div>
           )}
         </div>

@@ -109,7 +109,7 @@ export function useMeetingData(
       if (!meeting) throw new Error('No meeting');
       const result = await votesApi.create(meeting.id, data);
       await fetchMeeting();
-      return { passed: result.passed };
+      return { passed: result.result === 'passed' };
     },
     [meeting, fetchMeeting],
   );
@@ -126,7 +126,7 @@ export function useMeetingData(
     (amendmentId: string): string => {
       const amendment = allAmendments.find((a) => a.id === amendmentId);
       if (amendment) {
-        const doc = documents.find((d) => d.id === amendment.document_id);
+        const doc = documents.find((d) => d.id === amendment.documentId);
         return doc?.title || 'Unknown Document';
       }
       return 'Unknown Document';

@@ -167,7 +167,7 @@ export default function DocumentPage() {
         onClose={() => setEditorOpen(false)}
         onSave={onSaveSection}
         section={editingSection || undefined}
-        parentLabel={parentSection?.number_label || parentSection?.title || undefined}
+        parentLabel={parentSection?.numberLabel || parentSection?.title || undefined}
         mode={editorMode}
       />
 
@@ -177,7 +177,7 @@ export default function DocumentPage() {
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={confirmDelete}
         title="Delete Section"
-        message={`Are you sure you want to delete "${deletingSection?.number_label || deletingSection?.title || 'this section'}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${deletingSection?.numberLabel || deletingSection?.title || 'this section'}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
         loading={deleting}

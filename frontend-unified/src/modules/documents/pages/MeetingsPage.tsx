@@ -19,7 +19,7 @@ export default function MeetingsPage() {
   // Create meeting modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newType, setNewType] = useState<MeetingCreate['meeting_type']>('regular');
+  const [newType, setNewType] = useState<MeetingCreate['meetingType']>('regular');
   const [newDate, setNewDate] = useState('');
   const [newLocation, setNewLocation] = useState('');
   const [creating, setCreating] = useState(false);
@@ -36,7 +36,7 @@ export default function MeetingsPage() {
         const data = await meetingsApi.list(currentOrganization.id);
         setMeetings(
           data.sort(
-            (a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime(),
+            (a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime(),
           ),
         );
       } catch {
@@ -57,8 +57,8 @@ export default function MeetingsPage() {
       setCreating(true);
       const data: MeetingCreate = {
         title: newTitle.trim(),
-        meeting_type: newType,
-        scheduled_date: newDate,
+        meetingType: newType,
+        scheduledDate: newDate,
         location: newLocation.trim() || undefined,
       };
       const meeting = await meetingsApi.create(currentOrganization.id, data);
@@ -187,7 +187,7 @@ export default function MeetingsPage() {
                     <h4 className="font-medium text-secondary-900 dark:text-white">
                       {meeting.title}
                     </h4>
-                    <MeetingTypeBadge type={meeting.meeting_type} />
+                    <MeetingTypeBadge type={meeting.meetingType} />
                     <span className={`text-sm font-medium ${getStatusColor(meeting.status)}`}>
                       {statusLabels[meeting.status]}
                     </span>
@@ -195,7 +195,7 @@ export default function MeetingsPage() {
                   <div className="flex items-center gap-4 text-sm text-secondary-500">
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      {new Date(meeting.scheduled_date).toLocaleString()}
+                      {new Date(meeting.scheduledDate).toLocaleString()}
                     </span>
                     {meeting.location && (
                       <span className="flex items-center gap-1">
@@ -245,7 +245,7 @@ export default function MeetingsPage() {
               <select
                 id="meetingType"
                 value={newType}
-                onChange={(e) => setNewType(e.target.value as MeetingCreate['meeting_type'])}
+                onChange={(e) => setNewType(e.target.value as MeetingCreate['meetingType'])}
                 className="select"
               >
                 <option value="regular">Regular</option>

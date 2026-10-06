@@ -63,37 +63,37 @@ export function AmendmentChangesList({
                     </span>
                     <span
                       className={`badge ${
-                        change.change_type === 'add'
+                        change.changeType === 'add'
                           ? 'badge-passed'
-                          : change.change_type === 'delete'
+                          : change.changeType === 'delete'
                             ? 'badge-failed'
                             : 'badge-proposed'
                       }`}
                     >
-                      {CHANGE_TYPE_LABELS[change.change_type]}
+                      {CHANGE_TYPE_LABELS[change.changeType]}
                     </span>
                   </div>
 
-                  {change.target_section_id && (
+                  {change.targetSectionId && (
                     <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-2">
-                      Target: {getSectionLabel(sectionTree, change.target_section_id)}
+                      Target: {getSectionLabel(sectionTree, change.targetSectionId)}
                     </p>
                   )}
 
-                  {(change.new_number_label || change.new_title) && (
+                  {(change.newNumberLabel || change.newTitle) && (
                     <p className="text-sm mb-2">
-                      {change.new_number_label && (
+                      {change.newNumberLabel && (
                         <span className="font-medium text-primary-600">
-                          {change.new_number_label}
+                          {change.newNumberLabel}
                         </span>
                       )}
-                      {change.new_title && <span className="ml-2">{change.new_title}</span>}
+                      {change.newTitle && <span className="ml-2">{change.newTitle}</span>}
                     </p>
                   )}
 
-                  {change.new_content && (
+                  {change.newContent && (
                     <div className="bg-secondary-50 dark:bg-secondary-800/50 p-3 rounded-sm text-sm text-secondary-700 dark:text-secondary-300">
-                      {change.new_content}
+                      {change.newContent}
                     </div>
                   )}
                 </div>

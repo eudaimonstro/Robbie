@@ -38,7 +38,7 @@ export const SectionSelector = React.memo(function SectionSelector({
         {sections.map((section) => (
           <option key={section.id} value={section.id}>
             {'  '.repeat(section.depth)}
-            {section.number_label} {section.title}
+            {section.numberLabel} {section.title}
           </option>
         ))}
       </select>

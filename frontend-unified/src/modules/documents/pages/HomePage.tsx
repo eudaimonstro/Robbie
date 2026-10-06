@@ -62,7 +62,7 @@ export default function HomePage() {
         setRecentAmendments(
           allAmendments
             .filter((a) => a.status === 'draft' || a.status === 'proposed')
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 5),
         );
       } catch (err) {
@@ -185,10 +185,10 @@ export default function HomePage() {
                           {doc.title}
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <DocumentTypeBadge type={doc.doc_type} />
+                          <DocumentTypeBadge type={doc.docType} />
                           <span className="text-xs text-secondary-500 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {new Date(doc.created_at).toLocaleDateString()}
+                            {new Date(doc.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
@@ -260,11 +260,11 @@ export default function HomePage() {
                       <span className="font-medium text-sm text-secondary-900 dark:text-white">
                         {meeting.title}
                       </span>
-                      <MeetingTypeBadge type={meeting.meeting_type} />
+                      <MeetingTypeBadge type={meeting.meetingType} />
                     </div>
                     <p className="text-xs text-secondary-500 flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(meeting.scheduled_date).toLocaleDateString()}
+                      {new Date(meeting.scheduledDate).toLocaleDateString()}
                       {meeting.location && ` - ${meeting.location}`}
                     </p>
                   </Link>

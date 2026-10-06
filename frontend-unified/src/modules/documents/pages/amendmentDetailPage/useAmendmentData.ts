@@ -42,11 +42,11 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
       const amend = await amendmentsApi.get(amendmentId);
       setAmendment(amend);
 
-      const doc = await documentsApi.get(amend.document_id);
+      const doc = await documentsApi.get(amend.documentId);
       setDocument(doc);
 
-      if (doc.current_version_id) {
-        const tree = await versionsApi.getTree(doc.current_version_id);
+      if (doc.currentVersionId) {
+        const tree = await versionsApi.getTree(doc.currentVersionId);
         setSectionTree(tree);
       }
     } catch {
@@ -121,8 +121,8 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
     if (!amendment) return null;
     const result = await amendmentsApi.apply(amendment.id);
     await fetchAmendment();
-    showToast('success', `Amendment applied. Created version ${result.version.version_number}`);
-    return { versionNumber: result.version.version_number };
+    showToast('success', `Amendment applied. Created version ${result.version.versionNumber}`);
+    return { versionNumber: result.version.versionNumber };
   }, [amendment, fetchAmendment, showToast]);
 
   return {
@@ -148,8 +148,7 @@ export function flattenSections(
 ): { id: string; label: string }[] {
   const result: { id: string; label: string }[] = [];
   for (const section of sections) {
-    const label =
-      `${'  '.repeat(depth)}${section.number_label || ''} ${section.title || ''}`.trim();
+    const label = `${'  '.repeat(depth)}${section.numberLabel || ''} ${section.title || ''}`.trim();
     result.push({ id: section.id, label });
     if (section.children?.length) {
       result.push(...flattenSections(section.children, depth + 1));

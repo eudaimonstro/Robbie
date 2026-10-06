@@ -3,6 +3,7 @@ import { ChevronRight, Edit, GitCompare, Share2, Users } from 'lucide-react';
 import { Document, Version } from '../../../../api/client';
 import { DocumentTypeBadge } from '../../../../components/ui/Badge';
 import { ExportDropdown } from './ExportDropdown';
+import { formatCalendarDate } from '../../../../utils/dates';
 
 interface DocumentHeaderProps {
   doc: Document;
@@ -37,7 +38,7 @@ export function DocumentHeader({
           <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
             {doc.title}
           </h2>
-          <DocumentTypeBadge type={doc.doc_type} />
+          <DocumentTypeBadge type={doc.docType} />
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -49,9 +50,9 @@ export function DocumentHeader({
         >
           {versions.map((v) => (
             <option key={v.id} value={v.id}>
-              Version {v.version_number}
-              {v.id === doc.current_version_id ? ' (Current)' : ''}
-              {v.effective_date && ` - ${new Date(v.effective_date).toLocaleDateString()}`}
+              Version {v.versionNumber}
+              {v.id === doc.currentVersionId ? ' (Current)' : ''}
+              {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
             </option>
           ))}
         </select>

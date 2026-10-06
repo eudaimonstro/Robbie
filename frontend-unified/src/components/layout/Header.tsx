@@ -85,9 +85,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
     setShowSearchResults(false);
     setSearchQuery('');
     if (result.type === 'document') {
-      navigate(`/documents/${result.document_id}`);
+      navigate(`/documents/${result.documentId}`);
     } else {
-      navigate(`/documents/${result.document_id}`);
+      navigate(`/documents/${result.documentId}`);
     }
   };
 
@@ -189,7 +189,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                             </div>
                             {result.type === 'section' && (
                               <div className="text-xs text-secondary-500 truncate">
-                                in {result.document_title}
+                                in {result.documentTitle}
                               </div>
                             )}
                             <div className="text-xs text-secondary-400 mt-0.5 line-clamp-2">

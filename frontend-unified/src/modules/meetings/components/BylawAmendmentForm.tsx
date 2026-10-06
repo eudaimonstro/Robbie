@@ -41,13 +41,13 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
 
     switch (changeType) {
       case 'add':
-        return `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.number_label} "${parentSection.title}"` : ''}: "${newTitle}"`;
+        return `I move to amend the bylaws by adding a new section${parentSection ? ` under ${parentSection.numberLabel} "${parentSection.title}"` : ''}: "${newTitle}"`;
       case 'modify':
-        return `I move to amend the bylaws by modifying ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
+        return `I move to amend the bylaws by modifying ${selectedSection?.numberLabel || 'section'} "${selectedSection?.title || 'selected section'}"`;
       case 'delete':
-        return `I move to amend the bylaws by deleting ${selectedSection?.number_label || 'section'} "${selectedSection?.title || 'selected section'}"`;
+        return `I move to amend the bylaws by deleting ${selectedSection?.numberLabel || 'section'} "${selectedSection?.title || 'selected section'}"`;
       case 'renumber':
-        return `I move to amend the bylaws by renumbering ${selectedSection?.number_label || 'section'} to ${newNumberLabel}`;
+        return `I move to amend the bylaws by renumbering ${selectedSection?.numberLabel || 'section'} to ${newNumberLabel}`;
     }
   }, [changeType, flatSections, parentSectionId, selectedSection, newTitle, newNumberLabel]);
 
@@ -71,7 +71,7 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection
-          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          ? `${selectedSection.numberLabel} "${selectedSection.title}"`
           : undefined;
         bylawAmendment.newContent = newContent;
         if (newTitle) bylawAmendment.newTitle = newTitle;
@@ -80,14 +80,14 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection
-          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          ? `${selectedSection.numberLabel} "${selectedSection.title}"`
           : undefined;
         break;
       case 'renumber':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
         bylawAmendment.targetSectionLabel = selectedSection
-          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          ? `${selectedSection.numberLabel} "${selectedSection.title}"`
           : undefined;
         bylawAmendment.newNumberLabel = newNumberLabel;
         break;

@@ -150,9 +150,9 @@ const SectionTree = memo(function SectionTree({
           <div className="bg-white dark:bg-secondary-800 shadow-xl ring-2 ring-primary-500 rounded-lg p-3 opacity-90">
             <div className="flex items-center gap-2">
               <GripVertical className="w-4 h-4 text-secondary-400" />
-              {activeSection.number_label && (
+              {activeSection.numberLabel && (
                 <span className="font-bold text-primary-600 dark:text-primary-400">
-                  {activeSection.number_label}
+                  {activeSection.numberLabel}
                 </span>
               )}
               {activeSection.title && (
@@ -283,9 +283,9 @@ const SortableSectionNode = memo(function SortableSectionNode({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
-              {section.number_label && (
+              {section.numberLabel && (
                 <span className="font-bold text-primary-600 dark:text-primary-400">
-                  {section.number_label}
+                  {section.numberLabel}
                 </span>
               )}
               {section.title && (

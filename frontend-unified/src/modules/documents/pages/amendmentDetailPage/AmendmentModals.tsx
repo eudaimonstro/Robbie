@@ -88,7 +88,7 @@ interface AddChangeModalProps {
 }
 
 export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddChangeModalProps) {
-  const [changeType, setChangeType] = useState<AmendmentChangeCreate['change_type']>('modify');
+  const [changeType, setChangeType] = useState<AmendmentChangeCreate['changeType']>('modify');
   const [targetSectionId, setTargetSectionId] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newTitle, setNewTitle] = useState('');
@@ -108,11 +108,11 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
     try {
       setAdding(true);
       await onSubmit({
-        change_type: changeType,
-        target_section_id: targetSectionId || undefined,
-        new_content: newContent.trim() || undefined,
-        new_title: newTitle.trim() || undefined,
-        new_number_label: newNumberLabel.trim() || undefined,
+        changeType: changeType,
+        targetSectionId: targetSectionId || undefined,
+        newContent: newContent.trim() || undefined,
+        newTitle: newTitle.trim() || undefined,
+        newNumberLabel: newNumberLabel.trim() || undefined,
       });
       resetForm();
       onClose();
@@ -137,7 +137,7 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
           <label className="label">Change Type</label>
           <select
             value={changeType}
-            onChange={(e) => setChangeType(e.target.value as AmendmentChangeCreate['change_type'])}
+            onChange={(e) => setChangeType(e.target.value as AmendmentChangeCreate['changeType'])}
             className="select"
           >
             <option value="add">Add new section</option>

@@ -57,7 +57,7 @@ export function MeetingHeader({
           <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
             {meeting.title}
           </h2>
-          <MeetingTypeBadge type={meeting.meeting_type} />
+          <MeetingTypeBadge type={meeting.meetingType} />
           <span className={`badge ${STATUS_COLORS[meeting.status]}`}>
             {STATUS_LABELS[meeting.status]}
           </span>

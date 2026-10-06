@@ -36,7 +36,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setCreating(true);
       const data: DocumentCreate = {
         title: newDocTitle.trim(),
-        doc_type: newDocType,
+        docType: newDocType,
       };
       const newDoc = await documents.create(currentOrganization.id, data);
       setNewDocTitle('');
@@ -132,7 +132,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <select
               id="docType"
               value={newDocType}
-              onChange={(e) => setNewDocType(e.target.value as DocumentCreate['doc_type'])}
+              onChange={(e) => setNewDocType(e.target.value as DocumentCreate['docType'])}
               className="select"
             >
               <option value="bylaws">Bylaws</option>

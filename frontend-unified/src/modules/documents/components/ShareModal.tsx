@@ -61,7 +61,7 @@ export default function ShareModal({
       setLoading(true);
       await documentsApi.disableSharing(documentId);
       if (shareStatus) {
-        setShareStatus({ ...shareStatus, share_enabled: false });
+        setShareStatus({ ...shareStatus, shareEnabled: false });
       }
       showToast('success', 'Sharing disabled');
     } catch {
@@ -87,7 +87,7 @@ export default function ShareModal({
 
   const getFullShareUrl = () => {
     if (!shareStatus) return '';
-    return `${window.location.origin}/share/${shareStatus.share_token}`;
+    return `${window.location.origin}/share/${shareStatus.shareToken}`;
   };
 
   const handleCopyLink = async () => {
@@ -115,7 +115,7 @@ export default function ShareModal({
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
           </div>
-        ) : !shareStatus || !shareStatus.share_token ? (
+        ) : !shareStatus || !shareStatus.shareToken ? (
           // No sharing set up yet
           <div className="text-center py-6">
             <Link className="w-12 h-12 text-secondary-300 mx-auto mb-4" />
@@ -141,7 +141,7 @@ export default function ShareModal({
                 />
                 <button
                   onClick={handleCopyLink}
-                  disabled={copying || !shareStatus.share_enabled}
+                  disabled={copying || !shareStatus.shareEnabled}
                   className="btn-secondary flex items-center gap-2"
                   title={copied ? 'Copied!' : 'Copy to clipboard'}
                 >
@@ -158,24 +158,24 @@ export default function ShareModal({
             <div className="flex items-center justify-between py-3 border-t border-secondary-200 dark:border-secondary-700">
               <div>
                 <p className="font-medium text-secondary-900 dark:text-white">
-                  Sharing {shareStatus.share_enabled ? 'Enabled' : 'Disabled'}
+                  Sharing {shareStatus.shareEnabled ? 'Enabled' : 'Disabled'}
                 </p>
                 <p className="text-sm text-secondary-500">
-                  {shareStatus.share_enabled
+                  {shareStatus.shareEnabled
                     ? 'Anyone with the link can view this document'
                     : 'The share link is currently inactive'}
                 </p>
               </div>
               <button
-                onClick={shareStatus.share_enabled ? handleDisableSharing : handleEnableSharing}
-                className={shareStatus.share_enabled ? 'btn-ghost text-danger-600' : 'btn-primary'}
+                onClick={shareStatus.shareEnabled ? handleDisableSharing : handleEnableSharing}
+                className={shareStatus.shareEnabled ? 'btn-ghost text-danger-600' : 'btn-primary'}
               >
-                {shareStatus.share_enabled ? 'Disable' : 'Enable'}
+                {shareStatus.shareEnabled ? 'Disable' : 'Enable'}
               </button>
             </div>
 
             {/* Regenerate link */}
-            {shareStatus.share_enabled && (
+            {shareStatus.shareEnabled && (
               <div className="border-t border-secondary-200 dark:border-secondary-700 pt-4">
                 {showRegenerateConfirm ? (
                   <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-4">

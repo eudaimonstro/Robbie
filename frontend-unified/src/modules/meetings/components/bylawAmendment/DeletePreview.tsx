@@ -12,7 +12,7 @@ export const DeletePreview = React.memo(function DeletePreview({ section }: Dele
         Section to be deleted:
       </p>
       <p className="text-sm text-danger-700 dark:text-danger-400">
-        <strong>{section.number_label}</strong> {section.title}
+        <strong>{section.numberLabel}</strong> {section.title}
       </p>
       {section.content && (
         <p className="text-xs text-danger-600 dark:text-danger-500 mt-1 line-clamp-2">

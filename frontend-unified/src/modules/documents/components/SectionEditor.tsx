@@ -8,7 +8,7 @@ interface SectionEditorProps {
   onSave: (data: SectionCreate | SectionUpdate) => Promise<void>;
   section?: {
     id?: string;
-    number_label: string | null;
+    numberLabel: string | null;
     title: string | null;
     content: string | null;
     annotation: string | null;
@@ -33,7 +33,7 @@ export default function SectionEditor({
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Validation: require number_label and title for new sections, allow editing without
+  // Validation: require numberLabel and title for new sections, allow editing without
   const isCreateMode = mode === 'create' || mode === 'addChild';
   const isValid = isCreateMode
     ? numberLabel.trim() !== '' && title.trim() !== ''
@@ -42,7 +42,7 @@ export default function SectionEditor({
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && section) {
-        setNumberLabel(section.number_label || '');
+        setNumberLabel(section.numberLabel || '');
         setTitle(section.title || '');
         setContent(section.content || '');
         setAnnotation(section.annotation || '');
@@ -75,7 +75,7 @@ export default function SectionEditor({
     try {
       setSaving(true);
       const data: SectionCreate | SectionUpdate = {
-        number_label: numberLabel.trim() || undefined,
+        numberLabel: numberLabel.trim() || undefined,
         title: title.trim() || undefined,
         content: content.trim() || undefined,
         annotation: annotation.trim() || undefined,

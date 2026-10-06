@@ -48,21 +48,21 @@ export default function MeetingDetailPage() {
 
   // Filter amendments that haven't been voted on
   const unvotedAmendments = useMemo(
-    () => proposedAmendments.filter((a) => !votes.some((v) => v.amendment_id === a.id)),
+    () => proposedAmendments.filter((a) => !votes.some((v) => v.amendmentId === a.id)),
     [proposedAmendments, votes],
   );
 
   const handleEditSubmit = async (data: {
     title: string;
-    type: typeof meeting extends null ? never : NonNullable<typeof meeting>['meeting_type'];
+    type: typeof meeting extends null ? never : NonNullable<typeof meeting>['meetingType'];
     date: string;
     location?: string;
     notes?: string;
   }) => {
     await updateMeeting({
       title: data.title,
-      meeting_type: data.type,
-      scheduled_date: data.date,
+      meetingType: data.type,
+      scheduledDate: data.date,
       location: data.location,
       notes: data.notes,
     });

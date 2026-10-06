@@ -12,6 +12,7 @@ import {
 import { useOrganization } from '../../../context/OrganizationContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import { useToast } from '../../../context/ToastContext';
+import { formatCalendarDate } from '../../../utils/dates';
 
 export default function DocumentDiffPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -99,7 +100,7 @@ export default function DocumentDiffPage() {
   const getVersionLabel = (versionId: string) => {
     const version = versions.find((v) => v.id === versionId);
     if (!version) return 'Unknown';
-    return `Version ${version.version_number}${version.effective_date ? ` (${new Date(version.effective_date).toLocaleDateString()})` : ''}`;
+    return `Version ${version.versionNumber}${version.effectiveDate ? ` (${formatCalendarDate(version.effectiveDate)})` : ''}`;
   };
 
   const swapVersions = () => {
@@ -156,9 +157,9 @@ export default function DocumentDiffPage() {
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  Version {v.version_number}
-                  {v.effective_date && ` - ${new Date(v.effective_date).toLocaleDateString()}`}
-                  {v.id === document.current_version_id && ' (Current)'}
+                  Version {v.versionNumber}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
+                  {v.id === document.currentVersionId && ' (Current)'}
                 </option>
               ))}
             </select>
@@ -177,9 +178,9 @@ export default function DocumentDiffPage() {
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  Version {v.version_number}
-                  {v.effective_date && ` - ${new Date(v.effective_date).toLocaleDateString()}`}
-                  {v.id === document.current_version_id && ' (Current)'}
+                  Version {v.versionNumber}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
+                  {v.id === document.currentVersionId && ' (Current)'}
                 </option>
               ))}
             </select>
@@ -269,8 +270,8 @@ function DiffChangeItem({ change }: { change: DiffChange }) {
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-4 h-4" />
         <span className="font-medium text-sm">
-          {change.new_number_label || change.old_number_label}
-          {(change.new_title || change.old_title) && ` - ${change.new_title || change.old_title}`}
+          {change.newNumberLabel || change.oldNumberLabel}
+          {(change.newTitle || change.oldTitle) && ` - ${change.newTitle || change.oldTitle}`}
         </span>
         <span
           className={`badge ${
@@ -290,24 +291,24 @@ function DiffChangeItem({ change }: { change: DiffChange }) {
           <div>
             <p className="text-xs font-medium text-secondary-500 mb-1">Old Content</p>
             <div className="diff-delete p-3 rounded-sm text-sm">
-              {change.old_content || <span className="italic text-secondary-400">(empty)</span>}
+              {change.oldContent || <span className="italic text-secondary-400">(empty)</span>}
             </div>
           </div>
           <div>
             <p className="text-xs font-medium text-secondary-500 mb-1">New Content</p>
             <div className="diff-add p-3 rounded-sm text-sm">
-              {change.new_content || <span className="italic text-secondary-400">(empty)</span>}
+              {change.newContent || <span className="italic text-secondary-400">(empty)</span>}
             </div>
           </div>
         </div>
       )}
 
-      {change.type === 'add' && change.new_content && (
-        <div className="diff-add p-3 rounded-sm text-sm mt-2">{change.new_content}</div>
+      {change.type === 'add' && change.newContent && (
+        <div className="diff-add p-3 rounded-sm text-sm mt-2">{change.newContent}</div>
       )}
 
-      {change.type === 'delete' && change.old_content && (
-        <div className="diff-delete p-3 rounded-sm text-sm mt-2">{change.old_content}</div>
+      {change.type === 'delete' && change.oldContent && (
+        <div className="diff-delete p-3 rounded-sm text-sm mt-2">{change.oldContent}</div>
       )}
     </div>
   );

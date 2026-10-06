@@ -15,7 +15,7 @@ export function MeetingDetailsCard({ meeting, votesCount }: MeetingDetailsCardPr
           <p className="text-xs text-secondary-500 uppercase font-medium mb-1">Date & Time</p>
           <p className="flex items-center gap-1 text-secondary-900 dark:text-white">
             <Clock className="w-4 h-4 text-secondary-400" />
-            {new Date(meeting.scheduled_date).toLocaleString()}
+            {new Date(meeting.scheduledDate).toLocaleString()}
           </p>
         </div>
         <div>
@@ -27,7 +27,7 @@ export function MeetingDetailsCard({ meeting, votesCount }: MeetingDetailsCardPr
         </div>
         <div>
           <p className="text-xs text-secondary-500 uppercase font-medium mb-1">Type</p>
-          <MeetingTypeBadge type={meeting.meeting_type} />
+          <MeetingTypeBadge type={meeting.meetingType} />
         </div>
         <div>
           <p className="text-xs text-secondary-500 uppercase font-medium mb-1">Votes Recorded</p>

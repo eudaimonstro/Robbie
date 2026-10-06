@@ -262,7 +262,7 @@ sectionsRouter.post(
 // Get section path
 sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async (req, res) => {
   try {
-    const path: Array<{ id: string; number_label: string | null; title: string | null }> = [];
+    const path: Array<{ id: string; numberLabel: string | null; title: string | null }> = [];
     let currentId: string | null = req.params.id;
 
     while (currentId) {
@@ -274,7 +274,7 @@ sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async 
 
       path.push({
         id: section.id,
-        number_label: section.numberLabel,
+        numberLabel: section.numberLabel,
         title: section.title,
       });
 
