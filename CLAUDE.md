@@ -23,6 +23,7 @@ robbie-bylawyer/
 │   │   │   ├── routes/  # All Bylawyer API routes
 │   │   │   └── services/# Amendment service, sync service
 │   │   ├── db/          # Database (Prisma + pg pool)
+│   │   ├── orgs/        # Organization roles, requireRole, membership
 │   │   └── socket/      # Socket.io handlers for real-time
 │   └── prisma/          # Prisma schema for Bylawyer data
 ├── frontend-unified/    # @robbie-bylawyer/frontend-unified - Unified React + Vite (port 5173)
@@ -98,6 +99,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 
 - Socket.io for real-time meeting state synchronization
 - Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
+- Organization membership with roles (viewer, member, secretary, admin, owner); acceptance of the current Terms of Service (`TERMS_VERSION` in shared) before using the API or socket
 - Meeting storage (PostgreSQL or in-memory fallback)
 - Parliamentary procedure state management
 
@@ -112,7 +114,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 
 - Single PostgreSQL database (`robbie`) contains both:
   - Robbie tables: `users`, `meetings`, `meeting_participants`, `meeting_actions`
-  - Bylawyer tables (Prisma): `Organization`, `Document`, `Version`, `Section`, `Amendment`, etc.
+  - Bylawyer tables (Prisma): `Organization`, `OrganizationMember`, `OrganizationInvite`, `Document`, `Version`, `Section`, `Amendment`, `MeetingPacket`, etc.
 
 ### Unified Frontend (frontend-unified)
 
@@ -174,7 +176,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 **Amendment Workflow:**
 
 1. Create amendment (status: draft)
-2. Add changes to the amendment
+2. Add changes to the amendment (edits to a draft and its changes are atomic with the draft check)
 3. Propose the amendment (status: proposed)
 4. Record vote at a meeting
 5. If passed, apply to create new version
@@ -182,16 +184,22 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 **API Endpoints (all on port 3001):**
 
 - `GET /api/health` - Health check
-- `GET/POST /api/organizations` - List/create organizations
+- `GET/POST /api/organizations` - The user's organizations (each with their `role`) / create one (creator is owner)
+- `GET/POST/PUT/DELETE /api/organizations/{id}/members[/{userId}]` - Members; add by email; change role; remove or leave
+- `DELETE /api/organizations/{id}/invites/{inviteId}` - Cancel a pending addition
 - `GET/POST /api/organizations/{id}/documents` - Documents for org
 - `GET/POST /api/documents/{id}/versions` - Versions of document
 - `GET /api/versions/{id}/tree` - Section tree structure
-- `GET /api/versions/{id}/diff/{other_id}` - Diff between versions
+- `GET /api/versions/{id}/diff/{other_id}` - Diff between versions of one document
 - `GET/POST /api/documents/{id}/amendments` - Amendments for document
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
-- `POST /api/robbie/sync-motion` - Sync passed motion from Robbie
+- `POST /api/organizations/{id}/packets` - Create a meeting packet (claims a meeting code); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
+- `POST /api/auth/accept-terms` - Accept the current terms
 - `GET /api/robbie/sync-status/:meetingCode/:motionId` - Check sync status
+
+Meeting codes (packets, link-meeting, sync-status) are trimmed and uppercased, and must match the live meeting code format `^[A-Z0-9]{4,8}$`. Malformed JSON gets 400 and an oversized body 413.
 
 ### Integration: Robbie ↔ Bylawyer
 
@@ -203,9 +211,9 @@ When a bylaw amendment motion passes in Robbie:
 
 **Linking Flow:**
 
-1. Link a Robbie meeting to a Bylawyer organization via `/api/bylawyer/link-meeting`
+1. Link a Robbie meeting to a Bylawyer organization via `POST /api/bylawyer/link-meeting` (secretary). This gives the meeting code a packet in the organization (or uses the one it has there; 409 if the code is another organization's), the only record of the link.
 2. When creating a bylawAmendment motion in Robbie, select the document and section
-3. After the motion passes, it's automatically synced to Bylawyer
+3. After the motion passes, it's automatically synced to Bylawyer. The sync skips a document outside the meeting's organization and a target section outside the document's current version.
 
 ## Environment Variables
 
@@ -214,6 +222,7 @@ When a bylaw amendment motion passes in Robbie:
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
+APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, then http://localhost:5173
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
@@ -244,6 +253,8 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`. Use migrations, not `db:push`.
 
 9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react`, `react-dom` and `@types/node` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React and React Native libraries resolve them. React must be the exact version Expo pins for mobile (React Native's renderer requires it), so web, mobile and root move together. Update `@types/react` with Expo's template version, and keep `@types/node` on the runtime's major (Node 24, see `.nvmrc`).
+
+10. **Organizations and roles:** roles, lowest first: viewer (reads everything in the organization, lists members), member (drafts amendments and edits or deletes their own drafts), secretary (edits documents, decides and applies amendments, records meetings and votes, manages packets, agenda items and attachments, links live meetings), admin (name and description, share links, adds, changes and removes members up to admin), owner (manages owners, deletes the organization). An organization keeps at least one owner. Every `/api` route outside `/api/auth`, `/api/share` and `/api/health` runs `requireRole(minRole, resolver)` from `backend-node/src/orgs` (or `signedInOnly()` for the user's own organizations) after `validate(...)`; outsiders get 404, roles too low 403. `src/__integration__/routeCoverage.test.ts` fails on a route without a rule. A handler that takes a second resource checks it against `req.org.id` and answers 404 if it is elsewhere. For development data, `npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <role>`.
 
 ## Feature Specifications
 
