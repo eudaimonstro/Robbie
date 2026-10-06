@@ -1,6 +1,8 @@
+import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
 import { packetsRouter } from '../bylawyer/routes/packets.js';
+import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call, runHandler } from './helpers.js';
@@ -100,6 +102,28 @@ describe('packets', () => {
     }
     const packetB = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packetB.id } });
     expect(packetB.organizationId).toBe(f.orgB.id);
+  });
+
+  it("take their agenda's and attachments' files with them when deleted", async () => {
+    const stored = await storeFile(f.packet.code, 'report.txt', 'text/plain', Buffer.from('R'));
+    if (!stored.success) throw new Error(stored.error);
+    await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        storagePath: stored.file.storagePath,
+        displayName: 'Report',
+        agendaItemId: f.item,
+      },
+    });
+    const upload = await prisma.attachment.findUniqueOrThrow({ where: { id: f.upload } });
+    const files = [upload.storagePath!, stored.file.storagePath].map(getFullPath);
+    expect(files.map((file) => fs.existsSync(file))).toEqual([true, true]);
+
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(files.map((file) => fs.existsSync(file))).toEqual([false, false]);
   });
 
   it('are not created by reading a code', async () => {

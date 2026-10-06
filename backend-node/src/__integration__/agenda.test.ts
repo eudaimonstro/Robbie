@@ -170,6 +170,20 @@ describe('agenda items and attachments across packets', () => {
     expect(await prisma.attachment.count({ where: { documentId: f.docB } })).toBe(0);
   });
 
+  it('upload to an agenda item when packetId is given empty', async () => {
+    const res = await call('post', `/api/attachments/upload?packetId=&agendaItemId=${f.item}`, {
+      cookie: f.users.secretary.cookie,
+      headers: {
+        'Content-Type': 'text/plain',
+        'X-Filename': 'agenda.txt',
+        'X-Robbie-Code': f.packet.code,
+      },
+      body: Buffer.from('Agenda'),
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ agendaItemId: f.item, meetingPacketId: null });
+  });
+
   it("don't upload to another organization's agenda item", async () => {
     const res = await call('post', `/api/attachments/upload?agendaItemId=${f.itemB}`, {
       cookie: f.users.secretary.cookie,

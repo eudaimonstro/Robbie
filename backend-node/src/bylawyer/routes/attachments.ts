@@ -82,7 +82,10 @@ attachmentsRouter.post(
       const filename = req.headers['x-filename'] as string;
       const robbieCode = req.headers['x-robbie-code'] as string;
       const mimeType = req.headers['content-type'] || 'application/octet-stream';
-      const { packetId, agendaItemId, displayName, description } = req.query;
+      // An empty parameter counts as absent (the rule and the checks below read it so too)
+      const packetId = (req.query.packetId as string | undefined) || undefined;
+      const agendaItemId = (req.query.agendaItemId as string | undefined) || undefined;
+      const { displayName, description } = req.query;
 
       if (!filename) {
         return res.status(400).json({ error: 'X-Filename header required' });
@@ -114,7 +117,7 @@ attachmentsRouter.post(
       let packetCode: string;
       if (packetId) {
         const packet = await prisma.meetingPacket.findUnique({
-          where: { id: packetId as string },
+          where: { id: packetId },
         });
         if (!packet) {
           return res.status(404).json({ error: 'Packet not found' });
@@ -122,7 +125,7 @@ attachmentsRouter.post(
         packetCode = packet.robbieCode;
       } else {
         const agendaItem = await prisma.meetingAgendaItem.findUnique({
-          where: { id: agendaItemId as string },
+          where: { id: agendaItemId },
           include: { packet: { select: { robbieCode: true } } },
         });
         if (!agendaItem) {
@@ -143,9 +146,7 @@ attachmentsRouter.post(
       // Next position: after the highest one, not at the count (after a delete, the count is
       // a position already taken)
       const { _max } = await prisma.attachment.aggregate({
-        where: packetId
-          ? { meetingPacketId: packetId as string }
-          : { agendaItemId: agendaItemId as string },
+        where: packetId ? { meetingPacketId: packetId } : { agendaItemId },
         _max: { position: true },
       });
       const nextPosition = (_max.position ?? -1) + 1;
@@ -161,8 +162,8 @@ attachmentsRouter.post(
           displayName: (displayName as string) || result.file.filename,
           description: description as string | undefined,
           position: nextPosition,
-          meetingPacketId: packetId as string | undefined,
-          agendaItemId: agendaItemId as string | undefined,
+          meetingPacketId: packetId,
+          agendaItemId,
         },
       });
 

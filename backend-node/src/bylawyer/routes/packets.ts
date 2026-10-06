@@ -11,6 +11,7 @@ import { validate } from '../../middleware/validate.js';
 import { createPacketBody, robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
 import { orgIdParam, uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
+import { deleteFile } from '../services/fileStorage.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
 
@@ -171,10 +172,26 @@ packetsRouter.delete(
         return res.status(404).json({ error: 'Packet not found' });
       }
 
+      // The uploaded files of the packet and its agenda items, which the cascade leaves on disk
+      const uploads = await prisma.attachment.findMany({
+        where: {
+          type: 'uploaded_file',
+          OR: [{ meetingPacketId: id }, { agendaItem: { packetId: id } }],
+        },
+        select: { storagePath: true },
+      });
+
       // Cascade delete will handle attachments and agenda items
       await prisma.meetingPacket.delete({ where: { id } });
 
-      // TODO: Clean up uploaded files from storage
+      for (const { storagePath } of uploads) {
+        if (!storagePath) continue;
+        try {
+          await deleteFile(storagePath);
+        } catch (error) {
+          logger.error({ err: error, storagePath }, 'Failed to delete a deleted packet file');
+        }
+      }
 
       res.status(204).send();
     } catch (error) {
