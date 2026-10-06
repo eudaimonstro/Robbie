@@ -145,6 +145,7 @@ Verified defects:
 Found by the 2026-10-06 bug scan, not yet fixed:
 
 - Single-action rule suspensions never expire, except `second-requirement`, so they last the whole meeting (`ruleSuspensionHelper.ts:23`).
+- The server now rejects any motion while another awaits a second, which also blocks a point of order RONR would allow at that moment (the web client hides the motion panel then anyway). Allow incidental motions that don't replace `pendingSecond` once the reducer can hold both.
 - Members can't change a vote: the UI says "You may change your vote" and the reducer supports it, but the validator rejects any second `CAST_VOTE` (`actionValidator.ts:125-127`). Pick one behavior.
 - The chair can't vote on a secret ballot: the panel says "Chair votes like other members" but shows no buttons, and the validator rejects a chair vote without `isChairDecidingVote`. The tie-break offer also appears at 0-0, before anyone has voted.
 - `CLOSE_VOTING` and unanimous consent leave the speaker queue, recognized speaker, timer and `lastSpeakerStance` from the motion just decided. `debatePositions` is global rather than per motion, so the side-switch rule is wrong across amendments.
