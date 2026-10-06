@@ -1,10 +1,15 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from '../context/SessionContext';
 import { SocketProvider, useSocket } from '../context/SocketContext';
 import { colors } from '../theme';
+
+// Keep the splash screen up while the saved session is restored, so the app doesn't flash the
+// sign-in screen before going to the right place
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayoutNav() {
   const { status, user } = useSession();
@@ -39,8 +44,11 @@ function RootLayoutNav() {
     if (group !== '(meeting)') router.replace('/(meeting)/join');
   }, [status, user?.name, isConnected, isLoading, meetingCode, segments, router]);
 
-  // Restoring the session on launch
-  if (status === 'loading') return null;
+  useEffect(() => {
+    if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
+  }, [status]);
+
+  // The navigator always renders: expo-router can't navigate before the root layout mounts it
 
   return (
     <>
