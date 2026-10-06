@@ -109,5 +109,8 @@ async function shutdown(signal: string) {
   }, 10000);
 }
 
+// Backstop: log a stray rejected promise instead of letting Node exit on it
+process.on('unhandledRejection', (err) => logger.error({ err }, 'Unhandled promise rejection'));
+
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

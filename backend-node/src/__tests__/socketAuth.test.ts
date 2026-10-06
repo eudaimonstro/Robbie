@@ -52,4 +52,11 @@ describe('socketAuth', () => {
     );
     expect(unknown.next).toHaveBeenCalledWith(expect.any(Error));
   });
+
+  it('refuses a cookie with a broken encoding instead of throwing', async () => {
+    const find = vi.fn(async () => session);
+    const { next } = await run(fakeSocket({ cookie: 'session=%E0%A4%A' }), find);
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(find).not.toHaveBeenCalled();
+  });
 });
