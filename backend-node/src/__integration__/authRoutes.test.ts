@@ -89,7 +89,12 @@ describe('auth routes', () => {
   });
 
   it('removes the old per-meeting endpoints', async () => {
-    expect((await request(app).post('/api/auth/request-verification').send({})).status).toBe(404);
-    expect((await request(app).get('/api/auth/dev-code')).status).toBe(404);
+    const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    const old1 = await request(app)
+      .post('/api/auth/request-verification')
+      .set('Cookie', cookie)
+      .send({});
+    expect(old1.status).toBe(404);
+    expect((await request(app).get('/api/auth/dev-code').set('Cookie', cookie)).status).toBe(404);
   });
 });

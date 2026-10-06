@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import cookieParser from 'cookie-parser';
 import { authRouter } from './auth/authRoutes.js';
+import { authenticate } from './auth/authenticate.js';
 import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
 import { getStorage } from './db/meetingStorage.js';
 import {
@@ -89,21 +90,21 @@ app.get('/api/health', (_req, res) => {
   }
 });
 
-// Routes - Robbie
+// Public: sign-in, and read-only share links
 app.use('/api/auth', authRouter);
-app.use('/api/bylawyer', bylawyerRouter);
+app.use('/api', publicRouter);
 
-// Routes - Bylawyer API (direct access)
+// Everything else under /api needs a signed-in user
+app.use('/api', authenticate);
+
+app.use('/api/bylawyer', bylawyerRouter);
 app.use('/api', organizationsRouter);
 app.use('/api', documentsRouter);
 app.use('/api', versionsRouter);
 app.use('/api', sectionsRouter);
 app.use('/api', amendmentsRouter);
 app.use('/api', bylawyerMeetingsRouter);
-app.use('/api', publicRouter);
 app.use('/api/robbie', robbieRouter);
-
-// Routes - Meeting Packets & Attachments
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
