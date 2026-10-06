@@ -50,12 +50,6 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
     throw new SignInError(429, 'Too many codes requested. Try again in an hour.');
   }
 
-  // A new code replaces any earlier one
-  await prisma.signInCode.updateMany({
-    where: { email, consumedAt: null },
-    data: { consumedAt: now },
-  });
-
   const code = newSignInCode();
   const record = await prisma.signInCode.create({
     data: {
@@ -72,6 +66,13 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
     await prisma.signInCode.delete({ where: { id: record.id } });
     throw new SignInError(502, "We couldn't send the email. Try again.");
   }
+
+  // The new code replaces any earlier one, once it has been sent: a failed send leaves the
+  // earlier code usable
+  await prisma.signInCode.updateMany({
+    where: { email, consumedAt: null, id: { not: record.id } },
+    data: { consumedAt: now },
+  });
 }
 
 /** Check a code and return the user, created on first sign-in */

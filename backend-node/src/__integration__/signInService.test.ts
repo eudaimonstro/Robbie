@@ -21,6 +21,7 @@ describe('signInService', () => {
   });
   afterEach(() => {
     delete process.env.ENABLE_TEST_AUTH;
+    process.env.NODE_ENV = 'test';
   });
 
   it('emails a code that signs in a new user, without a name yet', async () => {
@@ -51,6 +52,18 @@ describe('signInService', () => {
     await requestSignInCode('ann@example.org');
     await expect(verifySignInCode('ann@example.org', first)).rejects.toBeInstanceOf(SignInError);
     await expect(verifySignInCode('ann@example.org', lastCode())).resolves.toBeTruthy();
+  });
+
+  it('keeps the earlier code when a new one fails to send', async () => {
+    await requestSignInCode('ann@example.org');
+    const first = lastCode();
+    // Production without an email provider fails to send
+    process.env.NODE_ENV = 'production';
+    await expect(requestSignInCode('ann@example.org')).rejects.toMatchObject({ status: 502 });
+    process.env.NODE_ENV = 'test';
+    await expect(verifySignInCode('ann@example.org', first)).resolves.toMatchObject({
+      email: 'ann@example.org',
+    });
   });
 
   it('rejects an expired code', async () => {
