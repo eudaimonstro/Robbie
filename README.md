@@ -47,7 +47,7 @@ robbie-bylawyer/
 
 ## Tech Stack
 
-- **Runtime:** Node.js 22.12+
+- **Runtime:** Node.js 24 (LTS)
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS
 - **Backend:** Express, Socket.io, Prisma, PostgreSQL
 - **Mobile:** React Native, Expo
@@ -57,8 +57,8 @@ robbie-bylawyer/
 
 ### Prerequisites
 
-- Node.js 22.12 or higher
-- npm 10 or higher
+- Node.js 24 (see `.nvmrc`)
+- npm 11 or higher
 
 ### Setup
 
