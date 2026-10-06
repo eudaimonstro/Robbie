@@ -104,6 +104,7 @@ versionsRouter.get(
 
       res.json(versions);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list versions');
       res.status(500).json({ error: 'Failed to list versions' });
     }
   },
@@ -205,6 +206,7 @@ versionsRouter.get('/versions/:id', validate({ params: uuidParam }), async (req,
 
     res.json(version);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get version');
     res.status(500).json({ error: 'Failed to get version' });
   }
 });
@@ -223,6 +225,7 @@ versionsRouter.get('/versions/:id/tree', validate({ params: uuidParam }), async 
 
     res.json(buildSectionTree(version.sections));
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get version tree');
     res.status(500).json({ error: 'Failed to get version tree' });
   }
 });
@@ -241,6 +244,7 @@ versionsRouter.get('/versions/:id/text', validate({ params: uuidParam }), async 
 
     res.json({ text: renderFullText(version.sections) });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get version text');
     res.status(500).json({ error: 'Failed to get version text' });
   }
 });
@@ -340,6 +344,7 @@ versionsRouter.get(
         changes,
       });
     } catch (error) {
+      logger.error({ err: error }, 'Failed to diff versions');
       res.status(500).json({ error: 'Failed to diff versions' });
     }
   },
@@ -372,6 +377,7 @@ versionsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update version');
       res.status(500).json({ error: 'Failed to update version' });
     }
   },
@@ -411,6 +417,7 @@ versionsRouter.delete('/versions/:id', validate({ params: uuidParam }), async (r
     await prisma.version.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete version');
     res.status(500).json({ error: 'Failed to delete version' });
   }
 });
@@ -445,6 +452,7 @@ versionsRouter.get(
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(content);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to export version');
       res.status(500).json({ error: 'Failed to export version' });
     }
   },

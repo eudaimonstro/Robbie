@@ -10,6 +10,7 @@ import {
   applyAmendmentQuery,
 } from '../../schemas/amendments.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
+import { logger } from '../../middleware/logger.js';
 
 export const amendmentsRouter: RouterType = Router();
 
@@ -52,6 +53,7 @@ amendmentsRouter.get(
 
       res.json(amendments);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list amendments');
       res.status(500).json({ error: 'Failed to list amendments' });
     }
   },
@@ -82,6 +84,7 @@ amendmentsRouter.post(
 
       res.status(201).json(amendment);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to create amendment');
       res.status(500).json({ error: 'Failed to create amendment' });
     }
   },
@@ -101,6 +104,7 @@ amendmentsRouter.get('/amendments/:id', validate({ params: uuidParam }), async (
 
     res.json(amendment);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get amendment');
     res.status(500).json({ error: 'Failed to get amendment' });
   }
 });
@@ -134,6 +138,7 @@ amendmentsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update amendment');
       res.status(500).json({ error: 'Failed to update amendment' });
     }
   },
@@ -157,6 +162,7 @@ amendmentsRouter.delete('/amendments/:id', validate({ params: uuidParam }), asyn
     await prisma.amendment.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete amendment');
     res.status(500).json({ error: 'Failed to delete amendment' });
   }
 });
@@ -190,6 +196,7 @@ amendmentsRouter.post(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to propose amendment');
       res.status(500).json({ error: 'Failed to propose amendment' });
     }
   },
@@ -224,6 +231,7 @@ amendmentsRouter.post(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to withdraw amendment');
       res.status(500).json({ error: 'Failed to withdraw amendment' });
     }
   },
@@ -255,6 +263,7 @@ amendmentsRouter.post('/amendments/:id/pass', validate({ params: uuidParam }), a
 
     res.json(updated);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to pass amendment');
     res.status(500).json({ error: 'Failed to pass amendment' });
   }
 });
@@ -285,6 +294,7 @@ amendmentsRouter.post('/amendments/:id/fail', validate({ params: uuidParam }), a
 
     res.json(updated);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to fail amendment');
     res.status(500).json({ error: 'Failed to fail amendment' });
   }
 });
@@ -315,6 +325,7 @@ amendmentsRouter.post(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to table amendment');
       res.status(500).json({ error: 'Failed to table amendment' });
     }
   },
@@ -346,6 +357,7 @@ amendmentsRouter.post(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to untable amendment');
       res.status(500).json({ error: 'Failed to untable amendment' });
     }
   },
@@ -372,6 +384,7 @@ amendmentsRouter.get(
 
       res.json(changes);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list amendment changes');
       res.status(500).json({ error: 'Failed to list amendment changes' });
     }
   },
@@ -413,6 +426,7 @@ amendmentsRouter.post(
 
       res.status(201).json(change);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to add amendment change');
       res.status(500).json({ error: 'Failed to add amendment change' });
     }
   },
@@ -440,6 +454,7 @@ amendmentsRouter.delete('/changes/:id', validate({ params: uuidParam }), async (
     await prisma.amendmentChange.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete amendment change');
     res.status(500).json({ error: 'Failed to delete amendment change' });
   }
 });
@@ -469,6 +484,7 @@ amendmentsRouter.delete(
       await prisma.amendmentChange.delete({ where: { id: req.params.id } });
       res.status(204).send();
     } catch (error) {
+      logger.error({ err: error }, 'Failed to delete amendment change');
       res.status(500).json({ error: 'Failed to delete amendment change' });
     }
   },
@@ -547,6 +563,7 @@ amendmentsRouter.get(
         sections: previewTree,
       });
     } catch (error) {
+      logger.error({ err: error }, 'Failed to preview amendment');
       res.status(500).json({ error: 'Failed to preview amendment' });
     }
   },

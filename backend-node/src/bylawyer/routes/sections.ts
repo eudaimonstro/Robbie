@@ -8,6 +8,7 @@ import {
   updateSectionBody,
   reorderSectionsBody,
 } from '../../schemas/sections.js';
+import { logger } from '../../middleware/logger.js';
 
 export const sectionsRouter: RouterType = Router();
 
@@ -32,6 +33,7 @@ sectionsRouter.get(
 
       res.json(sections);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list sections');
       res.status(500).json({ error: 'Failed to list sections' });
     }
   },
@@ -95,6 +97,7 @@ sectionsRouter.put(
 
       res.json({ status: 'ok', updated: data.length });
     } catch (error) {
+      logger.error({ err: error }, 'Failed to reorder sections');
       res.status(500).json({ error: 'Failed to reorder sections' });
     }
   },
@@ -140,6 +143,7 @@ sectionsRouter.post(
 
       res.status(201).json(section);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to create section');
       res.status(500).json({ error: 'Failed to create section' });
     }
   },
@@ -158,6 +162,7 @@ sectionsRouter.get('/sections/:id', validate({ params: uuidParam }), async (req,
 
     res.json(section);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get section');
     res.status(500).json({ error: 'Failed to get section' });
   }
 });
@@ -190,6 +195,7 @@ sectionsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update section');
       res.status(500).json({ error: 'Failed to update section' });
     }
   },
@@ -210,6 +216,7 @@ sectionsRouter.delete('/sections/:id', validate({ params: uuidParam }), async (r
     await prisma.section.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete section');
     res.status(500).json({ error: 'Failed to delete section' });
   }
 });
@@ -246,6 +253,7 @@ sectionsRouter.post(
 
       res.status(201).json(child);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to add child section');
       res.status(500).json({ error: 'Failed to add child section' });
     }
   },
@@ -276,6 +284,7 @@ sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async 
     path.reverse();
     res.json({ path });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get section path');
     res.status(500).json({ error: 'Failed to get section path' });
   }
 });

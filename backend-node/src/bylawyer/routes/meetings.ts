@@ -4,6 +4,7 @@ import { validate } from '../../middleware/validate.js';
 import { uuidParam, orgIdParam } from '../../schemas/common.js';
 import { createMeetingBody, updateMeetingBody, createVoteBody } from '../../schemas/meetings.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
+import { logger } from '../../middleware/logger.js';
 
 export const meetingsRouter: RouterType = Router();
 
@@ -44,6 +45,7 @@ meetingsRouter.get(
 
       res.json(meetings);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list meetings');
       res.status(500).json({ error: 'Failed to list meetings' });
     }
   },
@@ -76,6 +78,7 @@ meetingsRouter.post(
 
       res.status(201).json(meeting);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to create meeting');
       res.status(500).json({ error: 'Failed to create meeting' });
     }
   },
@@ -94,6 +97,7 @@ meetingsRouter.get('/meetings/:id', validate({ params: uuidParam }), async (req,
 
     res.json(meeting);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get meeting');
     res.status(500).json({ error: 'Failed to get meeting' });
   }
 });
@@ -130,6 +134,7 @@ meetingsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update meeting');
       res.status(500).json({ error: 'Failed to update meeting' });
     }
   },
@@ -149,6 +154,7 @@ meetingsRouter.delete('/meetings/:id', validate({ params: uuidParam }), async (r
     await prisma.meeting.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete meeting');
     res.status(500).json({ error: 'Failed to delete meeting' });
   }
 });
@@ -211,6 +217,7 @@ meetingsRouter.post(
 
       res.status(201).json(vote);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to record vote');
       res.status(500).json({ error: 'Failed to record vote' });
     }
   },
@@ -229,6 +236,7 @@ meetingsRouter.get('/votes/:id', validate({ params: uuidParam }), async (req, re
 
     res.json(vote);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get vote');
     res.status(500).json({ error: 'Failed to get vote' });
   }
 });
@@ -247,6 +255,7 @@ meetingsRouter.delete('/votes/:id', validate({ params: uuidParam }), async (req,
     await prisma.vote.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete vote');
     res.status(500).json({ error: 'Failed to delete vote' });
   }
 });
@@ -268,6 +277,7 @@ meetingsRouter.get('/meetings/:id/votes', validate({ params: uuidParam }), async
 
     res.json(votes);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to list votes');
     res.status(500).json({ error: 'Failed to list votes' });
   }
 });
@@ -289,6 +299,7 @@ meetingsRouter.get('/amendments/:id/votes', validate({ params: uuidParam }), asy
 
     res.json(votes);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to list votes');
     res.status(500).json({ error: 'Failed to list votes' });
   }
 });

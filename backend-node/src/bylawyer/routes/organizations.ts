@@ -8,6 +8,7 @@ import {
   listOrganizationsQuery,
 } from '../../schemas/organizations.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
+import { logger } from '../../middleware/logger.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -49,6 +50,7 @@ organizationsRouter.get(
 
       res.json(organizations);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list organizations');
       res.status(500).json({ error: 'Failed to list organizations' });
     }
   },
@@ -75,6 +77,7 @@ organizationsRouter.post(
 
       res.status(201).json(org);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to create organization');
       res.status(500).json({ error: 'Failed to create organization' });
     }
   },
@@ -93,6 +96,7 @@ organizationsRouter.get('/organizations/by-slug/:slug', async (req, res) => {
 
     res.json(org);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get organization');
     res.status(500).json({ error: 'Failed to get organization' });
   }
 });
@@ -110,6 +114,7 @@ organizationsRouter.get('/organizations/:id', validate({ params: uuidParam }), a
 
     res.json(org);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get organization');
     res.status(500).json({ error: 'Failed to get organization' });
   }
 });
@@ -135,6 +140,7 @@ organizationsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update organization');
       res.status(500).json({ error: 'Failed to update organization' });
     }
   },
@@ -157,6 +163,7 @@ organizationsRouter.delete(
       await prisma.organization.delete({ where: { id: req.params.id } });
       res.status(204).send();
     } catch (error) {
+      logger.error({ err: error }, 'Failed to delete organization');
       res.status(500).json({ error: 'Failed to delete organization' });
     }
   },

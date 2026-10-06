@@ -5,6 +5,7 @@ import { validate } from '../../middleware/validate.js';
 import { uuidParam, orgIdParam } from '../../schemas/common.js';
 import { createDocumentBody, updateDocumentBody, atDateQuery } from '../../schemas/documents.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
+import { logger } from '../../middleware/logger.js';
 
 export const documentsRouter: RouterType = Router();
 
@@ -45,6 +46,7 @@ documentsRouter.get(
 
       res.json(documents);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to list documents');
       res.status(500).json({ error: 'Failed to list documents' });
     }
   },
@@ -74,6 +76,7 @@ documentsRouter.post(
 
       res.status(201).json(doc);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to create document');
       res.status(500).json({ error: 'Failed to create document' });
     }
   },
@@ -92,6 +95,7 @@ documentsRouter.get('/documents/:id', validate({ params: uuidParam }), async (re
 
     res.json(doc);
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get document');
     res.status(500).json({ error: 'Failed to get document' });
   }
 });
@@ -117,6 +121,7 @@ documentsRouter.put(
 
       res.json(updated);
     } catch (error) {
+      logger.error({ err: error }, 'Failed to update document');
       res.status(500).json({ error: 'Failed to update document' });
     }
   },
@@ -136,6 +141,7 @@ documentsRouter.delete('/documents/:id', validate({ params: uuidParam }), async 
     await prisma.document.delete({ where: { id: req.params.id } });
     res.status(204).send();
   } catch (error) {
+    logger.error({ err: error }, 'Failed to delete document');
     res.status(500).json({ error: 'Failed to delete document' });
   }
 });
@@ -175,6 +181,7 @@ documentsRouter.get(
         version_number: effectiveVersion.versionNumber,
       });
     } catch (error) {
+      logger.error({ err: error }, 'Failed to get document at date');
       res.status(500).json({ error: 'Failed to get document at date' });
     }
   },
@@ -204,6 +211,7 @@ documentsRouter.post('/documents/:id/share', validate({ params: uuidParam }), as
       share_url: `/share/${doc.shareToken}`,
     });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to enable sharing');
     res.status(500).json({ error: 'Failed to enable sharing' });
   }
 });
@@ -229,6 +237,7 @@ documentsRouter.delete(
 
       res.status(204).send();
     } catch (error) {
+      logger.error({ err: error }, 'Failed to disable sharing');
       res.status(500).json({ error: 'Failed to disable sharing' });
     }
   },
@@ -261,6 +270,7 @@ documentsRouter.post(
         share_url: `/share/${updated.shareToken}`,
       });
     } catch (error) {
+      logger.error({ err: error }, 'Failed to regenerate share token');
       res.status(500).json({ error: 'Failed to regenerate share token' });
     }
   },
@@ -287,6 +297,7 @@ documentsRouter.get('/documents/:id/share', validate({ params: uuidParam }), asy
       share_url: `/share/${doc.shareToken}`,
     });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get share status');
     res.status(500).json({ error: 'Failed to get share status' });
   }
 });

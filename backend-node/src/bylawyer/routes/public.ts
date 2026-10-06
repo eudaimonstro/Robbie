@@ -1,6 +1,7 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { Section } from '@prisma/client';
+import { logger } from '../../middleware/logger.js';
 
 export const publicRouter: RouterType = Router();
 
@@ -84,6 +85,7 @@ publicRouter.get('/share/:token', async (req, res) => {
         : null,
     });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get shared document');
     res.status(500).json({ error: 'Failed to get shared document' });
   }
 });
@@ -121,6 +123,7 @@ publicRouter.get('/share/:token/versions/:versionId', async (req, res) => {
       sections: buildSectionTree(version.sections),
     });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to get version');
     res.status(500).json({ error: 'Failed to get version' });
   }
 });
@@ -171,6 +174,7 @@ publicRouter.get('/share/:token/search', async (req, res) => {
 
     res.json({ results });
   } catch (error) {
+    logger.error({ err: error }, 'Failed to search document');
     res.status(500).json({ error: 'Failed to search document' });
   }
 });
