@@ -12,10 +12,10 @@ function buildSectionTree(sections: Section[], parentId: string | null = null): 
     .sort((a, b) => a.position - b.position)
     .map((section) => ({
       id: section.id,
-      version_id: section.versionId,
-      parent_id: section.parentId,
+      versionId: section.versionId,
+      parentId: section.parentId,
       position: section.position,
-      number_label: section.numberLabel,
+      numberLabel: section.numberLabel,
       title: section.title,
       content: section.content,
       annotation: section.annotation,
@@ -59,7 +59,7 @@ publicRouter.get('/share/:token', async (req, res) => {
       document: {
         id: doc.id,
         title: doc.title,
-        doc_type: doc.docType,
+        docType: doc.docType,
         organization: {
           id: doc.organization.id,
           name: doc.organization.name,
@@ -68,17 +68,17 @@ publicRouter.get('/share/:token', async (req, res) => {
       },
       versions: doc.versions.map((v) => ({
         id: v.id,
-        version_number: v.versionNumber,
-        effective_date: v.effectiveDate?.toISOString() || null,
-        adopted_at: v.adoptedAt?.toISOString() || null,
+        versionNumber: v.versionNumber,
+        effectiveDate: v.effectiveDate?.toISOString() || null,
+        adoptedAt: v.adoptedAt?.toISOString() || null,
         notes: v.notes,
       })),
-      current_version: currentVersion
+      currentVersion: currentVersion
         ? {
             id: currentVersion.id,
-            version_number: currentVersion.versionNumber,
-            effective_date: currentVersion.effectiveDate?.toISOString() || null,
-            adopted_at: currentVersion.adoptedAt?.toISOString() || null,
+            versionNumber: currentVersion.versionNumber,
+            effectiveDate: currentVersion.effectiveDate?.toISOString() || null,
+            adoptedAt: currentVersion.adoptedAt?.toISOString() || null,
             notes: currentVersion.notes,
             sections: buildSectionTree(currentVersion.sections),
           }
@@ -116,9 +116,9 @@ publicRouter.get('/share/:token/versions/:versionId', async (req, res) => {
 
     res.json({
       id: version.id,
-      version_number: version.versionNumber,
-      effective_date: version.effectiveDate?.toISOString() || null,
-      adopted_at: version.adoptedAt?.toISOString() || null,
+      versionNumber: version.versionNumber,
+      effectiveDate: version.effectiveDate?.toISOString() || null,
+      adoptedAt: version.adoptedAt?.toISOString() || null,
       notes: version.notes,
       sections: buildSectionTree(version.sections),
     });
@@ -167,9 +167,9 @@ publicRouter.get('/share/:token/search', async (req, res) => {
       })
       .map((s) => ({
         id: s.id,
-        number_label: s.numberLabel,
+        numberLabel: s.numberLabel,
         title: s.title,
-        content_preview: s.content?.substring(0, 200) || null,
+        contentPreview: s.content?.substring(0, 200) || null,
       }));
 
     res.json({ results });

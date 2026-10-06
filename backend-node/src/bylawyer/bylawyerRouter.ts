@@ -257,10 +257,10 @@ const getDocumentSections: RequestHandler<RouteParams> = async (req, res) => {
         .sort((a, b) => a.position - b.position)
         .map((s) => ({
           id: s.id,
-          version_id: s.versionId,
-          parent_id: s.parentId,
+          versionId: s.versionId,
+          parentId: s.parentId,
           position: s.position,
-          number_label: s.numberLabel,
+          numberLabel: s.numberLabel,
           title: s.title,
           content: s.content,
           annotation: s.annotation,

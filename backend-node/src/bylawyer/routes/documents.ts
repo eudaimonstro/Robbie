@@ -177,8 +177,8 @@ documentsRouter.get(
       }
 
       res.json({
-        version_id: effectiveVersion.id,
-        version_number: effectiveVersion.versionNumber,
+        versionId: effectiveVersion.id,
+        versionNumber: effectiveVersion.versionNumber,
       });
     } catch (error) {
       logger.error({ err: error }, 'Failed to get document at date');
@@ -206,9 +206,9 @@ documentsRouter.post('/documents/:id/share', validate({ params: uuidParam }), as
     });
 
     res.json({
-      share_token: doc.shareToken,
-      share_enabled: doc.shareEnabled,
-      share_url: `/share/${doc.shareToken}`,
+      shareToken: doc.shareToken,
+      shareEnabled: doc.shareEnabled,
+      shareUrl: `/share/${doc.shareToken}`,
     });
   } catch (error) {
     logger.error({ err: error }, 'Failed to enable sharing');
@@ -265,9 +265,9 @@ documentsRouter.post(
       });
 
       res.json({
-        share_token: updated.shareToken,
-        share_enabled: updated.shareEnabled,
-        share_url: `/share/${updated.shareToken}`,
+        shareToken: updated.shareToken,
+        shareEnabled: updated.shareEnabled,
+        shareUrl: `/share/${updated.shareToken}`,
       });
     } catch (error) {
       logger.error({ err: error }, 'Failed to regenerate share token');
@@ -292,9 +292,9 @@ documentsRouter.get('/documents/:id/share', validate({ params: uuidParam }), asy
     }
 
     res.json({
-      share_token: doc.shareToken,
-      share_enabled: doc.shareEnabled,
-      share_url: `/share/${doc.shareToken}`,
+      shareToken: doc.shareToken,
+      shareEnabled: doc.shareEnabled,
+      shareUrl: `/share/${doc.shareToken}`,
     });
   } catch (error) {
     logger.error({ err: error }, 'Failed to get share status');

@@ -15,10 +15,10 @@ function buildSectionTree(sections: Section[], parentId: string | null = null): 
     .sort((a, b) => a.position - b.position)
     .map((section) => ({
       id: section.id,
-      version_id: section.versionId,
-      parent_id: section.parentId,
+      versionId: section.versionId,
+      parentId: section.parentId,
       position: section.position,
-      number_label: section.numberLabel,
+      numberLabel: section.numberLabel,
       title: section.title,
       content: section.content,
       annotation: section.annotation,
@@ -131,13 +131,16 @@ versionsRouter.post(
       });
       const versionNumber = (lastVersion?.versionNumber || 0) + 1;
 
+      const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
+      const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
+
       // Create new version
       const newVersion = await prisma.version.create({
         data: {
           documentId: req.params.docId,
           versionNumber,
-          effectiveDate: req.body.effective_date ? new Date(req.body.effective_date) : null,
-          adoptedAt: req.body.adopted_at ? new Date(req.body.adopted_at) : null,
+          effectiveDate: effectiveDateInput ? new Date(effectiveDateInput) : null,
+          adoptedAt: adoptedAtInput ? new Date(adoptedAtInput) : null,
           notes: req.body.notes,
         },
       });
@@ -300,13 +303,13 @@ versionsRouter.get(
           if (contentChanged) {
             changes.push({
               type: 'modify',
-              section_id: newSection.id,
-              old_number_label: oldSection.numberLabel,
-              new_number_label: newSection.numberLabel,
-              old_title: oldSection.title,
-              new_title: newSection.title,
-              old_content: oldSection.content,
-              new_content: newSection.content,
+              sectionId: newSection.id,
+              oldNumberLabel: oldSection.numberLabel,
+              newNumberLabel: newSection.numberLabel,
+              oldTitle: oldSection.title,
+              newTitle: newSection.title,
+              oldContent: oldSection.content,
+              newContent: newSection.content,
             });
           }
         }
@@ -317,10 +320,10 @@ versionsRouter.get(
         if (!matchedOld.has(section.id)) {
           changes.push({
             type: 'delete',
-            section_id: section.id,
-            old_number_label: section.numberLabel,
-            old_title: section.title,
-            old_content: section.content,
+            sectionId: section.id,
+            oldNumberLabel: section.numberLabel,
+            oldTitle: section.title,
+            oldContent: section.content,
           });
         }
       });
@@ -330,17 +333,17 @@ versionsRouter.get(
         if (!matchedNew.has(section.id)) {
           changes.push({
             type: 'add',
-            section_id: section.id,
-            new_number_label: section.numberLabel,
-            new_title: section.title,
-            new_content: section.content,
+            sectionId: section.id,
+            newNumberLabel: section.numberLabel,
+            newTitle: section.title,
+            newContent: section.content,
           });
         }
       });
 
       res.json({
-        old_version_id: req.params.id,
-        new_version_id: req.params.otherId,
+        oldVersionId: req.params.id,
+        newVersionId: req.params.otherId,
         changes,
       });
     } catch (error) {
@@ -364,13 +367,14 @@ versionsRouter.put(
         return res.status(404).json({ error: 'Version not found' });
       }
 
+      const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
+      const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
+
       const updated = await prisma.version.update({
         where: { id: req.params.id },
         data: {
-          effectiveDate: req.body.effective_date
-            ? new Date(req.body.effective_date)
-            : version.effectiveDate,
-          adoptedAt: req.body.adopted_at ? new Date(req.body.adopted_at) : version.adoptedAt,
+          effectiveDate: effectiveDateInput ? new Date(effectiveDateInput) : version.effectiveDate,
+          adoptedAt: adoptedAtInput ? new Date(adoptedAtInput) : version.adoptedAt,
           notes: req.body.notes ?? version.notes,
         },
       });
