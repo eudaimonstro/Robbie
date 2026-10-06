@@ -113,12 +113,19 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
     e.preventDefault();
     try {
       setAdding(true);
+      // Send only the fields shown for this type, so text typed before switching type isn't
+      // applied (for an add, the target is the parent section)
+      const shows = {
+        number: changeType !== 'delete',
+        title: changeType === 'add' || changeType === 'modify',
+        content: changeType === 'add' || changeType === 'modify',
+      };
       await onSubmit({
         changeType: changeType,
         targetSectionId: targetSectionId || undefined,
-        newContent: newContent.trim() || undefined,
-        newTitle: newTitle.trim() || undefined,
-        newNumberLabel: newNumberLabel.trim() || undefined,
+        ...(shows.content && { newContent: newContent.trim() || undefined }),
+        ...(shows.title && { newTitle: newTitle.trim() || undefined }),
+        ...(shows.number && { newNumberLabel: newNumberLabel.trim() || undefined }),
       });
       resetForm();
       onClose();
@@ -140,10 +147,19 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
     <Modal isOpen={isOpen} onClose={handleClose} title="Add Change" size="lg">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label className="label">Change Type</label>
+          <label htmlFor="changeType" className="label">
+            Change Type
+          </label>
           <select
+            id="changeType"
             value={changeType}
-            onChange={(e) => setChangeType(e.target.value as AmendmentChangeCreate['changeType'])}
+            onChange={(e) => {
+              const next = e.target.value as AmendmentChangeCreate['changeType'];
+              // The section means the parent for an add and the target otherwise, so a
+              // choice made for one doesn't carry over to the other
+              if ((next === 'add') !== (changeType === 'add')) setTargetSectionId('');
+              setChangeType(next);
+            }}
             className="select"
           >
             <option value="add">Add new section</option>
@@ -155,8 +171,11 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
 
         {(changeType === 'modify' || changeType === 'delete' || changeType === 'renumber') && (
           <div className="mb-4">
-            <label className="label">Target Section</label>
+            <label htmlFor="targetSection" className="label">
+              Target Section
+            </label>
             <select
+              id="targetSection"
               value={targetSectionId}
               onChange={(e) => setTargetSectionId(e.target.value)}
               className="select"
@@ -172,12 +191,36 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
           </div>
         )}
 
+        {changeType === 'add' && (
+          <div className="mb-4">
+            <label htmlFor="addUnder" className="label">
+              Add Under
+            </label>
+            <select
+              id="addUnder"
+              value={targetSectionId}
+              onChange={(e) => setTargetSectionId(e.target.value)}
+              className="select"
+            >
+              <option value="">Top level</option>
+              {flatSections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {changeType !== 'delete' && (
           <>
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="label">Section Number</label>
+                <label htmlFor="newNumberLabel" className="label">
+                  Section Number
+                </label>
                 <input
+                  id="newNumberLabel"
                   type="text"
                   value={newNumberLabel}
                   onChange={(e) => setNewNumberLabel(e.target.value)}
@@ -185,22 +228,30 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
                   placeholder="e.g., Section 1.3"
                 />
               </div>
-              <div>
-                <label className="label">Section Title</label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="input"
-                  placeholder="e.g., New Membership Dues"
-                />
-              </div>
+              {changeType !== 'renumber' && (
+                <div>
+                  <label htmlFor="newTitle" className="label">
+                    Section Title
+                  </label>
+                  <input
+                    id="newTitle"
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="input"
+                    placeholder="e.g., New Membership Dues"
+                  />
+                </div>
+              )}
             </div>
 
             {changeType !== 'renumber' && (
               <div className="mb-6">
-                <label className="label">Content</label>
+                <label htmlFor="newContent" className="label">
+                  Content
+                </label>
                 <textarea
+                  id="newContent"
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   className="textarea h-32"
