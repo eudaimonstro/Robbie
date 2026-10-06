@@ -114,9 +114,14 @@ documentsRouter.put(
         return res.status(404).json({ error: 'Document not found' });
       }
 
+      // Map the accepted fields explicitly: the schema takes doc_type or docType, and Prisma
+      // knows only docType (passing the body through made doc_type a 500)
       const updated = await prisma.document.update({
         where: { id: req.params.id },
-        data: req.body,
+        data: {
+          title: req.body.title,
+          docType: req.body.doc_type ?? req.body.docType,
+        },
       });
 
       res.json(updated);

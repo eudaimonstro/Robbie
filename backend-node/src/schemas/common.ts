@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/** A date string that parses (ISO date or date-time); routes pass it to new Date() */
+export const dateString = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), { message: 'Invalid date' });
+
 export const uuidParam = z.object({
   id: z.string().uuid(),
 });

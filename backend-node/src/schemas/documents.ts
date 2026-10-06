@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateString } from './common.js';
 
 const docTypeEnum = z.enum(['bylaws', 'standing_rules', 'policy', 'minutes']);
 
@@ -15,5 +16,5 @@ export const updateDocumentBody = z.object({
 });
 
 export const atDateQuery = z.object({
-  date: z.string().min(1),
+  date: dateString,
 });

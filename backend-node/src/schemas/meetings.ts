@@ -1,21 +1,27 @@
 import { z } from 'zod';
+import { dateString } from './common.js';
 
 const meetingTypeEnum = z.enum(['regular', 'special', 'annual', 'emergency']);
 
-export const createMeetingBody = z.object({
-  title: z.string().min(1).max(500).default('Meeting'),
-  scheduled_date: z.string().optional(),
-  scheduledDate: z.string().optional(),
-  meeting_type: meetingTypeEnum.optional(),
-  meetingType: meetingTypeEnum.optional(),
-  location: z.string().max(500).optional().nullable(),
-  notes: z.string().max(5000).optional().nullable(),
-});
+export const createMeetingBody = z
+  .object({
+    title: z.string().min(1).max(500).default('Meeting'),
+    scheduled_date: dateString.optional(),
+    scheduledDate: dateString.optional(),
+    meeting_type: meetingTypeEnum.optional(),
+    meetingType: meetingTypeEnum.optional(),
+    location: z.string().max(500).optional().nullable(),
+    notes: z.string().max(5000).optional().nullable(),
+  })
+  .refine((body) => body.scheduled_date || body.scheduledDate, {
+    message: 'Required',
+    path: ['scheduledDate'],
+  });
 
 export const updateMeetingBody = z.object({
   title: z.string().min(1).max(500).optional(),
-  scheduled_date: z.string().optional(),
-  scheduledDate: z.string().optional(),
+  scheduled_date: dateString.optional(),
+  scheduledDate: dateString.optional(),
   meeting_type: meetingTypeEnum.optional(),
   meetingType: meetingTypeEnum.optional(),
   location: z.string().max(500).optional().nullable(),
