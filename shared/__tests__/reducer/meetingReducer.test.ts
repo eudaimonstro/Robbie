@@ -515,6 +515,40 @@ describe('meetingReducer', () => {
 
       expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
     });
+    describe('appeal from the decision of the chair', () => {
+      // The question is "Shall the decision of the chair be sustained?" (YEA = sustain).
+      // RONR: a majority or a tie sustains the chair; only a majority against overturns it.
+      const closeAppeal = (votes: { yea: number; nay: number; abstain: number }) =>
+        meetingReducer(
+          {
+            ...initialState,
+            meetingActive: true,
+            votingOpen: true,
+            currentMotion: createMockMotion({ type: 'appeal', name: 'Appeal', vote: 'majority' }),
+            motionStack: [createMockMotion({ type: 'appeal', name: 'Appeal', vote: 'majority' })],
+            votes,
+          },
+          { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+        );
+      const outcome = (state: MeetingState) =>
+        state.meetingLog.some((l) => l.message.includes('SUSTAINED'))
+          ? 'sustained'
+          : state.meetingLog.some((l) => l.message.includes('OVERTURNED'))
+            ? 'overturned'
+            : 'none';
+
+      it('sustains the chair on a tie', () => {
+        expect(outcome(closeAppeal({ yea: 4, nay: 4, abstain: 0 }))).toBe('sustained');
+      });
+
+      it('sustains the chair when a majority votes to sustain', () => {
+        expect(outcome(closeAppeal({ yea: 5, nay: 3, abstain: 1 }))).toBe('sustained');
+      });
+
+      it('overturns the chair only when a majority votes against', () => {
+        expect(outcome(closeAppeal({ yea: 3, nay: 5, abstain: 0 }))).toBe('overturned');
+      });
+    });
   });
 
   describe('RAISE_HAND', () => {

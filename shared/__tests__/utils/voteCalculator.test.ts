@@ -26,10 +26,18 @@ describe('voteCalculator', () => {
       expect(result.passed).toBe(true);
     });
 
-    it('should fail a 2/3 vote when yea equals two-thirds', () => {
-      // 6 yea, 3 nay = 9 total, threshold = 6
-      const result = calculateVoteResult({ yea: 6, nay: 3, abstain: 0 }, '2/3');
-      expect(result.passed).toBe(false);
+    it('should pass a 2/3 vote when yea is exactly two-thirds', () => {
+      // RONR: "at least two-thirds of the votes cast"
+      expect(calculateVoteResult({ yea: 6, nay: 3, abstain: 0 }, '2/3').passed).toBe(true);
+      expect(calculateVoteResult({ yea: 2, nay: 1, abstain: 5 }, '2/3').passed).toBe(true);
+    });
+
+    it('should fail a 2/3 vote just under two-thirds', () => {
+      expect(calculateVoteResult({ yea: 7, nay: 4, abstain: 0 }, '2/3').passed).toBe(false);
+    });
+
+    it('should fail a 2/3 vote when no votes are cast', () => {
+      expect(calculateVoteResult({ yea: 0, nay: 0, abstain: 3 }, '2/3').passed).toBe(false);
     });
 
     it('should fail a 2/3 vote when yea is less than two-thirds', () => {

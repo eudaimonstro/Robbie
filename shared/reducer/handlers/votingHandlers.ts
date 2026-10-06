@@ -76,11 +76,14 @@ export const votingHandler: ActionHandler = (state, action, log) => {
     case 'CLOSE_VOTING': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_VOTING' }>;
       const voteCalc = calculateVoteResult(state.votes, state.currentMotion?.vote || 'majority');
-      const { passed, yea, nay } = voteCalc;
+      const { yea, nay } = voteCalc;
       const newStack = state.motionStack.slice(0, -1);
 
-      // Special handling for Appeal
+      // Special handling for Appeal. The question is "Shall the decision of the chair be
+      // sustained?" (YEA = sustain). RONR: a majority or a tie sustains the chair, so the
+      // chair is overturned only by a majority against.
       const isAppeal = state.currentMotion?.type === 'appeal';
+      const passed = isAppeal ? nay <= yea : voteCalc.passed;
 
       const voteResultText = isAppeal
         ? passed

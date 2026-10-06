@@ -55,7 +55,8 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
             <strong>Ruling being appealed:</strong> "{state.lastChairRuling.ruling}"
           </p>
           <p className="text-purple-600 text-xs">
-            Vote YEA to sustain the chair's decision, NAY to overturn it. Majority sustains.
+            Vote YEA to sustain the chair's decision, NAY to overturn it. A majority or a tie
+            sustains.
           </p>
         </div>
       )}

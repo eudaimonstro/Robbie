@@ -16,8 +16,9 @@ export function calculateVoteResult(
   // Calculate threshold based on requirement
   const threshold = requirement === '2/3' ? total * (2 / 3) : total / 2;
 
-  // Motion passes if yea exceeds threshold (strict majority)
-  const passed = yea > threshold;
+  // RONR: a majority is more than half of the votes cast; two-thirds is at least
+  // two-thirds of the votes cast. Integer comparisons avoid floating-point edge cases.
+  const passed = requirement === '2/3' ? total > 0 && yea * 3 >= total * 2 : yea * 2 > total;
 
   return {
     passed,
