@@ -15,73 +15,81 @@ const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
   debatable: true,
   amendable: true,
   vote: 'majority',
-  timestamp: '2024-01-01T12:00:00Z',
+  secondedBy: null,
+  precedence: 1,
+  category: 'main',
+  interrupt: false,
+  needsSecond: true,
+  reconsidered: true,
+  phrase: 'I move that...',
+  help: 'Introduces new business for the assembly.',
+  whenToUse: 'When you want the assembly to take action.',
   ...overrides,
 });
 
 describe('MotionCard', () => {
   describe('basic rendering', () => {
-    it('renders motion name', () => {
+    it('renders motion name', async () => {
       const motion = createMockMotion();
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Main Motion')).toBeTruthy();
     });
 
-    it('renders motion text', () => {
+    it('renders motion text', async () => {
       const motion = createMockMotion();
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('I move that we approve the budget.')).toBeTruthy();
     });
 
-    it('renders mover name', () => {
+    it('renders mover name', async () => {
       const motion = createMockMotion();
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Moved by: John Smith')).toBeTruthy();
     });
 
-    it('renders seconder name when present', () => {
+    it('renders seconder name when present', async () => {
       const motion = createMockMotion({ secondedBy: 'Jane Doe' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Seconded by: Jane Doe')).toBeTruthy();
     });
 
-    it('does not render seconder when not present', () => {
+    it('does not render seconder when not present', async () => {
       const motion = createMockMotion();
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.queryByText(/Seconded by:/)).toBeNull();
     });
   });
 
   describe('status badges', () => {
-    it('shows VOTING badge when votingOpen is true', () => {
+    it('shows VOTING badge when votingOpen is true', async () => {
       const motion = createMockMotion();
-      render(<MotionCard motion={motion} votingOpen />);
+      await render(<MotionCard motion={motion} votingOpen />);
 
       expect(screen.getByText('VOTING')).toBeTruthy();
     });
 
-    it('shows DEBATING badge when status is active', () => {
+    it('shows DEBATING badge when status is active', async () => {
       const motion = createMockMotion({ status: 'active' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('DEBATING')).toBeTruthy();
     });
 
-    it('shows PENDING badge when status is pending', () => {
+    it('shows PENDING badge when status is pending', async () => {
       const motion = createMockMotion({ status: 'pending' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('PENDING')).toBeTruthy();
     });
 
-    it('VOTING takes precedence over status', () => {
+    it('VOTING takes precedence over status', async () => {
       const motion = createMockMotion({ status: 'active' });
-      render(<MotionCard motion={motion} votingOpen />);
+      await render(<MotionCard motion={motion} votingOpen />);
 
       expect(screen.getByText('VOTING')).toBeTruthy();
       expect(screen.queryByText('DEBATING')).toBeNull();
@@ -89,69 +97,69 @@ describe('MotionCard', () => {
   });
 
   describe('vote requirement display', () => {
-    it('shows Majority for majority vote', () => {
+    it('shows Majority for majority vote', async () => {
       const motion = createMockMotion({ vote: 'majority' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Majority')).toBeTruthy();
     });
 
-    it('shows Two-Thirds for 2/3 vote', () => {
+    it('shows Two-Thirds for 2/3 vote', async () => {
       const motion = createMockMotion({ vote: '2/3' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Two-Thirds')).toBeTruthy();
     });
 
-    it('shows None for no vote requirement', () => {
+    it('shows None for no vote requirement', async () => {
       const motion = createMockMotion({ vote: 'none' });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('None')).toBeTruthy();
     });
   });
 
   describe('property chips', () => {
-    it('shows Debatable chip when motion is debatable', () => {
+    it('shows Debatable chip when motion is debatable', async () => {
       const motion = createMockMotion({ debatable: true });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Debatable')).toBeTruthy();
     });
 
-    it('does not show Debatable chip when motion is not debatable', () => {
+    it('does not show Debatable chip when motion is not debatable', async () => {
       const motion = createMockMotion({ debatable: false });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.queryByText('Debatable')).toBeNull();
     });
 
-    it('shows Amendable chip when motion is amendable', () => {
+    it('shows Amendable chip when motion is amendable', async () => {
       const motion = createMockMotion({ amendable: true });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Amendable')).toBeTruthy();
     });
 
-    it('does not show Amendable chip when motion is not amendable', () => {
+    it('does not show Amendable chip when motion is not amendable', async () => {
       const motion = createMockMotion({ amendable: false });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.queryByText('Amendable')).toBeNull();
     });
   });
 
   describe('motion without optional fields', () => {
-    it('renders without motion text', () => {
+    it('renders without motion text', async () => {
       const motion = createMockMotion({ text: undefined });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.getByText('Main Motion')).toBeTruthy();
     });
 
-    it('renders without mover', () => {
+    it('renders without mover', async () => {
       const motion = createMockMotion({ mover: undefined });
-      render(<MotionCard motion={motion} />);
+      await render(<MotionCard motion={motion} />);
 
       expect(screen.queryByText(/Moved by:/)).toBeNull();
     });

@@ -68,6 +68,9 @@ jobs:
       - name: Type-check frontend-unified
         run: npx tsc --noEmit -p frontend-unified/tsconfig.json
 
+      - name: Type-check mobile
+        run: npx tsc --noEmit -p mobile/tsconfig.json
+
       - name: Test shared
         run: npm run test:run -w shared
 
@@ -76,6 +79,9 @@ jobs:
 
       - name: Test frontend-unified
         run: npm run test:run -w frontend-unified
+
+      - name: Test mobile
+        run: npm run test:run -w mobile
 
       - name: Build all
         run: npm run build
