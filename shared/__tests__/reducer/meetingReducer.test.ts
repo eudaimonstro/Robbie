@@ -1492,6 +1492,54 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('motion and role bookkeeping', () => {
+    it('lets the mover reword a motion awaiting a second while debate on another goes on', () => {
+      // Debate has begun on the main motion; the amendment awaiting a second is untouched
+      const mainMotion = createMockMotion({ id: 1, moverHasSpoken: true });
+      const amendment = createMockMotion({ id: 2, type: 'amend', moverId: 3, status: 'pending' });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentMotion: mainMotion,
+          motionStack: [mainMotion],
+          pendingSecond: amendment,
+        },
+        { type: 'MODIFY_MOTION', requesterId: 3, newText: 'by striking "blue"', timestamp: '' },
+      );
+      expect(state.pendingSecond?.text).toBe('by striking "blue"');
+    });
+
+    it('makes a motion that needs no second the active question', () => {
+      const state = meetingReducer(
+        { ...initialState, meetingActive: true },
+        {
+          type: 'MAKE_MOTION',
+          motionType: 'pointOrder',
+          text: 'Point of order',
+          mover: 'Member 2',
+          moverId: 2,
+          motionId: 7,
+          timestamp: '',
+        },
+      );
+      expect(state.currentMotion?.status).toBe('active');
+    });
+
+    it('leaves one chair when a new chair is appointed', () => {
+      const members: Member[] = [
+        { id: 1, name: 'Old Chair', role: 'chair', present: true },
+        { id: 2, name: 'New Chair', role: 'member', present: true },
+      ];
+      // No previousChairId given: the reducer finds the current chair itself
+      const state = meetingReducer(
+        { ...initialState, members },
+        { type: 'SET_MEMBER_ROLE', targetMemberId: 2, newRole: 'chair', timestamp: '' },
+      );
+      expect(state.members.filter((m) => m.role === 'chair').map((m) => m.id)).toEqual([2]);
+    });
+  });
+
   describe('RESTORE_RULE', () => {
     it('should remove rule suspension', () => {
       const stateWithSuspension: MeetingState = {

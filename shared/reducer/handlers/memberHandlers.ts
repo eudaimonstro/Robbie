@@ -33,21 +33,18 @@ export const memberHandler: ActionHandler = (state, action, log) => {
         if (member.id === typedAction.targetMemberId) {
           return { ...member, role: typedAction.newRole };
         }
-        // If assigning a new chair, demote the previous chair to member
-        if (
-          typedAction.newRole === 'chair' &&
-          typedAction.previousChairId &&
-          member.id === typedAction.previousChairId
-        ) {
+        // There is one chair: appointing a new one demotes whoever holds the role now
+        if (typedAction.newRole === 'chair' && member.role === 'chair') {
           return { ...member, role: 'member' as const };
         }
         return member;
       });
 
       // Build audit log message including who made the change
-      const previousChair = typedAction.previousChairId
-        ? state.members.find((m) => m.id === typedAction.previousChairId)
-        : null;
+      const previousChair =
+        typedAction.newRole === 'chair'
+          ? state.members.find((m) => m.role === 'chair' && m.id !== typedAction.targetMemberId)
+          : null;
 
       // changedBy is optional (added by server enrichment), fallback to 'System' if not present
       const changedBy = typedAction.changedBy || 'System';

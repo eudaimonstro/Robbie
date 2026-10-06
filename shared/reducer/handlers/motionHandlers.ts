@@ -61,10 +61,13 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         ? markSingleActionComplete(state, 'second-requirement')
         : state.suspendedRules;
 
+      // With no second to wait for, the motion is the pending question at once, as a seconded
+      // motion is (objection to consideration, for one, requires an active motion)
+      const activeMotion = { ...motion, status: 'active' as const };
       return {
         ...state,
-        currentMotion: motion,
-        motionStack: [...state.motionStack, motion],
+        currentMotion: activeMotion,
+        motionStack: [...state.motionStack, activeMotion],
         suspendedRules: updatedSuspensions,
         lastChairRuling: typedAction.motionType === 'appeal' ? state.lastChairRuling : null,
         meetingLog: log(typedAction.timestamp, logMessage),
@@ -145,8 +148,9 @@ export const motionHandler: ActionHandler = (state, action, log) => {
       if (motionToModify.moverId !== typedAction.requesterId) {
         return state; // Only the mover can modify their motion
       }
-      // Cannot modify after debate has begun (someone has spoken)
-      if (state.currentMotion && state.currentMotion.moverHasSpoken) {
+      // Cannot modify after debate on this motion has begun (a motion awaiting a second
+      // hasn't been debated, whatever is happening on the motion below it)
+      if (motionToModify.moverHasSpoken) {
         return state;
       }
 
