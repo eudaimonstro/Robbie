@@ -1,13 +1,4 @@
 import 'dotenv/config';
-import express from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import type {
@@ -15,48 +6,16 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from '@robbie-bylawyer/shared/types/socket';
-import { authRouter } from './auth/authController.js';
-import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
+import { app, allowedOrigins } from './app.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
 import { setIoInstance } from './socket/ioInstance.js';
 import { connectPrisma, disconnectPrisma } from './db/prisma.js';
-import {
-  organizationsRouter,
-  documentsRouter,
-  versionsRouter,
-  sectionsRouter,
-  amendmentsRouter,
-  meetingsRouter as bylawyerMeetingsRouter,
-  publicRouter,
-  robbieRouter,
-  packetsRouter,
-  attachmentsRouter,
-  agendaItemsRouter,
-} from './bylawyer/routes/index.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
-import { logger, httpLogger } from './middleware/logger.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { logger } from './middleware/logger.js';
 
 const PORT = process.env.PORT || 3001;
-
-const app = express();
-
-// Prisma returns BIGINT columns (Amendment.robbieMotionId) as BigInt, which JSON.stringify
-// cannot serialize. Motion IDs stay below Number.MAX_SAFE_INTEGER, so send them as numbers.
-app.set('json replacer', (_key: string, value: unknown) =>
-  typeof value === 'bigint' ? Number(value) : value,
-);
 const httpServer = createServer(app);
-
-// Cross-origin requests: the configured web app origin, or in development any localhost port.
-// In production the server serves the web app itself (same origin), so without CLIENT_ORIGIN
-// no other origin is allowed.
-const allowedOrigins = process.env.CLIENT_ORIGIN
-  ? [process.env.CLIENT_ORIGIN]
-  : process.env.NODE_ENV === 'production'
-    ? []
-    : [/^http:\/\/localhost:\d+$/];
 
 // Socket.io server with typed events
 const io = new Server<
@@ -74,87 +33,6 @@ const io = new Server<
 
 // Store io instance for access from other modules (e.g., authController)
 setIoInstance(io);
-
-// Security headers
-app.use(helmet());
-
-// Request logging
-app.use(httpLogger);
-
-// Middleware
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  }),
-);
-app.use(cookieParser() as unknown as express.RequestHandler);
-
-// Raw body parser for file uploads (before JSON parser)
-app.use(
-  '/api/attachments/upload',
-  express.raw({
-    type: [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/rtf',
-      'application/rtf',
-      'application/octet-stream',
-    ],
-    limit: '10mb',
-  }),
-);
-
-app.use(express.json());
-
-// Health check (before other routes to avoid conflicts)
-app.get('/api/health', (_req, res) => {
-  try {
-    const storage = getStorage();
-    res.json({ status: 'healthy', mode: storage.mode });
-  } catch {
-    res.json({ status: 'healthy', mode: 'initializing' });
-  }
-});
-
-// Routes - Robbie
-app.use('/api/auth', authRouter);
-app.use('/api/bylawyer', bylawyerRouter);
-
-// Routes - Bylawyer API (direct access)
-app.use('/api', organizationsRouter);
-app.use('/api', documentsRouter);
-app.use('/api', versionsRouter);
-app.use('/api', sectionsRouter);
-app.use('/api', amendmentsRouter);
-app.use('/api', bylawyerMeetingsRouter);
-app.use('/api', publicRouter);
-app.use('/api/robbie', robbieRouter);
-
-// Routes - Meeting Packets & Attachments
-app.use('/api', packetsRouter);
-app.use('/api', attachmentsRouter);
-app.use('/api', agendaItemsRouter);
-
-// An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
-// catch-all below
-app.use('/api', (_req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// Global error handler (must be after all routes)
-app.use(errorHandler);
-
-// Static file serving for production builds
-const unifiedDist = path.join(__dirname, '../../frontend-unified/dist');
-
-// Serve unified frontend at root
-app.use(express.static(unifiedDist));
-app.get('/{*splat}', (_req, res) => {
-  res.sendFile(path.join(unifiedDist, 'index.html'));
-});
 
 // Initialize storage and start server
 async function start() {
