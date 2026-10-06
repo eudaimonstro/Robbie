@@ -4,7 +4,6 @@ import { app } from '../app.js';
 import { authenticate } from '../auth/authenticate.js';
 import { authRouter } from '../auth/authRoutes.js';
 import { requireTerms } from '../auth/terms.js';
-import { bylawyerRouter } from '../bylawyer/bylawyerRouter.js';
 import * as routes from '../bylawyer/routes/index.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { httpLogger } from '../middleware/logger.js';
@@ -51,10 +50,6 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   'serveStatic',
 ];
 
-// Routers whose routes don't have rules yet. Each task that adds a router's rules removes it
-// here; Task 13 removes the list.
-const NOT_YET_RULED = new Set<unknown>([routes.robbieRouter, bylawyerRouter]);
-
 /** A mounted router's layers, or null if the handle isn't a router */
 function stackOf(handle: unknown): Layer[] | null {
   const stack = (handle as { stack?: unknown } | null)?.stack;
@@ -84,7 +79,7 @@ function unruledMethods(route: Route): string[] {
 /**
  * What a router lets through without a rule: its routes' unruled methods, and any middleware
  * that isn't a router (which could answer a request itself), as "USE name". Walks nested
- * routers, apart from the public ones and those not ruled yet.
+ * routers, apart from the public ones.
  */
 function unruled(stack: Layer[]): string[] {
   const missing: string[] = [];
@@ -95,9 +90,7 @@ function unruled(stack: Layer[]): string[] {
     }
     const inner = stackOf(layer.handle);
     if (!inner) missing.push(`USE ${layer.name}`);
-    else if (!PUBLIC_ROUTERS.has(layer.handle) && !NOT_YET_RULED.has(layer.handle)) {
-      missing.push(...unruled(inner));
-    }
+    else if (!PUBLIC_ROUTERS.has(layer.handle)) missing.push(...unruled(inner));
   }
   return missing;
 }
@@ -117,9 +110,7 @@ function unruledInApp(stack: Layer[], middleware = APP_MIDDLEWARE): string[] {
     }
     const inner = stackOf(layer.handle);
     if (inner) {
-      if (!PUBLIC_ROUTERS.has(layer.handle) && !NOT_YET_RULED.has(layer.handle)) {
-        missing.push(...unruled(inner));
-      }
+      if (!PUBLIC_ROUTERS.has(layer.handle)) missing.push(...unruled(inner));
       continue;
     }
     const expected = middleware[next];
@@ -151,15 +142,6 @@ describe('route rules', () => {
   it('finds the mounted routers', () => {
     // Guards against a walk that silently finds nothing
     expect(appStack.filter((layer) => stackOf(layer.handle)).length).toBeGreaterThanOrEqual(13);
-  });
-
-  it('lists only routers that still have routes without a rule as not yet ruled', () => {
-    for (const router of NOT_YET_RULED) {
-      const routesWithoutRule = unruled(stackOf(router) ?? []).filter(
-        (name) => !name.startsWith('USE '),
-      );
-      expect(routesWithoutRule.length).toBeGreaterThan(0);
-    }
   });
 
   it('reports a route without a rule', () => {
