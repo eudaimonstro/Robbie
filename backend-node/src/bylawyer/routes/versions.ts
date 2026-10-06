@@ -4,6 +4,7 @@ import type { Section } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
 import { createVersionBody, updateVersionBody, diffParams } from '../../schemas/versions.js';
+import { diffSections } from '../services/versionDiff.js';
 import { logger } from '../../middleware/logger.js';
 
 export const versionsRouter: RouterType = Router();
@@ -273,73 +274,7 @@ versionsRouter.get(
       }
 
       // Compute structured diff
-      const changes: any[] = [];
-
-      // Build lookup by number_label
-      const oldByLabel: Record<string, Section> = {};
-      const newByLabel: Record<string, Section> = {};
-
-      version1.sections.forEach((s) => {
-        if (s.numberLabel) oldByLabel[s.numberLabel] = s;
-      });
-
-      version2.sections.forEach((s) => {
-        if (s.numberLabel) newByLabel[s.numberLabel] = s;
-      });
-
-      const matchedOld = new Set<string>();
-      const matchedNew = new Set<string>();
-
-      // Match by number_label
-      for (const [label, oldSection] of Object.entries(oldByLabel)) {
-        if (newByLabel[label]) {
-          const newSection = newByLabel[label];
-          matchedOld.add(oldSection.id);
-          matchedNew.add(newSection.id);
-
-          const contentChanged =
-            oldSection.content !== newSection.content || oldSection.title !== newSection.title;
-
-          if (contentChanged) {
-            changes.push({
-              type: 'modify',
-              sectionId: newSection.id,
-              oldNumberLabel: oldSection.numberLabel,
-              newNumberLabel: newSection.numberLabel,
-              oldTitle: oldSection.title,
-              newTitle: newSection.title,
-              oldContent: oldSection.content,
-              newContent: newSection.content,
-            });
-          }
-        }
-      }
-
-      // Deleted sections
-      version1.sections.forEach((section) => {
-        if (!matchedOld.has(section.id)) {
-          changes.push({
-            type: 'delete',
-            sectionId: section.id,
-            oldNumberLabel: section.numberLabel,
-            oldTitle: section.title,
-            oldContent: section.content,
-          });
-        }
-      });
-
-      // Added sections
-      version2.sections.forEach((section) => {
-        if (!matchedNew.has(section.id)) {
-          changes.push({
-            type: 'add',
-            sectionId: section.id,
-            newNumberLabel: section.numberLabel,
-            newTitle: section.title,
-            newContent: section.content,
-          });
-        }
-      });
+      const changes = diffSections(version1.sections, version2.sections);
 
       res.json({
         oldVersionId: req.params.id,
