@@ -207,6 +207,8 @@ export interface SocketData {
   userId: number;
   email: string;
   name: string;
+  /** The session this socket signed in with */
+  sessionId: string;
   meetingCode: string | null;
   role: 'member' | 'chair' | 'admin';
 }

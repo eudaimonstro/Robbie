@@ -6,7 +6,6 @@ import type {
   JoinMeetingPayload,
   JoinMeetingResponse,
 } from '@robbie-bylawyer/shared/types/socket';
-import { verifyToken } from '../auth/authController.js';
 import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
@@ -29,25 +28,6 @@ type TypedServer = Server<
 >;
 
 /**
- * Extract auth_token from cookie header
- */
-function getTokenFromCookie(socket: TypedSocket): string | null {
-  const cookieHeader = socket.handshake.headers.cookie;
-  if (!cookieHeader) return null;
-
-  const cookies = cookieHeader.split(';').reduce(
-    (acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      if (key && value) acc[key] = value;
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
-
-  return cookies['auth_token'] || null;
-}
-
-/**
  * Handle JOIN_MEETING socket event
  */
 export async function handleJoinMeeting(
@@ -57,20 +37,17 @@ export async function handleJoinMeeting(
   callback: (response: JoinMeetingResponse) => void,
 ): Promise<void> {
   try {
-    // Try provided token first, fallback to HttpOnly cookie
-    const token = data.token;
-    let decoded = token ? verifyToken(token) : null;
-
+    // Replaced in Task 9 by connection-level authentication
+    const decoded = socket.data.userId
+      ? {
+          userId: socket.data.userId,
+          email: socket.data.email,
+          name: socket.data.name,
+          meetingCode: data.meetingCode,
+        }
+      : null;
     if (!decoded) {
-      // Try to get token from HttpOnly cookie
-      const cookieToken = getTokenFromCookie(socket);
-      if (cookieToken) {
-        decoded = verifyToken(cookieToken);
-      }
-    }
-
-    if (!decoded) {
-      callback({ success: false, error: 'Invalid token' });
+      callback({ success: false, error: 'Not signed in' });
       return;
     }
 

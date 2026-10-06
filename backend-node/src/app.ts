@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import cookieParser from 'cookie-parser';
-import { authRouter } from './auth/authController.js';
+import { authRouter } from './auth/authRoutes.js';
 import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
 import { getStorage } from './db/meetingStorage.js';
 import {

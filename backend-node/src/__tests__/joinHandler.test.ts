@@ -7,9 +7,6 @@ const handleDisconnect = vi.hoisted(() =>
   }),
 );
 vi.mock('../socket/disconnectHandler.js', () => ({ handleDisconnect }));
-vi.mock('../auth/authController.js', () => ({
-  verifyToken: () => ({ userId: 7, email: 'm@x.org', name: 'Member', meetingCode: 'NEW1' }),
-}));
 vi.mock('../db/meetingStorage.js', () => ({
   getStorage: () => ({
     getOrCreateMeeting: async () => ({ code: 'NEW1', state: initialState, stateVersion: 1 }),

@@ -31,7 +31,7 @@ const io = new Server<
   },
 });
 
-// Store io instance for access from other modules (e.g., authController)
+// Store io instance for access from other modules (e.g., sessionSockets)
 setIoInstance(io);
 
 // Initialize storage and start server

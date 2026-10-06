@@ -7,6 +7,7 @@ const chair: SocketData = {
   userId: 10,
   email: 'chair@example.com',
   name: 'Chair',
+  sessionId: 'session-1',
   meetingCode: 'TEST01',
   role: 'chair',
 };
