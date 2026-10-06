@@ -9,6 +9,7 @@ import {
   SearchResultItem,
 } from '../../api/client';
 import Modal from '../ui/Modal';
+import { UserMenu } from './UserMenu';
 import { useToast } from '../../context/ToastContext';
 import { showsOneOrganizationsRecord } from '../../utils/organizationPages';
 
@@ -271,6 +272,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
               </>
             )}
           </div>
+
+          <UserMenu />
         </div>
       </header>
 

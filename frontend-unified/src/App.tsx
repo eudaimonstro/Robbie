@@ -2,7 +2,9 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Outlet } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { SessionProvider } from './context/SessionContext';
 import { OrganizationProvider } from './context/OrganizationContext';
+import { RequireSession } from './components/auth/RequireSession';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { LoadingPage } from './components/ui/LoadingSpinner';
 import { RouteAnnouncer } from './components/layout/RouteAnnouncer';
@@ -18,6 +20,7 @@ const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage')
 const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
+const SignInPage = lazy(() => import('./pages/SignInPage'));
 const NotFoundPage = lazy(() => import('./modules/documents/pages/NotFoundPage'));
 
 // Lazy load meetings module
@@ -27,20 +30,25 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <OrganizationProvider>
+        <SessionProvider>
           <ErrorBoundary>
             <RouteAnnouncer />
             <Suspense fallback={<LoadingPage />}>
               <Routes>
-                {/* Public routes (no layout) */}
+                {/* Public routes (no layout, no session) */}
                 <Route path="/share/:shareToken" element={<PublicDocumentPage />} />
+                <Route path="/sign-in" element={<SignInPage />} />
 
-                {/* Main app routes with layout */}
+                {/* Everything else needs a signed-in user */}
                 <Route
                   element={
-                    <AppLayout>
-                      <Outlet />
-                    </AppLayout>
+                    <RequireSession>
+                      <OrganizationProvider>
+                        <AppLayout>
+                          <Outlet />
+                        </AppLayout>
+                      </OrganizationProvider>
+                    </RequireSession>
                   }
                 >
                   <Route index element={<HomePage />} />
@@ -70,7 +78,7 @@ function App() {
               </Routes>
             </Suspense>
           </ErrorBoundary>
-        </OrganizationProvider>
+        </SessionProvider>
       </ToastProvider>
     </ThemeProvider>
   );
