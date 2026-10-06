@@ -33,9 +33,10 @@ export const VotingPanel = React.memo(function VotingPanel({
 
   // Memoize voting panel computed values
   const votingData = useMemo(() => {
-    if (!state.votingOpen || !chair) return null;
+    if (!state.votingOpen) return null;
 
-    const chairHasVoted = state.voters.includes(chair.id);
+    // An admin may preside with no member holding the chair role; the vote can still be closed
+    const chairHasVoted = chair ? state.voters.includes(chair.id) : false;
     const { yea, nay } = state.votes;
     const total = yea + nay;
     const threshold = state.currentMotion?.vote === '2/3' ? (total * 2) / 3 : total / 2;
