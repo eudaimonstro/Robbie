@@ -59,6 +59,18 @@ describe('bylaw sync', () => {
     expect(sectionB.content).toBe('The name is B.');
   });
 
+  it("skips a motion whose section is not in the document's current version", async () => {
+    for (const targetSectionId of [f.sectionB, f.oldSection]) {
+      const { before, after } = votedStates(f.doc, targetSectionId);
+      expect(
+        await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+      ).toBeNull();
+    }
+    expect(await prisma.amendment.count({ where: { robbieMeetingCode: f.packet.code } })).toBe(0);
+    const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
+    expect(doc.currentVersionId).toBe(f.v2);
+  });
+
   it('skips a meeting without a packet', async () => {
     const { before, after } = votedStates(f.doc, f.section);
     expect(await checkAndSyncBylawAmendment('NOPACK', closeVoting, before, after)).toBeNull();

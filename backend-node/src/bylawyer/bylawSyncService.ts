@@ -70,7 +70,7 @@ export async function checkAndSyncBylawAmendment(
   // Only a document of the meeting's organization can be amended from it
   const document = await prisma.document.findUnique({
     where: { id: votedMotion.bylawAmendment.documentId },
-    select: { organizationId: true },
+    select: { organizationId: true, currentVersionId: true },
   });
 
   if (document?.organizationId !== packet.organizationId) {
@@ -79,6 +79,25 @@ export async function checkAndSyncBylawAmendment(
       "Motion's document is not in the meeting's organization, skipping sync",
     );
     return null;
+  }
+
+  // The target section must be in the document's current version, as for a change added
+  // through POST /api/amendments/:id/changes
+  const { targetSectionId } = votedMotion.bylawAmendment;
+  if (targetSectionId) {
+    const section = document.currentVersionId
+      ? await prisma.section.findFirst({
+          where: { id: targetSectionId, versionId: document.currentVersionId },
+          select: { id: true },
+        })
+      : null;
+    if (!section) {
+      logger.warn(
+        { meetingCode, documentId: votedMotion.bylawAmendment.documentId, targetSectionId },
+        "Motion's section is not in the document's current version, skipping sync",
+      );
+      return null;
+    }
   }
 
   // Sync the motion to Bylawyer
