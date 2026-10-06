@@ -155,7 +155,8 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
     // - Incidental: Always in order (no fixed precedence)
     // - Subsidiary: Only when there's a motion to apply them to (currentPrecedence >= 1)
     // - Privileged: Always available when precedence is higher than current
-    // - Main: Already filtered above (line 27)
+    // - Main: Only when nothing is pending (new business), except reconsider, which may
+    //   interrupt; adoptAgenda is offered by the agenda block above
     // - When motion-precedence suspended: Allow all motions regardless of precedence
 
     if (motion.category === 'incidental') {
@@ -174,6 +175,17 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       if (precedenceSuspended || motion.precedence > currentPrecedence) {
         validMotions.push({ key, ...motion });
       }
+    } else if (motion.category === 'main') {
+      if (key === 'adoptAgenda') return;
+      // Eligibility was checked above, and reconsider may be made while other business is pending
+      if (key === 'reconsider') {
+        validMotions.push({ key, ...motion });
+        return;
+      }
+      // New business waits until no motion is pending and any agenda objection is resolved
+      if (state.currentMotion || (state.agendaObjection && !state.agendaAdopted)) return;
+      if (key === 'takeFromTable' && state.tabledMotions.length === 0) return;
+      validMotions.push({ key, ...motion });
     }
   });
   return validMotions;
