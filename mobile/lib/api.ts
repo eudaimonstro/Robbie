@@ -59,12 +59,14 @@ export async function getMe(token: string): Promise<SessionUser | null> {
   return ((await response.json()) as { user: SessionUser }).user;
 }
 
-export async function updateName(token: string, name: string): Promise<SessionUser> {
+/** The renamed user, or null when the token no longer works */
+export async function updateName(token: string, name: string): Promise<SessionUser | null> {
   const response = await fetch(`${API_URL}/api/auth/me`, {
     method: 'PATCH',
     headers: bearer(token),
     body: JSON.stringify({ name }),
   });
+  if (response.status === 401) return null;
   if (!response.ok) throw new Error(await errorMessage(response, "Couldn't save your name"));
   return ((await response.json()) as { user: SessionUser }).user;
 }

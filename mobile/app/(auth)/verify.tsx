@@ -36,6 +36,9 @@ export default function VerifyScreen() {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<Array<TextInput | null>>(Array(CODE_LENGTH).fill(null));
+  // Set while a code is being checked. A ref, since the auto-submit can run from a render whose
+  // isLoading is already stale.
+  const isSubmittingRef = useRef(false);
 
   // Start resend cooldown on mount
   useEffect(() => {
@@ -86,7 +89,9 @@ export default function VerifyScreen() {
       Alert.alert('Error', 'Please enter the complete 6-digit code');
       return;
     }
+    if (isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
@@ -98,6 +103,7 @@ export default function VerifyScreen() {
       setCode(Array(CODE_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -157,6 +163,7 @@ export default function VerifyScreen() {
                     digit && styles.codeInputFilled,
                   ]}
                   value={digit}
+                  accessibilityLabel={`Digit ${index + 1}`}
                   onChangeText={(value) => handleCodeChange(value, index)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"

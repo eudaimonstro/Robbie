@@ -103,6 +103,16 @@ describe('SocketProvider (mobile)', () => {
     expect(mockSignOut).toHaveBeenCalled();
   });
 
+  it('shows an error when the server ends the connection', async () => {
+    const { result } = await renderHook(() => useSocket(), { wrapper });
+    await act(async () => result.current.joinMeeting('DEMO'));
+    await waitFor(() => expect(mockSockets.length).toBe(1));
+    await act(() => mockSockets[0].handlers.disconnect('transport close'));
+    expect(result.current.error).toBeNull();
+    await act(() => mockSockets[0].handlers.disconnect('io server disconnect'));
+    expect(result.current.error).toBe('Disconnected by the server.');
+  });
+
   it('ignores a state update older than the one on screen', async () => {
     const { result } = await renderHook(() => useSocket(), { wrapper });
     await act(async () => result.current.joinMeeting('DEMO'));

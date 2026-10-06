@@ -216,9 +216,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setError(`Connection error: ${err.message}`);
     });
 
-    newSocket.on('disconnect', () => {
+    newSocket.on('disconnect', (reason) => {
       setIsConnected(false);
       isConnectingRef.current = false;
+      // The server ended the connection (the session was signed out elsewhere) and socket.io
+      // won't reconnect on its own. Reconnecting is then refused as not signed in, which signs
+      // out here too.
+      if (reason === 'io server disconnect') setError('Disconnected by the server.');
     });
 
     newSocket.on('STATE_UPDATE', (data: StateUpdatePayload) => {

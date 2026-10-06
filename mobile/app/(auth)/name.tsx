@@ -7,7 +7,7 @@ import { colors, spacing, typography } from '../../theme';
 
 /** Asked once, after the first sign-in: the name other members see */
 export default function NameScreen() {
-  const { setName } = useSession();
+  const { setName, signOut } = useSession();
 
   const [name, setNameText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -31,6 +31,11 @@ export default function NameScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Signed out, the root layout goes back to the sign-in screen
+  const handleDifferentEmail = () => {
+    void signOut();
   };
 
   return (
@@ -79,6 +84,13 @@ export default function NameScreen() {
               size="lg"
             />
           </Card>
+
+          <Button
+            title="Use a different email"
+            onPress={handleDifferentEmail}
+            disabled={isSaving}
+            variant="ghost"
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

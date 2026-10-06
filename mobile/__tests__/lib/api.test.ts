@@ -50,6 +50,13 @@ describe('sign-in calls', () => {
     expect(await getMe('expired')).toBeNull();
   });
 
+  it('treats a 401 from renaming as signed out', async () => {
+    globalThis.fetch = jest.fn(
+      async () => new Response(JSON.stringify({ error: 'Not signed in' }), { status: 401 }),
+    ) as jest.Mock;
+    expect(await updateName('expired', 'Ann')).toBeNull();
+  });
+
   it('exports requestCode, updateName and signOut', () => {
     expect([requestCode, updateName, signOut].every((f) => typeof f === 'function')).toBe(true);
   });

@@ -22,6 +22,11 @@ function RootLayoutNav() {
 
     const [group, screen] = segments as string[];
 
+    // A saved session the server couldn't check: not signed out, so don't ask for a new code
+    if (status === 'unreachable') {
+      if (group !== 'offline') router.replace('/offline');
+      return;
+    }
     if (status === 'signedOut') {
       if (group !== '(auth)' || screen === 'name') router.replace('/(auth)/login');
       return;
@@ -69,6 +74,7 @@ function RootLayoutNav() {
       >
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(meeting)" options={{ headerShown: false }} />
+        <Stack.Screen name="offline" options={{ headerShown: false }} />
       </Stack>
     </>
   );
