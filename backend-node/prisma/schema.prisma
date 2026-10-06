@@ -275,3 +275,41 @@ model Attachment {
   @@index([agendaItemId])
   @@index([documentId])
 }
+
+// People who sign in. The ID is an integer because live meeting state identifies members by
+// number (Member.id, voterId, moverId).
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique // lowercased
+  name      String? // null until set after the first sign-in
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sessions  Session[]
+}
+
+// A signed-in device. Only the SHA-256 hash of the session token is stored.
+model Session {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client     String // "web" or "mobile"
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([userId])
+}
+
+// An emailed 6-digit code. Only its SHA-256 hash is stored.
+model SignInCode {
+  id         String    @id @default(uuid())
+  email      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+}
