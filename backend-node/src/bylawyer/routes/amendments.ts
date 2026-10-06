@@ -1,6 +1,6 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import { AmendmentService } from '../services/amendmentService.js';
+import { AmendmentService, AmendmentConflictError } from '../services/amendmentService.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
 import {
@@ -534,6 +534,9 @@ amendmentsRouter.post(
         },
       });
     } catch (error: any) {
+      if (error instanceof AmendmentConflictError) {
+        return res.status(409).json({ error: error.message });
+      }
       res.status(400).json({ error: error.message || 'Failed to apply amendment' });
     }
   },
