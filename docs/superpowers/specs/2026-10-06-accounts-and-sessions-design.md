@@ -104,7 +104,7 @@ model SignInCode {
 
 ## Authentication on the server
 
-`authenticate` middleware reads the token from the `session` cookie or an `Authorization: Bearer` header, looks up the session by hash, and sets `req.user = { id, email, name }`. It is mounted on every `/api` route except `/api/auth/*` (where `me` and the sign-out routes check it themselves), `/api/health` and `/api/share/*`. A missing, unknown or expired session gets 401 `{ error: "Not signed in" }`.
+`authenticate` middleware reads the token from the `session` cookie or an `Authorization: Bearer` header, looks up the session by hash, and sets `req.user = { id, email, name }`. It is mounted on every `/api` route except `/api/auth/*` (where `me`, rename and sign-out everywhere use it directly, and plain sign-out reads the token itself so it can always clear the cookie), `/api/health` and `/api/share/*`. A missing, unknown or expired session gets 401 `{ error: "Not signed in" }`.
 
 **Socket.io** authenticates once at connection, in an `io.use` middleware, using the same cookie or `handshake.auth.token`. An unauthenticated connection is refused. `JOIN_MEETING` then carries only the meeting code, and the socket's user is taken from its session. Meeting roles keep today's rules (`ADMIN_EMAILS` gives admin) until piece 3. The socket records its session ID (`socket.data.sessionId`). Signing out disconnects the sockets with that session ID, and signing out everywhere disconnects all of the user's sockets.
 

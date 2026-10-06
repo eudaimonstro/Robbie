@@ -43,7 +43,6 @@ backend/src/
 | --------------- | -------- | ------- | ---------------------------- |
 | `PORT`          | No       | 3001    | Server port                  |
 | `CLIENT_ORIGIN` | Yes      | -       | Frontend URL for CORS        |
-| `JWT_SECRET`    | Yes      | -       | Secret for JWT signing       |
 | `DATABASE_URL`  | No       | -       | PostgreSQL connection string |
 
 ## API Endpoints
