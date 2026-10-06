@@ -117,12 +117,21 @@ describe('SocketProvider', () => {
   });
 
   it('rejoins the remembered meeting after a reload', async () => {
-    localStorage.setItem('robbie_meeting_code', 'DEMO');
+    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 1, code: 'DEMO' }));
     renderProvider();
 
     await screen.findByText('connected');
     expect(screen.getByText('Code: DEMO')).toBeTruthy();
     expect(sockets).toHaveLength(1);
+  });
+
+  it("doesn't rejoin a meeting another user joined on this browser", async () => {
+    // Someone else signed out; this user signed in on the same browser
+    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 2, code: 'DEMO' }));
+    renderProvider();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sockets).toHaveLength(0);
   });
 
   it('keeps the same socket when the server sends a state update', async () => {

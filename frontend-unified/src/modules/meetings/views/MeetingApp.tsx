@@ -1,20 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Users, Gavel, Settings, AlertCircle, Crown, Clock, Pencil, X } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
-import { useSession } from '../../../context/SessionContext';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { ParticipantView } from './ParticipantView';
 import { ChairView } from './ChairView';
 import { AdminView } from './AdminView';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { TestRoleSwitcher } from '../components/TestRoleSwitcher';
 
 type ViewType = 'participant' | 'chair' | 'admin';
 
 export function MeetingApp() {
   const { state, dispatch, currentUser } = useSocket();
-  const { user } = useSession();
   const [view, setView] = useState<ViewType>('participant');
   const [isRenamingName, setIsRenamingName] = useState(false);
   const [newName, setNewName] = useState('');
@@ -359,15 +356,6 @@ export function MeetingApp() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Test role switcher - only visible in DEMO meetings */}
-      {user && (
-        <TestRoleSwitcher
-          meetingCode={state.meetingCode}
-          email={user.email}
-          currentRole={activeUser?.role || 'member'}
-        />
       )}
     </div>
   );

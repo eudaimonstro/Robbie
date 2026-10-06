@@ -7,17 +7,23 @@ import { useSession } from '../../../context/SessionContext';
 const SocketContext = createContext<SocketContextValue | null>(null);
 const MEETING_KEY = 'robbie_meeting_code';
 
-function savedMeetingCode(): string | null {
+// The remembered meeting belongs to the user who joined it, so someone else signing in on the
+// same browser starts at the join screen instead of in the previous user's meeting
+function savedMeetingCode(userId: number | undefined): string | null {
   try {
-    return localStorage.getItem(MEETING_KEY);
+    const saved = JSON.parse(localStorage.getItem(MEETING_KEY) ?? 'null') as {
+      userId?: number;
+      code?: string;
+    } | null;
+    return saved && saved.userId === userId && saved.code ? saved.code : null;
   } catch {
     return null;
   }
 }
 
-function saveMeetingCode(code: string | null) {
+function saveMeetingCode(userId: number | undefined, code: string | null) {
   try {
-    if (code) localStorage.setItem(MEETING_KEY, code);
+    if (code && userId) localStorage.setItem(MEETING_KEY, JSON.stringify({ userId, code }));
     else localStorage.removeItem(MEETING_KEY);
   } catch {
     // Storage may be unavailable; the meeting just isn't remembered across reloads
@@ -26,7 +32,7 @@ function saveMeetingCode(code: string | null) {
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const [meetingCode, setMeetingCode] = useState<string | null>(savedMeetingCode);
+  const [meetingCode, setMeetingCode] = useState<string | null>(() => savedMeetingCode(user?.id));
 
   // The session ended (signed out elsewhere, or expired): go to sign-in and come back here
   const handleNotSignedIn = useCallback(() => {
@@ -43,18 +49,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       const normalized = code.trim().toUpperCase();
       // Don't show the last meeting's error while connecting to this one
       setError(null);
-      saveMeetingCode(normalized);
+      saveMeetingCode(user?.id, normalized);
       setMeetingCode(normalized);
     },
-    [setError],
+    [setError, user?.id],
   );
 
   // disconnect emits LEAVE_MEETING before closing the socket
   const leaveMeeting = useCallback(() => {
     disconnect();
-    saveMeetingCode(null);
+    saveMeetingCode(user?.id, null);
     setMeetingCode(null);
-  }, [disconnect]);
+  }, [disconnect, user?.id]);
 
   const currentUser = useMemo<Member | null>(() => {
     if (!user) return null;
