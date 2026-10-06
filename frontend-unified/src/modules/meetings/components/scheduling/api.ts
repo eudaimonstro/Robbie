@@ -9,14 +9,13 @@ import type {
   Organization,
   BylawyerDocument,
 } from './types';
-
-const API_BASE = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+import { apiFetch } from '../../../../api/client';
 
 /**
  * Get or create a meeting packet for a meeting code
  */
 export async function getOrCreatePacket(robbieCode: string): Promise<MeetingPacket> {
-  const response = await fetch(`${API_BASE}/api/packets/${robbieCode}`);
+  const response = await apiFetch(`/packets/${robbieCode}`);
   if (!response.ok) {
     throw new Error('Failed to get meeting packet');
   }
@@ -30,7 +29,7 @@ export async function updatePacket(
   packetId: string,
   data: { title?: string; description?: string; scheduledFor?: string },
 ): Promise<MeetingPacket> {
-  const response = await fetch(`${API_BASE}/api/packets/${packetId}`, {
+  const response = await apiFetch(`/packets/${packetId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -48,7 +47,7 @@ export async function createAgendaItem(
   packetId: string,
   data: { title: string; description?: string; estimatedMinutes?: number; presenter?: string },
 ): Promise<AgendaItem> {
-  const response = await fetch(`${API_BASE}/api/packets/${packetId}/agenda`, {
+  const response = await apiFetch(`/packets/${packetId}/agenda`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -66,7 +65,7 @@ export async function updateAgendaItem(
   itemId: string,
   data: { title?: string; description?: string; estimatedMinutes?: number; presenter?: string },
 ): Promise<AgendaItem> {
-  const response = await fetch(`${API_BASE}/api/agenda-items/${itemId}`, {
+  const response = await apiFetch(`/agenda-items/${itemId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -81,7 +80,7 @@ export async function updateAgendaItem(
  * Delete an agenda item
  */
 export async function deleteAgendaItem(itemId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/agenda-items/${itemId}`, {
+  const response = await apiFetch(`/agenda-items/${itemId}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -93,7 +92,7 @@ export async function deleteAgendaItem(itemId: string): Promise<void> {
  * Reorder agenda items
  */
 export async function reorderAgendaItems(itemIds: string[]): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/agenda-items/reorder`, {
+  const response = await apiFetch('/agenda-items/reorder', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ itemIds }),
@@ -118,7 +117,7 @@ export async function uploadAttachment(
   if (metadata?.displayName) params.set('displayName', metadata.displayName);
   if (metadata?.description) params.set('description', metadata.description);
 
-  const response = await fetch(`${API_BASE}/api/attachments/upload?${params}`, {
+  const response = await apiFetch(`/attachments/upload?${params}`, {
     method: 'POST',
     headers: {
       'Content-Type': file.type || 'application/octet-stream',
@@ -142,7 +141,7 @@ export async function linkDocument(
   target: { packetId?: string; agendaItemId?: string },
   metadata?: { displayName?: string; description?: string; versionId?: string },
 ): Promise<Attachment> {
-  const response = await fetch(`${API_BASE}/api/attachments/link-document`, {
+  const response = await apiFetch('/attachments/link-document', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -161,7 +160,7 @@ export async function linkDocument(
  * Delete an attachment
  */
 export async function deleteAttachment(attachmentId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/attachments/${attachmentId}`, {
+  const response = await apiFetch(`/attachments/${attachmentId}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -173,14 +172,14 @@ export async function deleteAttachment(attachmentId: string): Promise<void> {
  * Get download URL for an attachment
  */
 export function getAttachmentDownloadUrl(attachmentId: string): string {
-  return `${API_BASE}/api/attachments/${attachmentId}/download`;
+  return `/api/attachments/${attachmentId}/download`;
 }
 
 /**
  * List organizations (for linking documents)
  */
 export async function listOrganizations(): Promise<Organization[]> {
-  const response = await fetch(`${API_BASE}/api/organizations`);
+  const response = await apiFetch('/organizations');
   if (!response.ok) {
     throw new Error('Failed to list organizations');
   }
@@ -191,7 +190,7 @@ export async function listOrganizations(): Promise<Organization[]> {
  * List documents for an organization
  */
 export async function listDocuments(organizationId: string): Promise<BylawyerDocument[]> {
-  const response = await fetch(`${API_BASE}/api/organizations/${organizationId}/documents`);
+  const response = await apiFetch(`/organizations/${organizationId}/documents`);
   if (!response.ok) {
     throw new Error('Failed to list documents');
   }

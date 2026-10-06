@@ -180,7 +180,7 @@ API mismatches (the client calls endpoints that don't exist):
 - Header search calls `/search`, which doesn't exist, and the error is swallowed.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
 - **Fixed 2026-10-06:** agenda item and attachment reordering (the `reorder` routes are now registered before `/:id`).
-- `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
+- **Fixed 2026-10-06:** the meetings module no longer falls back to `http://localhost:3001`. From the dev app that origin is cross-site, so the session cookie wasn't sent and every packet, agenda item and attachment call got 401. The scheduling API now calls same-origin `/api` through the client's `apiFetch`, which reports a 401 as a lost session like the rest of the client, and the meeting socket connects to the page's origin (Vite proxies `/socket.io`) unless `VITE_SERVER_URL` is set.
 - **Fixed 2026-10-06:** the API is now camelCase end to end. The documents UI typed every field in snake_case while most responses were camelCase, so every date showed "Invalid Date", the version picker was empty, and the amendment page requested `/api/documents/undefined`. The same fix covered: effective dates showing a day early west of UTC, every recorded vote displaying as Failed (the UI read a `passed` field the API never sends), and API errors showing as a bare "HTTP 4xx".
 
 Other work:

@@ -4,7 +4,8 @@ import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/share
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { TypedSocket, StateUpdatePayload } from '../types/socket';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+// Unset in development: the socket connects to the page's own origin, which Vite proxies
+const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL;
 
 interface UseSocketConnectionReturn {
   state: MeetingState;
@@ -71,13 +72,14 @@ export function useSocketConnection(
 
     isConnectingRef.current = true;
 
-    const newSocket: TypedSocket = io(SERVER_URL, {
+    const options = {
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       withCredentials: true,
-    });
+    };
+    const newSocket: TypedSocket = SERVER_URL ? io(SERVER_URL, options) : io(options);
 
     socketRef.current = newSocket;
 
@@ -105,9 +107,13 @@ export function useSocketConnection(
       setError(`Connection error: ${err.message}`);
     });
 
-    newSocket.on('disconnect', () => {
+    newSocket.on('disconnect', (reason) => {
       setIsConnected(false);
       isConnectingRef.current = false;
+      // The server ended the connection (the session was signed out elsewhere) and socket.io
+      // won't reconnect on its own. Show the error so Try again appears; if the session is
+      // gone, that retry is refused as not signed in, which goes to sign-in.
+      if (reason === 'io server disconnect') setError('Disconnected by the server.');
     });
 
     newSocket.on('STATE_UPDATE', (data: StateUpdatePayload) => {

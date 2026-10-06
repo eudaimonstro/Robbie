@@ -75,6 +75,34 @@ describe('useSocketConnection', () => {
     expect(io).toHaveBeenCalledTimes(2);
   });
 
+  it('connects to the page origin when no server URL is configured', () => {
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+
+    expect(io).toHaveBeenCalledWith(expect.objectContaining({ withCredentials: true }));
+  });
+
+  it('shows an error when the server ends the connection', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() => handlers.disconnect('io server disconnect'));
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.error).toBe('Disconnected by the server.');
+  });
+
+  it('shows no error for a dropped connection that reconnects by itself', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() => handlers.disconnect('transport close'));
+
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
   it('joins with only the meeting code', () => {
     const { handlers, socket } = connectedSocket();
     renderHook(() => useSocketConnection('DEMO', () => {}));

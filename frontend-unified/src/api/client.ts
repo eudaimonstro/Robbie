@@ -36,6 +36,23 @@ export function setSignedOutHandler(handler: (() => void) | null): void {
   signedOutHandler = handler;
 }
 
+function noteUnauthorized(endpoint: string, status: number): void {
+  if (status === 401 && !endpoint.startsWith('/auth/')) {
+    cache.clear();
+    signedOutHandler?.();
+  }
+}
+
+/**
+ * A plain same-origin fetch of `/api${endpoint}`, for callers that read the response
+ * themselves. A 401 is reported as a lost session, the same as for the rest of the client.
+ */
+export async function apiFetch(endpoint: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(`${API_BASE}${endpoint}`, init);
+  noteUnauthorized(endpoint, response.status);
+  return response;
+}
+
 // Retry configuration
 const MAX_RETRIES = 3;
 const INITIAL_DELAY = 1000; // 1 second
@@ -130,10 +147,7 @@ async function request<T>(
       });
 
       if (!response.ok) {
-        if (response.status === 401 && !endpoint.startsWith('/auth/')) {
-          cache.clear();
-          signedOutHandler?.();
-        }
+        noteUnauthorized(endpoint, response.status);
 
         if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt)) {
           const delay = getRetryDelay(attempt);
