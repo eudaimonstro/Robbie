@@ -63,14 +63,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <summary className="text-xs text-red-600 cursor-pointer hover:underline">
                   Technical details
                 </summary>
-                <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-auto max-h-32">
+                <pre className="mt-2 text-xs bg-red-100 p-2 rounded-sm overflow-auto max-h-32">
                   {this.state.error.message}
                 </pre>
               </details>
             )}
             <button
               onClick={this.handleRetry}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              className="px-4 py-2 bg-red-600 text-white rounded-sm hover:bg-red-700 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               aria-label="Try again to recover from error"
             >
               Try Again

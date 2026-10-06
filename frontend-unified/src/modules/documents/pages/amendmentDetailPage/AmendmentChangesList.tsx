@@ -92,7 +92,7 @@ export function AmendmentChangesList({
                   )}
 
                   {change.new_content && (
-                    <div className="bg-secondary-50 dark:bg-secondary-800/50 p-3 rounded text-sm text-secondary-700 dark:text-secondary-300">
+                    <div className="bg-secondary-50 dark:bg-secondary-800/50 p-3 rounded-sm text-sm text-secondary-700 dark:text-secondary-300">
                       {change.new_content}
                     </div>
                   )}
@@ -101,7 +101,7 @@ export function AmendmentChangesList({
                 {canEdit && (
                   <button
                     onClick={() => onDeleteChange(change)}
-                    className="p-1 text-secondary-400 hover:text-danger-600 rounded"
+                    className="p-1 text-secondary-400 hover:text-danger-600 rounded-sm"
                     title="Delete change"
                   >
                     <Trash2 className="w-4 h-4" />

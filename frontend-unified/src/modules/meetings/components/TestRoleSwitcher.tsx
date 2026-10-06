@@ -75,7 +75,7 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
       {/* Floating button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
+        className="fixed bottom-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-all hover:scale-105 focus:outline-hidden focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
         aria-label="Switch test role"
         title="Switch test role (DEMO mode)"
       >
@@ -141,7 +141,7 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
                     <div className="font-medium flex items-center gap-2">
                       {role.label}
                       {currentRole === role.id && (
-                        <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded">
+                        <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-sm">
                           Current
                         </span>
                       )}

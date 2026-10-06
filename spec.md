@@ -168,13 +168,14 @@ API mismatches (the client calls endpoints that don't exist):
 - Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
 - The client reads `error.detail`, but the backend sends `{ error: { code, message } }`, so every error shows as "HTTP 4xx". The same bug exists in mobile.
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
-- The documents UI reads snake_case fields (`created_at`, `effective_date`, `scheduled_date`), but the Prisma-backed API returns camelCase (`createdAt`, `effectiveDate`). Every date shows "Invalid Date" or is missing (home list, document page, amendments, settings).
+- The documents UI reads snake_case fields (`created_at`, `effective_date`, `scheduled_date`), but the Prisma-backed API returns camelCase (`createdAt`, `effectiveDate`). Every date shows "Invalid Date" or is missing (home list, document page, amendments, settings). It also breaks IDs: the amendment page requests `/api/documents/undefined` because it reads `document_id`.
 
 Other work:
 
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
+- Document page header: the action buttons (version picker, Export, Compare, Share, Meetings, New Amendment) overflow underneath the Pending Amendments card at 1280px width.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
 - Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.

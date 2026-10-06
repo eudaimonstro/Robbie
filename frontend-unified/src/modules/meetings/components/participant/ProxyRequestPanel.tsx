@@ -137,7 +137,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
         </p>
         <button
           onClick={handleCancelRequest}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm text-amber-700 border border-amber-300 rounded hover:bg-amber-100"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm text-amber-700 border border-amber-300 rounded-sm hover:bg-amber-100"
         >
           <X size={14} /> Cancel Request
         </button>
@@ -147,7 +147,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
 
   // Show request form
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="proxy-request-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="proxy-request-heading">
       <h3
         id="proxy-request-heading"
         className="font-semibold flex items-center gap-2 text-gray-800 mb-3"
@@ -173,7 +173,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
               id="proxy-holder-select"
               value={selectedHolder}
               onChange={(e) => setSelectedHolder(e.target.value ? parseInt(e.target.value) : '')}
-              className="w-full p-2 border rounded text-sm"
+              className="w-full p-2 border rounded-sm text-sm"
             >
               <option value="">Select a member...</option>
               {eligibleHolders.map((m) => {
@@ -219,7 +219,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
           <button
             onClick={handleRequestProxy}
             disabled={selectedHolder === '' || isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
           >
             <Send size={14} />
             {isSubmitting ? 'Sending...' : 'Send Request'}

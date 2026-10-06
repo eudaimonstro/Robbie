@@ -61,7 +61,7 @@ export function AuthScreen() {
     <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
       <div className="card w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-meeting-700 to-meeting-800 text-white p-6">
+        <div className="bg-linear-to-r from-meeting-700 to-meeting-800 text-white p-6">
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-3 rounded-xl">
               <Gavel size={28} />

@@ -126,7 +126,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
   );
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="proxy-heading">
+    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="proxy-heading">
       <div className="flex items-center justify-between mb-3">
         <h3 id="proxy-heading" className="font-semibold flex items-center gap-2 text-gray-800">
           <Users size={18} aria-hidden="true" /> Proxy Voting
@@ -134,7 +134,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 text-gray-500 hover:text-gray-700 rounded"
+            className="p-1.5 text-gray-500 hover:text-gray-700 rounded-sm"
             title="Proxy settings"
           >
             <Settings size={16} />
@@ -144,7 +144,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={state.allowProxyVoting}
               onChange={handleToggleProxyVoting}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span
               className={state.allowProxyVoting ? 'text-green-700 font-medium' : 'text-gray-500'}
@@ -157,7 +157,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
 
       {/* Warning about Robert's Rules */}
       {state.allowProxyVoting && (
-        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-800">
           <strong>Note:</strong> Proxy voting is not standard under Robert's Rules of Order. Only
           use if authorized by your organization's bylaws.
         </div>
@@ -175,7 +175,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               max="10"
               value={maxProxies}
               onChange={(e) => setMaxProxies(parseInt(e.target.value) || 0)}
-              className="w-20 p-1.5 border rounded text-sm"
+              className="w-20 p-1.5 border rounded-sm text-sm"
             />
             <span className="text-xs text-gray-500">(0 = unlimited)</span>
           </div>
@@ -184,7 +184,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={countForQuorum}
               onChange={(e) => setCountForQuorum(e.target.checked)}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span className="text-sm text-gray-600">Proxies count toward quorum</span>
           </label>
@@ -193,7 +193,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={allowMemberGrant}
               onChange={(e) => setAllowMemberGrant(e.target.checked)}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span className="text-sm text-gray-600">
               Allow members to request their own proxies
@@ -207,7 +207,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
           )}
           <button
             onClick={handleSaveSettings}
-            className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+            className="px-3 py-1.5 bg-indigo-600 text-white rounded-sm text-sm hover:bg-indigo-700"
           >
             Save Settings
           </button>
@@ -229,7 +229,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                   onChange={(e) =>
                     setSelectedAbsentMember(e.target.value ? parseInt(e.target.value) : '')
                   }
-                  className="w-full p-2 border rounded text-sm"
+                  className="w-full p-2 border rounded-sm text-sm"
                   disabled={absentMembersWithoutProxy.length === 0}
                 >
                   <option value="">Select member...</option>
@@ -247,7 +247,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                   onChange={(e) =>
                     setSelectedProxyHolder(e.target.value ? parseInt(e.target.value) : '')
                   }
-                  className="w-full p-2 border rounded text-sm"
+                  className="w-full p-2 border rounded-sm text-sm"
                   disabled={eligibleProxyHolders.length === 0}
                 >
                   <option value="">Select holder...</option>
@@ -285,7 +285,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
             <button
               onClick={handleGrantProxy}
               disabled={selectedAbsentMember === '' || selectedProxyHolder === ''}
-              className="w-full py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-300"
+              className="w-full py-2 bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-700 disabled:bg-gray-300"
             >
               Grant Proxy
             </button>
@@ -301,7 +301,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
             ) : (
               <div className="space-y-2">
                 {proxiesByHolder.map(({ holder, proxies }) => (
-                  <div key={holder.id} className="p-2 bg-gray-50 rounded border">
+                  <div key={holder.id} className="p-2 bg-gray-50 rounded-sm border">
                     <p className="text-sm font-medium text-gray-800 mb-1">
                       {holder.name}{' '}
                       <span className="text-gray-500">holds {proxies.length} proxy(ies)</span>
@@ -341,7 +341,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                 {pendingRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="p-2 bg-amber-50 rounded border border-amber-200 flex items-center justify-between"
+                    className="p-2 bg-amber-50 rounded-sm border border-amber-200 flex items-center justify-between"
                   >
                     <div className="text-sm">
                       <span className="font-medium text-gray-800">{request.requestedByName}</span>

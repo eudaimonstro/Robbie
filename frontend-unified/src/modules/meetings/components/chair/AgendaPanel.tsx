@@ -36,7 +36,10 @@ export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: 
   // Show adoption panel if not adopted and no motion pending
   if (state.meetingActive && !state.agendaAdopted && !state.currentMotion && !state.pendingSecond) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="agenda-adoption-heading">
+      <section
+        className="bg-white rounded-lg p-4 shadow-sm"
+        aria-labelledby="agenda-adoption-heading"
+      >
         <h3 id="agenda-adoption-heading" className="font-semibold mb-3 text-gray-800">
           {state.agendaObjection ? 'Agenda (Objection)' : 'Adopt Agenda'}
         </h3>
@@ -97,7 +100,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: 
     !state.pendingSecond
   ) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="current-item-heading">
+      <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="current-item-heading">
         <h3 id="current-item-heading" className="font-semibold mb-2 text-gray-800">
           Current Item
         </h3>
@@ -136,7 +139,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: 
     !state.pendingSecond
   ) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="agenda-list-heading">
+      <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="agenda-list-heading">
         <h3 id="agenda-list-heading" className="font-semibold mb-3 text-gray-800">
           Agenda
         </h3>
@@ -165,7 +168,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: 
                       timestamp: generateTimestamp(),
                     })
                   }
-                  className="bg-indigo-500 text-white px-3 py-1 rounded text-sm"
+                  className="bg-indigo-500 text-white px-3 py-1 rounded-sm text-sm"
                 >
                   Call
                 </button>

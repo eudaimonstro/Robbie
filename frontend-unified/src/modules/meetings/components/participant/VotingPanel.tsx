@@ -62,7 +62,7 @@ export const VotingPanel = React.memo(function VotingPanel({
 
   return (
     <section
-      className="bg-white rounded-lg p-4 shadow border-2 border-indigo-200"
+      className="bg-white rounded-lg p-4 shadow-sm border-2 border-indigo-200"
       aria-labelledby="voting-heading"
     >
       <h3
@@ -109,7 +109,7 @@ export const VotingPanel = React.memo(function VotingPanel({
       {(state.votingMethod === 'standard' || state.votingMethod === 'ballot') && (
         <>
           {state.votingMethod === 'ballot' && (
-            <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+            <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded-sm">
               🔒 Secret Ballot - your vote is anonymous
             </p>
           )}
@@ -185,7 +185,7 @@ function VoteButtons({
     min-h-[56px] py-4 rounded-xl font-bold text-lg
     transition-all duration-150 ease-out
     touch-manipulation active:scale-[0.97]
-    focus:outline-none focus:ring-2 focus:ring-offset-2
+    focus:outline-hidden focus:ring-2 focus:ring-offset-2
   `
     .trim()
     .replace(/\s+/g, ' ');
@@ -253,7 +253,7 @@ function ProxyVotingSection({
     min-h-[48px] py-3 rounded-lg font-bold text-sm
     transition-all duration-150 ease-out
     touch-manipulation active:scale-[0.97]
-    focus:outline-none focus:ring-2 focus:ring-offset-1
+    focus:outline-hidden focus:ring-2 focus:ring-offset-1
   `
     .trim()
     .replace(/\s+/g, ' ');

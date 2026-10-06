@@ -97,7 +97,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* No Chair Warning */}
       {!state.meetingActive && !currentChair && (
-        <div className="bg-accent-50 dark:bg-accent-900/20 border-2 border-accent-300 dark:border-accent-700 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
+        <div className="bg-accent-50 dark:bg-accent-900/20 border-2 border-accent-300 dark:border-accent-700 rounded-lg p-4 shadow-sm dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="text-accent-600 dark:text-accent-400" size={20} />
             <h3 className="font-semibold text-accent-800 dark:text-accent-300">
@@ -141,7 +141,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
       {/* Chair Status */}
       {!state.meetingActive && currentChair && (
-        <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 shadow dark:shadow-secondary-900/20">
+        <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 shadow-sm dark:shadow-secondary-900/20">
           <div className="flex items-center gap-2">
             <Crown className="text-success-600 dark:text-success-400" size={20} />
             <span className="font-semibold text-success-800 dark:text-success-300">

@@ -212,7 +212,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
             </span>
             <button
               onClick={() => dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() })}
-              className="min-h-[40px] px-4 py-2 bg-success-600 text-white rounded-lg font-medium hover:bg-success-700 touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-success-400 focus:ring-offset-2"
+              className="min-h-[40px] px-4 py-2 bg-success-600 text-white rounded-lg font-medium hover:bg-success-700 touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-success-400 focus:ring-offset-2"
             >
               Yield Floor
             </button>

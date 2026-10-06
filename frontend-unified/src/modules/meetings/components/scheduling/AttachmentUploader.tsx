@@ -177,7 +177,7 @@ export function AttachmentUploader({
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm flex items-center justify-between">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-sm text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)}>
             <X size={16} />
@@ -229,7 +229,7 @@ function AttachmentItem({
 
   return (
     <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-      <div className="bg-white p-2 rounded">
+      <div className="bg-white p-2 rounded-sm">
         {isFile ? (
           <File size={20} className="text-gray-500" />
         ) : (

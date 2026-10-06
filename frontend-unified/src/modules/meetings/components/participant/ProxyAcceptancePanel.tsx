@@ -43,7 +43,7 @@ export const ProxyAcceptancePanel = React.memo(function ProxyAcceptancePanel({
 
   return (
     <section
-      className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow"
+      className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 shadow-sm"
       aria-labelledby="proxy-acceptance-heading"
       role="alert"
     >
@@ -56,7 +56,7 @@ export const ProxyAcceptancePanel = React.memo(function ProxyAcceptancePanel({
       </h3>
 
       {!canAcceptMore && (
-        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-700">
           You've reached the maximum number of proxies ({state.maxProxiesPerMember}). You must
           decline these requests or wait for existing proxies to be revoked.
         </div>
@@ -160,14 +160,14 @@ function ProxyRequestCard({
             value={declineReason}
             onChange={(e) => setDeclineReason(e.target.value.slice(0, 200))}
             maxLength={200}
-            className="w-full p-2 border rounded text-sm"
+            className="w-full p-2 border rounded-sm text-sm"
             aria-label="Decline reason"
           />
           <div className="flex gap-2">
             <button
               onClick={handleDecline}
               disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:bg-gray-300"
+              className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-500 text-white rounded-sm text-sm hover:bg-red-600 disabled:bg-gray-300"
             >
               <X size={14} /> Confirm Decline
             </button>
@@ -176,7 +176,7 @@ function ProxyRequestCard({
                 setShowDeclineReason(false);
                 setDeclineReason('');
               }}
-              className="px-3 py-2 text-gray-600 border rounded text-sm hover:bg-gray-50"
+              className="px-3 py-2 text-gray-600 border rounded-sm text-sm hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -187,7 +187,7 @@ function ProxyRequestCard({
           <button
             onClick={handleAccept}
             disabled={isSubmitting || !canAccept}
-            className="flex-1 flex items-center justify-center gap-1 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-1 py-2 bg-green-500 text-white rounded-sm text-sm hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
             title={!canAccept ? `Maximum ${maxProxies} proxies reached` : undefined}
           >
             <Check size={14} /> Accept
@@ -195,7 +195,7 @@ function ProxyRequestCard({
           <button
             onClick={() => setShowDeclineReason(true)}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:bg-gray-300"
+            className="flex-1 flex items-center justify-center gap-1 py-2 bg-red-500 text-white rounded-sm text-sm hover:bg-red-600 disabled:bg-gray-300"
           >
             <X size={14} /> Decline
           </button>

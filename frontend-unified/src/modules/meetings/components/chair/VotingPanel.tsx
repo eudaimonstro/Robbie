@@ -184,7 +184,7 @@ export const VotingPanel = React.memo(function VotingPanel({
         )}
 
       {state.votingMethod === 'ballot' && !votingData.chairHasVoted && chair && (
-        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3 bg-secondary-50 dark:bg-secondary-800 p-2 rounded">
+        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3 bg-secondary-50 dark:bg-secondary-800 p-2 rounded-sm">
           🔒 Secret Ballot - Chair votes like other members
         </p>
       )}

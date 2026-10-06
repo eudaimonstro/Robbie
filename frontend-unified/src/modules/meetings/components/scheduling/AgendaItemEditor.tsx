@@ -72,7 +72,7 @@ export function AgendaItemEditor({
 
   return (
     <div
-      className={`bg-white border rounded-lg shadow-sm transition-shadow ${
+      className={`bg-white border rounded-lg shadow-xs transition-shadow ${
         isDragging ? 'shadow-lg ring-2 ring-indigo-500' : ''
       }`}
     >

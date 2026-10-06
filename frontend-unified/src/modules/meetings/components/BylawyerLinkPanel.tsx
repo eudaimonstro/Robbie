@@ -107,7 +107,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   // Show compact unavailable state if Bylawyer is not available
   if (!bylawyerAvailable) {
     return (
-      <div className="bg-white rounded-lg p-4 shadow">
+      <div className="bg-white rounded-lg p-4 shadow-sm">
         <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800">
           <Building2 size={18} />
           Bylawyer Integration
@@ -128,7 +128,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   }
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow">
+    <div className="bg-white rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold flex items-center gap-2 text-gray-800">
           <Building2 size={18} />

@@ -112,7 +112,7 @@ export function DraggableAgendaList({
           onKeyDown={(e) => handleKeyDown(e, i)}
           onFocus={() => setFocusedIndex(i)}
           aria-label={`${item.title}${showStatus ? `, ${item.status}` : ''}. Position ${i + 1} of ${agenda.length}`}
-          className={`flex items-center justify-between p-3 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+          className={`flex items-center justify-between p-3 rounded-lg transition-all focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
             draggedIndex === i ? 'opacity-50 bg-gray-200' : 'bg-gray-50'
           } ${dragOverIndex === i && draggedIndex !== i ? 'border-t-2 border-indigo-500' : ''} ${
             !disabled ? 'cursor-grab' : ''

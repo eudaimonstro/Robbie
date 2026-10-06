@@ -91,13 +91,13 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleTransferChair(member.id)}
-                          className="bg-meeting-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-meeting-700"
+                          className="bg-meeting-600 text-white px-3 py-1 rounded-sm text-xs font-medium hover:bg-meeting-700"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setShowTransferConfirm(null)}
-                          className="bg-secondary-300 dark:bg-secondary-600 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded text-xs font-medium hover:bg-secondary-400 dark:hover:bg-secondary-500"
+                          className="bg-secondary-300 dark:bg-secondary-600 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-sm text-xs font-medium hover:bg-secondary-400 dark:hover:bg-secondary-500"
                         >
                           Cancel
                         </button>

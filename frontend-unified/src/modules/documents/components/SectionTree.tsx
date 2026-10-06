@@ -257,7 +257,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
             type="button"
             {...attributes}
             {...listeners}
-            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-secondary-400 hover:text-secondary-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-secondary-400 hover:text-secondary-600 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
             title="Drag to reorder"
           >
             <GripVertical className="w-4 h-4" />
@@ -306,7 +306,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleAddChild}
-                  className="p-1 text-secondary-400 hover:text-primary-600 rounded"
+                  className="p-1 text-secondary-400 hover:text-primary-600 rounded-sm"
                   title="Add child section"
                 >
                   <Plus className="w-4 h-4" />
@@ -314,7 +314,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleEdit}
-                  className="p-1 text-secondary-400 hover:text-primary-600 rounded"
+                  className="p-1 text-secondary-400 hover:text-primary-600 rounded-sm"
                   title="Edit section"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -322,7 +322,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="p-1 text-secondary-400 hover:text-danger-600 rounded"
+                  className="p-1 text-secondary-400 hover:text-danger-600 rounded-sm"
                   title="Delete section"
                 >
                   <Trash2 className="w-4 h-4" />

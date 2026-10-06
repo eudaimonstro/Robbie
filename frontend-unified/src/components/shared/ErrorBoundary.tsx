@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
               An unexpected error occurred. Please try refreshing the page.
             </p>
             {this.state.error && (
-              <p className="text-sm text-secondary-500 dark:text-secondary-500 mb-4 font-mono bg-secondary-100 dark:bg-secondary-800 p-2 rounded">
+              <p className="text-sm text-secondary-500 dark:text-secondary-500 mb-4 font-mono bg-secondary-100 dark:bg-secondary-800 p-2 rounded-sm">
                 {this.state.error.message}
               </p>
             )}

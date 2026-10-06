@@ -45,7 +45,7 @@ export function ActiveSuspensionsBanner({
             {activeSuspensions.map((suspension) => (
               <div
                 key={suspension.id}
-                className="bg-white border-2 border-amber-400 rounded p-3 text-sm shadow-sm"
+                className="bg-white border-2 border-amber-400 rounded-sm p-3 text-sm shadow-xs"
               >
                 <div className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
                   <span className="text-amber-600">🔓</span>
@@ -74,7 +74,7 @@ export function ActiveSuspensionsBanner({
                 {isChair && dispatch && (
                   <button
                     onClick={() => handleRestore(suspension.id)}
-                    className="mt-2 text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+                    className="mt-2 text-xs bg-gray-600 text-white px-3 py-1 rounded-sm hover:bg-gray-700 transition-colors"
                   >
                     Restore Rule
                   </button>

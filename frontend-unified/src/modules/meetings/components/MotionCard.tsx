@@ -35,7 +35,7 @@ export const MotionCard = React.memo(function MotionCard({
       </div>
       <p className="text-secondary-700 dark:text-secondary-300">"{motion.text}"</p>
       {motion.agendaAmendment && (
-        <div className="mt-2 p-2 bg-white dark:bg-secondary-800 rounded text-sm text-secondary-600 dark:text-secondary-400">
+        <div className="mt-2 p-2 bg-white dark:bg-secondary-800 rounded-sm text-sm text-secondary-600 dark:text-secondary-400">
           {motion.agendaAmendment.action === 'add' && `Adding: "${motion.agendaAmendment.title}"`}
           {motion.agendaAmendment.action === 'remove' && `Removing item`}
           {motion.agendaAmendment.action === 'reorder' && `Reordering`}

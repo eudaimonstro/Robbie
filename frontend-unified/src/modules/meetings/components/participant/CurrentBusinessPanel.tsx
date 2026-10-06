@@ -49,13 +49,13 @@ export const CurrentBusinessPanel = React.memo(function CurrentBusinessPanel({
               <p className="text-secondary-800 dark:text-secondary-200 mb-2">
                 The chair is asking: "Is there any objection to adopting the agenda?"
               </p>
-              <p className="text-xs text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/40 p-2 rounded">
+              <p className="text-xs text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/40 p-2 rounded-sm">
                 If no one objects, the agenda will be adopted without a vote.
               </p>
             </div>
             <button
               onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
-              className="w-full min-h-[56px] bg-accent-500 text-white py-4 rounded-xl hover:bg-accent-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2"
+              className="w-full min-h-[56px] bg-accent-500 text-white py-4 rounded-xl hover:bg-accent-600 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-accent-400 focus:ring-offset-2"
             >
               I Object to the Agenda!
             </button>
