@@ -231,6 +231,116 @@ export async function sendSignInCode(email: string, code: string): Promise<void>
   }
 }
 
+export interface AddedToOrganizationEmail {
+  to: string;
+  organization: string;
+  /** The name (or email) of whoever added them */
+  addedBy: string;
+}
+
+// Tests: when set, added-to-organization emails are collected here instead of being sent
+let memberOutbox: AddedToOrganizationEmail[] | null = null;
+
+/** Collect added-to-organization emails in memory instead of sending them (tests only) */
+export function captureMemberEmailsForTests(): AddedToOrganizationEmail[] {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('captureMemberEmailsForTests is for tests only (NODE_ENV=test)');
+  }
+  memberOutbox = [];
+  return memberOutbox;
+}
+
+/** The web app's address, for links in emails: APP_URL, else CLIENT_ORIGIN */
+export function appUrl(): string {
+  return process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * The added-to-organization email. Names come from users, so they are escaped in the HTML and
+ * kept to one line in the subject.
+ */
+export function addedToOrganizationEmail(
+  email: AddedToOrganizationEmail,
+  url: string,
+): { subject: string; text: string; html: string } {
+  const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim();
+  const organization = oneLine(email.organization);
+  const addedBy = oneLine(email.addedBy);
+  return {
+    subject: `You were added to ${organization} on Robbie`,
+    text: `${addedBy} added you to ${organization} on Robbie.
+
+Sign in with this email address to see it:
+
+${url}
+
+---
+Robbie - Parliamentary Procedure Made Easy
+`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Added to ${escapeHtml(organization)}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 32px 24px; text-align: center;">
+      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Robbie</h1>
+    </div>
+    <div style="padding: 32px 24px;">
+      <p style="color: #18181b; margin: 0 0 16px 0; font-size: 15px; line-height: 1.6;">
+        ${escapeHtml(addedBy)} added you to <strong>${escapeHtml(organization)}</strong> on Robbie.
+      </p>
+      <p style="color: #52525b; margin: 0 0 24px 0; font-size: 15px; line-height: 1.6;">
+        Sign in with this email address to see it.
+      </p>
+      <a href="${escapeHtml(url)}" style="display: inline-block; background-color: #4f46e5; color: white; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">Open Robbie</a>
+    </div>
+  </div>
+</body>
+</html>
+`,
+  };
+}
+
+/**
+ * Tell someone they were added to an organization. Without an email provider (development
+ * only; production requires one), it is logged at debug level instead.
+ */
+export async function sendAddedToOrganization(email: AddedToOrganizationEmail): Promise<void> {
+  if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
+    throw new Error('No email provider configured; production cannot send email');
+  }
+
+  if (memberOutbox) {
+    memberOutbox.push(email);
+    return;
+  }
+
+  if (emailProvider === 'development') {
+    logger.debug(
+      { to: email.to, organization: email.organization },
+      'Added-to-organization email (no email provider configured)',
+    );
+    return;
+  }
+
+  const messageId = await deliver({ to: email.to, ...addedToOrganizationEmail(email, appUrl()) });
+  logger.info({ to: email.to, messageId }, 'Added-to-organization email sent');
+}
+
 /**
  * Verify email configuration is working
  * Call this on startup to catch configuration errors early

@@ -1,4 +1,5 @@
 import { prisma } from '../db/prisma.js';
+import { acceptPendingInvites } from '../orgs/membershipService.js';
 import { sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
 import type { SessionUser } from './sessionService.js';
@@ -128,10 +129,15 @@ export async function verifySignInCode(
     if (consumed.count === 0) throw new SignInError(401, WRONG_CODE);
   }
 
-  return prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: { email },
-    select: { id: true, email: true, name: true },
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.upsert({
+      where: { email },
+      update: {},
+      create: { email },
+      select: { id: true, email: true, name: true },
+    });
+    // Additions by email that were waiting for this address become memberships
+    await acceptPendingInvites(tx, user, now);
+    return user;
   });
 }

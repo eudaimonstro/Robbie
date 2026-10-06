@@ -28,6 +28,7 @@ import {
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { membersRouter } from './orgs/memberRoutes.js';
 
 export const app = express();
 
@@ -117,6 +118,7 @@ app.use('/api/robbie', robbieRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
+app.use('/api', membersRouter);
 
 // An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
 // catch-all below
