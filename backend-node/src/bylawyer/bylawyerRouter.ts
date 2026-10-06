@@ -79,6 +79,8 @@ const getOrganizationDocuments: RequestHandler<RouteParams> = async (req, res) =
   try {
     const documents = await prisma.document.findMany({
       where: { organizationId: req.params.orgId },
+      // Only an admin sees a share token, through the share routes
+      omit: { shareToken: true },
       orderBy: { title: 'asc' },
     });
 

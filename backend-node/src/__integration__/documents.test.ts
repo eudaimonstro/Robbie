@@ -86,6 +86,28 @@ describe('share links', () => {
     f = await seedFixture();
   });
 
+  it('are left out of document responses', async () => {
+    const cookie = f.users.viewer.cookie;
+    const responses = [
+      (await call('get', `/api/documents/${f.doc}`, { cookie })).body,
+      ...(await call('get', `/api/organizations/${f.orgA.id}/documents`, { cookie })).body,
+      ...(await call('get', `/api/organizations/${f.orgA.id}/documents?page=1`, { cookie })).body
+        .data,
+      ...(await call('get', `/api/bylawyer/organizations/${f.orgA.id}/documents`, { cookie })).body,
+      (
+        await call('put', `/api/documents/${f.doc}`, {
+          cookie: f.users.secretary.cookie,
+          body: { title: 'Renamed' },
+        })
+      ).body,
+    ];
+    expect(responses).toHaveLength(5);
+    for (const doc of responses) {
+      expect(doc).toMatchObject({ id: f.doc, shareEnabled: true });
+      expect(doc).not.toHaveProperty('shareToken');
+    }
+  });
+
   it('leave out annotations', async () => {
     const shared = await call('get', `/api/share/${f.shareToken}`);
     expect(shared.status).toBe(200);

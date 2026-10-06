@@ -14,6 +14,9 @@ export const documentsRouter: RouterType = Router();
 const byOrganization = fromParam('orgId', orgOfOrganization);
 const byDocument = fromParam('id', orgOfDocument);
 
+// Document responses leave out the share token: only an admin sees it, through the share routes
+const withoutShareToken = { shareToken: true } as const;
+
 // List documents for an organization
 documentsRouter.get(
   '/organizations/:orgId/documents',
@@ -36,6 +39,7 @@ documentsRouter.get(
         const [documents, total] = await Promise.all([
           prisma.document.findMany({
             where,
+            omit: withoutShareToken,
             orderBy: { title: 'asc' },
             skip: pagination.skip,
             take: pagination.limit,
@@ -47,6 +51,7 @@ documentsRouter.get(
 
       const documents = await prisma.document.findMany({
         where,
+        omit: withoutShareToken,
         orderBy: { title: 'asc' },
       });
 
@@ -98,6 +103,7 @@ documentsRouter.get(
     try {
       const doc = await prisma.document.findUnique({
         where: { id: req.params.id },
+        omit: withoutShareToken,
       });
 
       if (!doc) {
@@ -135,6 +141,7 @@ documentsRouter.put(
           title: req.body.title,
           docType: req.body.doc_type ?? req.body.docType,
         },
+        omit: withoutShareToken,
       });
 
       res.json(updated);
