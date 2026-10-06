@@ -121,10 +121,9 @@ Today the database is split. Prisma manages Bylawyer tables. Robbie tables are c
 
 Verified defects:
 
-- **Two-thirds is computed wrong.** `voteCalculator.ts:20` requires `yea > total * 2/3`, so 6-3 fails. RONR passes exactly two-thirds. A test locks the bug in (`voteCalculator.test.ts:29`). Elections use `>=` instead, so the two are inconsistent.
+- **Fixed 2026-10-06:** two-thirds now passes at exactly two-thirds (`yea * 3 >= total * 2`; a 6-3 vote used to fail), and an appeal tie sustains the chair (it used to overturn).
 - **Secondary amendments are unreachable.** `amendAmendment` has precedence 2.5, below `amend` at 3 (`constants/motions.ts:21-22`), so it is never in order. The test passes only because its mock uses a different precedence.
-- **Appeal tie overturns the chair.** Under RONR a tie sustains the chair.
-- `'none'` vote motions are treated as majority if put to a vote.
+- `'none'` vote motions (points, privilege) are decided by the chair, not put to a vote. Whether the vote calculator should treat `'none'` as a majority is a design question, not a confirmed bug.
 - Mover withdraws a seconded motion unilaterally (RONR: needs the assembly's permission once stated by the chair).
 - Lay on the Table leaves the motion on the stack and drops its adhering amendments.
 - Division of a Question only ever considers part 1.
@@ -163,10 +162,10 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 
 API mismatches (the client calls endpoints that don't exist):
 
-- The public share page is broken: the client calls `/public/documents/:token/...` but the backend serves `/share/:token/...`.
+- **Fixed 2026-10-06:** the public share page loads from `/share/:token` and switches versions.
 - Header search calls `/search`, which doesn't exist, and the error is swallowed.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
-- Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
+- **Fixed 2026-10-06:** agenda item and attachment reordering (the `reorder` routes are now registered before `/:id`).
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
 - **Fixed 2026-10-06:** the API is now camelCase end to end. The documents UI typed every field in snake_case while most responses were camelCase, so every date showed "Invalid Date", the version picker was empty, and the amendment page requested `/api/documents/undefined`. The same fix covered: effective dates showing a day early west of UTC, every recorded vote displaying as Failed (the UI read a `passed` field the API never sends), and API errors showing as a bare "HTTP 4xx".
 
@@ -176,7 +175,7 @@ Other work:
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
 - **Fixed 2026-10-06:** the document page header overflowed under the Pending Amendments panel. At 1280px "Propose Amendment" was unclickable, at 1024px four controls were, and on phones all six were, with the 320px panel covering the content. The header now wraps, and below 1280px the panel stacks under the content. The M9 Playwright smoke tests should assert at 390px and 1280px that no control in `main` is covered or off-screen (`document.elementFromPoint` at each control's center).
-- **Meeting code changes when the meeting starts:** `MeetingControlPanel` dispatches `START_MEETING` with a newly generated `meetingCode`, and the reducer stores it. The header then shows a code (e.g. `MQGESQ`) that differs from the room everyone joined (`DEMO`). Keep the room's code.
+- **Fixed 2026-10-06:** the meeting code no longer changes when the chair starts the meeting. `START_MEETING` used to carry a new random code into the state, which broke org linking (bylaw sync), meeting documents, minutes and the DEMO test switcher.
 - Request schemas accept both snake_case and camelCase (`number_label || numberLabel`). Now that the client sends camelCase, drop the snake_case keys and make the schemas `.strict()`, so a stale key returns 400 instead of being silently stripped. `AmendmentChangeCreate.position` is accepted in neither style today.
 - The New Version form has no effective-date field, so versions created in the UI have no effective date and never appear in history-by-date.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
