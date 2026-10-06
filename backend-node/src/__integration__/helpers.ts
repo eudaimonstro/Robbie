@@ -3,7 +3,7 @@ import type { Request, Response, Router } from 'express';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { app } from '../app.js';
 import { prisma } from '../db/prisma.js';
-import { createSession } from '../auth/sessionService.js';
+import { createSession, type SessionUser } from '../auth/sessionService.js';
 
 export interface TestUser {
   id: number;
@@ -66,7 +66,7 @@ export async function runHandler(
   router: Router,
   method: Method,
   path: string,
-  req: { params: Record<string, string>; org: Request['org']; body?: object },
+  req: { params: Record<string, string>; org: Request['org']; body?: object; user?: SessionUser },
 ): Promise<HandlerResult> {
   const layer = (router.stack as Array<{ route?: StackRoute }>).find(
     (l) => l.route?.path === path && l.route.methods[method],

@@ -6,10 +6,12 @@ import {
   type AddedToOrganizationEmail,
 } from '../auth/emailService.js';
 import { requestSignInCode, verifySignInCode } from '../auth/signInService.js';
+import type { OrgRole } from '../generated/prisma/client.js';
 import { MAX_ADDS_PER_DAY, addMemberBySlug } from '../orgs/membershipService.js';
+import { membersRouter } from '../orgs/memberRoutes.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
-import { call, signIn } from './helpers.js';
+import { call, runHandler, signIn, type TestUser } from './helpers.js';
 import { describeRules } from './rules.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -77,6 +79,11 @@ describe('members', () => {
         where: { organizationId_userId: { organizationId: f.orgA.id, userId } },
       })
     )?.role ?? null;
+  const setRole = (userId: number, role: OrgRole) =>
+    prisma.organizationMember.update({
+      where: { organizationId_userId: { organizationId: f.orgA.id, userId } },
+      data: { role },
+    });
 
   describe('adding by email', () => {
     it('adds an existing account at once and emails them', async () => {
@@ -309,6 +316,144 @@ describe('members', () => {
         cookie,
       });
       expect(other.status).toBe(404);
+    });
+  });
+
+  describe("the acting member's role", () => {
+    // Each request passed its rule with the role in req.org, then the role changed before the
+    // change took the organization's lock
+    const stale = (user: TestUser, role: OrgRole, name: string) => ({
+      org: { id: f.orgA.id, role },
+      user: { id: user.id, email: user.email, name },
+    });
+
+    it('is read again under the lock before a change', async () => {
+      const { admin, member: plain } = f.users;
+      // An owner, demoted to admin, makes someone an owner
+      const promote = await runHandler(membersRouter, 'put', '/organizations/:id/members/:userId', {
+        params: { id: f.orgA.id, userId: String(plain.id) },
+        body: { role: 'owner' },
+        ...stale(admin, 'owner', 'A admin'),
+      });
+      expect(promote).toEqual({ status: 403, body: { error: 'You need the owner role for this' } });
+      expect(await roleOf(plain.id)).toBe('member');
+
+      // Demoted to member, then adds someone
+      await setRole(admin.id, 'member');
+      const added = await runHandler(membersRouter, 'post', '/organizations/:id/members', {
+        params: { id: f.orgA.id },
+        body: { email: 'cy@example.org', role: 'viewer' },
+        ...stale(admin, 'admin', 'A admin'),
+      });
+      expect(added).toEqual({ status: 403, body: { error: 'You need the admin role for this' } });
+
+      // Now a viewer, then cancels an addition
+      await setRole(admin.id, 'viewer');
+      const canceled = await runHandler(
+        membersRouter,
+        'delete',
+        '/organizations/:id/invites/:inviteId',
+        { params: { id: f.orgA.id, inviteId: f.invite }, ...stale(admin, 'admin', 'A admin') },
+      );
+      expect(canceled).toEqual({
+        status: 403,
+        body: { error: 'You need the admin role for this' },
+      });
+
+      // Removed, then removes someone
+      await prisma.organizationMember.delete({
+        where: { organizationId_userId: { organizationId: f.orgA.id, userId: admin.id } },
+      });
+      const removed = await runHandler(
+        membersRouter,
+        'delete',
+        '/organizations/:id/members/:userId',
+        {
+          params: { id: f.orgA.id, userId: String(f.users.viewer.id) },
+          ...stale(admin, 'admin', 'A admin'),
+        },
+      );
+      expect(removed).toEqual({ status: 404, body: { error: 'Not found' } });
+      expect(await roleOf(f.users.viewer.id)).toBe('viewer');
+      expect(await prisma.organizationInvite.count({ where: { email: 'cy@example.org' } })).toBe(0);
+    });
+  });
+
+  describe('changes made at once', () => {
+    /** Wait until a request is waiting for the organization's lock */
+    async function lockWaiter() {
+      for (let tries = 0; tries < 100; tries++) {
+        const [{ waiting }] = await prisma.$queryRaw<Array<{ waiting: bigint }>>`
+          SELECT count(*) AS waiting FROM pg_stat_activity
+          WHERE datname = current_database() AND wait_event_type = 'Lock'
+            AND query LIKE '%FROM "Organization"%FOR UPDATE%'`;
+        if (waiting > 0n) return;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      throw new Error('No request waited for the organization lock');
+    }
+
+    it("refuse an owner's change that waited while they were demoted", async () => {
+      // Owners A and B. B's "make C owner" passes its rule as owner, then waits for the lock
+      // that A's demotion of B holds.
+      const [a, b, c] = [f.users.owner, f.users.admin, f.users.member];
+      await setRole(b.id, 'owner');
+      let promote: Promise<{ status: number; body: unknown }> | undefined;
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${f.orgA.id} FOR UPDATE`;
+          promote = call('put', member(c.id), { cookie: b.cookie, body: { role: 'owner' } }).then(
+            (res) => ({ status: res.status, body: res.body }),
+          );
+          await lockWaiter();
+          await tx.organizationMember.update({
+            where: { organizationId_userId: { organizationId: f.orgA.id, userId: b.id } },
+            data: { role: 'member' },
+          });
+        },
+        { timeout: 10_000 },
+      );
+      const res = await promote!;
+      expect(res).toEqual({ status: 403, body: { error: 'You need the admin role for this' } });
+      expect(await roleOf(b.id)).toBe('member');
+      expect(await roleOf(c.id)).toBe('member');
+      expect(await roleOf(a.id)).toBe('owner');
+    });
+
+    it('let only one of two owners demote the other', async () => {
+      const [a, b] = [f.users.owner, f.users.admin];
+      await setRole(b.id, 'owner');
+      const results = await Promise.all([
+        call('put', member(b.id), { cookie: a.cookie, body: { role: 'admin' } }),
+        call('put', member(a.id), { cookie: b.cookie, body: { role: 'admin' } }),
+      ]);
+      // The second sees its actor is no longer an owner
+      expect(results.map((r) => r.status).sort()).toEqual([200, 403]);
+      expect(
+        await prisma.organizationMember.count({
+          where: { organizationId: f.orgA.id, role: 'owner' },
+        }),
+      ).toBe(1);
+    });
+
+    it('hold the daily limit when additions arrive together', async () => {
+      // With the fixture's pending addition, 15 so far today
+      await prisma.organizationInvite.createMany({
+        data: Array.from({ length: MAX_ADDS_PER_DAY - 6 }, (_, i) => ({
+          organizationId: f.orgA.id,
+          email: `earlier${i}@example.org`,
+          role: 'member' as const,
+        })),
+      });
+      const results = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          add(f.users.admin.cookie, `new${i}@example.org`, 'member'),
+        ),
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([201, 201, 201, 201, 201, 429, 429, 429]);
+      expect(await prisma.organizationInvite.count({ where: { organizationId: f.orgA.id } })).toBe(
+        MAX_ADDS_PER_DAY,
+      );
     });
   });
 

@@ -124,7 +124,7 @@ membersRouter.delete(
   requireRole('admin', byOrganization),
   async (req, res) => {
     try {
-      await cancelInvite(req.params.id, req.params.inviteId);
+      await cancelInvite(req.params.id, actorOf(req.user!, req.org!), req.params.inviteId);
       res.status(204).send();
     } catch (error) {
       sendError(res, error, 'Failed to cancel the addition');

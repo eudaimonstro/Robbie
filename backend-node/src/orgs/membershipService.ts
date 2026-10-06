@@ -27,7 +27,10 @@ export interface InviteView {
   createdAt: Date;
 }
 
-/** Who is acting: the signed-in user, with their role in the organization */
+/**
+ * Who is acting: the signed-in user, with their role in the organization as requireRole read
+ * it. Changes read the role again under the organization's lock (see lockAsActor).
+ */
 export interface Actor {
   id: number;
   name: string | null;
@@ -69,6 +72,27 @@ function pending(now: Date): Prisma.OrganizationInviteWhereInput {
  */
 async function lockOrganization(tx: Tx, organizationId: string): Promise<void> {
   await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+}
+
+/**
+ * Lock the organization, then read the actor's role again: requireRole read it before the lock,
+ * and a change that took the lock first may have lowered it. Answers as requireRole does when
+ * the actor is no longer a member or their role is now below `min`.
+ */
+async function lockAsActor(
+  tx: Tx,
+  organizationId: string,
+  actor: Actor,
+  min: OrgRole,
+): Promise<Actor> {
+  await lockOrganization(tx, organizationId);
+  const membership = await tx.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId, userId: actor.id } },
+    select: { role: true },
+  });
+  if (!membership) throw new OrgError(404, 'Not found');
+  if (!atLeast(membership.role, min)) throw new OrgError(403, roleNeeded(min));
+  return { ...actor, role: membership.role };
 }
 
 /** Only an owner may give the owner role, or change or remove an owner */
@@ -124,10 +148,10 @@ export async function addMemberByEmail(
   now: Date = new Date(),
 ): Promise<AddResult> {
   const email = rawEmail.trim().toLowerCase();
-  checkOwnerRule(actor, role);
 
   const outcome = await prisma.$transaction(async (tx): Promise<Outcome> => {
-    await lockOrganization(tx, organizationId);
+    const acting = await lockAsActor(tx, organizationId, actor, 'admin');
+    checkOwnerRule(acting, role);
 
     const user = await tx.user.findUnique({
       where: { email },
@@ -144,7 +168,7 @@ export async function addMemberByEmail(
         orderBy: { createdAt: 'desc' },
       });
       if (waiting) {
-        checkOwnerRule(actor, waiting.role);
+        checkOwnerRule(acting, waiting.role);
         const invite = await tx.organizationInvite.update({
           where: { id: waiting.id },
           data: { role },
@@ -212,13 +236,13 @@ export async function changeRole(
   role: OrgRole,
 ): Promise<MemberView> {
   return prisma.$transaction(async (tx) => {
-    await lockOrganization(tx, organizationId);
+    const acting = await lockAsActor(tx, organizationId, actor, 'admin');
     const target = await tx.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId } },
       include: { user: { select: { name: true, email: true } } },
     });
     if (!target) throw new OrgError(404, 'Not found');
-    checkOwnerRule(actor, target.role, role);
+    checkOwnerRule(acting, target.role, role);
     if (target.role === 'owner' && role !== 'owner') await checkAnotherOwner(tx, organizationId);
 
     await tx.organizationMember.update({
@@ -236,15 +260,14 @@ export async function removeMember(
   userId: number,
 ): Promise<void> {
   const leaving = actor.id === userId;
-  if (!leaving && !atLeast(actor.role, 'admin')) throw new OrgError(403, roleNeeded('admin'));
 
   await prisma.$transaction(async (tx) => {
-    await lockOrganization(tx, organizationId);
+    const acting = await lockAsActor(tx, organizationId, actor, leaving ? 'viewer' : 'admin');
     const target = await tx.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId } },
     });
     if (!target) throw new OrgError(404, 'Not found');
-    if (!leaving) checkOwnerRule(actor, target.role);
+    if (!leaving) checkOwnerRule(acting, target.role);
     if (target.role === 'owner') await checkAnotherOwner(tx, organizationId);
 
     await tx.organizationMember.delete({
@@ -256,14 +279,22 @@ export async function removeMember(
 /** Cancel a pending addition of this organization */
 export async function cancelInvite(
   organizationId: string,
+  actor: Actor,
   inviteId: string,
   now: Date = new Date(),
 ): Promise<void> {
-  const canceled = await prisma.organizationInvite.updateMany({
-    where: { id: inviteId, organizationId, ...pending(now) },
-    data: { canceledAt: now },
+  await prisma.$transaction(async (tx) => {
+    await lockAsActor(tx, organizationId, actor, 'admin');
+    const invite = await tx.organizationInvite.findFirst({
+      where: { id: inviteId, organizationId, ...pending(now) },
+    });
+    if (!invite) throw new OrgError(404, 'Not found');
+
+    await tx.organizationInvite.update({
+      where: { id: invite.id },
+      data: { canceledAt: now },
+    });
   });
-  if (canceled.count === 0) throw new OrgError(404, 'Not found');
 }
 
 /**
