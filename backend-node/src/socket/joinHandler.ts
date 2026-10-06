@@ -11,6 +11,7 @@ import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
+import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
 import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<
@@ -152,6 +153,14 @@ export async function handleJoinMeeting(
     if (presenceResult.success && presenceResult.state) {
       currentState = presenceResult.state;
       currentVersion = presenceResult.stateVersion!;
+    }
+
+    // Members still shown as present with no connection (left over from a server restart)
+    // are marked absent, so quorum counts only who is here
+    const reconciled = await markDisconnectedMembersAbsent(data.meetingCode, currentState);
+    if (reconciled) {
+      currentState = reconciled.state;
+      currentVersion = reconciled.stateVersion;
     }
 
     // Notify others of member joined
