@@ -36,3 +36,10 @@ describe('meeting date and time inputs', () => {
     expect(fromLocalDateTimeInput(toLocalDateTimeInput(stored))).toBe(stored);
   });
 });
+
+describe('fromLocalDateTimeInput with no usable value', () => {
+  it('returns an empty value instead of throwing, so the server can reject it', () => {
+    // new Date('').toISOString() throws, which left the meeting form silently stuck open
+    expect(fromLocalDateTimeInput('')).toBe('');
+  });
+});

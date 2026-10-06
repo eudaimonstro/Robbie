@@ -27,5 +27,7 @@ export function toLocalDateTimeInput(value: string): string {
  * as is, the value has no time zone and the server reads it in its own.
  */
 export function fromLocalDateTimeInput(value: string): string {
-  return new Date(value).toISOString();
+  const date = new Date(value);
+  // An empty or unparseable value is passed on as '', for the server to reject with a message
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
