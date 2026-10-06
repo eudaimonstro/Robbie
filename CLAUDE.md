@@ -126,12 +126,14 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/meetings` - Join/create live meeting (Robbie)
 - `/meetings/:code` - Active meeting with Socket.io (Robbie)
 - `/settings` - App settings
+- `/sign-in` - Sign in by emailed code (public, as is `/share/:shareToken`)
 
 **State Management:**
 
 - `ThemeContext` - Global dark mode
 - `ToastContext` - Global notifications
 - `OrganizationContext` - Current organization
+- `SessionContext` - signed-in user (cookie session); `RequireSession` guards every route except `/sign-in` and `/share`
 - `SocketContext` - Socket.io connection (meetings module only, wraps meeting routes)
 
 ### Robbie Meetings Module (modules/meetings)
