@@ -12,6 +12,7 @@ import type { ChangeType, AmendmentStatus } from '../../generated/prisma/client.
 import { validate } from '../../middleware/validate.js';
 import { syncMotionBody, syncStatusParams } from '../../schemas/robbie.js';
 import { logger } from '../../middleware/logger.js';
+import { toDecisionDate } from '../decisionDate.js';
 
 export const robbieRouter: RouterType = Router();
 
@@ -107,6 +108,8 @@ robbieRouter.post('/sync-motion', validate({ body: syncMotionBody }), async (req
       renumber: 'renumber',
     };
 
+    const decidedAt = toDecisionDate(body.timestamp);
+
     // Create the amendment with Robbie tracking data
     const amendment = await prisma.amendment.create({
       data: {
@@ -114,8 +117,8 @@ robbieRouter.post('/sync-motion', validate({ body: syncMotionBody }), async (req
         title,
         description: body.motionText,
         status,
-        proposedAt: new Date(body.timestamp),
-        decidedAt: new Date(body.timestamp),
+        proposedAt: decidedAt,
+        decidedAt,
         robbieMeetingCode: body.meetingCode,
         robbieMotionId: body.motionId,
         robbieVoteData: body.voteData as any,
