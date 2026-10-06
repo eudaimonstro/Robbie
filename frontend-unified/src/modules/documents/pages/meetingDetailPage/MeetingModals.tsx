@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Modal from '../../../../components/ui/Modal';
 import ConfirmDialog from '../../../../components/ui/ConfirmDialog';
 import { Meeting, Amendment, Document, VoteCreate } from '../../../../api/client';
+import { fromLocalDateTimeInput, toLocalDateTimeInput } from '../../../../utils/dates';
 
 interface EditMeetingModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ interface EditMeetingModalProps {
 export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMeetingModalProps) {
   const [title, setTitle] = useState(meeting.title);
   const [type, setType] = useState<Meeting['meetingType']>(meeting.meetingType);
-  const [date, setDate] = useState(meeting.scheduledDate.slice(0, 16));
+  const [date, setDate] = useState(toLocalDateTimeInput(meeting.scheduledDate));
   const [location, setLocation] = useState(meeting.location || '');
   const [notes, setNotes] = useState(meeting.notes || '');
   const [saving, setSaving] = useState(false);
@@ -31,7 +32,7 @@ export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMee
       await onSubmit({
         title: title.trim(),
         type,
-        date,
+        date: fromLocalDateTimeInput(date),
         location: location.trim() || undefined,
         notes: notes.trim() || undefined,
       });
