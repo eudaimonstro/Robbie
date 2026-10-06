@@ -84,6 +84,11 @@ describe('members', () => {
       where: { organizationId_userId: { organizationId: f.orgA.id, userId } },
       data: { role },
     });
+  const signInByCode = async (email: string) => {
+    const codes = captureEmailsForTests();
+    await requestSignInCode(email);
+    return verifySignInCode(email, codes[0].code);
+  };
 
   describe('adding by email', () => {
     it('adds an existing account at once and emails them', async () => {
@@ -292,6 +297,47 @@ describe('members', () => {
       expect(await roleOf(f.users.viewer.id)).toBeNull();
     });
 
+    it('cancels their pending additions, so signing in again does not bring them back', async () => {
+      // Made a member while an addition of their email was still pending (the fixture's), and
+      // pending in Org B too
+      const pending = await signIn('pending@example.org');
+      await prisma.organizationMember.create({
+        data: { organizationId: f.orgA.id, userId: pending.id, role: 'member' },
+      });
+      const inviteB = await prisma.organizationInvite.create({
+        data: { organizationId: f.orgB.id, email: 'pending@example.org', role: 'viewer' },
+      });
+
+      const res = await call('delete', member(pending.id), { cookie: f.users.admin.cookie });
+      expect(res.status).toBe(204);
+      const invite = await prisma.organizationInvite.findUniqueOrThrow({ where: { id: f.invite } });
+      expect(invite.canceledAt).toBeInstanceOf(Date);
+
+      await signInByCode('pending@example.org');
+      expect(await roleOf(pending.id)).toBeNull();
+      // Other organizations' additions still hold
+      const inB = await prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId: f.orgB.id, userId: pending.id } },
+      });
+      expect(inB?.role).toBe('viewer');
+      const acceptedB = await prisma.organizationInvite.findUniqueOrThrow({
+        where: { id: inviteB.id },
+      });
+      expect(acceptedB.acceptedAt).toBeInstanceOf(Date);
+    });
+
+    it('cancels the pending additions of someone who leaves', async () => {
+      const pending = await signIn('pending@example.org');
+      await prisma.organizationMember.create({
+        data: { organizationId: f.orgA.id, userId: pending.id, role: 'member' },
+      });
+      const res = await call('delete', member(pending.id), { cookie: pending.cookie });
+      expect(res.status).toBe(204);
+
+      await signInByCode('pending@example.org');
+      expect(await roleOf(pending.id)).toBeNull();
+    });
+
     it("answers 404 for someone who isn't a member", async () => {
       const res = await call('put', member(f.outsider.id), {
         cookie: f.users.owner.cookie,
@@ -316,6 +362,21 @@ describe('members', () => {
         cookie,
       });
       expect(other.status).toBe(404);
+    });
+
+    it('as owner only by an owner', async () => {
+      const ownerInvite = await prisma.organizationInvite.create({
+        data: { organizationId: f.orgA.id, email: 'next-owner@example.org', role: 'owner' },
+      });
+      const path = `/api/organizations/${f.orgA.id}/invites/${ownerInvite.id}`;
+      const byAdmin = await call('delete', path, { cookie: f.users.admin.cookie });
+      expect(byAdmin.status).toBe(403);
+      expect(byAdmin.body).toEqual({ error: 'You need the owner role for this' });
+      const kept = await prisma.organizationInvite.findUniqueOrThrow({
+        where: { id: ownerInvite.id },
+      });
+      expect(kept.canceledAt).toBeNull();
+      expect((await call('delete', path, { cookie: f.users.owner.cookie })).status).toBe(204);
     });
   });
 

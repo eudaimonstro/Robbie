@@ -253,11 +253,15 @@ export async function changeRole(
   });
 }
 
-/** Remove a member (needs admin), or leave (the actor removes themselves) */
+/**
+ * Remove a member (needs admin), or leave (the actor removes themselves). Pending additions of
+ * their email to this organization are canceled, so signing in again doesn't bring them back.
+ */
 export async function removeMember(
   organizationId: string,
   actor: Actor,
   userId: number,
+  now: Date = new Date(),
 ): Promise<void> {
   const leaving = actor.id === userId;
 
@@ -265,6 +269,7 @@ export async function removeMember(
     const acting = await lockAsActor(tx, organizationId, actor, leaving ? 'viewer' : 'admin');
     const target = await tx.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId } },
+      include: { user: { select: { email: true } } },
     });
     if (!target) throw new OrgError(404, 'Not found');
     if (!leaving) checkOwnerRule(acting, target.role);
@@ -273,10 +278,14 @@ export async function removeMember(
     await tx.organizationMember.delete({
       where: { organizationId_userId: { organizationId, userId } },
     });
+    await tx.organizationInvite.updateMany({
+      where: { organizationId, email: target.user.email, ...pending(now) },
+      data: { canceledAt: now },
+    });
   });
 }
 
-/** Cancel a pending addition of this organization */
+/** Cancel a pending addition of this organization. Only an owner may cancel one as owner. */
 export async function cancelInvite(
   organizationId: string,
   actor: Actor,
@@ -284,11 +293,12 @@ export async function cancelInvite(
   now: Date = new Date(),
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await lockAsActor(tx, organizationId, actor, 'admin');
+    const acting = await lockAsActor(tx, organizationId, actor, 'admin');
     const invite = await tx.organizationInvite.findFirst({
       where: { id: inviteId, organizationId, ...pending(now) },
     });
     if (!invite) throw new OrgError(404, 'Not found');
+    checkOwnerRule(acting, invite.role);
 
     await tx.organizationInvite.update({
       where: { id: invite.id },
