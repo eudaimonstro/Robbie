@@ -539,7 +539,6 @@ export interface Vote {
   nayCount: number;
   abstainCount: number;
   result: 'passed' | 'failed' | 'tabled';
-  passed: boolean;
   recordedAt: string;
 }
 

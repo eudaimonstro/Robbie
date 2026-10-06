@@ -30,8 +30,10 @@ export function RecordedVotesPanel({
                 <span className="font-medium text-secondary-900 dark:text-white">
                   {getAmendmentTitle(vote.amendmentId)}
                 </span>
-                <span className={`badge ${vote.passed ? 'badge-passed' : 'badge-failed'}`}>
-                  {vote.passed ? 'Passed' : 'Failed'}
+                <span
+                  className={`badge ${vote.result === 'passed' ? 'badge-passed' : 'badge-failed'}`}
+                >
+                  {vote.result === 'passed' ? 'Passed' : 'Failed'}
                 </span>
               </div>
               <p className="text-xs text-secondary-500 mb-2">

@@ -109,7 +109,7 @@ export function useMeetingData(
       if (!meeting) throw new Error('No meeting');
       const result = await votesApi.create(meeting.id, data);
       await fetchMeeting();
-      return { passed: result.passed };
+      return { passed: result.result === 'passed' };
     },
     [meeting, fetchMeeting],
   );
