@@ -10,6 +10,7 @@ import {
   Amendment,
   SectionCreate,
   SectionUpdate,
+  VersionCreate,
 } from '../../../../api/client';
 import { useToast } from '../../../../context/ToastContext';
 
@@ -30,7 +31,7 @@ interface UseDocumentDataReturn {
   ) => Promise<void>;
   handleDeleteSection: (sectionId: string) => Promise<void>;
   handleReorderSections: (updates: Array<{ id: string; position: number }>) => Promise<void>;
-  handleCreateVersion: (notes?: string) => Promise<Version | null>;
+  handleCreateVersion: (data: VersionCreate) => Promise<Version | null>;
   handleCreateAmendment: (title: string, description?: string) => Promise<Amendment | null>;
   refreshTree: () => Promise<void>;
 }
@@ -156,12 +157,10 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
   );
 
   const handleCreateVersion = useCallback(
-    async (notes?: string): Promise<Version | null> => {
+    async (data: VersionCreate): Promise<Version | null> => {
       if (!documentId) return null;
 
-      const newVersion = await versionsApi.create(documentId, {
-        notes: notes?.trim() || undefined,
-      });
+      const newVersion = await versionsApi.create(documentId, data);
       await fetchDocument();
       setSelectedVersion(newVersion);
       const tree = await versionsApi.getTree(newVersion.id);
