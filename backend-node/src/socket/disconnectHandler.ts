@@ -75,11 +75,8 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
     actionRateLimiter.remove(socket.data.userId);
     joinRateLimiter.remove(socket.data.userId);
 
-    // Clear all socket.data fields to prevent data leakage on socket reuse
+    // The socket leaves the meeting but stays signed in (its identity came from its session)
     socket.data.meetingCode = null;
-    socket.data.userId = null as unknown as number;
-    socket.data.email = null as unknown as string;
-    socket.data.name = null as unknown as string;
     socket.data.role = null as unknown as 'member' | 'chair' | 'admin';
   }
 }

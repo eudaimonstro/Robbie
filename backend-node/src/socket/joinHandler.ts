@@ -37,19 +37,12 @@ export async function handleJoinMeeting(
   callback: (response: JoinMeetingResponse) => void,
 ): Promise<void> {
   try {
-    // Replaced in Task 9 by connection-level authentication
-    const decoded = socket.data.userId
-      ? {
-          userId: socket.data.userId,
-          email: socket.data.email,
-          name: socket.data.name,
-          meetingCode: data.meetingCode,
-        }
-      : null;
-    if (!decoded) {
-      callback({ success: false, error: 'Not signed in' });
-      return;
-    }
+    // The socket was authenticated at connection (socketAuth)
+    const decoded = {
+      userId: socket.data.userId,
+      email: socket.data.email,
+      name: socket.data.name,
+    };
 
     // Rate limit join attempts per user
     if (!joinRateLimiter.consume(decoded.userId)) {
@@ -61,11 +54,12 @@ export async function handleJoinMeeting(
       return;
     }
 
-    // Verify meeting code matches token
-    if (decoded.meetingCode !== data.meetingCode) {
-      callback({ success: false, error: 'Token not valid for this meeting' });
+    const meetingCode = data.meetingCode?.trim().toUpperCase() ?? '';
+    if (!/^[A-Z0-9]{4,8}$/.test(meetingCode)) {
+      callback({ success: false, error: 'Meeting code must be 4-8 letters or digits' });
       return;
     }
+    data = { ...data, meetingCode };
 
     // A socket already in another meeting leaves it first, as on disconnect; otherwise it
     // kept receiving that meeting's updates and its member stayed present there

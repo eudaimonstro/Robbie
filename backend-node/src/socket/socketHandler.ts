@@ -8,6 +8,7 @@ import { handleJoinMeeting } from './joinHandler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { handleDispatchAction } from './actionHandler.js';
 import { handleRequestState } from './stateRequestHandler.js';
+import { socketAuth } from './socketAuth.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -32,6 +33,9 @@ type TypedServer = Server<
  * - stateRequestHandler.ts: REQUEST_STATE event
  */
 export function setupSocketHandlers(io: TypedServer) {
+  // Every connection must be signed in (see socketAuth)
+  io.use(socketAuth());
+
   io.on('connection', (socket: TypedSocket) => {
     // Handle join meeting
     socket.on('JOIN_MEETING', (data, callback) => {

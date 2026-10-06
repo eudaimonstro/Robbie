@@ -45,5 +45,9 @@ describe('handleDisconnect', () => {
 
     expect(applyAction).toHaveBeenCalledOnce();
     expect(emit).not.toHaveBeenCalledWith('STATE_UPDATE', expect.anything());
+
+    // Leaving a meeting doesn't sign the socket out
+    expect(socket.data.userId).toBe(1);
+    expect(socket.data.meetingCode).toBeNull();
   });
 });

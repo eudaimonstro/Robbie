@@ -28,7 +28,6 @@ export interface ServerToClientEvents {
 // Payloads for client → server events
 export interface JoinMeetingPayload {
   meetingCode: string;
-  token: string; // JWT from email verification
 }
 
 export interface JoinMeetingResponse {
