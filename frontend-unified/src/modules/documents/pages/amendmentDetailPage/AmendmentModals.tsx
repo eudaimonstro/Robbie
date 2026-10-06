@@ -35,10 +35,15 @@ export function EditAmendmentModal({
     }
   };
 
-  // Sync state when modal opens with new values
-  if (isOpen && title !== initialTitle && !saving) {
-    setTitle(initialTitle);
-    setDescription(initialDescription);
+  // Start from the saved values each time the modal opens. (Comparing the title to the saved
+  // one instead would undo every keystroke in the title field.)
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setTitle(initialTitle);
+      setDescription(initialDescription);
+    }
   }
 
   return (
