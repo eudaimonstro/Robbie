@@ -17,8 +17,10 @@ export const VotingButtons = memo(function VotingButtons({
   disabled = false,
   hasQuorum = true,
 }: VotingButtonsProps) {
+  // Without quorum the vote still goes ahead if the chair holds it (the server allows it), so
+  // members are warned rather than blocked
   const handleVote = (vote: VoteType) => {
-    if (disabled || !hasQuorum) return;
+    if (disabled) return;
     onVote(vote);
   };
 
@@ -26,7 +28,9 @@ export const VotingButtons = memo(function VotingButtons({
     <View style={styles.container}>
       {!hasQuorum && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>Quorum not met - voting paused</Text>
+          <Text style={styles.warningText}>
+            Quorum not met - this vote may need to be ratified later
+          </Text>
         </View>
       )}
       <View style={styles.buttonRow}>
@@ -35,21 +39,21 @@ export const VotingButtons = memo(function VotingButtons({
           label="YEA"
           onPress={() => handleVote('yea')}
           isSelected={currentVote === 'yea'}
-          disabled={disabled || !hasQuorum}
+          disabled={disabled}
         />
         <VoteButton
           type="nay"
           label="NAY"
           onPress={() => handleVote('nay')}
           isSelected={currentVote === 'nay'}
-          disabled={disabled || !hasQuorum}
+          disabled={disabled}
         />
         <VoteButton
           type="abstain"
           label="ABSTAIN"
           onPress={() => handleVote('abstain')}
           isSelected={currentVote === 'abstain'}
-          disabled={disabled || !hasQuorum}
+          disabled={disabled}
         />
       </View>
       {currentVote && <Text style={styles.voteStatus}>Your vote: {currentVote.toUpperCase()}</Text>}
