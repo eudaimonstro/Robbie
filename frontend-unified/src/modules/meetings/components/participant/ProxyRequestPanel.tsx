@@ -47,16 +47,6 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
     });
   }, [state.members, state.proxies, state.maxProxiesPerMember, currentUser.id]);
 
-  // Don't show panel if proxy voting or member grants aren't enabled
-  if (!state.allowProxyVoting || !state.allowMemberProxyGrant) {
-    return null;
-  }
-
-  // Don't show if user is present (they can vote themselves)
-  if (currentUser.present) {
-    return null;
-  }
-
   const handleRequestProxy = useCallback(async () => {
     if (selectedHolder === '' || isSubmitting) return;
 
@@ -90,6 +80,16 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
       timestamp: generateTimestamp(),
     });
   }, [dispatch, pendingRequest]);
+
+  // Don't show panel if proxy voting or member grants aren't enabled
+  if (!state.allowProxyVoting || !state.allowMemberProxyGrant) {
+    return null;
+  }
+
+  // Don't show if user is present (they can vote themselves)
+  if (currentUser.present) {
+    return null;
+  }
 
   // If user already has an active proxy, show that status
   if (hasActiveProxy) {

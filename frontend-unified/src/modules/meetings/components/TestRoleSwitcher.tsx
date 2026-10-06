@@ -20,11 +20,6 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Only show in DEMO meetings (case-insensitive check)
-  if (!meetingCode || meetingCode.toUpperCase() !== 'DEMO') {
-    return null;
-  }
-
   const handleRoleChange = useCallback(
     async (newRole: Role) => {
       if (newRole === currentRole) {
@@ -63,6 +58,11 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
     },
     [email, meetingCode, currentRole],
   );
+
+  // Only show in DEMO meetings (case-insensitive check)
+  if (!meetingCode || meetingCode.toUpperCase() !== 'DEMO') {
+    return null;
+  }
 
   const roles: { id: Role; label: string; icon: typeof User; description: string }[] = [
     { id: 'member', label: 'Member', icon: User, description: 'Standard participant view' },
