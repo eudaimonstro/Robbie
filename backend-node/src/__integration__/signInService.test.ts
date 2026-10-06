@@ -77,6 +77,23 @@ describe('signInService', () => {
     await expect(verifySignInCode('ann@example.org', code)).rejects.toMatchObject({ status: 401 });
   });
 
+  it('counts concurrent wrong guesses against the attempt limit', async () => {
+    await requestSignInCode('ann@example.org');
+    const code = lastCode();
+    const guesses = await Promise.allSettled(
+      Array.from({ length: MAX_ATTEMPTS + 10 }, () =>
+        verifySignInCode('ann@example.org', wrong(code)),
+      ),
+    );
+    for (const guess of guesses) {
+      expect(guess.status).toBe('rejected');
+      expect((guess as PromiseRejectedResult).reason).toBeInstanceOf(SignInError);
+    }
+    const stored = await prisma.signInCode.findFirstOrThrow();
+    expect(stored.attempts).toBeLessThanOrEqual(MAX_ATTEMPTS);
+    await expect(verifySignInCode('ann@example.org', code)).rejects.toBeInstanceOf(SignInError);
+  });
+
   it('limits how many codes an email can request in an hour', async () => {
     for (let i = 0; i < MAX_CODES_PER_HOUR; i++) await requestSignInCode('ann@example.org');
     await expect(requestSignInCode('ann@example.org')).rejects.toMatchObject({ status: 429 });

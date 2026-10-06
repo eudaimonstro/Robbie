@@ -10,6 +10,7 @@ export const MAX_ATTEMPTS = 5;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_PATTERN = /^\d{6}$/;
 const WRONG_CODE = 'That code is wrong or has expired';
+const TOO_MANY_ATTEMPTS = 'Too many attempts. Request a new code.';
 
 /** A sign-in failure with the HTTP status to answer with */
 export class SignInError extends Error {
@@ -90,15 +91,28 @@ export async function verifySignInCode(
     });
     if (!record) throw new SignInError(401, WRONG_CODE);
 
+    // Claim an attempt before comparing, in one conditional update, so concurrent guesses can't
+    // get past the limit: the database lets at most MAX_ATTEMPTS of them through
+    const claimed = await prisma.signInCode.updateMany({
+      where: { id: record.id, consumedAt: null, attempts: { lt: MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+      // Out of attempts, or consumed (or removed) since it was read
+      const current = await prisma.signInCode.findUnique({ where: { id: record.id } });
+      if (current && current.attempts >= MAX_ATTEMPTS)
+        throw new SignInError(429, TOO_MANY_ATTEMPTS);
+      throw new SignInError(401, WRONG_CODE);
+    }
+
     if (record.codeHash !== hashSecret(code)) {
-      // Increment in the database so concurrent guesses all count
-      const updated = await prisma.signInCode.update({
-        where: { id: record.id },
-        data: { attempts: { increment: 1 } },
-      });
-      if (updated.attempts >= MAX_ATTEMPTS) {
-        await prisma.signInCode.update({ where: { id: record.id }, data: { consumedAt: now } });
-        throw new SignInError(429, 'Too many attempts. Request a new code.');
+      const current = await prisma.signInCode.findUnique({ where: { id: record.id } });
+      if (current && current.attempts >= MAX_ATTEMPTS) {
+        await prisma.signInCode.updateMany({
+          where: { id: record.id, consumedAt: null },
+          data: { consumedAt: now },
+        });
+        throw new SignInError(429, TOO_MANY_ATTEMPTS);
       }
       throw new SignInError(401, WRONG_CODE);
     }
