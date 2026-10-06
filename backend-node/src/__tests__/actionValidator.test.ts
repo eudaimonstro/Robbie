@@ -370,15 +370,15 @@ describe('actionValidator', () => {
       expect(result.errorCode).toBe('VOTING_NOT_OPEN');
     });
 
-    it('should reject duplicate votes', () => {
-      const state = { ...votingState(), voters: [2] };
+    it('should let a member change their vote before the result is announced', () => {
+      // RONR: a member may change a vote until the chair announces the result
+      const state = { ...votingState(), voters: [2], voterChoices: { 2: 'yea' as const } };
       const result = validateAction(state, {
         type: 'CAST_VOTE',
-        vote: 'yea',
+        vote: 'nay',
         voterId: 2,
       });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('ALREADY_VOTED');
+      expect(result.valid).toBe(true);
     });
 
     it('should reject chair vote when restriction is active', () => {

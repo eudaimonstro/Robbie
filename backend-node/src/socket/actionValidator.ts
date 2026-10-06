@@ -138,9 +138,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.voters.includes(action.voterId)) {
-        return { valid: false, error: 'You have already voted', errorCode: 'ALREADY_VOTED' };
-      }
+      // A member who has voted may change the vote until the result is announced (RONR); the
+      // reducer moves the count from the old choice to the new one
       // Chair voting restriction (unless suspended or deciding vote)
       if (!action.isChairDecidingVote) {
         const voter = state.members.find((m) => m.id === action.voterId);
