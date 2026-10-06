@@ -54,7 +54,6 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
 // Routers whose routes don't have rules yet. Each task that adds a router's rules removes it
 // here; Task 13 removes the list.
 const NOT_YET_RULED = new Set<unknown>([
-  routes.amendmentsRouter,
   routes.meetingsRouter,
   routes.packetsRouter,
   routes.agendaItemsRouter,
