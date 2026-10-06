@@ -168,6 +168,7 @@ API mismatches (the client calls endpoints that don't exist):
 - Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
 - The client reads `error.detail`, but the backend sends `{ error: { code, message } }`, so every error shows as "HTTP 4xx". The same bug exists in mobile.
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
+- The documents UI reads snake_case fields (`created_at`, `effective_date`, `scheduled_date`), but the Prisma-backed API returns camelCase (`createdAt`, `effectiveDate`). Every date shows "Invalid Date" or is missing (home list, document page, amendments, settings).
 
 Other work:
 
