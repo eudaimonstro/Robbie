@@ -27,7 +27,7 @@ export interface ActionResponse {
 
 export interface ClientToServerEvents {
   JOIN_MEETING: (
-    data: { meetingCode: string; token: string },
+    data: { meetingCode: string },
     callback: (response: JoinMeetingResponse) => void,
   ) => void;
   LEAVE_MEETING: () => void;
@@ -55,25 +55,15 @@ export interface ServerToClientEvents {
 
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-export interface AuthState {
-  email: string;
-  name: string;
-  meetingCode: string;
-  token: string | null;
-  userId: number | null;
-}
-
 export interface SocketContextValue {
   state: MeetingState;
   dispatch: (action: MeetingAction) => Promise<boolean>;
   isConnected: boolean;
-  isAuthenticated: boolean;
   currentUser: Member | null;
-  currentUserEmail: string | null;
   connectedMembers: Member[];
   error: string | null;
-  login: (email: string, name: string, meetingCode: string) => Promise<void>;
-  verifyCode: (code: string) => Promise<boolean>;
-  logout: () => void;
+  meetingCode: string | null;
+  joinMeeting: (code: string) => void;
+  leaveMeeting: () => void;
   reconnect: () => void;
 }

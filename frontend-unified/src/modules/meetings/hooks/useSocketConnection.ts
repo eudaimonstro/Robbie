@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { TypedSocket, AuthState, StateUpdatePayload } from '../types/socket';
+import type { TypedSocket, StateUpdatePayload } from '../types/socket';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -18,8 +18,8 @@ interface UseSocketConnectionReturn {
 }
 
 export function useSocketConnection(
-  authState: AuthState,
-  onInvalidToken: () => void,
+  meetingCode: string | null,
+  onNotSignedIn: () => void,
 ): UseSocketConnectionReturn {
   const [state, setState] = useState<MeetingState>(initialState);
   const [isConnected, setIsConnected] = useState(false);
@@ -33,12 +33,12 @@ export function useSocketConnection(
   const stateVersionRef = useRef(0);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Read the latest onInvalidToken through a ref so a caller passing a new function each
+  // Read the latest onNotSignedIn through a ref so a caller passing a new function each
   // render doesn't re-run the connection effect (which would reconnect the socket)
-  const onInvalidTokenRef = useRef(onInvalidToken);
+  const onNotSignedInRef = useRef(onNotSignedIn);
   useEffect(() => {
-    onInvalidTokenRef.current = onInvalidToken;
-  }, [onInvalidToken]);
+    onNotSignedInRef.current = onNotSignedIn;
+  }, [onNotSignedIn]);
 
   // Helper to set error with auto-clear
   const setTemporaryError = useCallback((message: string, duration = 5000) => {
@@ -61,9 +61,9 @@ export function useSocketConnection(
     };
   }, []);
 
-  // Connect to socket when authenticated
+  // Connect to the meeting's socket. The session cookie authenticates it.
   useEffect(() => {
-    if (!authState.token || !authState.meetingCode) return;
+    if (!meetingCode) return;
 
     if (isConnectingRef.current || socketRef.current?.connected) {
       return;
@@ -82,34 +82,26 @@ export function useSocketConnection(
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      newSocket.emit(
-        'JOIN_MEETING',
-        {
-          meetingCode: authState.meetingCode,
-          token: authState.token!,
-        },
-        (response) => {
-          isConnectingRef.current = false;
-          if (response.success) {
-            stateVersionRef.current = response.stateVersion ?? 0;
-            setState(response.state!);
-            setConnectedMembers(response.members || []);
-            setIsConnected(true);
-            setError(null);
-          } else {
-            setError(response.error || 'Failed to join meeting');
-            if (response.error?.includes('Invalid token')) {
-              onInvalidTokenRef.current();
-              newSocket.disconnect();
-              socketRef.current = null;
-            }
-          }
-        },
-      );
+      newSocket.emit('JOIN_MEETING', { meetingCode }, (response) => {
+        isConnectingRef.current = false;
+        if (response.success) {
+          stateVersionRef.current = response.stateVersion ?? 0;
+          setState(response.state!);
+          setConnectedMembers(response.members || []);
+          setIsConnected(true);
+          setError(null);
+        } else {
+          setError(response.error || 'Failed to join meeting');
+        }
+      });
     });
 
     newSocket.on('connect_error', (err) => {
       isConnectingRef.current = false;
+      if (err.message === 'Not signed in') {
+        onNotSignedInRef.current();
+        return;
+      }
       setError(`Connection error: ${err.message}`);
     });
 
@@ -149,7 +141,7 @@ export function useSocketConnection(
       socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [authState.token, authState.meetingCode, setTemporaryError]);
+  }, [meetingCode, setTemporaryError]);
 
   // Dispatch action through socket with timeout
   const dispatch = useCallback(
