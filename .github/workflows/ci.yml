@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: robbie
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/robbie
+      JWT_SECRET: test-secret
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build shared package
+        run: npm run build:shared
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w backend-node
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check shared
+        run: npx tsc --noEmit -p shared/tsconfig.json
+
+      - name: Type-check backend-node
+        run: npx tsc --noEmit -p backend-node/tsconfig.json
+
+      - name: Type-check frontend-unified
+        run: npx tsc --noEmit -p frontend-unified/tsconfig.json
+
+      - name: Test shared
+        run: npm run test:run -w shared
+
+      - name: Test backend-node
+        run: npm run test:run -w backend-node
+
+      - name: Test frontend-unified
+        run: npm run test:run -w frontend-unified
+
+      - name: Build all
+        run: npm run build
