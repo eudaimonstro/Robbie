@@ -20,80 +20,61 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
   return fallback;
 }
 
-interface RequestVerificationResponse {
-  success: boolean;
-  message: string;
+export interface SessionUser {
+  id: number;
+  email: string;
+  name: string | null;
 }
 
-interface VerifyCodeResponse {
-  success: boolean;
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  };
-}
+const json = { 'Content-Type': 'application/json' };
+const bearer = (token: string) => ({ ...json, Authorization: `Bearer ${token}` });
 
-/**
- * Request a verification code to be sent to the user's email
- */
-export async function requestVerification(
-  email: string,
-  name: string,
-  meetingCode: string,
-): Promise<RequestVerificationResponse> {
-  const response = await fetch(`${API_URL}/api/auth/request-verification`, {
+export async function requestCode(email: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/auth/request-code`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, name, meetingCode }),
+    headers: json,
+    body: JSON.stringify({ email }),
   });
-
-  if (!response.ok) {
-    throw new Error(await errorMessage(response, 'Failed to request verification'));
-  }
-
-  return response.json();
+  if (!response.ok) throw new Error(await errorMessage(response, "Couldn't send the code"));
 }
 
-/**
- * Verify the code and get a JWT token
- */
 export async function verifyCode(
   email: string,
   code: string,
-  meetingCode: string,
-): Promise<VerifyCodeResponse> {
+): Promise<{ user: SessionUser; token: string }> {
   const response = await fetch(`${API_URL}/api/auth/verify`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, code, meetingCode }),
+    headers: json,
+    body: JSON.stringify({ email, code, client: 'mobile' }),
   });
-
-  if (!response.ok) {
-    throw new Error(await errorMessage(response, 'Verification failed'));
-  }
-
+  if (!response.ok) throw new Error(await errorMessage(response, 'Verification failed'));
   return response.json();
 }
 
-/**
- * Logout (invalidate token on server)
- */
-export async function logout(token: string): Promise<void> {
+/** The signed-in user, or null when the token no longer works */
+export async function getMe(token: string): Promise<SessionUser | null> {
+  const response = await fetch(`${API_URL}/api/auth/me`, { headers: bearer(token) });
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error(await errorMessage(response, "Couldn't load your account"));
+  return ((await response.json()) as { user: SessionUser }).user;
+}
+
+export async function updateName(token: string, name: string): Promise<SessionUser> {
+  const response = await fetch(`${API_URL}/api/auth/me`, {
+    method: 'PATCH',
+    headers: bearer(token),
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) throw new Error(await errorMessage(response, "Couldn't save your name"));
+  return ((await response.json()) as { user: SessionUser }).user;
+}
+
+/** End the session on the server; the app forgets the token either way */
+export async function signOut(token: string): Promise<void> {
   try {
-    await fetch(`${API_URL}/api/auth/logout`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    await fetch(`${API_URL}/api/auth/sign-out`, { method: 'POST', headers: bearer(token) });
   } catch {
-    // Ignore logout errors - user is logged out locally regardless
+    // Offline: the token is still removed from the device
   }
 }
 
