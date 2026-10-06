@@ -66,6 +66,7 @@ npm run build:frontend   # Build frontend-unified
 ```bash
 npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
+npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint
 npm run format:check     # Prettier
 ```
@@ -96,7 +97,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 **Robbie Features:**
 
 - Socket.io for real-time meeting state synchronization
-- Email-based authentication with verification codes
+- Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
 - Meeting storage (PostgreSQL or in-memory fallback)
 - Parliamentary procedure state management
 
@@ -211,7 +212,6 @@ When a bylaw amendment motion passes in Robbie:
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
-JWT_SECRET=dev-secret-change-in-prod
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 

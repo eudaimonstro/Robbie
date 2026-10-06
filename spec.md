@@ -50,6 +50,7 @@ Ordered by dependency. M1 through M4 block any real use.
 
 Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the server loses every user and restarts `nextUserId` at 1, so an old 24-hour JWT can resolve to a different person.
 
+- **Done 2026-10-06 (server):** users, sessions and sign-in codes are in Postgres; sign-in is once for the whole app by emailed code; sessions are server-side (httpOnly cookie for web, bearer token for mobile) and last 30 days from last use; every API route and socket requires a session; the code-revealing dev endpoint, test-role endpoint and JWT are gone. The web and mobile sign-in screens follow.
 - Store users and verification codes in Postgres (the `users` and `email_verifications` tables already exist and are unused). Move them under Prisma (see M5).
 - Per-email and per-code attempt limits on verification, not only per-IP. Invalidate the code after N failures.
 - Remove the global `lastGeneratedCode` and `GET /api/auth/dev-code`. Replace with a test-only email transport that tests read directly. Never log codes at `info`.

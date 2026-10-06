@@ -13,6 +13,7 @@ import { setIoInstance } from './socket/ioInstance.js';
 import { connectPrisma, disconnectPrisma } from './db/prisma.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
 import { logger } from './middleware/logger.js';
+import { deleteExpiredSessionsAndCodes } from './auth/sessionService.js';
 
 const PORT = process.env.PORT || 3001;
 const httpServer = createServer(app);
@@ -45,6 +46,17 @@ async function start() {
 
     // Setup Socket.io handlers
     setupSocketHandlers(io);
+
+    // Remove expired sessions and sign-in codes every hour
+    const cleanup = setInterval(
+      () => {
+        deleteExpiredSessionsAndCodes()
+          .then((removed) => removed && logger.info({ removed }, 'Removed expired sessions'))
+          .catch((err) => logger.error({ err }, 'Failed to remove expired sessions'));
+      },
+      60 * 60 * 1000,
+    );
+    cleanup.unref();
 
     // Start server - bind to 0.0.0.0 for Railway
     httpServer.listen(Number(PORT), '0.0.0.0', () => {
