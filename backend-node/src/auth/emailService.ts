@@ -32,10 +32,9 @@ import { logger } from '../middleware/logger.js';
 
 // Email configuration
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Robbie <noreply@robbie.app>';
-const isProduction = process.env.NODE_ENV === 'production';
 
 // Determine email provider based on environment variables
-type EmailProvider = 'smtp' | 'sendgrid' | 'resend' | 'development';
+export type EmailProvider = 'smtp' | 'sendgrid' | 'resend' | 'development';
 
 function detectProvider(): EmailProvider {
   if (process.env.SENDGRID_API_KEY) return 'sendgrid';
@@ -114,14 +113,9 @@ async function deliver(message: OutgoingEmail): Promise<string | undefined> {
   return info.messageId;
 }
 
-// Log provider on startup
-if (isProduction && emailProvider === 'development') {
-  logger.error(
-    'No email provider configured in production. Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY',
-  );
-} else {
-  logger.info({ emailProvider }, 'Email service initialized');
-}
+// Log provider on startup. Production without a provider is refused by the server's start-up
+// check (signInStartupCheck), which logs that error.
+logger.info({ emailProvider }, 'Email service initialized');
 
 /**
  * Generate HTML email template for verification code
@@ -196,6 +190,9 @@ let testOutbox: Array<{ to: string; code: string }> | null = null;
 
 /** Collect sign-in emails in memory instead of sending them (tests only) */
 export function captureEmailsForTests(): Array<{ to: string; code: string }> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('captureEmailsForTests is for tests only (NODE_ENV=test)');
+  }
   testOutbox = [];
   return testOutbox;
 }
@@ -205,6 +202,11 @@ export function captureEmailsForTests(): Array<{ to: string; code: string }> {
  * one), the code is logged at debug level, which production never logs.
  */
 export async function sendSignInCode(email: string, code: string): Promise<void> {
+  // Read NODE_ENV now, not at load: production must never report a code as sent when it wasn't
+  if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
+    throw new Error('No email provider configured; production cannot send sign-in codes');
+  }
+
   if (testOutbox) {
     testOutbox.push({ to: email, code });
     return;

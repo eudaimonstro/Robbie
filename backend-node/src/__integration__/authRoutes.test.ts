@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
 import { captureEmailsForTests } from '../auth/emailService.js';
@@ -21,6 +21,10 @@ describe('auth routes', () => {
   beforeEach(async () => {
     await resetAccounts();
     outbox = captureEmailsForTests();
+  });
+  afterEach(() => {
+    process.env.NODE_ENV = 'test';
+    delete process.env.ENABLE_TEST_AUTH;
   });
 
   it('signs a web client in with an httpOnly cookie, not a token in the body', async () => {
@@ -147,6 +151,26 @@ describe('auth routes', () => {
       .send({ email: 'ann@example.org', code });
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('That code is wrong or has expired');
+  });
+
+  it('refuses the test code in production even with test sign-in enabled', async () => {
+    process.env.ENABLE_TEST_AUTH = 'true';
+    process.env.NODE_ENV = 'production';
+    const res = await request(app)
+      .post('/api/auth/verify')
+      .send({ email: 'ann@example.org', code: '000000' });
+    expect(res.status).toBe(401);
+    expect(sessionCookie(res)).toBeUndefined();
+  });
+
+  it('answers 502 instead of pretending to send in production without an email provider', async () => {
+    process.env.NODE_ENV = 'production';
+    const res = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org' });
+    expect(res.status).toBe(502);
+    expect(outbox).toEqual([]);
+    expect(await prisma.signInCode.count()).toBe(0);
   });
 
   it('removes the old per-meeting endpoints', async () => {

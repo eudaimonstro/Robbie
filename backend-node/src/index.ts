@@ -14,6 +14,8 @@ import { connectPrisma, disconnectPrisma } from './db/prisma.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
 import { logger } from './middleware/logger.js';
 import { deleteExpiredSessionsAndCodes } from './auth/sessionService.js';
+import { getEmailProvider } from './auth/emailService.js';
+import { signInStartupCheck } from './auth/signInStartupCheck.js';
 
 const PORT = process.env.PORT || 3001;
 const httpServer = createServer(app);
@@ -37,6 +39,14 @@ setIoInstance(io);
 
 // Initialize storage and start server
 async function start() {
+  // Refuse to start production without a way to send sign-in codes, and flag test sign-in
+  const signInCheck = signInStartupCheck(process.env, getEmailProvider());
+  for (const warning of signInCheck.warnings) logger.warn(warning);
+  if (signInCheck.error) {
+    logger.error(signInCheck.error);
+    process.exit(1);
+  }
+
   try {
     // Connect to databases
     await initializeStorage();
