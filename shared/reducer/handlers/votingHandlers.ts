@@ -227,6 +227,11 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         agenda: outcome.agenda,
         lastChairRuling: isAppeal ? null : state.lastChairRuling,
         debatePositions: {},
+        // Debate on the decided question is over; none of it carries to the next one
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        lastSpeakerStance: null,
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,

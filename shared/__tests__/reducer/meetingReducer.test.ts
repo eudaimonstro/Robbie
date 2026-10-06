@@ -557,6 +557,34 @@ describe('meetingReducer', () => {
       ]);
     });
 
+    it('should clear the speaker state once the question is decided', () => {
+      // Debate on an amendment must not carry over to the main motion it returns to
+      const mainMotion = createMockMotion({ id: 1 });
+      const amendment = createMockMotion({ id: 2, type: 'amend', vote: 'majority' });
+      const speaker = { id: 3, name: 'Member 3', role: 'member' as const, present: true };
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: amendment,
+          motionStack: [mainMotion, amendment],
+          votes: { yea: 3, nay: 1, abstain: 0 },
+          speakerQueue: [{ member: speaker, stance: 'pro' }],
+          recognizedSpeaker: speaker,
+          speakerTimerEnd: 123456,
+          lastSpeakerStance: 'pro',
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+
+      expect(state.currentMotion?.id).toBe(1);
+      expect(state.speakerQueue).toEqual([]);
+      expect(state.recognizedSpeaker).toBeNull();
+      expect(state.speakerTimerEnd).toBeNull();
+      expect(state.lastSpeakerStance).toBeNull();
+    });
+
     it('should handle 2/3 vote requirement', () => {
       const votingState: MeetingState = {
         ...initialState,

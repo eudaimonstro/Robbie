@@ -64,6 +64,11 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
         debatePositions: {},
+        // Debate on the decided question is over; none of it carries to the next one
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        lastSpeakerStance: null,
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
