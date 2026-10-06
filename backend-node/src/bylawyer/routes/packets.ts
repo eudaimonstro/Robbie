@@ -6,18 +6,13 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import { Prisma } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
-import { createPacketBody, robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
+import { robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
 import { uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
 
 export const packetsRouter: RouterType = Router();
 
-/**
- * GET /api/packets/:robbieCode
- * Get packet for a Robbie meeting (creates one if doesn't exist)
- */
 // What a packet response includes
 const packetInclude = {
   attachments: {
@@ -35,35 +30,24 @@ const packetInclude = {
   },
 };
 
+/**
+ * GET /api/packets/:robbieCode
+ * Get the packet for a Robbie meeting. Packets are created in an organization
+ * (POST /api/organizations/:orgId/packets) or by linking a live meeting
+ * (POST /api/bylawyer/link-meeting), never by reading.
+ */
 packetsRouter.get(
   '/packets/:robbieCode',
   validate({ params: robbieCodeParam }),
   async (req, res) => {
     try {
-      const { robbieCode } = req.params;
-
-      let packet = await prisma.meetingPacket.findUnique({
-        where: { robbieCode },
+      const packet = await prisma.meetingPacket.findUnique({
+        where: { robbieCode: req.params.robbieCode },
         include: packetInclude,
       });
 
       if (!packet) {
-        // Auto-create packet for this meeting. Two first loads at once can both try; the one
-        // that loses gets the packet the other made, not an error.
-        try {
-          packet = await prisma.meetingPacket.create({
-            data: { robbieCode },
-            include: packetInclude,
-          });
-        } catch (error) {
-          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) {
-            throw error;
-          }
-          packet = await prisma.meetingPacket.findUnique({
-            where: { robbieCode },
-            include: packetInclude,
-          });
-        }
+        return res.status(404).json({ error: 'Not found' });
       }
 
       res.json(packet);
@@ -73,53 +57,6 @@ packetsRouter.get(
     }
   },
 );
-
-/**
- * POST /api/packets
- * Create a new meeting packet
- * Body: { robbieCode, title?, description?, scheduledFor? }
- */
-packetsRouter.post('/packets', validate({ body: createPacketBody }), async (req, res) => {
-  try {
-    const { robbieCode, title, description, scheduledFor } = req.body;
-
-    if (!robbieCode) {
-      return res.status(400).json({ error: 'robbieCode is required' });
-    }
-
-    // Check if packet already exists
-    const existing = await prisma.meetingPacket.findUnique({
-      where: { robbieCode },
-    });
-
-    if (existing) {
-      return res.status(409).json({
-        error: 'Packet already exists for this meeting',
-        packetId: existing.id,
-      });
-    }
-
-    const packet = await prisma.meetingPacket.create({
-      data: {
-        robbieCode,
-        title,
-        description,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
-      },
-      include: {
-        attachments: true,
-        agendaItems: {
-          include: { attachments: true },
-        },
-      },
-    });
-
-    res.status(201).json(packet);
-  } catch (error) {
-    logger.error({ err: error }, 'Error creating packet');
-    res.status(500).json({ error: 'Failed to create meeting packet' });
-  }
-});
 
 /**
  * PUT /api/packets/:id

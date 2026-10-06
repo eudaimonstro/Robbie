@@ -13,16 +13,19 @@ datasource db {
 
 // Organization that owns documents
 model Organization {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  slug        String     @unique
+  slug        String   @unique
   description String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  documents   Document[]
-  meetings    Meeting[]
+  documents Document[]
+  meetings  Meeting[]
+  members   OrganizationMember[]
+  invites   OrganizationInvite[]
+  packets   MeetingPacket[]
 }
 
 // Document type enum
@@ -35,27 +38,27 @@ enum DocType {
 
 // Attachment type enum
 enum AttachmentType {
-  uploaded_file      // Direct file upload (PDF, DOCX)
-  bylawyer_document  // Link to Bylawyer Document
+  uploaded_file // Direct file upload (PDF, DOCX)
+  bylawyer_document // Link to Bylawyer Document
 }
 
 // Governing document (bylaws, standing rules, policy)
 model Document {
-  id               String    @id @default(uuid())
+  id               String   @id @default(uuid())
   organizationId   String
   title            String
-  docType          DocType   @default(bylaws)
+  docType          DocType  @default(bylaws)
   currentVersionId String?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime @default(now())
 
   // Sharing
-  shareToken       String?   @unique
-  shareEnabled     Boolean   @default(false)
+  shareToken   String? @unique
+  shareEnabled Boolean @default(false)
 
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  versions         Version[]
-  amendments       Amendment[]
-  attachments      Attachment[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions     Version[]
+  amendments   Amendment[]
+  attachments  Attachment[]
 
   @@index([organizationId])
 }
@@ -70,26 +73,26 @@ model Version {
   notes         String?
   createdAt     DateTime  @default(now())
 
-  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  sections      Section[]
+  document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sections Section[]
 
   @@index([documentId, effectiveDate])
 }
 
 // Hierarchical section within a version
 model Section {
-  id          String    @id @default(uuid())
+  id          String  @id @default(uuid())
   versionId   String
   parentId    String?
-  position    Int       @default(0)
+  position    Int     @default(0)
   numberLabel String?
   title       String?
   content     String?
   annotation  String?
 
-  version     Version   @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  parent      Section?  @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Section[] @relation("SectionHierarchy")
+  version  Version   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  parent   Section?  @relation("SectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Section[] @relation("SectionHierarchy")
 
   @@index([versionId, parentId, position])
 }
@@ -125,13 +128,18 @@ model Amendment {
   createdAt          DateTime        @default(now())
 
   // Robbie integration - synced from parliamentary meetings
-  robbieMeetingCode  String?
-  robbieMotionId     BigInt?
-  robbieVoteData     Json?
+  robbieMeetingCode String?
+  robbieMotionId    BigInt?
+  robbieVoteData    Json?
 
-  document           Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  changes            AmendmentChange[]
-  votes              Vote[]
+  // Who created the draft, so members can edit their own drafts. Null for amendments synced
+  // from a live meeting or created before this was recorded.
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  changes  AmendmentChange[]
+  votes    Vote[]
 
   @@unique([robbieMeetingCode, robbieMotionId])
   @@index([documentId, status])
@@ -149,7 +157,7 @@ model AmendmentChange {
   newTitle        String?
   position        Int        @default(0)
 
-  amendment       Amendment  @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+  amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
 }
 
 // Meeting type enum
@@ -187,8 +195,8 @@ model Meeting {
   notes          String?
   createdAt      DateTime      @default(now())
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  votes          Vote[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  votes        Vote[]
 }
 
 // Vote on an amendment
@@ -203,8 +211,8 @@ model Vote {
   requires     String?
   recordedAt   DateTime   @default(now())
 
-  meeting      Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  amendment    Amendment  @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
 }
 
 // ============================================
@@ -213,63 +221,69 @@ model Vote {
 
 // Meeting packet (collection of meeting-level documents and agenda)
 model MeetingPacket {
-  id           String              @id @default(uuid())
-  robbieCode   String              @unique // Links to Robbie meeting code
-  title        String?
-  description  String?
-  scheduledFor DateTime?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id             String    @id @default(uuid())
+  // The organization the meeting belongs to: the only record of which organization a live
+  // meeting (robbieCode) belongs to
+  organizationId String
+  robbieCode     String    @unique // Links to Robbie meeting code
+  title          String?
+  description    String?
+  scheduledFor   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   attachments  Attachment[]
   agendaItems  MeetingAgendaItem[]
+
+  @@index([organizationId])
 }
 
 // Pre-planned agenda item (stored before meeting starts)
 model MeetingAgendaItem {
-  id               String        @id @default(uuid())
+  id               String   @id @default(uuid())
   packetId         String
-  position         Int           @default(0)
+  position         Int      @default(0)
   title            String
   description      String?
   estimatedMinutes Int?
   presenter        String?
-  createdAt        DateTime      @default(now())
+  createdAt        DateTime @default(now())
 
-  packet           MeetingPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
-  attachments      Attachment[]
+  packet      MeetingPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@index([packetId, position])
 }
 
 // File attachment for meetings and agenda items
 model Attachment {
-  id              String         @id @default(uuid())
-  type            AttachmentType
+  id   String         @id @default(uuid())
+  type AttachmentType
 
   // For uploaded files
-  filename        String?
-  mimeType        String?
-  sizeBytes       Int?
-  storagePath     String?        // Local path or S3 key
+  filename    String?
+  mimeType    String?
+  sizeBytes   Int?
+  storagePath String? // Local path or S3 key
 
   // For Bylawyer document links
-  documentId      String?        // References Bylawyer Document
-  versionId       String?        // Specific version (optional, null = current)
+  documentId String? // References Bylawyer Document
+  versionId  String? // Specific version (optional, null = current)
 
   // Relationships
-  meetingPacketId String?        // For meeting-level attachments
-  agendaItemId    String?        // For agenda-item-level attachments
+  meetingPacketId String? // For meeting-level attachments
+  agendaItemId    String? // For agenda-item-level attachments
 
-  displayName     String         // User-friendly name
-  description     String?
-  position        Int            @default(0)
-  uploadedAt      DateTime       @default(now())
-  uploadedBy      String?        // User email
+  displayName String // User-friendly name
+  description String?
+  position    Int      @default(0)
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String? // User email
 
-  meetingPacket   MeetingPacket?     @relation(fields: [meetingPacketId], references: [id], onDelete: Cascade)
-  agendaItem      MeetingAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
-  document        Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  meetingPacket MeetingPacket?     @relation(fields: [meetingPacketId], references: [id], onDelete: Cascade)
+  agendaItem    MeetingAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  document      Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([meetingPacketId])
   @@index([agendaItemId])
@@ -285,6 +299,14 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]
+
+  // The TERMS_VERSION (shared/constants) the user last accepted, and when
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+
+  memberships OrganizationMember[]
+  invitesSent OrganizationInvite[]
+  amendments  Amendment[]
 }
 
 // A signed-in device. Only the SHA-256 hash of the session token is stored.
@@ -312,4 +334,43 @@ model SignInCode {
   createdAt  DateTime  @default(now())
 
   @@index([email, createdAt])
+}
+
+// Roles in an organization, lowest first. Each role can do everything the roles before it can.
+enum OrgRole {
+  viewer
+  member
+  secretary
+  admin
+  owner
+}
+
+// A user's role in an organization
+model OrganizationMember {
+  organizationId String
+  userId         Int
+  role           OrgRole
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+}
+
+// One row per add-by-email, kept after it is used, so the daily limit can count them
+model OrganizationInvite {
+  id             String       @id @default(uuid())
+  organizationId String
+  email          String // lowercased
+  role           OrgRole
+  invitedById    Int?
+  createdAt      DateTime     @default(now())
+  acceptedAt     DateTime? // set when it became a membership
+  canceledAt     DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User?        @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([email])
 }
