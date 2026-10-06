@@ -6,15 +6,25 @@ import { useSocket } from '../../context/SocketContext';
 import { Button, Card } from '../../components/ui';
 import { colors, spacing, typography, borderRadius } from '../../theme';
 import { MOTIONS, CATEGORY_INFO } from '@robbie-bylawyer/shared/constants';
-import { generateId } from '@robbie-bylawyer/shared/utils';
+import { generateId, getValidMotions } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 
 // Motion categories in display order
 const CATEGORY_ORDER = ['privileged', 'subsidiary', 'incidental', 'main'] as const;
 
+// Motions that need a form the mobile app doesn't have yet (choosing a tabled motion, a bylaw
+// section, a rule, an agenda change); they are made from the web app
+const WEB_ONLY_MOTIONS = new Set([
+  'takeFromTable',
+  'reconsider',
+  'suspendRules',
+  'bylawAmendment',
+  'amendAgenda',
+]);
+
 export default function MotionsScreen() {
   const router = useRouter();
-  const { dispatch, currentUser } = useSocket();
+  const { dispatch, currentUser, state } = useSocket();
   const [selectedMotion, setSelectedMotion] = useState<string | null>(null);
   const [motionText, setMotionText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +40,8 @@ export default function MotionsScreen() {
         motionType: selectedMotion,
         mover: currentUser.name,
         moverId: currentUser.id,
-        text: motionText || '',
+        // The motion's standard wording when no details are given, as on the web
+        text: motionText.trim() || MOTIONS[selectedMotion]?.phrase || '',
         timestamp: new Date().toISOString(),
       };
 
@@ -43,20 +54,23 @@ export default function MotionsScreen() {
     }
   }, [selectedMotion, currentUser, motionText, dispatch, router]);
 
-  // Group motions by category
+  // Group the motions in order right now by category
   const groupedMotions = useMemo(() => {
+    const inOrder = getValidMotions(state, currentUser?.id).filter(
+      (m) => !WEB_ONLY_MOTIONS.has(m.key),
+    );
     return CATEGORY_ORDER.map((categoryId) => {
       const categoryInfo = CATEGORY_INFO[categoryId];
-      const motions = Object.entries(MOTIONS)
-        .filter(([, def]) => def.category === categoryId)
-        .map(([type, def]) => ({ type, ...def }));
+      const motions = inOrder
+        .filter((m) => m.category === categoryId)
+        .map((m) => ({ ...m, type: m.key }));
       return {
         id: categoryId,
         label: categoryInfo?.label || categoryId,
         motions,
       };
     }).filter((group) => group.motions.length > 0);
-  }, []);
+  }, [state, currentUser?.id]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -88,6 +102,11 @@ export default function MotionsScreen() {
             </Card>
           </View>
         ))}
+
+        <Text style={styles.webOnlyNote}>
+          Take from the Table, Reconsider, Suspend the Rules, Bylaw Amendment and Amend the Agenda
+          are made from the web app.
+        </Text>
 
         {selectedMotion && MOTIONS[selectedMotion] && (
           <View style={styles.formSection}>
@@ -126,6 +145,11 @@ export default function MotionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  webOnlyNote: {
+    fontSize: typography.sm.fontSize,
+    color: colors.gray[500],
+    marginBottom: spacing[4],
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background.secondary,
