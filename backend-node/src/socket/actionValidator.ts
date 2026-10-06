@@ -6,8 +6,13 @@
 
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
-import { wasMotionDefeated } from '@robbie-bylawyer/shared/utils';
+import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
+import {
+  canChairVoteDecide,
+  isRuleSuspended,
+  isSecondaryAmendmentInOrder,
+  wasMotionDefeated,
+} from '@robbie-bylawyer/shared/utils';
 
 export interface ValidationResult {
   valid: boolean;
@@ -41,6 +46,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.meetingActive) {
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
+      // A motion made during a vote would become the pending question and take over the votes
+      // already cast, and one made while another awaits a second would replace it
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'No motion can be made while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Another motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
       // Validate motion text length
       if (action.text && action.text.length > 500) {
         return {
@@ -57,8 +78,37 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'UNKNOWN_MOTION_TYPE',
         };
       }
-      // Check precedence if there's a current motion
-      if (state.currentMotion) {
+      // Motions whose effect depends on details: without them the motion could be adopted and
+      // then do nothing
+      const missingDetails =
+        (action.motionType === 'takeFromTable' &&
+          !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
+        (action.motionType === 'reconsider' &&
+          !state.completedMotions.some((m) => m.id === action.reconsideredMotionId)) ||
+        (action.motionType === 'suspendRules' &&
+          !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
+        (action.motionType === 'bylawAmendment' &&
+          !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
+        (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
+      if (missingDetails) {
+        return {
+          valid: false,
+          error: `${definition.name} needs details this request did not include`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      // A secondary amendment is in order only on a pending primary amendment; its numeric
+      // precedence can't express that, so it is checked by type instead
+      if (action.motionType === 'amendAmendment') {
+        if (!isSecondaryAmendmentInOrder(state)) {
+          return {
+            valid: false,
+            error: 'Amend the Amendment is only in order while an amendment is pending',
+            errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+          };
+        }
+      } else if (state.currentMotion) {
+        // Check precedence if there's a current motion
         const currentDef = MOTIONS[state.currentMotion.type];
         if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
           return {
@@ -69,7 +119,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         }
       }
       // Block renewal of substantially similar defeated motions (by subject matter for main motions)
-      if (wasMotionDefeated(state, action.motionType, action.text)) {
+      if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
         return {
           valid: false,
           error: 'A substantially similar motion was already defeated this meeting',
@@ -85,6 +135,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'No motion pending a second',
           errorCode: 'NO_PENDING_SECOND',
+        };
+      }
+      // RONR: the mover can't second their own motion (unless that rule is suspended)
+      if (
+        action.seconderId !== undefined &&
+        action.seconderId === state.pendingSecond.moverId &&
+        !isRuleSuspended(state, 'mover-cannot-second')
+      ) {
+        return {
+          valid: false,
+          error: 'You cannot second your own motion',
+          errorCode: 'INVALID_ACTION',
         };
       }
       return { valid: true };
@@ -112,20 +174,30 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.voters.includes(action.voterId)) {
-        return { valid: false, error: 'You have already voted', errorCode: 'ALREADY_VOTED' };
-      }
-      // Chair voting restriction (unless suspended or deciding vote)
-      if (!action.isChairDecidingVote) {
+      // A member who has voted may change the vote until the result is announced (RONR); the
+      // reducer moves the count from the old choice to the new one
+      // Chair voting restriction (unless suspended): the chair votes only when the vote would
+      // change the result. That is checked here, not taken from the client's flag.
+      {
         const voter = state.members.find((m) => m.id === action.voterId);
-        if (voter?.role === 'chair') {
-          const ruleActive = !state.suspendedRules.some(
-            (s) => s.rule === 'chair-voting-restriction' && !s.actionCompleted,
-          );
-          if (ruleActive) {
+        // On a secret ballot the chair votes like any member (RONR)
+        if (
+          voter?.role === 'chair' &&
+          state.votingMethod !== 'ballot' &&
+          !isRuleSuspended(state, 'chair-voting-restriction')
+        ) {
+          // Judge on the other members' votes, leaving out a vote the chair already cast
+          const previous = state.voterChoices[action.voterId];
+          const othersVotes = previous
+            ? { ...state.votes, [previous]: state.votes[previous] - 1 }
+            : state.votes;
+          const decides =
+            action.isChairDecidingVote &&
+            canChairVoteDecide(othersVotes, state.currentMotion?.vote ?? 'majority');
+          if (!decides) {
             return {
               valid: false,
-              error: 'Chair cannot vote except to break ties',
+              error: "The chair votes only when the chair's vote would change the result",
               errorCode: 'CHAIR_CANNOT_VOTE',
             };
           }
@@ -417,9 +489,16 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'WRONG_POSITION',
         };
       }
-      // Check if already nominated
+      // Check if already nominated. A nominee from outside the meeting has no member ID (0),
+      // so they are told apart by name.
+      const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const alreadyNominated = state.nominations.some(
-        (n) => n.position === action.position && n.nomineeId === action.nomineeId && !n.declined,
+        (n) =>
+          n.position === action.position &&
+          !n.declined &&
+          (action.nomineeId
+            ? n.nomineeId === action.nomineeId
+            : !n.nomineeId && sameName(n.nomineeName, action.nomineeName)),
       );
       if (alreadyNominated) {
         return {
@@ -599,7 +678,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'CHAIR_RULING':
-      // Chair rulings require context of what's being ruled on
+      // A ruling pops the pending motion; during a vote that would leave the vote open with
+      // nothing to decide, and closing it would then drop the motion underneath undecided
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'The chair cannot rule while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
       // The reducer handles context-specific validation
       return { valid: true };
 
@@ -711,6 +798,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'No proxy authority for this member',
           errorCode: 'NO_PROXY_AUTHORITY',
+        };
+      }
+      // A proxy may cast or change the member's vote, but not replace one cast in person
+      const votedInPerson =
+        state.voters.includes(action.forMemberId) &&
+        !state.proxyVotes.some((pv) => pv.memberId === action.forMemberId);
+      if (votedInPerson) {
+        return {
+          valid: false,
+          error: 'This member has already voted in person',
+          errorCode: 'ALREADY_VOTED',
         };
       }
       return { valid: true };
@@ -936,10 +1034,44 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // Always valid - chair setting
       return { valid: true };
 
+    case 'SET_MEETING_STAGE': {
+      const { stage } = action;
+      if (!state.meetingActive) {
+        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+      }
+      // Starting and adjourning the meeting set the other stages
+      if (!DISPLAYABLE_STAGES.some((s) => s.stage === stage)) {
+        return { valid: false, error: 'Unknown meeting stage', errorCode: 'INVALID_ACTION' };
+      }
+      return { valid: true };
+    }
+
+    case 'SET_QUORUM':
+      if (!Number.isInteger(action.quorum) || action.quorum < 1) {
+        return {
+          valid: false,
+          error: 'Quorum must be a whole number of at least 1',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+
+    case 'REORDER_AGENDA': {
+      const inAgenda = (index: number) =>
+        Number.isInteger(index) && index >= 0 && index < state.agenda.length;
+      if (!inAgenda(action.fromIndex) || !inAgenda(action.toIndex)) {
+        return {
+          valid: false,
+          error: 'The agenda has changed; reload and try again',
+          errorCode: 'ITEM_NOT_FOUND',
+        };
+      }
+      return { valid: true };
+    }
+
     // Actions that are always valid if meeting is active
     case 'ADD_AGENDA_ITEM':
     case 'REMOVE_AGENDA_ITEM':
-    case 'REORDER_AGENDA':
     case 'SET_SPEAKER_TIME_LIMIT':
     case 'SET_VOTE_TIME_LIMIT':
     case 'SET_VOTING_METHOD':
@@ -949,8 +1081,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'SUSPEND_RULE_APPROVED':
       return { valid: true };
 
-    default:
-      // Unknown action type - reject for safety
+    default: {
+      // Every action type needs a case above; this fails to compile if one is missing
+      const unhandled: never = action;
+      void unhandled;
+      // Unknown action type from a client - reject for safety
       return { valid: false, error: 'Unknown action type', errorCode: 'INVALID_ACTION' };
+    }
   }
 }

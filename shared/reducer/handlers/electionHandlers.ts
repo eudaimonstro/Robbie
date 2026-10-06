@@ -136,7 +136,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       let winner: string | null = null;
       const sortedCandidates = Object.entries(results).sort((a, b) => b[1] - a[1]);
 
-      if (sortedCandidates.length > 0) {
+      // With no ballots cast there is no result to declare, by any rule
+      if (sortedCandidates.length > 0 && totalVotes > 0) {
         const topCandidate = sortedCandidates[0];
         const topVotes = topCandidate[1];
 
@@ -166,7 +167,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       // Check for tie at the top
       const topVotes = sortedCandidates[0]?.[1] ?? 0;
       const tiedCandidates = sortedCandidates.filter(([, votes]) => votes === topVotes);
-      const hasTie = tiedCandidates.length > 1;
+      // Candidates level at 0 (no ballots) are not a tie to run off
+      const hasTie = tiedCandidates.length > 1 && topVotes > 0;
       const needsRunoff = hasTie && (requiredVotes === 'plurality' || !winner);
 
       if (needsRunoff) {
@@ -198,6 +200,32 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         };
       }
 
+      // RONR: balloting continues until a candidate has the required vote, and no candidate is
+      // dropped, so open the next ballot instead of leaving the election closed with no one
+      // elected (nothing could move it on from there)
+      if (!winner) {
+        const ballot = (state.currentElection.runoffRound ?? 0) + 2;
+        return {
+          ...state,
+          currentElection: {
+            ...state.currentElection,
+            ballotResults: state.currentElection.candidates.reduce(
+              (acc, c) => ({ ...acc, [c.name]: 0 }),
+              {} as Record<string, number>,
+            ),
+            votersWhoVoted: [],
+            votingInProgress: true,
+            elected: null,
+            // Counts the repeated ballots (the first ballot is round 0)
+            runoffRound: ballot - 1,
+          },
+          meetingLog: log(
+            typedAction.timestamp,
+            `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. No candidate received the required ${requiredVotes} vote. Ballot ${ballot} is now open.`,
+          ),
+        };
+      }
+
       return {
         ...state,
         currentElection: {
@@ -207,7 +235,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         },
         meetingLog: log(
           typedAction.timestamp,
-          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner ? `${winner} elected.` : 'No candidate elected (majority not reached).'}`,
+          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner} elected.`,
         ),
       };
     }

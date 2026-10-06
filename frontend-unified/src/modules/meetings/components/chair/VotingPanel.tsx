@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { canChairVoteDecide, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import { CountdownTimer } from '../CountdownTimer';
 
@@ -33,27 +33,24 @@ export const VotingPanel = React.memo(function VotingPanel({
 
   // Memoize voting panel computed values
   const votingData = useMemo(() => {
-    if (!state.votingOpen || !chair) return null;
+    if (!state.votingOpen) return null;
 
-    const chairHasVoted = state.voters.includes(chair.id);
+    // An admin may preside with no member holding the chair role; the vote can still be closed
+    const chairHasVoted = chair ? state.voters.includes(chair.id) : false;
     const { yea, nay } = state.votes;
-    const total = yea + nay;
-    const threshold = state.currentMotion?.vote === '2/3' ? (total * 2) / 3 : total / 2;
-    const currentlyPassing = yea > threshold;
     const isTied = yea === nay;
 
-    // Chair can vote to break tie or create tie
-    const canVoteToBreakTie = isTied && !chairHasVoted;
-    const canVoteToCreateTie = !isTied && yea === nay + 1 && !chairHasVoted;
+    // The chair votes only when that vote would change the result (break or make a tie, or
+    // reach or block two-thirds), judged on the votes already cast
+    const chairVoteDecides =
+      !chairHasVoted && canChairVoteDecide(state.votes, state.currentMotion?.vote ?? 'majority');
 
     return {
       chairHasVoted,
       yea,
       nay,
-      currentlyPassing,
       isTied,
-      canVoteToBreakTie,
-      canVoteToCreateTie,
+      chairVoteDecides,
     };
   }, [state.votingOpen, state.voters, state.votes, state.currentMotion?.vote, chair]);
 
@@ -145,12 +142,13 @@ export const VotingPanel = React.memo(function VotingPanel({
       {/* Chair voting rules */}
       {state.votingMethod !== 'ballot' &&
         !votingData.chairHasVoted &&
-        (votingData.canVoteToBreakTie || votingData.canVoteToCreateTie) &&
+        votingData.chairVoteDecides &&
         chair && (
           <div className="mb-3 p-3 bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg">
             <p className="text-meeting-800 dark:text-meeting-300 font-medium mb-2">
-              {votingData.canVoteToBreakTie && 'Chair may vote to break the tie'}
-              {votingData.canVoteToCreateTie && 'Chair may vote to create a tie (defeat motion)'}
+              {votingData.isTied
+                ? 'Chair may vote to break the tie'
+                : "Chair may vote, since the chair's vote would change the result"}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -184,9 +182,22 @@ export const VotingPanel = React.memo(function VotingPanel({
         )}
 
       {state.votingMethod === 'ballot' && !votingData.chairHasVoted && chair && (
-        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3 bg-secondary-50 dark:bg-secondary-800 p-2 rounded-sm">
-          🔒 Secret Ballot - Chair votes like other members
-        </p>
+        <div className="mb-3 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
+          <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-2">
+            🔒 Secret Ballot - Chair votes like other members
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['yea', 'nay', 'abstain'] as const).map((vote) => (
+              <button
+                key={vote}
+                onClick={() => dispatch({ type: 'CAST_VOTE', vote, voterId: chair.id })}
+                className="bg-secondary-600 text-white py-2 rounded-lg font-medium hover:bg-secondary-700"
+              >
+                Vote {vote === 'yea' ? 'Yea' : vote === 'nay' ? 'Nay' : 'Abstain'}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <button

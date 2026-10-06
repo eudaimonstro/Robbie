@@ -29,6 +29,8 @@ export function useSocketConnection(
 
   const isConnectingRef = useRef(false);
   const socketRef = useRef<TypedSocket | null>(null);
+  // Version of the state on screen, so an update that arrives late can't roll it back
+  const stateVersionRef = useRef(0);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read the latest onInvalidToken through a ref so a caller passing a new function each
@@ -89,6 +91,7 @@ export function useSocketConnection(
         (response) => {
           isConnectingRef.current = false;
           if (response.success) {
+            stateVersionRef.current = response.stateVersion ?? 0;
             setState(response.state!);
             setConnectedMembers(response.members || []);
             setIsConnected(true);
@@ -116,6 +119,8 @@ export function useSocketConnection(
     });
 
     newSocket.on('STATE_UPDATE', (data: StateUpdatePayload) => {
+      if (data.stateVersion < stateVersionRef.current) return;
+      stateVersionRef.current = data.stateVersion;
       setState(data.state);
       setConnectedMembers(data.state.members.filter((m) => m.present));
     });
@@ -160,8 +165,15 @@ export function useSocketConnection(
 
       const TIMEOUT_MS = 10000;
 
-      const actionPromise = new Promise<boolean>((resolve) => {
+      return new Promise<boolean>((resolve) => {
+        // Cleared when the server answers, so the timeout only reports an unanswered action
+        const timer = setTimeout(() => {
+          setTemporaryError('Action timed out. Please try again.');
+          resolve(false);
+        }, TIMEOUT_MS);
+
         currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
+          clearTimeout(timer);
           if (response.success) {
             resolve(true);
           } else {
@@ -170,24 +182,18 @@ export function useSocketConnection(
           }
         });
       });
-
-      const timeoutPromise = new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          setTemporaryError('Action timed out. Please try again.');
-          resolve(false);
-        }, TIMEOUT_MS);
-      });
-
-      return Promise.race([actionPromise, timeoutPromise]);
     },
     [isConnected, clientSequence, setTemporaryError],
   );
 
-  // Reconnect
+  // Reconnect. A socket that is connected but not in the meeting (its join failed) is cycled,
+  // since joining happens on connect.
   const reconnect = useCallback(() => {
-    if (socketRef.current && !socketRef.current.connected) {
-      socketRef.current.connect();
-    }
+    const socket = socketRef.current;
+    if (!socket) return;
+    if (socket.connected) socket.disconnect();
+    setError(null);
+    socket.connect();
   }, []);
 
   // Disconnect

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { organizations, documents, versions } from '../client';
+import { organizations, documents, versions, amendments } from '../client';
 
 function mockResponse(status: number, body: unknown) {
   vi.stubGlobal(
@@ -39,5 +39,25 @@ describe('API client errors', () => {
   it('falls back to the HTTP status when the body has no message', async () => {
     mockResponse(403, {});
     await expect(organizations.get('forbidden-org')).rejects.toThrow('HTTP 403');
+  });
+});
+
+describe('API client cache', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('refetches a document after applying an amendment changes it', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ id: 'doc-1', currentVersionId: 'v1' })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await documents.get('doc-1');
+    await amendments.apply('amend-1');
+    await documents.get('doc-1');
+
+    // The apply makes a new current version, so the cached document is out of date
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

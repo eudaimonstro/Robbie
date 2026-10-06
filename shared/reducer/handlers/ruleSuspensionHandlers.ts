@@ -56,10 +56,12 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
         timestamp: typedAction.timestamp,
       };
 
+      // The ruling disposes of the point; the motion it interrupted is pending again
+      const motionStack = state.motionStack.slice(0, -1);
       return {
         ...state,
-        currentMotion: null,
-        motionStack: state.motionStack.slice(0, -1),
+        currentMotion: motionStack.at(-1) ?? null,
+        motionStack,
         lastChairRuling,
         meetingLog: log(typedAction.timestamp, logMessage),
       };

@@ -1,6 +1,6 @@
 # Robbie-Bylawyer: Finishing Spec
 
-Status: draft, revised 2026-10-05 after a full code audit
+Status: draft, revised 2026-10-05 after a full code audit, and 2026-10-06 after a bug scan of every module
 
 ## 1. What this project is
 
@@ -84,13 +84,12 @@ Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the 
 
 ### M4. Security fixes that stand alone
 
-- **Path traversal:** `X-Robbie-Code` flows into `path.join(UPLOAD_DIR, robbieCode)` (`services/fileStorage.ts:117`). Validate it against the meeting code format and against the packet's `robbieCode`.
+- **Fixed 2026-10-06:** path traversal in uploads. Files are stored under the packet's own meeting code (a mismatched `X-Robbie-Code` is rejected), packet codes are validated, and file storage refuses any path outside the uploads directory (cleanup with a code of `..` would have deleted the uploads directory's parent).
+- **Fixed 2026-10-06:** a section can no longer be made its own ancestor (or take a parent from another version); `GET /sections/:id/path` stops at a cycle already in the data. A cycle used to make it loop forever, one query per step.
+- **Fixed 2026-10-06:** unknown `/api/*` paths return a JSON 404 (they returned `index.html` with status 200); raw error messages are no longer sent to clients; without `CLIENT_ORIGIN`, production allows no cross-origin requests; Postgres TLS is one setting for the pool and Prisma (`sslmode` in the URL, else `DATABASE_SSL`, else none for this machine and for a Compose service name, and required for other hosts), so a database at `127.0.0.1` or in the Compose `postgres` service connects with no extra setting.
 - Sniff file content type rather than trusting the `Content-Type` header.
-- Delete stored files when a packet, agenda item, or attachment is deleted (`routes/packets.ts:197` TODO; `cleanupMeetingFiles` is never called).
-- CORS: require `CLIENT_ORIGIN` in production instead of falling back to any localhost origin (`index.ts:43-45`).
-- Never return raw `error.message` as `details` to clients.
-- Unknown `/api/*` paths return JSON 404 instead of falling through to the SPA catch-all (`index.ts:117`), which currently returns `index.html` with status 200.
-- Postgres TLS: `rejectUnauthorized: false` (`db/client.ts:22`) only when explicitly configured.
+- Delete stored files when a packet, agenda item, or attachment is deleted (`routes/packets.ts` TODO; `cleanupMeetingFiles` is never called).
+- `rejectUnauthorized: false` is still the default for remote databases (hosted Postgres often needs it); production should set `DATABASE_SSL=verify` where the provider's certificate allows.
 
 ### M5. One data model
 
@@ -107,8 +106,9 @@ Today the database is split. Prisma manages Bylawyer tables. Robbie tables are c
 
 ### M6. Reliable amendment sync and applying amendments
 
-- Wrap `applyAmendment` in a single `prisma.$transaction` (there is none anywhere today). Compute the next version number inside it.
-- If the target section is missing from the current version, fail with `conflict` instead of silently creating an unchanged version (`amendmentService.ts:169-204`).
+- **Fixed 2026-10-06:** sync from a live meeting works. Motion IDs (about 1.8e15) overflowed the INTEGER `Amendment.robbieMotionId`, so every sync failed on its first query; the column is now BIGINT. The sync also stamped amendments with `new Date("12:47:25 AM")` (a display time of day), which Prisma rejected. Verified end to end in a browser: a bylaw amendment made, seconded and passed in a linked meeting creates the amendment and a new version with the amended text.
+- **Fixed 2026-10-06:** applying an amendment is one transaction (version number included) and is checked against the current version first. A change to a section that isn't in it (a stale amendment) is a 409 with nothing written, a change to a section an earlier change deletes is skipped (as the preview does), and the decision date is kept. Stale amendments used to apply as silent no-ops, and delete-then-modify left orphan versions.
+- Recording a vote (`POST /meetings/:id/votes`, `routes/meetings.ts:193-195`) ignores `requires`, so a two-thirds amendment passes on a simple majority. The vote and the amendment status update are not in a transaction.
 - Honor `parentSectionId` for `add` changes (currently dropped).
 - Set `adoptedAt` and `effectiveDate` on synced versions (default: adoption time, overridable by the motion), so history-by-date includes them.
 - Create a real Bylawyer `Vote` linked to the unified Meeting, with tallies and, for roll-call votes only, per-member choices.
@@ -121,20 +121,30 @@ Today the database is split. Prisma manages Bylawyer tables. Robbie tables are c
 
 Verified defects:
 
-- **Two-thirds is computed wrong.** `voteCalculator.ts:20` requires `yea > total * 2/3`, so 6-3 fails. RONR passes exactly two-thirds. A test locks the bug in (`voteCalculator.test.ts:29`). Elections use `>=` instead, so the two are inconsistent.
-- **Secondary amendments are unreachable.** `amendAmendment` has precedence 2.5, below `amend` at 3 (`constants/motions.ts:21-22`), so it is never in order. The test passes only because its mock uses a different precedence.
-- **Appeal tie overturns the chair.** Under RONR a tie sustains the chair.
-- `'none'` vote motions are treated as majority if put to a vote.
+- **Fixed 2026-10-06:** two-thirds now passes at exactly two-thirds (`yea * 3 >= total * 2`; a 6-3 vote used to fail), and an appeal tie sustains the chair (it used to overturn).
+- **Fixed 2026-10-06:** secondary amendments (amend the amendment) are offered, and accepted by the server, exactly when a primary amendment is the immediately pending question. Its numeric precedence (2.5, below `amend` at 3) had hidden it from the menu, made the server reject it on an amendment, and let the server accept it on a bare main motion. Adopting an amendment still doesn't change the motion's text; see Missing effects below.
+- `'none'` vote motions (points, privilege) are decided by the chair, not put to a vote. Whether the vote calculator should treat `'none'` as a majority is a design question, not a confirmed bug.
 - Mover withdraws a seconded motion unilaterally (RONR: needs the assembly's permission once stated by the chair).
 - Lay on the Table leaves the motion on the stack and drops its adhering amendments.
 - Division of a Question only ever considers part 1.
-- `CHAIR_RULING` clears `currentMotion` while the stack still holds a motion.
+- **Fixed 2026-10-06:** after a chair ruling, the motion the point interrupted is pending again (`CHAIR_RULING` used to clear `currentMotion` while the stack still held it). A ruling and any new motion are rejected while a vote is open, and a motion is rejected while another awaits a second: a point of order made during a vote took over the votes already cast, and a second motion replaced the first.
+- **Fixed 2026-10-06:** Main Motion, Bylaw Amendment, Take from the Table and Reconsider are offered to members; the motion picker never listed main motions, so members could bring no new business. A defeated bylaw amendment now bars only the same change (document, section, change type and wording); it used to bar every later bylaw amendment in the meeting.
+- **Fixed 2026-10-06:** an election in which no one reaches the required vote opens another ballot with the same candidates (RONR). It used to stay closed with no one elected, and nothing could move it on.
+- **Fixed 2026-10-06:** reconsidered motions come back as they were (their own definition and original mover, by vote or by unanimous consent), and the reducer no longer calls `generateId()`.
+- **Fixed 2026-10-06:** voting: members may change their vote before the result is announced; the chair's deciding vote is accepted only when it would change the result (checked by the server, not taken from the client's flag, and not offered at 0-0); the chair votes on a secret ballot like any member; a proxy can't replace a vote the member cast in person; the "mover cannot second" rule is enforced.
+- **Fixed 2026-10-06:** single-action rule suspensions end once a question is decided; the speaker queue, current speaker and timer clear when a question is decided; an out-of-range agenda reorder is rejected (it used to insert `undefined` and break every later agenda action); advancing the order of business stops at its last stage (adjourning ends the meeting); special motions (take from the table, reconsider, suspend rules, bylaw amendment, amend agenda) are rejected without the details they act on; elections elect no one when no ballots were cast and accept more than one nominee from outside the meeting; smaller bookkeeping (agenda item status, motion rewording, the status of a motion that needs no second, appointing a chair).
 - Renewal check blocks by motion type only, so one defeated Take from the Table blocks all later ones.
-- Rebuilt reconsidered motions force `needsSecond`, `debatable`, `amendable` to true and replace the original mover.
 - Quorum is a fixed number (default 3), never enforced, and `proxiesCountForQuorum` is unused.
-- `CAST_VOTE` does not check `votingOpen`, membership, or presence, and trusts client-sent `isChairDecidingVote`.
 - Ballot votes are not secret: `voterChoices` are stored and exported in minutes.
-- Purity: `generateId()` runs inside the reducer at CLOSE_VOTING. Move ID generation before dispatch.
+
+Found by the 2026-10-06 bug scan, not yet fixed:
+
+- The server rejects any motion while another awaits a second, which also blocks a point of order RONR would allow at that moment (the web client hides the motion panel then anyway). Allow incidental motions that don't replace `pendingSecond` once the reducer can hold both.
+- `debatePositions` is global rather than per motion, so the side-switch rule carries across an amendment's debate. Keying it by motion changes the stored state's shape, so it needs a migration of live meeting state.
+- A present member can grant a proxy (only absence should allow it), and roll call leaves non-responders' presence unchanged.
+- The chair's deciding vote is judged by the motion's vote rule, so on an appeal (where a tie sustains the chair) the offer at a tie is wrong.
+- An election that keeps producing no winner can only end by the chair declaring someone elected; a "close with no result" action is missing.
+- Joining a second meeting runs the disconnect handler, which also resets the user's rate-limit buckets. Harmless with per-meeting tokens, but the reset belongs to a real disconnect only.
 
 Missing effects (adoption currently only pops the stack):
 
@@ -145,7 +155,7 @@ Missing motions: Rescind / Amend Something Previously Adopted, Division of the A
 
 Bylaw amendments use the organization's configured threshold and previous-notice rule (M5), checked against the roster when the threshold is "entire membership".
 
-Unenforced suspendable rules: pro-con alternation, motion renewal, chair voting restriction, mover cannot second, order of business. Either enforce them or remove them from the suspend list.
+Unenforced suspendable rules: pro-con alternation, motion renewal, order of business. Either enforce them or remove them from the suspend list.
 
 Done when: a table-driven test suite covers every motion in `constants/motions.ts` with in-order, out-of-order, pass, and fail cases. The three tests that lock in bugs are corrected, and the table is reviewed against RONR (12th ed.) section references.
 
@@ -163,10 +173,10 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 
 API mismatches (the client calls endpoints that don't exist):
 
-- The public share page is broken: the client calls `/public/documents/:token/...` but the backend serves `/share/:token/...`.
+- **Fixed 2026-10-06:** the public share page loads from `/share/:token` and switches versions.
 - Header search calls `/search`, which doesn't exist, and the error is swallowed.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
-- Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
+- **Fixed 2026-10-06:** agenda item and attachment reordering (the `reorder` routes are now registered before `/:id`).
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
 - **Fixed 2026-10-06:** the API is now camelCase end to end. The documents UI typed every field in snake_case while most responses were camelCase, so every date showed "Invalid Date", the version picker was empty, and the amendment page requested `/api/documents/undefined`. The same fix covered: effective dates showing a day early west of UTC, every recorded vote displaying as Failed (the UI read a `passed` field the API never sends), and API errors showing as a bare "HTTP 4xx".
 
@@ -175,10 +185,33 @@ Other work:
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
-- **Document page header overflow blocks a primary action:** at 1280px wide, the Pending Amendments card covers the header buttons, so "Propose Amendment" can't be clicked. It works from about 1700px.
-- **Meeting code changes when the meeting starts:** `MeetingControlPanel` dispatches `START_MEETING` with a newly generated `meetingCode`, and the reducer stores it. The header then shows a code (e.g. `MQGESQ`) that differs from the room everyone joined (`DEMO`). Keep the room's code.
+- **Fixed 2026-10-06:** the document page header overflowed under the Pending Amendments panel. At 1280px "Propose Amendment" was unclickable, at 1024px four controls were, and on phones all six were, with the 320px panel covering the content. The header now wraps, and below 1280px the panel stacks under the content. The M9 Playwright smoke tests should assert at 390px and 1280px that no control in `main` is covered or off-screen (`document.elementFromPoint` at each control's center).
+- **Fixed 2026-10-06:** the meeting code no longer changes when the chair starts the meeting. `START_MEETING` used to carry a new random code into the state, which broke org linking (bylaw sync), meeting documents, minutes and the DEMO test switcher.
 - Request schemas accept both snake_case and camelCase (`number_label || numberLabel`). Now that the client sends camelCase, drop the snake_case keys and make the schemas `.strict()`, so a stale key returns 400 instead of being silently stripped. `AmendmentChangeCreate.position` is accepted in neither style today.
-- The New Version form has no effective-date field, so versions created in the UI have no effective date and never appear in history-by-date.
+- **Fixed 2026-10-06:** the New Version form has an optional effective-date field, so UI-created versions appear in the version picker with their date and in history-by-date.
+- **Fixed 2026-10-06** (found by the bug scan):
+  - A spurious "Action timed out" error appeared 10 seconds after every action (web and mobile): the timer was never cleared.
+  - Vote results never showed and the chair script never said "The motion has carried": both parsed "Motion CARRIED", which the reducer never writes. Their tests used hand-written logs in that format; they now run a vote through the reducer.
+  - An admin presiding without a chair couldn't close a vote, answer inquiries, run elections, put an agenda item to a vote, or restore a rule. These panels looked for a member with the chair role.
+  - Members couldn't nominate or vote in elections on the web; those panels were only in the chair and admin views.
+  - "Call for the Orders of the Day" left the chair with no buttons, blocking the meeting.
+  - Changing the meeting stage or quorum always failed with "Unknown action type". The validator now fails to compile when an action type has no case.
+  - Moving between documents kept the previous document's version, so Add Section wrote into the wrong document. With no current version, the oldest was selected.
+  - The response cache survived writes that change other resources (applying an amendment left the old current version for 30 seconds); any write now clears it.
+  - The Edit Amendment form undid every keystroke in the title. The Compare page opened on the two oldest versions, newer on the left.
+- **Fixed 2026-10-06** (second pass):
+  - Organizations: a rename shows at once, deleting the current one selects another, and switching away from one organization's record page goes home.
+  - Edits can clear a section field or an amendment description, and a section can move to the root.
+  - The Add Change form sends only the fields shown for its type, and an add can be placed under a parent.
+  - Meeting times stay in the viewer's time zone (they shifted by the UTC offset on every save).
+  - The sidebar refreshes after document changes; Add Section is disabled until a version exists.
+  - The Compare page no longer reloads on each selection, and a late diff can't overwrite a newer one; the Amendments page takes its document filter from the URL; amendment and meeting pages refresh in place after actions.
+  - The version diff matches sections by their place in the document (duplicate labels under different articles no longer collide; a renumber is one change).
+  - REST input: bad or missing dates, a change without a type, `PUT /documents/:id` with `doc_type`, and unknown IDs in reorders return 400 or 404 instead of 500; positions of new agenda items and attachments no longer collide after a delete; concurrent first loads of a packet no longer fail.
+  - Live meetings: the connecting screen offers Try again and Leave; meeting updates that arrive out of order are ignored (clients track the state version); actions carry the member's current name; the self-second check uses IDs; the admin view acts as the signed-in admin.
+- Found by the 2026-10-06 bug scan, not yet fixed:
+  - Old versions are editable, which rewrites history (a design decision: see M5's immutability).
+  - The organization slug check races (a duplicate slug can return 500), and `PUT /organizations/:id` has no duplicate check.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
 - Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.
@@ -188,9 +221,10 @@ Other work:
 ### M10. Mobile (participant only)
 
 - Scope: join, raise hand, speaker queue, vote, view agenda and current motion, make in-order motions. Chair and admin stay web-only.
-- Filter the motion list to motions currently in order (today it lists all of them).
+- **Done 2026-10-06:** the motion list shows only motions currently in order, leaving out the five special motions (made from the web app, as the screen says); a motion with no typed details uses its standard wording.
 - Mount the proxy request and acceptance UI or remove it.
 - Restore the session on launch. Use `shared/types/socket` instead of redefined event types.
+- **Fixed 2026-10-06:** mobile members can vote when the chair holds a vote without quorum (with a warning, as on the web), and sign-in errors show the server's message.
 - **Done 2026-10-05:** the existing breakage is fixed. `tsc` is clean, jest runs all 53 tests (it previously found none), the app is on Expo SDK 57, and CI type-checks and tests mobile.
 - Done when: a participant can join, queue, make a motion, and vote against a dev backend, with jest coverage of the join and vote flows.
 
@@ -229,6 +263,8 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
   - Prisma 8: still a release candidate.
 - **Remaining audit (66: 0 critical, 50 high, 16 moderate):** almost all are inside Expo's and jest's own pinned dependency trees. Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15; these are dev-time only, and this is a Postgres project. Wait for upstream releases; forcing `overrides` broke the dependency tree when tried.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
+- **Fixed 2026-10-06:** concurrent actions were dropped. Every write re-read the state and retried a version conflict at most three times, so when many members voted or joined at once the rest failed with "State was modified by another user". Writes to a meeting now run through a per-meeting queue (fine on a single node), and a refreshed page no longer leaves its member marked absent. The action enricher also replaced the IDs on actions that refer to an existing item, so nominees couldn't decline and the chair's answers to inquiries were dropped, and it recorded every proxy the chair granted as the chair's own.
+- **Fixed 2026-10-06:** presence is reconciled with live connections on each join (a restart used to leave everyone present for good); a socket joining a second meeting leaves the first; clients ignore out-of-order state updates; the bylaw sync runs after the broadcast and acknowledgment, so closing a vote isn't held up by it.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
   **Target VPS (surveyed 2026-10-05):**
 

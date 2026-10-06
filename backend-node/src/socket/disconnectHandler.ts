@@ -36,13 +36,17 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
     const stillConnected = roomManager.isMemberConnected(meetingCode, socket.data.userId);
 
     if (!stillConnected) {
-      // Update member presence in state
-      const presenceResult = await applyAction(meetingCode, {
-        type: 'SET_MEMBER_PRESENCE',
-        memberId: socket.data.userId,
-        present: false,
-        timestamp,
-      });
+      // Update member presence in state. Writes to a meeting are queued, and a page refresh can
+      // reconnect the member before this one runs, so check again when it is applied.
+      const userId = socket.data.userId;
+      const presenceResult = await applyAction(
+        meetingCode,
+        { type: 'SET_MEMBER_PRESENCE', memberId: userId, present: false, timestamp },
+        () =>
+          roomManager.isMemberConnected(meetingCode, userId)
+            ? { valid: false, error: 'Member reconnected' }
+            : { valid: true },
+      );
 
       // Broadcast state update if presence changed
       if (presenceResult.success && presenceResult.state) {

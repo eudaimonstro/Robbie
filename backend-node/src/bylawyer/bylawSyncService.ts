@@ -145,6 +145,9 @@ async function syncMotionToBylawyer(
       voteRequirement: votedMotion.vote,
     };
 
+    // The motion's timestamp is only a display time of day; the sync runs as the vote closes
+    const decidedAt = new Date();
+
     // Create the amendment with Robbie tracking data
     const amendment = await prisma.amendment.create({
       data: {
@@ -152,8 +155,8 @@ async function syncMotionToBylawyer(
         title,
         description: votedMotion.text,
         status,
-        proposedAt: new Date(completedMotion.timestamp),
-        decidedAt: new Date(completedMotion.timestamp),
+        proposedAt: decidedAt,
+        decidedAt,
         robbieMeetingCode: meetingCode,
         robbieMotionId: votedMotion.id,
         robbieVoteData: voteData as any,

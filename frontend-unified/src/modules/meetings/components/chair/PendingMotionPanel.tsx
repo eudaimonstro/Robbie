@@ -55,7 +55,8 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
             <strong>Ruling being appealed:</strong> "{state.lastChairRuling.ruling}"
           </p>
           <p className="text-purple-600 text-xs">
-            Vote YEA to sustain the chair's decision, NAY to overturn it. Majority sustains.
+            Vote YEA to sustain the chair's decision, NAY to overturn it. A majority or a tie
+            sustains.
           </p>
         </div>
       )}
@@ -92,6 +93,8 @@ function ChairRulingControls({
           {state.currentMotion.type === 'pointInfo' && 'Provide or allow response to the inquiry.'}
           {state.currentMotion.type === 'withdrawMotion' &&
             'Allow or deny the request to withdraw.'}
+          {state.currentMotion.type === 'callOrderDay' &&
+            'Proceed to the scheduled business. Only a two-thirds vote can set it aside.'}
         </p>
       </div>
 
@@ -136,6 +139,17 @@ function ChairRulingControls({
             Deny Request
           </button>
         </div>
+      )}
+
+      {state.currentMotion.type === 'callOrderDay' && (
+        <button
+          onClick={() =>
+            dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
+          }
+          className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
+        >
+          Proceed to the Orders of the Day
+        </button>
       )}
 
       {state.currentMotion.type === 'pointInfo' && (

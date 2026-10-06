@@ -25,24 +25,24 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const data = await organizations.list();
       setOrgs(data);
 
-      // If we have organizations and none selected, select the first one
-      if (data.length > 0 && !currentOrganization) {
-        // Check localStorage for previously selected org
+      // Re-resolve the selection from the fresh list, so a rename shows and a deleted
+      // organization is replaced. Otherwise use the saved choice, or the first one.
+      setCurrentOrganization((current) => {
+        const stillListed = current && data.find((o) => o.id === current.id);
+        if (stillListed) return stillListed;
         const savedOrgId = localStorage.getItem('selectedOrganizationId');
-        const savedOrg = savedOrgId ? data.find((o) => o.id === savedOrgId) : null;
-        setCurrentOrganization(savedOrg || data[0]);
-      }
+        return data.find((o) => o.id === savedOrgId) ?? data[0] ?? null;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load organizations');
     } finally {
       setLoading(false);
     }
-  }, [currentOrganization]);
+  }, []);
 
   useEffect(() => {
     refreshOrganizations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshOrganizations]);
 
   // Save selected org to localStorage
   useEffect(() => {

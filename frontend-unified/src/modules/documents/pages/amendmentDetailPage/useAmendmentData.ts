@@ -34,11 +34,18 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
   const [sectionTree, setSectionTree] = useState<SectionTree[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Loading (which shows a full-page spinner) is for the first load of each amendment; a
+  // refresh after an action updates the page in place
+  const [loadedFor, setLoadedFor] = useState(amendmentId);
+  if (amendmentId !== loadedFor) {
+    setLoadedFor(amendmentId);
+    setLoading(true);
+  }
+
   const fetchAmendment = useCallback(async () => {
     if (!amendmentId) return;
 
     try {
-      setLoading(true);
       const amend = await amendmentsApi.get(amendmentId);
       setAmendment(amend);
 

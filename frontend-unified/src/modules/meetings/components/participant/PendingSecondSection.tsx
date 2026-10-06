@@ -40,7 +40,7 @@ export const PendingSecondSection = React.memo(function PendingSecondSection({
           {pendingSecond.name} by {pendingSecond.mover}
         </p>
       </div>
-      {pendingSecond.mover === currentUser.name ? (
+      {pendingSecond.moverId === currentUser.id ? (
         <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 text-center">
           <p className="text-primary-800 dark:text-primary-300 font-medium mb-1">
             You moved this motion

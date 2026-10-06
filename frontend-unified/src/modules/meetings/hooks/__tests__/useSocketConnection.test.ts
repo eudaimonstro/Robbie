@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { useSocketConnection } from '../useSocketConnection';
 import type { AuthState } from '../../types/socket';
 
@@ -52,5 +53,68 @@ describe('useSocketConnection', () => {
     rerender({ auth: { ...authState, meetingCode: 'OTHER1' } });
 
     expect(io).toHaveBeenCalledTimes(2);
+  });
+
+  describe('dispatch', () => {
+    type Handler = (...args: unknown[]) => void;
+
+    // A socket that joins on connect and acknowledges each action at once
+    function connectedSocket() {
+      const handlers: Record<string, Handler> = {};
+      const socket = {
+        connected: true,
+        on: vi.fn((event: string, handler: Handler) => {
+          handlers[event] = handler;
+        }),
+        emit: vi.fn((event: string, _data: unknown, callback?: Handler) => {
+          if (event === 'JOIN_MEETING') {
+            callback?.({ success: true, state: initialState, stateVersion: 1 });
+          }
+          if (event === 'DISPATCH_ACTION') callback?.({ success: true });
+        }),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      };
+      io.mockReturnValueOnce(socket as never);
+      return handlers;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('keeps the newest state when updates arrive out of order', () => {
+      const handlers = connectedSocket();
+      const { result } = renderHook(() => useSocketConnection(authState, () => {}));
+      act(() => handlers.connect());
+
+      const update = (stateVersion: number, quorum: number) => ({
+        state: { ...initialState, quorum },
+        stateVersion,
+      });
+      act(() => handlers.STATE_UPDATE(update(5, 5)));
+      act(() => handlers.STATE_UPDATE(update(4, 4)));
+
+      expect(result.current.state.quorum).toBe(5);
+    });
+
+    it('reports no timeout for an action the server acknowledged', async () => {
+      const handlers = connectedSocket();
+      const { result } = renderHook(() => useSocketConnection(authState, () => {}));
+      act(() => handlers.connect());
+
+      let succeeded: boolean | undefined;
+      await act(async () => {
+        succeeded = await result.current.dispatch({ type: 'START_MEETING', timestamp: '' });
+      });
+      act(() => vi.advanceTimersByTime(10_000));
+
+      expect(succeeded).toBe(true);
+      expect(result.current.error).toBeNull();
+    });
   });
 });

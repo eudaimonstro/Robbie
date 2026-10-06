@@ -119,7 +119,6 @@ export default function MeetingScreen() {
                 <VotingButtons
                   onVote={handleVote}
                   currentVote={currentVote}
-                  disabled={!hasQuorum}
                   hasQuorum={hasQuorum}
                 />
               </View>

@@ -1,3 +1,4 @@
+import { MOTIONS } from '../../constants/index.js';
 import { describe, it, expect } from 'vitest';
 import {
   getValidMotions,
@@ -98,6 +99,49 @@ describe('motionHelpers', () => {
       expect(motionKeys).toContain('recess');
     });
 
+    it('should offer main motions when no motion is pending', () => {
+      const motionKeys = getValidMotions(createMockState()).map((m) => m.key);
+      expect(motionKeys).toContain('mainMotion');
+      expect(motionKeys).toContain('bylawAmendment');
+      // Nothing has been tabled, so there is nothing to take from the table
+      expect(motionKeys).not.toContain('takeFromTable');
+    });
+
+    it('should offer each motion only once', () => {
+      const state = createMockState({ agendaAdopted: false, agendaObjection: true });
+      const motionKeys = getValidMotions(state).map((m) => m.key);
+      expect(new Set(motionKeys).size).toBe(motionKeys.length);
+    });
+
+    it('should not offer new business while an agenda objection is unresolved', () => {
+      const state = createMockState({ agendaAdopted: false, agendaObjection: true });
+      const motionKeys = getValidMotions(state).map((m) => m.key);
+      expect(motionKeys).not.toContain('mainMotion');
+      expect(motionKeys).not.toContain('bylawAmendment');
+    });
+
+    it('should offer take from the table only when a motion is tabled', () => {
+      const state = createMockState({ tabledMotions: [createMockMotion()] });
+      expect(getValidMotions(state).map((m) => m.key)).toContain('takeFromTable');
+    });
+
+    it('should not offer take from the table while a motion is pending', () => {
+      const state = createMockState({
+        tabledMotions: [createMockMotion()],
+        currentMotion: createMockMotion({ precedence: 1 }),
+        motionStack: [createMockMotion({ precedence: 1 })],
+      });
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
+    });
+
+    it('should not offer a bylaw amendment while another motion is pending', () => {
+      const state = createMockState({
+        currentMotion: createMockMotion({ precedence: 1 }),
+        motionStack: [createMockMotion({ precedence: 1 })],
+      });
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('bylawAmendment');
+    });
+
     it('should not allow main motion when another motion is pending', () => {
       const state = createMockState({
         currentMotion: createMockMotion({ precedence: 5 }),
@@ -182,8 +226,9 @@ describe('motionHelpers', () => {
     });
 
     it('should allow secondary amendment when primary amendment exists', () => {
+      // Use the real precedences: amend outranks amendAmendment numerically (3 vs 2.5)
       const mainMotion = createMockMotion({ type: 'mainMotion', precedence: 1 });
-      const amendment = createMockMotion({ type: 'amend', precedence: 2 });
+      const amendment = createMockMotion({ type: 'amend', precedence: MOTIONS.amend.precedence });
 
       const state = createMockState({
         currentMotion: amendment,
@@ -195,9 +240,23 @@ describe('motionHelpers', () => {
       expect(motionKeys).toContain('amendAmendment');
     });
 
-    // Note: reconsider is a "main" category motion, which requires special handling
-    // The function validates reconsider eligibility but main motions are handled separately in UI
-    it('should not include reconsider in validMotions (main category)', () => {
+    it('should not allow secondary amendment when the amendment is not the immediately pending question', () => {
+      // A motion to close debate on the amendment is pending; it must be dealt with first
+      const mainMotion = createMockMotion({ type: 'mainMotion', precedence: 1 });
+      const amendment = createMockMotion({ type: 'amend', precedence: MOTIONS.amend.precedence });
+      const previousQuestion = createMockMotion({
+        type: 'previousQuestion',
+        precedence: MOTIONS.previousQuestion.precedence,
+      });
+      const state = createMockState({
+        currentMotion: previousQuestion,
+        motionStack: [mainMotion, amendment, previousQuestion],
+      });
+
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('amendAmendment');
+    });
+
+    it('should offer reconsider to a voter on the prevailing side', () => {
       const state = createMockState({
         completedMotions: [
           {
@@ -205,29 +264,30 @@ describe('motionHelpers', () => {
             type: 'mainMotion',
             text: 'Test',
             passed: true,
-            voterChoices: { 1: 'yea' },
+            voterChoices: { 1: 'yea', 2: 'nay' },
             reconsidered: false,
           },
         ],
       });
-      // Even with valid reconsider conditions, main motions aren't added to validMotions
-      // They're handled through separate UI flows
-      const validMotions = getValidMotions(state, 1);
-      const motionKeys = validMotions.map((m) => m.key);
-      expect(motionKeys).not.toContain('reconsider');
+      expect(getValidMotions(state, 1).map((m) => m.key)).toContain('reconsider');
+      // A voter on the losing side may not move to reconsider
+      expect(getValidMotions(state, 2).map((m) => m.key)).not.toContain('reconsider');
     });
 
-    it('should not allow defeated motions to be renewed', () => {
+    it('should keep offering main motions after one is defeated', () => {
+      // Only a substantially similar motion is barred; the validator checks the subject
       const state = createMockState({
         defeatedMotions: [{ type: 'mainMotion', text: 'Test', timestamp: '10:00:00' }],
       });
-      const validMotions = getValidMotions(state);
+      expect(getValidMotions(state).map((m) => m.key)).toContain('mainMotion');
+    });
 
-      // Main motion category motions that were defeated should not appear
-      const mainMotions = validMotions.filter(
-        (m) => m.category === 'main' && m.key === 'mainMotion',
-      );
-      expect(mainMotions).toHaveLength(0);
+    it('should not offer a defeated take from the table again', () => {
+      const state = createMockState({
+        tabledMotions: [createMockMotion()],
+        defeatedMotions: [{ type: 'takeFromTable', text: 'Test', timestamp: '10:00:00' }],
+      });
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
     });
   });
 
@@ -316,6 +376,42 @@ describe('motionHelpers', () => {
         ],
       });
       expect(wasMotionDefeated(state, 'mainMotion', 'schedule a picnic event')).toBe(false);
+    });
+
+    describe('bylaw amendments', () => {
+      // The motion text is generated from the section label, so it can't tell two different
+      // amendments to the same section apart; the proposed change is compared instead
+      const text = 'I move to amend the bylaws by modifying Article I "Name"';
+      const defeated = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'The name shall be  the Old Society.',
+      };
+      const state = createMockState({
+        defeatedMotions: [
+          { type: 'bylawAmendment', text, timestamp: '10:00:00', bylawAmendment: defeated },
+        ],
+      });
+
+      it('should bar the same change again', () => {
+        const same = { ...defeated, newContent: 'the name shall be the old society.' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, same)).toBe(true);
+      });
+
+      it('should allow a different change to the same section', () => {
+        const different = { ...defeated, newContent: 'The name shall be the New Society.' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, different)).toBe(false);
+      });
+
+      it('should allow the same text applied to a different section', () => {
+        const otherSection = { ...defeated, targetSectionId: 'sec-2' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, otherSection)).toBe(false);
+      });
+
+      it('should keep offering bylaw amendments after one is defeated', () => {
+        expect(getValidMotions(state).map((m) => m.key)).toContain('bylawAmendment');
+      });
     });
   });
 });

@@ -6,6 +6,7 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
 import {
   linkDocumentBody,
@@ -61,7 +62,9 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
       return res.status(400).json({ error: validation.error });
     }
 
-    // Verify packet or agenda item exists
+    // Verify packet or agenda item exists, and take the meeting code from it: the file is
+    // stored under that code, so a header can't choose where it goes
+    let packetCode: string;
     if (packetId) {
       const packet = await prisma.meetingPacket.findUnique({
         where: { id: packetId as string },
@@ -69,27 +72,36 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
       if (!packet) {
         return res.status(404).json({ error: 'Packet not found' });
       }
+      packetCode = packet.robbieCode;
     } else {
       const agendaItem = await prisma.meetingAgendaItem.findUnique({
         where: { id: agendaItemId as string },
+        include: { packet: { select: { robbieCode: true } } },
       });
       if (!agendaItem) {
         return res.status(404).json({ error: 'Agenda item not found' });
       }
+      packetCode = agendaItem.packet.robbieCode;
+    }
+    if (robbieCode !== packetCode) {
+      return res.status(400).json({ error: 'X-Robbie-Code does not match the meeting' });
     }
 
     // Store the file
-    const result = await storeFile(robbieCode, filename, mimeType, buffer);
+    const result = await storeFile(packetCode, filename, mimeType, buffer);
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
 
-    // Get next position
-    const existingCount = await prisma.attachment.count({
+    // Next position: after the highest one, not at the count (after a delete, the count is
+    // a position already taken)
+    const { _max } = await prisma.attachment.aggregate({
       where: packetId
         ? { meetingPacketId: packetId as string }
         : { agendaItemId: agendaItemId as string },
+      _max: { position: true },
     });
+    const nextPosition = (_max.position ?? -1) + 1;
 
     // Create attachment record
     const attachment = await prisma.attachment.create({
@@ -101,7 +113,7 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
         storagePath: result.file.storagePath,
         displayName: (displayName as string) || result.file.filename,
         description: description as string | undefined,
-        position: existingCount,
+        position: nextPosition,
         meetingPacketId: packetId as string | undefined,
         agendaItemId: agendaItemId as string | undefined,
       },
@@ -171,10 +183,13 @@ attachmentsRouter.post(
         }
       }
 
-      // Get next position
-      const existingCount = await prisma.attachment.count({
+      // Next position: after the highest one, not at the count (after a delete, the count is
+      // a position already taken)
+      const { _max } = await prisma.attachment.aggregate({
         where: packetId ? { meetingPacketId: packetId } : { agendaItemId },
+        _max: { position: true },
       });
+      const nextPosition = (_max.position ?? -1) + 1;
 
       // Create attachment record
       const attachment = await prisma.attachment.create({
@@ -184,7 +199,7 @@ attachmentsRouter.post(
           versionId: versionId || undefined,
           displayName: displayName || document.title,
           description,
-          position: existingCount,
+          position: nextPosition,
           meetingPacketId: packetId || undefined,
           agendaItemId: agendaItemId || undefined,
         },
@@ -282,6 +297,44 @@ attachmentsRouter.get(
 );
 
 /**
+ * PUT /api/attachments/reorder
+ * Reorder attachments within a packet or agenda item
+ * Body: { attachmentIds: string[] } (in desired order)
+ */
+attachmentsRouter.put(
+  '/attachments/reorder',
+  validate({ body: reorderAttachmentsBody }),
+  async (req, res) => {
+    try {
+      const { attachmentIds } = req.body;
+
+      if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
+        return res.status(400).json({ error: 'attachmentIds array required' });
+      }
+
+      // Update positions
+      const updates = attachmentIds.map((id, index) =>
+        prisma.attachment.update({
+          where: { id },
+          data: { position: index },
+        }),
+      );
+
+      await prisma.$transaction(updates);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reordering attachments');
+      // An ID that matches no item is a 404 (the error handler maps it); anything else, 500
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ error: 'Item not found' });
+      }
+      res.status(500).json({ error: 'Failed to reorder attachments' });
+    }
+  },
+);
+
+/**
  * PUT /api/attachments/:id
  * Update attachment metadata
  * Body: { displayName?, description?, position? }
@@ -354,37 +407,3 @@ attachmentsRouter.delete('/attachments/:id', validate({ params: uuidParam }), as
     res.status(500).json({ error: 'Failed to delete attachment' });
   }
 });
-
-/**
- * PUT /api/attachments/reorder
- * Reorder attachments within a packet or agenda item
- * Body: { attachmentIds: string[] } (in desired order)
- */
-attachmentsRouter.put(
-  '/attachments/reorder',
-  validate({ body: reorderAttachmentsBody }),
-  async (req, res) => {
-    try {
-      const { attachmentIds } = req.body;
-
-      if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
-        return res.status(400).json({ error: 'attachmentIds array required' });
-      }
-
-      // Update positions
-      const updates = attachmentIds.map((id, index) =>
-        prisma.attachment.update({
-          where: { id },
-          data: { position: index },
-        }),
-      );
-
-      await prisma.$transaction(updates);
-
-      res.json({ success: true });
-    } catch (error) {
-      logger.error({ err: error }, 'Error reordering attachments');
-      res.status(500).json({ error: 'Failed to reorder attachments' });
-    }
-  },
-);

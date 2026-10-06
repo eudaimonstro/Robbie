@@ -8,6 +8,7 @@ import EmptyState from '../../../components/ui/EmptyState';
 import { MeetingTypeBadge } from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
 import { useToast } from '../../../context/ToastContext';
+import { fromLocalDateTimeInput } from '../../../utils/dates';
 
 export default function MeetingsPage() {
   const { currentOrganization } = useOrganization();
@@ -58,7 +59,7 @@ export default function MeetingsPage() {
       const data: MeetingCreate = {
         title: newTitle.trim(),
         meetingType: newType,
-        scheduledDate: newDate,
+        scheduledDate: fromLocalDateTimeInput(newDate),
         location: newLocation.trim() || undefined,
       };
       const meeting = await meetingsApi.create(currentOrganization.id, data);

@@ -1,22 +1,32 @@
 import { useState } from 'react';
 import Modal from '../../../../components/ui/Modal';
+import type { VersionCreate } from '../../../../api/client';
 
 interface CreateVersionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (notes?: string) => Promise<void>;
+  onSubmit: (data: VersionCreate) => Promise<void>;
 }
 
 export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionModalProps) {
   const [notes, setNotes] = useState('');
+  const [effectiveDate, setEffectiveDate] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const reset = () => {
+    setNotes('');
+    setEffectiveDate('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setCreating(true);
-      await onSubmit(notes.trim() || undefined);
-      setNotes('');
+      await onSubmit({
+        effectiveDate: effectiveDate || undefined,
+        notes: notes.trim() || undefined,
+      });
+      reset();
       onClose();
     } catch {
       // Error handled by parent
@@ -26,7 +36,7 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
   };
 
   const handleClose = () => {
-    setNotes('');
+    reset();
     onClose();
   };
 
@@ -37,6 +47,18 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
           Create a new version to make changes to the document. The current version will be
           preserved.
         </p>
+        <div className="mb-4">
+          <label htmlFor="versionEffectiveDate" className="label">
+            Effective Date (optional)
+          </label>
+          <input
+            id="versionEffectiveDate"
+            type="date"
+            value={effectiveDate}
+            onChange={(e) => setEffectiveDate(e.target.value)}
+            className="input"
+          />
+        </div>
         <div className="mb-4">
           <label htmlFor="versionNotes" className="label">
             Version Notes (optional)

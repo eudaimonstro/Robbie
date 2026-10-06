@@ -7,6 +7,7 @@
 import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/prisma.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
 import {
   createAgendaItemBody,
@@ -86,10 +87,13 @@ agendaItemsRouter.post(
         return res.status(404).json({ error: 'Packet not found' });
       }
 
-      // Get next position
-      const existingCount = await prisma.meetingAgendaItem.count({
+      // Next position: after the highest one, not at the count (after a delete, the count is
+      // a position already taken)
+      const { _max } = await prisma.meetingAgendaItem.aggregate({
         where: { packetId },
+        _max: { position: true },
       });
+      const nextPosition = (_max.position ?? -1) + 1;
 
       const item = await prisma.meetingAgendaItem.create({
         data: {
@@ -98,7 +102,7 @@ agendaItemsRouter.post(
           description,
           estimatedMinutes,
           presenter,
-          position: existingCount,
+          position: nextPosition,
         },
         include: {
           attachments: true,
@@ -145,6 +149,44 @@ agendaItemsRouter.get('/agenda-items/:id', validate({ params: uuidParam }), asyn
     res.status(500).json({ error: 'Failed to get agenda item' });
   }
 });
+
+/**
+ * PUT /api/agenda-items/reorder
+ * Reorder agenda items within a packet
+ * Body: { itemIds: string[] } (in desired order)
+ */
+agendaItemsRouter.put(
+  '/agenda-items/reorder',
+  validate({ body: reorderAgendaItemsBody }),
+  async (req, res) => {
+    try {
+      const { itemIds } = req.body;
+
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ error: 'itemIds array required' });
+      }
+
+      // Update positions
+      const updates = itemIds.map((id, index) =>
+        prisma.meetingAgendaItem.update({
+          where: { id },
+          data: { position: index },
+        }),
+      );
+
+      await prisma.$transaction(updates);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reordering agenda items');
+      // An ID that matches no item is a 404 (the error handler maps it); anything else, 500
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ error: 'Item not found' });
+      }
+      res.status(500).json({ error: 'Failed to reorder agenda items' });
+    }
+  },
+);
 
 /**
  * PUT /api/agenda-items/:id
@@ -223,40 +265,6 @@ agendaItemsRouter.delete('/agenda-items/:id', validate({ params: uuidParam }), a
 });
 
 /**
- * PUT /api/agenda-items/reorder
- * Reorder agenda items within a packet
- * Body: { itemIds: string[] } (in desired order)
- */
-agendaItemsRouter.put(
-  '/agenda-items/reorder',
-  validate({ body: reorderAgendaItemsBody }),
-  async (req, res) => {
-    try {
-      const { itemIds } = req.body;
-
-      if (!Array.isArray(itemIds) || itemIds.length === 0) {
-        return res.status(400).json({ error: 'itemIds array required' });
-      }
-
-      // Update positions
-      const updates = itemIds.map((id, index) =>
-        prisma.meetingAgendaItem.update({
-          where: { id },
-          data: { position: index },
-        }),
-      );
-
-      await prisma.$transaction(updates);
-
-      res.json({ success: true });
-    } catch (error) {
-      logger.error({ err: error }, 'Error reordering agenda items');
-      res.status(500).json({ error: 'Failed to reorder agenda items' });
-    }
-  },
-);
-
-/**
  * POST /api/agenda-items/bulk
  * Create multiple agenda items at once (for importing)
  * Body: { packetId, items: Array<{ title, description?, estimatedMinutes?, presenter? }> }
@@ -284,10 +292,13 @@ agendaItemsRouter.post(
         return res.status(404).json({ error: 'Packet not found' });
       }
 
-      // Get current count for positioning
-      const existingCount = await prisma.meetingAgendaItem.count({
+      // Next position: after the highest one, not at the count (after a delete, the count is
+      // a position already taken)
+      const { _max } = await prisma.meetingAgendaItem.aggregate({
         where: { packetId },
+        _max: { position: true },
       });
+      const nextPosition = (_max.position ?? -1) + 1;
 
       // Create all items
       const created = await prisma.$transaction(
@@ -299,7 +310,7 @@ agendaItemsRouter.post(
               description: item.description,
               estimatedMinutes: item.estimatedMinutes,
               presenter: item.presenter,
-              position: existingCount + index,
+              position: nextPosition + index,
             },
           }),
         ),

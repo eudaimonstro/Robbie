@@ -42,11 +42,19 @@ export function useMeetingData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Loading (which shows a full-page spinner) is for the first load of each meeting; a refresh
+  // after an action (recording a vote, say) updates the page in place
+  const loadKey = `${meetingId}:${organizationId}`;
+  const [loadedFor, setLoadedFor] = useState(loadKey);
+  if (loadKey !== loadedFor) {
+    setLoadedFor(loadKey);
+    setLoading(true);
+  }
+
   const fetchMeeting = useCallback(async () => {
     if (!meetingId || !organizationId) return;
 
     try {
-      setLoading(true);
       setError(null);
       const [mtg, vts, docs] = await Promise.all([
         meetingsApi.get(meetingId),

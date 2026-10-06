@@ -140,6 +140,8 @@ export interface CompletedMotion {
   readonly timestamp: string;
   readonly reconsidered: boolean;
   readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
+  readonly mover?: string; // Restored with the motion if it is reconsidered
+  readonly moverId?: number;
 }
 
 export interface Nomination {
@@ -266,7 +268,13 @@ export interface MeetingState {
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
   tabledMotions: Motion[];
-  defeatedMotions: Array<{ type: string; text: string; timestamp: string }>;
+  defeatedMotions: Array<{
+    type: string;
+    text: string;
+    timestamp: string;
+    // The proposed change, for a defeated bylaw amendment (its text alone can't identify it)
+    bylawAmendment?: BylawAmendment;
+  }>;
   completedMotions: CompletedMotion[];
   committeeReports: CommitteeReport[];
   minutesFromPreviousMeeting: string;
@@ -295,7 +303,7 @@ export interface MeetingState {
 
 // Action types
 export type MeetingAction =
-  | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
+  | { type: 'START_MEETING'; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
   | {
       type: 'MAKE_MOTION';
@@ -312,7 +320,8 @@ export type MeetingAction =
       reconsideredMotionId?: number;
       dividedParts?: string[];
     }
-  | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
+  // seconderId is set by the server from the signed-in user
+  | { type: 'SECOND_MOTION'; seconder: string; seconderId?: number; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
   | {

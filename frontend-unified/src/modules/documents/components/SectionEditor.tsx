@@ -74,11 +74,14 @@ export default function SectionEditor({
 
     try {
       setSaving(true);
+      // When editing, an emptied field is sent as null so it is cleared; leaving it out would
+      // keep the old value
+      const empty = isCreateMode ? undefined : null;
       const data: SectionCreate | SectionUpdate = {
-        numberLabel: numberLabel.trim() || undefined,
-        title: title.trim() || undefined,
-        content: content.trim() || undefined,
-        annotation: annotation.trim() || undefined,
+        numberLabel: numberLabel.trim() || empty,
+        title: title.trim() || empty,
+        content: content.trim() || empty,
+        annotation: annotation.trim() || empty,
       };
       await onSave(data);
       onClose();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { GitBranch, Clock, ChevronRight, FileText } from 'lucide-react';
 import { useOrganization } from '../../../context/OrganizationContext';
 import {
@@ -17,9 +17,13 @@ export default function AmendmentsPage() {
   const { currentOrganization } = useOrganization();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const navigate = useNavigate();
+
+  // The URL is the filter: one document's amendments (/documents/:id/amendments) or all
+  // (/amendments). Kept in state, it outlived a move from one route to the other.
+  const selectedDocument = (documentId && documents.find((d) => d.id === documentId)) || null;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,14 +37,11 @@ export default function AmendmentsPage() {
         const docs = await documentsApi.list(currentOrganization.id);
         setDocuments(docs);
 
-        // If documentId is provided, filter by that document
+        // If documentId is provided, filter by that document (none, if it isn't one of this
+        // organization's documents)
         if (documentId) {
           const doc = docs.find((d) => d.id === documentId);
-          if (doc) {
-            setSelectedDocument(doc);
-            const amends = await amendmentsApi.list(documentId);
-            setAmendments(amends);
-          }
+          setAmendments(doc ? await amendmentsApi.list(documentId) : []);
         } else {
           // Fetch all amendments from all documents
           const allAmendments: Amendment[] = [];
@@ -68,32 +69,8 @@ export default function AmendmentsPage() {
     fetchData();
   }, [currentOrganization, documentId]);
 
-  const handleDocumentChange = async (docId: string) => {
-    if (docId === 'all') {
-      setSelectedDocument(null);
-      // Reload all amendments
-      const allAmendments: Amendment[] = [];
-      for (const doc of documents) {
-        try {
-          const amends = await amendmentsApi.list(doc.id);
-          allAmendments.push(...amends);
-        } catch {
-          // Ignore
-        }
-      }
-      setAmendments(
-        allAmendments.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      );
-    } else {
-      const doc = documents.find((d) => d.id === docId);
-      if (doc) {
-        setSelectedDocument(doc);
-        const amends = await amendmentsApi.list(docId);
-        setAmendments(amends);
-      }
-    }
+  const handleDocumentChange = (docId: string) => {
+    navigate(docId === 'all' ? '/amendments' : `/documents/${docId}/amendments`);
   };
 
   const filteredAmendments =

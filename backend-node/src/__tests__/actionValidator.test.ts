@@ -63,7 +63,6 @@ describe('actionValidator', () => {
     it('should allow starting inactive meeting', () => {
       const result = validateAction(initialState, {
         type: 'START_MEETING',
-        meetingCode: 'TEST',
         timestamp: '',
       });
       expect(result.valid).toBe(true);
@@ -73,7 +72,6 @@ describe('actionValidator', () => {
       const state = { ...initialState, meetingActive: true };
       const result = validateAction(state, {
         type: 'START_MEETING',
-        meetingCode: 'TEST',
         timestamp: '',
       });
       expect(result.valid).toBe(false);
@@ -95,7 +93,265 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('CHAIR_RULING', () => {
+    it('is rejected while a vote is open', () => {
+      const state = { ...activeMeetingState(), votingOpen: true };
+      const result = validateAction(state, {
+        type: 'CHAIR_RULING',
+        ruling: 'sustain',
+        timestamp: '',
+      } as never);
+      expect(result.errorCode).toBe('VOTING_IN_PROGRESS');
+    });
+  });
+
+  describe('REORDER_AGENDA', () => {
+    const state = {
+      ...activeMeetingState(),
+      agenda: [
+        { id: 1, title: 'First', status: 'pending' as const },
+        { id: 2, title: 'Second', status: 'pending' as const },
+      ],
+    };
+    const reorder = (fromIndex: number, toIndex: number) =>
+      validateAction(state, { type: 'REORDER_AGENDA', fromIndex, toIndex });
+
+    it('allows moving an item within the agenda', () => {
+      expect(reorder(0, 1).valid).toBe(true);
+    });
+
+    it('rejects an index outside the agenda', () => {
+      expect(reorder(2, 0).errorCode).toBe('ITEM_NOT_FOUND');
+      expect(reorder(0, -1).errorCode).toBe('ITEM_NOT_FOUND');
+      expect(reorder(0.5, 1).errorCode).toBe('ITEM_NOT_FOUND');
+    });
+  });
+
+  describe('SECOND_MOTION by the mover', () => {
+    const pending = (suspendedRules: MeetingState['suspendedRules'] = []) => ({
+      ...activeMeetingState(),
+      pendingSecond: { ...createMotion({ moverId: 2 }), status: 'pending' as const },
+      suspendedRules,
+    });
+    const second = (state: MeetingState, seconderId: number) =>
+      validateAction(state, { type: 'SECOND_MOTION', seconder: 'x', seconderId, timestamp: '' });
+
+    it('is rejected: a member cannot second their own motion', () => {
+      expect(second(pending(), 2).valid).toBe(false);
+      expect(second(pending(), 3).valid).toBe(true);
+    });
+
+    it('is allowed while that rule is suspended', () => {
+      const suspension = {
+        id: 1,
+        rule: 'mover-cannot-second' as const,
+        purpose: '',
+        specificAction: '',
+        scope: 'meeting-remainder' as const,
+        suspendedAt: '',
+        motionId: 9,
+      };
+      expect(second(pending([suspension]), 2).valid).toBe(true);
+    });
+  });
+
+  describe('NOMINATE', () => {
+    const state: MeetingState = {
+      ...activeMeetingState(),
+      nominationsOpen: true,
+      currentNominationPosition: 'Treasurer',
+      nominations: [
+        {
+          id: 1,
+          position: 'Treasurer',
+          nomineeName: 'Pat Outsider',
+          nomineeId: 0, // not a member of the meeting
+          nominatedBy: 'Member 2',
+          nominatorId: 2,
+          timestamp: '',
+          declined: false,
+        },
+      ],
+    };
+    const nominate = (nomineeName: string, nomineeId: number) =>
+      validateAction(state, {
+        type: 'NOMINATE',
+        position: 'Treasurer',
+        nomineeName,
+        nomineeId,
+        nominatedBy: 'Member 3',
+        nominatorId: 3,
+        nominationId: 2,
+        timestamp: '',
+      });
+
+    it('accepts a second nominee from outside the meeting', () => {
+      expect(nominate('Sam Outsider', 0).valid).toBe(true);
+    });
+
+    it('rejects the same nominee twice', () => {
+      expect(nominate('pat outsider', 0).errorCode).toBe('ALREADY_NOMINATED');
+    });
+  });
+
+  describe('SET_MEETING_STAGE', () => {
+    const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
+      validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);
+
+    it('allows moving to a stage of the order of business', () => {
+      expect(setStage('new-business').valid).toBe(true);
+    });
+
+    it('rejects a stage that is not in the order of business', () => {
+      expect(setStage('adjourned').valid).toBe(false);
+      expect(setStage('lunch').valid).toBe(false);
+    });
+
+    it('rejects a stage change before the meeting starts', () => {
+      expect(setStage('new-business', initialState).errorCode).toBe('MEETING_NOT_ACTIVE');
+    });
+  });
+
+  describe('SET_QUORUM', () => {
+    const setQuorum = (quorum: number) =>
+      validateAction(activeMeetingState(), { type: 'SET_QUORUM', quorum, timestamp: '' });
+
+    it('allows a positive whole number', () => {
+      expect(setQuorum(5).valid).toBe(true);
+    });
+
+    it('rejects zero, negative and fractional quorums', () => {
+      expect(setQuorum(0).valid).toBe(false);
+      expect(setQuorum(-2).valid).toBe(false);
+      expect(setQuorum(2.5).valid).toBe(false);
+    });
+  });
+
   describe('MAKE_MOTION', () => {
+    describe('secondary amendment (amendAmendment)', () => {
+      const motion = (type: string, precedence: number) =>
+        ({ id: 1, type, name: type, text: 'x', status: 'active', precedence }) as never;
+      const activeState = (current: { type: string; precedence: number }) => ({
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion(current.type, current.precedence),
+        motionStack: [motion('mainMotion', 1), motion(current.type, current.precedence)],
+      });
+      const makeSecondary = {
+        type: 'MAKE_MOTION' as const,
+        motionType: 'amendAmendment',
+        text: 'by striking "blue"',
+        mover: 'Member',
+        moverId: 2,
+        id: 99,
+        timestamp: '',
+      };
+
+      it('is in order when a primary amendment is the immediately pending question', () => {
+        const result = validateAction(
+          activeState({ type: 'amend', precedence: 3 }),
+          makeSecondary as never,
+        );
+        expect(result.valid).toBe(true);
+      });
+
+      it('is not in order when no amendment is pending', () => {
+        const result = validateAction(
+          activeState({ type: 'mainMotion', precedence: 1 }),
+          makeSecondary as never,
+        );
+        expect(result.valid).toBe(false);
+      });
+    });
+
+    describe('while other business is unsettled', () => {
+      const pointOfOrder = {
+        type: 'MAKE_MOTION' as const,
+        motionType: 'pointOrder',
+        text: 'Point of order',
+        mover: 'Member 3',
+        moverId: 3,
+        motionId: 5,
+        timestamp: '',
+      };
+
+      it('rejects a motion while a vote is open, so it cannot take over the cast votes', () => {
+        const state = { ...activeMeetingState(), votingOpen: true };
+        expect(validateAction(state, pointOfOrder).errorCode).toBe('VOTING_IN_PROGRESS');
+      });
+
+      it('rejects a motion while another awaits a second, so it is not replaced', () => {
+        const state = {
+          ...activeMeetingState(),
+          pendingSecond: { ...createMotion(), status: 'pending' as const },
+        };
+        expect(validateAction(state, pointOfOrder).valid).toBe(false);
+      });
+    });
+
+    describe('motions that need details', () => {
+      const make = (motionType: string, extra: Record<string, unknown> = {}) =>
+        validateAction(activeMeetingState(), {
+          type: 'MAKE_MOTION',
+          motionType,
+          text: 'x',
+          mover: 'Member 2',
+          moverId: 2,
+          motionId: 9,
+          timestamp: '',
+          ...extra,
+        } as never);
+
+      it.each([
+        ['takeFromTable'],
+        ['reconsider'],
+        ['suspendRules'],
+        ['bylawAmendment'],
+        ['amendAgenda'],
+      ])('rejects %s without its details (it would pass and do nothing)', (motionType) => {
+        expect(make(motionType).errorCode).toBe('INVALID_ACTION');
+      });
+
+      it('accepts a bylaw amendment that names its document and change', () => {
+        const bylawAmendment = { documentId: 'doc-1', changeType: 'modify', targetSectionId: 's1' };
+        expect(make('bylawAmendment', { bylawAmendment }).valid).toBe(true);
+      });
+    });
+
+    describe('renewing a defeated bylaw amendment', () => {
+      const text = 'I move to amend the bylaws by modifying Article I "Name"';
+      const defeatedChange = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'The Old Society',
+      };
+      const state: MeetingState = {
+        ...activeMeetingState(),
+        defeatedMotions: [
+          { type: 'bylawAmendment', text, timestamp: '', bylawAmendment: defeatedChange },
+        ],
+      };
+      const propose = (newContent: string) =>
+        validateAction(state, {
+          type: 'MAKE_MOTION',
+          motionType: 'bylawAmendment',
+          text,
+          mover: 'Member 2',
+          moverId: 2,
+          bylawAmendment: { ...defeatedChange, newContent },
+          timestamp: '',
+        } as never);
+
+      it('rejects the same change', () => {
+        expect(propose('the old  society').errorCode).toBe('MOTION_RENEWAL_BLOCKED');
+      });
+
+      it('allows a different change to the same section', () => {
+        expect(propose('The New Society').valid).toBe(true);
+      });
+    });
+
     it('should allow making motion when meeting is active', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {
@@ -210,15 +466,15 @@ describe('actionValidator', () => {
       expect(result.errorCode).toBe('VOTING_NOT_OPEN');
     });
 
-    it('should reject duplicate votes', () => {
-      const state = { ...votingState(), voters: [2] };
+    it('should let a member change their vote before the result is announced', () => {
+      // RONR: a member may change a vote until the chair announces the result
+      const state = { ...votingState(), voters: [2], voterChoices: { 2: 'yea' as const } };
       const result = validateAction(state, {
         type: 'CAST_VOTE',
-        vote: 'yea',
+        vote: 'nay',
         voterId: 2,
       });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('ALREADY_VOTED');
+      expect(result.valid).toBe(true);
     });
 
     it('should reject chair vote when restriction is active', () => {
@@ -232,15 +488,79 @@ describe('actionValidator', () => {
       expect(result.errorCode).toBe('CHAIR_CANNOT_VOTE');
     });
 
-    it('should allow chair deciding vote', () => {
-      const state = votingState();
-      const result = validateAction(state, {
-        type: 'CAST_VOTE',
-        vote: 'yea',
-        voterId: 1,
-        isChairDecidingVote: true,
+    describe("the chair's deciding vote", () => {
+      const decidingVote = (yea: number, nay: number) =>
+        validateAction(
+          { ...votingState(), votes: { yea, nay, abstain: 0 } },
+          { type: 'CAST_VOTE', vote: 'yea', voterId: 1, isChairDecidingVote: true },
+        );
+
+      it('is allowed when it would change the result', () => {
+        expect(decidingVote(2, 2).valid).toBe(true);
+        expect(decidingVote(3, 2).valid).toBe(true);
       });
-      expect(result.valid).toBe(true);
+
+      it('is not needed on a secret ballot, where the chair votes like any member', () => {
+        const result = validateAction(
+          { ...votingState(), votingMethod: 'ballot' },
+          { type: 'CAST_VOTE', vote: 'nay', voterId: 1 },
+        );
+        expect(result.valid).toBe(true);
+      });
+
+      it('is rejected before anyone has voted or when it would not change the result', () => {
+        // The client's isChairDecidingVote flag alone must not let the chair vote
+        expect(decidingVote(0, 0).errorCode).toBe('CHAIR_CANNOT_VOTE');
+        expect(decidingVote(5, 2).errorCode).toBe('CHAIR_CANNOT_VOTE');
+      });
+    });
+  });
+
+  describe('CAST_PROXY_VOTE', () => {
+    // Member 3 gave a proxy to member 2
+    const proxyState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
+      ...activeMeetingState(),
+      votingOpen: true,
+      allowProxyVoting: true,
+      currentMotion: createMotion(),
+      proxies: [
+        {
+          id: 1,
+          grantedBy: 3,
+          grantedTo: 2,
+          grantedByName: 'Member 3',
+          grantedToName: 'Member 2',
+          grantedAt: '',
+          scope: 'all',
+        },
+      ],
+      ...overrides,
+    });
+    const castForMember3 = (state: MeetingState) =>
+      validateAction(state, {
+        type: 'CAST_PROXY_VOTE',
+        vote: 'nay',
+        forMemberId: 3,
+        castById: 2,
+        timestamp: '',
+      });
+
+    it('allows the holder to vote for the member', () => {
+      expect(castForMember3(proxyState()).valid).toBe(true);
+    });
+
+    it('allows the holder to change a proxy vote', () => {
+      const state = proxyState({
+        voters: [3],
+        voterChoices: { 3: 'yea' },
+        proxyVotes: [{ memberId: 3, castBy: 2, vote: 'yea' }],
+      });
+      expect(castForMember3(state).valid).toBe(true);
+    });
+
+    it('rejects replacing a vote the member cast in person', () => {
+      const state = proxyState({ voters: [3], voterChoices: { 3: 'yea' } });
+      expect(castForMember3(state).errorCode).toBe('ALREADY_VOTED');
     });
   });
 

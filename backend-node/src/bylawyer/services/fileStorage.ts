@@ -13,6 +13,24 @@ import { logger } from '../../middleware/logger.js';
 // Configurable upload directory (defaults to ./uploads relative to project root)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 
+// Meeting codes name the per-meeting directories. They come from request data (an upload's
+// packet, a packet created by code), so only plain names are accepted: no "..", slash or
+// backslash.
+const MEETING_DIR_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Resolve a path inside the uploads directory, refusing one that leaves it (through "..",
+ * an absolute path, and so on).
+ */
+function resolveUploadPath(...segments: string[]): string {
+  const root = path.resolve(UPLOAD_DIR);
+  const full = path.resolve(root, ...segments);
+  if (full !== root && !full.startsWith(root + path.sep)) {
+    throw new Error('Path is outside the uploads directory');
+  }
+  return full;
+}
+
 // Allowed MIME types
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -111,8 +129,12 @@ export async function storeFile(
     return { success: false, error: validation.error };
   }
 
+  if (!MEETING_DIR_PATTERN.test(robbieCode)) {
+    return { success: false, error: 'Invalid meeting code' };
+  }
+
   // Create meeting-specific directory
-  const meetingDir = path.join(UPLOAD_DIR, robbieCode);
+  const meetingDir = resolveUploadPath(robbieCode);
   await ensureDir(meetingDir);
 
   // Generate unique filename
@@ -121,7 +143,7 @@ export async function storeFile(
   const ext = MIME_TO_EXT[mimeType] || path.extname(safeFilename) || '';
   const storedFilename = `${uuid}${ext}`;
   const storagePath = path.join(robbieCode, storedFilename);
-  const fullPath = path.join(UPLOAD_DIR, storagePath);
+  const fullPath = resolveUploadPath(storagePath);
 
   // Write file
   await fs.writeFile(fullPath, buffer);
@@ -141,8 +163,8 @@ export async function storeFile(
  * Read a stored file
  */
 export async function readFile(storagePath: string): Promise<Buffer | null> {
+  const fullPath = resolveUploadPath(storagePath);
   try {
-    const fullPath = path.join(UPLOAD_DIR, storagePath);
     return await fs.readFile(fullPath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -156,8 +178,8 @@ export async function readFile(storagePath: string): Promise<Buffer | null> {
  * Delete a stored file
  */
 export async function deleteFile(storagePath: string): Promise<boolean> {
+  const fullPath = resolveUploadPath(storagePath);
   try {
-    const fullPath = path.join(UPLOAD_DIR, storagePath);
     await fs.unlink(fullPath);
     return true;
   } catch (error) {
@@ -172,7 +194,7 @@ export async function deleteFile(storagePath: string): Promise<boolean> {
  * Get full path for a storage path (for streaming)
  */
 export function getFullPath(storagePath: string): string {
-  return path.join(UPLOAD_DIR, storagePath);
+  return resolveUploadPath(storagePath);
 }
 
 /**
@@ -180,7 +202,7 @@ export function getFullPath(storagePath: string): string {
  */
 export async function fileExists(storagePath: string): Promise<boolean> {
   try {
-    const fullPath = path.join(UPLOAD_DIR, storagePath);
+    const fullPath = resolveUploadPath(storagePath);
     await fs.access(fullPath);
     return true;
   } catch {
@@ -192,8 +214,14 @@ export async function fileExists(storagePath: string): Promise<boolean> {
  * Clean up files for a meeting (when meeting is deleted)
  */
 export async function cleanupMeetingFiles(robbieCode: string): Promise<void> {
+  // A recursive delete: refuse anything but a plain meeting code ("..", for one, would remove
+  // the directory holding the uploads)
+  if (!MEETING_DIR_PATTERN.test(robbieCode)) {
+    logger.error({ robbieCode }, 'Refused to clean up files for an invalid meeting code');
+    return;
+  }
   try {
-    const meetingDir = path.join(UPLOAD_DIR, robbieCode);
+    const meetingDir = resolveUploadPath(robbieCode);
     await fs.rm(meetingDir, { recursive: true, force: true });
   } catch (error) {
     logger.error({ err: error, robbieCode }, 'Failed to clean up files for meeting');

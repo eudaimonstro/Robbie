@@ -11,6 +11,8 @@ import { roomManager } from './roomManager.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
+import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
+import { handleDisconnect } from './disconnectHandler.js';
 import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<
@@ -88,6 +90,12 @@ export async function handleJoinMeeting(
       return;
     }
 
+    // A socket already in another meeting leaves it first, as on disconnect; otherwise it
+    // kept receiving that meeting's updates and its member stayed present there
+    if (socket.data.meetingCode && socket.data.meetingCode !== data.meetingCode) {
+      await handleDisconnect(socket, io);
+    }
+
     // Get or create meeting
     const storage = getStorage();
     const meeting = await storage.getOrCreateMeeting(data.meetingCode);
@@ -152,6 +160,14 @@ export async function handleJoinMeeting(
     if (presenceResult.success && presenceResult.state) {
       currentState = presenceResult.state;
       currentVersion = presenceResult.stateVersion!;
+    }
+
+    // Members still shown as present with no connection (left over from a server restart)
+    // are marked absent, so quorum counts only who is here
+    const reconciled = await markDisconnectedMembersAbsent(data.meetingCode, currentState);
+    if (reconciled) {
+      currentState = reconciled.state;
+      currentVersion = reconciled.stateVersion;
     }
 
     // Notify others of member joined

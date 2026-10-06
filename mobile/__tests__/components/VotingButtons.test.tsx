@@ -2,6 +2,8 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { VotingButtons } from '../../components/VotingButtons';
 
+const WARNING = 'Quorum not met - this vote may need to be ratified later';
+
 describe('VotingButtons', () => {
   const mockOnVote = jest.fn();
 
@@ -21,13 +23,13 @@ describe('VotingButtons', () => {
     it('shows quorum warning when hasQuorum is false', async () => {
       await render(<VotingButtons onVote={mockOnVote} hasQuorum={false} />);
 
-      expect(screen.getByText('Quorum not met - voting paused')).toBeTruthy();
+      expect(screen.getByText(WARNING)).toBeTruthy();
     });
 
     it('does not show quorum warning when hasQuorum is true', async () => {
       await render(<VotingButtons onVote={mockOnVote} hasQuorum={true} />);
 
-      expect(screen.queryByText('Quorum not met - voting paused')).toBeNull();
+      expect(screen.queryByText(WARNING)).toBeNull();
     });
 
     it('shows current vote status when a vote is selected', async () => {
@@ -70,12 +72,14 @@ describe('VotingButtons', () => {
       expect(mockOnVote).not.toHaveBeenCalled();
     });
 
-    it('does not call onVote when quorum not met', async () => {
+    it('still takes the vote when quorum is not met', async () => {
+      // The chair may hold a vote without quorum (the server and web allow it, with a
+      // warning); such a vote may need to be ratified later
       await render(<VotingButtons onVote={mockOnVote} hasQuorum={false} />);
 
       await fireEvent.press(screen.getByText('YEA'));
 
-      expect(mockOnVote).not.toHaveBeenCalled();
+      expect(mockOnVote).toHaveBeenCalledWith('yea');
     });
   });
 

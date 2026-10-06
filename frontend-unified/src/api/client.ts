@@ -21,26 +21,10 @@ function setCache<T>(key: string, data: T): void {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-// Invalidate cache for related endpoints on mutations
-function invalidateCache(endpoint: string): void {
-  // Invalidate exact match and related list endpoints
-  const parts = endpoint.split('/');
-  cache.delete(endpoint);
-
-  // Invalidate parent list endpoints
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const parentPath = parts.slice(0, i).join('/');
-    if (parentPath) {
-      cache.delete(parentPath);
-    }
-  }
-
-  // Invalidate all list endpoints that might be affected
-  for (const key of cache.keys()) {
-    if (key.includes(parts[1]) || endpoint.includes(key.split('/')[1])) {
-      cache.delete(key);
-    }
-  }
+// A write can change data behind many endpoints (applying an amendment changes the document,
+// its versions and its amendments), so any successful write clears the whole cache
+function invalidateCache(): void {
+  cache.clear();
 }
 
 // Retry configuration
@@ -152,7 +136,7 @@ async function request<T>(
       if (response.status === 204) {
         // Invalidate cache on successful mutations
         if (!isGet) {
-          invalidateCache(endpoint);
+          invalidateCache();
         }
         return undefined as T;
       }
@@ -166,7 +150,7 @@ async function request<T>(
 
       // Invalidate cache on successful mutations
       if (!isGet) {
-        invalidateCache(endpoint);
+        invalidateCache();
       }
 
       return data;
@@ -237,11 +221,10 @@ export const documents = {
 
 // Public (readonly) document access
 export const publicDocuments = {
-  get: (shareToken: string) => request<PublicDocument>(`/public/documents/${shareToken}`),
-  getVersions: (shareToken: string) =>
-    request<PublicVersion[]>(`/public/documents/${shareToken}/versions`),
-  getTree: (shareToken: string, versionId: string) =>
-    request<SectionTree[]>(`/public/documents/${shareToken}/versions/${versionId}/tree`),
+  // Document, all versions, and the current version with its section tree
+  get: (shareToken: string) => request<SharedDocument>(`/share/${shareToken}`),
+  getVersion: (shareToken: string, versionId: string) =>
+    request<SharedVersion>(`/share/${shareToken}/versions/${versionId}`),
 };
 
 // Versions
@@ -452,10 +435,11 @@ export interface SectionCreate {
 }
 
 export interface SectionUpdate {
-  numberLabel?: string;
-  title?: string;
-  content?: string;
-  annotation?: string;
+  // null clears the field; leaving it out keeps the current value
+  numberLabel?: string | null;
+  title?: string | null;
+  content?: string | null;
+  annotation?: string | null;
   position?: number;
 }
 
@@ -604,6 +588,21 @@ export interface PublicVersion {
   effectiveDate: string | null;
   adoptedAt: string | null;
   notes: string | null;
+}
+
+export interface SharedVersion extends PublicVersion {
+  sections: SectionTree[];
+}
+
+export interface SharedDocument {
+  document: {
+    id: string;
+    title: string;
+    docType: string;
+    organization: { id: string; name: string; slug: string };
+  };
+  versions: PublicVersion[];
+  currentVersion: SharedVersion | null;
 }
 
 // Robbie-Bylawyer Integration (bylaw sync)

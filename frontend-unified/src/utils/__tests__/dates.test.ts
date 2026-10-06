@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCalendarDate } from '../dates';
+import { formatCalendarDate, fromLocalDateTimeInput, toLocalDateTimeInput } from '../dates';
 
 describe('formatCalendarDate', () => {
   it('runs in a non-UTC time zone, so day shifts would show', () => {
@@ -18,5 +18,28 @@ describe('formatCalendarDate', () => {
     expect(formatCalendarDate(null)).toBe('');
     expect(formatCalendarDate(undefined)).toBe('');
     expect(formatCalendarDate('not a date')).toBe('');
+  });
+});
+
+describe('meeting date and time inputs', () => {
+  // The suite runs in America/Chicago, UTC-5 in October
+  it('sends the time picked in the viewer’s time zone as an exact instant', () => {
+    expect(fromLocalDateTimeInput('2026-10-06T19:00')).toBe('2026-10-07T00:00:00.000Z');
+  });
+
+  it('shows a stored instant as the viewer’s local time in the input', () => {
+    expect(toLocalDateTimeInput('2026-10-07T00:00:00.000Z')).toBe('2026-10-06T19:00');
+  });
+
+  it('round-trips, so saving an unchanged form keeps the time', () => {
+    const stored = '2026-03-15T14:30:00.000Z';
+    expect(fromLocalDateTimeInput(toLocalDateTimeInput(stored))).toBe(stored);
+  });
+});
+
+describe('fromLocalDateTimeInput with no usable value', () => {
+  it('returns an empty value instead of throwing, so the server can reject it', () => {
+    // new Date('').toISOString() throws, which left the meeting form silently stuck open
+    expect(fromLocalDateTimeInput('')).toBe('');
   });
 });

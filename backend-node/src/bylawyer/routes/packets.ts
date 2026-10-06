@@ -6,8 +6,9 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
-import { createPacketBody, updatePacketBody } from '../../schemas/packets.js';
+import { createPacketBody, robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
 import { uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
 
@@ -17,73 +18,61 @@ export const packetsRouter: RouterType = Router();
  * GET /api/packets/:robbieCode
  * Get packet for a Robbie meeting (creates one if doesn't exist)
  */
-packetsRouter.get('/packets/:robbieCode', async (req, res) => {
-  try {
-    const { robbieCode } = req.params;
-
-    let packet = await prisma.meetingPacket.findUnique({
-      where: { robbieCode },
-      include: {
-        attachments: {
-          orderBy: { position: 'asc' },
-          include: {
-            document: {
-              select: { id: true, title: true, docType: true },
-            },
-          },
-        },
-        agendaItems: {
-          orderBy: { position: 'asc' },
-          include: {
-            attachments: {
-              orderBy: { position: 'asc' },
-              include: {
-                document: {
-                  select: { id: true, title: true, docType: true },
-                },
-              },
-            },
-          },
-        },
+// What a packet response includes
+const packetInclude = {
+  attachments: {
+    orderBy: { position: 'asc' as const },
+    include: { document: { select: { id: true, title: true, docType: true } } },
+  },
+  agendaItems: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      attachments: {
+        orderBy: { position: 'asc' as const },
+        include: { document: { select: { id: true, title: true, docType: true } } },
       },
-    });
+    },
+  },
+};
 
-    if (!packet) {
-      // Auto-create packet for this meeting
-      packet = await prisma.meetingPacket.create({
-        data: { robbieCode },
-        include: {
-          attachments: {
-            orderBy: { position: 'asc' },
-            include: {
-              document: {
-                select: { id: true, title: true, docType: true },
-              },
-            },
-          },
-          agendaItems: {
-            orderBy: { position: 'asc' },
-            include: {
-              attachments: {
-                orderBy: { position: 'asc' },
-                include: {
-                  document: {
-                    select: { id: true, title: true, docType: true },
-                  },
-                },
-              },
-            },
-          },
-        },
+packetsRouter.get(
+  '/packets/:robbieCode',
+  validate({ params: robbieCodeParam }),
+  async (req, res) => {
+    try {
+      const { robbieCode } = req.params;
+
+      let packet = await prisma.meetingPacket.findUnique({
+        where: { robbieCode },
+        include: packetInclude,
       });
-    }
 
-    res.json(packet);
-  } catch (error) {
-    logger.error({ err: error }, 'Error getting packet');
-    res.status(500).json({ error: 'Failed to get meeting packet' });
-  }
-});
+      if (!packet) {
+        // Auto-create packet for this meeting. Two first loads at once can both try; the one
+        // that loses gets the packet the other made, not an error.
+        try {
+          packet = await prisma.meetingPacket.create({
+            data: { robbieCode },
+            include: packetInclude,
+          });
+        } catch (error) {
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) {
+            throw error;
+          }
+          packet = await prisma.meetingPacket.findUnique({
+            where: { robbieCode },
+            include: packetInclude,
+          });
+        }
+      }
+
+      res.json(packet);
+    } catch (error) {
+      logger.error({ err: error }, 'Error getting packet');
+      res.status(500).json({ error: 'Failed to get meeting packet' });
+    }
+  },
+);
 
 /**
  * POST /api/packets

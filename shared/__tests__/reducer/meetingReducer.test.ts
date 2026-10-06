@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
 import type { MeetingState, Motion, Member } from '../../types/index.js';
+import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
 
 // Mock members for testing (initialState now starts with empty members array)
 const mockMembers: Member[] = [
@@ -34,22 +35,22 @@ const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
 
 describe('meetingReducer', () => {
   describe('START_MEETING', () => {
-    it('should start the meeting', () => {
-      const state = meetingReducer(initialState, {
-        type: 'START_MEETING',
-        meetingCode: 'ABC123',
-        timestamp: '10:00:00',
-      });
+    it('should start the meeting and keep the code it was created with', () => {
+      // The server creates each meeting's state with its room code; starting the
+      // meeting must not replace it (links, packets and minutes are keyed by it)
+      const state = meetingReducer(
+        { ...initialState, meetingCode: 'DEMO' },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
 
       expect(state.meetingActive).toBe(true);
-      expect(state.meetingCode).toBe('ABC123');
+      expect(state.meetingCode).toBe('DEMO');
       expect(state.meetingStage).toBe('call-to-order');
     });
 
     it('should add a log entry', () => {
       const state = meetingReducer(initialState, {
         type: 'START_MEETING',
-        meetingCode: 'ABC123',
         timestamp: '10:00:00',
       });
 
@@ -77,6 +78,39 @@ describe('meetingReducer', () => {
   });
 
   describe('MAKE_MOTION', () => {
+    it('stacks a seconded secondary amendment on the pending amendment', () => {
+      const main = createMockMotion({ id: 1, type: 'mainMotion', precedence: 1 });
+      const amendment = createMockMotion({ id: 2, type: 'amend', name: 'Amend', precedence: 3 });
+      let state: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: amendment,
+        motionStack: [main, amendment],
+      };
+
+      state = meetingReducer(state, {
+        type: 'MAKE_MOTION',
+        motionType: 'amendAmendment',
+        text: 'by striking "annual"',
+        mover: 'John',
+        moverId: 1,
+        motionId: 3,
+        timestamp: '10:05:00',
+      });
+      state = meetingReducer(state, {
+        type: 'SECOND_MOTION',
+        seconder: 'Jane',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.currentMotion?.type).toBe('amendAmendment');
+      expect(state.motionStack.map((m) => m.type)).toEqual([
+        'mainMotion',
+        'amend',
+        'amendAmendment',
+      ]);
+    });
+
     it('should create a pending second for a regular motion', () => {
       const activeState: MeetingState = {
         ...initialState,
@@ -498,6 +532,59 @@ describe('meetingReducer', () => {
       expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
     });
 
+    it('should record the proposed change when a bylaw amendment is defeated', () => {
+      const bylawAmendment = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'New text',
+      };
+      const motion = createMockMotion({ type: 'bylawAmendment', vote: '2/3', bylawAmendment });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: motion,
+          motionStack: [motion],
+          votes: { yea: 1, nay: 4, abstain: 0 },
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+
+      expect(state.defeatedMotions).toEqual([
+        expect.objectContaining({ type: 'bylawAmendment', bylawAmendment }),
+      ]);
+    });
+
+    it('should clear the speaker state once the question is decided', () => {
+      // Debate on an amendment must not carry over to the main motion it returns to
+      const mainMotion = createMockMotion({ id: 1 });
+      const amendment = createMockMotion({ id: 2, type: 'amend', vote: 'majority' });
+      const speaker = { id: 3, name: 'Member 3', role: 'member' as const, present: true };
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: amendment,
+          motionStack: [mainMotion, amendment],
+          votes: { yea: 3, nay: 1, abstain: 0 },
+          speakerQueue: [{ member: speaker, stance: 'pro' }],
+          recognizedSpeaker: speaker,
+          speakerTimerEnd: 123456,
+          lastSpeakerStance: 'pro',
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+
+      expect(state.currentMotion?.id).toBe(1);
+      expect(state.speakerQueue).toEqual([]);
+      expect(state.recognizedSpeaker).toBeNull();
+      expect(state.speakerTimerEnd).toBeNull();
+      expect(state.lastSpeakerStance).toBeNull();
+    });
+
     it('should handle 2/3 vote requirement', () => {
       const votingState: MeetingState = {
         ...initialState,
@@ -514,6 +601,40 @@ describe('meetingReducer', () => {
       });
 
       expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
+    });
+    describe('appeal from the decision of the chair', () => {
+      // The question is "Shall the decision of the chair be sustained?" (YEA = sustain).
+      // RONR: a majority or a tie sustains the chair; only a majority against overturns it.
+      const closeAppeal = (votes: { yea: number; nay: number; abstain: number }) =>
+        meetingReducer(
+          {
+            ...initialState,
+            meetingActive: true,
+            votingOpen: true,
+            currentMotion: createMockMotion({ type: 'appeal', name: 'Appeal', vote: 'majority' }),
+            motionStack: [createMockMotion({ type: 'appeal', name: 'Appeal', vote: 'majority' })],
+            votes,
+          },
+          { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+        );
+      const outcome = (state: MeetingState) =>
+        state.meetingLog.some((l) => l.message.includes('SUSTAINED'))
+          ? 'sustained'
+          : state.meetingLog.some((l) => l.message.includes('OVERTURNED'))
+            ? 'overturned'
+            : 'none';
+
+      it('sustains the chair on a tie', () => {
+        expect(outcome(closeAppeal({ yea: 4, nay: 4, abstain: 0 }))).toBe('sustained');
+      });
+
+      it('sustains the chair when a majority votes to sustain', () => {
+        expect(outcome(closeAppeal({ yea: 5, nay: 3, abstain: 1 }))).toBe('sustained');
+      });
+
+      it('overturns the chair only when a majority votes against', () => {
+        expect(outcome(closeAppeal({ yea: 3, nay: 5, abstain: 0 }))).toBe('overturned');
+      });
     });
   });
 
@@ -996,6 +1117,20 @@ describe('meetingReducer', () => {
       expect(state.agenda[1].id).toBe(3);
       expect(state.agenda[2].id).toBe(1);
     });
+
+    it('should leave the agenda unchanged for an index that is out of range', () => {
+      // A stale index from another client must not put a hole in the agenda
+      const agenda = [
+        { id: 1, title: 'First', status: 'pending' as const },
+        { id: 2, title: 'Second', status: 'pending' as const },
+      ];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'REORDER_AGENDA', fromIndex: 5, toIndex: 0 },
+      );
+
+      expect(state.agenda).toEqual(agenda);
+    });
   });
 
   describe('SET_VOTING_METHOD', () => {
@@ -1047,6 +1182,23 @@ describe('meetingReducer', () => {
       expect(state.lastChairRuling).not.toBeNull();
       expect(state.lastChairRuling?.ruling).toContain('well taken');
       expect(state.currentMotion).toBeNull();
+    });
+
+    it('should return to the motion that was pending before the point of order', () => {
+      const mainMotion = createMockMotion({ id: 1, type: 'mainMotion' });
+      const pointOfOrder = createMockMotion({ id: 2, type: 'pointOrder', vote: 'none' });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentMotion: pointOfOrder,
+          motionStack: [mainMotion, pointOfOrder],
+        },
+        { type: 'CHAIR_RULING', ruling: 'overrule', timestamp: '10:10:00' },
+      );
+
+      expect(state.motionStack).toEqual([mainMotion]);
+      expect(state.currentMotion).toEqual(mainMotion);
     });
   });
 
@@ -1164,6 +1316,227 @@ describe('meetingReducer', () => {
 
       expect(state.suspendedRules).toHaveLength(1);
       expect(state.suspendedRules[0].rule).toBe('debate-rules');
+    });
+  });
+
+  describe('single-action rule suspensions', () => {
+    const suspension = (id: number, scope: 'single-action' | 'meeting-remainder') => ({
+      id,
+      rule: 'debate-rules' as const,
+      purpose: 'Allow debate',
+      specificAction: 'Debate the pending motion',
+      scope,
+      suspendedAt: '10:00:00',
+      actionCompleted: false,
+      motionId: 99,
+    });
+    const closeVoteOn = (suspendedRules: MeetingState['suspendedRules']) => {
+      const motion = createMockMotion({ vote: 'majority' });
+      return meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: motion,
+          motionStack: [motion],
+          votes: { yea: 3, nay: 1, abstain: 0 },
+          suspendedRules,
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+    };
+
+    it('end once the next question is decided', () => {
+      const state = closeVoteOn([suspension(1, 'single-action')]);
+      expect(isRuleSuspended(state, 'debate-rules')).toBe(false);
+      expect(state.meetingLog.at(-1)?.message).toContain('[RULE RESTORED] debate-rules');
+    });
+
+    it('leave suspensions for the rest of the meeting in place', () => {
+      const state = closeVoteOn([suspension(1, 'meeting-remainder')]);
+      expect(isRuleSuspended(state, 'debate-rules')).toBe(true);
+    });
+
+    it('stay in force when the vote being closed is the one that suspended the rule', () => {
+      const motion = createMockMotion({
+        type: 'suspendRules',
+        vote: '2/3',
+        ruleSuspension: {
+          rule: 'debate-rules',
+          purpose: 'Allow debate',
+          specificAction: 'Debate the pending motion',
+          scope: 'single-action',
+        },
+      });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: motion,
+          motionStack: [motion],
+          votes: { yea: 3, nay: 0, abstain: 0 },
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+      expect(isRuleSuspended(state, 'debate-rules')).toBe(true);
+    });
+  });
+
+  describe('reconsider', () => {
+    // A limit-debate motion (not debatable) was adopted, moved by Alice
+    const completed = {
+      id: 10,
+      type: 'limitDebate',
+      name: 'Limit Debate',
+      text: 'Limit debate to 2 minutes',
+      mover: 'Alice',
+      moverId: 5,
+      passed: true,
+      voterChoices: { 6: 'yea' as const },
+      timestamp: '10:00:00',
+      reconsidered: false,
+    };
+    const reconsider = createMockMotion({
+      id: 20,
+      type: 'reconsider',
+      vote: 'majority',
+      mover: 'Bob',
+      moverId: 6,
+      reconsideredMotionId: 10,
+    });
+    const pending: MeetingState = {
+      ...initialState,
+      meetingActive: true,
+      currentMotion: reconsider,
+      motionStack: [reconsider],
+      completedMotions: [completed],
+    };
+
+    const byVote = () =>
+      meetingReducer(
+        { ...pending, votingOpen: true, votes: { yea: 3, nay: 1, abstain: 0 } },
+        { type: 'CLOSE_VOTING', timestamp: '10:20:00' },
+      );
+
+    it('brings the motion back as it was', () => {
+      const motion = byVote().currentMotion;
+      expect(motion).toMatchObject({
+        type: 'limitDebate',
+        text: 'Limit debate to 2 minutes',
+        debatable: false,
+        mover: 'Alice',
+        moverId: 5,
+      });
+    });
+
+    it('gives the same result each time (the reducer stays pure)', () => {
+      expect(byVote().currentMotion).toEqual(byVote().currentMotion);
+    });
+
+    it('brings the motion back when adopted by unanimous consent', () => {
+      const state = meetingReducer(
+        { ...pending, unanimousConsentPending: true },
+        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:20:00' },
+      );
+      expect(state.currentMotion?.text).toBe('Limit debate to 2 minutes');
+      expect(state.completedMotions[0].reconsidered).toBe(true);
+    });
+  });
+
+  describe('ADVANCE_MEETING_STAGE at the end of the order of business', () => {
+    it('stays at the last stage; only adjourning (END_MEETING) ends the meeting', () => {
+      const atAnnouncements: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        meetingStage: 'announcements',
+      };
+      const state = meetingReducer(atAnnouncements, {
+        type: 'ADVANCE_MEETING_STAGE',
+        timestamp: '11:00:00',
+      });
+
+      // It used to move to 'adjourned' with the meeting still active, and each further
+      // advance logged "Meeting adjourned" again
+      expect(state.meetingStage).toBe('announcements');
+      expect(state.meetingLog).toEqual(atAnnouncements.meetingLog);
+    });
+  });
+
+  describe('agenda item bookkeeping', () => {
+    const agenda = [
+      { id: 1, title: 'Budget', status: 'pending' as const },
+      { id: 2, title: 'Picnic', status: 'pending' as const },
+    ];
+
+    it('records the called item as active in both places', () => {
+      const state = meetingReducer(
+        { ...initialState, agendaAdopted: true, agenda },
+        { type: 'CALL_AGENDA_ITEM', id: 1, timestamp: '10:00:00' },
+      );
+      expect(state.agenda[0].status).toBe('active');
+      expect(state.currentAgendaItem?.status).toBe('active');
+    });
+
+    it('keeps the current item when a different one is completed', () => {
+      const called = meetingReducer(
+        { ...initialState, agendaAdopted: true, agenda },
+        { type: 'CALL_AGENDA_ITEM', id: 1, timestamp: '10:00:00' },
+      );
+      const state = meetingReducer(called, {
+        type: 'COMPLETE_AGENDA_ITEM',
+        id: 2,
+        timestamp: '10:05:00',
+      });
+      expect(state.currentAgendaItem?.id).toBe(1);
+    });
+  });
+
+  describe('motion and role bookkeeping', () => {
+    it('lets the mover reword a motion awaiting a second while debate on another goes on', () => {
+      // Debate has begun on the main motion; the amendment awaiting a second is untouched
+      const mainMotion = createMockMotion({ id: 1, moverHasSpoken: true });
+      const amendment = createMockMotion({ id: 2, type: 'amend', moverId: 3, status: 'pending' });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentMotion: mainMotion,
+          motionStack: [mainMotion],
+          pendingSecond: amendment,
+        },
+        { type: 'MODIFY_MOTION', requesterId: 3, newText: 'by striking "blue"', timestamp: '' },
+      );
+      expect(state.pendingSecond?.text).toBe('by striking "blue"');
+    });
+
+    it('makes a motion that needs no second the active question', () => {
+      const state = meetingReducer(
+        { ...initialState, meetingActive: true },
+        {
+          type: 'MAKE_MOTION',
+          motionType: 'pointOrder',
+          text: 'Point of order',
+          mover: 'Member 2',
+          moverId: 2,
+          motionId: 7,
+          timestamp: '',
+        },
+      );
+      expect(state.currentMotion?.status).toBe('active');
+    });
+
+    it('leaves one chair when a new chair is appointed', () => {
+      const members: Member[] = [
+        { id: 1, name: 'Old Chair', role: 'chair', present: true },
+        { id: 2, name: 'New Chair', role: 'member', present: true },
+      ];
+      // No previousChairId given: the reducer finds the current chair itself
+      const state = meetingReducer(
+        { ...initialState, members },
+        { type: 'SET_MEMBER_ROLE', targetMemberId: 2, newRole: 'chair', timestamp: '' },
+      );
+      expect(state.members.filter((m) => m.role === 'chair').map((m) => m.id)).toEqual([2]);
     });
   });
 
@@ -1470,6 +1843,19 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentElection?.elected).toBeNull();
+      // RONR: balloting continues until a candidate has the required vote, with every
+      // candidate still standing, so a new ballot opens rather than leaving the election closed
+      expect(state.currentElection).toMatchObject({
+        votingInProgress: true,
+        votersWhoVoted: [],
+        ballotResults: { Alice: 0, Charlie: 0, Eve: 0 },
+      });
+      expect(state.currentElection?.candidates.map((c) => c.name)).toEqual([
+        'Alice',
+        'Charlie',
+        'Eve',
+      ]);
+      expect(state.meetingLog.at(-1)?.message).toContain('Ballot 2 is now open');
     });
 
     it('should handle 2/3 vote requirement', () => {
@@ -1519,6 +1905,36 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentElection?.elected).toBe('Alice');
+    });
+
+    it('should elect no one when no ballots were cast', () => {
+      const closeEmpty = (requiredVotes: 'plurality' | 'majority', names: string[]) =>
+        meetingReducer(
+          {
+            ...initialState,
+            currentElection: {
+              id: 1,
+              position: 'Treasurer',
+              candidates: names.map((name, id) => ({ name, id })),
+              requiredVotes,
+              votingInProgress: true,
+              ballotResults: Object.fromEntries(names.map((n) => [n, 0])),
+              votersWhoVoted: [],
+              elected: null,
+            },
+          },
+          { type: 'CLOSE_ELECTION', timestamp: '10:50:00' },
+        );
+
+      // A lone candidate with 0 votes is not elected by plurality
+      expect(closeEmpty('plurality', ['Alice']).currentElection).toMatchObject({
+        elected: null,
+        votingInProgress: true,
+      });
+      // Candidates at 0-0 are not a tie to run off: the ballot stays as it was
+      const state = closeEmpty('majority', ['Alice', 'Bob']);
+      expect(state.currentElection?.isRunoff).toBeFalsy();
+      expect(state.currentElection?.candidates).toHaveLength(2);
     });
 
     it('should return unchanged if no election', () => {

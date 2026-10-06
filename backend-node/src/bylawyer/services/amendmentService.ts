@@ -1,7 +1,18 @@
 import { prisma } from '../../db/prisma.js';
-import { Amendment, AmendmentChange, Version } from '../../generated/prisma/client.js';
+import { Amendment, AmendmentChange, Prisma, Version } from '../../generated/prisma/client.js';
+import { planAmendment } from './amendmentPlan.js';
 
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
+
+/** The amendment can't be applied to the document's current version as written */
+export class AmendmentConflictError extends Error {
+  constructor(conflicts: string[]) {
+    super(`The amendment no longer matches the current version: ${conflicts.join('; ')}`);
+    this.name = 'AmendmentConflictError';
+  }
+}
+
+type Tx = Prisma.TransactionClient;
 
 export class AmendmentService {
   async applyAmendment(amendment: AmendmentWithChanges, effectiveDate?: Date): Promise<Version> {
@@ -13,46 +24,52 @@ export class AmendmentService {
       throw new Error('Amendment has already been applied');
     }
 
-    // Get the document
-    const document = await prisma.document.findUnique({
-      where: { id: amendment.documentId },
-    });
+    // All writes happen in one transaction, so a failure part way leaves no orphan version and
+    // two applies can't take the same version number
+    return prisma.$transaction(
+      async (tx) => {
+        const document = await tx.document.findUnique({
+          where: { id: amendment.documentId },
+        });
 
-    if (!document) {
-      throw new Error('Document not found');
-    }
+        if (!document) {
+          throw new Error('Document not found');
+        }
 
-    const oldCurrentVersionId = document.currentVersionId;
+        const oldSections = document.currentVersionId
+          ? await tx.section.findMany({ where: { versionId: document.currentVersionId } })
+          : [];
 
-    // Get next version number
-    const lastVersion = await prisma.version.findFirst({
-      where: { documentId: document.id },
-      orderBy: { versionNumber: 'desc' },
-    });
-    const versionNumber = (lastVersion?.versionNumber || 0) + 1;
+        // Check every change against the current version before writing anything
+        const sortedChanges = [...amendment.changes].sort((a, b) => a.position - b.position);
+        const plan = planAmendment(oldSections, sortedChanges);
+        if (plan.conflicts.length > 0) {
+          throw new AmendmentConflictError(plan.conflicts);
+        }
 
-    // Create new version
-    const newVersion = await prisma.version.create({
-      data: {
-        documentId: document.id,
-        versionNumber,
-        effectiveDate,
-        notes: `Applied amendment: ${amendment.title}`,
-      },
-    });
+        // Get next version number
+        const lastVersion = await tx.version.findFirst({
+          where: { documentId: document.id },
+          orderBy: { versionNumber: 'desc' },
+        });
+        const versionNumber = (lastVersion?.versionNumber || 0) + 1;
 
-    // Clone sections from current version and build ID map
-    const idMap: Record<string, string> = {};
+        // Create new version
+        const newVersion = await tx.version.create({
+          data: {
+            documentId: document.id,
+            versionNumber,
+            effectiveDate,
+            notes: `Applied amendment: ${amendment.title}`,
+          },
+        });
 
-    if (oldCurrentVersionId) {
-      const oldSections = await prisma.section.findMany({
-        where: { versionId: oldCurrentVersionId },
-      });
+        // Clone sections from current version and build ID map
+        const idMap: Record<string, string> = {};
 
-      if (oldSections.length > 0) {
         // First pass: create all sections without parent references
         for (const section of oldSections) {
-          const newSection = await prisma.section.create({
+          const newSection = await tx.section.create({
             data: {
               versionId: newVersion.id,
               parentId: null,
@@ -69,61 +86,65 @@ export class AmendmentService {
         // Second pass: fix parent references
         for (const section of oldSections) {
           if (section.parentId && idMap[section.parentId]) {
-            await prisma.section.update({
+            await tx.section.update({
               where: { id: idMap[section.id] },
               data: { parentId: idMap[section.parentId] },
             });
           }
         }
-      }
-    }
 
-    // Apply each change
-    const sortedChanges = [...amendment.changes].sort((a, b) => a.position - b.position);
-    for (const change of sortedChanges) {
-      await this.applyChange(change, newVersion, idMap);
-    }
+        // Apply each change, except those to sections an earlier change deleted
+        for (const change of sortedChanges) {
+          if (!plan.skip.has(change.id)) {
+            await this.applyChange(tx, change, newVersion, idMap);
+          }
+        }
 
-    // Update amendment
-    await prisma.amendment.update({
-      where: { id: amendment.id },
-      data: {
-        resultingVersionId: newVersion.id,
-        decidedAt: new Date(),
+        // Record the resulting version. The decision date stays the vote's, not the apply's.
+        await tx.amendment.update({
+          where: { id: amendment.id },
+          data: {
+            resultingVersionId: newVersion.id,
+            ...(amendment.decidedAt ? {} : { decidedAt: new Date() }),
+          },
+        });
+
+        // Update document's current version
+        await tx.document.update({
+          where: { id: document.id },
+          data: { currentVersionId: newVersion.id },
+        });
+
+        return newVersion;
       },
-    });
-
-    // Update document's current version
-    await prisma.document.update({
-      where: { id: document.id },
-      data: { currentVersionId: newVersion.id },
-    });
-
-    return newVersion;
+      { timeout: 30_000 },
+    );
   }
 
   private async applyChange(
+    tx: Tx,
     change: AmendmentChange,
     version: Version,
     idMap: Record<string, string>,
   ): Promise<void> {
     switch (change.changeType) {
       case 'add':
-        await this.applyAdd(change, version, idMap);
+        await this.applyAdd(tx, change, version, idMap);
         break;
       case 'modify':
-        await this.applyModify(change, idMap);
+        await this.applyModify(tx, change, idMap);
         break;
       case 'delete':
-        await this.applyDelete(change, idMap);
+        await this.applyDelete(tx, change, idMap);
         break;
       case 'renumber':
-        await this.applyRenumber(change, idMap);
+        await this.applyRenumber(tx, change, idMap);
         break;
     }
   }
 
   private async applyAdd(
+    tx: Tx,
     change: AmendmentChange,
     version: Version,
     idMap: Record<string, string>,
@@ -135,7 +156,7 @@ export class AmendmentService {
     }
 
     // Find max position among siblings
-    const siblings = await prisma.section.findMany({
+    const siblings = await tx.section.findMany({
       where: {
         versionId: version.id,
         parentId: newParentId,
@@ -143,7 +164,7 @@ export class AmendmentService {
     });
     const maxPosition = siblings.length > 0 ? Math.max(...siblings.map((s) => s.position)) : -1;
 
-    await prisma.section.create({
+    await tx.section.create({
       data: {
         versionId: version.id,
         parentId: newParentId,
@@ -155,35 +176,44 @@ export class AmendmentService {
     });
   }
 
-  private async applyModify(change: AmendmentChange, idMap: Record<string, string>): Promise<void> {
+  private async applyModify(
+    tx: Tx,
+    change: AmendmentChange,
+    idMap: Record<string, string>,
+  ): Promise<void> {
     if (!change.targetSectionId) return;
 
     const newSectionId = idMap[change.targetSectionId];
     if (!newSectionId) return;
 
-    const updateData: any = {};
+    const updateData: Prisma.SectionUpdateInput = {};
     if (change.newContent !== null) updateData.content = change.newContent;
     if (change.newTitle !== null) updateData.title = change.newTitle;
     if (change.newNumberLabel !== null) updateData.numberLabel = change.newNumberLabel;
 
     if (Object.keys(updateData).length > 0) {
-      await prisma.section.update({
+      await tx.section.update({
         where: { id: newSectionId },
         data: updateData,
       });
     }
   }
 
-  private async applyDelete(change: AmendmentChange, idMap: Record<string, string>): Promise<void> {
+  private async applyDelete(
+    tx: Tx,
+    change: AmendmentChange,
+    idMap: Record<string, string>,
+  ): Promise<void> {
     if (!change.targetSectionId) return;
 
     const newSectionId = idMap[change.targetSectionId];
     if (!newSectionId) return;
 
-    await prisma.section.delete({ where: { id: newSectionId } });
+    await tx.section.delete({ where: { id: newSectionId } });
   }
 
   private async applyRenumber(
+    tx: Tx,
     change: AmendmentChange,
     idMap: Record<string, string>,
   ): Promise<void> {
@@ -193,7 +223,7 @@ export class AmendmentService {
     if (!newSectionId) return;
 
     if (change.newNumberLabel !== null) {
-      await prisma.section.update({
+      await tx.section.update({
         where: { id: newSectionId },
         data: { numberLabel: change.newNumberLabel },
       });

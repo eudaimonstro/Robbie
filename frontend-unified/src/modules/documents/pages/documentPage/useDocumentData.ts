@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   documents as documentsApi,
   versions as versionsApi,
@@ -10,6 +10,7 @@ import {
   Amendment,
   SectionCreate,
   SectionUpdate,
+  VersionCreate,
 } from '../../../../api/client';
 import { useToast } from '../../../../context/ToastContext';
 
@@ -30,7 +31,7 @@ interface UseDocumentDataReturn {
   ) => Promise<void>;
   handleDeleteSection: (sectionId: string) => Promise<void>;
   handleReorderSections: (updates: Array<{ id: string; position: number }>) => Promise<void>;
-  handleCreateVersion: (notes?: string) => Promise<Version | null>;
+  handleCreateVersion: (data: VersionCreate) => Promise<Version | null>;
   handleCreateAmendment: (title: string, description?: string) => Promise<Amendment | null>;
   refreshTree: () => Promise<void>;
 }
@@ -44,9 +45,26 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
   const [sectionTree, setSectionTree] = useState<SectionTree[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [loading, setLoading] = useState(true);
+  // Identifies the newest fetch, so a slow response for a document no longer shown is ignored
+  const latestFetch = useRef(0);
+
+  // On moving to another document, drop the previous one's data at once, so nothing (such as
+  // Add Section) acts on it while the new one loads
+  const [loadedFor, setLoadedFor] = useState(documentId);
+  if (documentId !== loadedFor) {
+    setLoadedFor(documentId);
+    setDoc(null);
+    setVersions([]);
+    setSelectedVersion(null);
+    setSectionTree([]);
+    setAmendments([]);
+    setLoading(true);
+  }
 
   const fetchDocument = useCallback(async () => {
     if (!documentId) return;
+    const fetchId = ++latestFetch.current;
+    const isStale = () => fetchId !== latestFetch.current;
 
     try {
       setLoading(true);
@@ -55,26 +73,32 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
         versionsApi.list(documentId),
         amendmentsApi.list(documentId),
       ]);
+      if (isStale()) return;
 
       setDoc(fetchedDoc);
       setVersions(vers);
       setAmendments(amends.filter((a) => a.status === 'draft' || a.status === 'proposed'));
 
-      // Select current version or latest
+      // Select the current version, or the newest one if none is marked current
       const currentVersion = fetchedDoc.currentVersionId
         ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
-        : vers[vers.length - 1];
+        : vers.reduce<Version | undefined>(
+            (newest, v) => (!newest || v.versionNumber > newest.versionNumber ? v : newest),
+            undefined,
+          );
 
       if (currentVersion) {
         setSelectedVersion(currentVersion);
         const tree = await versionsApi.getTree(currentVersion.id);
+        if (isStale()) return;
         setSectionTree(tree);
       }
     } catch (err) {
+      if (isStale()) return;
       showToast('error', 'Failed to load document');
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [documentId, showToast]);
 
@@ -156,12 +180,10 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
   );
 
   const handleCreateVersion = useCallback(
-    async (notes?: string): Promise<Version | null> => {
+    async (data: VersionCreate): Promise<Version | null> => {
       if (!documentId) return null;
 
-      const newVersion = await versionsApi.create(documentId, {
-        notes: notes?.trim() || undefined,
-      });
+      const newVersion = await versionsApi.create(documentId, data);
       await fetchDocument();
       setSelectedVersion(newVersion);
       const tree = await versionsApi.getTree(newVersion.id);

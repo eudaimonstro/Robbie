@@ -41,12 +41,22 @@ import { errorHandler } from './middleware/errorHandler.js';
 const PORT = process.env.PORT || 3001;
 
 const app = express();
+
+// Prisma returns BIGINT columns (Amendment.robbieMotionId) as BigInt, which JSON.stringify
+// cannot serialize. Motion IDs stay below Number.MAX_SAFE_INTEGER, so send them as numbers.
+app.set('json replacer', (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? Number(value) : value,
+);
 const httpServer = createServer(app);
 
-// Allow any localhost port in development
+// Cross-origin requests: the configured web app origin, or in development any localhost port.
+// In production the server serves the web app itself (same origin), so without CLIENT_ORIGIN
+// no other origin is allowed.
 const allowedOrigins = process.env.CLIENT_ORIGIN
   ? [process.env.CLIENT_ORIGIN]
-  : [/^http:\/\/localhost:\d+$/];
+  : process.env.NODE_ENV === 'production'
+    ? []
+    : [/^http:\/\/localhost:\d+$/];
 
 // Socket.io server with typed events
 const io = new Server<
@@ -127,6 +137,12 @@ app.use('/api/robbie', robbieRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
+
+// An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
+// catch-all below
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 // Global error handler (must be after all routes)
 app.use(errorHandler);

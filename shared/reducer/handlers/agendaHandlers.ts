@@ -6,6 +6,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
+import { moveItem } from '../../utils/moveItem.js';
 
 export const agendaHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -30,10 +31,10 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
 
     case 'REORDER_AGENDA': {
       const typedAction = action as Extract<MeetingAction, { type: 'REORDER_AGENDA' }>;
-      const newAgenda = [...state.agenda];
-      const [moved] = newAgenda.splice(typedAction.fromIndex, 1);
-      newAgenda.splice(typedAction.toIndex, 0, moved);
-      return { ...state, agenda: newAgenda };
+      return {
+        ...state,
+        agenda: moveItem(state.agenda, typedAction.fromIndex, typedAction.toIndex),
+      };
     }
 
     case 'ADOPT_AGENDA': {
@@ -67,7 +68,8 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       );
       return {
         ...state,
-        currentAgendaItem: item || null,
+        // The updated entry, so its status reads 'active' here as in the agenda
+        currentAgendaItem: updatedAgenda.find((a) => a.id === typedAction.id) ?? null,
         agenda: updatedAgenda,
         meetingLog: log(typedAction.timestamp, logAgendaItemCalled(item?.title)),
       };
@@ -78,14 +80,13 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       const updatedAgenda = state.agenda.map((a) =>
         a.id === typedAction.id ? { ...a, status: 'completed' as const } : a,
       );
+      const completed = state.agenda.find((a) => a.id === typedAction.id);
       return {
         ...state,
-        currentAgendaItem: null,
+        currentAgendaItem:
+          state.currentAgendaItem?.id === typedAction.id ? null : state.currentAgendaItem,
         agenda: updatedAgenda,
-        meetingLog: log(
-          typedAction.timestamp,
-          logAgendaItemCompleted(state.currentAgendaItem?.title),
-        ),
+        meetingLog: log(typedAction.timestamp, logAgendaItemCompleted(completed?.title)),
       };
     }
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Scale, Plus, ChevronDown, Building2, Menu, Search, X, FileText, Hash } from 'lucide-react';
 import { useOrganization } from '../../context/OrganizationContext';
 import {
@@ -10,6 +10,7 @@ import {
 } from '../../api/client';
 import Modal from '../ui/Modal';
 import { useToast } from '../../context/ToastContext';
+import { showsOneOrganizationsRecord } from '../../utils/organizationPages';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -17,6 +18,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     organizations: orgs,
     currentOrganization,
@@ -106,6 +108,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       const data: OrganizationCreate = { name: newOrgName.trim() };
       const newOrg = await organizations.create(data);
       await refreshOrganizations();
+      if (showsOneOrganizationsRecord(location.pathname)) navigate('/');
       setCurrentOrganization(newOrg);
       setNewOrgName('');
       setIsCreateModalOpen(false);
@@ -229,6 +232,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
                           <button
                             key={org.id}
                             onClick={() => {
+                              // A document, amendment or meeting page belongs to the old one
+                              if (
+                                org.id !== currentOrganization?.id &&
+                                showsOneOrganizationsRecord(location.pathname)
+                              ) {
+                                navigate('/');
+                              }
                               setCurrentOrganization(org);
                               setIsOrgDropdownOpen(false);
                             }}

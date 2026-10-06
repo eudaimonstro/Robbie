@@ -26,12 +26,31 @@ export type ApplyActionResult =
 /** Maximum number of retry attempts for concurrent conflicts */
 const MAX_RETRIES = 3;
 
+/** The tail of each meeting's queue of pending writes */
+const meetingQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Run a task after every task already queued for the meeting has finished. The app runs as a
+ * single server, so this serializes all writes to a meeting's state.
+ */
+function runExclusive<T>(meetingCode: string, task: () => Promise<T>): Promise<T> {
+  const previous = meetingQueues.get(meetingCode) ?? Promise.resolve();
+  const run = previous.then(task);
+  const tail = run.catch(() => undefined);
+  meetingQueues.set(meetingCode, tail);
+  void tail.then(() => {
+    if (meetingQueues.get(meetingCode) === tail) meetingQueues.delete(meetingCode);
+  });
+  return run;
+}
+
 /**
  * Apply an action to a meeting's state and persist it
  *
- * Uses optimistic locking to prevent race conditions when multiple users
- * submit actions concurrently. If a conflict is detected, the action is
- * retried with the latest state (up to MAX_RETRIES times).
+ * Actions on a meeting are applied one at a time, so concurrent actions (such as many members
+ * voting at once) are never lost to a version conflict. Optimistic locking remains as a
+ * safeguard: if the stored version changed anyway, the action is retried with the latest
+ * state (up to MAX_RETRIES times).
  *
  * @param meetingCode - The meeting code
  * @param action - The action to apply
@@ -39,7 +58,15 @@ const MAX_RETRIES = 3;
  *                    This prevents race conditions where validation passes initially
  *                    but a concurrent action invalidates the conditions
  */
-export async function applyAction(
+export function applyAction(
+  meetingCode: string,
+  action: MeetingAction,
+  validator?: ActionValidator,
+): Promise<ApplyActionResult> {
+  return runExclusive(meetingCode, () => applyActionNow(meetingCode, action, validator));
+}
+
+async function applyActionNow(
   meetingCode: string,
   action: MeetingAction,
   validator?: ActionValidator,

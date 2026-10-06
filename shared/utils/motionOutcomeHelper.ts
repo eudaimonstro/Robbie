@@ -1,4 +1,12 @@
-import type { MeetingState, AgendaItem, RuleSuspension, Motion } from '../types/index.js';
+import type {
+  MeetingState,
+  AgendaItem,
+  RuleSuspension,
+  Motion,
+  CompletedMotion,
+} from '../types/index.js';
+import { MOTIONS } from '../constants/motions.js';
+import { moveItem } from './moveItem.js';
 
 export interface DividedPart {
   id: number;
@@ -30,6 +38,44 @@ export interface ProcessedOutcome {
 }
 
 /**
+ * Bring back a motion whose vote is being reconsidered, once the motion to reconsider is
+ * adopted (by vote or by unanimous consent). The motion returns as it was: its own
+ * definition (so a motion that isn't debatable stays undebatable) and its original mover. It
+ * takes the reconsider motion's ID, which is unique and keeps the reducer pure.
+ *
+ * @returns the restored motion and the completed motions with the original marked
+ *   reconsidered, or null when the motion is not found
+ */
+export function restoreReconsideredMotion(
+  state: MeetingState,
+  reconsideredMotionId: number,
+): { motion: Motion; completedMotions: CompletedMotion[] } | null {
+  const completed = state.completedMotions.find((cm) => cm.id === reconsideredMotionId);
+  if (!completed || !state.currentMotion) return null;
+
+  const definition = MOTIONS[completed.type] ?? MOTIONS.mainMotion;
+  const motion: Motion = {
+    ...definition,
+    id: state.currentMotion.id,
+    type: completed.type,
+    name: completed.name,
+    text: completed.text,
+    mover: completed.mover ?? state.currentMotion.mover,
+    moverId: completed.moverId ?? state.currentMotion.moverId,
+    secondedBy: null,
+    status: 'active' as const,
+    moverHasSpoken: false,
+    ...(completed.bylawAmendment && { bylawAmendment: completed.bylawAmendment }),
+  };
+  return {
+    motion,
+    completedMotions: state.completedMotions.map((cm) =>
+      cm.id === reconsideredMotionId ? { ...cm, reconsidered: true } : cm,
+    ),
+  };
+}
+
+/**
  * Process motion outcome result to compute derived state fields
  * Reduces duplication between CLOSE_VOTING and UNANIMOUS_CONSENT_PASSED
  */
@@ -39,14 +85,26 @@ export function processOutcomeResult(
   newStack: Motion[],
   motionToRestore?: Motion | null,
 ): ProcessedOutcome {
+  // Rules suspended for a single action are back in force once a question is decided: that
+  // decision is taken to be the action they were suspended for. (This can end one early when
+  // another question, such as an amendment, is decided first; the chair can suspend again.)
+  const expiring = currentSuspendedRules.filter(
+    (s) => s.scope === 'single-action' && !s.actionCompleted,
+  );
+  const settledRules = currentSuspendedRules.map((s) =>
+    expiring.includes(s) ? { ...s, actionCompleted: true } : s,
+  );
+
   // Handle suspended rules
   const suspendedRules = outcome.newSuspension
-    ? [...currentSuspendedRules, outcome.newSuspension]
-    : currentSuspendedRules;
+    ? [...settledRules, outcome.newSuspension]
+    : settledRules;
 
-  const suspensionLog = outcome.newSuspension
-    ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
-    : '';
+  const suspensionLog =
+    (outcome.newSuspension
+      ? `[RULE SUSPENDED] ${outcome.newSuspension.rule}: ${outcome.newSuspension.purpose}`
+      : '') +
+    expiring.map((s) => `\n[RULE RESTORED] ${s.rule} restored after its single action`).join('');
 
   // Handle objection killing main motion
   let workingStack = newStack;
@@ -150,10 +208,7 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
     } else if (amendment.action === 'remove') {
       agenda = agenda.filter((item) => item.id !== amendment.itemId);
     } else if (amendment.action === 'reorder') {
-      const newAgenda = [...agenda];
-      const [moved] = newAgenda.splice(amendment.fromIndex!, 1);
-      newAgenda.splice(amendment.toIndex!, 0, moved);
-      agenda = newAgenda;
+      agenda = moveItem(agenda, amendment.fromIndex ?? -1, amendment.toIndex ?? -1);
     }
   }
 

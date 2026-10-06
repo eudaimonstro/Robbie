@@ -16,8 +16,9 @@ export function calculateVoteResult(
   // Calculate threshold based on requirement
   const threshold = requirement === '2/3' ? total * (2 / 3) : total / 2;
 
-  // Motion passes if yea exceeds threshold (strict majority)
-  const passed = yea > threshold;
+  // RONR: a majority is more than half of the votes cast; two-thirds is at least
+  // two-thirds of the votes cast. Integer comparisons avoid floating-point edge cases.
+  const passed = requirement === '2/3' ? total > 0 && yea * 3 >= total * 2 : yea * 2 > total;
 
   return {
     passed,
@@ -28,6 +29,23 @@ export function calculateVoteResult(
     threshold,
     requirement,
   };
+}
+
+/**
+ * RONR: the chair votes (outside a ballot) only when the chair's vote would change the result,
+ * for example to break or make a tie, or to reach or block two-thirds. That is judged on the
+ * votes already cast, so it is never true before anyone has voted.
+ * @param votes - Current vote counts, without the chair's vote
+ * @param requirement - The vote requirement of the pending question
+ */
+export function canChairVoteDecide(votes: Votes, requirement: VoteRequirement): boolean {
+  if (votes.yea + votes.nay === 0) return false;
+  const passes = (v: Votes) => calculateVoteResult(v, requirement).passed;
+  const now = passes(votes);
+  return (
+    passes({ ...votes, yea: votes.yea + 1 }) !== now ||
+    passes({ ...votes, nay: votes.nay + 1 }) !== now
+  );
 }
 
 /**

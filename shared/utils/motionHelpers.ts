@@ -1,6 +1,6 @@
 import { MOTIONS } from '../constants/motions.js';
 import { isRuleSuspended } from './ruleSuspensionHelper.js';
-import type { MeetingState, MotionDefinition } from '../types/index.js';
+import type { BylawAmendment, MeetingState, MotionDefinition } from '../types/index.js';
 
 export interface ValidMotion extends MotionDefinition {
   key: string;
@@ -33,14 +33,41 @@ export function isSimilarMotionSubject(text1: string, text2: string): boolean {
 }
 
 /**
+ * Check if two bylaw amendments propose the same change: the same edit to the same part of the
+ * same document, with the same wording apart from case and spacing
+ */
+function isSameBylawChange(a: BylawAmendment, b: BylawAmendment): boolean {
+  const norm = (text?: string) => normalizeMotionText(text ?? '');
+  return (
+    a.documentId === b.documentId &&
+    a.changeType === b.changeType &&
+    a.targetSectionId === b.targetSectionId &&
+    a.parentSectionId === b.parentSectionId &&
+    norm(a.newContent) === norm(b.newContent) &&
+    norm(a.newTitle) === norm(b.newTitle) &&
+    norm(a.newNumberLabel) === norm(b.newNumberLabel)
+  );
+}
+
+/**
  * Check if a motion with given type and text was defeated this meeting
  */
 export function wasMotionDefeated(
   state: MeetingState,
   motionType: string,
   motionText?: string,
+  bylawAmendment?: BylawAmendment,
 ): boolean {
   if (!state.defeatedMotions?.length) return false;
+  // A bylaw amendment's text is generated from the section label, so compare the change itself
+  if (motionType === 'bylawAmendment' && bylawAmendment) {
+    return state.defeatedMotions.some(
+      (dm) =>
+        dm.type === motionType &&
+        dm.bylawAmendment !== undefined &&
+        isSameBylawChange(dm.bylawAmendment, bylawAmendment),
+    );
+  }
   // For main motions, check subject matter; for others, just check type
   if (motionType === 'mainMotion' && motionText) {
     return state.defeatedMotions.some(
@@ -69,6 +96,20 @@ export function wasMotionDefeated(
  * @param currentUserId - Optional user ID for checking reconsider eligibility
  * @returns Array of valid motions with their definitions
  */
+/**
+ * A secondary amendment (amend the amendment) applies only to a primary amendment, and is in
+ * order only while that amendment is the immediately pending question (RONR §12). Its numeric
+ * precedence can't express this, so it is checked by type. With the amendment-depth rule
+ * suspended, a secondary amendment may itself be amended.
+ */
+export function isSecondaryAmendmentInOrder(state: MeetingState): boolean {
+  const pending = state.currentMotion?.type;
+  return (
+    pending === 'amend' ||
+    (pending === 'amendAmendment' && isRuleSuspended(state, 'amendment-depth'))
+  );
+}
+
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some((m) => m.type === 'amend');
@@ -110,10 +151,16 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       state.currentMotion?.type === 'amendAmendment'
     )
       return;
-    // Renewal rule: For non-mainMotion main motions (like adoptAgenda, takeFromTable),
-    // block if that specific type was defeated.
-    // For mainMotion, allow the type but individual motions are blocked by subject-matter check in validator.
-    if (motion.category === 'main' && key !== 'mainMotion' && wasDefeated(key)) return;
+    // Renewal rule: For other main motions (like adoptAgenda, takeFromTable), block if that
+    // specific type was defeated. Main motions and bylaw amendments stay available; the
+    // validator blocks only one that renews a defeated motion's subject or change.
+    if (
+      motion.category === 'main' &&
+      key !== 'mainMotion' &&
+      key !== 'bylawAmendment' &&
+      wasDefeated(key)
+    )
+      return;
     // Appeal: Only available immediately after a chair ruling
     if (key === 'appeal' && !state.lastChairRuling) return;
     // Objection to Consideration: Only for main motions before debate begins
@@ -141,11 +188,16 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
     // - Incidental: Always in order (no fixed precedence)
     // - Subsidiary: Only when there's a motion to apply them to (currentPrecedence >= 1)
     // - Privileged: Always available when precedence is higher than current
-    // - Main: Already filtered above (line 27)
+    // - Main: Only when nothing is pending (new business), except reconsider, which may
+    //   interrupt; adoptAgenda is offered by the agenda block above
     // - When motion-precedence suspended: Allow all motions regardless of precedence
 
     if (motion.category === 'incidental') {
       validMotions.push({ key, ...motion });
+    } else if (key === 'amendAmendment') {
+      if (isSecondaryAmendmentInOrder(state)) {
+        validMotions.push({ key, ...motion });
+      }
     } else if (motion.category === 'subsidiary' && currentPrecedence >= 1) {
       // Allow if precedence suspended OR precedence is higher
       if (precedenceSuspended || motion.precedence > currentPrecedence) {
@@ -156,6 +208,17 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       if (precedenceSuspended || motion.precedence > currentPrecedence) {
         validMotions.push({ key, ...motion });
       }
+    } else if (motion.category === 'main') {
+      if (key === 'adoptAgenda') return;
+      // Eligibility was checked above, and reconsider may be made while other business is pending
+      if (key === 'reconsider') {
+        validMotions.push({ key, ...motion });
+        return;
+      }
+      // New business waits until no motion is pending and any agenda objection is resolved
+      if (state.currentMotion || (state.agendaObjection && !state.agendaAdopted)) return;
+      if (key === 'takeFromTable' && state.tabledMotions.length === 0) return;
+      validMotions.push({ key, ...motion });
     }
   });
   return validMotions;

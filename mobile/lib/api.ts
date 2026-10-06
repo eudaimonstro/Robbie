@@ -3,9 +3,21 @@ import Constants from 'expo-constants';
 // Get API URL from Expo constants or use default
 const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:3001';
 
-interface ApiError {
-  message: string;
-  code?: string;
+/**
+ * The error message from a failed response. The API sends { error: string } (or
+ * { error: { message } }); a body that isn't JSON (a proxy's error page) falls back.
+ */
+async function errorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.json();
+    const error = body?.error;
+    if (typeof error === 'string') return error;
+    if (typeof error?.message === 'string') return error.message;
+    if (typeof body?.message === 'string') return body.message;
+  } catch {
+    // Not JSON
+  }
+  return fallback;
 }
 
 interface RequestVerificationResponse {
@@ -40,8 +52,7 @@ export async function requestVerification(
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new Error(error.message || 'Failed to request verification');
+    throw new Error(await errorMessage(response, 'Failed to request verification'));
   }
 
   return response.json();
@@ -64,8 +75,7 @@ export async function verifyCode(
   });
 
   if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new Error(error.message || 'Verification failed');
+    throw new Error(await errorMessage(response, 'Verification failed'));
   }
 
   return response.json();

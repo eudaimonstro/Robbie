@@ -1,7 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
-import { SectionTree as SectionTreeType, SectionCreate, SectionUpdate } from '../../../api/client';
+import {
+  SectionTree as SectionTreeType,
+  SectionCreate,
+  SectionUpdate,
+  VersionCreate,
+} from '../../../api/client';
 import { useOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
@@ -101,8 +106,8 @@ export default function DocumentPage() {
     await handleSaveSection(data, editorMode, editingSection, parentSection);
   };
 
-  const onCreateVersion = async (notes?: string) => {
-    await handleCreateVersion(notes);
+  const onCreateVersion = async (data: VersionCreate) => {
+    await handleCreateVersion(data);
   };
 
   const onCreateAmendment = async (title: string, description?: string) => {
@@ -131,7 +136,7 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
+    <div className="flex flex-col xl:flex-row gap-6 max-w-7xl mx-auto">
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <DocumentHeader
