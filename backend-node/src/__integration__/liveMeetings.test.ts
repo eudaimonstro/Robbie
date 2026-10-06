@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { bylawyerRouter } from '../bylawyer/bylawyerRouter.js';
 import { prisma } from '../db/prisma.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
-import { call } from './helpers.js';
+import { call, runHandler } from './helpers.js';
 import { describeRules } from './rules.js';
 
 describeRules('Bylawyer router rules', [
@@ -114,6 +115,19 @@ describe('live meetings', () => {
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: 'Remove the agenda and attachments first' });
     expect(await prisma.meetingPacket.count({ where: { id: f.packet.id } })).toBe(1);
+  });
+
+  it("unlink only their own organization's packet", async () => {
+    // A's rule passed, then the code was unlinked and linked to B before the handler ran
+    const packetB = await prisma.meetingPacket.create({
+      data: { organizationId: f.orgB.id, robbieCode: 'ORGB02' },
+    });
+    const res = await runHandler(bylawyerRouter, 'delete', '/link-meeting/:meetingCode', {
+      params: { meetingCode: 'ORGB02' },
+      org: { id: f.orgA.id, role: 'secretary' },
+    });
+    expect(res).toEqual({ status: 404, body: { error: 'Not found' } });
+    expect(await prisma.meetingPacket.count({ where: { id: packetB.id } })).toBe(1);
   });
 
   it('that are not linked are not found', async () => {

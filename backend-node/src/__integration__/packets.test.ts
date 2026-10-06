@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
+import { packetsRouter } from '../bylawyer/routes/packets.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
-import { call } from './helpers.js';
+import { call, runHandler } from './helpers.js';
 import { describeRules } from './rules.js';
 
 describeRules('packet rules', [
@@ -84,6 +85,15 @@ describe('packets', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Not found' });
     expect(await prisma.meetingPacket.count({ where: { robbieCode: 'NOPE01' } })).toBe(0);
+  });
+
+  it("are read by code only in the rule's organization", async () => {
+    // A's rule passed, then the code moved to B before the handler ran
+    const res = await runHandler(packetsRouter, 'get', '/packets/:robbieCode', {
+      params: { robbieCode: f.packetB.code },
+      org: { id: f.orgA.id, role: 'viewer' },
+    });
+    expect(res).toEqual({ status: 404, body: { error: 'Not found' } });
   });
 
   it('are no longer created without an organization', async () => {

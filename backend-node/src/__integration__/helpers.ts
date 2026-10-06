@@ -1,4 +1,5 @@
 import request from 'supertest';
+import type { Request, Response, Router } from 'express';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { app } from '../app.js';
 import { prisma } from '../db/prisma.js';
@@ -48,4 +49,52 @@ export function call(
   for (const [name, value] of Object.entries(options.headers ?? {})) test = test.set(name, value);
   if (options.body !== undefined) test = test.send(options.body);
   return test;
+}
+
+/** What a route handler answered when run directly (see runHandler) */
+export interface HandlerResult {
+  status: number;
+  body: unknown;
+}
+
+/**
+ * Run a route's last handler directly with a request that has passed its rule, as req.org
+ * says. This tests a handler against a resource that changed after its rule ran, which a
+ * request through the app can't arrange.
+ */
+export async function runHandler(
+  router: Router,
+  method: Method,
+  path: string,
+  req: { params: Record<string, string>; org: Request['org']; body?: object },
+): Promise<HandlerResult> {
+  const layer = (router.stack as Array<{ route?: StackRoute }>).find(
+    (l) => l.route?.path === path && l.route.methods[method],
+  );
+  if (!layer?.route) throw new Error(`No ${method} ${path} route`);
+  const handle = layer.route.stack.at(-1)!.handle;
+
+  const result: HandlerResult = { status: 200, body: undefined };
+  const res = {
+    status(code: number) {
+      result.status = code;
+      return res;
+    },
+    json(body: unknown) {
+      result.body = body;
+      return res;
+    },
+    send(body?: unknown) {
+      result.body = body;
+      return res;
+    },
+  };
+  await handle(req as unknown as Request, res as unknown as Response, () => {});
+  return result;
+}
+
+interface StackRoute {
+  path: string;
+  methods: Record<string, boolean>;
+  stack: Array<{ handle: (req: Request, res: Response, next: () => void) => unknown }>;
 }

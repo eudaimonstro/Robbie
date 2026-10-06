@@ -168,12 +168,26 @@ bylawyerRouter.post(
 const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
+    const organizationId = req.org!.id;
 
-    // One statement, so an item added meanwhile can't be deleted with the packet
+    // One statement, so an item added meanwhile can't be deleted with the packet. It names the
+    // organization too: the code may have been unlinked and linked elsewhere since the rule.
     const deleted = await prisma.meetingPacket.deleteMany({
-      where: { robbieCode: meetingCode, agendaItems: { none: {} }, attachments: { none: {} } },
+      where: {
+        robbieCode: meetingCode,
+        organizationId,
+        agendaItems: { none: {} },
+        attachments: { none: {} },
+      },
     });
     if (deleted.count === 0) {
+      const packet = await prisma.meetingPacket.findFirst({
+        where: { robbieCode: meetingCode, organizationId },
+        select: { id: true },
+      });
+      if (!packet) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       return res.status(409).json({ error: 'Remove the agenda and attachments first' });
     }
 

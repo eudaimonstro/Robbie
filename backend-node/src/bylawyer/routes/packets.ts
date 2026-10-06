@@ -50,8 +50,8 @@ packetsRouter.get(
   requireRole('viewer', fromParam('robbieCode', orgOfPacketCode)),
   async (req, res) => {
     try {
-      const packet = await prisma.meetingPacket.findUnique({
-        where: { robbieCode: req.params.robbieCode },
+      const packet = await prisma.meetingPacket.findFirst({
+        where: { robbieCode: req.params.robbieCode, organizationId: req.org!.id },
         include: packetInclude,
       });
 
