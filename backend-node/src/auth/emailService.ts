@@ -30,13 +30,6 @@ import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { logger } from '../middleware/logger.js';
 
-// For testing: returns the code so it can be used for dev bypass
-let lastGeneratedCode: string | null = null;
-
-export function getLastCode(): string | null {
-  return lastGeneratedCode;
-}
-
 // Email configuration
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Robbie <noreply@robbie.app>';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -133,7 +126,7 @@ if (isProduction && emailProvider === 'development') {
 /**
  * Generate HTML email template for verification code
  */
-function generateEmailHtml(code: string, meetingCode: string): string {
+function generateEmailHtml(code: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -154,7 +147,7 @@ function generateEmailHtml(code: string, meetingCode: string): string {
     <div style="padding: 32px 24px;">
       <h2 style="color: #18181b; margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Your Verification Code</h2>
       <p style="color: #52525b; margin: 0 0 24px 0; font-size: 15px; line-height: 1.6;">
-        Enter this code to join meeting <strong style="color: #18181b;">${meetingCode}</strong>:
+        Enter this code to sign in to Robbie:
       </p>
 
       <!-- Code Box -->
@@ -182,10 +175,10 @@ function generateEmailHtml(code: string, meetingCode: string): string {
 /**
  * Generate plain text email for verification code
  */
-function generateEmailText(code: string, meetingCode: string): string {
+function generateEmailText(code: string): string {
   return `Your Verification Code for Robbie
 
-Enter this code to join meeting ${meetingCode}:
+Enter this code to sign in to Robbie:
 
 ${code}
 
@@ -198,42 +191,41 @@ Robbie - Parliamentary Procedure Made Easy
 `;
 }
 
-/**
- * Send verification email
- * @param email - Recipient email address
- * @param code - 6-digit verification code
- * @param meetingCode - Meeting code being joined
- */
-export async function sendVerificationEmail(
-  email: string,
-  code: string,
-  meetingCode: string,
-): Promise<void> {
-  // Always store code for dev testing endpoint
-  lastGeneratedCode = code;
+// Tests: when set, codes are collected here instead of being sent
+let testOutbox: Array<{ to: string; code: string }> | null = null;
 
-  // Development mode - just log to console
-  if (emailProvider === 'development') {
-    logger.info(
-      { to: email, meetingCode, verificationCode: code },
-      'Verification email (development mode)',
-    );
+/** Collect sign-in emails in memory instead of sending them (tests only) */
+export function captureEmailsForTests(): Array<{ to: string; code: string }> {
+  testOutbox = [];
+  return testOutbox;
+}
+
+/**
+ * Email a sign-in code. Without an email provider (development only; production requires
+ * one), the code is logged at debug level, which production never logs.
+ */
+export async function sendSignInCode(email: string, code: string): Promise<void> {
+  if (testOutbox) {
+    testOutbox.push({ to: email, code });
     return;
   }
 
-  // Production mode - send actual email
+  if (emailProvider === 'development') {
+    logger.debug({ to: email, code }, 'Sign-in code (no email provider configured)');
+    return;
+  }
+
   try {
     const messageId = await deliver({
       to: email,
-      subject: `Your verification code for meeting ${meetingCode}`,
-      text: generateEmailText(code, meetingCode),
-      html: generateEmailHtml(code, meetingCode),
+      subject: 'Your Robbie sign-in code',
+      text: generateEmailText(code),
+      html: generateEmailHtml(code),
     });
-
-    logger.info({ to: email, messageId }, 'Verification email sent');
+    logger.info({ to: email, messageId }, 'Sign-in email sent');
   } catch (error) {
-    logger.error({ err: error }, 'Failed to send verification email');
-    throw new Error('Failed to send verification email. Please try again.', { cause: error });
+    logger.error({ err: error }, 'Failed to send sign-in email');
+    throw new Error('Failed to send sign-in email', { cause: error });
   }
 }
 

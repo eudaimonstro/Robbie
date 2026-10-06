@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { sendVerificationEmail, getLastCode } from './emailService.js';
+import { sendSignInCode } from './emailService.js';
 import { logger } from '../middleware/logger.js';
 
 export const authRouter = Router();
@@ -193,7 +193,7 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
     });
 
     // Send verification email (logs to console in dev)
-    await sendVerificationEmail(sanitized.email, token, sanitized.meetingCode);
+    await sendSignInCode(sanitized.email, token);
 
     res.json({ success: true, message: 'Verification code sent' });
   } catch (error) {
@@ -312,19 +312,6 @@ authRouter.post('/logout', (_req, res) => {
   });
   res.json({ success: true });
 });
-
-// DEV ONLY: Get last verification code (for testing without email)
-// Disabled in production for security
-if (!isProduction) {
-  authRouter.get('/dev-code', (_req, res) => {
-    const code = getLastCode();
-    if (code) {
-      res.json({ code });
-    } else {
-      res.status(404).json({ error: 'No code generated yet' });
-    }
-  });
-}
 
 // TEST ONLY: Change user role for testing different views
 // Only available when ENABLE_TEST_AUTH=true
