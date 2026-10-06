@@ -78,6 +78,25 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'UNKNOWN_MOTION_TYPE',
         };
       }
+      // Motions whose effect depends on details: without them the motion could be adopted and
+      // then do nothing
+      const missingDetails =
+        (action.motionType === 'takeFromTable' &&
+          !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
+        (action.motionType === 'reconsider' &&
+          !state.completedMotions.some((m) => m.id === action.reconsideredMotionId)) ||
+        (action.motionType === 'suspendRules' &&
+          !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
+        (action.motionType === 'bylawAmendment' &&
+          !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
+        (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
+      if (missingDetails) {
+        return {
+          valid: false,
+          error: `${definition.name} needs details this request did not include`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       // A secondary amendment is in order only on a pending primary amendment; its numeric
       // precedence can't express that, so it is checked by type instead
       if (action.motionType === 'amendAmendment') {

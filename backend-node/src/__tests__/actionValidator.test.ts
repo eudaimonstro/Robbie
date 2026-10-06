@@ -289,6 +289,35 @@ describe('actionValidator', () => {
       });
     });
 
+    describe('motions that need details', () => {
+      const make = (motionType: string, extra: Record<string, unknown> = {}) =>
+        validateAction(activeMeetingState(), {
+          type: 'MAKE_MOTION',
+          motionType,
+          text: 'x',
+          mover: 'Member 2',
+          moverId: 2,
+          motionId: 9,
+          timestamp: '',
+          ...extra,
+        } as never);
+
+      it.each([
+        ['takeFromTable'],
+        ['reconsider'],
+        ['suspendRules'],
+        ['bylawAmendment'],
+        ['amendAgenda'],
+      ])('rejects %s without its details (it would pass and do nothing)', (motionType) => {
+        expect(make(motionType).errorCode).toBe('INVALID_ACTION');
+      });
+
+      it('accepts a bylaw amendment that names its document and change', () => {
+        const bylawAmendment = { documentId: 'doc-1', changeType: 'modify', targetSectionId: 's1' };
+        expect(make('bylawAmendment', { bylawAmendment }).valid).toBe(true);
+      });
+    });
+
     describe('renewing a defeated bylaw amendment', () => {
       const text = 'I move to amend the bylaws by modifying Article I "Name"';
       const defeatedChange = {
