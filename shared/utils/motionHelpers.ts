@@ -69,6 +69,20 @@ export function wasMotionDefeated(
  * @param currentUserId - Optional user ID for checking reconsider eligibility
  * @returns Array of valid motions with their definitions
  */
+/**
+ * A secondary amendment (amend the amendment) applies only to a primary amendment, and is in
+ * order only while that amendment is the immediately pending question (RONR §12). Its numeric
+ * precedence can't express this, so it is checked by type. With the amendment-depth rule
+ * suspended, a secondary amendment may itself be amended.
+ */
+export function isSecondaryAmendmentInOrder(state: MeetingState): boolean {
+  const pending = state.currentMotion?.type;
+  return (
+    pending === 'amend' ||
+    (pending === 'amendAmendment' && isRuleSuspended(state, 'amendment-depth'))
+  );
+}
+
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some((m) => m.type === 'amend');
@@ -146,6 +160,10 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
 
     if (motion.category === 'incidental') {
       validMotions.push({ key, ...motion });
+    } else if (key === 'amendAmendment') {
+      if (isSecondaryAmendmentInOrder(state)) {
+        validMotions.push({ key, ...motion });
+      }
     } else if (motion.category === 'subsidiary' && currentPrecedence >= 1) {
       // Allow if precedence suspended OR precedence is higher
       if (precedenceSuspended || motion.precedence > currentPrecedence) {

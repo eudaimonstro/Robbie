@@ -7,7 +7,7 @@
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
-import { wasMotionDefeated } from '@robbie-bylawyer/shared/utils';
+import { isSecondaryAmendmentInOrder, wasMotionDefeated } from '@robbie-bylawyer/shared/utils';
 
 export interface ValidationResult {
   valid: boolean;
@@ -57,8 +57,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'UNKNOWN_MOTION_TYPE',
         };
       }
-      // Check precedence if there's a current motion
-      if (state.currentMotion) {
+      // A secondary amendment is in order only on a pending primary amendment; its numeric
+      // precedence can't express that, so it is checked by type instead
+      if (action.motionType === 'amendAmendment') {
+        if (!isSecondaryAmendmentInOrder(state)) {
+          return {
+            valid: false,
+            error: 'Amend the Amendment is only in order while an amendment is pending',
+            errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+          };
+        }
+      } else if (state.currentMotion) {
+        // Check precedence if there's a current motion
         const currentDef = MOTIONS[state.currentMotion.type];
         if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
           return {

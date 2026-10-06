@@ -24,6 +24,7 @@ export {
   isSimilarMotionSubject,
   wasMotionDefeated,
   type ValidMotion,
+  isSecondaryAmendmentInOrder,
 } from './motionHelpers.js';
 
 export {

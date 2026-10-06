@@ -77,6 +77,39 @@ describe('meetingReducer', () => {
   });
 
   describe('MAKE_MOTION', () => {
+    it('stacks a seconded secondary amendment on the pending amendment', () => {
+      const main = createMockMotion({ id: 1, type: 'mainMotion', precedence: 1 });
+      const amendment = createMockMotion({ id: 2, type: 'amend', name: 'Amend', precedence: 3 });
+      let state: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: amendment,
+        motionStack: [main, amendment],
+      };
+
+      state = meetingReducer(state, {
+        type: 'MAKE_MOTION',
+        motionType: 'amendAmendment',
+        text: 'by striking "annual"',
+        mover: 'John',
+        moverId: 1,
+        motionId: 3,
+        timestamp: '10:05:00',
+      });
+      state = meetingReducer(state, {
+        type: 'SECOND_MOTION',
+        seconder: 'Jane',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.currentMotion?.type).toBe('amendAmendment');
+      expect(state.motionStack.map((m) => m.type)).toEqual([
+        'mainMotion',
+        'amend',
+        'amendAmendment',
+      ]);
+    });
+
     it('should create a pending second for a regular motion', () => {
       const activeState: MeetingState = {
         ...initialState,

@@ -94,6 +94,42 @@ describe('actionValidator', () => {
   });
 
   describe('MAKE_MOTION', () => {
+    describe('secondary amendment (amendAmendment)', () => {
+      const motion = (type: string, precedence: number) =>
+        ({ id: 1, type, name: type, text: 'x', status: 'active', precedence }) as never;
+      const activeState = (current: { type: string; precedence: number }) => ({
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion(current.type, current.precedence),
+        motionStack: [motion('mainMotion', 1), motion(current.type, current.precedence)],
+      });
+      const makeSecondary = {
+        type: 'MAKE_MOTION' as const,
+        motionType: 'amendAmendment',
+        text: 'by striking "blue"',
+        mover: 'Member',
+        moverId: 2,
+        id: 99,
+        timestamp: '',
+      };
+
+      it('is in order when a primary amendment is the immediately pending question', () => {
+        const result = validateAction(
+          activeState({ type: 'amend', precedence: 3 }),
+          makeSecondary as never,
+        );
+        expect(result.valid).toBe(true);
+      });
+
+      it('is not in order when no amendment is pending', () => {
+        const result = validateAction(
+          activeState({ type: 'mainMotion', precedence: 1 }),
+          makeSecondary as never,
+        );
+        expect(result.valid).toBe(false);
+      });
+    });
+
     it('should allow making motion when meeting is active', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {

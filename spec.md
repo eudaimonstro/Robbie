@@ -122,7 +122,7 @@ Today the database is split. Prisma manages Bylawyer tables. Robbie tables are c
 Verified defects:
 
 - **Fixed 2026-10-06:** two-thirds now passes at exactly two-thirds (`yea * 3 >= total * 2`; a 6-3 vote used to fail), and an appeal tie sustains the chair (it used to overturn).
-- **Secondary amendments are unreachable.** `amendAmendment` has precedence 2.5, below `amend` at 3 (`constants/motions.ts:21-22`), so it is never in order. The test passes only because its mock uses a different precedence.
+- **Fixed 2026-10-06:** secondary amendments (amend the amendment) are offered, and accepted by the server, exactly when a primary amendment is the immediately pending question. Its numeric precedence (2.5, below `amend` at 3) had hidden it from the menu, made the server reject it on an amendment, and let the server accept it on a bare main motion. Adopting an amendment still doesn't change the motion's text; see Missing effects below.
 - `'none'` vote motions (points, privilege) are decided by the chair, not put to a vote. Whether the vote calculator should treat `'none'` as a majority is a design question, not a confirmed bug.
 - Mover withdraws a seconded motion unilaterally (RONR: needs the assembly's permission once stated by the chair).
 - Lay on the Table leaves the motion on the stack and drops its adhering amendments.

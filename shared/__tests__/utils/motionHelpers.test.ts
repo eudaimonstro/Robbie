@@ -1,3 +1,4 @@
+import { MOTIONS } from '../../constants/index.js';
 import { describe, it, expect } from 'vitest';
 import {
   getValidMotions,
@@ -182,8 +183,9 @@ describe('motionHelpers', () => {
     });
 
     it('should allow secondary amendment when primary amendment exists', () => {
+      // Use the real precedences: amend outranks amendAmendment numerically (3 vs 2.5)
       const mainMotion = createMockMotion({ type: 'mainMotion', precedence: 1 });
-      const amendment = createMockMotion({ type: 'amend', precedence: 2 });
+      const amendment = createMockMotion({ type: 'amend', precedence: MOTIONS.amend.precedence });
 
       const state = createMockState({
         currentMotion: amendment,
@@ -193,6 +195,22 @@ describe('motionHelpers', () => {
 
       const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).toContain('amendAmendment');
+    });
+
+    it('should not allow secondary amendment when the amendment is not the immediately pending question', () => {
+      // A motion to close debate on the amendment is pending; it must be dealt with first
+      const mainMotion = createMockMotion({ type: 'mainMotion', precedence: 1 });
+      const amendment = createMockMotion({ type: 'amend', precedence: MOTIONS.amend.precedence });
+      const previousQuestion = createMockMotion({
+        type: 'previousQuestion',
+        precedence: MOTIONS.previousQuestion.precedence,
+      });
+      const state = createMockState({
+        currentMotion: previousQuestion,
+        motionStack: [mainMotion, amendment, previousQuestion],
+      });
+
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('amendAmendment');
     });
 
     // Note: reconsider is a "main" category motion, which requires special handling
