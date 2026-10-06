@@ -38,7 +38,13 @@ export function DocumentContentCard({
               <Plus className="w-4 h-4 mr-1" />
               New Version
             </button>
-            <button onClick={onAddSection} className="btn-primary btn-sm">
+            {/* A section belongs to a version; there is none to add to until one exists */}
+            <button
+              onClick={onAddSection}
+              className="btn-primary btn-sm"
+              disabled={!selectedVersion}
+              title={selectedVersion ? undefined : 'Create a version first'}
+            >
               <Plus className="w-4 h-4 mr-1" />
               Add Section
             </button>
