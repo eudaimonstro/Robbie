@@ -1,5 +1,9 @@
 import type { MeetingAction } from '../../types/index.js';
-import { getNextStage, getStageLogMessage } from '../../constants/meetingStages.js';
+import {
+  getNextStage,
+  getStageLogMessage,
+  isLastActiveStage,
+} from '../../constants/meetingStages.js';
 import { LOG_MEETING_CALLED_TO_ORDER, LOG_MEETING_ADJOURNED } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
@@ -30,6 +34,11 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
 
     case 'ADVANCE_MEETING_STAGE': {
       const typedAction = action as Extract<MeetingAction, { type: 'ADVANCE_MEETING_STAGE' }>;
+      // Adjourning ends the meeting (END_MEETING), so advancing stops at the last stage of
+      // business rather than moving to 'adjourned' with the meeting still active
+      if (isLastActiveStage(state.meetingStage) || state.meetingStage === 'adjourned') {
+        return state;
+      }
       const nextStage = getNextStage(state.meetingStage);
       if (!nextStage) return state;
       const stageMessage = getStageLogMessage(nextStage);

@@ -1444,6 +1444,25 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('ADVANCE_MEETING_STAGE at the end of the order of business', () => {
+    it('stays at the last stage; only adjourning (END_MEETING) ends the meeting', () => {
+      const atAnnouncements: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        meetingStage: 'announcements',
+      };
+      const state = meetingReducer(atAnnouncements, {
+        type: 'ADVANCE_MEETING_STAGE',
+        timestamp: '11:00:00',
+      });
+
+      // It used to move to 'adjourned' with the meeting still active, and each further
+      // advance logged "Meeting adjourned" again
+      expect(state.meetingStage).toBe('announcements');
+      expect(state.meetingLog).toEqual(atAnnouncements.meetingLog);
+    });
+  });
+
   describe('RESTORE_RULE', () => {
     it('should remove rule suspension', () => {
       const stateWithSuspension: MeetingState = {
