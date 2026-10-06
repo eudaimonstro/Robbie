@@ -25,13 +25,7 @@ export default function ShareModal({
   const [regenerating, setRegenerating] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchShareStatus();
-    }
-  }, [isOpen, documentId]);
-
-  const fetchShareStatus = async () => {
+  async function fetchShareStatus() {
     try {
       setLoading(true);
       const status = await documentsApi.getShareStatus(documentId);
@@ -41,7 +35,13 @@ export default function ShareModal({
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchShareStatus();
+    }
+  }, [isOpen, documentId]);
 
   const handleEnableSharing = async () => {
     try {

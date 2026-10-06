@@ -65,30 +65,7 @@ export function AttachmentUploader({
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-
-      const files = Array.from(e.dataTransfer.files);
-      await uploadFiles(files);
-    },
-    [robbieCode, target],
-  );
-
-  const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files ? Array.from(e.target.files) : [];
-      await uploadFiles(files);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    },
-    [robbieCode, target],
-  );
-
-  const uploadFiles = async (files: File[]) => {
+  async function uploadFiles(files: File[]) {
     setError(null);
 
     for (const file of files) {
@@ -112,7 +89,30 @@ export function AttachmentUploader({
         setIsUploading(false);
       }
     }
-  };
+  }
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      await uploadFiles(files);
+    },
+    [robbieCode, target],
+  );
+
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files ? Array.from(e.target.files) : [];
+      await uploadFiles(files);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [robbieCode, target],
+  );
 
   const handleDelete = async (attachmentId: string) => {
     try {
@@ -291,11 +291,19 @@ function DocumentPicker({
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    loadOrganizations();
-  }, []);
+  const loadDocuments = async (orgId: string) => {
+    setLoading(true);
+    try {
+      const docs = await listDocuments(orgId);
+      setDocuments(docs);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const loadOrganizations = async () => {
+  async function loadOrganizations() {
     try {
       const orgs = await listOrganizations();
       setOrganizations(orgs);
@@ -308,19 +316,11 @@ function DocumentPicker({
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const loadDocuments = async (orgId: string) => {
-    setLoading(true);
-    try {
-      const docs = await listDocuments(orgId);
-      setDocuments(docs);
-    } catch (err) {
-      console.error('Failed to load documents:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  React.useEffect(() => {
+    loadOrganizations();
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

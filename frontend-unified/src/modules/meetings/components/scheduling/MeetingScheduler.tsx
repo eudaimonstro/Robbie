@@ -34,6 +34,15 @@ export function MeetingScheduler({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  function generateMeetingCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
   // Generate a meeting code if not provided
   useEffect(() => {
     if (!meetingCode) {
@@ -42,23 +51,7 @@ export function MeetingScheduler({
     }
   }, []);
 
-  // Load or create packet when moving to agenda step
-  useEffect(() => {
-    if (step === 'agenda' && meetingCode && !packet) {
-      loadPacket();
-    }
-  }, [step, meetingCode]);
-
-  const generateMeetingCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  };
-
-  const loadPacket = async () => {
+  async function loadPacket() {
     setIsLoading(true);
     setError(null);
     try {
@@ -75,7 +68,14 @@ export function MeetingScheduler({
     } finally {
       setIsLoading(false);
     }
-  };
+  }
+
+  // Load or create packet when moving to agenda step
+  useEffect(() => {
+    if (step === 'agenda' && meetingCode && !packet) {
+      loadPacket();
+    }
+  }, [step, meetingCode]);
 
   const handleSaveDetails = async () => {
     if (!packet) return;

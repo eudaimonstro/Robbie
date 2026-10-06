@@ -28,11 +28,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    loadPacket();
-  }, [meetingCode]);
-
-  const loadPacket = async () => {
+  async function loadPacket() {
     setIsLoading(true);
     setError(null);
     try {
@@ -43,7 +39,11 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
     } finally {
       setIsLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    loadPacket();
+  }, [meetingCode]);
 
   const toggleItem = (itemId: string) => {
     setExpandedItems((prev) => {

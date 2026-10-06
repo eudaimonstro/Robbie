@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   bylawSync,
   type Document,
@@ -9,6 +9,18 @@ import { useToast } from '../../../../context/ToastContext';
 
 export interface FlatSection extends SectionTree {
   depth: number;
+}
+
+// Flatten sections tree for dropdown
+function flattenSections(sectionList: SectionTree[], depth = 0): FlatSection[] {
+  const result: FlatSection[] = [];
+  for (const section of sectionList) {
+    result.push({ ...section, depth });
+    if (section.children && section.children.length > 0) {
+      result.push(...flattenSections(section.children, depth + 1));
+    }
+  }
+  return result;
 }
 
 interface BylawAmendmentData {
@@ -31,18 +43,6 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
   const [loadingSections, setLoadingSections] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
-
-  // Flatten sections tree for dropdown
-  const flattenSections = useCallback((sectionList: SectionTree[], depth = 0): FlatSection[] => {
-    const result: FlatSection[] = [];
-    for (const section of sectionList) {
-      result.push({ ...section, depth });
-      if (section.children && section.children.length > 0) {
-        result.push(...flattenSections(section.children, depth + 1));
-      }
-    }
-    return result;
-  }, []);
 
   // Fetch linked organization
   useEffect(() => {
@@ -100,7 +100,7 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
       }
     }
     fetchSections();
-  }, [selectedDocumentId, flattenSections, showToast]);
+  }, [selectedDocumentId, showToast]);
 
   return {
     linkedOrg,
