@@ -188,8 +188,9 @@ Other member routes:
 - `PUT /organizations/:id/members/:userId { role }`: admin.
   - Admins can't change owners, and can't make anyone an owner.
   - The last owner can't be demoted.
-- `DELETE /organizations/:id/members/:userId`: admin, or the member themselves to leave. The same owner rules apply.
-- `DELETE /organizations/:id/invites/:inviteId`: admin.
+- `DELETE /organizations/:id/members/:userId`: admin, or the member themselves to leave. The same owner rules apply. Pending invites for their email in that organization are canceled, so their next sign-in doesn't add them back.
+- `DELETE /organizations/:id/invites/:inviteId`: admin. Only an owner can cancel an owner invite.
+- Each change locks the organization's row and reads the acting member's role again under the lock, so a change that waited behind a demotion acts with the new role.
 
 ### Terms acceptance
 
@@ -277,3 +278,6 @@ Other member routes:
 - **Meeting codes can be claimed first.** Anyone who is a secretary in some organization can claim an unused code for it, so a code someone else meant to use can be taken. Generated codes are random, so this matters only for chosen codes. Part 3 decides how codes are created.
 - **Additions stay pending until sign-in.** A pending addition gives nothing until that email signs in. An admin who added the wrong email can cancel it, but an email that was already sent can't be recalled.
 - **The daily limit counts additions, not emails sent.** Repeated adds of the same pending email update the role without sending a second email, so they can't be used to flood one address.
+- **Adding by email tells an admin whether the email has an account.** The answer is "added" or "invited", so an admin can learn this for up to 20 emails a day (the daily limit). Sign-in hides it.
+- **A pending invite keeps its role.** If the admin or owner who sent it later loses that role, the invite still gives the role it was sent with.
+- **People are added without agreeing.** An addition takes effect at once for an account, or at the next sign-in. Leaving is the remedy.
