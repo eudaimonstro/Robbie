@@ -67,10 +67,11 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
     throw new SignInError(502, "We couldn't send the email. Try again.");
   }
 
-  // The new code replaces any earlier one, once it has been sent: a failed send leaves the
-  // earlier code usable
+  // The new code replaces earlier ones, once it has been sent: a failed send leaves the earlier
+  // code usable. Only codes created before this one, so two overlapping requests can't cancel
+  // each other's codes (the later one always survives; with the same time, both do).
   await prisma.signInCode.updateMany({
-    where: { email, consumedAt: null, id: { not: record.id } },
+    where: { email, consumedAt: null, createdAt: { lt: record.createdAt } },
     data: { consumedAt: now },
   });
 }

@@ -55,6 +55,32 @@ describe('signInService', () => {
     await expect(verifySignInCode('ann@example.org', lastCode())).resolves.toBeTruthy();
   });
 
+  it('keeps the later code when two requests overlap', async () => {
+    const earlier = new Date(Date.now() - 1000);
+    const later = new Date(earlier.getTime() + 1);
+    // The later request starts first, so it tends to finish first; the earlier one must not
+    // then cancel it. (Whether the earlier code survives depends on timing.)
+    await Promise.all([
+      requestSignInCode('ann@example.org', later),
+      requestSignInCode('ann@example.org', earlier),
+    ]);
+    const stored = await prisma.signInCode.findMany();
+    const latest = stored.find((r) => r.createdAt.getTime() === later.getTime())!;
+    expect(latest.consumedAt).toBeNull();
+
+    const code = outbox.find((m) => hashSecret(m.code) === latest.codeHash)!.code;
+    await expect(verifySignInCode('ann@example.org', code)).resolves.toBeTruthy();
+  });
+
+  it('keeps both codes when two overlapping requests share a time', async () => {
+    const now = new Date(Date.now() - 1000);
+    await Promise.all([
+      requestSignInCode('ann@example.org', now),
+      requestSignInCode('ann@example.org', now),
+    ]);
+    expect(await prisma.signInCode.count({ where: { consumedAt: null } })).toBe(2);
+  });
+
   it('keeps the earlier code when a new one fails to send', async () => {
     await requestSignInCode('ann@example.org');
     const first = lastCode();
