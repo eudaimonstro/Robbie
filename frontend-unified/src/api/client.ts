@@ -52,12 +52,26 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The backend sends { error: string } from route handlers, or
+// { error: { code, message, details? } } from validation and the error handler
+async function errorMessage(response: Response): Promise<string> {
+  const body = await response.json().catch(() => null);
+  const error = body?.error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error.message === 'string') {
+    const detail = Array.isArray(error.details) ? error.details[0] : null;
+    return detail?.message
+      ? `${error.message} (${detail.path ? `${detail.path}: ` : ''}${detail.message})`
+      : error.message;
+  }
+  return `HTTP ${response.status}`;
+}
+
 async function downloadFile(endpoint: string): Promise<void> {
   const response = await fetch(`${API_BASE}${endpoint}`);
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Download failed' }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+    throw new Error(await errorMessage(response));
   }
 
   // Get filename from Content-Disposition header
@@ -132,8 +146,7 @@ async function request<T>(
           continue;
         }
 
-        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(error.detail || `HTTP ${response.status}`);
+        throw new Error(await errorMessage(response));
       }
 
       if (response.status === 204) {
