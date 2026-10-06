@@ -1,0 +1,7 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+package-lock.json
+prisma/migrations/
+.expo/

@@ -16,6 +16,9 @@ build/
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
 # IDE
 .vscode/
@@ -45,3 +48,7 @@ mobile/android/
 # Misc
 *.pem
 .cache/
+
+# Local Claude Code / MCP config (.mcp.json holds a database password)
+.claude/
+.mcp.json

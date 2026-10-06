@@ -1,0 +1,2057 @@
+import { describe, it, expect } from 'vitest';
+import { meetingReducer, initialState } from '../../reducer/index.js';
+import type { MeetingState, Motion, Member } from '../../types/index.js';
+
+// Mock members for testing (initialState now starts with empty members array)
+const mockMembers: Member[] = [
+  { id: 1, name: 'Alice', role: 'member', present: true },
+  { id: 2, name: 'Bob', role: 'member', present: true },
+  { id: 3, name: 'Carol', role: 'member', present: true },
+  { id: 4, name: 'David', role: 'chair', present: true },
+  { id: 5, name: 'Eve', role: 'admin', present: true },
+];
+
+// Helper to create initial state with members for testing
+const createTestState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
+  ...initialState,
+  members: mockMembers,
+  ...overrides,
+});
+
+// Helper to create a basic motion
+const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
+  id: 1,
+  type: 'mainMotion',
+  name: 'Main Motion',
+  text: 'Test motion',
+  mover: 'Test User',
+  moverId: 1,
+  precedence: 1,
+  debatable: true,
+  amendable: true,
+  vote: 'majority',
+  interrupt: false,
+  category: 'main',
+  help: 'Test help',
+  phrase: 'I move that...',
+  status: 'active',
+  moverHasSpoken: false,
+  ...overrides,
+});
+
+describe('meetingReducer', () => {
+  describe('START_MEETING', () => {
+    it('should start the meeting', () => {
+      const state = meetingReducer(initialState, {
+        type: 'START_MEETING',
+        meetingCode: 'ABC123',
+        timestamp: '10:00:00',
+      });
+
+      expect(state.meetingActive).toBe(true);
+      expect(state.meetingCode).toBe('ABC123');
+      expect(state.meetingStage).toBe('call-to-order');
+    });
+
+    it('should add a log entry', () => {
+      const state = meetingReducer(initialState, {
+        type: 'START_MEETING',
+        meetingCode: 'ABC123',
+        timestamp: '10:00:00',
+      });
+
+      expect(state.meetingLog.length).toBeGreaterThan(0);
+      expect(state.meetingLog[0].message).toContain('Meeting called to order');
+    });
+  });
+
+  describe('END_MEETING', () => {
+    it('should end the meeting', () => {
+      const activeState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        meetingCode: 'ABC123',
+      };
+
+      const state = meetingReducer(activeState, {
+        type: 'END_MEETING',
+        timestamp: '11:00:00',
+      });
+
+      expect(state.meetingActive).toBe(false);
+      expect(state.meetingStage).toBe('adjourned');
+    });
+  });
+
+  describe('MAKE_MOTION', () => {
+    it('should create a pending second for a regular motion', () => {
+      const activeState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+      };
+
+      const state = meetingReducer(activeState, {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'I move to approve the budget',
+        mover: 'John',
+        moverId: 1,
+        motionId: 123,
+        timestamp: '10:05:00',
+      });
+
+      expect(state.pendingSecond).not.toBeNull();
+      expect(state.pendingSecond?.text).toBe('I move to approve the budget');
+      expect(state.pendingSecond?.mover).toBe('John');
+    });
+  });
+
+  describe('SECOND_MOTION', () => {
+    it('should move pendingSecond to currentMotion', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion({ text: 'Test motion' }),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'SECOND_MOTION',
+        seconder: 'Jane',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.pendingSecond).toBeNull();
+      expect(state.currentMotion).not.toBeNull();
+      expect(state.currentMotion?.text).toBe('Test motion');
+      expect(state.motionStack.length).toBe(1);
+    });
+  });
+
+  describe('DECLINE_SECOND', () => {
+    it('should clear pending second when no second received', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion(),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'DECLINE_SECOND',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.pendingSecond).toBeNull();
+    });
+  });
+
+  describe('WITHDRAW_MOTION', () => {
+    it('should allow mover to withdraw a motion pending a second', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion({ moverId: 1, mover: 'Alice' }),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'WITHDRAW_MOTION',
+        requesterId: 1,
+        timestamp: '10:06:00',
+      });
+
+      expect(state.pendingSecond).toBeNull();
+      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
+    });
+
+    it('should allow mover to withdraw the current motion', () => {
+      const motion = createMockMotion({ moverId: 2, mover: 'Bob' });
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion,
+        motionStack: [motion],
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'WITHDRAW_MOTION',
+        requesterId: 2,
+        timestamp: '10:07:00',
+      });
+
+      expect(state.currentMotion).toBeNull();
+      expect(state.motionStack).toHaveLength(0);
+      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
+    });
+
+    it('should not allow non-mover to withdraw a motion', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion({ moverId: 1 }),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'WITHDRAW_MOTION',
+        requesterId: 99, // Different user
+        timestamp: '10:06:00',
+      });
+
+      // Motion should still be pending - withdrawal rejected
+      expect(state.pendingSecond).not.toBeNull();
+    });
+
+    it('should reset debate state when current motion is withdrawn', () => {
+      const motion = createMockMotion({ moverId: 1 });
+      const stateWithDebate: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion,
+        motionStack: [motion],
+        speakerQueue: [{ member: { id: 2, name: 'Carol', role: 'member', present: true }, stance: 'pro' }],
+        debatePositions: { 2: 'pro' },
+      };
+
+      const state = meetingReducer(stateWithDebate, {
+        type: 'WITHDRAW_MOTION',
+        requesterId: 1,
+        timestamp: '10:08:00',
+      });
+
+      expect(state.speakerQueue).toHaveLength(0);
+      expect(state.debatePositions).toEqual({});
+    });
+  });
+
+  describe('MODIFY_MOTION', () => {
+    it('should allow mover to modify a motion pending a second', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion({ moverId: 1, mover: 'Alice', text: 'Original text' }),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'MODIFY_MOTION',
+        requesterId: 1,
+        newText: 'Modified text',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.pendingSecond?.text).toBe('Modified text');
+      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('modifies');
+    });
+
+    it('should allow mover to modify current motion before debate begins', () => {
+      const motion = createMockMotion({ moverId: 2, mover: 'Bob', moverHasSpoken: false });
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion,
+        motionStack: [motion],
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'MODIFY_MOTION',
+        requesterId: 2,
+        newText: 'New motion text',
+        timestamp: '10:07:00',
+      });
+
+      expect(state.currentMotion?.text).toBe('New motion text');
+      expect(state.motionStack[0].text).toBe('New motion text');
+    });
+
+    it('should not allow non-mover to modify a motion', () => {
+      const stateWithPending: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        pendingSecond: createMockMotion({ moverId: 1, text: 'Original' }),
+      };
+
+      const state = meetingReducer(stateWithPending, {
+        type: 'MODIFY_MOTION',
+        requesterId: 99,
+        newText: 'Modified',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.pendingSecond?.text).toBe('Original');
+    });
+
+    it('should not allow modification after debate has begun', () => {
+      const motion = createMockMotion({ moverId: 1, moverHasSpoken: true, text: 'Original' });
+      const stateAfterDebate: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: motion,
+        motionStack: [motion],
+      };
+
+      const state = meetingReducer(stateAfterDebate, {
+        type: 'MODIFY_MOTION',
+        requesterId: 1,
+        newText: 'Modified',
+        timestamp: '10:08:00',
+      });
+
+      expect(state.currentMotion?.text).toBe('Original');
+    });
+  });
+
+  describe('CAST_VOTE', () => {
+    it('should record a yea vote', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'yea',
+        voterId: 1,
+      });
+
+      expect(state.votes.yea).toBe(1);
+      expect(state.voters).toContain(1);
+      expect(state.voterChoices[1]).toBe('yea');
+    });
+
+    it('should record a nay vote', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'nay',
+        voterId: 2,
+      });
+
+      expect(state.votes.nay).toBe(1);
+      expect(state.voters).toContain(2);
+    });
+
+    it('should allow changing vote', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+        votes: { yea: 1, nay: 0, abstain: 0 },
+        voters: [1],
+        voterChoices: { 1: 'yea' },
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'nay',
+        voterId: 1,
+      });
+
+      expect(state.votes.yea).toBe(0);
+      expect(state.votes.nay).toBe(1);
+      expect(state.voterChoices[1]).toBe('nay');
+    });
+
+    it('should log individual votes during roll call voting', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        votingMethod: 'rollcall',
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+          { id: 2, name: 'Bob', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'yea',
+        voterId: 1,
+        timestamp: '10:15:00',
+      });
+
+      expect(state.votes.yea).toBe(1);
+      expect(state.meetingLog.length).toBe(1);
+      expect(state.meetingLog[0].message).toBe('[ROLL CALL] Alice: Yea');
+      expect(state.meetingLog[0].time).toBe('10:15:00');
+    });
+
+    it('should not log votes during standard voting', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        votingMethod: 'standard',
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'yea',
+        voterId: 1,
+        timestamp: '10:15:00',
+      });
+
+      expect(state.votes.yea).toBe(1);
+      expect(state.meetingLog.length).toBe(0);
+    });
+
+    it('should not log vote changes during roll call (only initial votes)', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        votingMethod: 'rollcall',
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+        ],
+        votes: { yea: 1, nay: 0, abstain: 0 },
+        voters: [1],
+        voterChoices: { 1: 'yea' },
+        meetingLog: [{ time: '10:15:00', message: '[ROLL CALL] Alice: Yea' }],
+      };
+
+      // Change vote from yea to nay
+      const state = meetingReducer(votingState, {
+        type: 'CAST_VOTE',
+        vote: 'nay',
+        voterId: 1,
+        timestamp: '10:16:00',
+      });
+
+      // Vote should be changed but no new log entry
+      expect(state.votes.yea).toBe(0);
+      expect(state.votes.nay).toBe(1);
+      expect(state.meetingLog.length).toBe(1); // Still just the original log
+    });
+  });
+
+  describe('OPEN_VOTING', () => {
+    it('should open voting and reset vote counts', () => {
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+        votes: { yea: 5, nay: 3, abstain: 1 },
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'OPEN_VOTING',
+        timestamp: '10:10:00',
+        voteTimerEnd: null,
+      });
+
+      expect(state.votingOpen).toBe(true);
+      expect(state.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
+      expect(state.voters).toEqual([]);
+      expect(state.voterChoices).toEqual({});
+    });
+  });
+
+  describe('CLOSE_VOTING', () => {
+    it('should close voting and determine result - motion passes', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion({ vote: 'majority' }),
+        motionStack: [createMockMotion({ vote: 'majority' })],
+        votes: { yea: 6, nay: 4, abstain: 0 },
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CLOSE_VOTING',
+        timestamp: '10:15:00',
+      });
+
+      expect(state.votingOpen).toBe(false);
+      expect(state.currentMotion).toBeNull();
+      expect(state.meetingLog.some(l => l.message.includes('CARRIED'))).toBe(true);
+    });
+
+    it('should close voting and determine result - motion fails', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion({ vote: 'majority' }),
+        motionStack: [createMockMotion({ vote: 'majority' })],
+        votes: { yea: 4, nay: 6, abstain: 0 },
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CLOSE_VOTING',
+        timestamp: '10:15:00',
+      });
+
+      expect(state.votingOpen).toBe(false);
+      expect(state.meetingLog.some(l => l.message.includes('FAILED'))).toBe(true);
+    });
+
+    it('should handle 2/3 vote requirement', () => {
+      const votingState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votingOpen: true,
+        currentMotion: createMockMotion({ vote: '2/3' }),
+        motionStack: [createMockMotion({ vote: '2/3' })],
+        votes: { yea: 6, nay: 4, abstain: 0 }, // 60% - not enough for 2/3
+      };
+
+      const state = meetingReducer(votingState, {
+        type: 'CLOSE_VOTING',
+        timestamp: '10:15:00',
+      });
+
+      expect(state.meetingLog.some(l => l.message.includes('FAILED'))).toBe(true);
+    });
+  });
+
+  describe('RAISE_HAND', () => {
+    it('should add member to speaker queue', () => {
+      const member = mockMembers[0];
+      const state = meetingReducer(initialState, {
+        type: 'RAISE_HAND',
+        member,
+        stance: 'pro',
+      });
+
+      expect(state.speakerQueue.length).toBe(1);
+      expect(state.speakerQueue[0].member.id).toBe(member.id);
+      expect(state.speakerQueue[0].stance).toBe('pro');
+    });
+
+    it('should not add duplicate member', () => {
+      const member = mockMembers[0];
+      const stateWithHand: MeetingState = {
+        ...initialState,
+        speakerQueue: [{ member, stance: 'pro' }],
+      };
+
+      const state = meetingReducer(stateWithHand, {
+        type: 'RAISE_HAND',
+        member,
+        stance: 'con',
+      });
+
+      expect(state.speakerQueue.length).toBe(1);
+    });
+
+    it('should reject raising hand with opposite stance after speaking (side-switching)', () => {
+      const member = mockMembers[0];
+      const stateWithPreviousStance: MeetingState = {
+        ...initialState,
+        debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
+      };
+
+      const state = meetingReducer(stateWithPreviousStance, {
+        type: 'RAISE_HAND',
+        member,
+        stance: 'con', // Trying to switch to con
+      });
+
+      // Should reject - return unchanged state
+      expect(state).toBe(stateWithPreviousStance);
+      expect(state.speakerQueue.length).toBe(0);
+    });
+
+    it('should allow raising hand with same stance after speaking', () => {
+      const member = mockMembers[0];
+      const stateWithPreviousStance: MeetingState = {
+        ...initialState,
+        debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
+      };
+
+      const state = meetingReducer(stateWithPreviousStance, {
+        type: 'RAISE_HAND',
+        member,
+        stance: 'pro', // Same stance
+      });
+
+      expect(state.speakerQueue.length).toBe(1);
+      expect(state.speakerQueue[0].stance).toBe('pro');
+    });
+
+    it('should allow neutral stance regardless of previous stance', () => {
+      const member = mockMembers[0];
+      const stateWithPreviousStance: MeetingState = {
+        ...initialState,
+        debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
+      };
+
+      const state = meetingReducer(stateWithPreviousStance, {
+        type: 'RAISE_HAND',
+        member,
+        stance: 'neutral', // Neutral is always allowed
+      });
+
+      expect(state.speakerQueue.length).toBe(1);
+      expect(state.speakerQueue[0].stance).toBe('neutral');
+    });
+  });
+
+  describe('LOWER_HAND', () => {
+    it('should remove member from speaker queue', () => {
+      const member = mockMembers[0];
+      const stateWithHand: MeetingState = {
+        ...initialState,
+        speakerQueue: [{ member, stance: 'pro' }],
+      };
+
+      const state = meetingReducer(stateWithHand, {
+        type: 'LOWER_HAND',
+        member,
+      });
+
+      expect(state.speakerQueue.length).toBe(0);
+    });
+  });
+
+  describe('RECOGNIZE_SPEAKER', () => {
+    it('should set recognized speaker and remove from queue', () => {
+      const member = mockMembers[0];
+      const stateWithHand: MeetingState = {
+        ...initialState,
+        speakerQueue: [{ member, stance: 'pro' }],
+      };
+
+      const state = meetingReducer(stateWithHand, {
+        type: 'RECOGNIZE_SPEAKER',
+        member,
+        stance: 'pro',
+        speakerTimerEnd: null,
+        timestamp: '10:20:00',
+      });
+
+      expect(state.recognizedSpeaker).toEqual(member);
+      expect(state.speakerQueue.length).toBe(0);
+      expect(state.lastSpeakerStance).toBe('pro');
+    });
+
+    it('should reject recognition of non-mover when mover has not spoken on debatable motion', () => {
+      const mover = mockMembers[0];
+      const otherMember = mockMembers[1];
+      const motion = {
+        id: 1,
+        type: 'mainMotion',
+        name: 'Main Motion',
+        text: 'Test motion',
+        mover: mover.name,
+        moverId: mover.id,
+        secondedBy: 'Someone',
+        status: 'active' as const,
+        precedence: 1,
+        category: 'main' as const,
+        interrupt: false,
+        needsSecond: true,
+        debatable: true,
+        amendable: true,
+        reconsidered: true,
+        vote: 'majority' as const,
+        phrase: '',
+        help: '',
+        whenToUse: '',
+        moverHasSpoken: false, // Mover hasn't spoken yet
+      };
+
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        members: mockMembers,
+        currentMotion: motion,
+        motionStack: [motion],
+        speakerQueue: [{ member: otherMember, stance: 'con' }],
+      };
+
+      // Try to recognize someone who is NOT the mover
+      const state = meetingReducer(stateWithMotion, {
+        type: 'RECOGNIZE_SPEAKER',
+        member: otherMember,
+        stance: 'con',
+        speakerTimerEnd: null,
+        timestamp: '10:20:00',
+      });
+
+      // Should reject - return unchanged state
+      expect(state).toBe(stateWithMotion);
+      expect(state.recognizedSpeaker).toBeNull();
+    });
+
+    it('should allow mover to be recognized first', () => {
+      const mover = mockMembers[0];
+      const motion = {
+        id: 1,
+        type: 'mainMotion',
+        name: 'Main Motion',
+        text: 'Test motion',
+        mover: mover.name,
+        moverId: mover.id,
+        secondedBy: 'Someone',
+        status: 'active' as const,
+        precedence: 1,
+        category: 'main' as const,
+        interrupt: false,
+        needsSecond: true,
+        debatable: true,
+        amendable: true,
+        reconsidered: true,
+        vote: 'majority' as const,
+        phrase: '',
+        help: '',
+        whenToUse: '',
+        moverHasSpoken: false,
+      };
+
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        currentMotion: motion,
+        motionStack: [motion],
+        speakerQueue: [{ member: mover, stance: 'pro' }],
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'RECOGNIZE_SPEAKER',
+        member: mover,
+        stance: 'pro',
+        speakerTimerEnd: null,
+        timestamp: '10:20:00',
+      });
+
+      expect(state.recognizedSpeaker).toEqual(mover);
+      expect(state.currentMotion?.moverHasSpoken).toBe(true);
+    });
+
+    it('should allow non-mover after mover has spoken', () => {
+      const mover = mockMembers[0];
+      const otherMember = mockMembers[1];
+      const motion = {
+        id: 1,
+        type: 'mainMotion',
+        name: 'Main Motion',
+        text: 'Test motion',
+        mover: mover.name,
+        moverId: mover.id,
+        secondedBy: 'Someone',
+        status: 'active' as const,
+        precedence: 1,
+        category: 'main' as const,
+        interrupt: false,
+        needsSecond: true,
+        debatable: true,
+        amendable: true,
+        reconsidered: true,
+        vote: 'majority' as const,
+        phrase: '',
+        help: '',
+        whenToUse: '',
+        moverHasSpoken: true, // Mover has already spoken
+      };
+
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        members: mockMembers,
+        currentMotion: motion,
+        motionStack: [motion],
+        speakerQueue: [{ member: otherMember, stance: 'con' }],
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'RECOGNIZE_SPEAKER',
+        member: otherMember,
+        stance: 'con',
+        speakerTimerEnd: null,
+        timestamp: '10:20:00',
+      });
+
+      expect(state.recognizedSpeaker).toEqual(otherMember);
+    });
+  });
+
+  describe('YIELD_FLOOR', () => {
+    it('should clear recognized speaker', () => {
+      const member = mockMembers[0];
+      const stateWithSpeaker: MeetingState = {
+        ...initialState,
+        members: mockMembers,
+        recognizedSpeaker: member,
+      };
+
+      const state = meetingReducer(stateWithSpeaker, {
+        type: 'YIELD_FLOOR',
+        timestamp: '10:25:00',
+      });
+
+      expect(state.recognizedSpeaker).toBeNull();
+    });
+  });
+
+  describe('ADOPT_AGENDA', () => {
+    it('should mark agenda as adopted', () => {
+      const state = meetingReducer(initialState, {
+        type: 'ADOPT_AGENDA',
+        timestamp: '10:05:00',
+      });
+
+      expect(state.agendaAdopted).toBe(true);
+      expect(state.agendaObjection).toBe(false);
+    });
+  });
+
+  describe('AGENDA_OBJECTION', () => {
+    it('should record agenda objection', () => {
+      const state = meetingReducer(initialState, {
+        type: 'AGENDA_OBJECTION',
+        timestamp: '10:05:00',
+      });
+
+      expect(state.agendaObjection).toBe(true);
+    });
+  });
+
+  describe('ADD_AGENDA_ITEM', () => {
+    it('should add a new agenda item', () => {
+      const initialLength = initialState.agenda.length;
+
+      const state = meetingReducer(initialState, {
+        type: 'ADD_AGENDA_ITEM',
+        title: 'New Business Item',
+        itemId: 999,
+      });
+
+      expect(state.agenda.length).toBe(initialLength + 1);
+      expect(state.agenda[state.agenda.length - 1].title).toBe('New Business Item');
+    });
+  });
+
+  describe('ADVANCE_MEETING_STAGE', () => {
+    it('should advance to the next meeting stage', () => {
+      const activeState: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        meetingStage: 'call-to-order',
+      };
+
+      const state = meetingReducer(activeState, {
+        type: 'ADVANCE_MEETING_STAGE',
+        timestamp: '10:10:00',
+      });
+
+      expect(state.meetingStage).toBe('minutes-approval');
+    });
+  });
+
+  describe('REQUEST_UNANIMOUS_CONSENT', () => {
+    it('should set unanimous consent pending', () => {
+      const stateWithMotion: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+      };
+
+      const state = meetingReducer(stateWithMotion, {
+        type: 'REQUEST_UNANIMOUS_CONSENT',
+        timestamp: '10:10:00',
+      });
+
+      expect(state.unanimousConsentPending).toBe(true);
+    });
+  });
+
+  describe('OBJECT_TO_CONSENT', () => {
+    it('should cancel unanimous consent and add to log', () => {
+      const stateWithConsent: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        unanimousConsentPending: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+      };
+
+      const state = meetingReducer(stateWithConsent, {
+        type: 'OBJECT_TO_CONSENT',
+        objector: 'John',
+        timestamp: '10:12:00',
+      });
+
+      expect(state.unanimousConsentPending).toBe(false);
+      expect(state.meetingLog.some(l => l.message.includes('objects'))).toBe(true);
+    });
+  });
+
+  describe('SET_SPEAKER_TIME_LIMIT', () => {
+    it('should update speaker time limit', () => {
+      const state = meetingReducer(initialState, {
+        type: 'SET_SPEAKER_TIME_LIMIT',
+        seconds: 180,
+      });
+
+      expect(state.speakerTimeLimit).toBe(180);
+    });
+  });
+
+  describe('SET_VOTE_TIME_LIMIT', () => {
+    it('should update vote time limit', () => {
+      const state = meetingReducer(initialState, {
+        type: 'SET_VOTE_TIME_LIMIT',
+        seconds: 90,
+      });
+
+      expect(state.voteTimeLimit).toBe(90);
+    });
+  });
+
+  describe('UNANIMOUS_CONSENT_PASSED', () => {
+    it('should pass motion without vote', () => {
+      const stateWithConsent: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        unanimousConsentPending: true,
+        currentMotion: createMockMotion(),
+        motionStack: [createMockMotion()],
+      };
+
+      const state = meetingReducer(stateWithConsent, {
+        type: 'UNANIMOUS_CONSENT_PASSED',
+        timestamp: '10:12:00',
+      });
+
+      expect(state.unanimousConsentPending).toBe(false);
+      expect(state.currentMotion).toBeNull();
+      expect(state.meetingLog.some(l => l.message.includes('unanimous consent'))).toBe(true);
+    });
+  });
+
+  describe('CALL_AGENDA_ITEM', () => {
+    it('should set current agenda item', () => {
+      const stateWithAgenda: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'First Item', status: 'pending' },
+          { id: 2, title: 'Second Item', status: 'pending' },
+        ],
+      };
+
+      const state = meetingReducer(stateWithAgenda, {
+        type: 'CALL_AGENDA_ITEM',
+        id: 2,
+        timestamp: '10:15:00',
+      });
+
+      expect(state.currentAgendaItem?.id).toBe(2);
+      expect(state.agenda.find(a => a.id === 2)?.status).toBe('active');
+    });
+  });
+
+  describe('COMPLETE_AGENDA_ITEM', () => {
+    it('should mark agenda item as completed', () => {
+      const stateWithItem: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'First Item', status: 'active' },
+        ],
+        currentAgendaItem: { id: 1, title: 'First Item', status: 'active' },
+      };
+
+      const state = meetingReducer(stateWithItem, {
+        type: 'COMPLETE_AGENDA_ITEM',
+        id: 1,
+        timestamp: '10:20:00',
+      });
+
+      expect(state.currentAgendaItem).toBeNull();
+      expect(state.agenda.find(a => a.id === 1)?.status).toBe('completed');
+    });
+  });
+
+  describe('REORDER_AGENDA', () => {
+    it('should reorder agenda items', () => {
+      const stateWithAgenda: MeetingState = {
+        ...initialState,
+        agenda: [
+          { id: 1, title: 'First', status: 'pending' },
+          { id: 2, title: 'Second', status: 'pending' },
+          { id: 3, title: 'Third', status: 'pending' },
+        ],
+      };
+
+      const state = meetingReducer(stateWithAgenda, {
+        type: 'REORDER_AGENDA',
+        fromIndex: 0,
+        toIndex: 2,
+      });
+
+      expect(state.agenda[0].id).toBe(2);
+      expect(state.agenda[1].id).toBe(3);
+      expect(state.agenda[2].id).toBe(1);
+    });
+  });
+
+  describe('SET_VOTING_METHOD', () => {
+    it('should set voting method to ballot', () => {
+      const state = meetingReducer(initialState, {
+        type: 'SET_VOTING_METHOD',
+        method: 'ballot',
+      });
+
+      expect(state.votingMethod).toBe('ballot');
+    });
+
+    it('should set voting method to rollcall', () => {
+      const state = meetingReducer(initialState, {
+        type: 'SET_VOTING_METHOD',
+        method: 'rollcall',
+      });
+
+      expect(state.votingMethod).toBe('rollcall');
+    });
+  });
+
+  describe('APPROVE_MINUTES', () => {
+    it('should mark minutes as approved', () => {
+      const state = meetingReducer(initialState, {
+        type: 'APPROVE_MINUTES',
+        timestamp: '10:05:00',
+      });
+
+      expect(state.minutesApproved).toBe(true);
+    });
+  });
+
+  describe('CHAIR_RULING', () => {
+    it('should record chair ruling for sustain', () => {
+      const stateWithPointOfOrder: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        currentMotion: createMockMotion({ type: 'pointOrder', vote: 'none' }),
+        motionStack: [createMockMotion({ type: 'pointOrder', vote: 'none' })],
+      };
+
+      const state = meetingReducer(stateWithPointOfOrder, {
+        type: 'CHAIR_RULING',
+        ruling: 'sustain',
+        timestamp: '10:10:00',
+      });
+
+      expect(state.lastChairRuling).not.toBeNull();
+      expect(state.lastChairRuling?.ruling).toContain('well taken');
+      expect(state.currentMotion).toBeNull();
+    });
+  });
+
+  describe('REMOVE_AGENDA_ITEM', () => {
+    it('should remove agenda item', () => {
+      const stateWithAgenda: MeetingState = {
+        ...initialState,
+        agenda: [
+          { id: 1, title: 'First', status: 'pending' },
+          { id: 2, title: 'Second', status: 'pending' },
+        ],
+      };
+
+      const state = meetingReducer(stateWithAgenda, {
+        type: 'REMOVE_AGENDA_ITEM',
+        id: 1,
+      });
+
+      expect(state.agenda).toHaveLength(1);
+      expect(state.agenda[0].id).toBe(2);
+    });
+  });
+
+  describe('SET_PREVIOUS_MINUTES', () => {
+    it('should set minutes from previous meeting', () => {
+      const state = meetingReducer(initialState, {
+        type: 'SET_PREVIOUS_MINUTES',
+        minutes: 'Minutes from last meeting...',
+      });
+
+      expect(state.minutesFromPreviousMeeting).toBe('Minutes from last meeting...');
+    });
+  });
+
+  describe('ADD_COMMITTEE_REPORT', () => {
+    it('should add committee report', () => {
+      const stateWithoutReports: MeetingState = {
+        ...initialState,
+        committeeReports: [],
+      };
+      const report = {
+        id: 1,
+        committee: 'Finance',
+        presenter: 'Jane Doe',
+        summary: 'The budget is balanced.',
+        recommendations: 'Continue current spending levels.',
+        presented: false,
+      };
+
+      const state = meetingReducer(stateWithoutReports, {
+        type: 'ADD_COMMITTEE_REPORT',
+        report,
+      });
+
+      expect(state.committeeReports).toHaveLength(1);
+      expect(state.committeeReports[0].committee).toBe('Finance');
+    });
+  });
+
+  describe('PRESENT_COMMITTEE_REPORT', () => {
+    it('should mark report as presented', () => {
+      const stateWithReport: MeetingState = {
+        ...initialState,
+        committeeReports: [{
+          id: 1,
+          committee: 'Finance',
+          presenter: 'Jane Doe',
+          content: 'Report content',
+          recommendations: 'Some recommendations',
+          presented: false,
+        }],
+      };
+
+      const state = meetingReducer(stateWithReport, {
+        type: 'PRESENT_COMMITTEE_REPORT',
+        reportId: 1,
+        timestamp: '10:15:00',
+      });
+
+      expect(state.committeeReports[0].presented).toBe(true);
+      expect(state.meetingLog.some(l => l.message.includes('Finance'))).toBe(true);
+    });
+
+    it('should return unchanged state if report not found', () => {
+      const state = meetingReducer(initialState, {
+        type: 'PRESENT_COMMITTEE_REPORT',
+        reportId: 999,
+        timestamp: '10:15:00',
+      });
+
+      expect(state).toBe(initialState);
+    });
+  });
+
+  describe('SUSPEND_RULE_APPROVED', () => {
+    it('should add rule suspension', () => {
+      const suspension = {
+        id: 1,
+        rule: 'debate-rules' as const,
+        purpose: 'Speed up meeting',
+        specificAction: 'Limit debate to 5 minutes',
+        scope: 'meeting-remainder' as const,
+        suspendedAt: '10:20:00',
+        actionCompleted: false,
+        motionId: 5,
+      };
+
+      const state = meetingReducer(initialState, {
+        type: 'SUSPEND_RULE_APPROVED',
+        suspension,
+        timestamp: '10:20:00',
+      });
+
+      expect(state.suspendedRules).toHaveLength(1);
+      expect(state.suspendedRules[0].rule).toBe('debate-rules');
+    });
+  });
+
+  describe('RESTORE_RULE', () => {
+    it('should remove rule suspension', () => {
+      const stateWithSuspension: MeetingState = {
+        ...initialState,
+        suspendedRules: [{
+          id: 1,
+          rule: 'debate-rules',
+          purpose: 'Speed up meeting',
+          specificAction: 'Limit debate',
+          scope: 'meeting-remainder',
+          suspendedAt: '10:20:00',
+          actionCompleted: false,
+          motionId: 5,
+        }],
+      };
+
+      const state = meetingReducer(stateWithSuspension, {
+        type: 'RESTORE_RULE',
+        suspensionId: 1,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.suspendedRules).toHaveLength(0);
+      expect(state.meetingLog.some(l => l.message.includes('RULE RESTORED'))).toBe(true);
+    });
+
+    it('should handle non-existent suspension ID', () => {
+      const state = meetingReducer(initialState, {
+        type: 'RESTORE_RULE',
+        suspensionId: 999,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.suspendedRules).toHaveLength(0);
+    });
+  });
+
+  describe('OPEN_NOMINATIONS', () => {
+    it('should open nominations for position', () => {
+      const state = meetingReducer(initialState, {
+        type: 'OPEN_NOMINATIONS',
+        position: 'President',
+        timestamp: '10:30:00',
+      });
+
+      expect(state.nominationsOpen).toBe(true);
+      expect(state.currentNominationPosition).toBe('President');
+    });
+  });
+
+  describe('NOMINATE', () => {
+    it('should add nomination', () => {
+      const stateWithNominations: MeetingState = {
+        ...initialState,
+        nominationsOpen: true,
+        currentNominationPosition: 'President',
+      };
+
+      const state = meetingReducer(stateWithNominations, {
+        type: 'NOMINATE',
+        position: 'President',
+        nomineeName: 'John Smith',
+        nomineeId: 2,
+        nominatedBy: 'Jane Doe',
+        nominatorId: 1,
+        nominationId: 1,
+        timestamp: '10:32:00',
+      });
+
+      expect(state.nominations).toHaveLength(1);
+      expect(state.nominations[0].nomineeName).toBe('John Smith');
+      expect(state.nominations[0].nominatedBy).toBe('Jane Doe');
+    });
+  });
+
+  describe('DECLINE_NOMINATION', () => {
+    it('should mark nomination as declined', () => {
+      const stateWithNomination: MeetingState = {
+        ...initialState,
+        nominations: [{
+          id: 1,
+          position: 'President',
+          nomineeName: 'John Smith',
+          nomineeId: 2,
+          nominatedBy: 'Jane Doe',
+          nominatorId: 1,
+          timestamp: '10:32:00',
+          declined: false,
+        }],
+      };
+
+      const state = meetingReducer(stateWithNomination, {
+        type: 'DECLINE_NOMINATION',
+        nominationId: 1,
+        timestamp: '10:33:00',
+      });
+
+      expect(state.nominations[0].declined).toBe(true);
+    });
+
+    it('should return unchanged state if nomination not found', () => {
+      const state = meetingReducer(initialState, {
+        type: 'DECLINE_NOMINATION',
+        nominationId: 999,
+        timestamp: '10:33:00',
+      });
+
+      expect(state).toBe(initialState);
+    });
+  });
+
+  describe('CLOSE_NOMINATIONS', () => {
+    it('should close nominations', () => {
+      const stateWithNominations: MeetingState = {
+        ...initialState,
+        nominationsOpen: true,
+        currentNominationPosition: 'President',
+      };
+
+      const state = meetingReducer(stateWithNominations, {
+        type: 'CLOSE_NOMINATIONS',
+        timestamp: '10:35:00',
+      });
+
+      expect(state.nominationsOpen).toBe(false);
+    });
+  });
+
+  describe('START_ELECTION', () => {
+    it('should start election with candidates', () => {
+      const stateWithNominations: MeetingState = {
+        ...initialState,
+        nominationsOpen: false,
+        currentNominationPosition: 'President',
+        nominations: [
+          { id: 1, position: 'President', nomineeName: 'Alice', nomineeId: 1, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:32:00', declined: false },
+          { id: 2, position: 'President', nomineeName: 'Charlie', nomineeId: 3, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:33:00', declined: false },
+          { id: 3, position: 'President', nomineeName: 'Dave', nomineeId: 4, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:34:00', declined: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithNominations, {
+        type: 'START_ELECTION',
+        position: 'President',
+        requiredVotes: 'majority',
+        electionId: 1,
+        timestamp: '10:40:00',
+      });
+
+      expect(state.currentElection).not.toBeNull();
+      expect(state.currentElection?.candidates).toHaveLength(2); // Declined nomination excluded
+      expect(state.currentElection?.votingInProgress).toBe(true);
+    });
+  });
+
+  describe('CAST_BALLOT', () => {
+    it('should record ballot vote', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 0, Charlie: 0 },
+          votersWhoVoted: [],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CAST_BALLOT',
+        candidateName: 'Alice',
+        voterId: 5,
+      });
+
+      expect(state.currentElection?.ballotResults.Alice).toBe(1);
+      expect(state.currentElection?.votersWhoVoted).toContain(5);
+    });
+
+    it('should prevent duplicate voting', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 1 },
+          votersWhoVoted: [5],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CAST_BALLOT',
+        candidateName: 'Alice',
+        voterId: 5, // Already voted
+      });
+
+      expect(state.currentElection?.ballotResults.Alice).toBe(1); // Unchanged
+    });
+
+    it('should return unchanged if no election', () => {
+      const state = meetingReducer(initialState, {
+        type: 'CAST_BALLOT',
+        candidateName: 'Alice',
+        voterId: 5,
+      });
+
+      expect(state).toBe(initialState);
+    });
+  });
+
+  describe('CLOSE_ELECTION', () => {
+    it('should declare winner with majority', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 6, Charlie: 4 },
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.votingInProgress).toBe(false);
+      expect(state.currentElection?.elected).toBe('Alice');
+    });
+
+    it('should not declare winner if majority not reached', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }, { name: 'Eve', id: 5 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 4, Charlie: 3, Eve: 3 },
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.elected).toBeNull();
+    });
+
+    it('should handle 2/3 vote requirement', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: '2/3',
+          votingInProgress: true,
+          ballotResults: { Alice: 7 },
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.elected).toBe('Alice');
+    });
+
+    it('should handle plurality vote requirement', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          requiredVotes: 'plurality',
+          votingInProgress: true,
+          ballotResults: { Alice: 4, Charlie: 3 },
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.elected).toBe('Alice');
+    });
+
+    it('should return unchanged if no election', () => {
+      const state = meetingReducer(initialState, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state).toBe(initialState);
+    });
+  });
+
+  describe('DECLARE_ELECTED', () => {
+    it('should add elected officer', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { Alice: 6 },
+          votersWhoVoted: [1, 2, 3, 4, 5, 6],
+          elected: 'Alice',
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'Alice',
+        timestamp: '10:55:00',
+      });
+
+      expect(state.electedOfficers).toHaveLength(1);
+      expect(state.electedOfficers[0].name).toBe('Alice');
+      expect(state.electedOfficers[0].position).toBe('President');
+      expect(state.currentElection).toBeNull();
+    });
+
+    it('should return unchanged if no election', () => {
+      const state = meetingReducer(initialState, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'Alice',
+        timestamp: '10:55:00',
+      });
+
+      expect(state).toBe(initialState);
+    });
+
+    it('should allow declaring write-in candidate as winner', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 10, name: 'Charlie', role: 'member', present: true },
+        ],
+        currentElection: {
+          id: 1,
+          position: 'Secretary',
+          candidates: [{ name: 'Alice', id: 1 }], // Only Alice nominated
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { Alice: 2, Charlie: 4 }, // Charlie is write-in with more votes
+          votersWhoVoted: [1, 2, 3, 4, 5, 6],
+          elected: 'Charlie',
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'Charlie',
+        timestamp: '10:55:00',
+      });
+
+      expect(state.electedOfficers).toHaveLength(1);
+      expect(state.electedOfficers[0].name).toBe('Charlie');
+      expect(state.electedOfficers[0].memberId).toBe(10); // Found from members list
+      expect(state.meetingLog[0].message).toContain('write-in candidate');
+    });
+
+    it('should use memberId 0 for unknown write-in candidates', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+        ],
+        currentElection: {
+          id: 1,
+          position: 'Treasurer',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'plurality',
+          votingInProgress: false,
+          ballotResults: { 'External Person': 5 }, // Write-in not in members list
+          votersWhoVoted: [1, 2, 3, 4, 5],
+          elected: 'External Person',
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'External Person',
+        timestamp: '10:55:00',
+      });
+
+      expect(state.electedOfficers).toHaveLength(1);
+      expect(state.electedOfficers[0].name).toBe('External Person');
+      expect(state.electedOfficers[0].memberId).toBe(0); // Unknown write-in
+    });
+  });
+
+  describe('CAST_BALLOT with write-ins', () => {
+    it('should accept write-in votes', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [{ name: 'Alice', id: 1 }], // Only Alice nominated
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: {},
+          votersWhoVoted: [],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CAST_BALLOT',
+        candidateName: 'WriteIn Candidate', // Not nominated
+        voterId: 5,
+      });
+
+      expect(state.currentElection?.ballotResults['WriteIn Candidate']).toBe(1);
+    });
+  });
+
+  describe('CLOSE_ELECTION with write-ins', () => {
+    it('should mark write-in candidates in results', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'VP',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'plurality',
+          votingInProgress: true,
+          ballotResults: { Alice: 3, 'Bob WriteIn': 2 },
+          votersWhoVoted: [1, 2, 3, 4, 5],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.meetingLog[0].message).toContain('Bob WriteIn (write-in)');
+      expect(state.meetingLog[0].message).not.toContain('Alice (write-in)');
+    });
+  });
+
+  describe('CLOSE_ELECTION with ties', () => {
+    it('should trigger runoff when plurality vote is tied', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Bob', id: 2 },
+          ],
+          requiredVotes: 'plurality',
+          votingInProgress: true,
+          ballotResults: { Alice: 3, Bob: 3 }, // Tied!
+          votersWhoVoted: [1, 2, 3, 4, 5, 6],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.votingInProgress).toBe(true);
+      expect(state.currentElection?.isRunoff).toBe(true);
+      expect(state.currentElection?.runoffRound).toBe(1);
+      expect(state.currentElection?.candidates).toHaveLength(2);
+      expect(state.currentElection?.ballotResults).toEqual({});
+      expect(state.currentElection?.votersWhoVoted).toEqual([]);
+      expect(state.meetingLog[0].message).toContain('TIE');
+      expect(state.meetingLog[0].message).toContain('Runoff vote (round 1)');
+    });
+
+    it('should trigger runoff when majority vote is tied at top without winner', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'VP',
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Bob', id: 2 },
+            { name: 'Charlie', id: 3 },
+          ],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 3, Bob: 3, Charlie: 2 }, // Tied at top, no majority
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7, 8],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.votingInProgress).toBe(true);
+      expect(state.currentElection?.isRunoff).toBe(true);
+      expect(state.currentElection?.candidates).toHaveLength(2); // Only tied candidates
+      expect(state.currentElection?.candidates?.map(c => c.name)).toEqual(['Alice', 'Bob']);
+    });
+
+    it('should NOT trigger runoff when there is a clear majority winner', () => {
+      const stateWithElection: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'President',
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Bob', id: 2 },
+          ],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: { Alice: 6, Bob: 4 }, // Alice has clear majority
+          votersWhoVoted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          elected: null,
+        },
+      };
+
+      const state = meetingReducer(stateWithElection, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:50:00',
+      });
+
+      expect(state.currentElection?.votingInProgress).toBe(false);
+      expect(state.currentElection?.isRunoff).toBeUndefined();
+      expect(state.currentElection?.elected).toBe('Alice');
+    });
+
+    it('should increment runoff round for subsequent ties', () => {
+      const stateWithRunoff: MeetingState = {
+        ...initialState,
+        currentElection: {
+          id: 1,
+          position: 'Secretary',
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Bob', id: 2 },
+          ],
+          requiredVotes: 'plurality',
+          votingInProgress: true,
+          ballotResults: { Alice: 2, Bob: 2 }, // Tied again in runoff!
+          votersWhoVoted: [1, 2, 3, 4],
+          elected: null,
+          isRunoff: true,
+          runoffRound: 1,
+        },
+      };
+
+      const state = meetingReducer(stateWithRunoff, {
+        type: 'CLOSE_ELECTION',
+        timestamp: '10:55:00',
+      });
+
+      expect(state.currentElection?.runoffRound).toBe(2);
+      expect(state.meetingLog[0].message).toContain('round 2');
+    });
+  });
+
+  describe('ASK_INQUIRY', () => {
+    it('should add parliamentary inquiry', () => {
+      const state = meetingReducer(initialState, {
+        type: 'ASK_INQUIRY',
+        inquiryType: 'parliamentary',
+        question: 'Is this motion in order?',
+        askedBy: 'John',
+        askerId: 1,
+        inquiryId: 1,
+        timestamp: '10:25:00',
+      });
+
+      expect(state.inquiries).toHaveLength(1);
+      expect(state.inquiries[0].type).toBe('parliamentary');
+      expect(state.meetingLog.some(l => l.message.includes('Parliamentary Inquiry'))).toBe(true);
+    });
+
+    it('should add request for information', () => {
+      const state = meetingReducer(initialState, {
+        type: 'ASK_INQUIRY',
+        inquiryType: 'information',
+        question: 'What time does the meeting end?',
+        askedBy: 'Jane',
+        askerId: 2,
+        inquiryId: 2,
+        timestamp: '10:26:00',
+      });
+
+      expect(state.inquiries).toHaveLength(1);
+      expect(state.inquiries[0].type).toBe('information');
+      expect(state.meetingLog.some(l => l.message.includes('Request for Information'))).toBe(true);
+    });
+  });
+
+  describe('ANSWER_INQUIRY', () => {
+    it('should record answer to inquiry', () => {
+      const stateWithInquiry: MeetingState = {
+        ...initialState,
+        inquiries: [{
+          id: 1,
+          type: 'parliamentary',
+          question: 'Is this in order?',
+          askedBy: 'John',
+          askerId: 1,
+          timestamp: '10:25:00',
+        }],
+      };
+
+      const state = meetingReducer(stateWithInquiry, {
+        type: 'ANSWER_INQUIRY',
+        inquiryId: 1,
+        answer: 'Yes, the motion is in order.',
+        answeredBy: 'Chair',
+        timestamp: '10:26:00',
+      });
+
+      expect(state.inquiries[0].answer).toBe('Yes, the motion is in order.');
+      expect(state.inquiries[0].answeredBy).toBe('Chair');
+    });
+  });
+
+  describe('SET_MEMBER_ROLE', () => {
+    it('should change member role to admin', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+          { id: 2, name: 'Regular Member', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'admin',
+        changedBy: 'Chair Person',
+        changedById: 1,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('admin');
+      expect(state.meetingLog.some(l => l.message.includes('admin'))).toBe(true);
+      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+    });
+
+    it('should transfer chair role and demote previous chair', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Old Chair', role: 'chair', present: true },
+          { id: 2, name: 'New Chair', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'chair',
+        previousChairId: 1,
+        changedBy: 'Admin User',
+        changedById: 3,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('chair');
+      expect(state.members.find(m => m.id === 1)?.role).toBe('member');
+      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+      expect(state.meetingLog.some(l => l.message.includes('transferred chair to New Chair'))).toBe(true);
+    });
+
+    it('should demote admin to member', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+          { id: 2, name: 'Admin Person', role: 'admin', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 2,
+        newRole: 'member',
+        changedBy: 'Chair Person',
+        changedById: 1,
+        timestamp: '10:30:00',
+      });
+
+      expect(state.members.find(m => m.id === 2)?.role).toBe('member');
+      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+    });
+
+    it('should return state unchanged if target member not found', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Chair Person', role: 'chair', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId: 999,
+        newRole: 'admin',
+        changedBy: 'Chair Person',
+        changedById: 1,
+        timestamp: '10:30:00',
+      });
+
+      expect(state).toBe(stateWithMembers);
+    });
+  });
+
+  describe('START_ROLL_CALL', () => {
+    it('should initialize roll call with all members', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'chair', present: false },
+          { id: 2, name: 'Bob', role: 'member', present: false },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'START_ROLL_CALL',
+        timestamp: '10:00:00',
+      });
+
+      expect(state.rollCall).not.toBeNull();
+      expect(state.rollCall?.inProgress).toBe(true);
+      expect(state.rollCall?.responses).toHaveLength(2);
+      expect(state.rollCall?.responses[0].status).toBe('not-responded');
+      expect(state.meetingLog[0].message).toContain('call the roll');
+    });
+  });
+
+  describe('RESPOND_ROLL_CALL', () => {
+    it('should record response and update member presence', () => {
+      const stateWithRollCall: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'chair', present: false },
+        ],
+        rollCall: {
+          inProgress: true,
+          startedAt: '10:00:00',
+          responses: [
+            { memberId: 1, memberName: 'Alice', status: 'not-responded' },
+          ],
+        },
+      };
+
+      const state = meetingReducer(stateWithRollCall, {
+        type: 'RESPOND_ROLL_CALL',
+        memberId: 1,
+        status: 'present',
+        timestamp: '10:01:00',
+      });
+
+      expect(state.rollCall?.responses[0].status).toBe('present');
+      expect(state.members[0].present).toBe(true);
+      expect(state.meetingLog[0].message).toContain('Alice: Present');
+    });
+  });
+
+  describe('COMPLETE_ROLL_CALL', () => {
+    it('should complete roll call and log summary', () => {
+      const stateWithRollCall: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'chair', present: true },
+          { id: 2, name: 'Bob', role: 'member', present: true },
+          { id: 3, name: 'Charlie', role: 'member', present: false },
+        ],
+        rollCall: {
+          inProgress: true,
+          startedAt: '10:00:00',
+          responses: [
+            { memberId: 1, memberName: 'Alice', status: 'present' },
+            { memberId: 2, memberName: 'Bob', status: 'present' },
+            { memberId: 3, memberName: 'Charlie', status: 'excused' },
+          ],
+        },
+      };
+
+      const state = meetingReducer(stateWithRollCall, {
+        type: 'COMPLETE_ROLL_CALL',
+        timestamp: '10:05:00',
+      });
+
+      expect(state.rollCall?.inProgress).toBe(false);
+      expect(state.rollCall?.completedAt).toBe('10:05:00');
+      expect(state.meetingLog[0].message).toContain('2 present');
+      expect(state.meetingLog[0].message).toContain('1 excused');
+    });
+  });
+
+  describe('MARK_ABSENT', () => {
+    it('should mark member as absent', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'MARK_ABSENT',
+        memberId: 1,
+        excused: false,
+        timestamp: '10:00:00',
+      });
+
+      expect(state.members[0].present).toBe(false);
+      expect(state.meetingLog[0].message).toContain('Alice marked absent');
+    });
+
+    it('should mark member as excused absence', () => {
+      const stateWithMembers: MeetingState = {
+        ...initialState,
+        members: [
+          { id: 1, name: 'Alice', role: 'member', present: true },
+        ],
+      };
+
+      const state = meetingReducer(stateWithMembers, {
+        type: 'MARK_ABSENT',
+        memberId: 1,
+        excused: true,
+        timestamp: '10:00:00',
+      });
+
+      expect(state.members[0].present).toBe(false);
+      expect(state.meetingLog[0].message).toContain('excused absence');
+    });
+  });
+
+  describe('default case', () => {
+    it('should return state unchanged for unknown action', () => {
+      const state = meetingReducer(initialState, {
+        type: 'UNKNOWN_ACTION' as any,
+      });
+
+      expect(state).toBe(initialState);
+    });
+  });
+});
