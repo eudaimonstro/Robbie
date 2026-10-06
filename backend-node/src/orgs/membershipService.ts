@@ -267,6 +267,47 @@ export async function cancelInvite(
 }
 
 /**
+ * Make someone a member of an organization with a role (development data and support).
+ * Creates the user if the email has no account, and sends no email. The last-owner rule
+ * still holds.
+ */
+export async function addMemberBySlug(
+  slug: string,
+  rawEmail: string,
+  role: OrgRole,
+): Promise<{ organization: string; email: string; role: OrgRole }> {
+  const email = rawEmail.trim().toLowerCase();
+  const organization = await prisma.organization.findUnique({
+    where: { slug },
+    select: { id: true, name: true },
+  });
+  if (!organization) throw new OrgError(404, `No organization has the slug "${slug}"`);
+
+  await prisma.$transaction(async (tx) => {
+    await lockOrganization(tx, organization.id);
+    const user = await tx.user.upsert({
+      where: { email },
+      update: {},
+      create: { email },
+      select: { id: true },
+    });
+    const key = { organizationId: organization.id, userId: user.id };
+    const current = await tx.organizationMember.findUnique({
+      where: { organizationId_userId: key },
+    });
+    if (current?.role === 'owner' && role !== 'owner') {
+      await checkAnotherOwner(tx, organization.id);
+    }
+    await tx.organizationMember.upsert({
+      where: { organizationId_userId: key },
+      update: { role },
+      create: { ...key, role },
+    });
+  });
+  return { organization: organization.name, email, role };
+}
+
+/**
  * Turn the pending additions for a user's email into memberships. Runs in the sign-in
  * transaction that finds or creates the user.
  */

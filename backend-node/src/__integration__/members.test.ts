@@ -6,7 +6,7 @@ import {
   type AddedToOrganizationEmail,
 } from '../auth/emailService.js';
 import { requestSignInCode, verifySignInCode } from '../auth/signInService.js';
-import { MAX_ADDS_PER_DAY } from '../orgs/membershipService.js';
+import { MAX_ADDS_PER_DAY, addMemberBySlug } from '../orgs/membershipService.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call, signIn } from './helpers.js';
@@ -309,6 +309,29 @@ describe('members', () => {
         cookie,
       });
       expect(other.status).toBe(404);
+    });
+  });
+
+  describe('adding a member for support', () => {
+    it('creates the account if needed and sets the role', async () => {
+      const result = await addMemberBySlug('org-a', ' Eve@Example.org ', 'owner');
+      expect(result).toEqual({ organization: 'Org A', email: 'eve@example.org', role: 'owner' });
+      const eve = await prisma.user.findUniqueOrThrow({ where: { email: 'eve@example.org' } });
+      expect(await roleOf(eve.id)).toBe('owner');
+      expect(mail).toEqual([]);
+
+      // Running it again changes the role
+      await addMemberBySlug('org-a', 'eve@example.org', 'admin');
+      expect(await roleOf(eve.id)).toBe('admin');
+    });
+
+    it('keeps the last owner and needs a real organization', async () => {
+      await expect(addMemberBySlug('org-a', 'owner@example.org', 'admin')).rejects.toMatchObject({
+        status: 409,
+      });
+      await expect(
+        addMemberBySlug('no-such-org', 'eve@example.org', 'owner'),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 });
