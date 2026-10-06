@@ -9,10 +9,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Auth state and handlers
   const auth = useAuth();
 
-  // Clear auth on invalid token (called by socket connection)
+  // Clear auth on invalid token (called by socket connection). Depend on the stable
+  // clearAuth, not on `auth`: useAuth returns a new object every render, and this
+  // callback is a dependency of the socket effect, so an unstable one reconnects the
+  // socket on every render.
+  const { clearAuth } = auth;
   const handleInvalidToken = useCallback(() => {
-    auth.clearAuth();
-  }, [auth]);
+    clearAuth();
+  }, [clearAuth]);
 
   // Socket connection - takes auth state and invalid token handler
   const connection = useSocketConnection(auth.authState, handleInvalidToken);
