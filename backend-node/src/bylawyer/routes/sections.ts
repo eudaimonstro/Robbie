@@ -10,8 +10,13 @@ import {
 } from '../../schemas/sections.js';
 import { logger } from '../../middleware/logger.js';
 import { findParentProblem } from '../sectionParent.js';
+import { fromParam, requireRole } from '../../orgs/requireRole.js';
+import { orgOfSection, orgOfVersion } from '../../orgs/resolvers.js';
 
 export const sectionsRouter: RouterType = Router();
+
+const byVersion = fromParam('versionId', orgOfVersion);
+const bySection = fromParam('id', orgOfSection);
 
 const findSectionRef = (id: string) =>
   prisma.section.findUnique({
@@ -23,6 +28,7 @@ const findSectionRef = (id: string) =>
 sectionsRouter.get(
   '/versions/:versionId/sections',
   validate({ params: versionIdParam }),
+  requireRole('viewer', byVersion),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -50,6 +56,7 @@ sectionsRouter.get(
 sectionsRouter.put(
   '/versions/:versionId/sections/reorder',
   validate({ params: versionIdParam, body: reorderSectionsBody }),
+  requireRole('secretary', byVersion),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -114,6 +121,7 @@ sectionsRouter.put(
 sectionsRouter.post(
   '/versions/:versionId/sections',
   validate({ params: versionIdParam, body: createSectionBody }),
+  requireRole('secretary', byVersion),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -164,27 +172,33 @@ sectionsRouter.post(
 );
 
 // Get section by ID
-sectionsRouter.get('/sections/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const section = await prisma.section.findUnique({
-      where: { id: req.params.id },
-    });
+sectionsRouter.get(
+  '/sections/:id',
+  validate({ params: uuidParam }),
+  requireRole('viewer', bySection),
+  async (req, res) => {
+    try {
+      const section = await prisma.section.findUnique({
+        where: { id: req.params.id },
+      });
 
-    if (!section) {
-      return res.status(404).json({ error: 'Section not found' });
+      if (!section) {
+        return res.status(404).json({ error: 'Section not found' });
+      }
+
+      res.json(section);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get section');
+      res.status(500).json({ error: 'Failed to get section' });
     }
-
-    res.json(section);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get section');
-    res.status(500).json({ error: 'Failed to get section' });
-  }
-});
+  },
+);
 
 // Update section
 sectionsRouter.put(
   '/sections/:id',
   validate({ params: uuidParam, body: updateSectionBody }),
+  requireRole('secretary', bySection),
   async (req, res) => {
     try {
       const section = await prisma.section.findUnique({
@@ -240,29 +254,35 @@ sectionsRouter.put(
 );
 
 // Delete section
-sectionsRouter.delete('/sections/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const section = await prisma.section.findUnique({
-      where: { id: req.params.id },
-    });
+sectionsRouter.delete(
+  '/sections/:id',
+  validate({ params: uuidParam }),
+  requireRole('secretary', bySection),
+  async (req, res) => {
+    try {
+      const section = await prisma.section.findUnique({
+        where: { id: req.params.id },
+      });
 
-    if (!section) {
-      return res.status(404).json({ error: 'Section not found' });
+      if (!section) {
+        return res.status(404).json({ error: 'Section not found' });
+      }
+
+      // Delete cascade handles children
+      await prisma.section.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to delete section');
+      res.status(500).json({ error: 'Failed to delete section' });
     }
-
-    // Delete cascade handles children
-    await prisma.section.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to delete section');
-    res.status(500).json({ error: 'Failed to delete section' });
-  }
-});
+  },
+);
 
 // Add child section
 sectionsRouter.post(
   '/sections/:id/children',
   validate({ params: uuidParam, body: createSectionBody }),
+  requireRole('secretary', bySection),
   async (req, res) => {
     try {
       const parent = await prisma.section.findUnique({
@@ -298,34 +318,39 @@ sectionsRouter.post(
 );
 
 // Get section path
-sectionsRouter.get('/sections/:id/path', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const path: Array<{ id: string; numberLabel: string | null; title: string | null }> = [];
-    let currentId: string | null = req.params.id;
-    // Stop at a cycle in the data rather than looping forever
-    const seen = new Set<string>();
+sectionsRouter.get(
+  '/sections/:id/path',
+  validate({ params: uuidParam }),
+  requireRole('viewer', bySection),
+  async (req, res) => {
+    try {
+      const path: Array<{ id: string; numberLabel: string | null; title: string | null }> = [];
+      let currentId: string | null = req.params.id;
+      // Stop at a cycle in the data rather than looping forever
+      const seen = new Set<string>();
 
-    while (currentId && !seen.has(currentId)) {
-      seen.add(currentId);
-      const section: Section | null = await prisma.section.findUnique({
-        where: { id: currentId },
-      });
+      while (currentId && !seen.has(currentId)) {
+        seen.add(currentId);
+        const section: Section | null = await prisma.section.findUnique({
+          where: { id: currentId },
+        });
 
-      if (!section) break;
+        if (!section) break;
 
-      path.push({
-        id: section.id,
-        numberLabel: section.numberLabel,
-        title: section.title,
-      });
+        path.push({
+          id: section.id,
+          numberLabel: section.numberLabel,
+          title: section.title,
+        });
 
-      currentId = section.parentId;
+        currentId = section.parentId;
+      }
+
+      path.reverse();
+      res.json({ path });
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get section path');
+      res.status(500).json({ error: 'Failed to get section path' });
     }
-
-    path.reverse();
-    res.json({ path });
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get section path');
-    res.status(500).json({ error: 'Failed to get section path' });
-  }
-});
+  },
+);
