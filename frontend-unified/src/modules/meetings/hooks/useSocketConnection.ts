@@ -186,11 +186,14 @@ export function useSocketConnection(
     [isConnected, clientSequence, setTemporaryError],
   );
 
-  // Reconnect
+  // Reconnect. A socket that is connected but not in the meeting (its join failed) is cycled,
+  // since joining happens on connect.
   const reconnect = useCallback(() => {
-    if (socketRef.current && !socketRef.current.connected) {
-      socketRef.current.connect();
-    }
+    const socket = socketRef.current;
+    if (!socket) return;
+    if (socket.connected) socket.disconnect();
+    setError(null);
+    socket.connect();
   }, []);
 
   // Disconnect
