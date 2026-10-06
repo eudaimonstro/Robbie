@@ -1,0 +1,51 @@
+import request from 'supertest';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
+import { app } from '../app.js';
+import { prisma } from '../db/prisma.js';
+import { createSession } from '../auth/sessionService.js';
+
+export interface TestUser {
+  id: number;
+  email: string;
+  /** A Cookie header value for the user's web session */
+  cookie: string;
+}
+
+/**
+ * A signed-in user with a web session, made directly rather than through emailed codes. The
+ * user has accepted the current terms unless acceptTerms is false.
+ */
+export async function signIn(
+  email: string,
+  options: { name?: string; acceptTerms?: boolean } = {},
+): Promise<TestUser> {
+  const accepted = options.acceptTerms ?? true;
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {},
+    create: {
+      email,
+      name: options.name ?? null,
+      termsVersion: accepted ? TERMS_VERSION : null,
+      termsAcceptedAt: accepted ? new Date() : null,
+    },
+  });
+  const { token } = await createSession(user.id, 'web');
+  return { id: user.id, email, cookie: `session=${token}` };
+}
+
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+/** Send a request to the app, signed in when a cookie is given */
+export function call(
+  method: Method,
+  path: string,
+  options: { cookie?: string; body?: object | Buffer; headers?: Record<string, string> } = {},
+): request.Test {
+  const agent = request(app) as unknown as Record<Method, (path: string) => request.Test>;
+  let test = agent[method](path);
+  if (options.cookie) test = test.set('Cookie', options.cookie);
+  for (const [name, value] of Object.entries(options.headers ?? {})) test = test.set(name, value);
+  if (options.body !== undefined) test = test.send(options.body);
+  return test;
+}

@@ -1,6 +1,7 @@
 import { Router, type RequestHandler, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { prisma } from '../db/prisma.js';
 import { validate } from '../middleware/validate.js';
 import { logger } from '../middleware/logger.js';
@@ -17,6 +18,7 @@ import {
   sessionCookieOptions,
   sessionTokenFrom,
 } from './authenticate.js';
+import { hasAcceptedTerms } from './terms.js';
 import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessionSockets.js';
 
 export const authRouter = Router();
@@ -50,6 +52,7 @@ const verifyBody = z.object({
   client: z.enum(['web', 'mobile']).default('web'),
 });
 const updateMeBody = z.object({ name: z.string().trim().min(2).max(100) });
+const acceptTermsBody = z.object({ version: z.string().max(40) });
 
 function sendError(res: Response, error: unknown, fallback: string) {
   if (error instanceof SignInError) {
@@ -92,8 +95,32 @@ authRouter.post('/verify', verifyLimiter, validate({ body: verifyBody }), async 
 });
 
 authRouter.get('/me', authenticate, (req, res) => {
-  res.json({ user: req.user });
+  res.json({ user: req.user, termsAccepted: hasAcceptedTerms(req.termsVersion) });
 });
+
+// Accept the current Terms of Service and Privacy Policy. The client sends the version it
+// showed, so a stale page can't accept terms the user never saw.
+authRouter.post(
+  '/accept-terms',
+  authenticate,
+  validate({ body: acceptTermsBody }),
+  async (req, res) => {
+    if (req.body.version !== TERMS_VERSION) {
+      return res
+        .status(409)
+        .json({ error: 'The terms have changed. Reload to see the current terms.' });
+    }
+    try {
+      await prisma.user.update({
+        where: { id: req.user!.id },
+        data: { termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() },
+      });
+      res.json({ termsAccepted: true });
+    } catch (error) {
+      sendError(res, error, 'Failed to record your acceptance');
+    }
+  },
+);
 
 authRouter.patch('/me', authenticate, validate({ body: updateMeBody }), async (req, res) => {
   try {

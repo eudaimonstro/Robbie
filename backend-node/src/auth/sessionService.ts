@@ -17,6 +17,8 @@ export interface SessionUser {
 export interface ActiveSession {
   sessionId: string;
   user: SessionUser;
+  /** The terms version the user last accepted (see TERMS_VERSION in shared), or null */
+  termsVersion: string | null;
   /** True when this use pushed expiresAt out, so a web cookie should be re-sent to match */
   extended: boolean;
 }
@@ -64,8 +66,8 @@ export async function findSession(
     extended = true;
   }
 
-  const { id, email, name } = session.user;
-  return { sessionId: session.id, user: { id, email, name }, extended };
+  const { id, email, name, termsVersion } = session.user;
+  return { sessionId: session.id, user: { id, email, name }, termsVersion, extended };
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

@@ -1,6 +1,7 @@
 import type { Socket } from 'socket.io';
 import { findSession } from '../auth/sessionService.js';
 import { SESSION_COOKIE } from '../auth/authenticate.js';
+import { ACCEPT_THE_TERMS, TERMS_NOT_ACCEPTED, hasAcceptedTerms } from '../auth/terms.js';
 import { logger } from '../middleware/logger.js';
 
 /** One cookie's value from a Cookie header, or null if it is missing or badly encoded */
@@ -35,6 +36,12 @@ export function socketAuth(find: typeof findSession = findSession) {
 
       const session = await find(token);
       if (!session) return next(new Error('Not signed in'));
+      if (!hasAcceptedTerms(session.termsVersion)) {
+        // Clients read data.code to send the user to the terms step
+        return next(
+          Object.assign(new Error(ACCEPT_THE_TERMS), { data: { code: TERMS_NOT_ACCEPTED } }),
+        );
+      }
       socket.data.userId = session.user.id;
       socket.data.email = session.user.email;
       // Clients ask for a name after the first sign-in; until then show the email

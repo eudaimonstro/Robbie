@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
-import { captureEmailsForTests } from '../auth/emailService.js';
-import { resetAccounts } from './db.js';
+import { resetDatabase } from './db.js';
+import { signIn } from './helpers.js';
 
 const ID = '00000000-0000-4000-8000-000000000000';
 
@@ -27,15 +27,8 @@ const protectedRoutes: Array<[string, string]> = [
 describe('route protection', () => {
   let cookie: string;
   beforeAll(async () => {
-    await resetAccounts();
-    const outbox = captureEmailsForTests();
-    await request(app).post('/api/auth/request-code').send({ email: 'ann@example.org' });
-    const res = await request(app)
-      .post('/api/auth/verify')
-      .send({ email: 'ann@example.org', code: outbox[0].code });
-    cookie = ([] as string[])
-      .concat(res.headers['set-cookie'])
-      .find((c) => c.startsWith('session='))!;
+    await resetDatabase();
+    cookie = (await signIn('ann@example.org')).cookie;
   });
 
   it.each(protectedRoutes)('%s %s needs a session', async (method, path) => {
