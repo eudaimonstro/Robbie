@@ -189,6 +189,8 @@ Other work:
 
 ### M11. Cleanup and documentation
 
+**Progress 2026-10-05:** the legacy apps and the stale per-workspace lockfiles are deleted. `frontend-robbie/AGENTS.md` and `BEST_PRACTICES.md` moved to `docs/`. CLAUDE.md and README no longer reference the legacy apps. The rest of this milestone remains.
+
 - Delete `backend-bylawyer/`, `frontend-robbie/`, `frontend-bylawyer/`. First move the useful parts of `frontend-robbie/AGENTS.md` (RONR implementation status) and `BEST_PRACTICES.md` into `docs/`, and port the hook tests (M1).
 - Rewrite `README.md` and `docs/INTEGRATION_PLAN.md` for the single backend, Postgres, ports 3001/5173, and the real sync design.
 - Fix `CLAUDE.md`. It lists scripts that don't exist (`dev:legacy`, `dev:robbie`, `dev:bylawyer`, `build:backends`, `build:frontends`), says tests run frontend-robbie, calls `db:push` safe (it isn't until M5), omits `DIRECT_URL`, and claims versions are immutable.

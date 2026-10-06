@@ -30,33 +30,26 @@ Document management system for organizational governing documents.
 # Install dependencies
 npm install
 
-# Start all services
+# Start the backend and the unified frontend
 npm run dev
-
-# Or start individual apps
-npm run dev:robbie      # Parliamentary procedure app
-npm run dev:bylawyer    # Bylaws management app
 ```
 
 ## Project Structure
 
 ```
 robbie-bylawyer/
-├── shared/              # Shared TypeScript types and utilities
-├── backend-node/        # Robbie Express + Socket.io backend (port 3001)
-├── backend-bylawyer/    # Bylawyer Express + Prisma backend (port 3002)
-├── frontend-robbie/     # Robbie React frontend (port 5173)
-├── frontend-bylawyer/   # Bylawyer React frontend (port 5174)
-├── mobile/              # React Native + Expo mobile app
+├── shared/              # Shared TypeScript types, meeting reducer and utilities
+├── backend-node/        # Unified Express + Socket.io + Prisma backend (port 3001)
+├── frontend-unified/    # Unified React frontend for meetings and documents (port 5173)
+├── mobile/              # React Native + Expo mobile app (participant)
 └── features/            # Feature specifications
 ```
 
 ## Tech Stack
 
-- **Runtime:** Node.js 18+
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
-- **Backend (Robbie):** Express, Socket.io, PostgreSQL
-- **Backend (Bylawyer):** Express, Prisma, SQLite
+- **Runtime:** Node.js 20+
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS
+- **Backend:** Express, Socket.io, Prisma, PostgreSQL
 - **Mobile:** React Native, Expo
 - **Package Manager:** npm with workspaces
 
@@ -95,7 +88,7 @@ npm run dev
 
 ## Environment Variables
 
-Copy `.env.example` files in each backend to `.env` and configure:
+Copy `backend-node/.env.example` to `backend-node/.env` and configure:
 
 ### backend-node/.env
 
@@ -104,13 +97,6 @@ PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
 JWT_SECRET=your-secret-key
 DATABASE_URL=postgresql://...
-```
-
-### backend-bylawyer/.env
-
-```
-PORT=3002
-DATABASE_URL=file:./dev.db
 ```
 
 ## License

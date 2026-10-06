@@ -37,9 +37,6 @@ robbie-bylawyer/
 │               ├── components/ # chair/, participant/, mobile/, scheduling/
 │               ├── hooks/      # useQuorumStatus, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
-├── frontend-robbie/     # LEGACY - migrated to frontend-unified
-├── frontend-bylawyer/   # LEGACY - migrated to frontend-unified
-├── backend-bylawyer/    # LEGACY - migrated to backend-node
 ├── mobile/              # @robbie-bylawyer/mobile - React Native + Expo
 └── features/            # Feature specifications for Bylawyer
 ```
@@ -50,11 +47,9 @@ robbie-bylawyer/
 
 ```bash
 npm install              # Install all workspace dependencies
-npm run dev              # Start backend + unified frontend (default)
-npm run dev:unified      # Same as above
-npm run dev:legacy       # Start backend + both legacy frontends
-npm run dev:robbie       # Start backend + legacy Robbie frontend only
-npm run dev:bylawyer     # Start backend + legacy Bylawyer frontend only
+npm run dev              # Start backend + unified frontend
+npm run dev:backend      # Backend only
+npm run dev:frontend     # Unified frontend only
 ```
 
 ### Building
@@ -62,15 +57,17 @@ npm run dev:bylawyer     # Start backend + legacy Bylawyer frontend only
 ```bash
 npm run build            # Build all workspaces
 npm run build:shared     # Build shared package (required first if changed)
-npm run build:backends   # Build backend-node
-npm run build:frontends  # Build both frontends
+npm run build:backend    # Build backend-node
+npm run build:frontend   # Build frontend-unified
 ```
 
 ### Testing
 
 ```bash
-npm run test             # Run frontend-robbie tests
+npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
+npm run lint             # ESLint
+npm run format:check     # Prettier
 ```
 
 ### Database
@@ -224,12 +221,6 @@ Uses Vite proxy to backend on port 3001 (no env var needed for dev)
 
 ```
 VITE_SERVER_URL=http://localhost:3001  # For production builds
-```
-
-### Frontend Legacy (Robbie/Bylawyer)
-
-```
-VITE_SERVER_URL=http://localhost:3001
 ```
 
 ## Key Conventions
