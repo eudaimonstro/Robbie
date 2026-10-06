@@ -184,6 +184,21 @@ describe('agenda items and attachments across packets', () => {
     expect(res.body).toMatchObject({ agendaItemId: f.item, meetingPacketId: null });
   });
 
+  it('upload with the meeting code in any case, and only that code', async () => {
+    const upload = (code: string) =>
+      call('post', `/api/attachments/upload?packetId=${f.packet.id}`, {
+        cookie: f.users.secretary.cookie,
+        headers: { 'Content-Type': 'text/plain', 'X-Filename': 'n.txt', 'X-Robbie-Code': code },
+        body: Buffer.from('n'),
+      });
+    expect((await upload(` ${f.packet.code.toLowerCase()} `)).status).toBe(201);
+    for (const code of [f.packetB.code, '../ORGA01', 'x']) {
+      const res = await upload(code);
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'X-Robbie-Code does not match the meeting' });
+    }
+  });
+
   it("don't upload to another organization's agenda item", async () => {
     const res = await call('post', `/api/attachments/upload?agendaItemId=${f.itemB}`, {
       cookie: f.users.secretary.cookie,

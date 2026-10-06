@@ -17,6 +17,7 @@ import {
 } from '../../orgs/organizationService.js';
 import { fromParam, requireRole, signedInOnly } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfSlug } from '../../orgs/resolvers.js';
+import { deleteFiles } from '../services/fileStorage.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -158,7 +159,22 @@ organizationsRouter.delete(
   requireRole('owner', byOrganization),
   async (req, res) => {
     try {
-      await prisma.organization.delete({ where: { id: req.params.id } });
+      const organizationId = req.params.id;
+      // The uploaded files of its packets and their agenda items, which the cascade leaves on
+      // disk
+      const uploads = await prisma.attachment.findMany({
+        where: {
+          type: 'uploaded_file',
+          OR: [
+            { meetingPacket: { organizationId } },
+            { agendaItem: { packet: { organizationId } } },
+          ],
+        },
+        select: { storagePath: true },
+      });
+
+      await prisma.organization.delete({ where: { id: organizationId } });
+      await deleteFiles(uploads.map((upload) => upload.storagePath));
       res.status(204).send();
     } catch (error) {
       logger.error({ err: error }, 'Failed to delete organization');

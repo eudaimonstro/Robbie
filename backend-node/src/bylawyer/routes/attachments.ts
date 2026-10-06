@@ -14,7 +14,7 @@ import {
   updateAttachmentBody,
   reorderAttachmentsBody,
 } from '../../schemas/attachments.js';
-import { uuidParam } from '../../schemas/common.js';
+import { meetingCode, uuidParam } from '../../schemas/common.js';
 import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fileStorage.js';
 import fs from 'fs';
 import { logger } from '../../middleware/logger.js';
@@ -133,7 +133,9 @@ attachmentsRouter.post(
         }
         packetCode = agendaItem.packet.robbieCode;
       }
-      if (robbieCode !== packetCode) {
+      // Codes are stored in upper case; one the header gives in any case matches
+      const headerCode = meetingCode.safeParse(robbieCode);
+      if (!headerCode.success || headerCode.data !== packetCode) {
         return res.status(400).json({ error: 'X-Robbie-Code does not match the meeting' });
       }
 

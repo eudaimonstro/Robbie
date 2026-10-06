@@ -1,5 +1,7 @@
+import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
+import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call, signIn } from './helpers.js';
@@ -139,6 +141,32 @@ describe('organizations', () => {
     expect(results.find((r) => r.status === 400)!.body).toEqual({
       error: "Organization with slug 'garden' already exists",
     });
+  });
+
+  it("take their packets' files with them when deleted", async () => {
+    const store = async (code: string) => {
+      const stored = await storeFile(code, 'report.txt', 'text/plain', Buffer.from('R'));
+      if (!stored.success) throw new Error(stored.error);
+      return stored.file.storagePath;
+    };
+    const onItem = await store(f.packet.code);
+    await prisma.attachment.create({
+      data: { type: 'uploaded_file', storagePath: onItem, displayName: 'R', agendaItemId: f.item },
+    });
+    const inB = await store(f.packetB.code);
+    await prisma.attachment.create({
+      data: { type: 'uploaded_file', storagePath: inB, displayName: 'R', agendaItemId: f.itemB },
+    });
+    const upload = await prisma.attachment.findUniqueOrThrow({ where: { id: f.upload } });
+    const files = [upload.storagePath!, onItem, inB].map(getFullPath);
+    expect(files.map((file) => fs.existsSync(file))).toEqual([true, true, true]);
+
+    const res = await call('delete', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.owner.cookie,
+    });
+    expect(res.status).toBe(204);
+    // Org B's file stays
+    expect(files.map((file) => fs.existsSync(file))).toEqual([false, false, true]);
   });
 
   it('changes only the name and description', async () => {

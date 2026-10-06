@@ -191,6 +191,24 @@ export async function deleteFile(storagePath: string): Promise<boolean> {
 }
 
 /**
+ * Delete the files of attachments whose rows are gone (a cascade leaves them on disk). A
+ * failure is logged, not thrown, since the rows are already deleted.
+ */
+export async function deleteFiles(storagePaths: Array<string | null>): Promise<void> {
+  for (const storagePath of storagePaths) {
+    if (!storagePath) continue;
+    try {
+      await deleteFile(storagePath);
+    } catch (error) {
+      logger.error(
+        { err: error, storagePath },
+        'Failed to delete the file of a deleted attachment',
+      );
+    }
+  }
+}
+
+/**
  * Get full path for a storage path (for streaming)
  */
 export function getFullPath(storagePath: string): string {
