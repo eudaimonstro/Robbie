@@ -93,6 +93,39 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('SET_MEETING_STAGE', () => {
+    const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
+      validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);
+
+    it('allows moving to a stage of the order of business', () => {
+      expect(setStage('new-business').valid).toBe(true);
+    });
+
+    it('rejects a stage that is not in the order of business', () => {
+      expect(setStage('adjourned').valid).toBe(false);
+      expect(setStage('lunch').valid).toBe(false);
+    });
+
+    it('rejects a stage change before the meeting starts', () => {
+      expect(setStage('new-business', initialState).errorCode).toBe('MEETING_NOT_ACTIVE');
+    });
+  });
+
+  describe('SET_QUORUM', () => {
+    const setQuorum = (quorum: number) =>
+      validateAction(activeMeetingState(), { type: 'SET_QUORUM', quorum, timestamp: '' });
+
+    it('allows a positive whole number', () => {
+      expect(setQuorum(5).valid).toBe(true);
+    });
+
+    it('rejects zero, negative and fractional quorums', () => {
+      expect(setQuorum(0).valid).toBe(false);
+      expect(setQuorum(-2).valid).toBe(false);
+      expect(setQuorum(2.5).valid).toBe(false);
+    });
+  });
+
   describe('MAKE_MOTION', () => {
     describe('secondary amendment (amendAmendment)', () => {
       const motion = (type: string, precedence: number) =>

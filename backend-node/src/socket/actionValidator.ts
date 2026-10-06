@@ -6,7 +6,7 @@
 
 import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import { isSecondaryAmendmentInOrder, wasMotionDefeated } from '@robbie-bylawyer/shared/utils';
 
 export interface ValidationResult {
@@ -946,6 +946,28 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // Always valid - chair setting
       return { valid: true };
 
+    case 'SET_MEETING_STAGE': {
+      const { stage } = action;
+      if (!state.meetingActive) {
+        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+      }
+      // Starting and adjourning the meeting set the other stages
+      if (!DISPLAYABLE_STAGES.some((s) => s.stage === stage)) {
+        return { valid: false, error: 'Unknown meeting stage', errorCode: 'INVALID_ACTION' };
+      }
+      return { valid: true };
+    }
+
+    case 'SET_QUORUM':
+      if (!Number.isInteger(action.quorum) || action.quorum < 1) {
+        return {
+          valid: false,
+          error: 'Quorum must be a whole number of at least 1',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+
     // Actions that are always valid if meeting is active
     case 'ADD_AGENDA_ITEM':
     case 'REMOVE_AGENDA_ITEM':
@@ -959,8 +981,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'SUSPEND_RULE_APPROVED':
       return { valid: true };
 
-    default:
-      // Unknown action type - reject for safety
+    default: {
+      // Every action type needs a case above; this fails to compile if one is missing
+      const unhandled: never = action;
+      void unhandled;
+      // Unknown action type from a client - reject for safety
       return { valid: false, error: 'Unknown action type', errorCode: 'INVALID_ACTION' };
+    }
   }
 }
