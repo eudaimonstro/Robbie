@@ -61,7 +61,9 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
       return res.status(400).json({ error: validation.error });
     }
 
-    // Verify packet or agenda item exists
+    // Verify packet or agenda item exists, and take the meeting code from it: the file is
+    // stored under that code, so a header can't choose where it goes
+    let packetCode: string;
     if (packetId) {
       const packet = await prisma.meetingPacket.findUnique({
         where: { id: packetId as string },
@@ -69,17 +71,23 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
       if (!packet) {
         return res.status(404).json({ error: 'Packet not found' });
       }
+      packetCode = packet.robbieCode;
     } else {
       const agendaItem = await prisma.meetingAgendaItem.findUnique({
         where: { id: agendaItemId as string },
+        include: { packet: { select: { robbieCode: true } } },
       });
       if (!agendaItem) {
         return res.status(404).json({ error: 'Agenda item not found' });
       }
+      packetCode = agendaItem.packet.robbieCode;
+    }
+    if (robbieCode !== packetCode) {
+      return res.status(400).json({ error: 'X-Robbie-Code does not match the meeting' });
     }
 
     // Store the file
-    const result = await storeFile(robbieCode, filename, mimeType, buffer);
+    const result = await storeFile(packetCode, filename, mimeType, buffer);
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
