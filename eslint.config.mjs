@@ -13,6 +13,7 @@ export default defineConfig(
       '**/node_modules/**',
       '**/coverage/**',
       '**/*.config.*',
+      'backend-node/src/generated/**',
       'mobile/**',
     ],
   },

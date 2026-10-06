@@ -239,6 +239,8 @@ VITE_SERVER_URL=http://localhost:3001  # For production builds
 
 7. **Single Database:** Both Robbie and Bylawyer share the same PostgreSQL database (`robbie`).
 
+8. **Prisma Client:** Prisma 7 generates the client into `backend-node/src/generated/prisma` (gitignored; `npm run db:generate`). Import from there, e.g. `import { Prisma } from '../generated/prisma/client.js'`, not from `@prisma/client`. CLI connection settings live in `backend-node/prisma.config.ts`.
+
 ## Feature Specifications
 
 Features for Bylawyer are stored in `features/` directory:
