@@ -15,6 +15,8 @@ import { SuspendRulesForm } from '../components/SuspendRulesForm';
 import { TakeFromTableForm } from '../components/TakeFromTableForm';
 import { ReconsiderForm } from '../components/ReconsiderForm';
 import { InquiryPanel } from '../components/InquiryPanel';
+import { NominationsPanel } from '../components/NominationsPanel';
+import { ElectionPanel } from '../components/ElectionPanel';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { QuorumWarning } from '../components/QuorumWarning';
@@ -344,6 +346,14 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
             )}
           </section>
         )}
+
+      {/* Nominations and elections: members nominate, decline a nomination and cast ballots */}
+      {(state.nominationsOpen || state.currentElection) && (
+        <NominationsPanel state={state} dispatch={dispatch} currentUser={currentUser} />
+      )}
+      {state.currentElection && (
+        <ElectionPanel state={state} dispatch={dispatch} currentUser={currentUser} />
+      )}
 
       {/* Inquiries Panel */}
       <InquiryPanel state={state} dispatch={dispatch} currentUser={currentUser} isChair={false} />
