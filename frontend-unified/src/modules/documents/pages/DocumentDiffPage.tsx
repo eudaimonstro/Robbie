@@ -47,14 +47,11 @@ export default function DocumentDiffPage() {
         const rightParam = searchParams.get('right');
 
         if (vers.length >= 2) {
-          const left =
-            leftParam && vers.find((v) => v.id === leftParam)
-              ? leftParam
-              : vers[vers.length - 2].id;
+          // By default, compare the newest version (right) with the one before it (left)
+          const [newest, previous] = [...vers].sort((a, b) => b.versionNumber - a.versionNumber);
+          const left = leftParam && vers.find((v) => v.id === leftParam) ? leftParam : previous.id;
           const right =
-            rightParam && vers.find((v) => v.id === rightParam)
-              ? rightParam
-              : vers[vers.length - 1].id;
+            rightParam && vers.find((v) => v.id === rightParam) ? rightParam : newest.id;
 
           setLeftVersionId(left);
           setRightVersionId(right);
