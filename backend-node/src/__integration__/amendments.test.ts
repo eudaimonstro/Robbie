@@ -201,6 +201,32 @@ describe('amendment drafts', () => {
     expect(secretary.status).toBe(200);
   });
 
+  it('are no longer changed once they leave draft, even by a secretary', async () => {
+    const change = await prisma.amendmentChange.create({
+      data: { amendmentId: f.proposed, changeType: 'delete', targetSectionId: f.child },
+    });
+    const cookie = f.users.secretary.cookie;
+    const refusals = [
+      await call('put', `/api/amendments/${f.proposed}`, { cookie, body: { title: 'Late' } }),
+      await call('post', `/api/amendments/${f.proposed}/changes`, {
+        cookie,
+        body: { changeType: 'delete', targetSectionId: f.section },
+      }),
+      await call('delete', `/api/changes/${change.id}`, { cookie }),
+      await call('delete', `/api/amendment-changes/${change.id}`, { cookie }),
+      await call('delete', `/api/amendments/${f.proposed}`, { cookie }),
+    ];
+    for (const res of refusals) {
+      expect(res.status).toBe(400);
+    }
+    const proposed = await prisma.amendment.findUniqueOrThrow({
+      where: { id: f.proposed },
+      include: { changes: true },
+    });
+    expect(proposed.title).toBe('A proposed amendment');
+    expect(proposed.changes.map((c) => c.id)).toEqual([change.id]);
+  });
+
   it('can be edited by a secretary, whoever created them', async () => {
     const res = await call('put', `/api/amendments/${f.draft}`, {
       cookie: f.users.secretary.cookie,
