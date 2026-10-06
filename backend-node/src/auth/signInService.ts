@@ -69,7 +69,8 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
 
   // The new code replaces earlier ones, once it has been sent: a failed send leaves the earlier
   // code usable. Only codes created before this one, so two overlapping requests can't cancel
-  // each other's codes (the later one always survives; with the same time, both do).
+  // each other's codes. The later one always survives. Two codes created at the same time both
+  // stay unused, but only one of them signs in, since verify checks the newest code.
   await prisma.signInCode.updateMany({
     where: { email, consumedAt: null, createdAt: { lt: record.createdAt } },
     data: { consumedAt: now },

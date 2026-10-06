@@ -72,7 +72,7 @@ describe('signInService', () => {
     await expect(verifySignInCode('ann@example.org', code)).resolves.toBeTruthy();
   });
 
-  it('keeps both codes when two overlapping requests share a time', async () => {
+  it('cancels neither code when two overlapping requests share a time', async () => {
     const now = new Date(Date.now() - 1000);
     await Promise.all([
       requestSignInCode('ann@example.org', now),
