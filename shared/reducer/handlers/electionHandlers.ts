@@ -198,6 +198,32 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         };
       }
 
+      // RONR: balloting continues until a candidate has the required vote, and no candidate is
+      // dropped, so open the next ballot instead of leaving the election closed with no one
+      // elected (nothing could move it on from there)
+      if (!winner) {
+        const ballot = (state.currentElection.runoffRound ?? 0) + 2;
+        return {
+          ...state,
+          currentElection: {
+            ...state.currentElection,
+            ballotResults: state.currentElection.candidates.reduce(
+              (acc, c) => ({ ...acc, [c.name]: 0 }),
+              {} as Record<string, number>,
+            ),
+            votersWhoVoted: [],
+            votingInProgress: true,
+            elected: null,
+            // Counts the repeated ballots (the first ballot is round 0)
+            runoffRound: ballot - 1,
+          },
+          meetingLog: log(
+            typedAction.timestamp,
+            `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. No candidate received the required ${requiredVotes} vote. Ballot ${ballot} is now open.`,
+          ),
+        };
+      }
+
       return {
         ...state,
         currentElection: {
@@ -207,7 +233,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         },
         meetingLog: log(
           typedAction.timestamp,
-          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner ? `${winner} elected.` : 'No candidate elected (majority not reached).'}`,
+          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner} elected.`,
         ),
       };
     }

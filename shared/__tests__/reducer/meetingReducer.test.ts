@@ -1562,6 +1562,19 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentElection?.elected).toBeNull();
+      // RONR: balloting continues until a candidate has the required vote, with every
+      // candidate still standing, so a new ballot opens rather than leaving the election closed
+      expect(state.currentElection).toMatchObject({
+        votingInProgress: true,
+        votersWhoVoted: [],
+        ballotResults: { Alice: 0, Charlie: 0, Eve: 0 },
+      });
+      expect(state.currentElection?.candidates.map((c) => c.name)).toEqual([
+        'Alice',
+        'Charlie',
+        'Eve',
+      ]);
+      expect(state.meetingLog.at(-1)?.message).toContain('Ballot 2 is now open');
     });
 
     it('should handle 2/3 vote requirement', () => {
