@@ -69,6 +69,10 @@ describe('enrichAction', () => {
       expect(enriched.mover).toBe('Renamed Member');
     });
 
+    it('records who seconded a motion', () => {
+      expect(enrich({ type: 'SECOND_MOTION', seconder: 'x' }).seconderId).toBe(20);
+    });
+
     it('sets a proxy request to come from the signed-in user', () => {
       expect(enrich({ type: 'REQUEST_PROXY', requestedBy: 99 }).requestedBy).toBe(20);
     });

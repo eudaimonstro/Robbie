@@ -118,6 +118,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_PENDING_SECOND',
         };
       }
+      // RONR: the mover can't second their own motion (unless that rule is suspended)
+      if (
+        action.seconderId !== undefined &&
+        action.seconderId === state.pendingSecond.moverId &&
+        !isRuleSuspended(state, 'mover-cannot-second')
+      ) {
+        return {
+          valid: false,
+          error: 'You cannot second your own motion',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       return { valid: true };
 
     case 'DECLINE_SECOND':

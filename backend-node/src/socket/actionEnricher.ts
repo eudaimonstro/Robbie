@@ -39,6 +39,11 @@ export function enrichAction(
     enriched.nominatorId = socketData.userId;
   }
 
+  // Who seconded, so the validator can stop a mover seconding their own motion
+  if (enriched.type === 'SECOND_MOTION') {
+    enriched.seconderId = socketData.userId;
+  }
+
   // Proxy-related IDs - CRITICAL: prevents impersonation attacks
   if ('castById' in enriched) {
     enriched.castById = socketData.userId;

@@ -320,7 +320,8 @@ export type MeetingAction =
       reconsideredMotionId?: number;
       dividedParts?: string[];
     }
-  | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
+  // seconderId is set by the server from the signed-in user
+  | { type: 'SECOND_MOTION'; seconder: string; seconderId?: number; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
   | {
