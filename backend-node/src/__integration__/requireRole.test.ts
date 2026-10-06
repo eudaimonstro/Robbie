@@ -97,6 +97,23 @@ describe('requireRole', () => {
     expect(none.status).toBe(404);
   });
 
+  it('answers 404 to an organization id that is not a single string', async () => {
+    const cookie = f.users.admin.cookie;
+    const id = f.orgA.id;
+    // Each would find the organization if the value were coerced to its first string
+    const repeated = await request(testApp)
+      .get(`/by-query?orgId=${id}&orgId=${id}`)
+      .set('Cookie', cookie);
+    expect(repeated.status).toBe(404);
+    const emptyQuery = await request(testApp).get('/by-query?orgId=').set('Cookie', cookie);
+    expect(emptyQuery.status).toBe(404);
+
+    for (const orgId of [[id], {}, '']) {
+      const res = await request(testApp).post('/by-body').set('Cookie', cookie).send({ orgId });
+      expect(res.status).toBe(404);
+    }
+  });
+
   it('answers 500 when the lookup fails', async () => {
     const res = await request(testApp).get('/broken').set('Cookie', f.users.owner.cookie);
     expect(res.status).toBe(500);

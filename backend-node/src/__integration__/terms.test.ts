@@ -62,11 +62,12 @@ describe('terms acceptance', () => {
       code: 'TERMS_NOT_ACCEPTED',
     });
 
-    // Uploads are refused before the body is read
+    // Uploads are refused before the body is read: if the body parser ran first, one byte over
+    // the 10 MB upload limit would fail on the size limit instead
     const upload = await call('post', '/api/attachments/upload', {
       cookie: ann.cookie,
       headers: { 'Content-Type': 'application/pdf' },
-      body: Buffer.from('%PDF-1.4'),
+      body: Buffer.alloc(10 * 1024 * 1024 + 1),
     });
     expect(upload.status).toBe(403);
 
