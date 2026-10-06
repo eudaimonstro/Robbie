@@ -33,8 +33,8 @@ export function useVoteResults(meetingLog: MeetingLogEntry[]) {
 
     if (!voteResult) return null;
 
-    // Parse the vote result: "Vote: Yea X, Nay Y. Motion CARRIED/FAILED."
-    const match = voteResult.message.match(/Vote: Yea (\d+), Nay (\d+)\. Motion (CARRIED|FAILED)/);
+    // Parse the vote result the reducer logs: "Vote: Yea X, Nay Y. CARRIED." (or FAILED)
+    const match = voteResult.message.match(/Vote: Yea (\d+), Nay (\d+)\. (CARRIED|FAILED)/);
     if (!match) return null;
 
     const yea = parseInt(match[1]);
@@ -42,9 +42,12 @@ export function useVoteResults(meetingLog: MeetingLogEntry[]) {
     const outcome = match[3];
     const passed = outcome === 'CARRIED';
 
-    // Find the motion text from logs just before the vote
+    // Find the motion text from the question put before the vote (other entries, such as a
+    // quorum warning, may come between them)
     const voteIndex = meetingLog.indexOf(voteResult);
-    const questionLog = voteIndex > 0 ? meetingLog[voteIndex - 1] : null;
+    const questionLog = meetingLog
+      .slice(0, voteIndex)
+      .findLast((log) => log.message.startsWith('Chair puts the question: '));
     const motionTextMatch = questionLog?.message.match(/Chair puts the question: "(.+)"/);
     const motionText = motionTextMatch ? motionTextMatch[1] : '';
 

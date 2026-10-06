@@ -1,9 +1,65 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useVoteResults } from '../useVoteResults';
-import type { MeetingLogEntry } from '@robbie-bylawyer/shared/types';
+import type { MeetingLogEntry, MeetingState } from '@robbie-bylawyer/shared/types';
+import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
+import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 
 describe('useVoteResults', () => {
+  // Runs a vote through the reducer so the log has the messages the app really writes
+  function logOfVote(yeas: number, nays: number, withoutQuorum = false): MeetingLogEntry[] {
+    const motion = {
+      ...MOTIONS.mainMotion,
+      id: 1,
+      type: 'mainMotion',
+      text: 'Approve the budget',
+      mover: 'Member 1',
+      moverId: 1,
+      secondedBy: 'Member 2',
+      status: 'active' as const,
+    };
+    const voterIds = Array.from({ length: yeas + nays }, (_, i) => i + 1);
+    let state: MeetingState = {
+      ...initialState,
+      meetingActive: true,
+      members: voterIds.map((id) => ({ id, name: `Member ${id}`, role: 'member', present: true })),
+      currentMotion: motion,
+      motionStack: [motion],
+    };
+    state = meetingReducer(state, {
+      type: 'OPEN_VOTING',
+      voteTimerEnd: null,
+      timestamp: '10:05:00',
+      withoutQuorum,
+    });
+    voterIds.forEach((voterId, i) => {
+      state = meetingReducer(state, { type: 'CAST_VOTE', voterId, vote: i < yeas ? 'yea' : 'nay' });
+    });
+    return meetingReducer(state, { type: 'CLOSE_VOTING', timestamp: '10:10:00' }).meetingLog;
+  }
+
+  it('reads a vote the reducer recorded as carried', () => {
+    const { result } = renderHook(() => useVoteResults(logOfVote(3, 1)));
+    expect(result.current).toMatchObject({
+      yea: 3,
+      nay: 1,
+      outcome: 'CARRIED',
+      passed: true,
+      motionText: 'Approve the budget',
+      timestamp: '10:10:00',
+    });
+  });
+
+  it('reads a vote the reducer recorded as failed', () => {
+    const { result } = renderHook(() => useVoteResults(logOfVote(1, 3)));
+    expect(result.current).toMatchObject({ yea: 1, nay: 3, outcome: 'FAILED', passed: false });
+  });
+
+  it('finds the question when a quorum warning follows it', () => {
+    const { result } = renderHook(() => useVoteResults(logOfVote(3, 1, true)));
+    expect(result.current?.motionText).toBe('Approve the budget');
+  });
+
   it('should return null when meeting log is empty', () => {
     const { result } = renderHook(() => useVoteResults([]));
     expect(result.current).toBeNull();
@@ -22,7 +78,7 @@ describe('useVoteResults', () => {
     const log: MeetingLogEntry[] = [
       { time: '10:00:00', message: 'Meeting called to order' },
       { time: '10:05:00', message: 'Chair puts the question: "Approve the budget"' },
-      { time: '10:10:00', message: 'Vote: Yea 8, Nay 2. Motion CARRIED.' },
+      { time: '10:10:00', message: 'Vote: Yea 8, Nay 2. CARRIED.' },
     ];
     const { result } = renderHook(() => useVoteResults(log));
 
@@ -39,7 +95,7 @@ describe('useVoteResults', () => {
     const log: MeetingLogEntry[] = [
       { time: '10:00:00', message: 'Meeting called to order' },
       { time: '10:05:00', message: 'Chair puts the question: "Increase dues"' },
-      { time: '10:10:00', message: 'Vote: Yea 3, Nay 7. Motion FAILED.' },
+      { time: '10:10:00', message: 'Vote: Yea 3, Nay 7. FAILED.' },
     ];
     const { result } = renderHook(() => useVoteResults(log));
 
@@ -53,9 +109,9 @@ describe('useVoteResults', () => {
 
   it('should return the most recent vote when multiple votes exist', () => {
     const log: MeetingLogEntry[] = [
-      { time: '10:00:00', message: 'Vote: Yea 5, Nay 5. Motion FAILED.' },
+      { time: '10:00:00', message: 'Vote: Yea 5, Nay 5. FAILED.' },
       { time: '10:30:00', message: 'Chair puts the question: "Second attempt"' },
-      { time: '10:35:00', message: 'Vote: Yea 7, Nay 3. Motion CARRIED.' },
+      { time: '10:35:00', message: 'Vote: Yea 7, Nay 3. CARRIED.' },
     ];
     const { result } = renderHook(() => useVoteResults(log));
 
@@ -65,9 +121,7 @@ describe('useVoteResults', () => {
   });
 
   it('should handle vote result without preceding motion text', () => {
-    const log: MeetingLogEntry[] = [
-      { time: '10:10:00', message: 'Vote: Yea 6, Nay 4. Motion CARRIED.' },
-    ];
+    const log: MeetingLogEntry[] = [{ time: '10:10:00', message: 'Vote: Yea 6, Nay 4. CARRIED.' }];
     const { result } = renderHook(() => useVoteResults(log));
 
     expect(result.current).not.toBeNull();
@@ -78,9 +132,7 @@ describe('useVoteResults', () => {
   });
 
   it('should memoize the result', () => {
-    const log: MeetingLogEntry[] = [
-      { time: '10:10:00', message: 'Vote: Yea 6, Nay 4. Motion CARRIED.' },
-    ];
+    const log: MeetingLogEntry[] = [{ time: '10:10:00', message: 'Vote: Yea 6, Nay 4. CARRIED.' }];
     const { result, rerender } = renderHook(() => useVoteResults(log));
 
     const firstResult = result.current;
