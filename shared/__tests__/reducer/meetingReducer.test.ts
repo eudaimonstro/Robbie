@@ -1140,6 +1140,23 @@ describe('meetingReducer', () => {
       expect(state.lastChairRuling?.ruling).toContain('well taken');
       expect(state.currentMotion).toBeNull();
     });
+
+    it('should return to the motion that was pending before the point of order', () => {
+      const mainMotion = createMockMotion({ id: 1, type: 'mainMotion' });
+      const pointOfOrder = createMockMotion({ id: 2, type: 'pointOrder', vote: 'none' });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentMotion: pointOfOrder,
+          motionStack: [mainMotion, pointOfOrder],
+        },
+        { type: 'CHAIR_RULING', ruling: 'overrule', timestamp: '10:10:00' },
+      );
+
+      expect(state.motionStack).toEqual([mainMotion]);
+      expect(state.currentMotion).toEqual(mainMotion);
+    });
   });
 
   describe('REMOVE_AGENDA_ITEM', () => {
