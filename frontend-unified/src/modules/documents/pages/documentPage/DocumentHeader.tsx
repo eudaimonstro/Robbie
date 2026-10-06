@@ -25,8 +25,8 @@ export function DocumentHeader({
   onShare,
 }: DocumentHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div className="min-w-0">
         <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
           <Link to="/" className="hover:text-primary-600">
             {organizationName}
@@ -41,12 +41,12 @@ export function DocumentHeader({
           <DocumentTypeBadge type={doc.docType} />
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Version selector */}
         <select
           value={selectedVersion?.id || ''}
           onChange={(e) => onVersionChange(e.target.value)}
-          className="select text-sm py-1.5"
+          className="select w-auto text-sm py-1.5"
         >
           {versions.map((v) => (
             <option key={v.id} value={v.id}>

@@ -131,7 +131,7 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
+    <div className="flex flex-col xl:flex-row gap-6 max-w-7xl mx-auto">
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <DocumentHeader

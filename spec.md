@@ -175,7 +175,7 @@ Other work:
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
-- **Document page header overflow blocks a primary action:** at 1280px wide, the Pending Amendments card covers the header buttons, so "Propose Amendment" can't be clicked. It works from about 1700px.
+- **Fixed 2026-10-06:** the document page header overflowed under the Pending Amendments panel. At 1280px "Propose Amendment" was unclickable, at 1024px four controls were, and on phones all six were, with the 320px panel covering the content. The header now wraps, and below 1280px the panel stacks under the content. The M9 Playwright smoke tests should assert at 390px and 1280px that no control in `main` is covered or off-screen (`document.elementFromPoint` at each control's center).
 - **Meeting code changes when the meeting starts:** `MeetingControlPanel` dispatches `START_MEETING` with a newly generated `meetingCode`, and the reducer stores it. The header then shows a code (e.g. `MQGESQ`) that differs from the room everyone joined (`DEMO`). Keep the room's code.
 - Request schemas accept both snake_case and camelCase (`number_label || numberLabel`). Now that the client sends camelCase, drop the snake_case keys and make the schemas `.strict()`, so a stale key returns 400 instead of being silently stripped. `AmendmentChangeCreate.position` is accepted in neither style today.
 - The New Version form has no effective-date field, so versions created in the UI have no effective date and never appear in history-by-date.
