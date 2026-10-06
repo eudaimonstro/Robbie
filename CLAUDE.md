@@ -219,10 +219,10 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 
 ### Frontend Unified
 
-Uses Vite proxy to backend on port 3001 (no env var needed for dev)
+Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST client always calls same-origin `/api`, so production must serve the API on the app's origin (or behind a reverse proxy).
 
 ```
-VITE_SERVER_URL=http://localhost:3001  # For production builds
+VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to a different origin
 ```
 
 ## Key Conventions

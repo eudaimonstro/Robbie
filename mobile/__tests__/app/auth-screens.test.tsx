@@ -45,4 +45,10 @@ describe('auth screens', () => {
     await fireEvent.press(screen.getByText('Try again'));
     expect(mockSession.retry).toHaveBeenCalledTimes(1);
   });
+
+  it('can sign out from the offline screen', async () => {
+    await render(<OfflineScreen />);
+    await fireEvent.press(screen.getByText('Sign out'));
+    expect(mockSession.signOut).toHaveBeenCalledTimes(1);
+  });
 });

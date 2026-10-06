@@ -7,7 +7,7 @@ import { colors, spacing, typography } from '../theme';
 
 /** Shown when there is a saved session but the server can't be reached to check it */
 export default function OfflineScreen() {
-  const { retry } = useSession();
+  const { retry, signOut } = useSession();
   const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -38,6 +38,9 @@ export default function OfflineScreen() {
             size="lg"
           />
         </Card>
+
+        {/* A way out if the server stays unreachable, e.g. it moved; signing in again needs it too */}
+        <Button title="Sign out" onPress={signOut} disabled={isRetrying} variant="ghost" />
       </View>
     </SafeAreaView>
   );
