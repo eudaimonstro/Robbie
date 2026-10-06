@@ -49,10 +49,14 @@ app.set('json replacer', (_key: string, value: unknown) =>
 );
 const httpServer = createServer(app);
 
-// Allow any localhost port in development
+// Cross-origin requests: the configured web app origin, or in development any localhost port.
+// In production the server serves the web app itself (same origin), so without CLIENT_ORIGIN
+// no other origin is allowed.
 const allowedOrigins = process.env.CLIENT_ORIGIN
   ? [process.env.CLIENT_ORIGIN]
-  : [/^http:\/\/localhost:\d+$/];
+  : process.env.NODE_ENV === 'production'
+    ? []
+    : [/^http:\/\/localhost:\d+$/];
 
 // Socket.io server with typed events
 const io = new Server<

@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { logger } from '../middleware/logger.js';
+import { databaseSsl } from './databaseSsl.js';
 
 const { Pool } = pg;
 
@@ -16,8 +17,7 @@ export const pool = new Pool(
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
-        // SSL required for cloud databases like Supabase
-        ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+        ssl: databaseSsl(process.env.DATABASE_URL),
       }
     : {
         // Dummy config for in-memory mode - pool won't be used
