@@ -6,7 +6,8 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "outDir": "./node_modules/.tmp/tsconfig.node"
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "types": ["node"]
   },
   "include": ["vite.config.ts"]
 }

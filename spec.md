@@ -223,7 +223,7 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
   - Prisma 7.10's CLI pins `deepmerge-ts` 7 and `mysql2` 3.15. These are dev-time only, and this is a Postgres project. Wait for Prisma's own update; forcing `overrides` here broke the dependency tree when tried.
 - **Majors not taken:**
   - Tailwind 4 is a migration, and v3 is still maintained.
-  - TypeScript 6/7: typescript-eslint doesn't support 7 yet, and 6 turns the `baseUrl` deprecation into an error.
+  - TypeScript 7: typescript-eslint doesn't support it yet (6.0 is the newest it supports, and is in use).
   - Express 5: v4 is still supported.
   - `@types/node` stays on 22 to match the runtime, and `@types/express` stays on 4 to match Express 4.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
