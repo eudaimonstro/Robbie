@@ -93,6 +93,18 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('CHAIR_RULING', () => {
+    it('is rejected while a vote is open', () => {
+      const state = { ...activeMeetingState(), votingOpen: true };
+      const result = validateAction(state, {
+        type: 'CHAIR_RULING',
+        ruling: 'sustain',
+        timestamp: '',
+      } as never);
+      expect(result.errorCode).toBe('VOTING_IN_PROGRESS');
+    });
+  });
+
   describe('SET_MEETING_STAGE', () => {
     const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
       validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);
@@ -160,6 +172,31 @@ describe('actionValidator', () => {
           makeSecondary as never,
         );
         expect(result.valid).toBe(false);
+      });
+    });
+
+    describe('while other business is unsettled', () => {
+      const pointOfOrder = {
+        type: 'MAKE_MOTION' as const,
+        motionType: 'pointOrder',
+        text: 'Point of order',
+        mover: 'Member 3',
+        moverId: 3,
+        motionId: 5,
+        timestamp: '',
+      };
+
+      it('rejects a motion while a vote is open, so it cannot take over the cast votes', () => {
+        const state = { ...activeMeetingState(), votingOpen: true };
+        expect(validateAction(state, pointOfOrder).errorCode).toBe('VOTING_IN_PROGRESS');
+      });
+
+      it('rejects a motion while another awaits a second, so it is not replaced', () => {
+        const state = {
+          ...activeMeetingState(),
+          pendingSecond: { ...createMotion(), status: 'pending' as const },
+        };
+        expect(validateAction(state, pointOfOrder).valid).toBe(false);
       });
     });
 

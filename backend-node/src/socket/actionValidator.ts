@@ -41,6 +41,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.meetingActive) {
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
+      // A motion made during a vote would become the pending question and take over the votes
+      // already cast, and one made while another awaits a second would replace it
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'No motion can be made while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Another motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
       // Validate motion text length
       if (action.text && action.text.length > 500) {
         return {
@@ -609,7 +625,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'CHAIR_RULING':
-      // Chair rulings require context of what's being ruled on
+      // A ruling pops the pending motion; during a vote that would leave the vote open with
+      // nothing to decide, and closing it would then drop the motion underneath undecided
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'The chair cannot rule while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
       // The reducer handles context-specific validation
       return { valid: true };
 
