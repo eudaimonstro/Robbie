@@ -174,7 +174,6 @@ robbieRouter.post('/sync-motion', validate({ body: syncMotionBody }), async (req
     logger.error({ err: error }, 'Error syncing motion from Robbie');
     res.status(500).json({
       error: 'Failed to sync motion',
-      details: error.message,
     });
   }
 });
@@ -233,7 +232,6 @@ robbieRouter.get('/meetings/:amendmentId', async (req, res) => {
     logger.error({ err: error }, 'Error getting Robbie meeting details');
     res.status(500).json({
       error: 'Failed to get meeting details',
-      details: error.message,
     });
   }
 });
@@ -274,7 +272,6 @@ robbieRouter.get('/amendments', async (req, res) => {
     logger.error({ err: error }, 'Error listing Robbie amendments');
     res.status(500).json({
       error: 'Failed to list amendments',
-      details: error.message,
     });
   }
 });
@@ -319,7 +316,6 @@ robbieRouter.get(
       logger.error({ err: error }, 'Error checking sync status');
       res.status(500).json({
         error: 'Failed to check sync status',
-        details: error.message,
       });
     }
   },

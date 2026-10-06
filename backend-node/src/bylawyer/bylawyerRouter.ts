@@ -27,7 +27,6 @@ const listOrganizations: RequestHandler<RouteParams> = async (_req, res) => {
     logger.error({ err: error }, 'Error fetching organizations');
     res.status(500).json({
       error: 'Failed to fetch organizations',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -54,7 +53,6 @@ const getOrganization: RequestHandler<RouteParams> = async (req, res) => {
     logger.error({ err: error }, 'Error fetching organization');
     res.status(500).json({
       error: 'Failed to fetch organization',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -88,7 +86,6 @@ const getOrganizationDocuments: RequestHandler<RouteParams> = async (req, res) =
     logger.error({ err: error }, 'Error fetching documents');
     res.status(500).json({
       error: 'Failed to fetch documents',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -140,7 +137,6 @@ const linkMeeting: RequestHandler<RouteParams> = async (req, res) => {
     logger.error({ err: error }, 'Error linking meeting to organization');
     res.status(500).json({
       error: 'Failed to link meeting to organization',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -167,7 +163,6 @@ const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
     logger.error({ err: error }, 'Error unlinking meeting from organization');
     res.status(500).json({
       error: 'Failed to unlink meeting from organization',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -216,7 +211,6 @@ const getMeetingOrganization: RequestHandler<RouteParams> = async (req, res) => 
     logger.error({ err: error }, 'Error getting meeting organization');
     res.status(500).json({
       error: 'Failed to get meeting organization',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -273,7 +267,6 @@ const getDocumentSections: RequestHandler<RouteParams> = async (req, res) => {
     logger.error({ err: error }, 'Error fetching document sections');
     res.status(500).json({
       error: 'Failed to fetch sections',
-      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

@@ -537,7 +537,9 @@ amendmentsRouter.post(
       if (error instanceof AmendmentConflictError) {
         return res.status(409).json({ error: error.message });
       }
-      res.status(400).json({ error: error.message || 'Failed to apply amendment' });
+      // Other failures are logged, not echoed: a database error's text describes the schema
+      logger.error({ err: error }, 'Failed to apply amendment');
+      res.status(500).json({ error: 'Failed to apply amendment' });
     }
   },
 );
