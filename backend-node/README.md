@@ -39,11 +39,12 @@ backend/src/
 
 ## Environment Variables
 
-| Variable        | Required | Default | Description                  |
-| --------------- | -------- | ------- | ---------------------------- |
-| `PORT`          | No       | 3001    | Server port                  |
-| `CLIENT_ORIGIN` | Yes      | -       | Frontend URL for CORS        |
-| `DATABASE_URL`  | No       | -       | PostgreSQL connection string |
+| Variable        | Required                            | Default         | Description                                                                                                  |
+| --------------- | ----------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `PORT`          | No                                  | 3001            | Server port                                                                                                  |
+| `CLIENT_ORIGIN` | When the web app is cross-origin    | -               | Frontend URL for CORS. In production without it, only the server's own origin is allowed                     |
+| `APP_URL`       | In production without CLIENT_ORIGIN | `CLIENT_ORIGIN` | The web app's address, for links in emails. Production refuses to start without `APP_URL` or `CLIENT_ORIGIN` |
+| `DATABASE_URL`  | No                                  | -               | PostgreSQL connection string                                                                                 |
 
 ## API Endpoints
 

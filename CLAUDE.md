@@ -222,7 +222,7 @@ When a bylaw amendment motion passes in Robbie:
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
-APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, then http://localhost:5173
+APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, then http://localhost:5173 (production refuses to start without one of the two)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 

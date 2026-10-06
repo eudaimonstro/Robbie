@@ -39,7 +39,8 @@ setIoInstance(io);
 
 // Initialize storage and start server
 async function start() {
-  // Refuse to start production without a way to send sign-in codes, and flag test sign-in
+  // Refuse to start production without a way to send sign-in codes or an address for email
+  // links, and flag test sign-in
   const signInCheck = signInStartupCheck(process.env, getEmailProvider());
   for (const warning of signInCheck.warnings) logger.warn(warning);
   if (signInCheck.error) {
