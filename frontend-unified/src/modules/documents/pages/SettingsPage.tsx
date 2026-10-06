@@ -99,7 +99,7 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm text-secondary-500">Created</p>
                 <p className="text-secondary-700 dark:text-secondary-300">
-                  {new Date(currentOrganization.created_at).toLocaleDateString()}
+                  {new Date(currentOrganization.createdAt).toLocaleDateString()}
                 </p>
               </div>
             </div>

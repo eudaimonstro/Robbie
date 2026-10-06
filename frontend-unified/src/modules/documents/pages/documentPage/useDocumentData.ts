@@ -61,8 +61,8 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
       setAmendments(amends.filter((a) => a.status === 'draft' || a.status === 'proposed'));
 
       // Select current version or latest
-      const currentVersion = fetchedDoc.current_version_id
-        ? vers.find((v) => v.id === fetchedDoc.current_version_id)
+      const currentVersion = fetchedDoc.currentVersionId
+        ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
         : vers[vers.length - 1];
 
       if (currentVersion) {
@@ -166,7 +166,7 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
       setSelectedVersion(newVersion);
       const tree = await versionsApi.getTree(newVersion.id);
       setSectionTree(tree);
-      showToast('success', `Version ${newVersion.version_number} created`);
+      showToast('success', `Version ${newVersion.versionNumber} created`);
       return newVersion;
     },
     [documentId, showToast, fetchDocument],

@@ -213,9 +213,7 @@ export const documents = {
     }),
   delete: (id: string) => request<void>(`/documents/${id}`, { method: 'DELETE' }),
   getAtDate: (id: string, date: string) =>
-    request<{ version_id: string; version_number: number }>(
-      `/documents/${id}/at-date?date=${date}`,
-    ),
+    request<{ versionId: string; versionNumber: number }>(`/documents/${id}/at-date?date=${date}`),
   // Sharing
   getShareStatus: (id: string) => request<ShareStatus | null>(`/documents/${id}/share`),
   enableSharing: (id: string) => request<ShareStatus>(`/documents/${id}/share`, { method: 'POST' }),
@@ -272,9 +270,7 @@ export const sections = {
       body: JSON.stringify(data),
     }),
   getPath: (id: string) =>
-    request<{ path: { id: string; number_label: string; title: string }[] }>(
-      `/sections/${id}/path`,
-    ),
+    request<{ path: { id: string; numberLabel: string; title: string }[] }>(`/sections/${id}/path`),
   reorder: (versionId: string, updates: Array<{ id: string; position: number }>) =>
     request<{ status: string; updated: number }>(`/versions/${versionId}/sections/reorder`, {
       method: 'PUT',
@@ -368,9 +364,9 @@ export interface Organization {
   name: string;
   slug: string;
   description: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OrganizationCreate {
@@ -382,21 +378,21 @@ export interface OrganizationCreate {
 export interface OrganizationUpdate {
   name?: string;
   description?: string;
-  is_active?: boolean;
+  isActive?: boolean;
 }
 
 export interface Document {
   id: string;
-  organization_id: string;
+  organizationId: string;
   title: string;
-  doc_type: 'bylaws' | 'standing_rules' | 'policy';
-  current_version_id: string | null;
-  created_at: string;
+  docType: 'bylaws' | 'standing_rules' | 'policy';
+  currentVersionId: string | null;
+  createdAt: string;
 }
 
 export interface DocumentCreate {
   title: string;
-  doc_type: 'bylaws' | 'standing_rules' | 'policy';
+  docType: 'bylaws' | 'standing_rules' | 'policy';
 }
 
 export interface DocumentUpdate {
@@ -405,25 +401,25 @@ export interface DocumentUpdate {
 
 export interface Version {
   id: string;
-  document_id: string;
-  version_number: number;
-  effective_date: string | null;
-  adopted_at: string | null;
+  documentId: string;
+  versionNumber: number;
+  effectiveDate: string | null;
+  adoptedAt: string | null;
   notes: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface VersionCreate {
   notes?: string;
-  effective_date?: string;
+  effectiveDate?: string;
 }
 
 export interface Section {
   id: string;
-  version_id: string;
-  parent_id: string | null;
+  versionId: string;
+  parentId: string | null;
   position: number;
-  number_label: string | null;
+  numberLabel: string | null;
   title: string | null;
   content: string | null;
   annotation: string | null;
@@ -434,16 +430,16 @@ export interface SectionTree extends Section {
 }
 
 export interface SectionCreate {
-  parent_id?: string;
+  parentId?: string;
   position?: number;
-  number_label: string; // Required for new sections
+  numberLabel: string; // Required for new sections
   title: string; // Required for new sections
   content?: string;
   annotation?: string;
 }
 
 export interface SectionUpdate {
-  number_label?: string;
+  numberLabel?: string;
   title?: string;
   content?: string;
   annotation?: string;
@@ -452,14 +448,14 @@ export interface SectionUpdate {
 
 export interface Amendment {
   id: string;
-  document_id: string;
+  documentId: string;
   title: string;
   description: string | null;
   status: 'draft' | 'proposed' | 'passed' | 'failed' | 'tabled' | 'withdrawn';
-  proposed_at: string | null;
-  decided_at: string | null;
-  resulting_version_id: string | null;
-  created_at: string;
+  proposedAt: string | null;
+  decidedAt: string | null;
+  resultingVersionId: string | null;
+  createdAt: string;
   changes: AmendmentChange[];
 }
 
@@ -475,48 +471,48 @@ export interface AmendmentUpdate {
 
 export interface AmendmentChange {
   id: string;
-  amendment_id: string;
-  change_type: 'add' | 'modify' | 'delete' | 'renumber';
-  target_section_id: string | null;
-  new_content: string | null;
-  new_number_label: string | null;
-  new_title: string | null;
+  amendmentId: string;
+  changeType: 'add' | 'modify' | 'delete' | 'renumber';
+  targetSectionId: string | null;
+  newContent: string | null;
+  newNumberLabel: string | null;
+  newTitle: string | null;
   position: number;
 }
 
 export interface AmendmentChangeCreate {
-  change_type: 'add' | 'modify' | 'delete' | 'renumber';
-  target_section_id?: string;
-  new_content?: string;
-  new_number_label?: string;
-  new_title?: string;
+  changeType: 'add' | 'modify' | 'delete' | 'renumber';
+  targetSectionId?: string;
+  newContent?: string;
+  newNumberLabel?: string;
+  newTitle?: string;
   position?: number;
 }
 
 export interface Meeting {
   id: string;
-  organization_id: string;
+  organizationId: string;
   title: string;
-  meeting_type: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduled_date: string;
+  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
+  scheduledDate: string;
   location: string | null;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   notes: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface MeetingCreate {
   title: string;
-  meeting_type: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduled_date: string;
+  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
+  scheduledDate: string;
   location?: string;
   notes?: string;
 }
 
 export interface MeetingUpdate {
   title?: string;
-  meeting_type?: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduled_date?: string;
+  meetingType?: 'regular' | 'special' | 'annual' | 'emergency';
+  scheduledDate?: string;
   location?: string;
   status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   notes?: string;
@@ -524,38 +520,38 @@ export interface MeetingUpdate {
 
 export interface Vote {
   id: string;
-  meeting_id: string;
-  amendment_id: string;
-  yea_count: number;
-  nay_count: number;
-  abstain_count: number;
+  meetingId: string;
+  amendmentId: string;
+  yeaCount: number;
+  nayCount: number;
+  abstainCount: number;
   result: 'passed' | 'failed' | 'tabled';
   passed: boolean;
-  recorded_at: string;
+  recordedAt: string;
 }
 
 export interface VoteCreate {
-  amendment_id: string;
-  yea_count: number;
-  nay_count: number;
-  abstain_count: number;
+  amendmentId: string;
+  yeaCount: number;
+  nayCount: number;
+  abstainCount: number;
 }
 
 export interface DiffResult {
-  old_version_id: string;
-  new_version_id: string;
+  oldVersionId: string;
+  newVersionId: string;
   changes: DiffChange[];
 }
 
 export interface DiffChange {
   type: 'add' | 'delete' | 'modify';
-  section_id: string;
-  old_number_label: string | null;
-  new_number_label: string | null;
-  old_title: string | null;
-  new_title: string | null;
-  old_content: string | null;
-  new_content: string | null;
+  sectionId: string;
+  oldNumberLabel: string | null;
+  newNumberLabel: string | null;
+  oldTitle: string | null;
+  newTitle: string | null;
+  oldContent: string | null;
+  newContent: string | null;
 }
 
 export interface SearchResult {
@@ -567,34 +563,34 @@ export interface SearchResult {
 export interface SearchResultItem {
   type: 'document' | 'section';
   id: string;
-  document_id: string;
-  document_title: string;
-  section_id?: string;
+  documentId: string;
+  documentTitle: string;
+  sectionId?: string;
   title: string;
   snippet: string;
-  match_type: 'title' | 'content' | 'label';
+  matchType: 'title' | 'content' | 'label';
 }
 
 // Sharing types
 export interface ShareStatus {
-  share_token: string;
-  share_enabled: boolean;
-  share_url: string;
+  shareToken: string;
+  shareEnabled: boolean;
+  shareUrl: string;
 }
 
 // Public document types (for readonly view)
 export interface PublicDocument {
   id: string;
   title: string;
-  doc_type: string;
-  current_version_id: string | null;
+  docType: string;
+  currentVersionId: string | null;
 }
 
 export interface PublicVersion {
   id: string;
-  version_number: number;
-  effective_date: string | null;
-  adopted_at: string | null;
+  versionNumber: number;
+  effectiveDate: string | null;
+  adoptedAt: string | null;
   notes: string | null;
 }
 

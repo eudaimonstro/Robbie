@@ -54,7 +54,7 @@ export default function AmendmentsPage() {
           }
           setAmendments(
             allAmendments.sort(
-              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
             ),
           );
         }
@@ -83,7 +83,7 @@ export default function AmendmentsPage() {
       }
       setAmendments(
         allAmendments.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         ),
       );
     } else {
@@ -213,7 +213,7 @@ export default function AmendmentsPage() {
                   {!selectedDocument && (
                     <div className="flex items-center gap-1 text-xs text-secondary-500 mb-1">
                       <FileText className="w-3 h-3" />
-                      {getDocumentTitle(amendment.document_id)}
+                      {getDocumentTitle(amendment.documentId)}
                     </div>
                   )}
                   {amendment.description && (
@@ -224,11 +224,11 @@ export default function AmendmentsPage() {
                   <div className="flex items-center gap-4 mt-2 text-xs text-secondary-500">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Created {new Date(amendment.created_at).toLocaleDateString()}
+                      Created {new Date(amendment.createdAt).toLocaleDateString()}
                     </span>
                     <span>{amendment.changes?.length || 0} change(s)</span>
-                    {amendment.proposed_at && (
-                      <span>Proposed {new Date(amendment.proposed_at).toLocaleDateString()}</span>
+                    {amendment.proposedAt && (
+                      <span>Proposed {new Date(amendment.proposedAt).toLocaleDateString()}</span>
                     )}
                   </div>
                 </div>

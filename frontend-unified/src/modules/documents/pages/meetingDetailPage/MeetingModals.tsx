@@ -8,7 +8,7 @@ interface EditMeetingModalProps {
   onClose: () => void;
   onSubmit: (data: {
     title: string;
-    type: Meeting['meeting_type'];
+    type: Meeting['meetingType'];
     date: string;
     location?: string;
     notes?: string;
@@ -18,8 +18,8 @@ interface EditMeetingModalProps {
 
 export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMeetingModalProps) {
   const [title, setTitle] = useState(meeting.title);
-  const [type, setType] = useState<Meeting['meeting_type']>(meeting.meeting_type);
-  const [date, setDate] = useState(meeting.scheduled_date.slice(0, 16));
+  const [type, setType] = useState<Meeting['meetingType']>(meeting.meetingType);
+  const [date, setDate] = useState(meeting.scheduledDate.slice(0, 16));
   const [location, setLocation] = useState(meeting.location || '');
   const [notes, setNotes] = useState(meeting.notes || '');
   const [saving, setSaving] = useState(false);
@@ -61,7 +61,7 @@ export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMee
             <label className="label">Type</label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as Meeting['meeting_type'])}
+              onChange={(e) => setType(e.target.value as Meeting['meetingType'])}
               className="select"
             >
               <option value="regular">Regular</option>
@@ -150,10 +150,10 @@ export function VoteRecordingModal({
     try {
       setRecording(true);
       await onSubmit({
-        amendment_id: selectedAmendment.id,
-        yea_count: yeaCount,
-        nay_count: nayCount,
-        abstain_count: abstainCount,
+        amendmentId: selectedAmendment.id,
+        yeaCount: yeaCount,
+        nayCount: nayCount,
+        abstainCount: abstainCount,
       });
       resetForm();
       onClose();
@@ -196,7 +196,7 @@ export function VoteRecordingModal({
         {selectedAmendment && (
           <div className="mb-4 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
             <p className="text-xs text-secondary-500 mb-1">
-              {documents.find((d) => d.id === selectedAmendment.document_id)?.title}
+              {documents.find((d) => d.id === selectedAmendment.documentId)?.title}
             </p>
             <p className="text-sm text-secondary-600 dark:text-secondary-400">
               {selectedAmendment.description || 'No description'}

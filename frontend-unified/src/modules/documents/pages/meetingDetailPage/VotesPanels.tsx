@@ -28,22 +28,22 @@ export function RecordedVotesPanel({
             <div key={vote.id} className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium text-secondary-900 dark:text-white">
-                  {getAmendmentTitle(vote.amendment_id)}
+                  {getAmendmentTitle(vote.amendmentId)}
                 </span>
                 <span className={`badge ${vote.passed ? 'badge-passed' : 'badge-failed'}`}>
                   {vote.passed ? 'Passed' : 'Failed'}
                 </span>
               </div>
               <p className="text-xs text-secondary-500 mb-2">
-                {getDocumentTitle(vote.amendment_id)}
+                {getDocumentTitle(vote.amendmentId)}
               </p>
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-success-600">Yea: {vote.yea_count}</span>
-                <span className="text-danger-600">Nay: {vote.nay_count}</span>
-                <span className="text-secondary-500">Abstain: {vote.abstain_count}</span>
+                <span className="text-success-600">Yea: {vote.yeaCount}</span>
+                <span className="text-danger-600">Nay: {vote.nayCount}</span>
+                <span className="text-secondary-500">Abstain: {vote.abstainCount}</span>
               </div>
               <p className="text-xs text-secondary-400 mt-2">
-                Recorded: {new Date(vote.recorded_at).toLocaleString()}
+                Recorded: {new Date(vote.recordedAt).toLocaleString()}
               </p>
             </div>
           ))}
@@ -98,7 +98,7 @@ export function PendingAmendmentsPanel({
                 <StatusBadge status={amendment.status} />
               </div>
               <p className="text-xs text-secondary-500 mb-1">
-                {documents.find((d) => d.id === amendment.document_id)?.title}
+                {documents.find((d) => d.id === amendment.documentId)?.title}
               </p>
               {amendment.description && (
                 <p className="text-xs text-secondary-400 line-clamp-2">{amendment.description}</p>

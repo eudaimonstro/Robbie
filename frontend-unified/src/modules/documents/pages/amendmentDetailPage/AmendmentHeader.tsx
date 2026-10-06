@@ -33,7 +33,7 @@ export function AmendmentHeader({
   const canPropose = isDraft && (amendment.changes?.length ?? 0) > 0;
   const canWithdraw = isDraft || isProposed;
   const canVote = isProposed;
-  const canApply = isPassed && !amendment.resulting_version_id;
+  const canApply = isPassed && !amendment.resultingVersionId;
 
   return (
     <div className="mb-6">

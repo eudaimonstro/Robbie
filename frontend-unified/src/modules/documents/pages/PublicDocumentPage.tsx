@@ -59,8 +59,8 @@ export default function PublicDocumentPage() {
       setVersions(vers);
 
       // Select current version or latest
-      const currentVersion = fetchedDoc.current_version_id
-        ? vers.find((v) => v.id === fetchedDoc.current_version_id)
+      const currentVersion = fetchedDoc.currentVersionId
+        ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
         : vers[vers.length - 1];
 
       if (currentVersion) {
@@ -185,7 +185,7 @@ export default function PublicDocumentPage() {
               <h1 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
                 {doc.title}
               </h1>
-              <DocumentTypeBadge type={doc.doc_type} />
+              <DocumentTypeBadge type={doc.docType} />
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -197,9 +197,9 @@ export default function PublicDocumentPage() {
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  Version {v.version_number}
-                  {v.id === doc.current_version_id ? ' (Current)' : ''}
-                  {v.effective_date && ` - ${new Date(v.effective_date).toLocaleDateString()}`}
+                  Version {v.versionNumber}
+                  {v.id === doc.currentVersionId ? ' (Current)' : ''}
+                  {v.effectiveDate && ` - ${new Date(v.effectiveDate).toLocaleDateString()}`}
                 </option>
               ))}
             </select>
@@ -266,14 +266,14 @@ export default function PublicDocumentPage() {
         {selectedVersion && (
           <div className="mt-4 card p-4">
             <div className="flex items-center gap-4 text-sm text-secondary-600 dark:text-secondary-400">
-              {selectedVersion.effective_date && (
+              {selectedVersion.effectiveDate && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  Effective: {new Date(selectedVersion.effective_date).toLocaleDateString()}
+                  Effective: {new Date(selectedVersion.effectiveDate).toLocaleDateString()}
                 </div>
               )}
-              {selectedVersion.adopted_at && (
-                <div>Adopted: {new Date(selectedVersion.adopted_at).toLocaleDateString()}</div>
+              {selectedVersion.adoptedAt && (
+                <div>Adopted: {new Date(selectedVersion.adoptedAt).toLocaleDateString()}</div>
               )}
               {selectedVersion.notes && (
                 <div className="flex-1 truncate">Notes: {selectedVersion.notes}</div>

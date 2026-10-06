@@ -126,7 +126,7 @@ export function useMeetingData(
     (amendmentId: string): string => {
       const amendment = allAmendments.find((a) => a.id === amendmentId);
       if (amendment) {
-        const doc = documents.find((d) => d.id === amendment.document_id);
+        const doc = documents.find((d) => d.id === amendment.documentId);
         return doc?.title || 'Unknown Document';
       }
       return 'Unknown Document';

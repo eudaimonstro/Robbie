@@ -78,10 +78,10 @@ export function DocumentContentCard({
           <div className="flex items-center gap-4 text-sm text-secondary-600 dark:text-secondary-400">
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
-              Created: {new Date(selectedVersion.created_at).toLocaleString()}
+              Created: {new Date(selectedVersion.createdAt).toLocaleString()}
             </div>
-            {selectedVersion.effective_date && (
-              <div>Effective: {new Date(selectedVersion.effective_date).toLocaleDateString()}</div>
+            {selectedVersion.effectiveDate && (
+              <div>Effective: {new Date(selectedVersion.effectiveDate).toLocaleDateString()}</div>
             )}
             {selectedVersion.notes && (
               <div className="flex-1 truncate">Notes: {selectedVersion.notes}</div>
