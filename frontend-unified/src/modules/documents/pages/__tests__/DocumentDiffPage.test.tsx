@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const api = vi.hoisted(() => ({
@@ -17,8 +17,10 @@ vi.mock('../../../../api/client', () => ({
   documents: { get: api.getDocument },
   versions: { list: api.listVersions, diff: api.diff },
 }));
+// Stable across renders, as the real context's showToast is
+const toast = vi.hoisted(() => ({ showToast: () => {} }));
 vi.mock('../../../../context/ToastContext', () => ({
-  useToast: () => ({ showToast: () => {} }),
+  useToast: () => toast,
 }));
 vi.mock('../../../../context/OrganizationContext', () => ({
   useOrganization: () => ({ currentOrganization: null }),
@@ -38,5 +40,24 @@ describe('DocumentDiffPage', () => {
 
     await waitFor(() => expect(api.diff).toHaveBeenCalled());
     expect(api.diff).toHaveBeenCalledWith('v2', 'v3');
+  });
+
+  it('changes the comparison without reloading the page', async () => {
+    api.getDocument.mockClear();
+    api.diff.mockClear();
+    render(
+      <MemoryRouter initialEntries={['/documents/doc-1/diff']}>
+        <Routes>
+          <Route path="/documents/:documentId/diff" element={<DocumentDiffPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(api.diff).toHaveBeenCalledWith('v2', 'v3'));
+
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'v1' } });
+
+    await waitFor(() => expect(api.diff).toHaveBeenLastCalledWith('v1', 'v3'));
+    // Choosing a version used to reload the document behind a full-page spinner
+    expect(api.getDocument).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ArrowLeftRight, Plus, Minus, Edit3 } from 'lucide-react';
 import {
@@ -27,6 +27,9 @@ export default function DocumentDiffPage() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [diffLoading, setDiffLoading] = useState(false);
+  // The versions named in the URL when the page opened. Later URL changes are this page's own
+  // (recording the selection), so they must not reload it.
+  const initialParams = useRef(searchParams);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,8 +46,8 @@ export default function DocumentDiffPage() {
         setVersions(vers);
 
         // Set initial versions from URL or defaults
-        const leftParam = searchParams.get('left');
-        const rightParam = searchParams.get('right');
+        const leftParam = initialParams.current.get('left');
+        const rightParam = initialParams.current.get('right');
 
         if (vers.length >= 2) {
           // By default, compare the newest version (right) with the one before it (left)
@@ -67,9 +70,11 @@ export default function DocumentDiffPage() {
     };
 
     fetchData();
-  }, [documentId, searchParams, showToast]);
+  }, [documentId, showToast]);
 
   useEffect(() => {
+    // A response for a selection that has since changed is ignored
+    let current = true;
     const fetchDiff = async () => {
       if (!leftVersionId || !rightVersionId || leftVersionId === rightVersionId) {
         setDiff(null);
@@ -79,19 +84,24 @@ export default function DocumentDiffPage() {
       try {
         setDiffLoading(true);
         const result = await versionsApi.diff(leftVersionId, rightVersionId);
+        if (!current) return;
         setDiff(result);
 
-        // Update URL
-        setSearchParams({ left: leftVersionId, right: rightVersionId });
+        // Record the selection in the URL, without adding a history entry for each choice
+        setSearchParams({ left: leftVersionId, right: rightVersionId }, { replace: true });
       } catch {
+        if (!current) return;
         showToast('error', 'Failed to load diff');
         setDiff(null);
       } finally {
-        setDiffLoading(false);
+        if (current) setDiffLoading(false);
       }
     };
 
     fetchDiff();
+    return () => {
+      current = false;
+    };
   }, [leftVersionId, rightVersionId, setSearchParams, showToast]);
 
   const getVersionLabel = (versionId: string) => {
