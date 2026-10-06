@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import type { SessionStatus } from '../../../context/SessionContext';
 
 const session = vi.hoisted(() => ({
-  status: 'signedOut' as 'loading' | 'signedIn' | 'signedOut',
+  status: 'signedOut' as SessionStatus,
   user: null as null | { id: number; email: string; name: string | null },
+  retry: vi.fn(async () => {}),
 }));
 vi.mock('../../../context/SessionContext', () => ({ useSession: () => session }));
 
@@ -59,5 +61,15 @@ describe('RequireSession', () => {
     renderAt('/documents/d1');
     expect(screen.queryByText('Document page')).toBeNull();
     expect(screen.queryByText(/^sign-in/)).toBeNull();
+  });
+
+  it("offers a retry instead of sign-in when the server can't be reached", () => {
+    session.status = 'unreachable';
+    session.user = null;
+    renderAt('/documents/d1');
+    expect(screen.getByText("Can't reach the server")).toBeTruthy();
+    expect(screen.queryByText(/^sign-in/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(session.retry).toHaveBeenCalledTimes(1);
   });
 });

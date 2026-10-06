@@ -5,6 +5,7 @@ import {
   versions,
   amendments,
   auth,
+  HttpError,
   setSignedOutHandler,
 } from '../client';
 
@@ -41,6 +42,13 @@ describe('API client errors', () => {
     await expect(versions.get('not-a-uuid')).rejects.toThrow(
       'Invalid request data (id: Invalid UUID)',
     );
+  });
+
+  it('carries the HTTP status, so a server answer can be told from a network failure', async () => {
+    mockResponse(500, { error: 'Failed to sign out' });
+    const error = await auth.signOut().catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(HttpError);
+    expect((error as HttpError).status).toBe(500);
   });
 
   it('falls back to the HTTP status when the body has no message', async () => {

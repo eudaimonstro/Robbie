@@ -43,6 +43,17 @@ function noteUnauthorized(endpoint: string, status: number): void {
   }
 }
 
+/** An error response from the API, with its HTTP status */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 /**
  * A plain same-origin fetch of `/api${endpoint}`, for callers that read the response
  * themselves. A 401 is reported as a lost session, the same as for the rest of the client.
@@ -158,7 +169,7 @@ async function request<T>(
           continue;
         }
 
-        throw new Error(await errorMessage(response));
+        throw new HttpError(await errorMessage(response), response.status);
       }
 
       if (response.status === 204) {

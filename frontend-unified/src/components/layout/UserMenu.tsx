@@ -2,12 +2,21 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, LogOut, Settings, UserCircle } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
+import { useToast } from '../../context/ToastContext';
 
 /** The signed-in user's name, with Settings and sign-out */
 export function UserMenu() {
   const { user, signOut, signOutEverywhere } = useSession();
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   if (!user) return null;
+
+  // A failed sign-out leaves the user signed in, so say so rather than failing silently
+  const run = (action: () => Promise<void>) => {
+    action().catch((err: unknown) =>
+      showToast('error', err instanceof Error ? err.message : "Couldn't sign out. Try again."),
+    );
+  };
 
   return (
     <div className="relative">
@@ -42,7 +51,7 @@ export function UserMenu() {
             </Link>
             <button
               role="menuitem"
-              onClick={() => signOut()}
+              onClick={() => run(signOut)}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left hover:bg-secondary-50 dark:hover:bg-secondary-700"
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
@@ -50,7 +59,7 @@ export function UserMenu() {
             </button>
             <button
               role="menuitem"
-              onClick={() => signOutEverywhere()}
+              onClick={() => run(signOutEverywhere)}
               className="w-full px-4 py-2 text-sm text-left text-secondary-600 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-700"
             >
               Sign out on all devices

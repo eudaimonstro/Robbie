@@ -5,14 +5,22 @@ import { useSession } from '../context/SessionContext';
 
 /** Where to go after signing in: a path inside the app, never another site */
 function safeNext(next: string | null): string {
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+  if (!next) return '/';
+  // Parse it as the browser would: `/\evil.com` is `//evil.com`, another site
+  try {
+    const url = new URL(next, window.location.origin);
+    if (url.origin !== window.location.origin) return '/';
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return '/';
+  }
 }
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Try again.';
 
 export default function SignInPage() {
-  const { status, user, requestCode, verify, setName } = useSession();
+  const { status, user, requestCode, verify, setName, signOut } = useSession();
   const [searchParams] = useSearchParams();
   const next = safeNext(searchParams.get('next'));
 
@@ -47,11 +55,23 @@ export default function SignInPage() {
   };
   const onVerify = (e: FormEvent) => {
     e.preventDefault();
-    run(() => verify(email.trim(), code.trim()));
+    run(async () => {
+      await verify(email.trim(), code.trim());
+      // Signed in: if the session ends from here, start again at the email step
+      setCodeSent(false);
+      setCode('');
+    });
   };
   const onName = (e: FormEvent) => {
     e.preventDefault();
     run(() => setName(name.trim()));
+  };
+  const onDifferentEmail = () => {
+    run(async () => {
+      await signOut();
+      setEmail('');
+      setNameInput('');
+    });
   };
 
   const step = status === 'signedIn' ? 'name' : codeSent ? 'code' : 'email';
@@ -146,6 +166,14 @@ export default function SignInPage() {
             </div>
             <button type="submit" className="btn-primary w-full" disabled={busy}>
               Continue
+            </button>
+            <button
+              type="button"
+              className="btn-ghost w-full"
+              disabled={busy}
+              onClick={onDifferentEmail}
+            >
+              Use a different email
             </button>
           </form>
         )}
