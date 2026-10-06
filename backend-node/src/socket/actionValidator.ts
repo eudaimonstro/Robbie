@@ -79,7 +79,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         }
       }
       // Block renewal of substantially similar defeated motions (by subject matter for main motions)
-      if (wasMotionDefeated(state, action.motionType, action.text)) {
+      if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
         return {
           valid: false,
           error: 'A substantially similar motion was already defeated this meeting',

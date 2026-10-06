@@ -531,6 +531,31 @@ describe('meetingReducer', () => {
       expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
     });
 
+    it('should record the proposed change when a bylaw amendment is defeated', () => {
+      const bylawAmendment = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'New text',
+      };
+      const motion = createMockMotion({ type: 'bylawAmendment', vote: '2/3', bylawAmendment });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: motion,
+          motionStack: [motion],
+          votes: { yea: 1, nay: 4, abstain: 0 },
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+      );
+
+      expect(state.defeatedMotions).toEqual([
+        expect.objectContaining({ type: 'bylawAmendment', bylawAmendment }),
+      ]);
+    });
+
     it('should handle 2/3 vote requirement', () => {
       const votingState: MeetingState = {
         ...initialState,

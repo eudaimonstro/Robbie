@@ -1,6 +1,6 @@
 import { MOTIONS } from '../constants/motions.js';
 import { isRuleSuspended } from './ruleSuspensionHelper.js';
-import type { MeetingState, MotionDefinition } from '../types/index.js';
+import type { BylawAmendment, MeetingState, MotionDefinition } from '../types/index.js';
 
 export interface ValidMotion extends MotionDefinition {
   key: string;
@@ -33,14 +33,41 @@ export function isSimilarMotionSubject(text1: string, text2: string): boolean {
 }
 
 /**
+ * Check if two bylaw amendments propose the same change: the same edit to the same part of the
+ * same document, with the same wording apart from case and spacing
+ */
+function isSameBylawChange(a: BylawAmendment, b: BylawAmendment): boolean {
+  const norm = (text?: string) => normalizeMotionText(text ?? '');
+  return (
+    a.documentId === b.documentId &&
+    a.changeType === b.changeType &&
+    a.targetSectionId === b.targetSectionId &&
+    a.parentSectionId === b.parentSectionId &&
+    norm(a.newContent) === norm(b.newContent) &&
+    norm(a.newTitle) === norm(b.newTitle) &&
+    norm(a.newNumberLabel) === norm(b.newNumberLabel)
+  );
+}
+
+/**
  * Check if a motion with given type and text was defeated this meeting
  */
 export function wasMotionDefeated(
   state: MeetingState,
   motionType: string,
   motionText?: string,
+  bylawAmendment?: BylawAmendment,
 ): boolean {
   if (!state.defeatedMotions?.length) return false;
+  // A bylaw amendment's text is generated from the section label, so compare the change itself
+  if (motionType === 'bylawAmendment' && bylawAmendment) {
+    return state.defeatedMotions.some(
+      (dm) =>
+        dm.type === motionType &&
+        dm.bylawAmendment !== undefined &&
+        isSameBylawChange(dm.bylawAmendment, bylawAmendment),
+    );
+  }
   // For main motions, check subject matter; for others, just check type
   if (motionType === 'mainMotion' && motionText) {
     return state.defeatedMotions.some(
@@ -124,10 +151,16 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       state.currentMotion?.type === 'amendAmendment'
     )
       return;
-    // Renewal rule: For non-mainMotion main motions (like adoptAgenda, takeFromTable),
-    // block if that specific type was defeated.
-    // For mainMotion, allow the type but individual motions are blocked by subject-matter check in validator.
-    if (motion.category === 'main' && key !== 'mainMotion' && wasDefeated(key)) return;
+    // Renewal rule: For other main motions (like adoptAgenda, takeFromTable), block if that
+    // specific type was defeated. Main motions and bylaw amendments stay available; the
+    // validator blocks only one that renews a defeated motion's subject or change.
+    if (
+      motion.category === 'main' &&
+      key !== 'mainMotion' &&
+      key !== 'bylawAmendment' &&
+      wasDefeated(key)
+    )
+      return;
     // Appeal: Only available immediately after a chair ruling
     if (key === 'appeal' && !state.lastChairRuling) return;
     // Objection to Consideration: Only for main motions before debate begins

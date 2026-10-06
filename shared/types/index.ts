@@ -266,7 +266,13 @@ export interface MeetingState {
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
   tabledMotions: Motion[];
-  defeatedMotions: Array<{ type: string; text: string; timestamp: string }>;
+  defeatedMotions: Array<{
+    type: string;
+    text: string;
+    timestamp: string;
+    // The proposed change, for a defeated bylaw amendment (its text alone can't identify it)
+    bylawAmendment?: BylawAmendment;
+  }>;
   completedMotions: CompletedMotion[];
   committeeReports: CommitteeReport[];
   minutesFromPreviousMeeting: string;

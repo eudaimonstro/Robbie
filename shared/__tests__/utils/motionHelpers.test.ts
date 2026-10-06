@@ -377,5 +377,41 @@ describe('motionHelpers', () => {
       });
       expect(wasMotionDefeated(state, 'mainMotion', 'schedule a picnic event')).toBe(false);
     });
+
+    describe('bylaw amendments', () => {
+      // The motion text is generated from the section label, so it can't tell two different
+      // amendments to the same section apart; the proposed change is compared instead
+      const text = 'I move to amend the bylaws by modifying Article I "Name"';
+      const defeated = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'The name shall be  the Old Society.',
+      };
+      const state = createMockState({
+        defeatedMotions: [
+          { type: 'bylawAmendment', text, timestamp: '10:00:00', bylawAmendment: defeated },
+        ],
+      });
+
+      it('should bar the same change again', () => {
+        const same = { ...defeated, newContent: 'the name shall be the old society.' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, same)).toBe(true);
+      });
+
+      it('should allow a different change to the same section', () => {
+        const different = { ...defeated, newContent: 'The name shall be the New Society.' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, different)).toBe(false);
+      });
+
+      it('should allow the same text applied to a different section', () => {
+        const otherSection = { ...defeated, targetSectionId: 'sec-2' };
+        expect(wasMotionDefeated(state, 'bylawAmendment', text, otherSection)).toBe(false);
+      });
+
+      it('should keep offering bylaw amendments after one is defeated', () => {
+        expect(getValidMotions(state).map((m) => m.key)).toContain('bylawAmendment');
+      });
+    });
   });
 });

@@ -102,6 +102,9 @@ export const votingHandler: ActionHandler = (state, action, log) => {
                 type: state.currentMotion.type,
                 text: state.currentMotion.text,
                 timestamp: typedAction.timestamp,
+                ...(state.currentMotion.bylawAmendment && {
+                  bylawAmendment: state.currentMotion.bylawAmendment,
+                }),
               },
             ]
           : state.defeatedMotions;

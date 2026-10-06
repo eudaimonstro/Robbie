@@ -130,6 +130,40 @@ describe('actionValidator', () => {
       });
     });
 
+    describe('renewing a defeated bylaw amendment', () => {
+      const text = 'I move to amend the bylaws by modifying Article I "Name"';
+      const defeatedChange = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'The Old Society',
+      };
+      const state: MeetingState = {
+        ...activeMeetingState(),
+        defeatedMotions: [
+          { type: 'bylawAmendment', text, timestamp: '', bylawAmendment: defeatedChange },
+        ],
+      };
+      const propose = (newContent: string) =>
+        validateAction(state, {
+          type: 'MAKE_MOTION',
+          motionType: 'bylawAmendment',
+          text,
+          mover: 'Member 2',
+          moverId: 2,
+          bylawAmendment: { ...defeatedChange, newContent },
+          timestamp: '',
+        } as never);
+
+      it('rejects the same change', () => {
+        expect(propose('the old  society').errorCode).toBe('MOTION_RENEWAL_BLOCKED');
+      });
+
+      it('allows a different change to the same section', () => {
+        expect(propose('The New Society').valid).toBe(true);
+      });
+    });
+
     it('should allow making motion when meeting is active', () => {
       const state = activeMeetingState();
       const result = validateAction(state, {
