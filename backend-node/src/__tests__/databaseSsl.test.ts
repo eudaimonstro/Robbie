@@ -19,6 +19,11 @@ describe('databaseSsl', () => {
     }
   });
 
+  it('connects to another container on the same network (no dot in the name) without TLS', () => {
+    // A Docker Compose service name, as the VPS setup uses
+    expect(databaseSsl('postgresql://u:p@postgres:5432/robbie')).toBe(false);
+  });
+
   it('uses TLS for other hosts by default, as before', () => {
     expect(databaseSsl('postgresql://u:p@db.example.com:5432/robbie')).toEqual({
       rejectUnauthorized: false,
