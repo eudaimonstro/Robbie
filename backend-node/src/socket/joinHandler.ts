@@ -12,6 +12,7 @@ import { getStorage } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
 import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
+import { handleDisconnect } from './disconnectHandler.js';
 import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<
@@ -87,6 +88,12 @@ export async function handleJoinMeeting(
     if (decoded.meetingCode !== data.meetingCode) {
       callback({ success: false, error: 'Token not valid for this meeting' });
       return;
+    }
+
+    // A socket already in another meeting leaves it first, as on disconnect; otherwise it
+    // kept receiving that meeting's updates and its member stayed present there
+    if (socket.data.meetingCode && socket.data.meetingCode !== data.meetingCode) {
+      await handleDisconnect(socket, io);
     }
 
     // Get or create meeting
