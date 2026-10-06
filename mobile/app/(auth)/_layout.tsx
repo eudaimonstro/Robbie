@@ -20,13 +20,19 @@ export default function AuthLayout() {
       <Stack.Screen
         name="login"
         options={{
-          title: 'Join Meeting',
+          title: 'Sign In',
         }}
       />
       <Stack.Screen
         name="verify"
         options={{
           title: 'Verify Email',
+        }}
+      />
+      <Stack.Screen
+        name="name"
+        options={{
+          title: 'Your name',
         }}
       />
     </Stack>

@@ -1,56 +1,35 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../context/SessionContext';
 import { Button, Input, Card } from '../../components/ui';
 import { colors, spacing, typography } from '../../theme';
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const { requestCode } = useSession();
+/** Asked once, after the first sign-in: the name other members see */
+export default function NameScreen() {
+  const { setName } = useSession();
 
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [name, setNameText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<{ email?: string }>({});
-
-  const validateForm = () => {
-    const errors: typeof validationErrors = {};
-
-    if (!email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      errors.email = 'Please enter a valid email';
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  const [validationError, setValidationError] = useState<string | undefined>();
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    const trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 100) {
+      setValidationError('Your name must be 2 to 100 characters');
+      return;
+    }
 
-    setIsLoading(true);
+    setIsSaving(true);
     setError(null);
     try {
-      const address = email.trim();
-      await requestCode(address);
-      router.push({ pathname: '/(auth)/verify', params: { email: address } });
+      await setName(trimmed);
+      // Navigation happens automatically via root layout once the name is set
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Couldn't send the code";
-      setError(message);
-      Alert.alert('Error', message);
+      setError(err instanceof Error ? err.message : "Couldn't save your name");
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -65,23 +44,23 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Sign In</Text>
-            <Text style={styles.subtitle}>Enter your email to sign in</Text>
+            <Text style={styles.title}>Your Name</Text>
+            <Text style={styles.subtitle}>This is how other members see you in meetings</Text>
           </View>
 
           <Card style={styles.card}>
             <Input
-              label="Email"
-              value={email}
+              label="Your name"
+              value={name}
               onChangeText={(text) => {
-                setEmail(text);
-                setValidationErrors((prev) => ({ ...prev, email: undefined }));
+                setNameText(text);
+                setValidationError(undefined);
               }}
-              placeholder="your@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              error={validationErrors.email}
+              placeholder="John Smith"
+              autoCapitalize="words"
+              autoComplete="name"
+              maxLength={100}
+              error={validationError}
               containerStyle={styles.inputContainer}
             />
 
@@ -92,16 +71,14 @@ export default function LoginScreen() {
             )}
 
             <Button
-              title={isLoading ? 'Sending Code...' : 'Send Verification Code'}
+              title={isSaving ? 'Saving...' : 'Continue'}
               onPress={handleSubmit}
-              loading={isLoading}
-              disabled={isLoading}
+              loading={isSaving}
+              disabled={isSaving}
               fullWidth
               size="lg"
             />
           </Card>
-
-          <Text style={styles.footer}>A 6-digit code will be sent to your email</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -150,11 +127,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger[600],
     fontSize: typography.sm.fontSize,
-    textAlign: 'center',
-  },
-  footer: {
-    fontSize: typography.sm.fontSize,
-    color: colors.text.muted,
     textAlign: 'center',
   },
 });
