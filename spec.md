@@ -55,7 +55,7 @@ Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the 
 - Remove the global `lastGeneratedCode` and `GET /api/auth/dev-code`. Replace with a test-only email transport that tests read directly. Never log codes at `info`.
 - Stop returning the JWT in the JSON body; httpOnly cookie only for web. Mobile gets a separate bearer token flow and actually restores it on launch (`mobile/context/SocketContext.tsx` never calls `getToken`).
 - One web session for the whole app. Sign in once, not per meeting.
-- Fix the test-role key mismatch (`authController.ts:351` vs `joinHandler.ts:83`) or delete the test-role endpoint.
+- Fix the test-role key mismatch (`authController.ts:351` vs `joinHandler.ts:83`) or delete the test-role endpoint. Even with the key fixed, permission checks read `socket.data.role`, which is only set on join, so a role change doesn't take effect until the user rejoins.
 - Done when: a server restart does not log anyone out or reassign identities, and there is no endpoint that reveals a code.
 
 ### M3. Organization authorization (REST and socket)
@@ -158,7 +158,7 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 
 ### M9. Web client completion
 
-**Blocker (found 2026-10-05):** joining a live meeting in the web client never gets past "Connecting to meeting...". The socket client opens and closes a WebSocket roughly every 15ms. Each reconnect rejoins the meeting, and the server logs hundreds of `Concurrency conflict` retries per second. This reproduces on `main` and on `19cfca8`, before M1, so it predates the M1 and dependency work. It's the first thing to fix in the meetings module, and the M9 Playwright smoke test should cover joining a meeting so it can't silently regress.
+**Fixed 2026-10-05 (was the M9 blocker):** joining a live meeting looped on reconnects. `SocketProvider`'s `handleInvalidToken` depended on the whole `useAuth()` object, which is new every render. It is a dependency of the socket effect, so every render tore down the socket and opened a new one, about every 15ms, and the server logged hundreds of `Concurrency conflict` retries per second. It now depends on the stable `clearAuth`. `SocketContext.test.tsx` covers this, and a live join was checked in a browser: one WebSocket, zero conflicts, and the meeting can be called to order.
 
 API mismatches (the client calls endpoints that don't exist):
 
@@ -176,6 +176,7 @@ Other work:
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
 - Document page header: the action buttons (version picker, Export, Compare, Share, Meetings, New Amendment) overflow underneath the Pending Amendments card at 1280px width.
+- **Meeting code changes when the meeting starts:** `MeetingControlPanel` dispatches `START_MEETING` with a newly generated `meetingCode`, and the reducer stores it. The header then shows a code (e.g. `MQGESQ`) that differs from the room everyone joined (`DEMO`). Keep the room's code.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
 - Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.

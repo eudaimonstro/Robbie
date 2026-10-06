@@ -31,6 +31,13 @@ export function useSocketConnection(
   const socketRef = useRef<TypedSocket | null>(null);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Read the latest onInvalidToken through a ref so a caller passing a new function each
+  // render doesn't re-run the connection effect (which would reconnect the socket)
+  const onInvalidTokenRef = useRef(onInvalidToken);
+  useEffect(() => {
+    onInvalidTokenRef.current = onInvalidToken;
+  }, [onInvalidToken]);
+
   // Helper to set error with auto-clear
   const setTemporaryError = useCallback((message: string, duration = 5000) => {
     if (errorTimeoutRef.current) {
@@ -89,7 +96,7 @@ export function useSocketConnection(
           } else {
             setError(response.error || 'Failed to join meeting');
             if (response.error?.includes('Invalid token')) {
-              onInvalidToken();
+              onInvalidTokenRef.current();
               newSocket.disconnect();
               socketRef.current = null;
             }
@@ -137,7 +144,7 @@ export function useSocketConnection(
       socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [authState.token, authState.meetingCode, onInvalidToken, setTemporaryError]);
+  }, [authState.token, authState.meetingCode, setTemporaryError]);
 
   // Dispatch action through socket with timeout
   const dispatch = useCallback(
