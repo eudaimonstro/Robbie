@@ -67,6 +67,28 @@ describe('packets', () => {
     });
   });
 
+  it('take meeting codes in the live meeting format, in upper case', async () => {
+    const cookie = f.users.secretary.cookie;
+    const path = `/api/organizations/${f.orgA.id}/packets`;
+    const created = await call('post', path, { cookie, body: { robbieCode: ' new001 ' } });
+    expect(created.status).toBe(201);
+    expect(created.body.robbieCode).toBe('NEW001');
+
+    // The rule looks up the normalized code
+    const read = await call('get', '/api/packets/orga01', { cookie: f.users.viewer.cookie });
+    expect(read.status).toBe(200);
+    expect(read.body).toMatchObject({ id: f.packet.id, robbieCode: 'ORGA01' });
+
+    for (const robbieCode of ['ABCDEFGHI', 'AB-C01', 'AB_C01', 'ABC']) {
+      const res = await call('post', path, { cookie, body: { robbieCode } });
+      expect(res.status, robbieCode).toBe(400);
+      expect(res.body.error.details).toEqual([
+        { path: 'robbieCode', message: 'Meeting code must be 4-8 letters or digits' },
+      ]);
+    }
+    expect((await call('get', '/api/packets/AB-C01', { cookie })).status).toBe(400);
+  });
+
   it('need an unused meeting code', async () => {
     for (const robbieCode of [f.packet.code, f.packetB.code]) {
       const res = await call('post', `/api/organizations/${f.orgA.id}/packets`, {

@@ -100,6 +100,37 @@ describe('live meetings', () => {
     expect(found.body).toMatchObject({ linked: true, organization: { id: f.orgA.id } });
   });
 
+  it('are found by their code in any case', async () => {
+    const linked = await link('live01', f.orgA.id);
+    expect(linked.status).toBe(200);
+    expect(linked.body.meetingCode).toBe('LIVE01');
+    expect(await prisma.meetingPacket.count({ where: { robbieCode: 'LIVE01' } })).toBe(1);
+
+    const cookie = f.users.secretary.cookie;
+    const found = await call('get', '/api/bylawyer/meeting/orga01/organization', { cookie });
+    expect(found.body).toMatchObject({ linked: true, organization: { id: f.orgA.id } });
+    expect((await call('get', '/api/robbie/sync-status/orga01/41', { cookie })).body).toEqual({
+      synced: false,
+    });
+    const unlinked = await call('delete', '/api/bylawyer/link-meeting/live01', { cookie });
+    expect(unlinked.body).toEqual({ success: true, meetingCode: 'LIVE01' });
+  });
+
+  it('refuse codes outside the live meeting format', async () => {
+    const cookie = f.users.secretary.cookie;
+    for (const code of ['ABCDEFGHI', 'AB-C01']) {
+      expect((await link(code, f.orgA.id)).status, code).toBe(400);
+      for (const path of [
+        `/api/bylawyer/meeting/${code}/organization`,
+        `/api/robbie/sync-status/${code}/41`,
+      ]) {
+        expect((await call('get', path, { cookie })).status, path).toBe(400);
+      }
+      const unlink = await call('delete', `/api/bylawyer/link-meeting/${code}`, { cookie });
+      expect(unlink.status, code).toBe(400);
+    }
+  });
+
   it("can't take a code that belongs to another organization", async () => {
     const res = await link(f.packetB.code, f.orgA.id);
     expect(res.status).toBe(409);

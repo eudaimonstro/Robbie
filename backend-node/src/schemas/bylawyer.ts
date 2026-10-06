@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { robbieCode } from './packets.js';
+import { meetingCode } from './common.js';
 
-export const meetingCodeParam = z.object({ meetingCode: robbieCode });
+export const meetingCodeParam = z.object({ meetingCode });
 
 export const linkMeetingBody = z.object({
-  meetingCode: robbieCode,
+  meetingCode,
   organizationId: z.string().uuid(),
 });
