@@ -142,6 +142,9 @@ Found by the 2026-10-06 bug scan, not yet fixed:
 - The server rejects any motion while another awaits a second, which also blocks a point of order RONR would allow at that moment (the web client hides the motion panel then anyway). Allow incidental motions that don't replace `pendingSecond` once the reducer can hold both.
 - `debatePositions` is global rather than per motion, so the side-switch rule carries across an amendment's debate. Keying it by motion changes the stored state's shape, so it needs a migration of live meeting state.
 - A present member can grant a proxy (only absence should allow it), and roll call leaves non-responders' presence unchanged.
+- The chair's deciding vote is judged by the motion's vote rule, so on an appeal (where a tie sustains the chair) the offer at a tie is wrong.
+- An election that keeps producing no winner can only end by the chair declaring someone elected; a "close with no result" action is missing.
+- Joining a second meeting runs the disconnect handler, which also resets the user's rate-limit buckets. Harmless with per-meeting tokens, but the reset belongs to a real disconnect only.
 
 Missing effects (adoption currently only pops the stack):
 
