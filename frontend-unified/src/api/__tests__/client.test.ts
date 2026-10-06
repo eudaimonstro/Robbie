@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { organizations, documents, versions, amendments } from '../client';
+import {
+  organizations,
+  documents,
+  versions,
+  amendments,
+  auth,
+  setSignedOutHandler,
+} from '../client';
 
 function mockResponse(status: number, body: unknown) {
   vi.stubGlobal(
@@ -59,5 +66,55 @@ describe('API client cache', () => {
 
     // The apply makes a new current version, so the cached document is out of date
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('sign-in calls', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setSignedOutHandler(null);
+  });
+
+  it('returns the signed-in user, or null when signed out', async () => {
+    mockResponse(200, { user: { id: 1, email: 'ann@example.org', name: 'Ann' } });
+    expect(await auth.me()).toEqual({ id: 1, email: 'ann@example.org', name: 'Ann' });
+    mockResponse(401, { error: 'Not signed in' });
+    expect(await auth.me()).toBeNull();
+  });
+
+  it('verifies a code for the web client', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ user: { id: 1, email: 'a@b.c', name: null } })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await auth.verify('a@b.c', '123456');
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.c', code: '123456' });
+  });
+
+  it('reports a 401 from any other call as signed out', async () => {
+    const onSignedOut = vi.fn();
+    setSignedOutHandler(onSignedOut);
+    mockResponse(401, { error: 'Not signed in' });
+    await expect(organizations.list()).rejects.toThrow('Not signed in');
+    expect(onSignedOut).toHaveBeenCalledOnce();
+  });
+
+  it('never retries a sign-in call', async () => {
+    // A retried code request would send another email and count against the limit
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'Too many codes' }), { status: 429 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(auth.requestCode('a@b.c')).rejects.toThrow('Too many codes');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('does not report a wrong sign-in code as signed out', async () => {
+    const onSignedOut = vi.fn();
+    setSignedOutHandler(onSignedOut);
+    mockResponse(401, { error: 'That code is wrong or has expired' });
+    await expect(auth.verify('a@b.c', '000001')).rejects.toThrow('That code is wrong');
+    expect(onSignedOut).not.toHaveBeenCalled();
   });
 });
