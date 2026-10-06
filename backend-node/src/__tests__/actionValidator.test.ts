@@ -105,6 +105,28 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('REORDER_AGENDA', () => {
+    const state = {
+      ...activeMeetingState(),
+      agenda: [
+        { id: 1, title: 'First', status: 'pending' as const },
+        { id: 2, title: 'Second', status: 'pending' as const },
+      ],
+    };
+    const reorder = (fromIndex: number, toIndex: number) =>
+      validateAction(state, { type: 'REORDER_AGENDA', fromIndex, toIndex });
+
+    it('allows moving an item within the agenda', () => {
+      expect(reorder(0, 1).valid).toBe(true);
+    });
+
+    it('rejects an index outside the agenda', () => {
+      expect(reorder(2, 0).errorCode).toBe('ITEM_NOT_FOUND');
+      expect(reorder(0, -1).errorCode).toBe('ITEM_NOT_FOUND');
+      expect(reorder(0.5, 1).errorCode).toBe('ITEM_NOT_FOUND');
+    });
+  });
+
   describe('SET_MEETING_STAGE', () => {
     const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
       validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);

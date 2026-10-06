@@ -992,10 +992,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
+    case 'REORDER_AGENDA': {
+      const inAgenda = (index: number) =>
+        Number.isInteger(index) && index >= 0 && index < state.agenda.length;
+      if (!inAgenda(action.fromIndex) || !inAgenda(action.toIndex)) {
+        return {
+          valid: false,
+          error: 'The agenda has changed; reload and try again',
+          errorCode: 'ITEM_NOT_FOUND',
+        };
+      }
+      return { valid: true };
+    }
+
     // Actions that are always valid if meeting is active
     case 'ADD_AGENDA_ITEM':
     case 'REMOVE_AGENDA_ITEM':
-    case 'REORDER_AGENDA':
     case 'SET_SPEAKER_TIME_LIMIT':
     case 'SET_VOTE_TIME_LIMIT':
     case 'SET_VOTING_METHOD':

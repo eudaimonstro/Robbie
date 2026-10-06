@@ -1088,6 +1088,20 @@ describe('meetingReducer', () => {
       expect(state.agenda[1].id).toBe(3);
       expect(state.agenda[2].id).toBe(1);
     });
+
+    it('should leave the agenda unchanged for an index that is out of range', () => {
+      // A stale index from another client must not put a hole in the agenda
+      const agenda = [
+        { id: 1, title: 'First', status: 'pending' as const },
+        { id: 2, title: 'Second', status: 'pending' as const },
+      ];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'REORDER_AGENDA', fromIndex: 5, toIndex: 0 },
+      );
+
+      expect(state.agenda).toEqual(agenda);
+    });
   });
 
   describe('SET_VOTING_METHOD', () => {

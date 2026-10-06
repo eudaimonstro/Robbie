@@ -1,4 +1,5 @@
 import type { MeetingState, AgendaItem, RuleSuspension, Motion } from '../types/index.js';
+import { moveItem } from './moveItem.js';
 
 export interface DividedPart {
   id: number;
@@ -150,10 +151,7 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
     } else if (amendment.action === 'remove') {
       agenda = agenda.filter((item) => item.id !== amendment.itemId);
     } else if (amendment.action === 'reorder') {
-      const newAgenda = [...agenda];
-      const [moved] = newAgenda.splice(amendment.fromIndex!, 1);
-      newAgenda.splice(amendment.toIndex!, 0, moved);
-      agenda = newAgenda;
+      agenda = moveItem(agenda, amendment.fromIndex ?? -1, amendment.toIndex ?? -1);
     }
   }
 

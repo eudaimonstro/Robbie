@@ -6,6 +6,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
+import { moveItem } from '../../utils/moveItem.js';
 
 export const agendaHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -30,10 +31,10 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
 
     case 'REORDER_AGENDA': {
       const typedAction = action as Extract<MeetingAction, { type: 'REORDER_AGENDA' }>;
-      const newAgenda = [...state.agenda];
-      const [moved] = newAgenda.splice(typedAction.fromIndex, 1);
-      newAgenda.splice(typedAction.toIndex, 0, moved);
-      return { ...state, agenda: newAgenda };
+      return {
+        ...state,
+        agenda: moveItem(state.agenda, typedAction.fromIndex, typedAction.toIndex),
+      };
     }
 
     case 'ADOPT_AGENDA': {
