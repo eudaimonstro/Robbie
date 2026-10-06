@@ -37,7 +37,9 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
   const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
   const currentChair = state.members.find((m) => m.role === 'chair');
   const eligibleForChair = state.members.filter((m) => m.present && m.role !== 'chair');
-  const adminUser = state.members.find((m) => m.role === 'admin');
+  // The signed-in admin (as a member of this meeting), not the first admin listed: with two
+  // admins, votes, nominations and declines must be the right person's
+  const adminUser = state.members.find((m) => m.id === currentUser?.id) ?? currentUser ?? undefined;
 
   const handleRoleChange = useCallback(() => {
     if (!roleChangeTarget) return;
