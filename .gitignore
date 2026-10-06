@@ -52,3 +52,7 @@ mobile/android/
 # Local Claude Code / MCP config (.mcp.json holds a database password)
 .claude/
 .mcp.json
+
+# Compiled by tsc -b from vite.config.ts; Vite would load a stale .js over the .ts
+frontend-unified/vite.config.js
+frontend-unified/vite.config.d.ts
