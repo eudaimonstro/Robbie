@@ -2,6 +2,15 @@ import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { SocketData } from '@robbie-bylawyer/shared/types/socket';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 
+/** The ID field each item-creating action assigns to its new item */
+const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
+  MAKE_MOTION: 'motionId',
+  ADD_AGENDA_ITEM: 'itemId',
+  NOMINATE: 'nominationId',
+  START_ELECTION: 'electionId',
+  ASK_INQUIRY: 'inquiryId',
+};
+
 /**
  * Enrich action with server-authoritative values
  * This prevents clients from spoofing their identity
@@ -27,9 +36,8 @@ export function enrichAction(action: MeetingAction, socketData: SocketData): Mee
   if ('castById' in enriched) {
     enriched.castById = socketData.userId;
   }
-  if ('grantedBy' in enriched) {
-    enriched.grantedBy = socketData.userId;
-  }
+  // GRANT_PROXY.grantedBy is not overwritten: only a chair or admin may send it (see
+  // permissionGuard), granting on behalf of the absent member it names
   if ('requestedBy' in enriched) {
     enriched.requestedBy = socketData.userId;
   }
@@ -71,21 +79,11 @@ export function enrichAction(action: MeetingAction, socketData: SocketData): Mee
     enriched.timestamp = generateTimestamp();
   }
 
-  // Server generates IDs using shared utility to prevent collisions
-  if ('motionId' in enriched) {
-    enriched.motionId = generateId();
-  }
-  if ('nominationId' in enriched) {
-    enriched.nominationId = generateId();
-  }
-  if ('inquiryId' in enriched) {
-    enriched.inquiryId = generateId();
-  }
-  if ('electionId' in enriched) {
-    enriched.electionId = generateId();
-  }
-  if ('itemId' in enriched) {
-    enriched.itemId = generateId();
+  // Server generates the ID of a new item using shared utility to prevent collisions. Actions
+  // that refer to an existing item (DECLINE_NOMINATION, ANSWER_INQUIRY) keep the client's ID.
+  const createdIdField = CREATED_ID_FIELDS[enriched.type];
+  if (createdIdField && createdIdField in enriched) {
+    enriched[createdIdField] = generateId();
   }
 
   return enriched as MeetingAction;
