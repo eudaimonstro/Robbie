@@ -134,6 +134,12 @@ app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
 
+// An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
+// catch-all below
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
 // Global error handler (must be after all routes)
 app.use(errorHandler);
 
