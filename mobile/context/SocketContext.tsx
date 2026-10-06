@@ -471,8 +471,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
       const TIMEOUT_MS = 10000;
 
-      const actionPromise = new Promise<boolean>((resolve) => {
+      return new Promise<boolean>((resolve) => {
+        // Cleared when the server answers, so the timeout only reports an unanswered action
+        const timer = setTimeout(() => {
+          setTemporaryError('Action timed out. Please try again.');
+          resolve(false);
+        }, TIMEOUT_MS);
+
         currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
+          clearTimeout(timer);
           if (response.success) {
             resolve(true);
           } else {
@@ -481,15 +488,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           }
         });
       });
-
-      const timeoutPromise = new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          setTemporaryError('Action timed out. Please try again.');
-          resolve(false);
-        }, TIMEOUT_MS);
-      });
-
-      return Promise.race([actionPromise, timeoutPromise]);
     },
     [isConnected, clientSequence, setTemporaryError],
   );
