@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "email:test": "tsx src/scripts/sendTestEmail.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -29,6 +30,7 @@
     "pg": "^8.13.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "resend": "^6.32.0",
     "socket.io": "^4.8.1",
     "zod": "^4.3.6"
   },

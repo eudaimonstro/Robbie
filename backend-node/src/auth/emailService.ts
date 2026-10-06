@@ -3,8 +3,8 @@
  *
  * Supports multiple providers:
  * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
- * - SendGrid API
- * - Resend API
+ * - SendGrid (SMTP)
+ * - Resend (HTTPS API, works where outbound SMTP ports are blocked)
  * - Development mode (console logging)
  *
  * Configuration via environment variables:
@@ -27,6 +27,7 @@
 
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 import { logger } from '../middleware/logger.js';
 
 // For testing: returns the code so it can be used for dev bypass
@@ -79,18 +80,8 @@ function createTransporter(): Transporter | null {
         },
       });
 
+    // Resend sends through its HTTPS API (see resendClient), not SMTP
     case 'resend':
-      // Resend uses SMTP with API key as password
-      return nodemailer.createTransport({
-        host: 'smtp.resend.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: 'resend',
-          pass: process.env.RESEND_API_KEY,
-        },
-      });
-
     case 'development':
     default:
       return null;
@@ -99,6 +90,36 @@ function createTransporter(): Transporter | null {
 
 // Initialize transporter
 transporter = createTransporter();
+
+const resendClient = emailProvider === 'resend' ? new Resend(process.env.RESEND_API_KEY) : null;
+
+interface OutgoingEmail {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/**
+ * Deliver an email through the configured provider
+ * @returns Provider message ID
+ */
+async function deliver(message: OutgoingEmail): Promise<string | undefined> {
+  if (resendClient) {
+    // The Resend SDK returns errors instead of throwing them
+    const { data, error } = await resendClient.emails.send({ from: EMAIL_FROM, ...message });
+    if (error) {
+      throw new Error(`Resend error (${error.name}): ${error.message}`);
+    }
+    return data?.id;
+  }
+
+  if (!transporter) {
+    throw new Error('Email transporter not configured');
+  }
+  const info = await transporter.sendMail({ from: EMAIL_FROM, ...message });
+  return info.messageId;
+}
 
 // Log provider on startup
 if (isProduction && emailProvider === 'development') {
@@ -198,23 +219,18 @@ export async function sendVerificationEmail(
   }
 
   // Production mode - send actual email
-  if (!transporter) {
-    throw new Error('Email transporter not configured');
-  }
-
   try {
-    const info = await transporter.sendMail({
-      from: EMAIL_FROM,
+    const messageId = await deliver({
       to: email,
       subject: `Your verification code for meeting ${meetingCode}`,
       text: generateEmailText(code, meetingCode),
       html: generateEmailHtml(code, meetingCode),
     });
 
-    logger.info({ to: email, messageId: info.messageId }, 'Verification email sent');
+    logger.info({ to: email, messageId }, 'Verification email sent');
   } catch (error) {
     logger.error({ err: error }, 'Failed to send verification email');
-    throw new Error('Failed to send verification email. Please try again.');
+    throw new Error('Failed to send verification email. Please try again.', { cause: error });
   }
 }
 
@@ -225,6 +241,12 @@ export async function sendVerificationEmail(
 export async function verifyEmailConfiguration(): Promise<boolean> {
   if (emailProvider === 'development') {
     logger.info('Email service running in development mode');
+    return true;
+  }
+
+  if (emailProvider === 'resend') {
+    // Sending-only API keys can't call read endpoints, so a real send (npm run email:test) is the check
+    logger.info('Resend API configured; run `npm run email:test` to verify delivery');
     return true;
   }
 
@@ -241,6 +263,23 @@ export async function verifyEmailConfiguration(): Promise<boolean> {
     logger.error({ err: error }, 'Email configuration verification failed');
     return false;
   }
+}
+
+/**
+ * Send a test email to confirm the provider, API key, and sender are working
+ * @returns Provider message ID
+ */
+export async function sendTestEmail(to: string): Promise<string | undefined> {
+  if (emailProvider === 'development') {
+    throw new Error('No email provider configured. Set RESEND_API_KEY (or SMTP_HOST / SENDGRID_API_KEY).');
+  }
+
+  return deliver({
+    to,
+    subject: 'Robbie test email',
+    text: 'Congrats on sending your first email from Robbie!',
+    html: '<p>Congrats on sending your <strong>first email</strong> from Robbie!</p>',
+  });
 }
 
 /**
