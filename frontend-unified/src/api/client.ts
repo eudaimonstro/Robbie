@@ -435,10 +435,11 @@ export interface SectionCreate {
 }
 
 export interface SectionUpdate {
-  numberLabel?: string;
-  title?: string;
-  content?: string;
-  annotation?: string;
+  // null clears the field; leaving it out keeps the current value
+  numberLabel?: string | null;
+  title?: string | null;
+  content?: string | null;
+  annotation?: string | null;
   position?: number;
 }
 

@@ -26,7 +26,8 @@ export function EditAmendmentModal({
     e.preventDefault();
     try {
       setSaving(true);
-      await onSubmit(title.trim(), description.trim() || undefined);
+      // An empty description clears it (leaving it out would keep the old one)
+      await onSubmit(title.trim(), description.trim());
       onClose();
     } catch {
       // Error handled by parent

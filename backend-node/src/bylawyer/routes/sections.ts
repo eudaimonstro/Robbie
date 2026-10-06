@@ -212,15 +212,22 @@ sectionsRouter.put(
         }
       }
 
+      // A field given as null is cleared; a field left out keeps its value
+      const given = <T>(
+        snake: T | null | undefined,
+        camel: T | null | undefined,
+        current: T | null,
+      ) => (snake !== undefined ? snake : camel !== undefined ? camel : current);
+
       const updated = await prisma.section.update({
         where: { id: req.params.id },
         data: {
           parentId,
           position: req.body.position ?? section.position,
-          numberLabel: req.body.number_label ?? req.body.numberLabel ?? section.numberLabel,
-          title: req.body.title ?? section.title,
-          content: req.body.content ?? section.content,
-          annotation: req.body.annotation ?? section.annotation,
+          numberLabel: given(req.body.number_label, req.body.numberLabel, section.numberLabel),
+          title: given(req.body.title, undefined, section.title),
+          content: given(req.body.content, undefined, section.content),
+          annotation: given(req.body.annotation, undefined, section.annotation),
         },
       });
 
