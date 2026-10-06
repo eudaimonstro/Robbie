@@ -1907,6 +1907,36 @@ describe('meetingReducer', () => {
       expect(state.currentElection?.elected).toBe('Alice');
     });
 
+    it('should elect no one when no ballots were cast', () => {
+      const closeEmpty = (requiredVotes: 'plurality' | 'majority', names: string[]) =>
+        meetingReducer(
+          {
+            ...initialState,
+            currentElection: {
+              id: 1,
+              position: 'Treasurer',
+              candidates: names.map((name, id) => ({ name, id })),
+              requiredVotes,
+              votingInProgress: true,
+              ballotResults: Object.fromEntries(names.map((n) => [n, 0])),
+              votersWhoVoted: [],
+              elected: null,
+            },
+          },
+          { type: 'CLOSE_ELECTION', timestamp: '10:50:00' },
+        );
+
+      // A lone candidate with 0 votes is not elected by plurality
+      expect(closeEmpty('plurality', ['Alice']).currentElection).toMatchObject({
+        elected: null,
+        votingInProgress: true,
+      });
+      // Candidates at 0-0 are not a tie to run off: the ballot stays as it was
+      const state = closeEmpty('majority', ['Alice', 'Bob']);
+      expect(state.currentElection?.isRunoff).toBeFalsy();
+      expect(state.currentElection?.candidates).toHaveLength(2);
+    });
+
     it('should return unchanged if no election', () => {
       const state = meetingReducer(initialState, {
         type: 'CLOSE_ELECTION',

@@ -136,7 +136,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       let winner: string | null = null;
       const sortedCandidates = Object.entries(results).sort((a, b) => b[1] - a[1]);
 
-      if (sortedCandidates.length > 0) {
+      // With no ballots cast there is no result to declare, by any rule
+      if (sortedCandidates.length > 0 && totalVotes > 0) {
         const topCandidate = sortedCandidates[0];
         const topVotes = topCandidate[1];
 
@@ -166,7 +167,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       // Check for tie at the top
       const topVotes = sortedCandidates[0]?.[1] ?? 0;
       const tiedCandidates = sortedCandidates.filter(([, votes]) => votes === topVotes);
-      const hasTie = tiedCandidates.length > 1;
+      // Candidates level at 0 (no ballots) are not a tie to run off
+      const hasTie = tiedCandidates.length > 1 && topVotes > 0;
       const needsRunoff = hasTie && (requiredVotes === 'plurality' || !winner);
 
       if (needsRunoff) {
