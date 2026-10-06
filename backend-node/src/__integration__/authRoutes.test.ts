@@ -102,10 +102,32 @@ describe('auth routes', () => {
     ).toBe(400);
   });
 
-  it('ends the session on sign-out', async () => {
+  it('ends the session on sign-out and clears the cookie', async () => {
     const cookie = sessionCookie(await signIn('ann@example.org'))!;
-    await request(app).post('/api/auth/sign-out').set('Cookie', cookie).expect(200);
+    const res = await request(app).post('/api/auth/sign-out').set('Cookie', cookie).expect(200);
+    expect(sessionCookie(res)).toMatch(/^session=;.*Expires=Thu, 01 Jan 1970/);
     expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).status).toBe(401);
+  });
+
+  it('ends a mobile session on sign-out with its bearer token', async () => {
+    const token = (await signIn('ann@example.org', 'mobile')).body.token;
+    await request(app)
+      .post('/api/auth/sign-out')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`)).status,
+    ).toBe(401);
+  });
+
+  it('clears an unknown or expired cookie on sign-out', async () => {
+    const res = await request(app)
+      .post('/api/auth/sign-out')
+      .set('Cookie', 'session=no-such-session')
+      .expect(200);
+    expect(sessionCookie(res)).toMatch(/^session=;.*Expires=Thu, 01 Jan 1970/);
+    const none = await request(app).post('/api/auth/sign-out').expect(200);
+    expect(sessionCookie(none)).toMatch(/^session=;/);
   });
 
   it('ends every session on sign-out everywhere', async () => {

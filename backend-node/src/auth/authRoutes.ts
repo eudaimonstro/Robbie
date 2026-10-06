@@ -8,10 +8,15 @@ import { SignInError, requestSignInCode, verifySignInCode } from './signInServic
 import {
   SESSION_LIFETIME_MS,
   createSession,
-  deleteSession,
+  deleteSessionByToken,
   deleteUserSessions,
 } from './sessionService.js';
-import { SESSION_COOKIE, authenticate, sessionCookieOptions } from './authenticate.js';
+import {
+  SESSION_COOKIE,
+  authenticate,
+  sessionCookieOptions,
+  sessionTokenFrom,
+} from './authenticate.js';
 import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessionSockets.js';
 
 export const authRouter = Router();
@@ -103,11 +108,13 @@ authRouter.patch('/me', authenticate, validate({ body: updateMeBody }), async (r
   }
 });
 
-authRouter.post('/sign-out', authenticate, async (req, res) => {
+// Sign-out needs no valid session: an expired or unknown one still gets its cookie cleared
+authRouter.post('/sign-out', async (req, res) => {
+  res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
+  const token = sessionTokenFrom(req.cookies?.[SESSION_COOKIE], req.headers.authorization);
   try {
-    await deleteSession(req.sessionId!);
-    await disconnectSessionSockets(req.sessionId!);
-    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
+    const sessionId = token ? await deleteSessionByToken(token) : null;
+    if (sessionId) await disconnectSessionSockets(sessionId);
     res.json({ success: true });
   } catch (error) {
     sendError(res, error, 'Failed to sign out');

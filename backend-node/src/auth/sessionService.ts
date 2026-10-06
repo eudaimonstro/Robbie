@@ -72,6 +72,17 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await prisma.session.deleteMany({ where: { id: sessionId } });
 }
 
+/** Delete the session for a token, if any; returns its id so its sockets can be closed */
+export async function deleteSessionByToken(token: string): Promise<string | null> {
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: hashSecret(token) },
+    select: { id: true },
+  });
+  if (!session) return null;
+  await deleteSession(session.id);
+  return session.id;
+}
+
 export async function deleteUserSessions(userId: number): Promise<void> {
   await prisma.session.deleteMany({ where: { userId } });
 }
