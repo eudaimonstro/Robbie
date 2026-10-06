@@ -76,20 +76,20 @@ model SignInCode {
 ## Sign-in flow
 
 1. `POST /api/auth/request-code { email }`
-   - Any earlier unused codes for that email stop working, and a new code is created (15 minutes).
-   - The code is sent by email (Resend). The response is the same whether or not the email has an account, so it reveals nothing.
+   - A new code is created (15 minutes) and sent by email (Resend). Once it has been sent, any earlier unused codes for that email stop working. If the send fails, the new code is deleted and the earlier one still works.
+   - The response is the same whether or not the email has an account, so it reveals nothing.
    - Limits: 5 codes per email per hour (counted in `SignInCode`), plus the existing per-IP limiter.
 2. `POST /api/auth/verify { email, code, client? }`
-   - The latest unused, unexpired code for that email must match. Each wrong guess adds an attempt, and the 5th wrong guess consumes the code.
+   - The latest unused, unexpired code for that email must match. Each guess claims an attempt in one conditional update before it is compared, so concurrent guesses can't get past the limit. The 5th wrong guess consumes the code.
    - On success the code is consumed, the user is found or created, and a session starts:
      - **web** (the default): the token is set as the `session` cookie (httpOnly, `SameSite=Lax`, `Secure` in production, 30 days) and is not in the body;
      - **mobile** (`client: "mobile"`): the token is returned in the body, and no cookie is set.
    - The response includes the user, `{ id, email, name }`. `name: null` tells the client to ask for a display name.
 3. `PATCH /api/auth/me { name }` sets or changes the display name (2 to 100 characters).
 4. `GET /api/auth/me` returns the signed-in user, or 401. The web app calls it on load, since it can't read the cookie.
-5. `POST /api/auth/sign-out` deletes the current session and clears the cookie. `POST /api/auth/sign-out-everywhere` deletes all of the user's sessions.
+5. `POST /api/auth/sign-out` deletes the current session, if there is one, and always clears the cookie, so an expired or unknown session still signs out cleanly. `POST /api/auth/sign-out-everywhere` requires a session and deletes all of the user's sessions.
 
-**Sessions** last 30 days from last use. Each authenticated request extends `expiresAt`, at most once an hour, so active users stay signed in. Expired sessions and codes are deleted by an hourly cleanup.
+**Sessions** last 30 days from last use. Each authenticated request extends `expiresAt`, at most once an hour, so active users stay signed in. When a web session is extended, the cookie is sent again with a fresh 30 days, so the browser keeps it as long as the server does. Expired sessions and codes are deleted by an hourly cleanup.
 
 **Test sign-in.** With `ENABLE_TEST_AUTH=true` outside production, the code `000000` (or `TEST_VERIFICATION_CODE`) signs in any email, as `DEMO` does today. It stays refused in production.
 
@@ -150,3 +150,12 @@ model SignInCode {
 - Guests and meeting roles (piece 3).
 - Moving the legacy Robbie tables into Prisma (M5).
 - OAuth or passkeys.
+
+## Known limits
+
+Two trade-offs are accepted for now. Both are candidates for later work.
+
+- **Anyone can keep a person from signing in.** Someone who knows a person's email can request codes for it, which replaces the person's code, and burn each code's attempts with wrong guesses. Staying within the per-IP limits is enough to keep this up.
+- **There is no daily cap on wrong guesses per email.** The limits allow 5 codes an hour with 5 attempts each, so about 25 guesses an hour, even from one address. Each guess has a one in a million chance, but over a year that adds up to roughly a one in five chance of getting in.
+
+**Deployment.** Production must set `NODE_ENV=production`. That makes the cookie `Secure`, refuses the test code, and stops the server from starting without an email provider. Behind Caddy it must also set `TRUST_PROXY=1`, or the per-IP limits see every client as Caddy's address.
