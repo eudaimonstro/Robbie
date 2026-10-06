@@ -158,6 +158,8 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 
 ### M9. Web client completion
 
+**Blocker (found 2026-10-05):** joining a live meeting in the web client never gets past "Connecting to meeting...". The socket client opens and closes a WebSocket roughly every 15ms. Each reconnect rejoins the meeting, and the server logs hundreds of `Concurrency conflict` retries per second. This reproduces on `main` and on `19cfca8`, before M1, so it predates the M1 and dependency work. It's the first thing to fix in the meetings module, and the M9 Playwright smoke test should cover joining a meeting so it can't silently regress.
+
 API mismatches (the client calls endpoints that don't exist):
 
 - The public share page is broken: the client calls `/public/documents/:token/...` but the backend serves `/share/:token/...`.
