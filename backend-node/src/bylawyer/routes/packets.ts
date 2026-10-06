@@ -6,12 +6,20 @@
 
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import { validate } from '../../middleware/validate.js';
-import { robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
-import { uuidParam } from '../../schemas/common.js';
+import { createPacketBody, robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
+import { orgIdParam, uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
+import { fromParam, requireRole } from '../../orgs/requireRole.js';
+import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
 
 export const packetsRouter: RouterType = Router();
+
+/** The answer when a meeting code already has a packet, in any organization */
+export const CODE_IN_USE = 'That meeting code is already in use';
+
+const byPacket = fromParam('id', orgOfPacket);
 
 // What a packet response includes
 const packetInclude = {
@@ -39,6 +47,7 @@ const packetInclude = {
 packetsRouter.get(
   '/packets/:robbieCode',
   validate({ params: robbieCodeParam }),
+  requireRole('viewer', fromParam('robbieCode', orgOfPacketCode)),
   async (req, res) => {
     try {
       const packet = await prisma.meetingPacket.findUnique({
@@ -59,6 +68,42 @@ packetsRouter.get(
 );
 
 /**
+ * POST /api/organizations/:orgId/packets
+ * Create the packet for a meeting code in an organization. Codes are unique across all
+ * organizations.
+ * Body: { robbieCode, title?, description?, scheduledFor? }
+ */
+packetsRouter.post(
+  '/organizations/:orgId/packets',
+  validate({ params: orgIdParam, body: createPacketBody }),
+  requireRole('secretary', fromParam('orgId', orgOfOrganization)),
+  async (req, res) => {
+    try {
+      const { robbieCode, title, description, scheduledFor } = req.body;
+
+      const packet = await prisma.meetingPacket.create({
+        data: {
+          organizationId: req.org!.id,
+          robbieCode,
+          title,
+          description,
+          scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+        },
+        include: packetInclude,
+      });
+
+      res.status(201).json(packet);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return res.status(409).json({ error: CODE_IN_USE });
+      }
+      logger.error({ err: error }, 'Error creating packet');
+      res.status(500).json({ error: 'Failed to create meeting packet' });
+    }
+  },
+);
+
+/**
  * PUT /api/packets/:id
  * Update packet metadata
  * Body: { title?, description?, scheduledFor? }
@@ -66,6 +111,7 @@ packetsRouter.get(
 packetsRouter.put(
   '/packets/:id',
   validate({ params: uuidParam, body: updatePacketBody }),
+  requireRole('secretary', byPacket),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -109,76 +155,86 @@ packetsRouter.put(
  * DELETE /api/packets/:id
  * Delete packet and all its contents
  */
-packetsRouter.delete('/packets/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const { id } = req.params;
+packetsRouter.delete(
+  '/packets/:id',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byPacket),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const packet = await prisma.meetingPacket.findUnique({
-      where: { id },
-    });
+      const packet = await prisma.meetingPacket.findUnique({
+        where: { id },
+      });
 
-    if (!packet) {
-      return res.status(404).json({ error: 'Packet not found' });
+      if (!packet) {
+        return res.status(404).json({ error: 'Packet not found' });
+      }
+
+      // Cascade delete will handle attachments and agenda items
+      await prisma.meetingPacket.delete({ where: { id } });
+
+      // TODO: Clean up uploaded files from storage
+
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ err: error }, 'Error deleting packet');
+      res.status(500).json({ error: 'Failed to delete meeting packet' });
     }
-
-    // Cascade delete will handle attachments and agenda items
-    await prisma.meetingPacket.delete({ where: { id } });
-
-    // TODO: Clean up uploaded files from storage
-
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ err: error }, 'Error deleting packet');
-    res.status(500).json({ error: 'Failed to delete meeting packet' });
-  }
-});
+  },
+);
 
 /**
  * GET /api/packets/:id/summary
  * Get a summary of packet contents (counts, titles)
  */
-packetsRouter.get('/packets/:id/summary', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const { id } = req.params;
+packetsRouter.get(
+  '/packets/:id/summary',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byPacket),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const packet = await prisma.meetingPacket.findUnique({
-      where: { id },
-      include: {
-        attachments: {
-          select: { id: true, displayName: true, type: true },
-        },
-        agendaItems: {
-          select: {
-            id: true,
-            title: true,
-            position: true,
-            _count: { select: { attachments: true } },
+      const packet = await prisma.meetingPacket.findUnique({
+        where: { id },
+        include: {
+          attachments: {
+            select: { id: true, displayName: true, type: true },
           },
-          orderBy: { position: 'asc' },
+          agendaItems: {
+            select: {
+              id: true,
+              title: true,
+              position: true,
+              _count: { select: { attachments: true } },
+            },
+            orderBy: { position: 'asc' },
+          },
         },
-      },
-    });
+      });
 
-    if (!packet) {
-      return res.status(404).json({ error: 'Packet not found' });
+      if (!packet) {
+        return res.status(404).json({ error: 'Packet not found' });
+      }
+
+      res.json({
+        id: packet.id,
+        robbieCode: packet.robbieCode,
+        title: packet.title,
+        scheduledFor: packet.scheduledFor,
+        meetingAttachmentCount: packet.attachments.length,
+        agendaItemCount: packet.agendaItems.length,
+        agendaItems: packet.agendaItems.map((item) => ({
+          id: item.id,
+          title: item.title,
+          position: item.position,
+          attachmentCount: item._count.attachments,
+        })),
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Error getting packet summary');
+      res.status(500).json({ error: 'Failed to get packet summary' });
     }
-
-    res.json({
-      id: packet.id,
-      robbieCode: packet.robbieCode,
-      title: packet.title,
-      scheduledFor: packet.scheduledFor,
-      meetingAttachmentCount: packet.attachments.length,
-      agendaItemCount: packet.agendaItems.length,
-      agendaItems: packet.agendaItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        position: item.position,
-        attachmentCount: item._count.attachments,
-      })),
-    });
-  } catch (error) {
-    logger.error({ err: error }, 'Error getting packet summary');
-    res.status(500).json({ error: 'Failed to get packet summary' });
-  }
-});
+  },
+);
