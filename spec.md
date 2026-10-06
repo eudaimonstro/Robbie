@@ -79,6 +79,7 @@ Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the 
 - Persist socket participant roles (`meetingStorage.ts:213` keeps them in memory, so after restart state and socket roles disagree).
 - Don't reset rate-limit buckets on disconnect.
 - Member management UI in Settings (invite by email, change role, remove). The org switcher shows only the user's orgs.
+- **Route-test harness (prerequisite for the matrix):** split `src/index.ts` into `app.ts` (Express app, no listen) and `index.ts` (HTTP server, Socket.io, start). Add supertest, and run integration tests only when an explicit opt-in variable such as `INTEGRATION_DATABASE_URL` is set. CI sets it; local runs never write to whatever `DATABASE_URL` points at. Start with a contract test: the main GETs return no snake_case keys.
 - Done when: an integration test matrix proves 401 for unauthenticated calls and 403/404 for cross-org calls on every route, a test proves a client cannot act as another member, and a test proves every guest-forbidden action is rejected server-side and that guests are excluded from quorum and vote totals.
 
 ### M4. Security fixes that stand alone
@@ -166,17 +167,18 @@ API mismatches (the client calls endpoints that don't exist):
 - Header search calls `/search`, which doesn't exist, and the error is swallowed.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
 - Agenda item and attachment reorder always return 400 because `PUT /:id` is registered before `PUT /reorder`.
-- The client reads `error.detail`, but the backend sends `{ error: { code, message } }`, so every error shows as "HTTP 4xx". The same bug exists in mobile.
 - `VITE_SERVER_URL` falls back to `http://localhost:3001` in the meetings module. Use same-origin `/api` everywhere.
-- The documents UI reads snake_case fields (`created_at`, `effective_date`, `scheduled_date`), but the Prisma-backed API returns camelCase (`createdAt`, `effectiveDate`). Every date shows "Invalid Date" or is missing (home list, document page, amendments, settings). It also breaks IDs: the amendment page requests `/api/documents/undefined` because it reads `document_id`.
+- **Fixed 2026-10-06:** the API is now camelCase end to end. The documents UI typed every field in snake_case while most responses were camelCase, so every date showed "Invalid Date", the version picker was empty, and the amendment page requested `/api/documents/undefined`. The same fix covered: effective dates showing a day early west of UTC, every recorded vote displaying as Failed (the UI read a `passed` field the API never sends), and API errors showing as a bare "HTTP 4xx".
 
 Other work:
 
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
 - Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
 - Loading, empty, and error states on every page.
-- Document page header: the action buttons (version picker, Export, Compare, Share, Meetings, New Amendment) overflow underneath the Pending Amendments card at 1280px width.
+- **Document page header overflow blocks a primary action:** at 1280px wide, the Pending Amendments card covers the header buttons, so "Propose Amendment" can't be clicked. It works from about 1700px.
 - **Meeting code changes when the meeting starts:** `MeetingControlPanel` dispatches `START_MEETING` with a newly generated `meetingCode`, and the reducer stores it. The header then shows a code (e.g. `MQGESQ`) that differs from the room everyone joined (`DEMO`). Keep the room's code.
+- Request schemas accept both snake_case and camelCase (`number_label || numberLabel`). Now that the client sends camelCase, drop the snake_case keys and make the schemas `.strict()`, so a stale key returns 400 instead of being silently stripped. `AmendmentChangeCreate.position` is accepted in neither style today.
+- The New Version form has no effective-date field, so versions created in the UI have no effective date and never appear in history-by-date.
 - Replace `alert()` validation. Keep `TestRoleSwitcher` out of production builds (its hooks-order bug is fixed). Delete the unused mobile-layout components or use them.
 - Refactor the 6 "reset state when a prop changes" effects (Sidebar, SpeakerQueuePanel, VotingPanel, AgendaItemEditor, MeetingApp, ParticipantView) to derived state or `key` resets, and fix the 2 manual-memoization warnings (ElectionPanel, useQuorumStatus). Then restore `react-hooks/set-state-in-effect` and `preserve-manual-memoization` to errors in `eslint.config.mjs`.
 - Accessibility: keyboard operation of voting, speaker queue, and the section tree; ARIA live regions for meeting state changes; labels on icon buttons and the search input; contrast in dark mode.
