@@ -38,6 +38,8 @@ Ordered by dependency. M1 through M4 block any real use.
 
 ### M1. Land in-flight work and make CI honest
 
+**Status: done 2026-10-05.** All CI steps pass when replayed from a fresh clone against Postgres 16. Lint has 0 errors (68 warnings, two React Compiler rules downgraded pending M9).
+
 - Commit the current working tree in logical commits (validation and middleware, Prisma migration, tooling and CI, socket changes).
 - Run Prettier once across the repo in its own commit. Fix the 140 lint errors (or downgrade specific rules deliberately, with a comment).
 - Add at least a smoke test to frontend-unified so the CI step is meaningful. Port the orphaned hook tests from `frontend-robbie/src/__tests__/hooks/` (`useQuorumStatus`, `useVoteResults`, `useSortedSpeakerQueue`).
@@ -182,6 +184,7 @@ Other work:
 - Filter the motion list to motions currently in order (today it lists all of them).
 - Mount the proxy request and acceptance UI or remove it.
 - Restore the session on launch. Use `shared/types/socket` instead of redefined event types.
+- Fix the existing breakage first. `tsc` has 2 errors: the `MotionCard` test fixture uses a removed `timestamp` field, and `app/(meeting)/motions.tsx` imports `@robbie-bylawyer/shared/utils/idGenerators`, which doesn't resolve. jest also finds 0 tests. Mobile is not in CI yet, so add it once these pass.
 - Done when: a participant can join, queue, make a motion, and vote against a dev backend, with jest coverage of the join and vote flows.
 
 ### M11. Cleanup and documentation
