@@ -8,6 +8,7 @@ import {
   requestSignInCode,
   verifySignInCode,
 } from '../auth/signInService.js';
+import { hashSecret } from '../auth/tokens.js';
 import { resetAccounts } from './db.js';
 
 let outbox: Array<{ to: string; code: string }>;
@@ -130,6 +131,6 @@ describe('signInService', () => {
   it('stores codes only as hashes', async () => {
     await requestSignInCode('ann@example.org');
     const stored = await prisma.signInCode.findFirstOrThrow();
-    expect(stored.codeHash).not.toBe(lastCode());
+    expect(stored.codeHash).toBe(hashSecret(lastCode()));
   });
 });

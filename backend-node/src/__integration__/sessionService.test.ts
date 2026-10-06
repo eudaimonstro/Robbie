@@ -8,6 +8,7 @@ import {
   deleteUserSessions,
   findSession,
 } from '../auth/sessionService.js';
+import { hashSecret } from '../auth/tokens.js';
 import { resetAccounts } from './db.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -28,7 +29,7 @@ describe('sessionService', () => {
       extended: false,
     });
     const stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });
-    expect(stored.tokenHash).not.toContain(token);
+    expect(stored.tokenHash).toBe(hashSecret(token));
   });
 
   it('returns null for an unknown or expired token', async () => {
@@ -80,12 +81,19 @@ describe('sessionService', () => {
     expect(await findSession(b.token)).toBeNull();
   });
 
-  it('removes expired sessions and codes', async () => {
+  it('removes expired sessions and codes, and keeps live ones', async () => {
     const past = new Date(Date.now() - SESSION_LIFETIME_MS - HOUR);
     await createSession(userId, 'web', past);
     await prisma.signInCode.create({
       data: { email: 'ann@example.org', codeHash: 'x', expiresAt: past },
     });
+    const live = await createSession(userId, 'mobile');
+    const liveCode = await prisma.signInCode.create({
+      data: { email: 'ann@example.org', codeHash: 'y', expiresAt: new Date(Date.now() + HOUR) },
+    });
+
     expect(await deleteExpiredSessionsAndCodes()).toBe(2);
+    expect(await findSession(live.token)).not.toBeNull();
+    expect(await prisma.signInCode.findUnique({ where: { id: liveCode.id } })).not.toBeNull();
   });
 });
