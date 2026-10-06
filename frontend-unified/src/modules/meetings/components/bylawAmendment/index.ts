@@ -8,5 +8,5 @@ export {
   ErrorState,
   NoOrgLinkedState,
   NoDocumentsState,
-  LoadingSections
+  LoadingSections,
 } from './FormStatusDisplays';

@@ -9,11 +9,11 @@ interface TakeFromTableFormProps {
 
 export function TakeFromTableForm({ tabledMotions, onSubmit, onCancel }: TakeFromTableFormProps) {
   const [selectedMotionId, setSelectedMotionId] = useState<number>(
-    tabledMotions.length > 0 ? tabledMotions[0].id : 0
+    tabledMotions.length > 0 ? tabledMotions[0].id : 0,
   );
 
   const handleSubmit = () => {
-    const motion = tabledMotions.find(m => m.id === selectedMotionId);
+    const motion = tabledMotions.find((m) => m.id === selectedMotionId);
     if (motion) {
       const text = `I move to take from the table the motion relating to "${motion.text}"`;
       onSubmit(text, selectedMotionId);

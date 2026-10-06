@@ -1,66 +1,82 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { FileText, Clock, ChevronRight, Building2, GitBranch, Calendar, Users, ExternalLink } from 'lucide-react'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { documents as documentsApi, amendments as amendmentsApi, meetings as meetingsApi, Document, Amendment, Meeting } from '../../../api/client'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import EmptyState from '../../../components/ui/EmptyState'
-import { StatusBadge, DocumentTypeBadge, MeetingTypeBadge } from '../../../components/ui/Badge'
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  FileText,
+  Clock,
+  ChevronRight,
+  Building2,
+  GitBranch,
+  Calendar,
+  Users,
+  ExternalLink,
+} from 'lucide-react';
+import { useOrganization } from '../../../context/OrganizationContext';
+import {
+  documents as documentsApi,
+  amendments as amendmentsApi,
+  meetings as meetingsApi,
+  Document,
+  Amendment,
+  Meeting,
+} from '../../../api/client';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import EmptyState from '../../../components/ui/EmptyState';
+import { StatusBadge, DocumentTypeBadge, MeetingTypeBadge } from '../../../components/ui/Badge';
 
 export default function HomePage() {
-  const { currentOrganization, loading: orgLoading } = useOrganization()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [recentAmendments, setRecentAmendments] = useState<Amendment[]>([])
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([])
-  const [loading, setLoading] = useState(true)
+  const { currentOrganization, loading: orgLoading } = useOrganization();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [recentAmendments, setRecentAmendments] = useState<Amendment[]>([]);
+  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentOrganization) {
-      setDocuments([])
-      setRecentAmendments([])
-      setUpcomingMeetings([])
-      setLoading(false)
-      return
+      setDocuments([]);
+      setRecentAmendments([]);
+      setUpcomingMeetings([]);
+      setLoading(false);
+      return;
     }
 
     const fetchData = async () => {
       try {
-        setLoading(true)
+        setLoading(true);
         const [docs, mtgs] = await Promise.all([
           documentsApi.list(currentOrganization.id),
           meetingsApi.list(currentOrganization.id),
-        ])
-        setDocuments(docs)
-        setUpcomingMeetings(mtgs.filter(m => m.status === 'scheduled').slice(0, 3))
+        ]);
+        setDocuments(docs);
+        setUpcomingMeetings(mtgs.filter((m) => m.status === 'scheduled').slice(0, 3));
 
         // Fetch amendments from all documents
-        const allAmendments: Amendment[] = []
+        const allAmendments: Amendment[] = [];
         for (const doc of docs.slice(0, 5)) {
           try {
-            const amends = await amendmentsApi.list(doc.id)
-            allAmendments.push(...amends)
+            const amends = await amendmentsApi.list(doc.id);
+            allAmendments.push(...amends);
           } catch {
             // Ignore errors
           }
         }
         setRecentAmendments(
           allAmendments
-            .filter(a => a.status === 'draft' || a.status === 'proposed')
+            .filter((a) => a.status === 'draft' || a.status === 'proposed')
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 5)
-        )
+            .slice(0, 5),
+        );
       } catch (err) {
-        console.error('Failed to load data:', err)
+        console.error('Failed to load data:', err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [currentOrganization])
+    fetchData();
+  }, [currentOrganization]);
 
   if (orgLoading || loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (!currentOrganization) {
@@ -70,7 +86,7 @@ export default function HomePage() {
         title="No organization selected"
         description="Select or create an organization to get started managing your bylaws and documents."
       />
-    )
+    );
   }
 
   return (
@@ -85,10 +101,7 @@ export default function HomePage() {
             Welcome to {currentOrganization.name}
           </p>
         </div>
-        <Link
-          to="/meetings"
-          className="btn-primary flex items-center gap-2"
-        >
+        <Link to="/meetings" className="btn-primary flex items-center gap-2">
           <Users className="w-4 h-4" />
           Join Live Meeting
         </Link>
@@ -234,9 +247,7 @@ export default function HomePage() {
               </h3>
             </div>
             {upcomingMeetings.length === 0 ? (
-              <div className="p-4 text-center text-sm text-secondary-500">
-                No upcoming meetings
-              </div>
+              <div className="p-4 text-center text-sm text-secondary-500">No upcoming meetings</div>
             ) : (
               <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
                 {upcomingMeetings.map((meeting) => (
@@ -279,5 +290,5 @@ export default function HomePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

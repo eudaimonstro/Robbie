@@ -9,7 +9,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         unanimousConsentPending: true,
-        meetingLog: log(typedAction.timestamp, 'Chair: "Is there any objection?"')
+        meetingLog: log(typedAction.timestamp, 'Chair: "Is there any objection?"'),
       };
     }
 
@@ -18,7 +18,10 @@ export const consentHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         unanimousConsentPending: false,
-        meetingLog: log(typedAction.timestamp, `${typedAction.objector} objects. Motion requires a vote.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `${typedAction.objector} objects. Motion requires a vote.`,
+        ),
       };
     }
 
@@ -32,7 +35,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
       let divideLog = '';
       let workingStack = newStack;
       if (outcome.dividedParts && outcome.dividedMainMotion) {
-        workingStack = workingStack.filter(m => m.id !== outcome.dividedMainMotion!.id);
+        workingStack = workingStack.filter((m) => m.id !== outcome.dividedMainMotion!.id);
 
         const firstPart = outcome.dividedParts[0];
         const firstPartMotion = {
@@ -40,7 +43,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
           id: firstPart.id,
           text: firstPart.text,
           status: 'active' as const,
-          moverHasSpoken: false
+          moverHasSpoken: false,
         };
         workingStack = [...workingStack, firstPartMotion];
         dividedQuestionParts = outcome.dividedParts.slice(1);
@@ -64,8 +67,8 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
-          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${divideLog}`
-        )
+          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${divideLog}`,
+        ),
       };
     }
 

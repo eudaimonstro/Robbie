@@ -16,6 +16,7 @@ This is a local workspace package. It's automatically linked via npm workspaces.
 ## Exports
 
 ### Types
+
 ```typescript
 import type {
   MeetingState,
@@ -30,6 +31,7 @@ import type {
 ```
 
 ### Socket Types
+
 ```typescript
 import type {
   ClientToServerEvents,
@@ -42,24 +44,24 @@ import type {
 ```
 
 ### Reducer
+
 ```typescript
-import {
-  meetingReducer,
-  initialState
-} from '@robbie/shared/reducer';
+import { meetingReducer, initialState } from '@robbie/shared/reducer';
 ```
 
 ### Constants
+
 ```typescript
 import {
   motionDefinitions,
   MOTION_CATEGORIES,
   MEETING_STAGES,
-  SUSPENDABLE_RULES
+  SUSPENDABLE_RULES,
 } from '@robbie/shared/constants';
 ```
 
 ### Utilities
+
 ```typescript
 import {
   generateId,
@@ -117,6 +119,7 @@ shared/
 ## Key Types
 
 ### MeetingState
+
 The complete state of a meeting:
 
 ```typescript
@@ -136,17 +139,19 @@ interface MeetingState {
 ```
 
 ### MeetingAction
+
 Discriminated union of 40+ action types:
 
 ```typescript
 type MeetingAction =
   | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
   | { type: 'MAKE_MOTION'; motion: Motion; timestamp: string }
-  | { type: 'CAST_VOTE'; memberId: number; vote: VoteValue; timestamp: string }
-  // ... etc
+  | { type: 'CAST_VOTE'; memberId: number; vote: VoteValue; timestamp: string };
+// ... etc
 ```
 
 ### Member
+
 ```typescript
 interface Member {
   id: number;
@@ -157,6 +162,7 @@ interface Member {
 ```
 
 ### Motion
+
 ```typescript
 interface Motion {
   id: number;

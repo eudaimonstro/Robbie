@@ -1,14 +1,14 @@
-import { useState } from 'react'
-import Modal from '../../../../components/ui/Modal'
-import { AmendmentChangeCreate, SectionTree } from '../../../../api/client'
-import { flattenSections } from './useAmendmentData'
+import { useState } from 'react';
+import Modal from '../../../../components/ui/Modal';
+import { AmendmentChangeCreate, SectionTree } from '../../../../api/client';
+import { flattenSections } from './useAmendmentData';
 
 interface EditAmendmentModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (title: string, description?: string) => Promise<void>
-  initialTitle: string
-  initialDescription: string
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (title: string, description?: string) => Promise<void>;
+  initialTitle: string;
+  initialDescription: string;
 }
 
 export function EditAmendmentModal({
@@ -18,34 +18,36 @@ export function EditAmendmentModal({
   initialTitle,
   initialDescription,
 }: EditAmendmentModalProps) {
-  const [title, setTitle] = useState(initialTitle)
-  const [description, setDescription] = useState(initialDescription)
-  const [saving, setSaving] = useState(false)
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setSaving(true)
-      await onSubmit(title.trim(), description.trim() || undefined)
-      onClose()
+      setSaving(true);
+      await onSubmit(title.trim(), description.trim() || undefined);
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   // Sync state when modal opens with new values
   if (isOpen && title !== initialTitle && !saving) {
-    setTitle(initialTitle)
-    setDescription(initialDescription)
+    setTitle(initialTitle);
+    setDescription(initialDescription);
   }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Amendment">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label htmlFor="editTitle" className="label">Title</label>
+          <label htmlFor="editTitle" className="label">
+            Title
+          </label>
           <input
             type="text"
             id="editTitle"
@@ -55,7 +57,9 @@ export function EditAmendmentModal({
           />
         </div>
         <div className="mb-6">
-          <label htmlFor="editDescription" className="label">Description</label>
+          <label htmlFor="editDescription" className="label">
+            Description
+          </label>
           <textarea
             id="editDescription"
             value={description}
@@ -73,63 +77,58 @@ export function EditAmendmentModal({
         </div>
       </form>
     </Modal>
-  )
+  );
 }
 
 interface AddChangeModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (data: AmendmentChangeCreate) => Promise<void>
-  sectionTree: SectionTree[]
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: AmendmentChangeCreate) => Promise<void>;
+  sectionTree: SectionTree[];
 }
 
-export function AddChangeModal({
-  isOpen,
-  onClose,
-  onSubmit,
-  sectionTree,
-}: AddChangeModalProps) {
-  const [changeType, setChangeType] = useState<AmendmentChangeCreate['change_type']>('modify')
-  const [targetSectionId, setTargetSectionId] = useState('')
-  const [newContent, setNewContent] = useState('')
-  const [newTitle, setNewTitle] = useState('')
-  const [newNumberLabel, setNewNumberLabel] = useState('')
-  const [adding, setAdding] = useState(false)
+export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddChangeModalProps) {
+  const [changeType, setChangeType] = useState<AmendmentChangeCreate['change_type']>('modify');
+  const [targetSectionId, setTargetSectionId] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [newNumberLabel, setNewNumberLabel] = useState('');
+  const [adding, setAdding] = useState(false);
 
   const resetForm = () => {
-    setChangeType('modify')
-    setTargetSectionId('')
-    setNewContent('')
-    setNewTitle('')
-    setNewNumberLabel('')
-  }
+    setChangeType('modify');
+    setTargetSectionId('');
+    setNewContent('');
+    setNewTitle('');
+    setNewNumberLabel('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setAdding(true)
+      setAdding(true);
       await onSubmit({
         change_type: changeType,
         target_section_id: targetSectionId || undefined,
         new_content: newContent.trim() || undefined,
         new_title: newTitle.trim() || undefined,
         new_number_label: newNumberLabel.trim() || undefined,
-      })
-      resetForm()
-      onClose()
+      });
+      resetForm();
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setAdding(false)
+      setAdding(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    resetForm()
-    onClose()
-  }
+    resetForm();
+    onClose();
+  };
 
-  const flatSections = flattenSections(sectionTree)
+  const flatSections = flattenSections(sectionTree);
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Add Change" size="lg">
@@ -159,7 +158,9 @@ export function AddChangeModal({
             >
               <option value="">Select a section...</option>
               {flatSections.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
               ))}
             </select>
           </div>
@@ -214,5 +215,5 @@ export function AddChangeModal({
         </div>
       </form>
     </Modal>
-  )
+  );
 }

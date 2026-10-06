@@ -14,7 +14,7 @@ export const RenameModal = React.memo(function RenameModal({
   newName,
   setNewName,
   onConfirm,
-  onCancel
+  onCancel,
 }: RenameModalProps) {
   const isValid = newName.trim().length >= 2;
   const hasChanged = newName.trim() !== member.name;

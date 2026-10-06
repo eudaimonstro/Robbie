@@ -4,7 +4,7 @@ import type {
   ServerToClientEvents,
   SocketData,
   JoinMeetingPayload,
-  JoinMeetingResponse
+  JoinMeetingResponse,
 } from '@robbie-bylawyer/shared/types/socket';
 import { verifyToken } from '../auth/authController.js';
 import { roomManager } from './roomManager.js';
@@ -13,8 +13,18 @@ import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
 import { logger } from '../middleware/logger.js';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type TypedSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
+type TypedServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
 
 /**
  * Extract auth_token from cookie header
@@ -23,11 +33,14 @@ function getTokenFromCookie(socket: TypedSocket): string | null {
   const cookieHeader = socket.handshake.headers.cookie;
   if (!cookieHeader) return null;
 
-  const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-    const [key, value] = cookie.trim().split('=');
-    if (key && value) acc[key] = value;
-    return acc;
-  }, {} as Record<string, string>);
+  const cookies = cookieHeader.split(';').reduce(
+    (acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      if (key && value) acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   return cookies['auth_token'] || null;
 }
@@ -39,7 +52,7 @@ export async function handleJoinMeeting(
   socket: TypedSocket,
   io: TypedServer,
   data: JoinMeetingPayload,
-  callback: (response: JoinMeetingResponse) => void
+  callback: (response: JoinMeetingResponse) => void,
 ): Promise<void> {
   try {
     // Try provided token first, fallback to HttpOnly cookie
@@ -64,7 +77,7 @@ export async function handleJoinMeeting(
       const retryAfter = joinRateLimiter.getRetryAfter(decoded.userId);
       callback({
         success: false,
-        error: `Too many join attempts. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`
+        error: `Too many join attempts. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`,
       });
       return;
     }
@@ -86,8 +99,8 @@ export async function handleJoinMeeting(
       // Check if user email is in ADMIN_EMAILS list
       const adminEmails = (process.env.ADMIN_EMAILS || '')
         .split(',')
-        .map(e => e.trim().toLowerCase())
-        .filter(e => e.length > 0);
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0);
       const isAdmin = adminEmails.includes(decoded.email.toLowerCase());
       role = isAdmin ? 'admin' : 'member';
       await storage.setParticipantRole(data.meetingCode, odUserId, role);
@@ -107,7 +120,7 @@ export async function handleJoinMeeting(
       id: decoded.userId,
       name: decoded.name,
       role,
-      present: true
+      present: true,
     });
 
     const memberData = { id: decoded.userId, name: decoded.name, role, present: true };
@@ -117,11 +130,11 @@ export async function handleJoinMeeting(
     let currentState = meeting.state;
     let currentVersion = meeting.stateVersion;
 
-    if (!currentState.members.some(m => m.id === decoded.userId)) {
+    if (!currentState.members.some((m) => m.id === decoded.userId)) {
       const addResult = await applyAction(data.meetingCode, {
         type: 'ADD_MEMBER',
         member: memberData,
-        timestamp
+        timestamp,
       });
       if (addResult.success && addResult.state) {
         currentState = addResult.state;
@@ -134,7 +147,7 @@ export async function handleJoinMeeting(
       type: 'SET_MEMBER_PRESENCE',
       memberId: decoded.userId,
       present: true,
-      timestamp
+      timestamp,
     });
     if (presenceResult.success && presenceResult.state) {
       currentState = presenceResult.state;
@@ -144,23 +157,22 @@ export async function handleJoinMeeting(
     // Notify others of member joined
     socket.to(roomName).emit('MEMBER_JOINED', {
       member: memberData,
-      timestamp
+      timestamp,
     });
 
     // Broadcast updated state to all (including the joiner via callback)
     io.to(roomName).emit('STATE_UPDATE', {
       state: currentState,
       stateVersion: currentVersion,
-      triggeredBy: { actionType: 'MEMBER_JOINED', userId: decoded.userId }
+      triggeredBy: { actionType: 'MEMBER_JOINED', userId: decoded.userId },
     });
 
     callback({
       success: true,
       state: currentState,
       stateVersion: currentVersion,
-      members: roomManager.getMembers(data.meetingCode)
+      members: roomManager.getMembers(data.meetingCode),
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ err: error }, 'Error joining meeting');

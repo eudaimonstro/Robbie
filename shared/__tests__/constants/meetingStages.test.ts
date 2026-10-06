@@ -5,7 +5,7 @@ import {
   STAGE_ORDER,
   getStageLogMessage,
   getNextStage,
-  isLastActiveStage
+  isLastActiveStage,
 } from '../../constants/index.js';
 
 describe('meetingStages', () => {
@@ -20,7 +20,7 @@ describe('meetingStages', () => {
     });
 
     it('should have required properties for each stage', () => {
-      MEETING_STAGES.forEach(stage => {
+      MEETING_STAGES.forEach((stage) => {
         expect(stage).toHaveProperty('stage');
         expect(stage).toHaveProperty('label');
         expect(stage).toHaveProperty('icon');
@@ -31,7 +31,7 @@ describe('meetingStages', () => {
 
   describe('DISPLAYABLE_STAGES', () => {
     it('should exclude not-started and adjourned', () => {
-      const stageNames = DISPLAYABLE_STAGES.map(s => s.stage);
+      const stageNames = DISPLAYABLE_STAGES.map((s) => s.stage);
       expect(stageNames).not.toContain('not-started');
       expect(stageNames).not.toContain('adjourned');
     });
@@ -56,7 +56,7 @@ describe('meetingStages', () => {
         'unfinished-business',
         'new-business',
         'announcements',
-        'adjourned'
+        'adjourned',
       ]);
     });
   });

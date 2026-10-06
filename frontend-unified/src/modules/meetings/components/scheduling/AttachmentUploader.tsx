@@ -7,7 +7,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, File, X, Link, Loader2, FileText, Download, Trash2 } from 'lucide-react';
 import type { Attachment, BylawyerDocument, Organization } from './types';
-import { uploadAttachment, linkDocument, deleteAttachment, getAttachmentDownloadUrl, listOrganizations, listDocuments } from './api';
+import {
+  uploadAttachment,
+  linkDocument,
+  deleteAttachment,
+  getAttachmentDownloadUrl,
+  listOrganizations,
+  listDocuments,
+} from './api';
 
 interface AttachmentUploaderProps {
   robbieCode: string;
@@ -23,7 +30,7 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
   'text/rtf',
-  'application/rtf'
+  'application/rtf',
 ];
 
 const TYPE_LABELS: Record<string, string> = {
@@ -32,7 +39,7 @@ const TYPE_LABELS: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
   'text/plain': 'TXT',
   'text/rtf': 'RTF',
-  'application/rtf': 'RTF'
+  'application/rtf': 'RTF',
 };
 
 export function AttachmentUploader({
@@ -40,7 +47,7 @@ export function AttachmentUploader({
   attachments,
   target,
   onAttachmentAdded,
-  onAttachmentRemoved
+  onAttachmentRemoved,
 }: AttachmentUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -58,22 +65,28 @@ export function AttachmentUploader({
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    await uploadFiles(files);
-  }, [robbieCode, target]);
+      const files = Array.from(e.dataTransfer.files);
+      await uploadFiles(files);
+    },
+    [robbieCode, target],
+  );
 
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    await uploadFiles(files);
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [robbieCode, target]);
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files ? Array.from(e.target.files) : [];
+      await uploadFiles(files);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [robbieCode, target],
+  );
 
   const uploadFiles = async (files: File[]) => {
     setError(null);
@@ -125,9 +138,7 @@ export function AttachmentUploader({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-          isDragging
-            ? 'border-indigo-500 bg-indigo-50'
-            : 'border-gray-300 hover:border-gray-400'
+          isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-gray-400'
         }`}
       >
         {isUploading ? (
@@ -148,9 +159,7 @@ export function AttachmentUploader({
                 browse
               </button>
             </p>
-            <p className="text-xs text-gray-400 mt-1">
-              PDF, DOC, DOCX, TXT, RTF (max 10MB)
-            </p>
+            <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, TXT, RTF (max 10MB)</p>
           </>
         )}
         <input
@@ -186,7 +195,7 @@ export function AttachmentUploader({
       {/* Attachment list */}
       {attachments.length > 0 && (
         <div className="space-y-2">
-          {attachments.map(attachment => (
+          {attachments.map((attachment) => (
             <AttachmentItem
               key={attachment.id}
               attachment={attachment}
@@ -216,7 +225,13 @@ export function AttachmentUploader({
   );
 }
 
-function AttachmentItem({ attachment, onDelete }: { attachment: Attachment; onDelete: () => void }) {
+function AttachmentItem({
+  attachment,
+  onDelete,
+}: {
+  attachment: Attachment;
+  onDelete: () => void;
+}) {
   const isFile = attachment.type === 'uploaded_file';
 
   return (
@@ -229,9 +244,7 @@ function AttachmentItem({ attachment, onDelete }: { attachment: Attachment; onDe
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {attachment.displayName}
-        </p>
+        <p className="text-sm font-medium text-gray-800 truncate">{attachment.displayName}</p>
         <p className="text-xs text-gray-500">
           {isFile ? (
             <>
@@ -275,7 +288,7 @@ function formatSize(bytes: number): string {
 function DocumentPicker({
   target,
   onSelect,
-  onClose
+  onClose,
 }: {
   target: { packetId?: string; agendaItemId?: string };
   onSelect: (doc: BylawyerDocument) => void;
@@ -352,8 +365,10 @@ function DocumentPicker({
                     className="w-full p-2 border rounded-lg"
                   >
                     <option value="">Select organization...</option>
-                    {organizations.map(org => (
-                      <option key={org.id} value={org.id}>{org.name}</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -366,7 +381,7 @@ function DocumentPicker({
                       No documents in this organization.
                     </p>
                   ) : (
-                    documents.map(doc => (
+                    documents.map((doc) => (
                       <button
                         key={doc.id}
                         onClick={() => onSelect(doc)}

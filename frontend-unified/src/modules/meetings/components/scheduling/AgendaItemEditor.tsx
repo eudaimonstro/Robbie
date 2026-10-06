@@ -30,7 +30,7 @@ export function AgendaItemEditor({
   onAttachmentAdded,
   onAttachmentRemoved,
   isDragging,
-  dragHandleProps
+  dragHandleProps,
 }: AgendaItemEditorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState(item.title);
@@ -80,10 +80,7 @@ export function AgendaItemEditor({
       {/* Collapsed header */}
       <div className="flex items-center gap-2 p-3">
         {/* Drag handle */}
-        <div
-          {...dragHandleProps}
-          className="cursor-grab text-gray-400 hover:text-gray-600"
-        >
+        <div {...dragHandleProps} className="cursor-grab text-gray-400 hover:text-gray-600">
           <GripVertical size={20} />
         </div>
 
@@ -123,11 +120,7 @@ export function AgendaItemEditor({
         </button>
 
         {/* Delete button */}
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1 text-gray-400 hover:text-red-600"
-        >
+        <button type="button" onClick={onDelete} className="p-1 text-gray-400 hover:text-red-600">
           <Trash2 size={18} />
         </button>
       </div>
@@ -137,9 +130,7 @@ export function AgendaItemEditor({
         <div className="border-t p-4 space-y-4">
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

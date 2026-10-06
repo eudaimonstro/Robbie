@@ -7,7 +7,7 @@ interface MotionStackPanelProps {
 }
 
 export const MotionStackPanel = React.memo(function MotionStackPanel({
-  state
+  state,
 }: MotionStackPanelProps) {
   if (state.motionStack.length === 0) {
     return null;

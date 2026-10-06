@@ -29,7 +29,7 @@ export async function checkAndSyncBylawAmendment(
   meetingCode: string,
   action: MeetingAction,
   previousState: MeetingState,
-  newState: MeetingState
+  newState: MeetingState,
 ): Promise<SyncResult | null> {
   // Only process CLOSE_VOTING actions
   if (action.type !== 'CLOSE_VOTING') {
@@ -49,9 +49,7 @@ export async function checkAndSyncBylawAmendment(
   }
 
   // Find the completed motion in the new state to determine if it passed
-  const completedMotion = newState.completedMotions.find(
-    cm => cm.id === votedMotion.id
-  );
+  const completedMotion = newState.completedMotions.find((cm) => cm.id === votedMotion.id);
 
   if (!completedMotion) {
     // Motion wasn't completed (might have been tabled or something)
@@ -80,19 +78,22 @@ async function syncMotionToBylawyer(
   meetingCode: string,
   votedMotion: NonNullable<MeetingState['currentMotion']>,
   completedMotion: CompletedMotion,
-  previousState: MeetingState
+  previousState: MeetingState,
 ): Promise<SyncResult> {
   try {
     const bylawAmendment = votedMotion.bylawAmendment!;
 
-    logger.info({ motionId: votedMotion.id, passed: completedMotion.passed }, 'Syncing motion to Bylawyer');
+    logger.info(
+      { motionId: votedMotion.id, passed: completedMotion.passed },
+      'Syncing motion to Bylawyer',
+    );
 
     // Check if this motion has already been synced
     const existingAmendment = await prisma.amendment.findFirst({
       where: {
         robbieMeetingCode: meetingCode,
-        robbieMotionId: votedMotion.id
-      }
+        robbieMotionId: votedMotion.id,
+      },
     });
 
     if (existingAmendment) {
@@ -100,20 +101,20 @@ async function syncMotionToBylawyer(
       return {
         success: true,
         amendmentId: existingAmendment.id,
-        applied: !!existingAmendment.resultingVersionId
+        applied: !!existingAmendment.resultingVersionId,
       };
     }
 
     // Verify the document exists
     const document = await prisma.document.findUnique({
-      where: { id: bylawAmendment.documentId }
+      where: { id: bylawAmendment.documentId },
     });
 
     if (!document) {
       logger.error({ documentId: bylawAmendment.documentId }, 'Document not found for bylaw sync');
       return {
         success: false,
-        error: `Document not found: ${bylawAmendment.documentId}`
+        error: `Document not found: ${bylawAmendment.documentId}`,
       };
     }
 
@@ -129,10 +130,10 @@ async function syncMotionToBylawyer(
 
     // Map change type
     const changeTypeMap: Record<string, ChangeType> = {
-      'add': 'add',
-      'modify': 'modify',
-      'delete': 'delete',
-      'renumber': 'renumber'
+      add: 'add',
+      modify: 'modify',
+      delete: 'delete',
+      renumber: 'renumber',
     };
 
     // Build vote data
@@ -141,7 +142,7 @@ async function syncMotionToBylawyer(
       nayCount: previousState.votes.nay,
       abstainCount: previousState.votes.abstain,
       voterChoices: completedMotion.voterChoices,
-      voteRequirement: votedMotion.vote
+      voteRequirement: votedMotion.vote,
     };
 
     // Create the amendment with Robbie tracking data
@@ -163,13 +164,13 @@ async function syncMotionToBylawyer(
             newContent: bylawAmendment.newContent,
             newNumberLabel: bylawAmendment.newNumberLabel,
             newTitle: bylawAmendment.newTitle,
-            position: 0
-          }
-        }
+            position: 0,
+          },
+        },
       },
       include: {
-        changes: true
-      }
+        changes: true,
+      },
     });
 
     // If the motion passed, automatically apply the amendment to create a new version
@@ -190,13 +191,13 @@ async function syncMotionToBylawyer(
     return {
       success: true,
       amendmentId: amendment.id,
-      applied
+      applied,
     };
   } catch (error: any) {
     logger.error({ err: error }, 'Bylaw sync error');
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -206,19 +207,19 @@ async function syncMotionToBylawyer(
  */
 export async function checkSyncStatus(
   meetingCode: string,
-  motionId: number
+  motionId: number,
 ): Promise<{ synced: boolean; amendmentId?: string; applied?: boolean }> {
   try {
     const amendment = await prisma.amendment.findFirst({
       where: {
         robbieMeetingCode: meetingCode,
-        robbieMotionId: motionId
+        robbieMotionId: motionId,
       },
       select: {
         id: true,
         status: true,
-        resultingVersionId: true
-      }
+        resultingVersionId: true,
+      },
     });
 
     if (!amendment) {
@@ -228,7 +229,7 @@ export async function checkSyncStatus(
     return {
       synced: true,
       amendmentId: amendment.id,
-      applied: !!amendment.resultingVersionId
+      applied: !!amendment.resultingVersionId,
     };
   } catch (error) {
     logger.error({ err: error }, 'Error checking sync status');

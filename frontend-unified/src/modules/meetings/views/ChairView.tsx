@@ -19,7 +19,7 @@ import {
   ChairScriptPanel,
   MotionStackPanel,
   ProxyManagementPanel,
-  MeetingDocumentsPanel
+  MeetingDocumentsPanel,
 } from '../components/chair';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
@@ -30,32 +30,25 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
     state.speakerQueue,
     state.currentMotion,
     state.lastSpeakerStance,
-    state
+    state,
   );
 
   // Use custom hook for quorum status (with proxy support)
   const { presentCount, effectiveCount, hasQuorum, proxyCount } = useQuorumStatus(
     state.members,
     state.quorum,
-    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
+    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies },
   );
 
   // Get chair member
-  const chair = useMemo(
-    () => state.members.find(m => m.role === 'chair'),
-    [state.members]
-  );
+  const chair = useMemo(() => state.members.find((m) => m.role === 'chair'), [state.members]);
 
   return (
     <div className="space-y-4">
       <ActiveSuspensionsBanner state={state} currentUser={chair} dispatch={dispatch} />
 
       {state.meetingActive && (
-        <QuorumWarning
-          presentCount={presentCount}
-          quorum={state.quorum}
-          hasQuorum={hasQuorum}
-        />
+        <QuorumWarning presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
       )}
 
       {/* Meeting controls - always full width */}
@@ -87,42 +80,36 @@ export function ChairView({ state, dispatch }: ChairViewProps) {
           <ProxyManagementPanel state={state} dispatch={dispatch} />
 
           {/* Meeting Documents - show when meeting has a code */}
-          {state.meetingCode && (
-            <MeetingDocumentsPanel meetingCode={state.meetingCode} />
-          )}
+          {state.meetingCode && <MeetingDocumentsPanel meetingCode={state.meetingCode} />}
 
           {/* Nominations and Elections - only render when chair is defined */}
-          {chair && (state.nominationsOpen ||
-            state.currentElection ||
-            state.currentNominationPosition ||
-            state.electedOfficers.length > 0) && (
-            <>
-              <NominationsPanel
-                state={state}
-                dispatch={dispatch}
-                currentUser={chair}
-                isChair={true}
-              />
-              {(state.currentElection ||
-                (!state.nominationsOpen && state.currentNominationPosition)) && (
-                <ElectionPanel
+          {chair &&
+            (state.nominationsOpen ||
+              state.currentElection ||
+              state.currentNominationPosition ||
+              state.electedOfficers.length > 0) && (
+              <>
+                <NominationsPanel
                   state={state}
                   dispatch={dispatch}
                   currentUser={chair}
                   isChair={true}
                 />
-              )}
-            </>
-          )}
+                {(state.currentElection ||
+                  (!state.nominationsOpen && state.currentNominationPosition)) && (
+                  <ElectionPanel
+                    state={state}
+                    dispatch={dispatch}
+                    currentUser={chair}
+                    isChair={true}
+                  />
+                )}
+              </>
+            )}
 
           {/* Inquiries Panel - only render when chair is defined */}
           {chair && (
-            <InquiryPanel
-              state={state}
-              dispatch={dispatch}
-              currentUser={chair}
-              isChair={true}
-            />
+            <InquiryPanel state={state} dispatch={dispatch} currentUser={chair} isChair={true} />
           )}
         </div>
       </div>

@@ -1,10 +1,10 @@
-import { Clock, MapPin, ThumbsUp } from 'lucide-react'
-import { Meeting } from '../../../../api/client'
-import { MeetingTypeBadge } from '../../../../components/ui/Badge'
+import { Clock, MapPin, ThumbsUp } from 'lucide-react';
+import { Meeting } from '../../../../api/client';
+import { MeetingTypeBadge } from '../../../../components/ui/Badge';
 
 interface MeetingDetailsCardProps {
-  meeting: Meeting
-  votesCount: number
+  meeting: Meeting;
+  votesCount: number;
 }
 
 export function MeetingDetailsCard({ meeting, votesCount }: MeetingDetailsCardProps) {
@@ -44,5 +44,5 @@ export function MeetingDetailsCard({ meeting, votesCount }: MeetingDetailsCardPr
         </div>
       )}
     </div>
-  )
+  );
 }

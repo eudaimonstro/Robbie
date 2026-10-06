@@ -39,16 +39,17 @@ backend/src/
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | 3001 | Server port |
-| `CLIENT_ORIGIN` | Yes | - | Frontend URL for CORS |
-| `JWT_SECRET` | Yes | - | Secret for JWT signing |
-| `DATABASE_URL` | No | - | PostgreSQL connection string |
+| Variable        | Required | Default | Description                  |
+| --------------- | -------- | ------- | ---------------------------- |
+| `PORT`          | No       | 3001    | Server port                  |
+| `CLIENT_ORIGIN` | Yes      | -       | Frontend URL for CORS        |
+| `JWT_SECRET`    | Yes      | -       | Secret for JWT signing       |
+| `DATABASE_URL`  | No       | -       | PostgreSQL connection string |
 
 ## API Endpoints
 
 ### Health Check
+
 ```
 GET /api/health
 Response: { status: 'ok', timestamp: string }
@@ -57,6 +58,7 @@ Response: { status: 'ok', timestamp: string }
 ### Authentication
 
 #### Request Verification Code
+
 ```
 POST /api/auth/request-verification
 Body: { email: string, name: string, meetingCode: string }
@@ -64,6 +66,7 @@ Response: { success: boolean, message?: string }
 ```
 
 #### Verify Code
+
 ```
 POST /api/auth/verify
 Body: { email: string, code: string, meetingCode: string }
@@ -71,6 +74,7 @@ Response: { success: boolean, token?: string, user?: { id, email, name } }
 ```
 
 #### Development Only - Get Code
+
 ```
 GET /api/auth/dev-code
 Response: { code: string } (only in development mode)
@@ -81,6 +85,7 @@ Response: { code: string } (only in development mode)
 ### Client → Server Events
 
 #### JOIN_MEETING
+
 Join a meeting room after authentication.
 
 ```typescript
@@ -97,6 +102,7 @@ socket.emit('JOIN_MEETING', {
 ```
 
 #### LEAVE_MEETING
+
 Leave the current meeting.
 
 ```typescript
@@ -104,6 +110,7 @@ socket.emit('LEAVE_MEETING');
 ```
 
 #### DISPATCH_ACTION
+
 Dispatch a meeting action (motion, vote, etc).
 
 ```typescript
@@ -119,6 +126,7 @@ socket.emit('DISPATCH_ACTION', {
 ```
 
 #### REQUEST_STATE
+
 Request current meeting state (for reconnection).
 
 ```typescript
@@ -133,6 +141,7 @@ socket.emit('REQUEST_STATE', (response: {
 ### Server → Client Events
 
 #### STATE_UPDATE
+
 Broadcast when meeting state changes.
 
 ```typescript
@@ -144,6 +153,7 @@ socket.on('STATE_UPDATE', (data: {
 ```
 
 #### ACTION_REJECTED
+
 Sent when a dispatched action is rejected.
 
 ```typescript
@@ -155,6 +165,7 @@ socket.on('ACTION_REJECTED', (data: {
 ```
 
 #### MEMBER_JOINED / MEMBER_LEFT
+
 ```typescript
 socket.on('MEMBER_JOINED', (data: {
   member: Member,
@@ -168,6 +179,7 @@ socket.on('MEMBER_LEFT', (data: {
 ```
 
 #### ERROR
+
 General error notification.
 
 ```typescript
@@ -181,9 +193,9 @@ socket.on('ERROR', (data: {
 
 Actions are restricted by role:
 
-| Role | Permissions |
-|------|-------------|
-| chair | All actions |
+| Role   | Permissions                                                                                                                                                                  |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| chair  | All actions                                                                                                                                                                  |
 | member | RAISE_HAND, LOWER_HAND, CAST_VOTE, CAST_BALLOT, MAKE_MOTION, SECOND_MOTION, WITHDRAW_MOTION, OBJECT_TO_CONSENT, NOMINATE, DECLINE_NOMINATION, ASK_INQUIRY, RESPOND_ROLL_CALL |
 
 See [permissionGuard.ts](src/socket/permissionGuard.ts) for full permission matrix.
@@ -197,15 +209,15 @@ See [permissionGuard.ts](src/socket/permissionGuard.ts) for full permission matr
 
 Common error codes returned by `DISPATCH_ACTION`:
 
-| Code | Description |
-|------|-------------|
-| `PERMISSION_DENIED` | Role cannot perform action |
-| `NOT_AUTHENTICATED` | No valid session |
-| `RATE_LIMITED` | Too many requests |
-| `MEETING_NOT_FOUND` | Invalid meeting code |
-| `INVALID_ACTION` | Action failed validation |
-| `VOTING_CLOSED` | Cannot vote when voting is not open |
-| `ALREADY_VOTED` | Duplicate vote attempt |
+| Code                | Description                         |
+| ------------------- | ----------------------------------- |
+| `PERMISSION_DENIED` | Role cannot perform action          |
+| `NOT_AUTHENTICATED` | No valid session                    |
+| `RATE_LIMITED`      | Too many requests                   |
+| `MEETING_NOT_FOUND` | Invalid meeting code                |
+| `INVALID_ACTION`    | Action failed validation            |
+| `VOTING_CLOSED`     | Cannot vote when voting is not open |
+| `ALREADY_VOTED`     | Duplicate vote attempt              |
 
 See [socket.ts](../shared/types/socket.ts) for full error code list.
 
@@ -227,6 +239,7 @@ npm run test:coverage -w backend
 ```
 
 Current test coverage:
+
 - permissionGuard.ts: 168 tests
 - rateLimiter.ts: 20 tests
 

@@ -18,7 +18,7 @@ export const SectionSelector = React.memo(function SectionSelector({
   sections,
   placeholder = 'Select a section...',
   allowEmpty = false,
-  emptyLabel = 'None'
+  emptyLabel = 'None',
 }: SectionSelectorProps) {
   return (
     <div>
@@ -35,9 +35,10 @@ export const SectionSelector = React.memo(function SectionSelector({
         ) : (
           <option value="">{placeholder}</option>
         )}
-        {sections.map(section => (
+        {sections.map((section) => (
           <option key={section.id} value={section.id}>
-            {'  '.repeat(section.depth)}{section.number_label} {section.title}
+            {'  '.repeat(section.depth)}
+            {section.number_label} {section.title}
           </option>
         ))}
       </select>

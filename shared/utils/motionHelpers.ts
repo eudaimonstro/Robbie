@@ -24,10 +24,10 @@ export function isSimilarMotionSubject(text1: string, text2: string): boolean {
   // Check if one contains the other (substring match for similar subject)
   if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
   // Check for significant word overlap (>50% of words in common)
-  const words1 = new Set(norm1.split(' ').filter(w => w.length > 3)); // Skip short words
-  const words2 = new Set(norm2.split(' ').filter(w => w.length > 3));
+  const words1 = new Set(norm1.split(' ').filter((w) => w.length > 3)); // Skip short words
+  const words2 = new Set(norm2.split(' ').filter((w) => w.length > 3));
   if (words1.size === 0 || words2.size === 0) return false;
-  const commonWords = [...words1].filter(w => words2.has(w)).length;
+  const commonWords = [...words1].filter((w) => words2.has(w)).length;
   const overlapRatio = commonWords / Math.min(words1.size, words2.size);
   return overlapRatio >= 0.5;
 }
@@ -38,16 +38,16 @@ export function isSimilarMotionSubject(text1: string, text2: string): boolean {
 export function wasMotionDefeated(
   state: MeetingState,
   motionType: string,
-  motionText?: string
+  motionText?: string,
 ): boolean {
   if (!state.defeatedMotions?.length) return false;
   // For main motions, check subject matter; for others, just check type
   if (motionType === 'mainMotion' && motionText) {
     return state.defeatedMotions.some(
-      dm => dm.type === motionType && isSimilarMotionSubject(dm.text, motionText)
+      (dm) => dm.type === motionType && isSimilarMotionSubject(dm.text, motionText),
     );
   }
-  return state.defeatedMotions.some(dm => dm.type === motionType);
+  return state.defeatedMotions.some((dm) => dm.type === motionType);
 }
 
 /**
@@ -71,8 +71,8 @@ export function wasMotionDefeated(
  */
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
-  const hasAmendment = state.motionStack.some(m => m.type === 'amend');
-  const hasSecondaryAmendment = state.motionStack.some(m => m.type === 'amendAmendment');
+  const hasAmendment = state.motionStack.some((m) => m.type === 'amend');
+  const hasSecondaryAmendment = state.motionStack.some((m) => m.type === 'amendAmendment');
   const isAgendaAdoptionPending = state.currentMotion?.type === 'adoptAgenda';
   const validMotions: ValidMotion[] = [];
 
@@ -98,8 +98,18 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
     if (key === 'adoptAgenda' && isAgendaAdoptionPending) return;
     if (key === 'mainMotion' && currentPrecedence > 0) return;
     // Amendment depth enforcement (unless suspended)
-    if (!amendmentDepthSuspended && key === 'amendAmendment' && (!hasAmendment || hasSecondaryAmendment)) return;
-    if (!amendmentDepthSuspended && key === 'amend' && state.currentMotion?.type === 'amendAmendment') return;
+    if (
+      !amendmentDepthSuspended &&
+      key === 'amendAmendment' &&
+      (!hasAmendment || hasSecondaryAmendment)
+    )
+      return;
+    if (
+      !amendmentDepthSuspended &&
+      key === 'amend' &&
+      state.currentMotion?.type === 'amendAmendment'
+    )
+      return;
     // Renewal rule: For non-mainMotion main motions (like adoptAgenda, takeFromTable),
     // block if that specific type was defeated.
     // For mainMotion, allow the type but individual motions are blocked by subject-matter check in validator.
@@ -116,12 +126,12 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
     // Reconsider: Only available to voters on prevailing side
     if (key === 'reconsider') {
       if (!currentUserId) return; // Need user ID to check eligibility
-      const hasReconsiderableMotions = state.completedMotions.some(cm => {
+      const hasReconsiderableMotions = state.completedMotions.some((cm) => {
         if (cm.reconsidered) return false; // Already reconsidered
         const userVote = cm.voterChoices[currentUserId];
         if (!userVote || userVote === 'abstain') return false; // Didn't vote or abstained
         // Prevailing side: if motion passed, yea voters can reconsider; if failed, nay voters can
-        const onPrevailingSide = cm.passed ? (userVote === 'yea') : (userVote === 'nay');
+        const onPrevailingSide = cm.passed ? userVote === 'yea' : userVote === 'nay';
         return onPrevailingSide;
       });
       if (!hasReconsiderableMotions) return;

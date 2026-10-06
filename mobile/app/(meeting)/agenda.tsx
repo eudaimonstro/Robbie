@@ -9,12 +9,12 @@ const STAGE_LABELS: Record<string, string> = {
   'not-started': 'Not Started',
   'call-to-order': 'Call to Order',
   'minutes-approval': 'Approval of Minutes',
-  'reports': 'Reports',
+  reports: 'Reports',
   'special-orders': 'Special Orders',
   'unfinished-business': 'Unfinished Business',
   'new-business': 'New Business',
-  'announcements': 'Announcements',
-  'adjourned': 'Adjourned',
+  announcements: 'Announcements',
+  adjourned: 'Adjourned',
 };
 
 export default function AgendaScreen() {
@@ -49,12 +49,7 @@ export default function AgendaScreen() {
                     <Text style={styles.itemNumberText}>{index + 1}</Text>
                   </View>
                   <View style={styles.itemContent}>
-                    <Text
-                      style={[
-                        styles.itemTitle,
-                        isCompleted && styles.itemTitleCompleted,
-                      ]}
-                    >
+                    <Text style={[styles.itemTitle, isCompleted && styles.itemTitleCompleted]}>
                       {item.title}
                     </Text>
                   </View>

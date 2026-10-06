@@ -10,7 +10,7 @@ interface UnanimousConsentPanelProps {
 
 export const UnanimousConsentPanel = React.memo(function UnanimousConsentPanel({
   state,
-  dispatch
+  dispatch,
 }: UnanimousConsentPanelProps) {
   if (!state.unanimousConsentPending || !state.currentMotion) {
     return null;
@@ -28,20 +28,26 @@ export const UnanimousConsentPanel = React.memo(function UnanimousConsentPanel({
         <p className="text-green-700 text-sm">If no one objects, motion passes without a vote.</p>
       </div>
 
-      <div className={`mt-3 ${state.currentMotion?.vote === 'none' ? '' : 'grid grid-cols-2 gap-2'}`}>
+      <div
+        className={`mt-3 ${state.currentMotion?.vote === 'none' ? '' : 'grid grid-cols-2 gap-2'}`}
+      >
         <button
-          onClick={() => dispatch({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() })}
+          onClick={() =>
+            dispatch({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() })
+          }
           className="bg-green-500 text-white py-3 rounded-lg font-medium w-full"
         >
           No Objection - Pass
         </button>
         {state.currentMotion?.vote !== 'none' && (
           <button
-            onClick={() => dispatch({
-              type: 'OPEN_VOTING',
-              voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
-              timestamp: generateTimestamp()
-            })}
+            onClick={() =>
+              dispatch({
+                type: 'OPEN_VOTING',
+                voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
+                timestamp: generateTimestamp(),
+              })
+            }
             className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
           >
             Proceed to Vote

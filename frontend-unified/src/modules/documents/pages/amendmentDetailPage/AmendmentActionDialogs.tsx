@@ -1,31 +1,31 @@
-import ConfirmDialog from '../../../../components/ui/ConfirmDialog'
-import { AmendmentChange } from '../../../../api/client'
+import ConfirmDialog from '../../../../components/ui/ConfirmDialog';
+import { AmendmentChange } from '../../../../api/client';
 
 interface AmendmentActionDialogsProps {
   // Delete change
-  deleteChangeDialogOpen: boolean
-  deletingChange: AmendmentChange | null
-  deletingChangeLoading: boolean
-  onDeleteChangeClose: () => void
-  onDeleteChangeConfirm: () => void
+  deleteChangeDialogOpen: boolean;
+  deletingChange: AmendmentChange | null;
+  deletingChangeLoading: boolean;
+  onDeleteChangeClose: () => void;
+  onDeleteChangeConfirm: () => void;
 
   // Status actions
-  proposeDialogOpen: boolean
-  withdrawDialogOpen: boolean
-  passDialogOpen: boolean
-  failDialogOpen: boolean
-  applyDialogOpen: boolean
-  actionLoading: boolean
-  onProposeClose: () => void
-  onProposeConfirm: () => void
-  onWithdrawClose: () => void
-  onWithdrawConfirm: () => void
-  onPassClose: () => void
-  onPassConfirm: () => void
-  onFailClose: () => void
-  onFailConfirm: () => void
-  onApplyClose: () => void
-  onApplyConfirm: () => void
+  proposeDialogOpen: boolean;
+  withdrawDialogOpen: boolean;
+  passDialogOpen: boolean;
+  failDialogOpen: boolean;
+  applyDialogOpen: boolean;
+  actionLoading: boolean;
+  onProposeClose: () => void;
+  onProposeConfirm: () => void;
+  onWithdrawClose: () => void;
+  onWithdrawConfirm: () => void;
+  onPassClose: () => void;
+  onPassConfirm: () => void;
+  onFailClose: () => void;
+  onFailConfirm: () => void;
+  onApplyClose: () => void;
+  onApplyConfirm: () => void;
 }
 
 export function AmendmentActionDialogs({
@@ -116,5 +116,5 @@ export function AmendmentActionDialogs({
         loading={actionLoading}
       />
     </>
-  )
+  );
 }

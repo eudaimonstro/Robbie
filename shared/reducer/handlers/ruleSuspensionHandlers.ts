@@ -8,21 +8,27 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         suspendedRules: [...state.suspendedRules, typedAction.suspension],
-        meetingLog: log(typedAction.timestamp, `[RULE SUSPENDED] ${typedAction.suspension.rule}: ${typedAction.suspension.purpose}`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `[RULE SUSPENDED] ${typedAction.suspension.rule}: ${typedAction.suspension.purpose}`,
+        ),
       };
     }
 
     case 'RESTORE_RULE': {
       const typedAction = action as Extract<MeetingAction, { type: 'RESTORE_RULE' }>;
-      const suspension = state.suspendedRules.find(s => s.id === typedAction.suspensionId);
-      const updatedRules = state.suspendedRules.filter(s => s.id !== typedAction.suspensionId);
+      const suspension = state.suspendedRules.find((s) => s.id === typedAction.suspensionId);
+      const updatedRules = state.suspendedRules.filter((s) => s.id !== typedAction.suspensionId);
 
       return {
         ...state,
         suspendedRules: updatedRules,
         meetingLog: suspension
-          ? log(typedAction.timestamp, `[RULE RESTORED] ${suspension.rule} restored to normal enforcement`)
-          : state.meetingLog
+          ? log(
+              typedAction.timestamp,
+              `[RULE RESTORED] ${suspension.rule} restored to normal enforcement`,
+            )
+          : state.meetingLog,
       };
     }
 
@@ -32,13 +38,14 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
       if (!state.currentMotion) return state;
 
       const motionText = state.currentMotion.text;
-      const rulingText = typedAction.ruling === 'sustain'
-        ? `The point is well taken.`
-        : typedAction.ruling === 'overrule'
-        ? `The point is not well taken.`
-        : typedAction.ruling === 'allow'
-        ? `The request is granted.`
-        : `The request is denied.`;
+      const rulingText =
+        typedAction.ruling === 'sustain'
+          ? `The point is well taken.`
+          : typedAction.ruling === 'overrule'
+            ? `The point is not well taken.`
+            : typedAction.ruling === 'allow'
+              ? `The request is granted.`
+              : `The request is denied.`;
 
       const logMessage = `Chair ruled: ${rulingText}${typedAction.explanation ? ` - ${typedAction.explanation}` : ''} (Re: ${motionText})`;
 
@@ -46,7 +53,7 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
       const lastChairRuling = {
         ruling: rulingText,
         motionText,
-        timestamp: typedAction.timestamp
+        timestamp: typedAction.timestamp,
       };
 
       return {
@@ -54,7 +61,7 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
         currentMotion: null,
         motionStack: state.motionStack.slice(0, -1),
         lastChairRuling,
-        meetingLog: log(typedAction.timestamp, logMessage)
+        meetingLog: log(typedAction.timestamp, logMessage),
       };
     }
 

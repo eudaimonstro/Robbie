@@ -207,7 +207,9 @@ describe('meetingReducer', () => {
         meetingActive: true,
         currentMotion: motion,
         motionStack: [motion],
-        speakerQueue: [{ member: { id: 2, name: 'Carol', role: 'member', present: true }, stance: 'pro' }],
+        speakerQueue: [
+          { member: { id: 2, name: 'Carol', role: 'member', present: true }, stance: 'pro' },
+        ],
         debatePositions: { 2: 'pro' },
       };
 
@@ -396,9 +398,7 @@ describe('meetingReducer', () => {
         votingMethod: 'standard',
         currentMotion: createMockMotion(),
         motionStack: [createMockMotion()],
-        members: [
-          { id: 1, name: 'Alice', role: 'member', present: true },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'member', present: true }],
       };
 
       const state = meetingReducer(votingState, {
@@ -420,9 +420,7 @@ describe('meetingReducer', () => {
         votingMethod: 'rollcall',
         currentMotion: createMockMotion(),
         motionStack: [createMockMotion()],
-        members: [
-          { id: 1, name: 'Alice', role: 'member', present: true },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'member', present: true }],
         votes: { yea: 1, nay: 0, abstain: 0 },
         voters: [1],
         voterChoices: { 1: 'yea' },
@@ -485,7 +483,7 @@ describe('meetingReducer', () => {
 
       expect(state.votingOpen).toBe(false);
       expect(state.currentMotion).toBeNull();
-      expect(state.meetingLog.some(l => l.message.includes('CARRIED'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('CARRIED'))).toBe(true);
     });
 
     it('should close voting and determine result - motion fails', () => {
@@ -504,7 +502,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.votingOpen).toBe(false);
-      expect(state.meetingLog.some(l => l.message.includes('FAILED'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
     });
 
     it('should handle 2/3 vote requirement', () => {
@@ -522,7 +520,7 @@ describe('meetingReducer', () => {
         timestamp: '10:15:00',
       });
 
-      expect(state.meetingLog.some(l => l.message.includes('FAILED'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('FAILED'))).toBe(true);
     });
   });
 
@@ -893,7 +891,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.unanimousConsentPending).toBe(false);
-      expect(state.meetingLog.some(l => l.message.includes('objects'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('objects'))).toBe(true);
     });
   });
 
@@ -936,7 +934,7 @@ describe('meetingReducer', () => {
 
       expect(state.unanimousConsentPending).toBe(false);
       expect(state.currentMotion).toBeNull();
-      expect(state.meetingLog.some(l => l.message.includes('unanimous consent'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('unanimous consent'))).toBe(true);
     });
   });
 
@@ -959,7 +957,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentAgendaItem?.id).toBe(2);
-      expect(state.agenda.find(a => a.id === 2)?.status).toBe('active');
+      expect(state.agenda.find((a) => a.id === 2)?.status).toBe('active');
     });
   });
 
@@ -969,9 +967,7 @@ describe('meetingReducer', () => {
         ...initialState,
         meetingActive: true,
         agendaAdopted: true,
-        agenda: [
-          { id: 1, title: 'First Item', status: 'active' },
-        ],
+        agenda: [{ id: 1, title: 'First Item', status: 'active' }],
         currentAgendaItem: { id: 1, title: 'First Item', status: 'active' },
       };
 
@@ -982,7 +978,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentAgendaItem).toBeNull();
-      expect(state.agenda.find(a => a.id === 1)?.status).toBe('completed');
+      expect(state.agenda.find((a) => a.id === 1)?.status).toBe('completed');
     });
   });
 
@@ -1121,14 +1117,16 @@ describe('meetingReducer', () => {
     it('should mark report as presented', () => {
       const stateWithReport: MeetingState = {
         ...initialState,
-        committeeReports: [{
-          id: 1,
-          committee: 'Finance',
-          presenter: 'Jane Doe',
-          content: 'Report content',
-          recommendations: 'Some recommendations',
-          presented: false,
-        }],
+        committeeReports: [
+          {
+            id: 1,
+            committee: 'Finance',
+            presenter: 'Jane Doe',
+            content: 'Report content',
+            recommendations: 'Some recommendations',
+            presented: false,
+          },
+        ],
       };
 
       const state = meetingReducer(stateWithReport, {
@@ -1138,7 +1136,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.committeeReports[0].presented).toBe(true);
-      expect(state.meetingLog.some(l => l.message.includes('Finance'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('Finance'))).toBe(true);
     });
 
     it('should return unchanged state if report not found', () => {
@@ -1180,16 +1178,18 @@ describe('meetingReducer', () => {
     it('should remove rule suspension', () => {
       const stateWithSuspension: MeetingState = {
         ...initialState,
-        suspendedRules: [{
-          id: 1,
-          rule: 'debate-rules',
-          purpose: 'Speed up meeting',
-          specificAction: 'Limit debate',
-          scope: 'meeting-remainder',
-          suspendedAt: '10:20:00',
-          actionCompleted: false,
-          motionId: 5,
-        }],
+        suspendedRules: [
+          {
+            id: 1,
+            rule: 'debate-rules',
+            purpose: 'Speed up meeting',
+            specificAction: 'Limit debate',
+            scope: 'meeting-remainder',
+            suspendedAt: '10:20:00',
+            actionCompleted: false,
+            motionId: 5,
+          },
+        ],
       };
 
       const state = meetingReducer(stateWithSuspension, {
@@ -1199,7 +1199,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.suspendedRules).toHaveLength(0);
-      expect(state.meetingLog.some(l => l.message.includes('RULE RESTORED'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('RULE RESTORED'))).toBe(true);
     });
 
     it('should handle non-existent suspension ID', () => {
@@ -1255,16 +1255,18 @@ describe('meetingReducer', () => {
     it('should mark nomination as declined', () => {
       const stateWithNomination: MeetingState = {
         ...initialState,
-        nominations: [{
-          id: 1,
-          position: 'President',
-          nomineeName: 'John Smith',
-          nomineeId: 2,
-          nominatedBy: 'Jane Doe',
-          nominatorId: 1,
-          timestamp: '10:32:00',
-          declined: false,
-        }],
+        nominations: [
+          {
+            id: 1,
+            position: 'President',
+            nomineeName: 'John Smith',
+            nomineeId: 2,
+            nominatedBy: 'Jane Doe',
+            nominatorId: 1,
+            timestamp: '10:32:00',
+            declined: false,
+          },
+        ],
       };
 
       const state = meetingReducer(stateWithNomination, {
@@ -1311,9 +1313,36 @@ describe('meetingReducer', () => {
         nominationsOpen: false,
         currentNominationPosition: 'President',
         nominations: [
-          { id: 1, position: 'President', nomineeName: 'Alice', nomineeId: 1, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:32:00', declined: false },
-          { id: 2, position: 'President', nomineeName: 'Charlie', nomineeId: 3, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:33:00', declined: false },
-          { id: 3, position: 'President', nomineeName: 'Dave', nomineeId: 4, nominatedBy: 'Bob', nominatorId: 2, timestamp: '10:34:00', declined: true },
+          {
+            id: 1,
+            position: 'President',
+            nomineeName: 'Alice',
+            nomineeId: 1,
+            nominatedBy: 'Bob',
+            nominatorId: 2,
+            timestamp: '10:32:00',
+            declined: false,
+          },
+          {
+            id: 2,
+            position: 'President',
+            nomineeName: 'Charlie',
+            nomineeId: 3,
+            nominatedBy: 'Bob',
+            nominatorId: 2,
+            timestamp: '10:33:00',
+            declined: false,
+          },
+          {
+            id: 3,
+            position: 'President',
+            nomineeName: 'Dave',
+            nomineeId: 4,
+            nominatedBy: 'Bob',
+            nominatorId: 2,
+            timestamp: '10:34:00',
+            declined: true,
+          },
         ],
       };
 
@@ -1338,7 +1367,10 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'President',
-          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Charlie', id: 3 },
+          ],
           requiredVotes: 'majority',
           votingInProgress: true,
           ballotResults: { Alice: 0, Charlie: 0 },
@@ -1399,7 +1431,10 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'President',
-          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Charlie', id: 3 },
+          ],
           requiredVotes: 'majority',
           votingInProgress: true,
           ballotResults: { Alice: 6, Charlie: 4 },
@@ -1423,7 +1458,11 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'President',
-          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }, { name: 'Eve', id: 5 }],
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Charlie', id: 3 },
+            { name: 'Eve', id: 5 },
+          ],
           requiredVotes: 'majority',
           votingInProgress: true,
           ballotResults: { Alice: 4, Charlie: 3, Eve: 3 },
@@ -1469,7 +1508,10 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'President',
-          candidates: [{ name: 'Alice', id: 1 }, { name: 'Charlie', id: 3 }],
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Charlie', id: 3 },
+          ],
           requiredVotes: 'plurality',
           votingInProgress: true,
           ballotResults: { Alice: 4, Charlie: 3 },
@@ -1537,9 +1579,7 @@ describe('meetingReducer', () => {
     it('should allow declaring write-in candidate as winner', () => {
       const stateWithElection: MeetingState = {
         ...initialState,
-        members: [
-          { id: 10, name: 'Charlie', role: 'member', present: true },
-        ],
+        members: [{ id: 10, name: 'Charlie', role: 'member', present: true }],
         currentElection: {
           id: 1,
           position: 'Secretary',
@@ -1567,9 +1607,7 @@ describe('meetingReducer', () => {
     it('should use memberId 0 for unknown write-in candidates', () => {
       const stateWithElection: MeetingState = {
         ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'member', present: true },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'member', present: true }],
         currentElection: {
           id: 1,
           position: 'Treasurer',
@@ -1707,7 +1745,7 @@ describe('meetingReducer', () => {
       expect(state.currentElection?.votingInProgress).toBe(true);
       expect(state.currentElection?.isRunoff).toBe(true);
       expect(state.currentElection?.candidates).toHaveLength(2); // Only tied candidates
-      expect(state.currentElection?.candidates?.map(c => c.name)).toEqual(['Alice', 'Bob']);
+      expect(state.currentElection?.candidates?.map((c) => c.name)).toEqual(['Alice', 'Bob']);
     });
 
     it('should NOT trigger runoff when there is a clear majority winner', () => {
@@ -1782,7 +1820,7 @@ describe('meetingReducer', () => {
 
       expect(state.inquiries).toHaveLength(1);
       expect(state.inquiries[0].type).toBe('parliamentary');
-      expect(state.meetingLog.some(l => l.message.includes('Parliamentary Inquiry'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('Parliamentary Inquiry'))).toBe(true);
     });
 
     it('should add request for information', () => {
@@ -1798,7 +1836,9 @@ describe('meetingReducer', () => {
 
       expect(state.inquiries).toHaveLength(1);
       expect(state.inquiries[0].type).toBe('information');
-      expect(state.meetingLog.some(l => l.message.includes('Request for Information'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('Request for Information'))).toBe(
+        true,
+      );
     });
   });
 
@@ -1806,14 +1846,16 @@ describe('meetingReducer', () => {
     it('should record answer to inquiry', () => {
       const stateWithInquiry: MeetingState = {
         ...initialState,
-        inquiries: [{
-          id: 1,
-          type: 'parliamentary',
-          question: 'Is this in order?',
-          askedBy: 'John',
-          askerId: 1,
-          timestamp: '10:25:00',
-        }],
+        inquiries: [
+          {
+            id: 1,
+            type: 'parliamentary',
+            question: 'Is this in order?',
+            askedBy: 'John',
+            askerId: 1,
+            timestamp: '10:25:00',
+          },
+        ],
       };
 
       const state = meetingReducer(stateWithInquiry, {
@@ -1848,9 +1890,9 @@ describe('meetingReducer', () => {
         timestamp: '10:30:00',
       });
 
-      expect(state.members.find(m => m.id === 2)?.role).toBe('admin');
-      expect(state.meetingLog.some(l => l.message.includes('admin'))).toBe(true);
-      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+      expect(state.members.find((m) => m.id === 2)?.role).toBe('admin');
+      expect(state.meetingLog.some((l) => l.message.includes('admin'))).toBe(true);
+      expect(state.meetingLog.some((l) => l.message.includes('[ROLE CHANGE]'))).toBe(true);
     });
 
     it('should transfer chair role and demote previous chair', () => {
@@ -1872,10 +1914,12 @@ describe('meetingReducer', () => {
         timestamp: '10:30:00',
       });
 
-      expect(state.members.find(m => m.id === 2)?.role).toBe('chair');
-      expect(state.members.find(m => m.id === 1)?.role).toBe('member');
-      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
-      expect(state.meetingLog.some(l => l.message.includes('transferred chair to New Chair'))).toBe(true);
+      expect(state.members.find((m) => m.id === 2)?.role).toBe('chair');
+      expect(state.members.find((m) => m.id === 1)?.role).toBe('member');
+      expect(state.meetingLog.some((l) => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+      expect(
+        state.meetingLog.some((l) => l.message.includes('transferred chair to New Chair')),
+      ).toBe(true);
     });
 
     it('should demote admin to member', () => {
@@ -1896,16 +1940,14 @@ describe('meetingReducer', () => {
         timestamp: '10:30:00',
       });
 
-      expect(state.members.find(m => m.id === 2)?.role).toBe('member');
-      expect(state.meetingLog.some(l => l.message.includes('[ROLE CHANGE]'))).toBe(true);
+      expect(state.members.find((m) => m.id === 2)?.role).toBe('member');
+      expect(state.meetingLog.some((l) => l.message.includes('[ROLE CHANGE]'))).toBe(true);
     });
 
     it('should return state unchanged if target member not found', () => {
       const stateWithMembers: MeetingState = {
         ...initialState,
-        members: [
-          { id: 1, name: 'Chair Person', role: 'chair', present: true },
-        ],
+        members: [{ id: 1, name: 'Chair Person', role: 'chair', present: true }],
       };
 
       const state = meetingReducer(stateWithMembers, {
@@ -1948,15 +1990,11 @@ describe('meetingReducer', () => {
     it('should record response and update member presence', () => {
       const stateWithRollCall: MeetingState = {
         ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'chair', present: false },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'chair', present: false }],
         rollCall: {
           inProgress: true,
           startedAt: '10:00:00',
-          responses: [
-            { memberId: 1, memberName: 'Alice', status: 'not-responded' },
-          ],
+          responses: [{ memberId: 1, memberName: 'Alice', status: 'not-responded' }],
         },
       };
 
@@ -2009,9 +2047,7 @@ describe('meetingReducer', () => {
     it('should mark member as absent', () => {
       const stateWithMembers: MeetingState = {
         ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'member', present: true },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'member', present: true }],
       };
 
       const state = meetingReducer(stateWithMembers, {
@@ -2028,9 +2064,7 @@ describe('meetingReducer', () => {
     it('should mark member as excused absence', () => {
       const stateWithMembers: MeetingState = {
         ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'member', present: true },
-        ],
+        members: [{ id: 1, name: 'Alice', role: 'member', present: true }],
       };
 
       const state = meetingReducer(stateWithMembers, {

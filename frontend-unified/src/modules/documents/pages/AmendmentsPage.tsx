@@ -1,108 +1,111 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { GitBranch, Clock, ChevronRight, FileText } from 'lucide-react'
-import { useOrganization } from '../../../context/OrganizationContext'
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { GitBranch, Clock, ChevronRight, FileText } from 'lucide-react';
+import { useOrganization } from '../../../context/OrganizationContext';
 import {
   documents as documentsApi,
   amendments as amendmentsApi,
   Document,
   Amendment,
-} from '../../../api/client'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import EmptyState from '../../../components/ui/EmptyState'
-import { StatusBadge } from '../../../components/ui/Badge'
+} from '../../../api/client';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import EmptyState from '../../../components/ui/EmptyState';
+import { StatusBadge } from '../../../components/ui/Badge';
 
 export default function AmendmentsPage() {
-  const { documentId } = useParams<{ documentId: string }>()
-  const { currentOrganization } = useOrganization()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [amendments, setAmendments] = useState<Amendment[]>([])
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { documentId } = useParams<{ documentId: string }>();
+  const { currentOrganization } = useOrganization();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [amendments, setAmendments] = useState<Amendment[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     const fetchData = async () => {
       if (!currentOrganization) {
-        setLoading(false)
-        return
+        setLoading(false);
+        return;
       }
 
       try {
-        setLoading(true)
-        const docs = await documentsApi.list(currentOrganization.id)
-        setDocuments(docs)
+        setLoading(true);
+        const docs = await documentsApi.list(currentOrganization.id);
+        setDocuments(docs);
 
         // If documentId is provided, filter by that document
         if (documentId) {
-          const doc = docs.find(d => d.id === documentId)
+          const doc = docs.find((d) => d.id === documentId);
           if (doc) {
-            setSelectedDocument(doc)
-            const amends = await amendmentsApi.list(documentId)
-            setAmendments(amends)
+            setSelectedDocument(doc);
+            const amends = await amendmentsApi.list(documentId);
+            setAmendments(amends);
           }
         } else {
           // Fetch all amendments from all documents
-          const allAmendments: Amendment[] = []
+          const allAmendments: Amendment[] = [];
           for (const doc of docs) {
             try {
-              const amends = await amendmentsApi.list(doc.id)
-              allAmendments.push(...amends)
+              const amends = await amendmentsApi.list(doc.id);
+              allAmendments.push(...amends);
             } catch {
               // Ignore errors for individual documents
             }
           }
-          setAmendments(allAmendments.sort((a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          ))
+          setAmendments(
+            allAmendments.sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+            ),
+          );
         }
       } catch (err) {
-        console.error('Failed to load amendments:', err)
+        console.error('Failed to load amendments:', err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [currentOrganization, documentId])
+    fetchData();
+  }, [currentOrganization, documentId]);
 
   const handleDocumentChange = async (docId: string) => {
     if (docId === 'all') {
-      setSelectedDocument(null)
+      setSelectedDocument(null);
       // Reload all amendments
-      const allAmendments: Amendment[] = []
+      const allAmendments: Amendment[] = [];
       for (const doc of documents) {
         try {
-          const amends = await amendmentsApi.list(doc.id)
-          allAmendments.push(...amends)
+          const amends = await amendmentsApi.list(doc.id);
+          allAmendments.push(...amends);
         } catch {
           // Ignore
         }
       }
-      setAmendments(allAmendments.sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ))
+      setAmendments(
+        allAmendments.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      );
     } else {
-      const doc = documents.find(d => d.id === docId)
+      const doc = documents.find((d) => d.id === docId);
       if (doc) {
-        setSelectedDocument(doc)
-        const amends = await amendmentsApi.list(docId)
-        setAmendments(amends)
+        setSelectedDocument(doc);
+        const amends = await amendmentsApi.list(docId);
+        setAmendments(amends);
       }
     }
-  }
+  };
 
-  const filteredAmendments = statusFilter === 'all'
-    ? amendments
-    : amendments.filter(a => a.status === statusFilter)
+  const filteredAmendments =
+    statusFilter === 'all' ? amendments : amendments.filter((a) => a.status === statusFilter);
 
   const getDocumentTitle = (docId: string) => {
-    const doc = documents.find(d => d.id === docId)
-    return doc?.title || 'Unknown Document'
-  }
+    const doc = documents.find((d) => d.id === docId);
+    return doc?.title || 'Unknown Document';
+  };
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (!currentOrganization) {
@@ -112,7 +115,7 @@ export default function AmendmentsPage() {
         title="No organization selected"
         description="Select an organization to view amendments."
       />
-    )
+    );
   }
 
   return (
@@ -223,13 +226,9 @@ export default function AmendmentsPage() {
                       <Clock className="w-3 h-3" />
                       Created {new Date(amendment.created_at).toLocaleDateString()}
                     </span>
-                    <span>
-                      {amendment.changes?.length || 0} change(s)
-                    </span>
+                    <span>{amendment.changes?.length || 0} change(s)</span>
                     {amendment.proposed_at && (
-                      <span>
-                        Proposed {new Date(amendment.proposed_at).toLocaleDateString()}
-                      </span>
+                      <span>Proposed {new Date(amendment.proposed_at).toLocaleDateString()}</span>
                     )}
                   </div>
                 </div>
@@ -240,5 +239,5 @@ export default function AmendmentsPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

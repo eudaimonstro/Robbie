@@ -13,12 +13,14 @@ import {
   inquiryHandler,
   ruleSuspensionHandler,
   committeeHandler,
-  proxyHandler
+  proxyHandler,
 } from './handlers/index.js';
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
-  const log = (timestamp: string, msg: string): MeetingLogEntry[] =>
-    [...state.meetingLog, { time: timestamp, message: msg }];
+  const log = (timestamp: string, msg: string): MeetingLogEntry[] => [
+    ...state.meetingLog,
+    { time: timestamp, message: msg },
+  ];
 
   switch (action.type) {
     // Meeting lifecycle

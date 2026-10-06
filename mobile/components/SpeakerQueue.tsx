@@ -1,6 +1,11 @@
 import { useState, useCallback, memo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import type { MeetingState, Member, MeetingAction, DebateStance } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  Member,
+  MeetingAction,
+  DebateStance,
+} from '@robbie-bylawyer/shared/types';
 import { Card, Button } from './ui';
 import { colors, spacing, typography, borderRadius, stanceColors } from '../theme';
 
@@ -28,9 +33,7 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get user's position in queue
-  const queuePosition = state.speakerQueue.findIndex(
-    (s) => s.member.id === currentUser.id
-  );
+  const queuePosition = state.speakerQueue.findIndex((s) => s.member.id === currentUser.id);
 
   // Handle raise hand
   const handleRaiseHand = useCallback(async () => {
@@ -123,18 +126,14 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
       {state.recognizedSpeaker && (
         <View style={styles.currentSpeaker}>
           <Text style={styles.currentSpeakerLabel}>Now Speaking:</Text>
-          <Text style={styles.currentSpeakerName}>
-            {state.recognizedSpeaker.name}
-          </Text>
+          <Text style={styles.currentSpeakerName}>{state.recognizedSpeaker.name}</Text>
         </View>
       )}
 
       {/* Show queue preview */}
       {state.speakerQueue.length > 0 && (
         <View style={styles.queuePreview}>
-          <Text style={styles.queueTitle}>
-            Queue ({state.speakerQueue.length})
-          </Text>
+          <Text style={styles.queueTitle}>Queue ({state.speakerQueue.length})</Text>
           {state.speakerQueue.slice(0, 3).map((entry, index) => (
             <View
               key={entry.member.id}
@@ -145,10 +144,7 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
               <Text style={styles.queueName}>{entry.member.name}</Text>
               <View style={styles.stanceIndicatorRow}>
                 <View
-                  style={[
-                    styles.stanceDot,
-                    { backgroundColor: stanceColors[entry.stance] },
-                  ]}
+                  style={[styles.stanceDot, { backgroundColor: stanceColors[entry.stance] }]}
                   accessibilityElementsHidden
                 />
                 <Text style={styles.queueStanceText}>{STANCE_LABELS[entry.stance]}</Text>
@@ -156,9 +152,7 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
             </View>
           ))}
           {state.speakerQueue.length > 3 && (
-            <Text style={styles.queueMore}>
-              +{state.speakerQueue.length - 3} more
-            </Text>
+            <Text style={styles.queueMore}>+{state.speakerQueue.length - 3} more</Text>
           )}
         </View>
       )}
@@ -173,7 +167,12 @@ interface StanceButtonProps {
   onPress: () => void;
 }
 
-const StanceButton = memo(function StanceButton({ stance, label, isSelected, onPress }: StanceButtonProps) {
+const StanceButton = memo(function StanceButton({
+  stance,
+  label,
+  isSelected,
+  onPress,
+}: StanceButtonProps) {
   const color = stanceColors[stance];
 
   return (
@@ -187,13 +186,11 @@ const StanceButton = memo(function StanceButton({ stance, label, isSelected, onP
         isSelected && { borderColor: color, backgroundColor: `${color}10` },
       ]}
     >
-      <View style={[styles.stanceIndicator, { backgroundColor: color }]} accessibilityElementsHidden />
-      <Text
-        style={[
-          styles.stanceButtonText,
-          isSelected && { color, fontWeight: '600' },
-        ]}
-      >
+      <View
+        style={[styles.stanceIndicator, { backgroundColor: color }]}
+        accessibilityElementsHidden
+      />
+      <Text style={[styles.stanceButtonText, isSelected && { color, fontWeight: '600' }]}>
         {label}
       </Text>
     </Pressable>

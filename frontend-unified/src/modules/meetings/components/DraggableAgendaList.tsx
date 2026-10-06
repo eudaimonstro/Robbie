@@ -2,7 +2,12 @@ import React, { useState, useCallback, useRef } from 'react';
 import { X, CheckCircle, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import type { DraggableAgendaListProps } from '../types';
 
-export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = false }: DraggableAgendaListProps) {
+export function DraggableAgendaList({
+  agenda,
+  dispatch,
+  disabled,
+  showStatus = false,
+}: DraggableAgendaListProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -35,47 +40,53 @@ export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = f
     setDragOverIndex(null);
   };
 
-  const moveItem = useCallback((fromIndex: number, direction: 'up' | 'down') => {
-    if (disabled) return;
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
-    if (toIndex < 0 || toIndex >= agenda.length) return;
-    dispatch({ type: 'REORDER_AGENDA', fromIndex, toIndex });
-    setFocusedIndex(toIndex);
-  }, [disabled, agenda.length, dispatch]);
+  const moveItem = useCallback(
+    (fromIndex: number, direction: 'up' | 'down') => {
+      if (disabled) return;
+      const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+      if (toIndex < 0 || toIndex >= agenda.length) return;
+      dispatch({ type: 'REORDER_AGENDA', fromIndex, toIndex });
+      setFocusedIndex(toIndex);
+    },
+    [disabled, agenda.length, dispatch],
+  );
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, index: number) => {
-    if (disabled) return;
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, index: number) => {
+      if (disabled) return;
 
-    switch (e.key) {
-      case 'ArrowUp':
-        if (e.altKey || e.metaKey) {
-          e.preventDefault();
-          moveItem(index, 'up');
-        } else {
-          e.preventDefault();
-          const prevIndex = Math.max(0, index - 1);
-          setFocusedIndex(prevIndex);
-        }
-        break;
-      case 'ArrowDown':
-        if (e.altKey || e.metaKey) {
-          e.preventDefault();
-          moveItem(index, 'down');
-        } else {
-          e.preventDefault();
-          const nextIndex = Math.min(agenda.length - 1, index + 1);
-          setFocusedIndex(nextIndex);
-        }
-        break;
-      case 'Delete':
-      case 'Backspace':
-        if (e.altKey || e.metaKey) {
-          e.preventDefault();
-          dispatch({ type: 'REMOVE_AGENDA_ITEM', id: agenda[index].id });
-        }
-        break;
-    }
-  }, [disabled, agenda, moveItem, dispatch]);
+      switch (e.key) {
+        case 'ArrowUp':
+          if (e.altKey || e.metaKey) {
+            e.preventDefault();
+            moveItem(index, 'up');
+          } else {
+            e.preventDefault();
+            const prevIndex = Math.max(0, index - 1);
+            setFocusedIndex(prevIndex);
+          }
+          break;
+        case 'ArrowDown':
+          if (e.altKey || e.metaKey) {
+            e.preventDefault();
+            moveItem(index, 'down');
+          } else {
+            e.preventDefault();
+            const nextIndex = Math.min(agenda.length - 1, index + 1);
+            setFocusedIndex(nextIndex);
+          }
+          break;
+        case 'Delete':
+        case 'Backspace':
+          if (e.altKey || e.metaKey) {
+            e.preventDefault();
+            dispatch({ type: 'REMOVE_AGENDA_ITEM', id: agenda[index].id });
+          }
+          break;
+      }
+    },
+    [disabled, agenda, moveItem, dispatch],
+  );
 
   // Focus the item when focusedIndex changes
   React.useEffect(() => {
@@ -87,12 +98,7 @@ export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = f
   }, [focusedIndex]);
 
   return (
-    <ul
-      ref={listRef}
-      className="space-y-2"
-      role="list"
-      aria-label="Agenda items"
-    >
+    <ul ref={listRef} className="space-y-2" role="list" aria-label="Agenda items">
       {agenda.map((item, i) => (
         <li
           key={item.id}
@@ -108,13 +114,9 @@ export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = f
           aria-label={`${item.title}${showStatus ? `, ${item.status}` : ''}. Position ${i + 1} of ${agenda.length}`}
           className={`flex items-center justify-between p-3 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
             draggedIndex === i ? 'opacity-50 bg-gray-200' : 'bg-gray-50'
-          } ${
-            dragOverIndex === i && draggedIndex !== i ? 'border-t-2 border-indigo-500' : ''
-          } ${
+          } ${dragOverIndex === i && draggedIndex !== i ? 'border-t-2 border-indigo-500' : ''} ${
             !disabled ? 'cursor-grab' : ''
-          } ${
-            showStatus && item.status === 'completed' ? 'bg-green-50' : ''
-          } ${
+          } ${showStatus && item.status === 'completed' ? 'bg-green-50' : ''} ${
             showStatus && item.status === 'active' ? 'bg-indigo-50' : ''
           }`}
         >
@@ -143,9 +145,17 @@ export function DraggableAgendaList({ agenda, dispatch, disabled, showStatus = f
                 </button>
               </div>
             )}
-            {showStatus && item.status === 'completed' && <CheckCircle size={16} className="text-green-600" aria-hidden="true" />}
-            {showStatus && item.status === 'active' && <ChevronRight size={16} className="text-indigo-600" aria-hidden="true" />}
-            <span className={showStatus && item.status === 'completed' ? 'line-through text-gray-400' : ''}>
+            {showStatus && item.status === 'completed' && (
+              <CheckCircle size={16} className="text-green-600" aria-hidden="true" />
+            )}
+            {showStatus && item.status === 'active' && (
+              <ChevronRight size={16} className="text-indigo-600" aria-hidden="true" />
+            )}
+            <span
+              className={
+                showStatus && item.status === 'completed' ? 'line-through text-gray-400' : ''
+              }
+            >
               {i + 1}. {item.title}
             </span>
           </div>

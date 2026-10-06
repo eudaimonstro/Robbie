@@ -18,7 +18,11 @@ interface MeetingSchedulerProps {
 
 type Step = 'details' | 'agenda';
 
-export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeting }: MeetingSchedulerProps) {
+export function MeetingScheduler({
+  meetingCode: initialCode,
+  onBack,
+  onJoinMeeting,
+}: MeetingSchedulerProps) {
   const [step, setStep] = useState<Step>('details');
   const [meetingCode, setMeetingCode] = useState(initialCode || '');
   const [title, setTitle] = useState('');
@@ -81,7 +85,7 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
       const updated = await updatePacket(packet.id, {
         title: title || undefined,
         description: description || undefined,
-        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined
+        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
       });
       setPacket(updated);
     } catch (err) {
@@ -129,8 +133,12 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
           <div className="mb-6 bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-meeting-600 dark:text-meeting-400 font-medium">Meeting Code</p>
-                <p className="text-2xl font-mono font-bold text-meeting-800 dark:text-meeting-300">{meetingCode}</p>
+                <p className="text-sm text-meeting-600 dark:text-meeting-400 font-medium">
+                  Meeting Code
+                </p>
+                <p className="text-2xl font-mono font-bold text-meeting-800 dark:text-meeting-300">
+                  {meetingCode}
+                </p>
               </div>
               <button
                 onClick={handleCopyCode}
@@ -237,10 +245,7 @@ export function MeetingScheduler({ meetingCode: initialCode, onBack, onJoinMeeti
                     )}
                   </div>
 
-                  <PacketBuilder
-                    packet={packet}
-                    onPacketUpdate={setPacket}
-                  />
+                  <PacketBuilder packet={packet} onPacketUpdate={setPacket} />
 
                   <div className="flex gap-3 pt-6 mt-6 border-t border-secondary-200 dark:border-secondary-700">
                     <button

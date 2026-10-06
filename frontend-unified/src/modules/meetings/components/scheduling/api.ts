@@ -2,7 +2,13 @@
  * API functions for Meeting Packet and Scheduling
  */
 
-import type { MeetingPacket, AgendaItem, Attachment, Organization, BylawyerDocument } from './types';
+import type {
+  MeetingPacket,
+  AgendaItem,
+  Attachment,
+  Organization,
+  BylawyerDocument,
+} from './types';
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -22,12 +28,12 @@ export async function getOrCreatePacket(robbieCode: string): Promise<MeetingPack
  */
 export async function updatePacket(
   packetId: string,
-  data: { title?: string; description?: string; scheduledFor?: string }
+  data: { title?: string; description?: string; scheduledFor?: string },
 ): Promise<MeetingPacket> {
   const response = await fetch(`${API_BASE}/api/packets/${packetId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
   if (!response.ok) {
     throw new Error('Failed to update packet');
@@ -40,12 +46,12 @@ export async function updatePacket(
  */
 export async function createAgendaItem(
   packetId: string,
-  data: { title: string; description?: string; estimatedMinutes?: number; presenter?: string }
+  data: { title: string; description?: string; estimatedMinutes?: number; presenter?: string },
 ): Promise<AgendaItem> {
   const response = await fetch(`${API_BASE}/api/packets/${packetId}/agenda`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
   if (!response.ok) {
     throw new Error('Failed to create agenda item');
@@ -58,12 +64,12 @@ export async function createAgendaItem(
  */
 export async function updateAgendaItem(
   itemId: string,
-  data: { title?: string; description?: string; estimatedMinutes?: number; presenter?: string }
+  data: { title?: string; description?: string; estimatedMinutes?: number; presenter?: string },
 ): Promise<AgendaItem> {
   const response = await fetch(`${API_BASE}/api/agenda-items/${itemId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
   if (!response.ok) {
     throw new Error('Failed to update agenda item');
@@ -76,7 +82,7 @@ export async function updateAgendaItem(
  */
 export async function deleteAgendaItem(itemId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/agenda-items/${itemId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
   if (!response.ok) {
     throw new Error('Failed to delete agenda item');
@@ -90,7 +96,7 @@ export async function reorderAgendaItems(itemIds: string[]): Promise<void> {
   const response = await fetch(`${API_BASE}/api/agenda-items/reorder`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemIds })
+    body: JSON.stringify({ itemIds }),
   });
   if (!response.ok) {
     throw new Error('Failed to reorder agenda items');
@@ -104,7 +110,7 @@ export async function uploadAttachment(
   robbieCode: string,
   file: File,
   target: { packetId?: string; agendaItemId?: string },
-  metadata?: { displayName?: string; description?: string }
+  metadata?: { displayName?: string; description?: string },
 ): Promise<Attachment> {
   const params = new URLSearchParams();
   if (target.packetId) params.set('packetId', target.packetId);
@@ -117,9 +123,9 @@ export async function uploadAttachment(
     headers: {
       'Content-Type': file.type || 'application/octet-stream',
       'X-Filename': file.name,
-      'X-Robbie-Code': robbieCode
+      'X-Robbie-Code': robbieCode,
     },
-    body: file
+    body: file,
   });
   if (!response.ok) {
     const error = await response.json();
@@ -134,7 +140,7 @@ export async function uploadAttachment(
 export async function linkDocument(
   documentId: string,
   target: { packetId?: string; agendaItemId?: string },
-  metadata?: { displayName?: string; description?: string; versionId?: string }
+  metadata?: { displayName?: string; description?: string; versionId?: string },
 ): Promise<Attachment> {
   const response = await fetch(`${API_BASE}/api/attachments/link-document`, {
     method: 'POST',
@@ -142,8 +148,8 @@ export async function linkDocument(
     body: JSON.stringify({
       documentId,
       ...target,
-      ...metadata
-    })
+      ...metadata,
+    }),
   });
   if (!response.ok) {
     throw new Error('Failed to link document');
@@ -156,7 +162,7 @@ export async function linkDocument(
  */
 export async function deleteAttachment(attachmentId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/api/attachments/${attachmentId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
   if (!response.ok) {
     throw new Error('Failed to delete attachment');

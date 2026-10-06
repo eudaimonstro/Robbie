@@ -124,7 +124,9 @@ export function BottomSheet({
           sm:-translate-x-1/2 sm:-translate-y-1/2
           sm:rounded-2xl sm:max-w-lg sm:w-full
           sm:max-h-[85vh]
-        `.trim().replace(/\s+/g, ' ')}
+        `
+          .trim()
+          .replace(/\s+/g, ' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'bottom-sheet-title' : undefined}
@@ -160,9 +162,7 @@ export function BottomSheet({
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto p-4 pb-safe">
-          {children}
-        </div>
+        <div className="overflow-y-auto p-4 pb-safe">{children}</div>
       </div>
     </>
   );
@@ -186,7 +186,9 @@ export function BottomSheetFooter({ children, className = '' }: BottomSheetFoote
         p-4 pb-safe
         flex gap-3
         ${className}
-      `.trim().replace(/\s+/g, ' ')}
+      `
+        .trim()
+        .replace(/\s+/g, ' ')}
     >
       {children}
     </div>

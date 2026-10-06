@@ -6,14 +6,11 @@ import type { MeetingState, SuspendableRule, RuleSuspension } from '../types/ind
  * @param rule - The rule to check
  * @returns true if the rule is suspended and active
  */
-export function isRuleSuspended(
-  state: MeetingState,
-  rule: SuspendableRule
-): boolean {
+export function isRuleSuspended(state: MeetingState, rule: SuspendableRule): boolean {
   return state.suspendedRules.some(
-    suspension =>
+    (suspension) =>
       suspension.rule === rule &&
-      (suspension.scope === 'meeting-remainder' || !suspension.actionCompleted)
+      (suspension.scope === 'meeting-remainder' || !suspension.actionCompleted),
   );
 }
 
@@ -25,12 +22,12 @@ export function isRuleSuspended(
  */
 export function markSingleActionComplete(
   state: MeetingState,
-  rule: SuspendableRule
+  rule: SuspendableRule,
 ): RuleSuspension[] {
-  return state.suspendedRules.map(suspension =>
+  return state.suspendedRules.map((suspension) =>
     suspension.rule === rule && suspension.scope === 'single-action'
       ? { ...suspension, actionCompleted: true }
-      : suspension
+      : suspension,
   );
 }
 
@@ -50,7 +47,7 @@ export function getRuleName(rule: SuspendableRule): string {
     'motion-maker-priority': 'Motion Maker Priority',
     'mover-cannot-second': 'Mover Cannot Second Own Motion',
     'debate-rules': 'Debate Rules',
-    'order-of-business': 'Order of Business'
+    'order-of-business': 'Order of Business',
   };
   return names[rule];
 }
@@ -71,7 +68,7 @@ export function getRuleDescription(rule: SuspendableRule): string {
     'motion-maker-priority': 'Motion maker speaks first in debate',
     'mover-cannot-second': 'Member who made motion cannot second it',
     'debate-rules': 'Determines whether motion is debatable',
-    'order-of-business': 'Requires sequential progression through meeting stages'
+    'order-of-business': 'Requires sequential progression through meeting stages',
   };
   return descriptions[rule];
 }
@@ -83,8 +80,7 @@ export function getRuleDescription(rule: SuspendableRule): string {
  */
 export function getActiveSuspensions(state: MeetingState): RuleSuspension[] {
   return state.suspendedRules.filter(
-    suspension =>
-      suspension.scope === 'meeting-remainder' || !suspension.actionCompleted
+    (suspension) => suspension.scope === 'meeting-remainder' || !suspension.actionCompleted,
   );
 }
 
@@ -104,7 +100,7 @@ export function getRuleWarning(rule: SuspendableRule): string {
     'motion-maker-priority': 'Motion maker does not have priority to speak first',
     'mover-cannot-second': 'Motion maker may second their own motion',
     'debate-rules': 'Normal debate rules are suspended - proceed as directed',
-    'order-of-business': 'Business may be taken out of the standard order'
+    'order-of-business': 'Business may be taken out of the standard order',
   };
   return warnings[rule];
 }

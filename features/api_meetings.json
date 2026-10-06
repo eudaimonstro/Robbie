@@ -208,19 +208,13 @@
   {
     "category": "functional",
     "description": "Meeting created_at is set automatically",
-    "steps": [
-      "Step 1: Create meeting",
-      "Step 2: Verify created_at is set"
-    ],
+    "steps": ["Step 1: Create meeting", "Step 2: Verify created_at is set"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Vote recorded_at is set automatically",
-    "steps": [
-      "Step 1: Record vote",
-      "Step 2: Verify recorded_at is set"
-    ],
+    "steps": ["Step 1: Record vote", "Step 2: Verify recorded_at is set"],
     "passes": true
   },
   {
@@ -246,19 +240,13 @@
   {
     "category": "functional",
     "description": "Meeting status defaults to scheduled",
-    "steps": [
-      "Step 1: Create meeting",
-      "Step 2: Verify status is 'scheduled'"
-    ],
+    "steps": ["Step 1: Create meeting", "Step 2: Verify status is 'scheduled'"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Meeting type defaults to regular",
-    "steps": [
-      "Step 1: Create meeting without specifying type",
-      "Step 2: Verify type is 'regular'"
-    ],
+    "steps": ["Step 1: Create meeting without specifying type", "Step 2: Verify type is 'regular'"],
     "passes": true
   },
   {
@@ -284,28 +272,19 @@
   {
     "category": "functional",
     "description": "Vote yea_count defaults to 0",
-    "steps": [
-      "Step 1: Check vote schema",
-      "Step 2: Verify default value"
-    ],
+    "steps": ["Step 1: Check vote schema", "Step 2: Verify default value"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Vote nay_count defaults to 0",
-    "steps": [
-      "Step 1: Check vote schema",
-      "Step 2: Verify default value"
-    ],
+    "steps": ["Step 1: Check vote schema", "Step 2: Verify default value"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Vote abstain_count defaults to 0",
-    "steps": [
-      "Step 1: Check vote schema",
-      "Step 2: Verify default value"
-    ],
+    "steps": ["Step 1: Check vote schema", "Step 2: Verify default value"],
     "passes": true
   },
   {

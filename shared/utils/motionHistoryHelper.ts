@@ -27,7 +27,7 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
   const history: HistoricalMotion[] = [];
 
   // Add completed motions (passed/failed)
-  state.completedMotions.forEach(motion => {
+  state.completedMotions.forEach((motion) => {
     const voteCount = calculateVoteCount(motion.voterChoices);
     history.push({
       id: motion.id,
@@ -38,12 +38,12 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
       outcome: motion.passed ? 'passed' : 'failed',
       timestamp: motion.timestamp,
       voteCount,
-      voterChoices: motion.voterChoices
+      voterChoices: motion.voterChoices,
     });
   });
 
   // Add tabled motions
-  state.tabledMotions.forEach(motion => {
+  state.tabledMotions.forEach((motion) => {
     history.push({
       id: motion.id,
       type: motion.type,
@@ -51,12 +51,12 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
       text: motion.text,
       mover: motion.mover,
       outcome: 'tabled',
-      timestamp: '' // Would need to track when it was tabled
+      timestamp: '', // Would need to track when it was tabled
     });
   });
 
   // Add current pending motions (motion stack)
-  state.motionStack.forEach(motion => {
+  state.motionStack.forEach((motion) => {
     history.push({
       id: motion.id,
       type: motion.type,
@@ -64,7 +64,7 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
       text: motion.text,
       mover: motion.mover,
       outcome: 'pending',
-      timestamp: '' // In progress
+      timestamp: '', // In progress
     });
   });
 
@@ -83,9 +83,9 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
  */
 export function filterMotionHistory(
   history: HistoricalMotion[],
-  filters: MotionHistoryFilters
+  filters: MotionHistoryFilters,
 ): HistoricalMotion[] {
-  return history.filter(motion => {
+  return history.filter((motion) => {
     // Filter by outcome
     if (filters.outcome && filters.outcome !== 'all' && motion.outcome !== filters.outcome) {
       return false;
@@ -116,7 +116,7 @@ export function filterMotionHistory(
  */
 export function getMotionTypes(history: HistoricalMotion[]): string[] {
   const types = new Set<string>();
-  history.forEach(motion => types.add(motion.type));
+  history.forEach((motion) => types.add(motion.type));
   return Array.from(types).sort();
 }
 
@@ -132,19 +132,21 @@ export function getMotionHistoryStats(history: HistoricalMotion[]): {
 } {
   return {
     total: history.length,
-    passed: history.filter(m => m.outcome === 'passed').length,
-    failed: history.filter(m => m.outcome === 'failed').length,
-    tabled: history.filter(m => m.outcome === 'tabled').length,
-    pending: history.filter(m => m.outcome === 'pending').length
+    passed: history.filter((m) => m.outcome === 'passed').length,
+    failed: history.filter((m) => m.outcome === 'failed').length,
+    tabled: history.filter((m) => m.outcome === 'tabled').length,
+    pending: history.filter((m) => m.outcome === 'pending').length,
   };
 }
 
 /**
  * Calculate vote counts from voter choices
  */
-function calculateVoteCount(
-  voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>
-): { yea: number; nay: number; abstain: number } {
+function calculateVoteCount(voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>): {
+  yea: number;
+  nay: number;
+  abstain: number;
+} {
   const counts = { yea: 0, nay: 0, abstain: 0 };
   for (const vote of Object.values(voterChoices)) {
     counts[vote]++;

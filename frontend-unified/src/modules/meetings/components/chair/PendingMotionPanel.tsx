@@ -10,7 +10,7 @@ interface PendingMotionPanelProps {
 
 export const PendingMotionPanel = React.memo(function PendingMotionPanel({
   state,
-  dispatch
+  dispatch,
 }: PendingMotionPanelProps) {
   // Memoize objection alert data
   const recentObjection = useMemo(() => {
@@ -21,13 +21,20 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
     return null;
   }, [state.meetingLog]);
 
-  if (!state.currentMotion || state.votingOpen || state.pendingSecond || state.unanimousConsentPending) {
+  if (
+    !state.currentMotion ||
+    state.votingOpen ||
+    state.pendingSecond ||
+    state.unanimousConsentPending
+  ) {
     return null;
   }
 
   return (
     <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="pending-motion-heading">
-      <h3 id="pending-motion-heading" className="font-semibold mb-3 text-gray-800">Pending Motion</h3>
+      <h3 id="pending-motion-heading" className="font-semibold mb-3 text-gray-800">
+        Pending Motion
+      </h3>
 
       {/* Show objection alert if recent log entry indicates objection */}
       {recentObjection && (
@@ -66,7 +73,7 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
 // Sub-component for chair ruling controls
 function ChairRulingControls({
   state,
-  dispatch
+  dispatch,
 }: {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
@@ -78,23 +85,30 @@ function ChairRulingControls({
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-3">
         <p className="text-blue-800 font-medium mb-2">⚖️ Chair Ruling Required</p>
         <p className="text-blue-700 text-sm">
-          {state.currentMotion.type === 'pointOrder' && 'Rule on whether the point of order is valid.'}
-          {state.currentMotion.type === 'questionPrivilege' && 'Determine if this is a legitimate question of privilege.'}
+          {state.currentMotion.type === 'pointOrder' &&
+            'Rule on whether the point of order is valid.'}
+          {state.currentMotion.type === 'questionPrivilege' &&
+            'Determine if this is a legitimate question of privilege.'}
           {state.currentMotion.type === 'pointInfo' && 'Provide or allow response to the inquiry.'}
-          {state.currentMotion.type === 'withdrawMotion' && 'Allow or deny the request to withdraw.'}
+          {state.currentMotion.type === 'withdrawMotion' &&
+            'Allow or deny the request to withdraw.'}
         </p>
       </div>
 
       {state.currentMotion.type === 'pointOrder' && (
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'sustain', timestamp: generateTimestamp() })}
+            onClick={() =>
+              dispatch({ type: 'CHAIR_RULING', ruling: 'sustain', timestamp: generateTimestamp() })
+            }
             className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
           >
             Sustain Point
           </button>
           <button
-            onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'overrule', timestamp: generateTimestamp() })}
+            onClick={() =>
+              dispatch({ type: 'CHAIR_RULING', ruling: 'overrule', timestamp: generateTimestamp() })
+            }
             className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
           >
             Overrule Point
@@ -102,16 +116,21 @@ function ChairRulingControls({
         </div>
       )}
 
-      {(state.currentMotion.type === 'questionPrivilege' || state.currentMotion.type === 'withdrawMotion') && (
+      {(state.currentMotion.type === 'questionPrivilege' ||
+        state.currentMotion.type === 'withdrawMotion') && (
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })}
+            onClick={() =>
+              dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
+            }
             className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
           >
             Allow Request
           </button>
           <button
-            onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'deny', timestamp: generateTimestamp() })}
+            onClick={() =>
+              dispatch({ type: 'CHAIR_RULING', ruling: 'deny', timestamp: generateTimestamp() })
+            }
             className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
           >
             Deny Request
@@ -121,7 +140,9 @@ function ChairRulingControls({
 
       {state.currentMotion.type === 'pointInfo' && (
         <button
-          onClick={() => dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })}
+          onClick={() =>
+            dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
+          }
           className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
         >
           Acknowledge & Respond
@@ -134,7 +155,7 @@ function ChairRulingControls({
 // Sub-component for voting method controls
 function VotingMethodControls({
   state,
-  dispatch
+  dispatch,
 }: {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
@@ -145,7 +166,9 @@ function VotingMethodControls({
         <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
         <select
           value={state.votingMethod}
-          onChange={(e) => dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })}
+          onChange={(e) =>
+            dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })
+          }
           className="w-full p-2 border rounded-lg mb-3 bg-white"
         >
           <option value="standard">Standard Vote (Yea/Nay/Abstain)</option>
@@ -155,13 +178,21 @@ function VotingMethodControls({
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button
-          onClick={() => dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })}
+          onClick={() =>
+            dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })
+          }
           className="bg-green-500 text-white py-3 rounded-lg font-medium"
         >
           Ask for Consent
         </button>
         <button
-          onClick={() => dispatch({ type: 'OPEN_VOTING', voteTimerEnd: calculateTimerEnd(state.voteTimeLimit), timestamp: generateTimestamp() })}
+          onClick={() =>
+            dispatch({
+              type: 'OPEN_VOTING',
+              voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
+              timestamp: generateTimestamp(),
+            })
+          }
           className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
         >
           Call the Question

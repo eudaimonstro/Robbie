@@ -9,20 +9,16 @@ interface QuorumOptions {
 /**
  * Custom hook to compute quorum status for the meeting
  */
-export function useQuorumStatus(
-  members: Member[],
-  quorum: number,
-  options?: QuorumOptions
-) {
+export function useQuorumStatus(members: Member[], quorum: number, options?: QuorumOptions) {
   return useMemo(() => {
-    const presentCount = members.filter(m => m.present).length;
+    const presentCount = members.filter((m) => m.present).length;
 
     // Count absent members who have granted proxies to present members
     let proxyCount = 0;
     if (options?.proxiesCountForQuorum && options?.proxies) {
-      const presentMemberIds = new Set(members.filter(m => m.present).map(m => m.id));
-      proxyCount = options.proxies.filter(p =>
-        presentMemberIds.has(p.grantedTo) && !presentMemberIds.has(p.grantedBy)
+      const presentMemberIds = new Set(members.filter((m) => m.present).map((m) => m.id));
+      proxyCount = options.proxies.filter(
+        (p) => presentMemberIds.has(p.grantedTo) && !presentMemberIds.has(p.grantedBy),
       ).length;
     }
 
@@ -34,7 +30,7 @@ export function useQuorumStatus(
       effectiveCount,
       totalMembers: members.length,
       hasQuorum,
-      proxyCount
+      proxyCount,
     };
   }, [members, quorum, options?.proxiesCountForQuorum, options?.proxies]);
 }

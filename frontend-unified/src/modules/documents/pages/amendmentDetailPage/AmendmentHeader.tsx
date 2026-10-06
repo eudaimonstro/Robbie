@@ -1,20 +1,18 @@
-import { Link } from 'react-router-dom'
-import {
-  ChevronRight, Edit2, Send, XCircle, CheckCircle, RotateCcw
-} from 'lucide-react'
-import { Amendment, Document } from '../../../../api/client'
-import { StatusBadge } from '../../../../components/ui/Badge'
+import { Link } from 'react-router-dom';
+import { ChevronRight, Edit2, Send, XCircle, CheckCircle, RotateCcw } from 'lucide-react';
+import { Amendment, Document } from '../../../../api/client';
+import { StatusBadge } from '../../../../components/ui/Badge';
 
 interface AmendmentHeaderProps {
-  amendment: Amendment
-  document: Document
-  organizationName?: string
-  onEdit: () => void
-  onPropose: () => void
-  onWithdraw: () => void
-  onPass: () => void
-  onFail: () => void
-  onApply: () => void
+  amendment: Amendment;
+  document: Document;
+  organizationName?: string;
+  onEdit: () => void;
+  onPropose: () => void;
+  onWithdraw: () => void;
+  onPass: () => void;
+  onFail: () => void;
+  onApply: () => void;
 }
 
 export function AmendmentHeader({
@@ -28,14 +26,14 @@ export function AmendmentHeader({
   onFail,
   onApply,
 }: AmendmentHeaderProps) {
-  const isDraft = amendment.status === 'draft'
-  const isProposed = amendment.status === 'proposed'
-  const isPassed = amendment.status === 'passed'
-  const canEdit = isDraft
-  const canPropose = isDraft && (amendment.changes?.length ?? 0) > 0
-  const canWithdraw = isDraft || isProposed
-  const canVote = isProposed
-  const canApply = isPassed && !amendment.resulting_version_id
+  const isDraft = amendment.status === 'draft';
+  const isProposed = amendment.status === 'proposed';
+  const isPassed = amendment.status === 'passed';
+  const canEdit = isDraft;
+  const canPropose = isDraft && (amendment.changes?.length ?? 0) > 0;
+  const canWithdraw = isDraft || isProposed;
+  const canVote = isProposed;
+  const canApply = isPassed && !amendment.resulting_version_id;
 
   return (
     <div className="mb-6">
@@ -97,5 +95,5 @@ export function AmendmentHeader({
         </div>
       </div>
     </div>
-  )
+  );
 }

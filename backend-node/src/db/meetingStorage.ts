@@ -84,7 +84,7 @@ export interface MeetingRecord {
   code: string;
   state: MeetingState;
   stateVersion: number;
-  bylawyerOrgId?: string;  // UUID of linked Bylawyer organization
+  bylawyerOrgId?: string; // UUID of linked Bylawyer organization
 }
 
 /** Result of state update with optimistic locking */
@@ -105,14 +105,31 @@ export interface StorageProvider {
    * @param newVersion - New version to set (typically expectedVersion + 1)
    * @returns Success or failure with conflict/not-found error
    */
-  updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult>;
+  updateMeetingState(
+    code: string,
+    state: MeetingState,
+    expectedVersion: number,
+    newVersion: number,
+  ): Promise<UpdateResult>;
   getMeeting(code: string): Promise<MeetingRecord | null>;
-  getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null>;
-  setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void>;
+  getParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+  ): Promise<'member' | 'chair' | 'admin' | null>;
+  setParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+    role: 'member' | 'chair' | 'admin',
+  ): Promise<void>;
   /**
    * Log an action for audit trail (optional - implemented in PostgreSQL mode)
    */
-  logAction?(meetingCode: string, actionType: string, payload: unknown, userId?: number): Promise<void>;
+  logAction?(
+    meetingCode: string,
+    actionType: string,
+    payload: unknown,
+    userId?: number,
+  ): Promise<void>;
   /**
    * Link a meeting to a Bylawyer organization
    */
@@ -151,7 +168,7 @@ class InMemoryStorage implements StorageProvider {
         id: this.nextMeetingId++,
         code,
         state: { ...initialState, meetingCode: code },
-        stateVersion: 1
+        stateVersion: 1,
       };
       this.meetings.set(code, meeting);
       logger.info({ code }, 'Created new meeting');
@@ -159,7 +176,12 @@ class InMemoryStorage implements StorageProvider {
     return meeting;
   }
 
-  async updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult> {
+  async updateMeetingState(
+    code: string,
+    state: MeetingState,
+    expectedVersion: number,
+    newVersion: number,
+  ): Promise<UpdateResult> {
     const meeting = this.meetings.get(code);
     if (!meeting) {
       return { success: false, error: 'NOT_FOUND' };
@@ -177,12 +199,19 @@ class InMemoryStorage implements StorageProvider {
     return this.meetings.get(code) || null;
   }
 
-  async getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null> {
+  async getParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+  ): Promise<'member' | 'chair' | 'admin' | null> {
     const key = `${meetingCode}:${odUserId}`;
     return this.participantRoles.get(key) || null;
   }
 
-  async setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void> {
+  async setParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+    role: 'member' | 'chair' | 'admin',
+  ): Promise<void> {
     const key = `${meetingCode}:${odUserId}`;
     this.participantRoles.set(key, role);
   }
@@ -239,7 +268,7 @@ class PostgresStorage implements StorageProvider {
        VALUES ($1, $2, 1)
        ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
        RETURNING id, code, current_state, state_version`,
-      [code, JSON.stringify(newState)]
+      [code, JSON.stringify(newState)],
     );
 
     logger.info({ code }, 'Created new meeting');
@@ -247,16 +276,21 @@ class PostgresStorage implements StorageProvider {
       id: result.rows[0].id,
       code: result.rows[0].code,
       state: result.rows[0].current_state,
-      stateVersion: result.rows[0].state_version
+      stateVersion: result.rows[0].state_version,
     };
   }
 
-  async updateMeetingState(code: string, state: MeetingState, expectedVersion: number, newVersion: number): Promise<UpdateResult> {
+  async updateMeetingState(
+    code: string,
+    state: MeetingState,
+    expectedVersion: number,
+    newVersion: number,
+  ): Promise<UpdateResult> {
     // Optimistic locking: only update if version matches
     const result = await pool.query(
       `UPDATE meetings SET current_state = $1, state_version = $2
        WHERE code = $3 AND state_version = $4`,
-      [JSON.stringify(state), newVersion, code, expectedVersion]
+      [JSON.stringify(state), newVersion, code, expectedVersion],
     );
 
     if (result.rowCount === 0) {
@@ -273,7 +307,7 @@ class PostgresStorage implements StorageProvider {
   async getMeeting(code: string): Promise<MeetingRecord | null> {
     const result = await pool.query(
       `SELECT id, code, current_state, state_version, bylawyer_org_id FROM meetings WHERE code = $1`,
-      [code]
+      [code],
     );
 
     if (result.rows.length === 0) {
@@ -285,17 +319,24 @@ class PostgresStorage implements StorageProvider {
       code: result.rows[0].code,
       state: result.rows[0].current_state,
       stateVersion: result.rows[0].state_version,
-      bylawyerOrgId: result.rows[0].bylawyer_org_id || undefined
+      bylawyerOrgId: result.rows[0].bylawyer_org_id || undefined,
     };
   }
 
-  async getParticipantRole(meetingCode: string, odUserId: string): Promise<'member' | 'chair' | 'admin' | null> {
+  async getParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+  ): Promise<'member' | 'chair' | 'admin' | null> {
     // Use in-memory storage for roles (users table not populated yet)
     const key = `${meetingCode}:${odUserId}`;
     return this.participantRoles.get(key) || null;
   }
 
-  async setParticipantRole(meetingCode: string, odUserId: string, role: 'member' | 'chair' | 'admin'): Promise<void> {
+  async setParticipantRole(
+    meetingCode: string,
+    odUserId: string,
+    role: 'member' | 'chair' | 'admin',
+  ): Promise<void> {
     // Use in-memory storage for roles (users table not populated yet)
     const key = `${meetingCode}:${odUserId}`;
     this.participantRoles.set(key, role);
@@ -307,13 +348,17 @@ class PostgresStorage implements StorageProvider {
     logger.info('PostgreSQL connections closed');
   }
 
-  async logAction(meetingCode: string, actionType: string, payload: unknown, userId?: number): Promise<void> {
+  async logAction(
+    meetingCode: string,
+    actionType: string,
+    payload: unknown,
+    userId?: number,
+  ): Promise<void> {
     try {
       // Get meeting ID
-      const meetingResult = await pool.query(
-        'SELECT id FROM meetings WHERE code = $1',
-        [meetingCode]
-      );
+      const meetingResult = await pool.query('SELECT id FROM meetings WHERE code = $1', [
+        meetingCode,
+      ]);
 
       if (meetingResult.rows.length === 0) {
         logger.warn({ meetingCode }, 'Cannot log action: meeting not found');
@@ -325,7 +370,7 @@ class PostgresStorage implements StorageProvider {
       // Get next sequence number
       const seqResult = await pool.query(
         'SELECT COALESCE(MAX(sequence_number), 0) + 1 as next_seq FROM meeting_actions WHERE meeting_id = $1',
-        [meetingId]
+        [meetingId],
       );
       const sequenceNumber = seqResult.rows[0].next_seq;
 
@@ -333,7 +378,7 @@ class PostgresStorage implements StorageProvider {
       await pool.query(
         `INSERT INTO meeting_actions (meeting_id, action_type, action_payload, user_id, sequence_number)
          VALUES ($1, $2, $3, $4, $5)`,
-        [meetingId, actionType, JSON.stringify(payload), userId || null, sequenceNumber]
+        [meetingId, actionType, JSON.stringify(payload), userId || null, sequenceNumber],
       );
     } catch (error) {
       // Log but don't fail - action logging is non-critical
@@ -342,26 +387,24 @@ class PostgresStorage implements StorageProvider {
   }
 
   async linkToBylawyerOrg(meetingCode: string, orgId: string): Promise<boolean> {
-    const result = await pool.query(
-      `UPDATE meetings SET bylawyer_org_id = $1 WHERE code = $2`,
-      [orgId, meetingCode]
-    );
+    const result = await pool.query(`UPDATE meetings SET bylawyer_org_id = $1 WHERE code = $2`, [
+      orgId,
+      meetingCode,
+    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
   async unlinkFromBylawyerOrg(meetingCode: string): Promise<boolean> {
-    const result = await pool.query(
-      `UPDATE meetings SET bylawyer_org_id = NULL WHERE code = $1`,
-      [meetingCode]
-    );
+    const result = await pool.query(`UPDATE meetings SET bylawyer_org_id = NULL WHERE code = $1`, [
+      meetingCode,
+    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
   async getBylawyerOrgId(meetingCode: string): Promise<string | null> {
-    const result = await pool.query(
-      `SELECT bylawyer_org_id FROM meetings WHERE code = $1`,
-      [meetingCode]
-    );
+    const result = await pool.query(`SELECT bylawyer_org_id FROM meetings WHERE code = $1`, [
+      meetingCode,
+    ]);
     if (result.rows.length === 0) return null;
     return result.rows[0].bylawyer_org_id;
   }

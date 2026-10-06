@@ -46,8 +46,8 @@ export function NoOrgLinkedState({ onCancel }: CancelButtonProps) {
           <span className="font-medium">No Organization Linked</span>
         </div>
         <p className="text-accent-600 dark:text-accent-500 text-sm">
-          This meeting must be linked to a Bylawyer organization to propose bylaw amendments.
-          Ask the meeting administrator to link this meeting in the Admin panel.
+          This meeting must be linked to a Bylawyer organization to propose bylaw amendments. Ask
+          the meeting administrator to link this meeting in the Admin panel.
         </p>
       </div>
       <CancelButton onCancel={onCancel} />
@@ -64,8 +64,8 @@ export function NoDocumentsState({ orgName, onCancel }: { orgName: string } & Ca
           <span className="font-medium">No Documents Found</span>
         </div>
         <p className="text-accent-600 dark:text-accent-500 text-sm">
-          The linked organization "{orgName}" has no bylaw documents.
-          Create a document in Bylawyer first.
+          The linked organization "{orgName}" has no bylaw documents. Create a document in Bylawyer
+          first.
         </p>
       </div>
       <CancelButton onCancel={onCancel} />
@@ -77,7 +77,9 @@ export function LoadingSections() {
   return (
     <div className="flex items-center justify-center py-4">
       <Loader2 className="animate-spin text-secondary-400 dark:text-secondary-500" size={20} />
-      <span className="ml-2 text-secondary-500 dark:text-secondary-400 text-sm">Loading sections...</span>
+      <span className="ml-2 text-secondary-500 dark:text-secondary-400 text-sm">
+        Loading sections...
+      </span>
     </div>
   );
 }

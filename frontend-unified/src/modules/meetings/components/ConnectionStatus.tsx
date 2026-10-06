@@ -12,14 +12,18 @@ export function ConnectionStatus() {
           <>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success-100 dark:bg-success-900/30">
               <Wifi size={14} className="text-success-600 dark:text-success-400" />
-              <span className="text-xs text-success-700 dark:text-success-400 font-medium">Connected</span>
+              <span className="text-xs text-success-700 dark:text-success-400 font-medium">
+                Connected
+              </span>
             </div>
           </>
         ) : (
           <>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-danger-100 dark:bg-danger-900/30">
               <WifiOff size={14} className="text-danger-600 dark:text-danger-400" />
-              <span className="text-xs text-danger-700 dark:text-danger-400 font-medium">Disconnected</span>
+              <span className="text-xs text-danger-700 dark:text-danger-400 font-medium">
+                Disconnected
+              </span>
             </div>
             <button
               onClick={reconnect}

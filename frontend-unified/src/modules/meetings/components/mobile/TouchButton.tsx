@@ -13,7 +13,8 @@ interface TouchButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<TouchButtonVariant, string> = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus:ring-indigo-500',
+  primary:
+    'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 focus:ring-indigo-500',
   secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 focus:ring-gray-400',
   success: 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800 focus:ring-green-500',
   danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500',
@@ -44,7 +45,7 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
       disabled,
       ...props
     },
-    ref
+    ref,
   ) => {
     const baseStyles = `
       inline-flex items-center justify-center gap-2
@@ -54,7 +55,9 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
       active:scale-[0.98]
       disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
       touch-manipulation
-    `.trim().replace(/\s+/g, ' ');
+    `
+      .trim()
+      .replace(/\s+/g, ' ');
 
     return (
       <button
@@ -65,7 +68,9 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
           ${sizeStyles[size]}
           ${fullWidth ? 'w-full' : ''}
           ${className}
-        `.trim().replace(/\s+/g, ' ')}
+        `
+          .trim()
+          .replace(/\s+/g, ' ')}
         disabled={disabled || loading}
         {...props}
       >
@@ -83,7 +88,7 @@ export const TouchButton = forwardRef<HTMLButtonElement, TouchButtonProps>(
         )}
       </button>
     );
-  }
+  },
 );
 
 TouchButton.displayName = 'TouchButton';
@@ -97,14 +102,7 @@ function LoadingSpinner() {
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"

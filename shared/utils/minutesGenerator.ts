@@ -3,7 +3,7 @@ import type {
   MeetingMinutes,
   AttendanceRecord,
   MinutesMotionRecord,
-  MinutesElectionRecord
+  MinutesElectionRecord,
 } from '../types/index.js';
 
 /**
@@ -14,24 +14,24 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
   const startTime = state.meetingLog[0]?.time ?? '';
 
   // Get meeting end time from last log entry if meeting is adjourned
-  const endTime = state.meetingStage === 'adjourned'
-    ? state.meetingLog[state.meetingLog.length - 1]?.time
-    : undefined;
+  const endTime =
+    state.meetingStage === 'adjourned'
+      ? state.meetingLog[state.meetingLog.length - 1]?.time
+      : undefined;
 
   // Find chair name
-  const chair = state.members.find(m => m.role === 'chair');
+  const chair = state.members.find((m) => m.role === 'chair');
   const chairName = chair?.name;
 
   // Build attendance records
-  const attendance: AttendanceRecord[] = state.members.map(member => {
+  const attendance: AttendanceRecord[] = state.members.map((member) => {
     // Look for arrival/departure in meeting log
-    const joinedLog = state.meetingLog.find(log =>
-      log.message.includes(`${member.name} has joined`) ||
-      log.message.includes(`${member.name} is now present`)
+    const joinedLog = state.meetingLog.find(
+      (log) =>
+        log.message.includes(`${member.name} has joined`) ||
+        log.message.includes(`${member.name} is now present`),
     );
-    const leftLog = state.meetingLog.find(log =>
-      log.message.includes(`${member.name} has left`)
-    );
+    const leftLog = state.meetingLog.find((log) => log.message.includes(`${member.name} has left`));
 
     let status: AttendanceRecord['status'] = member.present ? 'present' : 'absent';
 
@@ -51,22 +51,22 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
       role: member.role,
       status,
       arrivedAt: joinedLog?.time,
-      departedAt: leftLog?.time
+      departedAt: leftLog?.time,
     };
   });
 
   // Check quorum
-  const presentCount = state.members.filter(m => m.present).length;
+  const presentCount = state.members.filter((m) => m.present).length;
   const quorumPresent = presentCount >= state.quorum;
 
   // Build agenda items
-  const agendaItems = state.agenda.map(item => ({
+  const agendaItems = state.agenda.map((item) => ({
     title: item.title,
-    status: item.status
+    status: item.status,
   }));
 
   // Build motion records from completed motions
-  const motions: MinutesMotionRecord[] = state.completedMotions.map(motion => ({
+  const motions: MinutesMotionRecord[] = state.completedMotions.map((motion) => ({
     id: motion.id,
     type: motion.type,
     name: motion.name,
@@ -76,11 +76,11 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     outcome: motion.passed ? 'passed' : 'failed',
     voteCount: calculateVoteCount(motion.voterChoices),
     voterChoices: motion.voterChoices,
-    timestamp: motion.timestamp
+    timestamp: motion.timestamp,
   }));
 
   // Add tabled motions
-  state.tabledMotions.forEach(motion => {
+  state.tabledMotions.forEach((motion) => {
     motions.push({
       id: motion.id,
       type: motion.type,
@@ -89,18 +89,18 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
       mover: motion.mover,
       moverId: motion.moverId,
       outcome: 'tabled',
-      timestamp: '' // Would need timestamp from when it was tabled
+      timestamp: '', // Would need timestamp from when it was tabled
     });
   });
 
   // Build election records from elected officers
-  const elections: MinutesElectionRecord[] = state.electedOfficers.map(officer => ({
+  const elections: MinutesElectionRecord[] = state.electedOfficers.map((officer) => ({
     position: officer.position,
     candidates: [], // Would need to track this during election
     winner: officer.name,
     ballotResults: {},
     wasRunoff: false,
-    timestamp: officer.electedAt
+    timestamp: officer.electedAt,
   }));
 
   // Extract announcements from meeting log (messages during announcements stage)
@@ -128,16 +128,18 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     elections,
     electedOfficers: state.electedOfficers,
     announcements,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   };
 }
 
 /**
  * Calculate vote counts from voter choices
  */
-function calculateVoteCount(
-  voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>
-): { yea: number; nay: number; abstain: number } {
+function calculateVoteCount(voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>): {
+  yea: number;
+  nay: number;
+  abstain: number;
+} {
   const counts = { yea: 0, nay: 0, abstain: 0 };
   for (const vote of Object.values(voterChoices)) {
     counts[vote]++;
@@ -153,7 +155,9 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
 
   lines.push(`# Meeting Minutes`);
   lines.push(`**Meeting Code:** ${minutes.meetingCode}`);
-  lines.push(`**Date:** ${minutes.startTime ? new Date(minutes.startTime).toLocaleDateString() : 'N/A'}`);
+  lines.push(
+    `**Date:** ${minutes.startTime ? new Date(minutes.startTime).toLocaleDateString() : 'N/A'}`,
+  );
   if (minutes.chairName) {
     lines.push(`**Chair:** ${minutes.chairName}`);
   }
@@ -164,12 +168,12 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   lines.push(`**Quorum:** ${minutes.quorumPresent ? 'Present' : 'Not Present'}`);
   lines.push('');
 
-  const present = minutes.attendance.filter(a => a.status === 'present' || a.status === 'late');
-  const absent = minutes.attendance.filter(a => a.status === 'absent' || a.status === 'excused');
+  const present = minutes.attendance.filter((a) => a.status === 'present' || a.status === 'late');
+  const absent = minutes.attendance.filter((a) => a.status === 'absent' || a.status === 'excused');
 
   if (present.length > 0) {
     lines.push('**Present:**');
-    present.forEach(a => {
+    present.forEach((a) => {
       const note = a.status === 'late' ? ' (arrived late)' : '';
       lines.push(`- ${a.name}${a.role === 'chair' ? ' (Chair)' : ''}${note}`);
     });
@@ -178,7 +182,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
 
   if (absent.length > 0) {
     lines.push('**Absent:**');
-    absent.forEach(a => {
+    absent.forEach((a) => {
       const note = a.status === 'excused' ? ' (excused)' : '';
       lines.push(`- ${a.name}${note}`);
     });
@@ -198,7 +202,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   // Motions
   if (minutes.motions.length > 0) {
     lines.push('## Motions');
-    minutes.motions.forEach(motion => {
+    minutes.motions.forEach((motion) => {
       lines.push(`### ${motion.name}`);
       lines.push(`**Motion:** "${motion.text}"`);
       if (motion.mover) {
@@ -206,7 +210,9 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
       }
       lines.push(`**Outcome:** ${motion.outcome.toUpperCase()}`);
       if (motion.voteCount) {
-        lines.push(`**Vote:** Yea: ${motion.voteCount.yea}, Nay: ${motion.voteCount.nay}, Abstain: ${motion.voteCount.abstain}`);
+        lines.push(
+          `**Vote:** Yea: ${motion.voteCount.yea}, Nay: ${motion.voteCount.nay}, Abstain: ${motion.voteCount.abstain}`,
+        );
       }
       lines.push('');
     });
@@ -215,7 +221,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   // Elections
   if (minutes.elections.length > 0) {
     lines.push('## Elections');
-    minutes.elections.forEach(election => {
+    minutes.elections.forEach((election) => {
       lines.push(`### ${election.position}`);
       if (election.winner) {
         lines.push(`**Elected:** ${election.winner}`);
@@ -235,7 +241,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   // Elected Officers
   if (minutes.electedOfficers.length > 0) {
     lines.push('## Officers Elected');
-    minutes.electedOfficers.forEach(officer => {
+    minutes.electedOfficers.forEach((officer) => {
       lines.push(`- **${officer.position}:** ${officer.name}`);
     });
     lines.push('');
@@ -244,7 +250,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   // Announcements
   if (minutes.announcements.length > 0) {
     lines.push('## Announcements');
-    minutes.announcements.forEach(announcement => {
+    minutes.announcements.forEach((announcement) => {
       lines.push(`- ${announcement}`);
     });
     lines.push('');

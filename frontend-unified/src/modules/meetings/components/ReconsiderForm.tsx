@@ -8,22 +8,27 @@ interface ReconsiderFormProps {
   onCancel: () => void;
 }
 
-export function ReconsiderForm({ completedMotions, currentUserId, onSubmit, onCancel }: ReconsiderFormProps) {
+export function ReconsiderForm({
+  completedMotions,
+  currentUserId,
+  onSubmit,
+  onCancel,
+}: ReconsiderFormProps) {
   // Filter to motions user can reconsider
-  const reconsiderableMotions = completedMotions.filter(cm => {
+  const reconsiderableMotions = completedMotions.filter((cm) => {
     if (cm.reconsidered) return false;
     const userVote = cm.voterChoices[currentUserId];
     if (!userVote || userVote === 'abstain') return false;
-    const onPrevailingSide = cm.passed ? (userVote === 'yea') : (userVote === 'nay');
+    const onPrevailingSide = cm.passed ? userVote === 'yea' : userVote === 'nay';
     return onPrevailingSide;
   });
 
   const [selectedMotionId, setSelectedMotionId] = useState<number>(
-    reconsiderableMotions.length > 0 ? reconsiderableMotions[0].id : 0
+    reconsiderableMotions.length > 0 ? reconsiderableMotions[0].id : 0,
   );
 
   const handleSubmit = () => {
-    const motion = reconsiderableMotions.find(m => m.id === selectedMotionId);
+    const motion = reconsiderableMotions.find((m) => m.id === selectedMotionId);
     if (motion) {
       const text = `I move to reconsider the vote on "${motion.text}"`;
       onSubmit(text, selectedMotionId);

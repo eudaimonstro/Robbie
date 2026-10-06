@@ -1,57 +1,57 @@
-import { useRef, useEffect, useState } from 'react'
-import { Download, ChevronDown } from 'lucide-react'
-import { versions as versionsApi, Version } from '../../../../api/client'
-import { useToast } from '../../../../context/ToastContext'
+import { useRef, useEffect, useState } from 'react';
+import { Download, ChevronDown } from 'lucide-react';
+import { versions as versionsApi, Version } from '../../../../api/client';
+import { useToast } from '../../../../context/ToastContext';
 
 interface ExportDropdownProps {
-  selectedVersion: Version | null
+  selectedVersion: Version | null;
 }
 
 export function ExportDropdown({ selectedVersion }: ExportDropdownProps) {
-  const { showToast } = useToast()
-  const [open, setOpen] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const { showToast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false)
+        setOpen(false);
       }
-    }
+    };
 
     if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [open])
+  }, [open]);
 
   const handleExport = async (format: 'pdf' | 'markdown' | 'html') => {
-    if (!selectedVersion) return
+    if (!selectedVersion) return;
 
     try {
-      setExporting(true)
-      setOpen(false)
+      setExporting(true);
+      setOpen(false);
 
       switch (format) {
         case 'pdf':
-          await versionsApi.exportPdf(selectedVersion.id)
-          break
+          await versionsApi.exportPdf(selectedVersion.id);
+          break;
         case 'markdown':
-          await versionsApi.exportMarkdown(selectedVersion.id)
-          break
+          await versionsApi.exportMarkdown(selectedVersion.id);
+          break;
         case 'html':
-          await versionsApi.exportHtml(selectedVersion.id)
-          break
+          await versionsApi.exportHtml(selectedVersion.id);
+          break;
       }
 
-      showToast('success', `Exported as ${format.toUpperCase()}`)
+      showToast('success', `Exported as ${format.toUpperCase()}`);
     } catch (err) {
-      showToast('error', `Failed to export as ${format.toUpperCase()}`)
+      showToast('error', `Failed to export as ${format.toUpperCase()}`);
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -88,5 +88,5 @@ export function ExportDropdown({ selectedVersion }: ExportDropdownProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

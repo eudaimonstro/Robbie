@@ -1,12 +1,5 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TextInputProps,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
 import { colors, spacing, borderRadius, typography, touchTargets } from '../../theme';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -15,23 +8,14 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   containerStyle?: ViewStyle;
 }
 
-export function Input({
-  label,
-  error,
-  containerStyle,
-  ...props
-}: InputProps) {
+export function Input({ label, error, containerStyle, ...props }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[
-          styles.input,
-          isFocused && styles.inputFocused,
-          error && styles.inputError,
-        ]}
+        style={[styles.input, isFocused && styles.inputFocused, error && styles.inputError]}
         placeholderTextColor={colors.gray[400]}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}

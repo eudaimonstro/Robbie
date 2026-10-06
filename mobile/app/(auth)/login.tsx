@@ -62,10 +62,7 @@ export default function LoginScreen() {
       router.push('/(auth)/verify');
     } catch (err) {
       // Error is already set in context
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to send verification code'
-      );
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to send verification code');
     } finally {
       setIsLoading(false);
     }
@@ -83,9 +80,7 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <Text style={styles.title}>Join a Meeting</Text>
-            <Text style={styles.subtitle}>
-              Enter your details to join the meeting
-            </Text>
+            <Text style={styles.subtitle}>Enter your details to join the meeting</Text>
           </View>
 
           <Card style={styles.card}>
@@ -148,9 +143,7 @@ export default function LoginScreen() {
             />
           </Card>
 
-          <Text style={styles.footer}>
-            A 6-digit code will be sent to your email
-          </Text>
+          <Text style={styles.footer}>A 6-digit code will be sent to your email</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import type { CountdownTimerProps } from '../types';
 
-export const CountdownTimer = React.memo(function CountdownTimer({ endTime, label, onExpired }: CountdownTimerProps) {
+export const CountdownTimer = React.memo(function CountdownTimer({
+  endTime,
+  label,
+  onExpired,
+}: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const hasExpiredRef = useRef(false);
 
@@ -43,9 +47,11 @@ export const CountdownTimer = React.memo(function CountdownTimer({ endTime, labe
   return (
     <div
       className={`flex items-center gap-2 p-3 rounded-lg border-2 ${
-        isExpired ? 'bg-red-100 border-red-300 text-red-800' :
-        isWarning ? 'bg-amber-100 border-amber-300 text-amber-800' :
-        'bg-blue-50 border-blue-200 text-blue-700'
+        isExpired
+          ? 'bg-red-100 border-red-300 text-red-800'
+          : isWarning
+            ? 'bg-amber-100 border-amber-300 text-amber-800'
+            : 'bg-blue-50 border-blue-200 text-blue-700'
       }`}
       role="timer"
       aria-label={`${label}: ${timeDisplay} remaining${statusText ? `. ${statusText}` : ''}`}

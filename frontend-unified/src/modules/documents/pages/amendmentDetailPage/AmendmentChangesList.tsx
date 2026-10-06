@@ -1,13 +1,13 @@
-import { Plus, Trash2, AlertTriangle } from 'lucide-react'
-import { AmendmentChange, SectionTree } from '../../../../api/client'
-import { getSectionLabel } from './useAmendmentData'
+import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { AmendmentChange, SectionTree } from '../../../../api/client';
+import { getSectionLabel } from './useAmendmentData';
 
 interface AmendmentChangesListProps {
-  changes: AmendmentChange[]
-  sectionTree: SectionTree[]
-  canEdit: boolean
-  onAddChange: () => void
-  onDeleteChange: (change: AmendmentChange) => void
+  changes: AmendmentChange[];
+  sectionTree: SectionTree[];
+  canEdit: boolean;
+  onAddChange: () => void;
+  onDeleteChange: (change: AmendmentChange) => void;
 }
 
 const CHANGE_TYPE_LABELS: Record<string, string> = {
@@ -15,7 +15,7 @@ const CHANGE_TYPE_LABELS: Record<string, string> = {
   modify: 'Modify Section',
   delete: 'Delete Section',
   renumber: 'Renumber Section',
-}
+};
 
 export function AmendmentChangesList({
   changes,
@@ -61,11 +61,15 @@ export function AmendmentChangesList({
                     <span className="text-sm font-medium text-secondary-500">
                       Change {index + 1}:
                     </span>
-                    <span className={`badge ${
-                      change.change_type === 'add' ? 'badge-passed' :
-                      change.change_type === 'delete' ? 'badge-failed' :
-                      'badge-proposed'
-                    }`}>
+                    <span
+                      className={`badge ${
+                        change.change_type === 'add'
+                          ? 'badge-passed'
+                          : change.change_type === 'delete'
+                            ? 'badge-failed'
+                            : 'badge-proposed'
+                      }`}
+                    >
                       {CHANGE_TYPE_LABELS[change.change_type]}
                     </span>
                   </div>
@@ -79,11 +83,11 @@ export function AmendmentChangesList({
                   {(change.new_number_label || change.new_title) && (
                     <p className="text-sm mb-2">
                       {change.new_number_label && (
-                        <span className="font-medium text-primary-600">{change.new_number_label}</span>
+                        <span className="font-medium text-primary-600">
+                          {change.new_number_label}
+                        </span>
                       )}
-                      {change.new_title && (
-                        <span className="ml-2">{change.new_title}</span>
-                      )}
+                      {change.new_title && <span className="ml-2">{change.new_title}</span>}
                     </p>
                   )}
 
@@ -109,5 +113,5 @@ export function AmendmentChangesList({
         </div>
       )}
     </div>
-  )
+  );
 }

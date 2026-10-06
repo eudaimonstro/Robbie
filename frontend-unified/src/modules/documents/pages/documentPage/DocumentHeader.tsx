@@ -1,17 +1,17 @@
-import { Link } from 'react-router-dom'
-import { ChevronRight, Edit, GitCompare, Share2, Users } from 'lucide-react'
-import { Document, Version } from '../../../../api/client'
-import { DocumentTypeBadge } from '../../../../components/ui/Badge'
-import { ExportDropdown } from './ExportDropdown'
+import { Link } from 'react-router-dom';
+import { ChevronRight, Edit, GitCompare, Share2, Users } from 'lucide-react';
+import { Document, Version } from '../../../../api/client';
+import { DocumentTypeBadge } from '../../../../components/ui/Badge';
+import { ExportDropdown } from './ExportDropdown';
 
 interface DocumentHeaderProps {
-  doc: Document
-  versions: Version[]
-  selectedVersion: Version | null
-  organizationName?: string
-  onVersionChange: (versionId: string) => void
-  onProposeAmendment: () => void
-  onShare: () => void
+  doc: Document;
+  versions: Version[];
+  selectedVersion: Version | null;
+  organizationName?: string;
+  onVersionChange: (versionId: string) => void;
+  onProposeAmendment: () => void;
+  onShare: () => void;
 }
 
 export function DocumentHeader({
@@ -58,10 +58,7 @@ export function DocumentHeader({
 
         <ExportDropdown selectedVersion={selectedVersion} />
 
-        <Link
-          to={`/documents/${doc.id}/diff`}
-          className="btn-secondary btn-sm"
-        >
+        <Link to={`/documents/${doc.id}/diff`} className="btn-secondary btn-sm">
           <GitCompare className="w-4 h-4 mr-2" />
           Compare
         </Link>
@@ -82,5 +79,5 @@ export function DocumentHeader({
         </button>
       </div>
     </div>
-  )
+  );
 }

@@ -5,7 +5,7 @@ import {
   getRuleName,
   getRuleDescription,
   getActiveSuspensions,
-  getRuleWarning
+  getRuleWarning,
 } from '../../utils/index.js';
 import type { MeetingState, RuleSuspension } from '../../types/index.js';
 
@@ -62,90 +62,102 @@ describe('ruleSuspensionHelper', () => {
     });
 
     it('should return true for a suspended rule with meeting-remainder scope', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'debate-rules',
-        purpose: 'Emergency',
-        specificAction: 'Skip debate',
-        scope: 'meeting-remainder',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'debate-rules',
+          purpose: 'Emergency',
+          specificAction: 'Skip debate',
+          scope: 'meeting-remainder',
+          suspendedAt: '10:00:00',
+          actionCompleted: false,
+          motionId: 1,
+        },
+      ]);
       expect(isRuleSuspended(state, 'debate-rules')).toBe(true);
     });
 
     it('should return true for single-action suspension that is not completed', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'motion-precedence',
-        purpose: 'Allow out-of-order motion',
-        specificAction: 'Consider budget motion',
-        scope: 'single-action',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'motion-precedence',
+          purpose: 'Allow out-of-order motion',
+          specificAction: 'Consider budget motion',
+          scope: 'single-action',
+          suspendedAt: '10:00:00',
+          actionCompleted: false,
+          motionId: 1,
+        },
+      ]);
       expect(isRuleSuspended(state, 'motion-precedence')).toBe(true);
     });
 
     it('should return false for single-action suspension that is completed', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'motion-precedence',
-        purpose: 'Allow out-of-order motion',
-        specificAction: 'Consider budget motion',
-        scope: 'single-action',
-        suspendedAt: '10:00:00',
-        actionCompleted: true,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'motion-precedence',
+          purpose: 'Allow out-of-order motion',
+          specificAction: 'Consider budget motion',
+          scope: 'single-action',
+          suspendedAt: '10:00:00',
+          actionCompleted: true,
+          motionId: 1,
+        },
+      ]);
       expect(isRuleSuspended(state, 'motion-precedence')).toBe(false);
     });
 
     it('should return false for a different rule', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'debate-rules',
-        purpose: 'Emergency',
-        specificAction: 'Skip debate',
-        scope: 'meeting-remainder',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'debate-rules',
+          purpose: 'Emergency',
+          specificAction: 'Skip debate',
+          scope: 'meeting-remainder',
+          suspendedAt: '10:00:00',
+          actionCompleted: false,
+          motionId: 1,
+        },
+      ]);
       expect(isRuleSuspended(state, 'amendment-depth')).toBe(false);
     });
   });
 
   describe('markSingleActionComplete', () => {
     it('should mark the correct single-action suspension as completed', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'motion-precedence',
-        purpose: 'Test',
-        specificAction: 'Test action',
-        scope: 'single-action',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'motion-precedence',
+          purpose: 'Test',
+          specificAction: 'Test action',
+          scope: 'single-action',
+          suspendedAt: '10:00:00',
+          actionCompleted: false,
+          motionId: 1,
+        },
+      ]);
 
       const result = markSingleActionComplete(state, 'motion-precedence');
       expect(result[0].actionCompleted).toBe(true);
     });
 
     it('should not modify meeting-remainder suspensions', () => {
-      const state = createMockState([{
-        id: 1,
-        rule: 'debate-rules',
-        purpose: 'Test',
-        specificAction: 'Test action',
-        scope: 'meeting-remainder',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1
-      }]);
+      const state = createMockState([
+        {
+          id: 1,
+          rule: 'debate-rules',
+          purpose: 'Test',
+          specificAction: 'Test action',
+          scope: 'meeting-remainder',
+          suspendedAt: '10:00:00',
+          actionCompleted: false,
+          motionId: 1,
+        },
+      ]);
 
       const result = markSingleActionComplete(state, 'debate-rules');
       expect(result[0].actionCompleted).toBe(false);
@@ -161,7 +173,7 @@ describe('ruleSuspensionHelper', () => {
           scope: 'single-action',
           suspendedAt: '10:00:00',
           actionCompleted: false,
-          motionId: 1
+          motionId: 1,
         },
         {
           id: 2,
@@ -171,8 +183,8 @@ describe('ruleSuspensionHelper', () => {
           scope: 'single-action',
           suspendedAt: '10:00:00',
           actionCompleted: false,
-          motionId: 2
-        }
+          motionId: 2,
+        },
       ]);
 
       const result = markSingleActionComplete(state, 'motion-precedence');
@@ -199,7 +211,9 @@ describe('ruleSuspensionHelper', () => {
   describe('getRuleDescription', () => {
     it('should return descriptions for rules', () => {
       expect(getRuleDescription('debate-rules')).toBe('Determines whether motion is debatable');
-      expect(getRuleDescription('amendment-depth')).toBe('Limits amendments to 2 levels (primary + secondary)');
+      expect(getRuleDescription('amendment-depth')).toBe(
+        'Limits amendments to 2 levels (primary + secondary)',
+      );
     });
   });
 
@@ -218,7 +232,7 @@ describe('ruleSuspensionHelper', () => {
         scope: 'meeting-remainder',
         suspendedAt: '10:00:00',
         actionCompleted: false,
-        motionId: 1
+        motionId: 1,
       };
       const state = createMockState([suspension]);
       expect(getActiveSuspensions(state)).toHaveLength(1);
@@ -233,7 +247,7 @@ describe('ruleSuspensionHelper', () => {
         scope: 'single-action',
         suspendedAt: '10:00:00',
         actionCompleted: false,
-        motionId: 1
+        motionId: 1,
       };
       const state = createMockState([suspension]);
       expect(getActiveSuspensions(state)).toHaveLength(1);
@@ -248,7 +262,7 @@ describe('ruleSuspensionHelper', () => {
         scope: 'single-action',
         suspendedAt: '10:00:00',
         actionCompleted: true,
-        motionId: 1
+        motionId: 1,
       };
       const state = createMockState([suspension]);
       expect(getActiveSuspensions(state)).toHaveLength(0);

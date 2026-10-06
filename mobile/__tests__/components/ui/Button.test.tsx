@@ -26,9 +26,7 @@ describe('Button', () => {
 
   describe('variants', () => {
     it('applies primary variant styles by default', () => {
-      const { getByText } = render(
-        <Button title="Primary" onPress={mockOnPress} />
-      );
+      const { getByText } = render(<Button title="Primary" onPress={mockOnPress} />);
 
       const button = getByText('Primary');
       expect(button).toBeTruthy();

@@ -10,12 +10,12 @@ const CHANGE_TYPES = [
   { value: 'add' as const, label: 'Add', icon: '+' },
   { value: 'modify' as const, label: 'Modify', icon: '✎' },
   { value: 'delete' as const, label: 'Delete', icon: '−' },
-  { value: 'renumber' as const, label: 'Renumber', icon: '#' }
+  { value: 'renumber' as const, label: 'Renumber', icon: '#' },
 ];
 
 export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
   value,
-  onChange
+  onChange,
 }: ChangeTypeSelectorProps) {
   return (
     <div>
@@ -23,7 +23,7 @@ export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
         Amendment Type
       </label>
       <div className="grid grid-cols-4 gap-2">
-        {CHANGE_TYPES.map(opt => (
+        {CHANGE_TYPES.map((opt) => (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}

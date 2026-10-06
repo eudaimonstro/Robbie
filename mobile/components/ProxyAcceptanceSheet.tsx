@@ -1,7 +1,12 @@
 import { memo, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, Modal, Pressable, ScrollView } from 'react-native';
 import { colors, spacing, typography, borderRadius, touchTargets } from '../theme';
-import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  PendingProxyRequest,
+} from '@robbie-bylawyer/shared/types';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { Button } from './ui';
 
@@ -19,7 +24,7 @@ export const ProxyAcceptanceSheet = memo(function ProxyAcceptanceSheet({
   // Get pending requests directed to this user
   const pendingRequestsToMe = useMemo(() => {
     return state.pendingProxyRequests.filter(
-      r => r.requestedFor === currentUser.id && r.status === 'pending'
+      (r) => r.requestedFor === currentUser.id && r.status === 'pending',
     );
   }, [state.pendingProxyRequests, currentUser.id]);
 
@@ -34,8 +39,9 @@ export const ProxyAcceptanceSheet = memo(function ProxyAcceptanceSheet({
   }
 
   // Check if user can accept more proxies
-  const currentProxyCount = state.proxies.filter(p => p.grantedTo === currentUser.id).length;
-  const canAcceptMore = state.maxProxiesPerMember === 0 || currentProxyCount < state.maxProxiesPerMember;
+  const currentProxyCount = state.proxies.filter((p) => p.grantedTo === currentUser.id).length;
+  const canAcceptMore =
+    state.maxProxiesPerMember === 0 || currentProxyCount < state.maxProxiesPerMember;
 
   return (
     <View
@@ -56,7 +62,7 @@ export const ProxyAcceptanceSheet = memo(function ProxyAcceptanceSheet({
       )}
 
       <ScrollView style={styles.requestsList} nestedScrollEnabled>
-        {pendingRequestsToMe.map(request => (
+        {pendingRequestsToMe.map((request) => (
           <ProxyRequestCard
             key={request.id}
             request={request}
@@ -99,7 +105,7 @@ const ProxyRequestCard = memo(function ProxyRequestCard({
         type: 'ACCEPT_PROXY',
         requestId: request.id,
         proxyId: generateId(),
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
     } finally {
       setIsSubmitting(false);
@@ -115,7 +121,7 @@ const ProxyRequestCard = memo(function ProxyRequestCard({
         type: 'DECLINE_PROXY',
         requestId: request.id,
         reason: declineReason.trim() || undefined,
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
     } finally {
       setIsSubmitting(false);
@@ -126,7 +132,7 @@ const ProxyRequestCard = memo(function ProxyRequestCard({
 
   const requestedAt = new Date(request.requestedAt).toLocaleTimeString([], {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 
   return (
@@ -134,9 +140,7 @@ const ProxyRequestCard = memo(function ProxyRequestCard({
       <View style={styles.cardHeader}>
         <View style={styles.cardInfo}>
           <Text style={styles.requesterName}>{request.requestedByName}</Text>
-          <Text style={styles.requestDescription}>
-            requests you to vote on their behalf
-          </Text>
+          <Text style={styles.requestDescription}>requests you to vote on their behalf</Text>
           <Text style={styles.scopeBadge}>
             {request.scope === 'single-vote' ? 'Single vote only' : 'All votes'}
           </Text>
@@ -175,10 +179,7 @@ const ProxyRequestCard = memo(function ProxyRequestCard({
         animationType="fade"
         onRequestClose={() => setShowDeclineModal(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowDeclineModal(false)}
-        >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDeclineModal(false)}>
           <Pressable style={styles.modalContent} onPress={() => {}}>
             <Text style={styles.modalTitle}>Decline Proxy Request</Text>
             <Text style={styles.modalDescription}>

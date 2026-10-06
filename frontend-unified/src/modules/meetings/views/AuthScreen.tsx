@@ -53,10 +53,7 @@ export function AuthScreen() {
   // Show scheduler when in schedule step
   if (step === 'schedule') {
     return (
-      <MeetingScheduler
-        onBack={() => setStep('login')}
-        onJoinMeeting={handleJoinFromScheduler}
-      />
+      <MeetingScheduler onBack={() => setStep('login')} onJoinMeeting={handleJoinFromScheduler} />
     );
   }
 
@@ -85,11 +82,17 @@ export function AuthScreen() {
               </h2>
 
               <div>
-                <label htmlFor="meetingCode" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="meetingCode"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Meeting Code
                 </label>
                 <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                  <Hash
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400"
+                    size={20}
+                  />
                   <input
                     id="meetingCode"
                     type="text"
@@ -104,11 +107,17 @@ export function AuthScreen() {
               </div>
 
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Your Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                  <User
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400"
+                    size={20}
+                  />
                   <input
                     id="name"
                     type="text"
@@ -122,11 +131,17 @@ export function AuthScreen() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                  <Mail
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400"
+                    size={20}
+                  />
                   <input
                     id="email"
                     type="email"
@@ -190,18 +205,24 @@ export function AuthScreen() {
                 Enter Verification Code
               </h2>
               <p className="text-secondary-600 dark:text-secondary-400 mb-4">
-                We sent a 6-digit code to <strong className="text-secondary-900 dark:text-white">{email}</strong>
+                We sent a 6-digit code to{' '}
+                <strong className="text-secondary-900 dark:text-white">{email}</strong>
               </p>
 
               <div>
-                <label htmlFor="code" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="code"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Verification Code
                 </label>
                 <input
                   id="code"
                   type="text"
                   value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onChange={(e) =>
+                    setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
                   placeholder="000000"
                   className="w-full text-center text-2xl tracking-widest py-4 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500"
                   required

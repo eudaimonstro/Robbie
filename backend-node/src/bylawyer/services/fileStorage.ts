@@ -43,9 +43,7 @@ export interface StoredFile {
   sizeBytes: number;
 }
 
-export type UploadResult =
-  | { success: true; file: StoredFile }
-  | { success: false; error: string };
+export type UploadResult = { success: true; file: StoredFile } | { success: false; error: string };
 
 /**
  * Sanitize a filename for safe storage
@@ -77,7 +75,7 @@ export async function initializeStorage(): Promise<void> {
  */
 export function validateFile(
   mimeType: string,
-  sizeBytes: number
+  sizeBytes: number,
 ): { valid: true } | { valid: false; error: string } {
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
     const allowed = Array.from(ALLOWED_MIME_TYPES).join(', ');
@@ -105,7 +103,7 @@ export async function storeFile(
   robbieCode: string,
   filename: string,
   mimeType: string,
-  buffer: Buffer
+  buffer: Buffer,
 ): Promise<UploadResult> {
   // Validate
   const validation = validateFile(mimeType, buffer.length);

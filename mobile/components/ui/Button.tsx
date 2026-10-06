@@ -40,7 +40,9 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'ghost' || variant === 'secondary' ? colors.primary[600] : colors.white}
+          color={
+            variant === 'ghost' || variant === 'secondary' ? colors.primary[600] : colors.white
+          }
           size="small"
         />
       ) : (

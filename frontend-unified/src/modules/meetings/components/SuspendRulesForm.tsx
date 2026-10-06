@@ -3,7 +3,12 @@ import type { SuspendableRule } from '@robbie-bylawyer/shared/types';
 import { getRuleName, getRuleDescription } from '@robbie-bylawyer/shared/utils';
 
 interface SuspendRulesFormProps {
-  onSubmit: (purpose: string, specificAction: string, scope: 'single-action' | 'meeting-remainder', rule: SuspendableRule) => void;
+  onSubmit: (
+    purpose: string,
+    specificAction: string,
+    scope: 'single-action' | 'meeting-remainder',
+    rule: SuspendableRule,
+  ) => void;
   onCancel: () => void;
 }
 
@@ -16,7 +21,7 @@ const COMMON_RULES: SuspendableRule[] = [
   'debate-rules',
   // Tier 2: Less common but useful
   'pro-con-alternation',
-  'amendment-depth'
+  'amendment-depth',
 ];
 
 export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) {
@@ -39,9 +44,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
 
   return (
     <div className="bg-white border-2 border-amber-500 rounded-lg p-6 shadow-lg max-w-md mx-auto">
-      <h3 className="text-xl font-bold mb-4 text-amber-900">
-        Suspend the Rules
-      </h3>
+      <h3 className="text-xl font-bold mb-4 text-amber-900">Suspend the Rules</h3>
 
       <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded">
         <p className="text-sm font-semibold text-amber-900 mb-1">⚠️ Requires 2/3 vote</p>
@@ -94,7 +97,10 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
 
         {/* Specific Action */}
         <div className="mb-4">
-          <label htmlFor="specificAction" className="block text-sm font-semibold mb-2 text-gray-700">
+          <label
+            htmlFor="specificAction"
+            className="block text-sm font-semibold mb-2 text-gray-700"
+          >
             What specific action is allowed? <span className="text-red-600">*</span>
           </label>
           <input
@@ -113,9 +119,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
 
         {/* Duration/Scope */}
         <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2 text-gray-700">
-            Duration:
-          </label>
+          <label className="block text-sm font-semibold mb-2 text-gray-700">Duration:</label>
           <div className="space-y-2">
             <label className="flex items-center">
               <input

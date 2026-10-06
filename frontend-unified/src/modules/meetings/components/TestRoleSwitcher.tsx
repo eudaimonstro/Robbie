@@ -25,46 +25,49 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
     return null;
   }
 
-  const handleRoleChange = useCallback(async (newRole: Role) => {
-    if (newRole === currentRole) {
-      setIsOpen(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${SERVER_URL}/api/auth/test-role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email,
-          meetingCode,
-          role: newRole
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to change role');
+  const handleRoleChange = useCallback(
+    async (newRole: Role) => {
+      if (newRole === currentRole) {
+        setIsOpen(false);
+        return;
       }
 
-      // Close the dialog - the STATE_UPDATE from the server will update the UI
-      setIsOpen(false);
-      setIsLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change role');
-      setIsLoading(false);
-    }
-  }, [email, meetingCode, currentRole]);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`${SERVER_URL}/api/auth/test-role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email,
+            meetingCode,
+            role: newRole,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to change role');
+        }
+
+        // Close the dialog - the STATE_UPDATE from the server will update the UI
+        setIsOpen(false);
+        setIsLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to change role');
+        setIsLoading(false);
+      }
+    },
+    [email, meetingCode, currentRole],
+  );
 
   const roles: { id: Role; label: string; icon: typeof User; description: string }[] = [
     { id: 'member', label: 'Member', icon: User, description: 'Standard participant view' },
     { id: 'chair', label: 'Chair', icon: Gavel, description: 'Meeting chair controls' },
-    { id: 'admin', label: 'Admin', icon: Settings, description: 'Full admin access' }
+    { id: 'admin', label: 'Admin', icon: Settings, description: 'Full admin access' },
   ];
 
   return (
@@ -127,9 +130,11 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
                       : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/50'
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <div className={`p-2 rounded-lg ${
-                    currentRole === role.id ? 'bg-purple-200' : 'bg-gray-100'
-                  }`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      currentRole === role.id ? 'bg-purple-200' : 'bg-gray-100'
+                    }`}
+                  >
                     <role.icon size={18} />
                   </div>
                   <div className="text-left flex-1">
@@ -143,9 +148,7 @@ export function TestRoleSwitcher({ meetingCode, email, currentRole }: TestRoleSw
                     </div>
                     <div className="text-xs text-gray-500">{role.description}</div>
                   </div>
-                  {isLoading && (
-                    <Loader2 size={18} className="animate-spin text-purple-600" />
-                  )}
+                  {isLoading && <Loader2 size={18} className="animate-spin text-purple-600" />}
                 </button>
               ))}
             </div>

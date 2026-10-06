@@ -390,10 +390,7 @@
   {
     "category": "functional",
     "description": "Version created_at is set automatically",
-    "steps": [
-      "Step 1: Create version",
-      "Step 2: Verify created_at is set"
-    ],
+    "steps": ["Step 1: Create version", "Step 2: Verify created_at is set"],
     "passes": true
   },
   {
@@ -488,10 +485,7 @@
   {
     "category": "functional",
     "description": "Diff returns old_version_id and new_version_id",
-    "steps": [
-      "Step 1: Get diff between versions",
-      "Step 2: Verify response includes version IDs"
-    ],
+    "steps": ["Step 1: Get diff between versions", "Step 2: Verify response includes version IDs"],
     "passes": true
   },
   {

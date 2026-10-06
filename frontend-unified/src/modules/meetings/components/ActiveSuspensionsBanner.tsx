@@ -1,5 +1,10 @@
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
-import { getActiveSuspensions, getRuleName, getRuleWarning, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import {
+  getActiveSuspensions,
+  getRuleName,
+  getRuleWarning,
+  generateTimestamp,
+} from '@robbie-bylawyer/shared/utils';
 
 interface ActiveSuspensionsBannerProps {
   state: MeetingState;
@@ -7,7 +12,11 @@ interface ActiveSuspensionsBannerProps {
   dispatch?: React.Dispatch<MeetingAction>;
 }
 
-export function ActiveSuspensionsBanner({ state, currentUser, dispatch }: ActiveSuspensionsBannerProps) {
+export function ActiveSuspensionsBanner({
+  state,
+  currentUser,
+  dispatch,
+}: ActiveSuspensionsBannerProps) {
   const activeSuspensions = getActiveSuspensions(state);
   const isChair = currentUser?.role === 'chair';
 

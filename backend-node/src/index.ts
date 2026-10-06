@@ -10,7 +10,11 @@ const __dirname = path.dirname(__filename);
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@robbie-bylawyer/shared/types/socket';
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  SocketData,
+} from '@robbie-bylawyer/shared/types/socket';
 import { authRouter } from './auth/authController.js';
 import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
@@ -28,7 +32,7 @@ import {
   robbieRouter,
   packetsRouter,
   attachmentsRouter,
-  agendaItemsRouter
+  agendaItemsRouter,
 } from './bylawyer/routes/index.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
 import { logger, httpLogger } from './middleware/logger.js';
@@ -45,12 +49,17 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
   : [/^http:\/\/localhost:\d+$/];
 
 // Socket.io server with typed events
-const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
+const io = new Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>(httpServer, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
 // Store io instance for access from other modules (e.g., authController)
@@ -63,17 +72,30 @@ app.use(helmet());
 app.use(httpLogger);
 
 // Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  }),
+);
 app.use(cookieParser() as unknown as express.RequestHandler);
 
 // Raw body parser for file uploads (before JSON parser)
-app.use('/api/attachments/upload', express.raw({
-  type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/rtf', 'application/rtf', 'application/octet-stream'],
-  limit: '10mb'
-}));
+app.use(
+  '/api/attachments/upload',
+  express.raw({
+    type: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/rtf',
+      'application/rtf',
+      'application/octet-stream',
+    ],
+    limit: '10mb',
+  }),
+);
 
 app.use(express.json());
 

@@ -8,12 +8,24 @@ import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { MeetingState, Member, DebateStance } from '@robbie-bylawyer/shared/types';
 
 // Helper to create a member
-function createMember(id: number, role: 'admin' | 'chair' | 'member' = 'member', present = true): Member {
+function createMember(
+  id: number,
+  role: 'admin' | 'chair' | 'member' = 'member',
+  present = true,
+): Member {
   return { id, name: `Member ${id}`, role, present };
 }
 
 // Helper to create a complete Motion object
-function createMotion(overrides: Partial<{ id: number; mover: string; moverId: number; text: string; debatable: boolean }> = {}) {
+function createMotion(
+  overrides: Partial<{
+    id: number;
+    mover: string;
+    moverId: number;
+    text: string;
+    debatable: boolean;
+  }> = {},
+) {
   return {
     id: overrides.id ?? 1,
     type: 'mainMotion',
@@ -42,24 +54,28 @@ function activeMeetingState(): MeetingState {
   return {
     ...initialState,
     meetingActive: true,
-    members: [
-      createMember(1, 'chair'),
-      createMember(2, 'member'),
-      createMember(3, 'member'),
-    ],
+    members: [createMember(1, 'chair'), createMember(2, 'member'), createMember(3, 'member')],
   };
 }
 
 describe('actionValidator', () => {
   describe('START_MEETING', () => {
     it('should allow starting inactive meeting', () => {
-      const result = validateAction(initialState, { type: 'START_MEETING', meetingCode: 'TEST', timestamp: '' });
+      const result = validateAction(initialState, {
+        type: 'START_MEETING',
+        meetingCode: 'TEST',
+        timestamp: '',
+      });
       expect(result.valid).toBe(true);
     });
 
     it('should reject starting already active meeting', () => {
       const state = { ...initialState, meetingActive: true };
-      const result = validateAction(state, { type: 'START_MEETING', meetingCode: 'TEST', timestamp: '' });
+      const result = validateAction(state, {
+        type: 'START_MEETING',
+        meetingCode: 'TEST',
+        timestamp: '',
+      });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MEETING_ALREADY_ACTIVE');
     });
@@ -363,8 +379,24 @@ describe('actionValidator', () => {
         const state: MeetingState = {
           ...proxyEnabledState(),
           proxies: [
-            { id: 1, grantedBy: 10, grantedByName: 'M10', grantedTo: 3, grantedToName: 'M3', scope: 'all', grantedAt: '' },
-            { id: 2, grantedBy: 11, grantedByName: 'M11', grantedTo: 3, grantedToName: 'M3', scope: 'all', grantedAt: '' },
+            {
+              id: 1,
+              grantedBy: 10,
+              grantedByName: 'M10',
+              grantedTo: 3,
+              grantedToName: 'M3',
+              scope: 'all',
+              grantedAt: '',
+            },
+            {
+              id: 2,
+              grantedBy: 11,
+              grantedByName: 'M11',
+              grantedTo: 3,
+              grantedToName: 'M3',
+              scope: 'all',
+              grantedAt: '',
+            },
           ],
         };
         const result = validateAction(state, {
@@ -417,16 +449,18 @@ describe('actionValidator', () => {
       it('should reject with existing pending request', () => {
         const state: MeetingState = {
           ...proxyEnabledState(),
-          pendingProxyRequests: [{
-            id: 1,
-            requestedBy: 2,
-            requestedByName: 'Member 2',
-            requestedFor: 3,
-            requestedForName: 'Member 3',
-            requestedAt: '',
-            scope: 'all',
-            status: 'pending',
-          }],
+          pendingProxyRequests: [
+            {
+              id: 1,
+              requestedBy: 2,
+              requestedByName: 'Member 2',
+              requestedFor: 3,
+              requestedForName: 'Member 3',
+              requestedAt: '',
+              scope: 'all',
+              status: 'pending',
+            },
+          ],
         };
         const result = validateAction(state, {
           type: 'REQUEST_PROXY',
@@ -447,16 +481,18 @@ describe('actionValidator', () => {
       it('should allow accepting pending request', () => {
         const state: MeetingState = {
           ...proxyEnabledState(),
-          pendingProxyRequests: [{
-            id: 1,
-            requestedBy: 2,
-            requestedByName: 'Member 2',
-            requestedFor: 3,
-            requestedForName: 'Member 3',
-            requestedAt: '',
-            scope: 'all',
-            status: 'pending',
-          }],
+          pendingProxyRequests: [
+            {
+              id: 1,
+              requestedBy: 2,
+              requestedByName: 'Member 2',
+              requestedFor: 3,
+              requestedForName: 'Member 3',
+              requestedAt: '',
+              scope: 'all',
+              status: 'pending',
+            },
+          ],
         };
         const result = validateAction(state, {
           type: 'ACCEPT_PROXY',

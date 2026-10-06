@@ -24,7 +24,7 @@ export const settingsHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         minutesApproved: true,
-        meetingLog: log(typedAction.timestamp, LOG_MINUTES_APPROVED)
+        meetingLog: log(typedAction.timestamp, LOG_MINUTES_APPROVED),
       };
     }
 
@@ -43,7 +43,7 @@ export const settingsHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         quorum: typedAction.quorum,
-        meetingLog: log(typedAction.timestamp, logQuorumChanged(typedAction.quorum))
+        meetingLog: log(typedAction.timestamp, logQuorumChanged(typedAction.quorum)),
       };
     }
 

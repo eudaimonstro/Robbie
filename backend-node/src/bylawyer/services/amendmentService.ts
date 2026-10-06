@@ -4,10 +4,7 @@ import { Amendment, AmendmentChange, Section, Version } from '@prisma/client';
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
 
 export class AmendmentService {
-  async applyAmendment(
-    amendment: AmendmentWithChanges,
-    effectiveDate?: Date
-  ): Promise<Version> {
+  async applyAmendment(amendment: AmendmentWithChanges, effectiveDate?: Date): Promise<Version> {
     if (amendment.status !== 'passed') {
       throw new Error('Can only apply passed amendments');
     }
@@ -18,7 +15,7 @@ export class AmendmentService {
 
     // Get the document
     const document = await prisma.document.findUnique({
-      where: { id: amendment.documentId }
+      where: { id: amendment.documentId },
     });
 
     if (!document) {
@@ -30,7 +27,7 @@ export class AmendmentService {
     // Get next version number
     const lastVersion = await prisma.version.findFirst({
       where: { documentId: document.id },
-      orderBy: { versionNumber: 'desc' }
+      orderBy: { versionNumber: 'desc' },
     });
     const versionNumber = (lastVersion?.versionNumber || 0) + 1;
 
@@ -40,8 +37,8 @@ export class AmendmentService {
         documentId: document.id,
         versionNumber,
         effectiveDate,
-        notes: `Applied amendment: ${amendment.title}`
-      }
+        notes: `Applied amendment: ${amendment.title}`,
+      },
     });
 
     // Clone sections from current version and build ID map
@@ -49,7 +46,7 @@ export class AmendmentService {
 
     if (oldCurrentVersionId) {
       const oldSections = await prisma.section.findMany({
-        where: { versionId: oldCurrentVersionId }
+        where: { versionId: oldCurrentVersionId },
       });
 
       if (oldSections.length > 0) {
@@ -63,8 +60,8 @@ export class AmendmentService {
               numberLabel: section.numberLabel,
               title: section.title,
               content: section.content,
-              annotation: section.annotation
-            }
+              annotation: section.annotation,
+            },
           });
           idMap[section.id] = newSection.id;
         }
@@ -74,7 +71,7 @@ export class AmendmentService {
           if (section.parentId && idMap[section.parentId]) {
             await prisma.section.update({
               where: { id: idMap[section.id] },
-              data: { parentId: idMap[section.parentId] }
+              data: { parentId: idMap[section.parentId] },
             });
           }
         }
@@ -92,14 +89,14 @@ export class AmendmentService {
       where: { id: amendment.id },
       data: {
         resultingVersionId: newVersion.id,
-        decidedAt: new Date()
-      }
+        decidedAt: new Date(),
+      },
     });
 
     // Update document's current version
     await prisma.document.update({
       where: { id: document.id },
-      data: { currentVersionId: newVersion.id }
+      data: { currentVersionId: newVersion.id },
     });
 
     return newVersion;
@@ -108,7 +105,7 @@ export class AmendmentService {
   private async applyChange(
     change: AmendmentChange,
     version: Version,
-    idMap: Record<string, string>
+    idMap: Record<string, string>,
   ): Promise<void> {
     switch (change.changeType) {
       case 'add':
@@ -129,7 +126,7 @@ export class AmendmentService {
   private async applyAdd(
     change: AmendmentChange,
     version: Version,
-    idMap: Record<string, string>
+    idMap: Record<string, string>,
   ): Promise<void> {
     // Determine parent in new version
     let newParentId: string | null = null;
@@ -141,12 +138,10 @@ export class AmendmentService {
     const siblings = await prisma.section.findMany({
       where: {
         versionId: version.id,
-        parentId: newParentId
-      }
+        parentId: newParentId,
+      },
     });
-    const maxPosition = siblings.length > 0
-      ? Math.max(...siblings.map(s => s.position))
-      : -1;
+    const maxPosition = siblings.length > 0 ? Math.max(...siblings.map((s) => s.position)) : -1;
 
     await prisma.section.create({
       data: {
@@ -155,15 +150,12 @@ export class AmendmentService {
         position: maxPosition + 1,
         numberLabel: change.newNumberLabel,
         title: change.newTitle,
-        content: change.newContent
-      }
+        content: change.newContent,
+      },
     });
   }
 
-  private async applyModify(
-    change: AmendmentChange,
-    idMap: Record<string, string>
-  ): Promise<void> {
+  private async applyModify(change: AmendmentChange, idMap: Record<string, string>): Promise<void> {
     if (!change.targetSectionId) return;
 
     const newSectionId = idMap[change.targetSectionId];
@@ -177,15 +169,12 @@ export class AmendmentService {
     if (Object.keys(updateData).length > 0) {
       await prisma.section.update({
         where: { id: newSectionId },
-        data: updateData
+        data: updateData,
       });
     }
   }
 
-  private async applyDelete(
-    change: AmendmentChange,
-    idMap: Record<string, string>
-  ): Promise<void> {
+  private async applyDelete(change: AmendmentChange, idMap: Record<string, string>): Promise<void> {
     if (!change.targetSectionId) return;
 
     const newSectionId = idMap[change.targetSectionId];
@@ -196,7 +185,7 @@ export class AmendmentService {
 
   private async applyRenumber(
     change: AmendmentChange,
-    idMap: Record<string, string>
+    idMap: Record<string, string>,
   ): Promise<void> {
     if (!change.targetSectionId) return;
 
@@ -206,7 +195,7 @@ export class AmendmentService {
     if (change.newNumberLabel !== null) {
       await prisma.section.update({
         where: { id: newSectionId },
-        data: { numberLabel: change.newNumberLabel }
+        data: { numberLabel: change.newNumberLabel },
       });
     }
   }
@@ -214,7 +203,7 @@ export class AmendmentService {
   async previewAmendment(amendment: AmendmentWithChanges): Promise<any[]> {
     // Get document
     const document = await prisma.document.findUnique({
-      where: { id: amendment.documentId }
+      where: { id: amendment.documentId },
     });
 
     if (!document || !document.currentVersionId) {
@@ -224,7 +213,7 @@ export class AmendmentService {
     // Get current version's sections
     const currentVersion = await prisma.version.findUnique({
       where: { id: document.currentVersionId },
-      include: { sections: true }
+      include: { sections: true },
     });
 
     if (!currentVersion) {
@@ -232,7 +221,7 @@ export class AmendmentService {
     }
 
     // Build a mutable copy of the section tree
-    const sectionsCopy = currentVersion.sections.map(s => ({
+    const sectionsCopy = currentVersion.sections.map((s) => ({
       id: s.id,
       parent_id: s.parentId,
       position: s.position,
@@ -242,7 +231,7 @@ export class AmendmentService {
       annotation: s.annotation,
       modified: false,
       added: false,
-      deleted: false
+      deleted: false,
     }));
 
     // Apply changes to the copy
@@ -251,12 +240,8 @@ export class AmendmentService {
     for (const change of sortedChanges) {
       if (change.changeType === 'add') {
         const parentId = change.targetSectionId;
-        const siblings = sectionsCopy.filter(
-          s => s.parent_id === parentId && !s.deleted
-        );
-        const maxPos = siblings.length > 0
-          ? Math.max(...siblings.map(s => s.position))
-          : -1;
+        const siblings = sectionsCopy.filter((s) => s.parent_id === parentId && !s.deleted);
+        const maxPos = siblings.length > 0 ? Math.max(...siblings.map((s) => s.position)) : -1;
 
         sectionsCopy.push({
           id: `new-${change.id}`,
@@ -268,10 +253,10 @@ export class AmendmentService {
           annotation: null,
           modified: false,
           added: true,
-          deleted: false
+          deleted: false,
         });
       } else if (change.changeType === 'modify') {
-        const section = sectionsCopy.find(s => s.id === change.targetSectionId);
+        const section = sectionsCopy.find((s) => s.id === change.targetSectionId);
         if (section) {
           if (change.newContent !== null) section.content = change.newContent;
           if (change.newTitle !== null) section.title = change.newTitle;
@@ -280,18 +265,18 @@ export class AmendmentService {
         }
       } else if (change.changeType === 'delete') {
         const markDeleted = (sectionId: string | null) => {
-          const section = sectionsCopy.find(s => s.id === sectionId);
+          const section = sectionsCopy.find((s) => s.id === sectionId);
           if (section) {
             section.deleted = true;
             // Also delete children
             sectionsCopy
-              .filter(s => s.parent_id === sectionId)
-              .forEach(child => markDeleted(child.id));
+              .filter((s) => s.parent_id === sectionId)
+              .forEach((child) => markDeleted(child.id));
           }
         };
         markDeleted(change.targetSectionId);
       } else if (change.changeType === 'renumber') {
-        const section = sectionsCopy.find(s => s.id === change.targetSectionId);
+        const section = sectionsCopy.find((s) => s.id === change.targetSectionId);
         if (section && change.newNumberLabel !== null) {
           section.number_label = change.newNumberLabel;
           section.modified = true;
@@ -302,11 +287,11 @@ export class AmendmentService {
     // Build tree from flat list
     const buildTree = (parentId: string | null = null): any[] => {
       return sectionsCopy
-        .filter(s => s.parent_id === parentId)
+        .filter((s) => s.parent_id === parentId)
         .sort((a, b) => a.position - b.position)
-        .map(s => ({
+        .map((s) => ({
           ...s,
-          children: buildTree(s.id)
+          children: buildTree(s.id),
         }));
     };
 

@@ -26,10 +26,23 @@ export interface ActionResponse {
 }
 
 export interface ClientToServerEvents {
-  JOIN_MEETING: (data: { meetingCode: string; token: string }, callback: (response: JoinMeetingResponse) => void) => void;
+  JOIN_MEETING: (
+    data: { meetingCode: string; token: string },
+    callback: (response: JoinMeetingResponse) => void,
+  ) => void;
   LEAVE_MEETING: () => void;
-  DISPATCH_ACTION: (data: { action: MeetingAction; clientSequence: number }, callback: (response: ActionResponse) => void) => void;
-  REQUEST_STATE: (callback: (response: { success: boolean; state?: MeetingState; stateVersion?: number; error?: string }) => void) => void;
+  DISPATCH_ACTION: (
+    data: { action: MeetingAction; clientSequence: number },
+    callback: (response: ActionResponse) => void,
+  ) => void;
+  REQUEST_STATE: (
+    callback: (response: {
+      success: boolean;
+      state?: MeetingState;
+      stateVersion?: number;
+      error?: string;
+    }) => void,
+  ) => void;
 }
 
 export interface ServerToClientEvents {

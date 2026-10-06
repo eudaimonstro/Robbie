@@ -19,14 +19,14 @@ export const bylawyerRouter: RouterType = Router();
 const listOrganizations: RequestHandler = async (_req, res) => {
   try {
     const organizations = await prisma.organization.findMany({
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
     res.json(organizations);
   } catch (error) {
     logger.error({ err: error }, 'Error fetching organizations');
     res.status(500).json({
       error: 'Failed to fetch organizations',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -41,7 +41,7 @@ const getOrganization: RequestHandler = async (req, res) => {
   try {
     const { orgId } = req.params;
     const organization = await prisma.organization.findUnique({
-      where: { id: orgId }
+      where: { id: orgId },
     });
 
     if (!organization) {
@@ -53,7 +53,7 @@ const getOrganization: RequestHandler = async (req, res) => {
     logger.error({ err: error }, 'Error fetching organization');
     res.status(500).json({
       error: 'Failed to fetch organization',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -70,7 +70,7 @@ const getOrganizationDocuments: RequestHandler = async (req, res) => {
 
     // Verify organization exists
     const org = await prisma.organization.findUnique({
-      where: { id: orgId }
+      where: { id: orgId },
     });
 
     if (!org) {
@@ -79,7 +79,7 @@ const getOrganizationDocuments: RequestHandler = async (req, res) => {
 
     const documents = await prisma.document.findMany({
       where: { organizationId: orgId },
-      orderBy: { title: 'asc' }
+      orderBy: { title: 'asc' },
     });
 
     res.json(documents);
@@ -87,7 +87,7 @@ const getOrganizationDocuments: RequestHandler = async (req, res) => {
     logger.error({ err: error }, 'Error fetching documents');
     res.status(500).json({
       error: 'Failed to fetch documents',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -105,13 +105,13 @@ const linkMeeting: RequestHandler = async (req, res) => {
 
     if (!meetingCode || !organizationId) {
       return res.status(400).json({
-        error: 'Missing required fields: meetingCode and organizationId'
+        error: 'Missing required fields: meetingCode and organizationId',
       });
     }
 
     // Verify organization exists
     const organization = await prisma.organization.findUnique({
-      where: { id: organizationId }
+      where: { id: organizationId },
     });
 
     if (!organization) {
@@ -132,14 +132,14 @@ const linkMeeting: RequestHandler = async (req, res) => {
       organization: {
         id: organization.id,
         name: organization.name,
-        slug: organization.slug
-      }
+        slug: organization.slug,
+      },
     });
   } catch (error) {
     logger.error({ err: error }, 'Error linking meeting to organization');
     res.status(500).json({
       error: 'Failed to link meeting to organization',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -166,7 +166,7 @@ const unlinkMeeting: RequestHandler = async (req, res) => {
     logger.error({ err: error }, 'Error unlinking meeting from organization');
     res.status(500).json({
       error: 'Failed to unlink meeting from organization',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -190,7 +190,7 @@ const getMeetingOrganization: RequestHandler = async (req, res) => {
 
     // Fetch organization details
     const organization = await prisma.organization.findUnique({
-      where: { id: orgId }
+      where: { id: orgId },
     });
 
     if (!organization) {
@@ -198,7 +198,7 @@ const getMeetingOrganization: RequestHandler = async (req, res) => {
         linked: true,
         organizationId: orgId,
         organization: null,
-        warning: 'Organization not found in Bylawyer'
+        warning: 'Organization not found in Bylawyer',
       });
     }
 
@@ -208,14 +208,14 @@ const getMeetingOrganization: RequestHandler = async (req, res) => {
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
-        description: organization.description
-      }
+        description: organization.description,
+      },
     });
   } catch (error) {
     logger.error({ err: error }, 'Error getting meeting organization');
     res.status(500).json({
       error: 'Failed to get meeting organization',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -232,7 +232,7 @@ const getDocumentSections: RequestHandler = async (req, res) => {
 
     // Get the document with current version
     const document = await prisma.document.findUnique({
-      where: { id: docId }
+      where: { id: docId },
     });
 
     if (!document) {
@@ -246,15 +246,15 @@ const getDocumentSections: RequestHandler = async (req, res) => {
     // Fetch sections for the current version
     const sections = await prisma.section.findMany({
       where: { versionId: document.currentVersionId },
-      orderBy: { position: 'asc' }
+      orderBy: { position: 'asc' },
     });
 
     // Build section tree
     const buildTree = (parentId: string | null = null): any[] => {
       return sections
-        .filter(s => s.parentId === parentId)
+        .filter((s) => s.parentId === parentId)
         .sort((a, b) => a.position - b.position)
-        .map(s => ({
+        .map((s) => ({
           id: s.id,
           version_id: s.versionId,
           parent_id: s.parentId,
@@ -263,7 +263,7 @@ const getDocumentSections: RequestHandler = async (req, res) => {
           title: s.title,
           content: s.content,
           annotation: s.annotation,
-          children: buildTree(s.id)
+          children: buildTree(s.id),
         }));
     };
 
@@ -272,7 +272,7 @@ const getDocumentSections: RequestHandler = async (req, res) => {
     logger.error({ err: error }, 'Error fetching document sections');
     res.status(500).json({
       error: 'Failed to fetch sections',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

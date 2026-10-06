@@ -211,10 +211,7 @@
   {
     "category": "functional",
     "description": "Organization slug is lowercase",
-    "steps": [
-      "Step 1: Create org with name 'TEST ORG'",
-      "Step 2: Verify slug is lowercase"
-    ],
+    "steps": ["Step 1: Create org with name 'TEST ORG'", "Step 2: Verify slug is lowercase"],
     "passes": true
   },
   {

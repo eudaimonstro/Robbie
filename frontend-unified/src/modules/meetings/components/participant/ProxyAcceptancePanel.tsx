@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { UserCheck, Check, X, AlertCircle } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  PendingProxyRequest,
+} from '@robbie-bylawyer/shared/types';
 
 interface ProxyAcceptancePanelProps {
   state: MeetingState;
@@ -12,12 +17,12 @@ interface ProxyAcceptancePanelProps {
 export const ProxyAcceptancePanel = React.memo(function ProxyAcceptancePanel({
   state,
   dispatch,
-  currentUser
+  currentUser,
 }: ProxyAcceptancePanelProps) {
   // Get pending requests directed to this user
   const pendingRequestsToMe = useMemo(() => {
     return state.pendingProxyRequests.filter(
-      r => r.requestedFor === currentUser.id && r.status === 'pending'
+      (r) => r.requestedFor === currentUser.id && r.status === 'pending',
     );
   }, [state.pendingProxyRequests, currentUser.id]);
 
@@ -32,8 +37,9 @@ export const ProxyAcceptancePanel = React.memo(function ProxyAcceptancePanel({
   }
 
   // Check if user can accept more proxies
-  const currentProxyCount = state.proxies.filter(p => p.grantedTo === currentUser.id).length;
-  const canAcceptMore = state.maxProxiesPerMember === 0 || currentProxyCount < state.maxProxiesPerMember;
+  const currentProxyCount = state.proxies.filter((p) => p.grantedTo === currentUser.id).length;
+  const canAcceptMore =
+    state.maxProxiesPerMember === 0 || currentProxyCount < state.maxProxiesPerMember;
 
   return (
     <section
@@ -41,20 +47,23 @@ export const ProxyAcceptancePanel = React.memo(function ProxyAcceptancePanel({
       aria-labelledby="proxy-acceptance-heading"
       role="alert"
     >
-      <h3 id="proxy-acceptance-heading" className="font-semibold flex items-center gap-2 text-blue-800 mb-3">
+      <h3
+        id="proxy-acceptance-heading"
+        className="font-semibold flex items-center gap-2 text-blue-800 mb-3"
+      >
         <AlertCircle size={18} aria-hidden="true" />
         Proxy Request{pendingRequestsToMe.length > 1 ? 's' : ''} ({pendingRequestsToMe.length})
       </h3>
 
       {!canAcceptMore && (
         <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-          You've reached the maximum number of proxies ({state.maxProxiesPerMember}).
-          You must decline these requests or wait for existing proxies to be revoked.
+          You've reached the maximum number of proxies ({state.maxProxiesPerMember}). You must
+          decline these requests or wait for existing proxies to be revoked.
         </div>
       )}
 
       <div className="space-y-3">
-        {pendingRequestsToMe.map(request => (
+        {pendingRequestsToMe.map((request) => (
           <ProxyRequestCard
             key={request.id}
             request={request}
@@ -82,7 +91,7 @@ function ProxyRequestCard({
   dispatch,
   canAccept,
   maxProxies,
-  currentProxyCount
+  currentProxyCount,
 }: ProxyRequestCardProps) {
   const [showDeclineReason, setShowDeclineReason] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
@@ -97,7 +106,7 @@ function ProxyRequestCard({
         type: 'ACCEPT_PROXY',
         requestId: request.id,
         proxyId: generateId(),
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
     } finally {
       setIsSubmitting(false);
@@ -113,7 +122,7 @@ function ProxyRequestCard({
         type: 'DECLINE_PROXY',
         requestId: request.id,
         reason: declineReason.trim() || undefined,
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
     } finally {
       setIsSubmitting(false);
@@ -124,7 +133,7 @@ function ProxyRequestCard({
 
   const requestedAt = new Date(request.requestedAt).toLocaleTimeString([], {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 
   return (
@@ -134,7 +143,9 @@ function ProxyRequestCard({
           <p className="font-medium text-gray-800">{request.requestedByName}</p>
           <p className="text-xs text-gray-500">
             requests you to vote on their behalf
-            <span className="ml-1">({request.scope === 'single-vote' ? 'single vote only' : 'all votes'})</span>
+            <span className="ml-1">
+              ({request.scope === 'single-vote' ? 'single vote only' : 'all votes'})
+            </span>
           </p>
           <p className="text-xs text-gray-400 mt-1">Requested at {requestedAt}</p>
         </div>

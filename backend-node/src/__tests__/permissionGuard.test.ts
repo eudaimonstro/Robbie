@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   checkPermission,
   getPermittedActions,
-  getPermissionDeniedReason
+  getPermissionDeniedReason,
 } from '../socket/permissionGuard.js';
 
 describe('permissionGuard', () => {
@@ -94,10 +94,7 @@ describe('permissionGuard', () => {
     });
 
     describe('server-only actions', () => {
-      const serverOnlyActions = [
-        'ADD_MEMBER',
-        'SET_MEMBER_PRESENCE',
-      ] as const;
+      const serverOnlyActions = ['ADD_MEMBER', 'SET_MEMBER_PRESENCE'] as const;
 
       it.each(serverOnlyActions)('should allow admin to perform %s', (action) => {
         expect(checkPermission('admin', action)).toBe(true);

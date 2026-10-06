@@ -23,7 +23,7 @@ export type MinutesDocumentResult =
  */
 export async function createMinutesDocument(
   minutes: MeetingMinutes,
-  organizationId?: string
+  organizationId?: string,
 ): Promise<MinutesDocumentResult> {
   try {
     // Format the date for the document title
@@ -31,7 +31,7 @@ export async function createMinutesDocument(
       ? new Date(minutes.startTime).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
-          day: 'numeric'
+          day: 'numeric',
         })
       : 'Unknown Date';
 
@@ -41,7 +41,7 @@ export async function createMinutesDocument(
     let orgId = organizationId;
     if (!orgId) {
       const packet = await prisma.meetingPacket.findUnique({
-        where: { robbieCode: minutes.meetingCode }
+        where: { robbieCode: minutes.meetingCode },
       });
 
       // If packet exists, we could potentially link to an organization
@@ -55,7 +55,7 @@ export async function createMinutesDocument(
     // If we have an organization, verify it exists
     if (orgId) {
       const org = await prisma.organization.findUnique({
-        where: { id: orgId }
+        where: { id: orgId },
       });
       if (!org) {
         return { success: false, error: 'Organization not found' };
@@ -66,8 +66,8 @@ export async function createMinutesDocument(
     const existingDoc = await prisma.document.findFirst({
       where: {
         docType: 'minutes',
-        title: { contains: minutes.meetingCode }
-      }
+        title: { contains: minutes.meetingCode },
+      },
     });
 
     if (existingDoc) {
@@ -79,7 +79,8 @@ export async function createMinutesDocument(
     if (!orgId) {
       return {
         success: false,
-        error: 'Organization ID is required to create minutes document. Link the meeting to an organization first.'
+        error:
+          'Organization ID is required to create minutes document. Link the meeting to an organization first.',
       };
     }
 
@@ -88,8 +89,8 @@ export async function createMinutesDocument(
       data: {
         title: documentTitle,
         docType: 'minutes',
-        organizationId: orgId
-      }
+        organizationId: orgId,
+      },
     });
 
     // Create the first version
@@ -98,8 +99,8 @@ export async function createMinutesDocument(
         documentId: document.id,
         versionNumber: 1,
         effectiveDate: minutes.startTime ? new Date(minutes.startTime) : new Date(),
-        notes: `Minutes for meeting ${minutes.meetingCode}`
-      }
+        notes: `Minutes for meeting ${minutes.meetingCode}`,
+      },
     });
 
     // Create sections from minutes content
@@ -108,20 +109,20 @@ export async function createMinutesDocument(
     // Update document's current version
     await prisma.document.update({
       where: { id: document.id },
-      data: { currentVersionId: version.id }
+      data: { currentVersionId: version.id },
     });
 
     return {
       success: true,
       documentId: document.id,
       versionId: version.id,
-      documentTitle
+      documentTitle,
     };
   } catch (error) {
     logger.error({ err: error }, 'Error creating minutes document');
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -131,12 +132,12 @@ export async function createMinutesDocument(
  */
 async function addVersionToMinutesDocument(
   documentId: string,
-  minutes: MeetingMinutes
+  minutes: MeetingMinutes,
 ): Promise<MinutesDocumentResult> {
   // Get current version number
   const latestVersion = await prisma.version.findFirst({
     where: { documentId },
-    orderBy: { versionNumber: 'desc' }
+    orderBy: { versionNumber: 'desc' },
   });
 
   const nextVersionNumber = (latestVersion?.versionNumber || 0) + 1;
@@ -146,36 +147,33 @@ async function addVersionToMinutesDocument(
       documentId,
       versionNumber: nextVersionNumber,
       effectiveDate: minutes.startTime ? new Date(minutes.startTime) : new Date(),
-      notes: `Updated minutes for meeting ${minutes.meetingCode}`
-    }
+      notes: `Updated minutes for meeting ${minutes.meetingCode}`,
+    },
   });
 
   await createMinutesSections(version.id, minutes);
 
   await prisma.document.update({
     where: { id: documentId },
-    data: { currentVersionId: version.id }
+    data: { currentVersionId: version.id },
   });
 
   const document = await prisma.document.findUnique({
-    where: { id: documentId }
+    where: { id: documentId },
   });
 
   return {
     success: true,
     documentId,
     versionId: version.id,
-    documentTitle: document?.title || 'Meeting Minutes'
+    documentTitle: document?.title || 'Meeting Minutes',
   };
 }
 
 /**
  * Create hierarchical sections from meeting minutes
  */
-async function createMinutesSections(
-  versionId: string,
-  minutes: MeetingMinutes
-): Promise<void> {
+async function createMinutesSections(versionId: string, minutes: MeetingMinutes): Promise<void> {
   let position = 0;
 
   // Header section
@@ -185,8 +183,8 @@ async function createMinutesSections(
       position: position++,
       numberLabel: null,
       title: 'Meeting Information',
-      content: buildHeaderContent(minutes)
-    }
+      content: buildHeaderContent(minutes),
+    },
   });
 
   // Attendance section
@@ -197,8 +195,8 @@ async function createMinutesSections(
         position: position++,
         numberLabel: 'I',
         title: 'Attendance',
-        content: buildAttendanceContent(minutes)
-      }
+        content: buildAttendanceContent(minutes),
+      },
     });
   }
 
@@ -210,8 +208,8 @@ async function createMinutesSections(
         position: position++,
         numberLabel: 'II',
         title: 'Agenda',
-        content: buildAgendaContent(minutes)
-      }
+        content: buildAgendaContent(minutes),
+      },
     });
   }
 
@@ -222,8 +220,8 @@ async function createMinutesSections(
         versionId,
         position: position++,
         numberLabel: 'III',
-        title: 'Motions'
-      }
+        title: 'Motions',
+      },
     });
 
     // Create sub-sections for each motion
@@ -236,8 +234,8 @@ async function createMinutesSections(
           position: i,
           numberLabel: `${i + 1}`,
           title: motion.name,
-          content: buildMotionContent(motion)
-        }
+          content: buildMotionContent(motion),
+        },
       });
     }
   }
@@ -249,8 +247,8 @@ async function createMinutesSections(
         versionId,
         position: position++,
         numberLabel: 'IV',
-        title: 'Elections'
-      }
+        title: 'Elections',
+      },
     });
 
     for (let i = 0; i < minutes.elections.length; i++) {
@@ -262,8 +260,8 @@ async function createMinutesSections(
           position: i,
           numberLabel: `${i + 1}`,
           title: election.position,
-          content: buildElectionContent(election)
-        }
+          content: buildElectionContent(election),
+        },
       });
     }
   }
@@ -276,8 +274,8 @@ async function createMinutesSections(
         position: position++,
         numberLabel: 'V',
         title: 'Officers Elected',
-        content: buildOfficersContent(minutes)
-      }
+        content: buildOfficersContent(minutes),
+      },
     });
   }
 
@@ -289,8 +287,8 @@ async function createMinutesSections(
         position: position++,
         numberLabel: 'VI',
         title: 'Announcements',
-        content: minutes.announcements.map(a => `• ${a}`).join('\n')
-      }
+        content: minutes.announcements.map((a) => `• ${a}`).join('\n'),
+      },
     });
   }
 }
@@ -315,16 +313,12 @@ function buildHeaderContent(minutes: MeetingMinutes): string {
 function buildAttendanceContent(minutes: MeetingMinutes): string {
   const lines: string[] = [];
 
-  const present = minutes.attendance.filter(a =>
-    a.status === 'present' || a.status === 'late'
-  );
-  const absent = minutes.attendance.filter(a =>
-    a.status === 'absent' || a.status === 'excused'
-  );
+  const present = minutes.attendance.filter((a) => a.status === 'present' || a.status === 'late');
+  const absent = minutes.attendance.filter((a) => a.status === 'absent' || a.status === 'excused');
 
   if (present.length > 0) {
     lines.push('Present:');
-    present.forEach(a => {
+    present.forEach((a) => {
       const notes: string[] = [];
       if (a.role === 'chair') notes.push('Chair');
       if (a.status === 'late') notes.push('arrived late');
@@ -336,7 +330,7 @@ function buildAttendanceContent(minutes: MeetingMinutes): string {
 
   if (absent.length > 0) {
     lines.push('Absent:');
-    absent.forEach(a => {
+    absent.forEach((a) => {
       const note = a.status === 'excused' ? ' (excused)' : '';
       lines.push(`• ${a.name}${note}`);
     });
@@ -346,12 +340,12 @@ function buildAttendanceContent(minutes: MeetingMinutes): string {
 }
 
 function buildAgendaContent(minutes: MeetingMinutes): string {
-  return minutes.agendaItems.map((item, i) => {
-    const status = item.status === 'completed' ? '✓'
-      : item.status === 'active' ? '→'
-      : '○';
-    return `${i + 1}. ${status} ${item.title}`;
-  }).join('\n');
+  return minutes.agendaItems
+    .map((item, i) => {
+      const status = item.status === 'completed' ? '✓' : item.status === 'active' ? '→' : '○';
+      return `${i + 1}. ${status} ${item.title}`;
+    })
+    .join('\n');
 }
 
 function buildMotionContent(motion: {
@@ -367,7 +361,9 @@ function buildMotionContent(motion: {
   }
   lines.push(`Outcome: ${motion.outcome.toUpperCase()}`);
   if (motion.voteCount) {
-    lines.push(`Vote: Yea ${motion.voteCount.yea}, Nay ${motion.voteCount.nay}, Abstain ${motion.voteCount.abstain}`);
+    lines.push(
+      `Vote: Yea ${motion.voteCount.yea}, Nay ${motion.voteCount.nay}, Abstain ${motion.voteCount.abstain}`,
+    );
   }
   return lines.join('\n');
 }
@@ -397,9 +393,9 @@ function buildElectionContent(election: {
 }
 
 function buildOfficersContent(minutes: MeetingMinutes): string {
-  return minutes.electedOfficers.map(officer =>
-    `• ${officer.position}: ${officer.name}`
-  ).join('\n');
+  return minutes.electedOfficers
+    .map((officer) => `• ${officer.position}: ${officer.name}`)
+    .join('\n');
 }
 
 /**
@@ -413,13 +409,13 @@ export async function getMinutesDocument(meetingCode: string): Promise<{
   const document = await prisma.document.findFirst({
     where: {
       docType: 'minutes',
-      title: { contains: meetingCode }
+      title: { contains: meetingCode },
     },
     select: {
       id: true,
       title: true,
-      currentVersionId: true
-    }
+      currentVersionId: true,
+    },
   });
 
   if (!document) {
@@ -429,7 +425,7 @@ export async function getMinutesDocument(meetingCode: string): Promise<{
   return {
     documentId: document.id,
     versionId: document.currentVersionId,
-    title: document.title
+    title: document.title,
   };
 }
 
@@ -440,7 +436,7 @@ export async function getMinutesDocument(meetingCode: string): Promise<{
 export async function autoGenerateMinutes(
   meetingCode: string,
   minutes: MeetingMinutes,
-  organizationId?: string
+  organizationId?: string,
 ): Promise<MinutesDocumentResult> {
   // First, try to find if there's a linked organization via meeting packet
   let orgId = organizationId;
@@ -448,7 +444,7 @@ export async function autoGenerateMinutes(
   if (!orgId) {
     // Check if meeting packet exists and try to find linked org
     const packet = await prisma.meetingPacket.findUnique({
-      where: { robbieCode: meetingCode }
+      where: { robbieCode: meetingCode },
     });
 
     // Future: could add organizationId to MeetingPacket for direct linking
@@ -459,7 +455,7 @@ export async function autoGenerateMinutes(
   if (result.success) {
     // Optionally link the minutes document to the meeting packet
     const packet = await prisma.meetingPacket.findUnique({
-      where: { robbieCode: meetingCode }
+      where: { robbieCode: meetingCode },
     });
 
     if (packet) {
@@ -472,8 +468,8 @@ export async function autoGenerateMinutes(
           displayName: result.documentTitle,
           description: 'Auto-generated meeting minutes',
           meetingPacketId: packet.id,
-          position: 999 // Add at end
-        }
+          position: 999, // Add at end
+        },
       });
     }
   }

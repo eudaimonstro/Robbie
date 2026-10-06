@@ -51,10 +51,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           aria-live="assertive"
         >
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md text-center">
-            <div className="text-red-600 text-4xl mb-4" aria-hidden="true">⚠️</div>
-            <h2 className="text-lg font-semibold text-red-800 mb-2">
-              Something went wrong
-            </h2>
+            <div className="text-red-600 text-4xl mb-4" aria-hidden="true">
+              ⚠️
+            </div>
+            <h2 className="text-lg font-semibold text-red-800 mb-2">Something went wrong</h2>
             <p className="text-sm text-red-700 mb-4">
               An unexpected error occurred. The meeting data is preserved.
             </p>

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { bylawSync, type Document, type SectionTree, type MeetingOrganizationResponse } from '../../../../api/client';
+import {
+  bylawSync,
+  type Document,
+  type SectionTree,
+  type MeetingOrganizationResponse,
+} from '../../../../api/client';
 import { useToast } from '../../../../context/ToastContext';
 
 export interface FlatSection extends SectionTree {

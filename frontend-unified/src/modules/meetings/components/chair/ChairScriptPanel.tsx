@@ -8,7 +8,7 @@ interface ChairScriptPanelProps {
 }
 
 export const ChairScriptPanel = React.memo(function ChairScriptPanel({
-  state
+  state,
 }: ChairScriptPanelProps) {
   const [showScript, setShowScript] = useState(true);
 
@@ -20,10 +20,7 @@ export const ChairScriptPanel = React.memo(function ChairScriptPanel({
 
   if (!showScript) {
     return (
-      <button
-        onClick={() => setShowScript(true)}
-        className="text-indigo-600 text-sm"
-      >
+      <button onClick={() => setShowScript(true)} className="text-indigo-600 text-sm">
         Show script
       </button>
     );

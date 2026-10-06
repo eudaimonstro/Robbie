@@ -15,12 +15,12 @@ export const TimeLimitsPanel = React.memo(function TimeLimitsPanel({
   setSpeakerTime,
   voteTime,
   setVoteTime,
-  dispatch
+  dispatch,
 }: TimeLimitsPanelProps) {
   return (
     <div className="card p-4">
       <h3 className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white">
-        <Timer size={18}/> Time Limits
+        <Timer size={18} /> Time Limits
       </h3>
       <div className="space-y-3">
         <div>
@@ -42,7 +42,9 @@ export const TimeLimitsPanel = React.memo(function TimeLimitsPanel({
               Set
             </button>
           </div>
-          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
+          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+            Set to 0 to disable timer
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
@@ -63,7 +65,9 @@ export const TimeLimitsPanel = React.memo(function TimeLimitsPanel({
               Set
             </button>
           </div>
-          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">Set to 0 to disable timer</p>
+          <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+            Set to 0 to disable timer
+          </p>
         </div>
       </div>
     </div>

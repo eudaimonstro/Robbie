@@ -19,7 +19,7 @@ interface UseSocketConnectionReturn {
 
 export function useSocketConnection(
   authState: AuthState,
-  onInvalidToken: () => void
+  onInvalidToken: () => void,
 ): UseSocketConnectionReturn {
   const [state, setState] = useState<MeetingState>(initialState);
   const [isConnected, setIsConnected] = useState(false);
@@ -67,31 +67,35 @@ export function useSocketConnection(
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      withCredentials: true
+      withCredentials: true,
     });
 
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      newSocket.emit('JOIN_MEETING', {
-        meetingCode: authState.meetingCode,
-        token: authState.token!
-      }, (response) => {
-        isConnectingRef.current = false;
-        if (response.success) {
-          setState(response.state!);
-          setConnectedMembers(response.members || []);
-          setIsConnected(true);
-          setError(null);
-        } else {
-          setError(response.error || 'Failed to join meeting');
-          if (response.error?.includes('Invalid token')) {
-            onInvalidToken();
-            newSocket.disconnect();
-            socketRef.current = null;
+      newSocket.emit(
+        'JOIN_MEETING',
+        {
+          meetingCode: authState.meetingCode,
+          token: authState.token!,
+        },
+        (response) => {
+          isConnectingRef.current = false;
+          if (response.success) {
+            setState(response.state!);
+            setConnectedMembers(response.members || []);
+            setIsConnected(true);
+            setError(null);
+          } else {
+            setError(response.error || 'Failed to join meeting');
+            if (response.error?.includes('Invalid token')) {
+              onInvalidToken();
+              newSocket.disconnect();
+              socketRef.current = null;
+            }
           }
-        }
-      });
+        },
+      );
     });
 
     newSocket.on('connect_error', (err) => {
@@ -106,18 +110,18 @@ export function useSocketConnection(
 
     newSocket.on('STATE_UPDATE', (data: StateUpdatePayload) => {
       setState(data.state);
-      setConnectedMembers(data.state.members.filter(m => m.present));
+      setConnectedMembers(data.state.members.filter((m) => m.present));
     });
 
     newSocket.on('MEMBER_JOINED', ({ member }) => {
-      setConnectedMembers(prev => {
-        if (prev.find(m => m.id === member.id)) return prev;
+      setConnectedMembers((prev) => {
+        if (prev.find((m) => m.id === member.id)) return prev;
         return [...prev, member];
       });
     });
 
     newSocket.on('MEMBER_LEFT', ({ member }) => {
-      setConnectedMembers(prev => prev.filter(m => m.id !== member.id));
+      setConnectedMembers((prev) => prev.filter((m) => m.id !== member.id));
     });
 
     newSocket.on('ACTION_REJECTED', ({ reason }) => {
@@ -136,38 +140,41 @@ export function useSocketConnection(
   }, [authState.token, authState.meetingCode, onInvalidToken, setTemporaryError]);
 
   // Dispatch action through socket with timeout
-  const dispatch = useCallback(async (action: MeetingAction): Promise<boolean> => {
-    const currentSocket = socketRef.current;
-    if (!currentSocket || !isConnected) {
-      setError('Not connected to server');
-      return false;
-    }
+  const dispatch = useCallback(
+    async (action: MeetingAction): Promise<boolean> => {
+      const currentSocket = socketRef.current;
+      if (!currentSocket || !isConnected) {
+        setError('Not connected to server');
+        return false;
+      }
 
-    const sequence = clientSequence + 1;
-    setClientSequence(sequence);
+      const sequence = clientSequence + 1;
+      setClientSequence(sequence);
 
-    const TIMEOUT_MS = 10000;
+      const TIMEOUT_MS = 10000;
 
-    const actionPromise = new Promise<boolean>((resolve) => {
-      currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
-        if (response.success) {
-          resolve(true);
-        } else {
-          setTemporaryError(response.error || 'Action failed');
-          resolve(false);
-        }
+      const actionPromise = new Promise<boolean>((resolve) => {
+        currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
+          if (response.success) {
+            resolve(true);
+          } else {
+            setTemporaryError(response.error || 'Action failed');
+            resolve(false);
+          }
+        });
       });
-    });
 
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      setTimeout(() => {
-        setTemporaryError('Action timed out. Please try again.');
-        resolve(false);
-      }, TIMEOUT_MS);
-    });
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          setTemporaryError('Action timed out. Please try again.');
+          resolve(false);
+        }, TIMEOUT_MS);
+      });
 
-    return Promise.race([actionPromise, timeoutPromise]);
-  }, [isConnected, clientSequence, setTemporaryError]);
+      return Promise.race([actionPromise, timeoutPromise]);
+    },
+    [isConnected, clientSequence, setTemporaryError],
+  );
 
   // Reconnect
   const reconnect = useCallback(() => {
@@ -197,6 +204,6 @@ export function useSocketConnection(
     dispatch,
     reconnect,
     disconnect,
-    setError
+    setError,
   };
 }

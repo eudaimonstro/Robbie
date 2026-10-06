@@ -24,11 +24,17 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
   index,
   isMotionMaker,
   speakerTimeLimit,
-  dispatch
+  dispatch,
 }: SpeakerListItemProps) {
   const stanceIcon = entry.stance === 'pro' ? '✓' : entry.stance === 'con' ? '✗' : '○';
-  const stanceColor = entry.stance === 'pro' ? 'text-success-600 dark:text-success-400' : entry.stance === 'con' ? 'text-danger-600 dark:text-danger-400' : 'text-secondary-500 dark:text-secondary-400';
-  const stanceLabel = entry.stance === 'pro' ? 'For' : entry.stance === 'con' ? 'Against' : 'Neutral';
+  const stanceColor =
+    entry.stance === 'pro'
+      ? 'text-success-600 dark:text-success-400'
+      : entry.stance === 'con'
+        ? 'text-danger-600 dark:text-danger-400'
+        : 'text-secondary-500 dark:text-secondary-400';
+  const stanceLabel =
+    entry.stance === 'pro' ? 'For' : entry.stance === 'con' ? 'Against' : 'Neutral';
 
   const handleRecognize = useCallback(() => {
     dispatch({
@@ -36,18 +42,22 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
       member: entry.member,
       stance: entry.stance,
       speakerTimerEnd: calculateTimerEnd(speakerTimeLimit),
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
   }, [dispatch, entry.member, entry.stance, speakerTimeLimit]);
 
   return (
     <li
       className={`flex items-center justify-between p-3 rounded-lg ${
-        isMotionMaker ? 'bg-meeting-50 dark:bg-meeting-900/20 border-2 border-meeting-300 dark:border-meeting-700' : 'bg-secondary-50 dark:bg-secondary-800'
+        isMotionMaker
+          ? 'bg-meeting-50 dark:bg-meeting-900/20 border-2 border-meeting-300 dark:border-meeting-700'
+          : 'bg-secondary-50 dark:bg-secondary-800'
       }`}
     >
       <span className="flex items-center gap-2 text-secondary-900 dark:text-white">
-        <span>{index + 1}. {entry.member.name}</span>
+        <span>
+          {index + 1}. {entry.member.name}
+        </span>
         <span className={`text-xs font-medium ${stanceColor}`} title={stanceLabel}>
           {stanceIcon} {stanceLabel}
         </span>
@@ -60,7 +70,9 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
       <button
         onClick={handleRecognize}
         className={`px-4 py-1 rounded text-sm text-white ${
-          isMotionMaker ? 'bg-meeting-600 hover:bg-meeting-700' : 'bg-primary-500 hover:bg-primary-600'
+          isMotionMaker
+            ? 'bg-meeting-600 hover:bg-meeting-700'
+            : 'bg-primary-500 hover:bg-primary-600'
         }`}
         aria-label={`Recognize ${entry.member.name} to speak`}
       >
@@ -73,7 +85,7 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
 export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
   state,
   dispatch,
-  sortedQueue
+  sortedQueue,
 }: SpeakerQueuePanelProps) {
   const [speakerTimeExpired, setSpeakerTimeExpired] = useState(false);
 
@@ -95,7 +107,10 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
   return (
     <section className="card p-4" aria-labelledby="speaker-queue-heading">
       <div className="flex items-center justify-between mb-3">
-        <h3 id="speaker-queue-heading" className="font-semibold flex items-center gap-2 text-secondary-800 dark:text-white">
+        <h3
+          id="speaker-queue-heading"
+          className="font-semibold flex items-center gap-2 text-secondary-800 dark:text-white"
+        >
           <Hand size={18} aria-hidden="true" /> Speaker Queue{' '}
           <span className="bg-secondary-200 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300 text-sm px-2 py-0.5 rounded-full">
             {state.speakerQueue.length}
@@ -125,7 +140,10 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
             />
           )}
           {speakerTimeExpired && (
-            <div className="mt-2 p-3 bg-accent-100 dark:bg-accent-900/30 border-2 border-accent-400 dark:border-accent-600 rounded-lg animate-pulse" role="alert">
+            <div
+              className="mt-2 p-3 bg-accent-100 dark:bg-accent-900/30 border-2 border-accent-400 dark:border-accent-600 rounded-lg animate-pulse"
+              role="alert"
+            >
               <p className="text-accent-800 dark:text-accent-300 font-semibold">
                 <span aria-hidden="true">⏰</span> Speaking time has expired
               </p>
@@ -138,7 +156,9 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
       )}
 
       {state.speakerQueue.length === 0 ? (
-        <p className="text-secondary-500 dark:text-secondary-400 text-center py-4">No one waiting</p>
+        <p className="text-secondary-500 dark:text-secondary-400 text-center py-4">
+          No one waiting
+        </p>
       ) : (
         <ul className="space-y-2" role="list" aria-label="Speakers waiting to speak">
           {sortedQueue.map((entry, i) => {

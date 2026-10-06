@@ -2,7 +2,12 @@ import { memo, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { colors, spacing, typography, borderRadius, touchTargets } from '../theme';
-import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  PendingProxyRequest,
+} from '@robbie-bylawyer/shared/types';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { Card, Button } from './ui';
 
@@ -23,28 +28,28 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
 
   // Check if user already has an active proxy
   const hasActiveProxy = useMemo(() => {
-    return state.proxies.some(p => p.grantedBy === currentUser.id);
+    return state.proxies.some((p) => p.grantedBy === currentUser.id);
   }, [state.proxies, currentUser.id]);
 
   // Get user's active proxy details
   const activeProxy = useMemo(() => {
-    return state.proxies.find(p => p.grantedBy === currentUser.id);
+    return state.proxies.find((p) => p.grantedBy === currentUser.id);
   }, [state.proxies, currentUser.id]);
 
   // Check if user has a pending proxy request
   const pendingRequest = useMemo(() => {
     return state.pendingProxyRequests.find(
-      r => r.requestedBy === currentUser.id && r.status === 'pending'
+      (r) => r.requestedBy === currentUser.id && r.status === 'pending',
     );
   }, [state.pendingProxyRequests, currentUser.id]);
 
   // Get eligible proxy holders
   const eligibleHolders = useMemo(() => {
-    return state.members.filter(m => {
+    return state.members.filter((m) => {
       if (!m.present) return false;
       if (m.id === currentUser.id) return false;
       if (state.maxProxiesPerMember === 0) return true;
-      const currentCount = state.proxies.filter(p => p.grantedTo === m.id).length;
+      const currentCount = state.proxies.filter((p) => p.grantedTo === m.id).length;
       return currentCount < state.maxProxiesPerMember;
     });
   }, [state.members, state.proxies, state.maxProxiesPerMember, currentUser.id]);
@@ -62,7 +67,7 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
   const handleRequestProxy = useCallback(async () => {
     if (!selectedHolder || isSubmitting) return;
 
-    const holder = state.members.find(m => m.id === selectedHolder);
+    const holder = state.members.find((m) => m.id === selectedHolder);
     if (!holder) return;
 
     setIsSubmitting(true);
@@ -75,7 +80,7 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
         requestedFor: selectedHolder,
         requestedForName: holder.name,
         scope: proxyScope,
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
       setSelectedHolder(null);
     } finally {
@@ -89,7 +94,7 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
     await dispatch({
       type: 'CANCEL_PROXY_REQUEST',
       requestId: pendingRequest.id,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
   }, [dispatch, pendingRequest]);
 
@@ -118,16 +123,13 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
         <Text style={styles.title}>Proxy Request Pending</Text>
         <Card style={styles.pendingCard}>
           <Text style={styles.pendingText}>
-            Waiting for <Text style={styles.holderName}>{pendingRequest.requestedForName}</Text> to accept
+            Waiting for <Text style={styles.holderName}>{pendingRequest.requestedForName}</Text> to
+            accept
           </Text>
           <Text style={styles.scopeText}>
             {pendingRequest.scope === 'single-vote' ? 'Single vote only' : 'All votes'}
           </Text>
-          <Button
-            title="Cancel Request"
-            onPress={handleCancelRequest}
-            variant="secondary"
-          />
+          <Button title="Cancel Request" onPress={handleCancelRequest} variant="secondary" />
         </Card>
       </View>
     );
@@ -157,14 +159,13 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
                 accessibilityLabel="Select proxy holder"
               >
                 <Picker.Item label="Select a member..." value={null} />
-                {eligibleHolders.map(m => {
-                  const proxyCount = state.proxies.filter(p => p.grantedTo === m.id).length;
-                  const label = proxyCount > 0
-                    ? `${m.name} (${proxyCount} proxy${proxyCount > 1 ? 'ies' : ''})`
-                    : m.name;
-                  return (
-                    <Picker.Item key={m.id} label={label} value={m.id} />
-                  );
+                {eligibleHolders.map((m) => {
+                  const proxyCount = state.proxies.filter((p) => p.grantedTo === m.id).length;
+                  const label =
+                    proxyCount > 0
+                      ? `${m.name} (${proxyCount} proxy${proxyCount > 1 ? 'ies' : ''})`
+                      : m.name;
+                  return <Picker.Item key={m.id} label={label} value={m.id} />;
                 })}
               </Picker>
             </View>
@@ -195,7 +196,7 @@ export const ProxyRequestPanel = memo(function ProxyRequestPanel({
 
         <DeclinedRequestsHistory
           requests={state.pendingProxyRequests.filter(
-            r => r.requestedBy === currentUser.id && r.status === 'declined'
+            (r) => r.requestedBy === currentUser.id && r.status === 'declined',
           )}
         />
       </Card>
@@ -217,15 +218,9 @@ const ScopeButton = memo(function ScopeButton({ label, isSelected, onPress }: Sc
       accessibilityRole="radio"
       accessibilityState={{ checked: isSelected }}
       accessibilityLabel={`${label}${isSelected ? ', selected' : ''}`}
-      style={[
-        styles.scopeButton,
-        isSelected && styles.scopeButtonSelected,
-      ]}
+      style={[styles.scopeButton, isSelected && styles.scopeButtonSelected]}
     >
-      <Text style={[
-        styles.scopeButtonText,
-        isSelected && styles.scopeButtonTextSelected,
-      ]}>
+      <Text style={[styles.scopeButtonText, isSelected && styles.scopeButtonTextSelected]}>
         {label}
       </Text>
     </Pressable>
@@ -239,7 +234,7 @@ function DeclinedRequestsHistory({ requests }: { requests: PendingProxyRequest[]
   return (
     <View style={styles.historyContainer}>
       <Text style={styles.historyTitle}>Recent declined requests:</Text>
-      {requests.slice(0, 3).map(req => (
+      {requests.slice(0, 3).map((req) => (
         <Text key={req.id} style={styles.historyItem}>
           {req.requestedForName} declined
           {req.declineReason && `: "${req.declineReason}"`}

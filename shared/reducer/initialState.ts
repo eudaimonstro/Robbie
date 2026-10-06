@@ -9,9 +9,9 @@ import type { MeetingState } from '../types/index.js';
  * - Previous Minutes: Can be set via admin interface
  */
 export const initialState: MeetingState = {
-  meetingStage: "not-started" as const,
+  meetingStage: 'not-started' as const,
   meetingActive: false,
-  meetingCode: "",
+  meetingCode: '',
   members: [], // Members are added dynamically when users join
   quorum: 3,
   motionStack: [],
@@ -21,7 +21,7 @@ export const initialState: MeetingState = {
   voters: [],
   voterChoices: {},
   votingOpen: false,
-  votingMethod: "standard" as const,
+  votingMethod: 'standard' as const,
   unanimousConsentPending: false,
   speakerQueue: [],
   recognizedSpeaker: null,
@@ -40,7 +40,7 @@ export const initialState: MeetingState = {
   defeatedMotions: [],
   completedMotions: [],
   committeeReports: [], // Chair adds committee reports as needed
-  minutesFromPreviousMeeting: "", // Can be set via admin interface before meeting
+  minutesFromPreviousMeeting: '', // Can be set via admin interface before meeting
   minutesApproved: false,
   suspendedRules: [],
   lastChairRuling: null,
@@ -55,8 +55,8 @@ export const initialState: MeetingState = {
   autoYieldOnTimeExpired: false,
   // Proxy voting defaults (disabled by default per Robert's Rules)
   allowProxyVoting: false,
-  maxProxiesPerMember: 2,  // Default limit of 2 proxies per member
-  proxiesCountForQuorum: false,  // By default, proxies don't count for quorum
+  maxProxiesPerMember: 2, // Default limit of 2 proxies per member
+  proxiesCountForQuorum: false, // By default, proxies don't count for quorum
   proxies: [],
   proxyVotes: [],
   // Member-controlled proxy authorization (disabled by default)

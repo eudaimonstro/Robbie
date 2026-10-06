@@ -1,111 +1,121 @@
-import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Scale, Plus, ChevronDown, Building2, Menu, Search, X, FileText, Hash } from 'lucide-react'
-import { useOrganization } from '../../context/OrganizationContext'
-import { organizations, OrganizationCreate, search as searchApi, SearchResultItem } from '../../api/client'
-import Modal from '../ui/Modal'
-import { useToast } from '../../context/ToastContext'
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Scale, Plus, ChevronDown, Building2, Menu, Search, X, FileText, Hash } from 'lucide-react';
+import { useOrganization } from '../../context/OrganizationContext';
+import {
+  organizations,
+  OrganizationCreate,
+  search as searchApi,
+  SearchResultItem,
+} from '../../api/client';
+import Modal from '../ui/Modal';
+import { useToast } from '../../context/ToastContext';
 
 interface HeaderProps {
-  onMenuClick?: () => void
+  onMenuClick?: () => void;
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const navigate = useNavigate()
-  const { organizations: orgs, currentOrganization, setCurrentOrganization, refreshOrganizations } = useOrganization()
-  const { showToast } = useToast()
-  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [newOrgName, setNewOrgName] = useState('')
-  const [creating, setCreating] = useState(false)
+  const navigate = useNavigate();
+  const {
+    organizations: orgs,
+    currentOrganization,
+    setCurrentOrganization,
+    refreshOrganizations,
+  } = useOrganization();
+  const { showToast } = useToast();
+  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showSearchResults, setShowSearchResults] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close search dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchResults(false)
+        setShowSearchResults(false);
       }
-    }
+    };
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Debounced search
   useEffect(() => {
     if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
+      clearTimeout(searchTimeoutRef.current);
     }
 
     if (searchQuery.trim().length < 2) {
-      setSearchResults([])
-      setShowSearchResults(false)
-      return
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
     }
 
-    setIsSearching(true)
+    setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const result = await searchApi.query(searchQuery, currentOrganization?.id)
-        setSearchResults(result.results)
-        setShowSearchResults(true)
+        const result = await searchApi.query(searchQuery, currentOrganization?.id);
+        setSearchResults(result.results);
+        setShowSearchResults(true);
       } catch {
-        setSearchResults([])
+        setSearchResults([]);
       } finally {
-        setIsSearching(false)
+        setIsSearching(false);
       }
-    }, 300)
+    }, 300);
 
     return () => {
       if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
+        clearTimeout(searchTimeoutRef.current);
       }
-    }
-  }, [searchQuery, currentOrganization?.id])
+    };
+  }, [searchQuery, currentOrganization?.id]);
 
   const handleSearchResultClick = (result: SearchResultItem) => {
-    setShowSearchResults(false)
-    setSearchQuery('')
+    setShowSearchResults(false);
+    setSearchQuery('');
     if (result.type === 'document') {
-      navigate(`/documents/${result.document_id}`)
+      navigate(`/documents/${result.document_id}`);
     } else {
-      navigate(`/documents/${result.document_id}`)
+      navigate(`/documents/${result.document_id}`);
     }
-  }
+  };
 
   const clearSearch = () => {
-    setSearchQuery('')
-    setSearchResults([])
-    setShowSearchResults(false)
-  }
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+  };
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newOrgName.trim()) return
+    e.preventDefault();
+    if (!newOrgName.trim()) return;
 
     try {
-      setCreating(true)
-      const data: OrganizationCreate = { name: newOrgName.trim() }
-      const newOrg = await organizations.create(data)
-      await refreshOrganizations()
-      setCurrentOrganization(newOrg)
-      setNewOrgName('')
-      setIsCreateModalOpen(false)
-      showToast('success', `Organization "${newOrg.name}" created successfully`)
+      setCreating(true);
+      const data: OrganizationCreate = { name: newOrgName.trim() };
+      const newOrg = await organizations.create(data);
+      await refreshOrganizations();
+      setCurrentOrganization(newOrg);
+      setNewOrgName('');
+      setIsCreateModalOpen(false);
+      showToast('success', `Organization "${newOrg.name}" created successfully`);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to create organization')
+      showToast('error', err instanceof Error ? err.message : 'Failed to create organization');
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   return (
     <>
@@ -152,9 +162,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {showSearchResults && (
               <div className="absolute top-full left-0 mt-1 w-96 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
                 {isSearching ? (
-                  <div className="p-4 text-center text-secondary-500 text-sm">
-                    Searching...
-                  </div>
+                  <div className="p-4 text-center text-secondary-500 text-sm">Searching...</div>
                 ) : searchResults.length === 0 ? (
                   <div className="p-4 text-center text-secondary-500 text-sm">
                     No results found for "{searchQuery}"
@@ -212,10 +220,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
             {isOrgDropdownOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsOrgDropdownOpen(false)}
-                />
+                <div className="fixed inset-0 z-10" onClick={() => setIsOrgDropdownOpen(false)} />
                 <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg shadow-lg z-20 py-1">
                   {orgs.length > 0 ? (
                     <>
@@ -224,8 +229,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
                           <button
                             key={org.id}
                             onClick={() => {
-                              setCurrentOrganization(org)
-                              setIsOrgDropdownOpen(false)
+                              setCurrentOrganization(org);
+                              setIsOrgDropdownOpen(false);
                             }}
                             className={`w-full text-left px-4 py-2 text-sm hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-colors ${
                               currentOrganization?.id === org.id
@@ -244,8 +249,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   )}
                   <button
                     onClick={() => {
-                      setIsOrgDropdownOpen(false)
-                      setIsCreateModalOpen(true)
+                      setIsOrgDropdownOpen(false);
+                      setIsCreateModalOpen(true);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-primary-600 hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-colors flex items-center gap-2"
                   >
@@ -281,23 +286,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
             />
           </div>
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(false)}
-              className="btn-ghost"
-            >
+            <button type="button" onClick={() => setIsCreateModalOpen(false)} className="btn-ghost">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={!newOrgName.trim() || creating}
-            >
+            <button type="submit" className="btn-primary" disabled={!newOrgName.trim() || creating}>
               {creating ? 'Creating...' : 'Create Organization'}
             </button>
           </div>
         </form>
       </Modal>
     </>
-  )
+  );
 }

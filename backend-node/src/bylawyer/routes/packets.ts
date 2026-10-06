@@ -28,9 +28,9 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
           orderBy: { position: 'asc' },
           include: {
             document: {
-              select: { id: true, title: true, docType: true }
-            }
-          }
+              select: { id: true, title: true, docType: true },
+            },
+          },
         },
         agendaItems: {
           orderBy: { position: 'asc' },
@@ -39,13 +39,13 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
               orderBy: { position: 'asc' },
               include: {
                 document: {
-                  select: { id: true, title: true, docType: true }
-                }
-              }
-            }
-          }
-        }
-      }
+                  select: { id: true, title: true, docType: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!packet) {
@@ -57,9 +57,9 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
             orderBy: { position: 'asc' },
             include: {
               document: {
-                select: { id: true, title: true, docType: true }
-              }
-            }
+                select: { id: true, title: true, docType: true },
+              },
+            },
           },
           agendaItems: {
             orderBy: { position: 'asc' },
@@ -68,13 +68,13 @@ packetsRouter.get('/packets/:robbieCode', async (req, res) => {
                 orderBy: { position: 'asc' },
                 include: {
                   document: {
-                    select: { id: true, title: true, docType: true }
-                  }
-                }
-              }
-            }
-          }
-        }
+                    select: { id: true, title: true, docType: true },
+                  },
+                },
+              },
+            },
+          },
+        },
       });
     }
 
@@ -100,13 +100,13 @@ packetsRouter.post('/packets', validate({ body: createPacketBody }), async (req,
 
     // Check if packet already exists
     const existing = await prisma.meetingPacket.findUnique({
-      where: { robbieCode }
+      where: { robbieCode },
     });
 
     if (existing) {
       return res.status(409).json({
         error: 'Packet already exists for this meeting',
-        packetId: existing.id
+        packetId: existing.id,
       });
     }
 
@@ -115,14 +115,14 @@ packetsRouter.post('/packets', validate({ body: createPacketBody }), async (req,
         robbieCode,
         title,
         description,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined
+        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
       },
       include: {
         attachments: true,
         agendaItems: {
-          include: { attachments: true }
-        }
-      }
+          include: { attachments: true },
+        },
+      },
     });
 
     res.status(201).json(packet);
@@ -137,43 +137,47 @@ packetsRouter.post('/packets', validate({ body: createPacketBody }), async (req,
  * Update packet metadata
  * Body: { title?, description?, scheduledFor? }
  */
-packetsRouter.put('/packets/:id', validate({ params: uuidParam, body: updatePacketBody }), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, description, scheduledFor } = req.body;
+packetsRouter.put(
+  '/packets/:id',
+  validate({ params: uuidParam, body: updatePacketBody }),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, description, scheduledFor } = req.body;
 
-    const packet = await prisma.meetingPacket.findUnique({
-      where: { id }
-    });
+      const packet = await prisma.meetingPacket.findUnique({
+        where: { id },
+      });
 
-    if (!packet) {
-      return res.status(404).json({ error: 'Packet not found' });
-    }
-
-    const updated = await prisma.meetingPacket.update({
-      where: { id },
-      data: {
-        title,
-        description,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined
-      },
-      include: {
-        attachments: {
-          orderBy: { position: 'asc' }
-        },
-        agendaItems: {
-          orderBy: { position: 'asc' },
-          include: { attachments: { orderBy: { position: 'asc' } } }
-        }
+      if (!packet) {
+        return res.status(404).json({ error: 'Packet not found' });
       }
-    });
 
-    res.json(updated);
-  } catch (error) {
-    logger.error({ err: error }, 'Error updating packet');
-    res.status(500).json({ error: 'Failed to update meeting packet' });
-  }
-});
+      const updated = await prisma.meetingPacket.update({
+        where: { id },
+        data: {
+          title,
+          description,
+          scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+        },
+        include: {
+          attachments: {
+            orderBy: { position: 'asc' },
+          },
+          agendaItems: {
+            orderBy: { position: 'asc' },
+            include: { attachments: { orderBy: { position: 'asc' } } },
+          },
+        },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      logger.error({ err: error }, 'Error updating packet');
+      res.status(500).json({ error: 'Failed to update meeting packet' });
+    }
+  },
+);
 
 /**
  * DELETE /api/packets/:id
@@ -184,7 +188,7 @@ packetsRouter.delete('/packets/:id', validate({ params: uuidParam }), async (req
     const { id } = req.params;
 
     const packet = await prisma.meetingPacket.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!packet) {
@@ -215,18 +219,18 @@ packetsRouter.get('/packets/:id/summary', validate({ params: uuidParam }), async
       where: { id },
       include: {
         attachments: {
-          select: { id: true, displayName: true, type: true }
+          select: { id: true, displayName: true, type: true },
         },
         agendaItems: {
           select: {
             id: true,
             title: true,
             position: true,
-            _count: { select: { attachments: true } }
+            _count: { select: { attachments: true } },
           },
-          orderBy: { position: 'asc' }
-        }
-      }
+          orderBy: { position: 'asc' },
+        },
+      },
     });
 
     if (!packet) {
@@ -240,12 +244,12 @@ packetsRouter.get('/packets/:id/summary', validate({ params: uuidParam }), async
       scheduledFor: packet.scheduledFor,
       meetingAttachmentCount: packet.attachments.length,
       agendaItemCount: packet.agendaItems.length,
-      agendaItems: packet.agendaItems.map(item => ({
+      agendaItems: packet.agendaItems.map((item) => ({
         id: item.id,
         title: item.title,
         position: item.position,
-        attachmentCount: item._count.attachments
-      }))
+        attachmentCount: item._count.attachments,
+      })),
     });
   } catch (error) {
     logger.error({ err: error }, 'Error getting packet summary');

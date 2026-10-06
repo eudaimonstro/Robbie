@@ -1,66 +1,66 @@
-import { useState } from 'react'
-import { Settings, Building2, Trash2, Sun, Moon, Monitor } from 'lucide-react'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { useTheme } from '../../../context/ThemeContext'
-import { organizations as organizationsApi } from '../../../api/client'
-import Modal from '../../../components/ui/Modal'
-import ConfirmDialog from '../../../components/ui/ConfirmDialog'
-import { useToast } from '../../../context/ToastContext'
+import { useState } from 'react';
+import { Settings, Building2, Trash2, Sun, Moon, Monitor } from 'lucide-react';
+import { useOrganization } from '../../../context/OrganizationContext';
+import { useTheme } from '../../../context/ThemeContext';
+import { organizations as organizationsApi } from '../../../api/client';
+import Modal from '../../../components/ui/Modal';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { useToast } from '../../../context/ToastContext';
 
 export default function SettingsPage() {
-  const { currentOrganization, refreshOrganizations, setCurrentOrganization } = useOrganization()
-  const { theme, setTheme } = useTheme()
-  const { showToast } = useToast()
+  const { currentOrganization, refreshOrganizations, setCurrentOrganization } = useOrganization();
+  const { theme, setTheme } = useTheme();
+  const { showToast } = useToast();
 
   // Edit organization
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editName, setEditName] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Delete organization
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleEditOrganization = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentOrganization || !editName.trim()) return
+    e.preventDefault();
+    if (!currentOrganization || !editName.trim()) return;
 
     try {
-      setSaving(true)
-      await organizationsApi.update(currentOrganization.id, { name: editName.trim() })
-      await refreshOrganizations()
-      setEditModalOpen(false)
-      showToast('success', 'Organization updated')
+      setSaving(true);
+      await organizationsApi.update(currentOrganization.id, { name: editName.trim() });
+      await refreshOrganizations();
+      setEditModalOpen(false);
+      showToast('success', 'Organization updated');
     } catch (err) {
-      showToast('error', 'Failed to update organization')
+      showToast('error', 'Failed to update organization');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDeleteOrganization = async () => {
-    if (!currentOrganization) return
+    if (!currentOrganization) return;
 
     try {
-      setDeleting(true)
-      await organizationsApi.delete(currentOrganization.id)
-      setCurrentOrganization(null)
-      await refreshOrganizations()
-      setDeleteDialogOpen(false)
-      showToast('success', 'Organization deleted')
+      setDeleting(true);
+      await organizationsApi.delete(currentOrganization.id);
+      setCurrentOrganization(null);
+      await refreshOrganizations();
+      setDeleteDialogOpen(false);
+      showToast('success', 'Organization deleted');
     } catch (err) {
-      showToast('error', 'Failed to delete organization')
+      showToast('error', 'Failed to delete organization');
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   const openEditModal = () => {
     if (currentOrganization) {
-      setEditName(currentOrganization.name)
-      setEditModalOpen(true)
+      setEditName(currentOrganization.name);
+      setEditModalOpen(true);
     }
-  }
+  };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -108,9 +108,7 @@ export default function SettingsPage() {
           {/* Danger Zone */}
           <div className="card border-danger-200 dark:border-danger-900">
             <div className="px-6 py-4 border-b border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-900/20 rounded-t-lg">
-              <h3 className="font-semibold text-danger-700 dark:text-danger-400">
-                Danger Zone
-              </h3>
+              <h3 className="font-semibold text-danger-700 dark:text-danger-400">Danger Zone</h3>
             </div>
             <div className="p-6">
               <div className="flex items-center justify-between">
@@ -122,10 +120,7 @@ export default function SettingsPage() {
                     Permanently delete this organization and all its data
                   </p>
                 </div>
-                <button
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="btn-danger btn-sm"
-                >
+                <button onClick={() => setDeleteDialogOpen(true)} className="btn-danger btn-sm">
                   <Trash2 className="w-4 h-4 mr-1" />
                   Delete
                 </button>
@@ -204,12 +199,14 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-secondary-500">Environment</span>
-                <span className="text-sm text-secondary-700 dark:text-secondary-300">Development</span>
+                <span className="text-sm text-secondary-700 dark:text-secondary-300">
+                  Development
+                </span>
               </div>
               <div className="pt-3 border-t border-secondary-200 dark:border-secondary-700">
                 <p className="text-sm text-secondary-500">
-                  Robbie-Bylawyer combines real-time parliamentary procedure management
-                  with organizational bylaws version control.
+                  Robbie-Bylawyer combines real-time parliamentary procedure management with
+                  organizational bylaws version control.
                 </p>
               </div>
             </div>
@@ -286,7 +283,11 @@ export default function SettingsPage() {
       )}
 
       {/* Edit Modal */}
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Organization">
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Organization"
+      >
         <form onSubmit={handleEditOrganization}>
           <div className="mb-6">
             <label htmlFor="orgName" className="label">
@@ -324,5 +325,5 @@ export default function SettingsPage() {
         loading={deleting}
       />
     </div>
-  )
+  );
 }

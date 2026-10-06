@@ -17,7 +17,11 @@ export type ActionValidator = (state: MeetingState, action: MeetingAction) => Va
 /** Discriminated union for action result - ensures state/version exist when success is true */
 export type ApplyActionResult =
   | { success: true; state: MeetingState; stateVersion: number }
-  | { success: false; error: string; errorCode?: 'CONCURRENCY_CONFLICT' | 'MEETING_NOT_FOUND' | ActionErrorCode };
+  | {
+      success: false;
+      error: string;
+      errorCode?: 'CONCURRENCY_CONFLICT' | 'MEETING_NOT_FOUND' | ActionErrorCode;
+    };
 
 /** Maximum number of retry attempts for concurrent conflicts */
 const MAX_RETRIES = 3;
@@ -38,7 +42,7 @@ const MAX_RETRIES = 3;
 export async function applyAction(
   meetingCode: string,
   action: MeetingAction,
-  validator?: ActionValidator
+  validator?: ActionValidator,
 ): Promise<ApplyActionResult> {
   const storage = getStorage();
 
@@ -56,7 +60,7 @@ export async function applyAction(
         return {
           success: false,
           error: validation.error || 'Validation failed',
-          errorCode: validation.errorCode
+          errorCode: validation.errorCode,
         };
       }
     }
@@ -72,7 +76,7 @@ export async function applyAction(
         meetingCode,
         newState,
         expectedVersion,
-        newVersion
+        newVersion,
       );
 
       if (updateResult.success) {
@@ -85,7 +89,10 @@ export async function applyAction(
 
       // VERSION_CONFLICT - retry with fresh state
       if (attempt < MAX_RETRIES - 1) {
-        logger.info({ meetingCode, attempt: attempt + 2, maxRetries: MAX_RETRIES }, 'Concurrency conflict, retrying');
+        logger.info(
+          { meetingCode, attempt: attempt + 2, maxRetries: MAX_RETRIES },
+          'Concurrency conflict, retrying',
+        );
         continue;
       }
     } catch (error) {
@@ -95,11 +102,14 @@ export async function applyAction(
   }
 
   // All retries exhausted
-  logger.warn({ meetingCode, maxRetries: MAX_RETRIES }, 'Concurrency conflict after all retry attempts');
+  logger.warn(
+    { meetingCode, maxRetries: MAX_RETRIES },
+    'Concurrency conflict after all retry attempts',
+  );
   return {
     success: false,
     error: 'State was modified by another user. Please try again.',
-    errorCode: 'CONCURRENCY_CONFLICT'
+    errorCode: 'CONCURRENCY_CONFLICT',
   };
 }
 

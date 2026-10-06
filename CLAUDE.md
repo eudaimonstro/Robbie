@@ -47,6 +47,7 @@ robbie-bylawyer/
 ## Commands
 
 ### Development
+
 ```bash
 npm install              # Install all workspace dependencies
 npm run dev              # Start backend + unified frontend (default)
@@ -57,6 +58,7 @@ npm run dev:bylawyer     # Start backend + legacy Bylawyer frontend only
 ```
 
 ### Building
+
 ```bash
 npm run build            # Build all workspaces
 npm run build:shared     # Build shared package (required first if changed)
@@ -65,12 +67,14 @@ npm run build:frontends  # Build both frontends
 ```
 
 ### Testing
+
 ```bash
 npm run test             # Run frontend-robbie tests
 npm run test:coverage    # Run tests with coverage report
 ```
 
 ### Database
+
 ```bash
 # In backend-node directory:
 npm run db:generate      # Generate Prisma client
@@ -80,6 +84,7 @@ npm run db:studio        # Open Prisma Studio
 ```
 
 ### Docker
+
 ```bash
 docker compose up -d     # Start PostgreSQL database
 docker compose down      # Stop database
@@ -92,18 +97,21 @@ docker compose down      # Stop database
 The backend serves both Robbie and Bylawyer from a single Express server:
 
 **Robbie Features:**
+
 - Socket.io for real-time meeting state synchronization
 - Email-based authentication with verification codes
 - Meeting storage (PostgreSQL or in-memory fallback)
 - Parliamentary procedure state management
 
 **Bylawyer Features:**
+
 - Prisma ORM for document/amendment data
 - REST API for document management
 - Amendment lifecycle management
 - Version control for bylaws
 
 **Database:**
+
 - Single PostgreSQL database (`robbie`) contains both:
   - Robbie tables: `users`, `meetings`, `meeting_participants`, `meeting_actions`
   - Bylawyer tables (Prisma): `Organization`, `Document`, `Version`, `Section`, `Amendment`, etc.
@@ -113,6 +121,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 The unified frontend combines both Robbie and Bylawyer into a single React application with:
 
 **Routing Structure:**
+
 - `/` - Dashboard/Home (documents)
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
@@ -121,6 +130,7 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/settings` - App settings
 
 **State Management:**
+
 - `ThemeContext` - Global dark mode
 - `ToastContext` - Global notifications
 - `OrganizationContext` - Current organization
@@ -129,25 +139,29 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 ### Robbie Meetings Module (modules/meetings)
 
 **State Management Pattern:**
+
 - **SocketContext** (`frontend-unified/src/modules/meetings/context/SocketContext.tsx`) is the single source of truth
 - Manages WebSocket connection, meeting state synced across all users
 - The **meetingReducer** is intentionally pure (no side effects)
 - Generate IDs/timestamps BEFORE dispatch using `idGenerators` module
 
 **Socket.io Events:**
+
 - Client → Server: `JOIN_MEETING`, `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
 - Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR`
 
 **Shared Package Exports:**
+
 ```typescript
-import { MeetingState, Member } from '@robbie-bylawyer/shared/types'
-import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer'
-import { motionDefinitions } from '@robbie-bylawyer/shared/constants'
+import { MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
+import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 ```
 
 ### Bylawyer (Document Version Control)
 
 **Data Model:**
+
 - **Organization**: Top-level entity that owns documents
 - **Document**: A bylaws document (bylaws, standing rules, policy)
 - **Version**: Immutable snapshot of a document at a point in time
@@ -158,6 +172,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants'
 - **Vote**: Tally of votes on an amendment
 
 **Amendment Workflow:**
+
 1. Create amendment (status: draft)
 2. Add changes to the amendment
 3. Propose the amendment (status: proposed)
@@ -165,6 +180,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants'
 5. If passed, apply to create new version
 
 **API Endpoints (all on port 3001):**
+
 - `GET /api/health` - Health check
 - `GET/POST /api/organizations` - List/create organizations
 - `GET/POST /api/organizations/{id}/documents` - Documents for org
@@ -180,11 +196,13 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants'
 ### Integration: Robbie ↔ Bylawyer
 
 When a bylaw amendment motion passes in Robbie:
+
 1. `bylawSyncService` detects the CLOSE_VOTING action
 2. Creates an Amendment in Bylawyer with status 'passed'
 3. Automatically applies the amendment to create a new document version
 
 **Linking Flow:**
+
 1. Link a Robbie meeting to a Bylawyer organization via `/api/bylawyer/link-meeting`
 2. When creating a bylawAmendment motion in Robbie, select the document and section
 3. After the motion passes, it's automatically synced to Bylawyer
@@ -192,6 +210,7 @@ When a bylaw amendment motion passes in Robbie:
 ## Environment Variables
 
 ### Backend (backend-node)
+
 ```
 PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
@@ -200,12 +219,15 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
 ### Frontend Unified
+
 Uses Vite proxy to backend on port 3001 (no env var needed for dev)
+
 ```
 VITE_SERVER_URL=http://localhost:3001  # For production builds
 ```
 
 ### Frontend Legacy (Robbie/Bylawyer)
+
 ```
 VITE_SERVER_URL=http://localhost:3001
 ```
@@ -229,6 +251,7 @@ VITE_SERVER_URL=http://localhost:3001
 ## Feature Specifications
 
 Features for Bylawyer are stored in `features/` directory:
+
 ```
 features/
 ├── manifest.json           # Index of all feature files

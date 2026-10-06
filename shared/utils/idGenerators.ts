@@ -8,9 +8,10 @@
  */
 export function generateId(): number {
   // Use crypto for randomness, fallback to Math.random for older environments
-  const randomSuffix = typeof crypto !== 'undefined' && crypto.getRandomValues
-    ? crypto.getRandomValues(new Uint16Array(1))[0]
-    : Math.floor(Math.random() * 65536);
+  const randomSuffix =
+    typeof crypto !== 'undefined' && crypto.getRandomValues
+      ? crypto.getRandomValues(new Uint16Array(1))[0]
+      : Math.floor(Math.random() * 65536);
   return Date.now() * 1000 + (randomSuffix % 1000);
 }
 

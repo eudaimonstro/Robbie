@@ -498,10 +498,7 @@
   {
     "category": "functional",
     "description": "Amendment created_at is set automatically",
-    "steps": [
-      "Step 1: Create amendment",
-      "Step 2: Verify created_at is set"
-    ],
+    "steps": ["Step 1: Create amendment", "Step 2: Verify created_at is set"],
     "passes": true
   },
   {
@@ -675,28 +672,19 @@
   {
     "category": "functional",
     "description": "Vote displays amendment title",
-    "steps": [
-      "Step 1: View vote record",
-      "Step 2: Verify amendment title is shown"
-    ],
+    "steps": ["Step 1: View vote record", "Step 2: Verify amendment title is shown"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "ESLint passes with no errors",
-    "steps": [
-      "Step 1: Run eslint",
-      "Step 2: Verify no errors"
-    ],
+    "steps": ["Step 1: Run eslint", "Step 2: Verify no errors"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Python linting passes",
-    "steps": [
-      "Step 1: Run ruff or similar",
-      "Step 2: Verify no errors"
-    ],
+    "steps": ["Step 1: Run ruff or similar", "Step 2: Verify no errors"],
     "passes": true
   },
   {

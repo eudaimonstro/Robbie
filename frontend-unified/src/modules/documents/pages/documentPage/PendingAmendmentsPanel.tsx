@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom'
-import { Amendment } from '../../../../api/client'
-import { StatusBadge } from '../../../../components/ui/Badge'
+import { Link } from 'react-router-dom';
+import { Amendment } from '../../../../api/client';
+import { StatusBadge } from '../../../../components/ui/Badge';
 
 interface PendingAmendmentsPanelProps {
-  amendments: Amendment[]
-  documentId: string
+  amendments: Amendment[];
+  documentId: string;
 }
 
 export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendmentsPanelProps) {
@@ -18,9 +18,7 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
         </div>
 
         {amendments.length === 0 ? (
-          <div className="p-4 text-center text-sm text-secondary-500">
-            No pending amendments
-          </div>
+          <div className="p-4 text-center text-sm text-secondary-500">No pending amendments</div>
         ) : (
           <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
             {amendments.map((amendment) => (
@@ -36,9 +34,7 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
                   <StatusBadge status={amendment.status} />
                 </div>
                 {amendment.description && (
-                  <p className="text-xs text-secondary-500 line-clamp-2">
-                    {amendment.description}
-                  </p>
+                  <p className="text-xs text-secondary-500 line-clamp-2">{amendment.description}</p>
                 )}
                 <p className="text-xs text-secondary-400 mt-1">
                   {amendment.changes?.length || 0} change(s)
@@ -58,5 +54,5 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
         </div>
       </div>
     </div>
-  )
+  );
 }

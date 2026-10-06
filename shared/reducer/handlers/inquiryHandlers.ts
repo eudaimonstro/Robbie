@@ -11,42 +11,48 @@ export const inquiryHandler: ActionHandler = (state, action, log) => {
         question: typedAction.question,
         askedBy: typedAction.askedBy,
         askerId: typedAction.askerId,
-        timestamp: typedAction.timestamp
+        timestamp: typedAction.timestamp,
       };
 
-      const inquiryTypeLabel = typedAction.inquiryType === 'parliamentary'
-        ? 'Parliamentary Inquiry'
-        : 'Request for Information';
+      const inquiryTypeLabel =
+        typedAction.inquiryType === 'parliamentary'
+          ? 'Parliamentary Inquiry'
+          : 'Request for Information';
 
       return {
         ...state,
         inquiries: [...state.inquiries, newInquiry],
-        meetingLog: log(typedAction.timestamp, `${typedAction.askedBy} raises ${inquiryTypeLabel}: "${typedAction.question}"`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `${typedAction.askedBy} raises ${inquiryTypeLabel}: "${typedAction.question}"`,
+        ),
       };
     }
 
     case 'ANSWER_INQUIRY': {
       const typedAction = action as Extract<MeetingAction, { type: 'ANSWER_INQUIRY' }>;
-      const updatedInquiries = state.inquiries.map(inq =>
+      const updatedInquiries = state.inquiries.map((inq) =>
         inq.id === typedAction.inquiryId
           ? {
               ...inq,
               answer: typedAction.answer,
               answeredBy: typedAction.answeredBy,
-              answeredAt: typedAction.timestamp
+              answeredAt: typedAction.timestamp,
             }
-          : inq
+          : inq,
       );
 
-      const inquiry = state.inquiries.find(inq => inq.id === typedAction.inquiryId);
-      const inquiryTypeLabel = inquiry?.type === 'parliamentary'
-        ? 'Parliamentary Inquiry'
-        : 'Request for Information';
+      const inquiry = state.inquiries.find((inq) => inq.id === typedAction.inquiryId);
+      const inquiryTypeLabel =
+        inquiry?.type === 'parliamentary' ? 'Parliamentary Inquiry' : 'Request for Information';
 
       return {
         ...state,
         inquiries: updatedInquiries,
-        meetingLog: log(typedAction.timestamp, `Chair answers ${inquiryTypeLabel}: "${typedAction.answer}"`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair answers ${inquiryTypeLabel}: "${typedAction.answer}"`,
+        ),
       };
     }
 

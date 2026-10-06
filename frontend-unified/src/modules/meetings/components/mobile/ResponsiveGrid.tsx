@@ -73,7 +73,9 @@ export function ResponsiveGrid({
         ${lgColsClasses[colsLg]}
         ${gapClasses[gap]}
         ${className}
-      `.trim().replace(/\s+/g, ' ')}
+      `
+        .trim()
+        .replace(/\s+/g, ' ')}
     >
       {children}
     </div>
@@ -142,7 +144,9 @@ export function ResponsiveStack({
         ${alignClasses[align]}
         ${justifyClasses[justify]}
         ${className}
-      `.trim().replace(/\s+/g, ' ')}
+      `
+        .trim()
+        .replace(/\s+/g, ' ')}
     >
       {children}
     </div>
@@ -183,7 +187,9 @@ export function Card({
         ${paddingClasses[padding]}
         ${isClickable ? 'cursor-pointer hover:shadow-md active:scale-[0.99] transition-all touch-manipulation' : ''}
         ${className}
-      `.trim().replace(/\s+/g, ' ')}
+      `
+        .trim()
+        .replace(/\s+/g, ' ')}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}

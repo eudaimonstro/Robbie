@@ -1,11 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocket } from '../../context/SocketContext';
@@ -97,9 +91,7 @@ export default function MotionsScreen() {
 
         {selectedMotion && MOTIONS[selectedMotion] && (
           <View style={styles.formSection}>
-            <Text style={styles.formTitle}>
-              Motion: {MOTIONS[selectedMotion].name}
-            </Text>
+            <Text style={styles.formTitle}>Motion: {MOTIONS[selectedMotion].name}</Text>
             <TextInput
               style={styles.textInput}
               value={motionText}

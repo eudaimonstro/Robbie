@@ -18,7 +18,7 @@ interface VoteResultsPanelProps {
 
 export const VoteResultsPanel = React.memo(function VoteResultsPanel({
   state,
-  voteResults
+  voteResults,
 }: VoteResultsPanelProps) {
   if (state.votingOpen || !voteResults) {
     return null;
@@ -49,7 +49,9 @@ export const VoteResultsPanel = React.memo(function VoteResultsPanel({
         <div
           className={`${voteResults.passed ? 'bg-green-100' : 'bg-green-50'} p-3 rounded-lg text-center`}
         >
-          <p className={`text-2xl font-bold ${voteResults.passed ? 'text-green-700' : 'text-green-600'}`}>
+          <p
+            className={`text-2xl font-bold ${voteResults.passed ? 'text-green-700' : 'text-green-600'}`}
+          >
             {voteResults.yea}
           </p>
           <p className="text-green-600 text-sm">Yea</p>
@@ -57,14 +59,18 @@ export const VoteResultsPanel = React.memo(function VoteResultsPanel({
         <div
           className={`${!voteResults.passed ? 'bg-red-100' : 'bg-red-50'} p-3 rounded-lg text-center`}
         >
-          <p className={`text-2xl font-bold ${!voteResults.passed ? 'text-red-700' : 'text-red-600'}`}>
+          <p
+            className={`text-2xl font-bold ${!voteResults.passed ? 'text-red-700' : 'text-red-600'}`}
+          >
             {voteResults.nay}
           </p>
           <p className="text-red-600 text-sm">Nay</p>
         </div>
       </div>
 
-      <p className={`text-center text-sm ${voteResults.passed ? 'text-green-600' : 'text-red-600'}`}>
+      <p
+        className={`text-center text-sm ${voteResults.passed ? 'text-green-600' : 'text-red-600'}`}
+      >
         {voteResults.timestamp}
       </p>
     </section>

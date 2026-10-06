@@ -4,7 +4,7 @@ import type {
   ServerToClientEvents,
   SocketData,
   DispatchActionPayload,
-  ActionResponse
+  ActionResponse,
 } from '@robbie-bylawyer/shared/types/socket';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import { checkPermission } from './permissionGuard.js';
@@ -17,8 +17,18 @@ import { applyAction } from './stateManager.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import { logger } from '../middleware/logger.js';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type TypedSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
+type TypedServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
 
 /**
  * Handle DISPATCH_ACTION socket event
@@ -27,7 +37,7 @@ export async function handleDispatchAction(
   socket: TypedSocket,
   io: TypedServer,
   data: DispatchActionPayload,
-  callback: (response: ActionResponse) => void
+  callback: (response: ActionResponse) => void,
 ): Promise<void> {
   try {
     if (!socket.data.meetingCode || !socket.data.userId) {
@@ -45,7 +55,7 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: `Too many actions. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`,
-        errorCode: 'RATE_LIMITED'
+        errorCode: 'RATE_LIMITED',
       });
       return;
     }
@@ -56,7 +66,7 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: roleChangeError.error,
-        errorCode: roleChangeError.errorCode
+        errorCode: roleChangeError.errorCode,
       });
       return;
     }
@@ -67,12 +77,12 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: `Permission denied: ${socket.data.role} cannot perform ${data.action.type}`,
-        errorCode: 'PERMISSION_DENIED'
+        errorCode: 'PERMISSION_DENIED',
       });
       socket.emit('ACTION_REJECTED', {
         clientSequence: data.clientSequence,
         reason: `Permission denied for action ${data.action.type}`,
-        errorCode: 'PERMISSION_DENIED'
+        errorCode: 'PERMISSION_DENIED',
       });
       return;
     }
@@ -84,7 +94,7 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: 'Meeting not found',
-        errorCode: 'MEETING_NOT_FOUND'
+        errorCode: 'MEETING_NOT_FOUND',
       });
       return;
     }
@@ -92,21 +102,27 @@ export async function handleDispatchAction(
     // Quorum warning for voting actions (allow but log warning)
     let votingWithoutQuorum = false;
     if (data.action.type === 'OPEN_VOTING') {
-      const presentCount = meeting.state.members.reduce((count, m) => count + (m.present ? 1 : 0), 0);
+      const presentCount = meeting.state.members.reduce(
+        (count, m) => count + (m.present ? 1 : 0),
+        0,
+      );
       if (presentCount < meeting.state.quorum) {
         votingWithoutQuorum = true;
-        logger.warn({ meetingCode, presentCount, quorumRequired: meeting.state.quorum }, 'Vote opened without quorum');
+        logger.warn(
+          { meetingCode, presentCount, quorumRequired: meeting.state.quorum },
+          'Vote opened without quorum',
+        );
       }
     }
 
     // Voter membership validation
     if (data.action.type === 'CAST_VOTE') {
-      const voter = meeting.state.members.find(m => m.id === userId);
+      const voter = meeting.state.members.find((m) => m.id === userId);
       if (!voter) {
         callback({
           success: false,
           error: 'You are not a member of this meeting',
-          errorCode: 'NOT_A_MEMBER'
+          errorCode: 'NOT_A_MEMBER',
         });
         return;
       }
@@ -114,7 +130,7 @@ export async function handleDispatchAction(
         callback({
           success: false,
           error: 'You must be present to vote',
-          errorCode: 'NOT_PRESENT'
+          errorCode: 'NOT_PRESENT',
         });
         return;
       }
@@ -122,7 +138,7 @@ export async function handleDispatchAction(
         callback({
           success: false,
           error: 'Voting is not open',
-          errorCode: 'VOTING_CLOSED'
+          errorCode: 'VOTING_CLOSED',
         });
         return;
       }
@@ -139,19 +155,20 @@ export async function handleDispatchAction(
         callback({
           success: false,
           error: 'You can only rename yourself',
-          errorCode: 'PERMISSION_DENIED'
+          errorCode: 'PERMISSION_DENIED',
         });
         return;
       }
 
       // Members can only rename themselves once (admins/chairs can rename anyone anytime)
       if (isRenamingSelf && !isAdminOrChair) {
-        const member = meeting.state.members.find(m => m.id === userId);
+        const member = meeting.state.members.find((m) => m.id === userId);
         if (member?.selfRenameUsed) {
           callback({
             success: false,
-            error: 'You have already changed your name once. Ask the chair or admin if you need another change.',
-            errorCode: 'RENAME_LIMIT_REACHED'
+            error:
+              'You have already changed your name once. Ask the chair or admin if you need another change.',
+            errorCode: 'RENAME_LIMIT_REACHED',
           });
           return;
         }
@@ -183,7 +200,7 @@ export async function handleDispatchAction(
 
       // Find current chair if assigning new chair
       if (roleAction.newRole === 'chair') {
-        const currentChair = meeting.state.members.find(m => m.role === 'chair');
+        const currentChair = meeting.state.members.find((m) => m.role === 'chair');
         if (currentChair && currentChair.id !== roleAction.targetMemberId) {
           roleAction.previousChairId = currentChair.id;
         }
@@ -197,12 +214,12 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: validation.error,
-        errorCode: validation.errorCode
+        errorCode: validation.errorCode,
       });
       socket.emit('ACTION_REJECTED', {
         clientSequence: data.clientSequence,
         reason: validation.error || 'Action validation failed',
-        errorCode: validation.errorCode || 'VALIDATION_FAILED'
+        errorCode: validation.errorCode || 'VALIDATION_FAILED',
       });
       return;
     }
@@ -215,14 +232,18 @@ export async function handleDispatchAction(
       callback({
         success: false,
         error: result.error,
-        errorCode: result.errorCode || 'INVALID_STATE'
+        errorCode: result.errorCode || 'INVALID_STATE',
       });
       // Emit ACTION_REJECTED for validation failures on retry (e.g., proxy revoked)
-      if (result.errorCode && result.errorCode !== 'CONCURRENCY_CONFLICT' && result.errorCode !== 'MEETING_NOT_FOUND') {
+      if (
+        result.errorCode &&
+        result.errorCode !== 'CONCURRENCY_CONFLICT' &&
+        result.errorCode !== 'MEETING_NOT_FOUND'
+      ) {
         socket.emit('ACTION_REJECTED', {
           clientSequence: data.clientSequence,
           reason: result.error || 'Action validation failed',
-          errorCode: result.errorCode
+          errorCode: result.errorCode,
         });
       }
       return;
@@ -237,8 +258,8 @@ export async function handleDispatchAction(
         const syncResult = await checkAndSyncBylawAmendment(
           meetingCode,
           enrichedAction,
-          meeting.state,  // Previous state (before action was applied)
-          result.state    // New state (after action was applied)
+          meeting.state, // Previous state (before action was applied)
+          result.state, // New state (after action was applied)
         );
         if (syncResult) {
           logger.info({ syncResult }, 'Bylaw sync result');
@@ -256,12 +277,11 @@ export async function handleDispatchAction(
       stateVersion: result.stateVersion,
       triggeredBy: {
         actionType: data.action.type,
-        userId
-      }
+        userId,
+      },
     });
 
     callback({ success: true, stateVersion: result.stateVersion });
-
   } catch (error) {
     logger.error({ err: error }, 'Error dispatching action');
     callback({ success: false, error: 'Failed to process action', errorCode: 'INVALID_ACTION' });

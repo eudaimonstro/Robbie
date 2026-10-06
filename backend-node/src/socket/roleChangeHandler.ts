@@ -3,13 +3,18 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
-  ActionErrorCode
+  ActionErrorCode,
 } from '@robbie-bylawyer/shared/types/socket';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import { getStorage } from '../db/meetingStorage.js';
 import { roomManager } from './roomManager.js';
 
-type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type TypedServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
 
 interface SetMemberRoleAction {
   type: 'SET_MEMBER_ROLE';
@@ -26,7 +31,7 @@ interface SetMemberRoleAction {
  */
 export function validateRoleChange(
   action: MeetingAction,
-  socketData: SocketData
+  socketData: SocketData,
 ): { error: string; errorCode: ActionErrorCode } | null {
   if (action.type !== 'SET_MEMBER_ROLE') {
     return null;
@@ -39,14 +44,14 @@ export function validateRoleChange(
     if (roleAction.newRole !== 'chair') {
       return {
         error: 'Chair can only transfer the chair role, not assign other roles',
-        errorCode: 'PERMISSION_DENIED'
+        errorCode: 'PERMISSION_DENIED',
       };
     }
     // Chair cannot assign chair to themselves
     if (roleAction.targetMemberId === socketData.userId) {
       return {
         error: 'You are already the chair',
-        errorCode: 'INVALID_ACTION'
+        errorCode: 'INVALID_ACTION',
       };
     }
   }
@@ -55,7 +60,7 @@ export function validateRoleChange(
   if (socketData.role !== 'admin' && roleAction.newRole === 'admin') {
     return {
       error: 'Only admins can assign the admin role',
-      errorCode: 'PERMISSION_DENIED'
+      errorCode: 'PERMISSION_DENIED',
     };
   }
 
@@ -69,7 +74,7 @@ export function validateRoleChange(
 export async function handleRoleChangePostAction(
   io: TypedServer,
   meetingCode: string,
-  action: MeetingAction
+  action: MeetingAction,
 ): Promise<void> {
   if (action.type !== 'SET_MEMBER_ROLE') {
     return;
@@ -82,16 +87,12 @@ export async function handleRoleChangePostAction(
   await storage.setParticipantRole(
     meetingCode,
     String(roleAction.targetMemberId),
-    roleAction.newRole
+    roleAction.newRole,
   );
 
   // If there was a previous chair being demoted, update their role too
   if (roleAction.previousChairId) {
-    await storage.setParticipantRole(
-      meetingCode,
-      String(roleAction.previousChairId),
-      'member'
-    );
+    await storage.setParticipantRole(meetingCode, String(roleAction.previousChairId), 'member');
   }
 
   // Update roomManager for connected members

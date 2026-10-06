@@ -7,14 +7,18 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import { validate } from '../../middleware/validate.js';
-import { linkDocumentBody, updateAttachmentBody, reorderAttachmentsBody } from '../../schemas/attachments.js';
+import {
+  linkDocumentBody,
+  updateAttachmentBody,
+  reorderAttachmentsBody,
+} from '../../schemas/attachments.js';
 import { uuidParam } from '../../schemas/common.js';
 import {
   storeFile,
   readFile,
   deleteFile,
   getFullPath,
-  validateFile
+  validateFile,
 } from '../services/fileStorage.js';
 import fs from 'fs';
 import path from 'path';
@@ -48,7 +52,9 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
     }
 
     if (!packetId && !agendaItemId) {
-      return res.status(400).json({ error: 'Either packetId or agendaItemId query param required' });
+      return res
+        .status(400)
+        .json({ error: 'Either packetId or agendaItemId query param required' });
     }
 
     // Validate the file
@@ -65,14 +71,14 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
     // Verify packet or agenda item exists
     if (packetId) {
       const packet = await prisma.meetingPacket.findUnique({
-        where: { id: packetId as string }
+        where: { id: packetId as string },
       });
       if (!packet) {
         return res.status(404).json({ error: 'Packet not found' });
       }
     } else {
       const agendaItem = await prisma.meetingAgendaItem.findUnique({
-        where: { id: agendaItemId as string }
+        where: { id: agendaItemId as string },
       });
       if (!agendaItem) {
         return res.status(404).json({ error: 'Agenda item not found' });
@@ -89,7 +95,7 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
     const existingCount = await prisma.attachment.count({
       where: packetId
         ? { meetingPacketId: packetId as string }
-        : { agendaItemId: agendaItemId as string }
+        : { agendaItemId: agendaItemId as string },
     });
 
     // Create attachment record
@@ -104,8 +110,8 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
         description: description as string | undefined,
         position: existingCount,
         meetingPacketId: packetId as string | undefined,
-        agendaItemId: agendaItemId as string | undefined
-      }
+        agendaItemId: agendaItemId as string | undefined,
+      },
     });
 
     res.status(201).json(attachment);
@@ -120,85 +126,89 @@ attachmentsRouter.post('/attachments/upload', async (req, res) => {
  * Link a Bylawyer document as an attachment
  * Body: { documentId, versionId?, packetId?, agendaItemId?, displayName?, description? }
  */
-attachmentsRouter.post('/attachments/link-document', validate({ body: linkDocumentBody }), async (req, res) => {
-  try {
-    const { documentId, versionId, packetId, agendaItemId, displayName, description } = req.body;
+attachmentsRouter.post(
+  '/attachments/link-document',
+  validate({ body: linkDocumentBody }),
+  async (req, res) => {
+    try {
+      const { documentId, versionId, packetId, agendaItemId, displayName, description } = req.body;
 
-    if (!documentId) {
-      return res.status(400).json({ error: 'documentId required' });
-    }
-
-    if (!packetId && !agendaItemId) {
-      return res.status(400).json({ error: 'Either packetId or agendaItemId required' });
-    }
-
-    // Verify document exists
-    const document = await prisma.document.findUnique({
-      where: { id: documentId },
-      select: { id: true, title: true, docType: true }
-    });
-
-    if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
-    }
-
-    // Verify version if specified
-    if (versionId) {
-      const version = await prisma.version.findFirst({
-        where: { id: versionId, documentId }
-      });
-      if (!version) {
-        return res.status(404).json({ error: 'Version not found' });
+      if (!documentId) {
+        return res.status(400).json({ error: 'documentId required' });
       }
-    }
 
-    // Verify packet or agenda item
-    if (packetId) {
-      const packet = await prisma.meetingPacket.findUnique({
-        where: { id: packetId }
-      });
-      if (!packet) {
-        return res.status(404).json({ error: 'Packet not found' });
+      if (!packetId && !agendaItemId) {
+        return res.status(400).json({ error: 'Either packetId or agendaItemId required' });
       }
-    } else {
-      const agendaItem = await prisma.meetingAgendaItem.findUnique({
-        where: { id: agendaItemId }
+
+      // Verify document exists
+      const document = await prisma.document.findUnique({
+        where: { id: documentId },
+        select: { id: true, title: true, docType: true },
       });
-      if (!agendaItem) {
-        return res.status(404).json({ error: 'Agenda item not found' });
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
       }
-    }
 
-    // Get next position
-    const existingCount = await prisma.attachment.count({
-      where: packetId ? { meetingPacketId: packetId } : { agendaItemId }
-    });
-
-    // Create attachment record
-    const attachment = await prisma.attachment.create({
-      data: {
-        type: 'bylawyer_document',
-        documentId,
-        versionId: versionId || undefined,
-        displayName: displayName || document.title,
-        description,
-        position: existingCount,
-        meetingPacketId: packetId || undefined,
-        agendaItemId: agendaItemId || undefined
-      },
-      include: {
-        document: {
-          select: { id: true, title: true, docType: true }
+      // Verify version if specified
+      if (versionId) {
+        const version = await prisma.version.findFirst({
+          where: { id: versionId, documentId },
+        });
+        if (!version) {
+          return res.status(404).json({ error: 'Version not found' });
         }
       }
-    });
 
-    res.status(201).json(attachment);
-  } catch (error) {
-    logger.error({ err: error }, 'Error linking document');
-    res.status(500).json({ error: 'Failed to link document' });
-  }
-});
+      // Verify packet or agenda item
+      if (packetId) {
+        const packet = await prisma.meetingPacket.findUnique({
+          where: { id: packetId },
+        });
+        if (!packet) {
+          return res.status(404).json({ error: 'Packet not found' });
+        }
+      } else {
+        const agendaItem = await prisma.meetingAgendaItem.findUnique({
+          where: { id: agendaItemId },
+        });
+        if (!agendaItem) {
+          return res.status(404).json({ error: 'Agenda item not found' });
+        }
+      }
+
+      // Get next position
+      const existingCount = await prisma.attachment.count({
+        where: packetId ? { meetingPacketId: packetId } : { agendaItemId },
+      });
+
+      // Create attachment record
+      const attachment = await prisma.attachment.create({
+        data: {
+          type: 'bylawyer_document',
+          documentId,
+          versionId: versionId || undefined,
+          displayName: displayName || document.title,
+          description,
+          position: existingCount,
+          meetingPacketId: packetId || undefined,
+          agendaItemId: agendaItemId || undefined,
+        },
+        include: {
+          document: {
+            select: { id: true, title: true, docType: true },
+          },
+        },
+      });
+
+      res.status(201).json(attachment);
+    } catch (error) {
+      logger.error({ err: error }, 'Error linking document');
+      res.status(500).json({ error: 'Failed to link document' });
+    }
+  },
+);
 
 /**
  * GET /api/attachments/:id
@@ -212,9 +222,9 @@ attachmentsRouter.get('/attachments/:id', validate({ params: uuidParam }), async
       where: { id },
       include: {
         document: {
-          select: { id: true, title: true, docType: true }
-        }
-      }
+          select: { id: true, title: true, docType: true },
+        },
+      },
     });
 
     if (!attachment) {
@@ -232,86 +242,94 @@ attachmentsRouter.get('/attachments/:id', validate({ params: uuidParam }), async
  * GET /api/attachments/:id/download
  * Download uploaded file
  */
-attachmentsRouter.get('/attachments/:id/download', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const { id } = req.params;
+attachmentsRouter.get(
+  '/attachments/:id/download',
+  validate({ params: uuidParam }),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const attachment = await prisma.attachment.findUnique({
-      where: { id }
-    });
-
-    if (!attachment) {
-      return res.status(404).json({ error: 'Attachment not found' });
-    }
-
-    if (attachment.type !== 'uploaded_file' || !attachment.storagePath) {
-      return res.status(400).json({
-        error: 'Not a downloadable file attachment'
+      const attachment = await prisma.attachment.findUnique({
+        where: { id },
       });
+
+      if (!attachment) {
+        return res.status(404).json({ error: 'Attachment not found' });
+      }
+
+      if (attachment.type !== 'uploaded_file' || !attachment.storagePath) {
+        return res.status(400).json({
+          error: 'Not a downloadable file attachment',
+        });
+      }
+
+      const fullPath = getFullPath(attachment.storagePath);
+
+      // Check file exists
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: 'File not found on disk' });
+      }
+
+      // Set headers
+      res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${attachment.filename || 'download'}"`,
+      );
+      res.setHeader('Content-Length', attachment.sizeBytes || 0);
+
+      // Stream file
+      const readStream = fs.createReadStream(fullPath);
+      readStream.pipe(res);
+    } catch (error) {
+      logger.error({ err: error }, 'Error downloading file');
+      res.status(500).json({ error: 'Failed to download file' });
     }
-
-    const fullPath = getFullPath(attachment.storagePath);
-
-    // Check file exists
-    if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({ error: 'File not found on disk' });
-    }
-
-    // Set headers
-    res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${attachment.filename || 'download'}"`
-    );
-    res.setHeader('Content-Length', attachment.sizeBytes || 0);
-
-    // Stream file
-    const readStream = fs.createReadStream(fullPath);
-    readStream.pipe(res);
-  } catch (error) {
-    logger.error({ err: error }, 'Error downloading file');
-    res.status(500).json({ error: 'Failed to download file' });
-  }
-});
+  },
+);
 
 /**
  * PUT /api/attachments/:id
  * Update attachment metadata
  * Body: { displayName?, description?, position? }
  */
-attachmentsRouter.put('/attachments/:id', validate({ params: uuidParam, body: updateAttachmentBody }), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { displayName, description, position } = req.body;
+attachmentsRouter.put(
+  '/attachments/:id',
+  validate({ params: uuidParam, body: updateAttachmentBody }),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { displayName, description, position } = req.body;
 
-    const attachment = await prisma.attachment.findUnique({
-      where: { id }
-    });
+      const attachment = await prisma.attachment.findUnique({
+        where: { id },
+      });
 
-    if (!attachment) {
-      return res.status(404).json({ error: 'Attachment not found' });
-    }
-
-    const updated = await prisma.attachment.update({
-      where: { id },
-      data: {
-        displayName,
-        description,
-        position
-      },
-      include: {
-        document: {
-          select: { id: true, title: true, docType: true }
-        }
+      if (!attachment) {
+        return res.status(404).json({ error: 'Attachment not found' });
       }
-    });
 
-    res.json(updated);
-  } catch (error) {
-    logger.error({ err: error }, 'Error updating attachment');
-    res.status(500).json({ error: 'Failed to update attachment' });
-  }
-});
+      const updated = await prisma.attachment.update({
+        where: { id },
+        data: {
+          displayName,
+          description,
+          position,
+        },
+        include: {
+          document: {
+            select: { id: true, title: true, docType: true },
+          },
+        },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      logger.error({ err: error }, 'Error updating attachment');
+      res.status(500).json({ error: 'Failed to update attachment' });
+    }
+  },
+);
 
 /**
  * DELETE /api/attachments/:id
@@ -322,7 +340,7 @@ attachmentsRouter.delete('/attachments/:id', validate({ params: uuidParam }), as
     const { id } = req.params;
 
     const attachment = await prisma.attachment.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!attachment) {
@@ -349,27 +367,31 @@ attachmentsRouter.delete('/attachments/:id', validate({ params: uuidParam }), as
  * Reorder attachments within a packet or agenda item
  * Body: { attachmentIds: string[] } (in desired order)
  */
-attachmentsRouter.put('/attachments/reorder', validate({ body: reorderAttachmentsBody }), async (req, res) => {
-  try {
-    const { attachmentIds } = req.body;
+attachmentsRouter.put(
+  '/attachments/reorder',
+  validate({ body: reorderAttachmentsBody }),
+  async (req, res) => {
+    try {
+      const { attachmentIds } = req.body;
 
-    if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
-      return res.status(400).json({ error: 'attachmentIds array required' });
+      if (!Array.isArray(attachmentIds) || attachmentIds.length === 0) {
+        return res.status(400).json({ error: 'attachmentIds array required' });
+      }
+
+      // Update positions
+      const updates = attachmentIds.map((id, index) =>
+        prisma.attachment.update({
+          where: { id },
+          data: { position: index },
+        }),
+      );
+
+      await prisma.$transaction(updates);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reordering attachments');
+      res.status(500).json({ error: 'Failed to reorder attachments' });
     }
-
-    // Update positions
-    const updates = attachmentIds.map((id, index) =>
-      prisma.attachment.update({
-        where: { id },
-        data: { position: index }
-      })
-    );
-
-    await prisma.$transaction(updates);
-
-    res.json({ success: true });
-  } catch (error) {
-    logger.error({ err: error }, 'Error reordering attachments');
-    res.status(500).json({ error: 'Failed to reorder attachments' });
-  }
-});
+  },
+);

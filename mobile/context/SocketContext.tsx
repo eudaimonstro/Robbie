@@ -6,7 +6,7 @@ import {
   useCallback,
   useRef,
   useMemo,
-  type ReactNode
+  type ReactNode,
 } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
@@ -18,13 +18,13 @@ import {
   storePendingAuth,
   getPendingAuth,
   removePendingAuth,
-  clearAuthData
+  clearAuthData,
 } from '../lib/storage';
 import {
   requestVerification as apiRequestVerification,
   verifyCode as apiVerifyCode,
   logout as apiLogout,
-  getApiUrl
+  getApiUrl,
 } from '../lib/api';
 
 // Socket event types (matching server)
@@ -52,10 +52,23 @@ interface ActionResponse {
 }
 
 interface ClientToServerEvents {
-  JOIN_MEETING: (data: { meetingCode: string; token: string }, callback: (response: JoinMeetingResponse) => void) => void;
+  JOIN_MEETING: (
+    data: { meetingCode: string; token: string },
+    callback: (response: JoinMeetingResponse) => void,
+  ) => void;
   LEAVE_MEETING: () => void;
-  DISPATCH_ACTION: (data: { action: MeetingAction; clientSequence: number }, callback: (response: ActionResponse) => void) => void;
-  REQUEST_STATE: (callback: (response: { success: boolean; state?: MeetingState; stateVersion?: number; error?: string }) => void) => void;
+  DISPATCH_ACTION: (
+    data: { action: MeetingAction; clientSequence: number },
+    callback: (response: ActionResponse) => void,
+  ) => void;
+  REQUEST_STATE: (
+    callback: (response: {
+      success: boolean;
+      state?: MeetingState;
+      stateVersion?: number;
+      error?: string;
+    }) => void,
+  ) => void;
 }
 
 interface ServerToClientEvents {
@@ -94,7 +107,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function validateMeetingCode(code: string): string | null {
   const trimmed = code.trim().toUpperCase();
   if (!trimmed) return 'Meeting code is required';
-  if (!MEETING_CODE_PATTERN.test(trimmed)) return 'Meeting code must be 4-8 alphanumeric characters';
+  if (!MEETING_CODE_PATTERN.test(trimmed))
+    return 'Meeting code must be 4-8 alphanumeric characters';
   return null;
 }
 
@@ -168,7 +182,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     name: '',
     meetingCode: '',
     token: null,
-    userId: null
+    userId: null,
   });
 
   // Load pending auth state from storage on mount
@@ -177,11 +191,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       try {
         const pending = await getPendingAuth();
         if (pending) {
-          setAuthState(prev => ({
+          setAuthState((prev) => ({
             ...prev,
             email: pending.email,
             name: pending.name,
-            meetingCode: pending.meetingCode
+            meetingCode: pending.meetingCode,
           }));
         }
       } catch (err) {
@@ -199,13 +213,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   // Memoize currentUser to prevent object recreation on every render
   const currentUser = useMemo(() => {
     if (!authState.userId) return null;
-    const foundMember = state.members.find(m => m.id === authState.userId);
+    const foundMember = state.members.find((m) => m.id === authState.userId);
     if (foundMember) return foundMember;
     return {
       id: authState.userId,
       name: authState.name,
       role: 'member' as const,
-      present: true
+      present: true,
     };
   }, [authState.userId, authState.name, state.members]);
 
@@ -244,14 +258,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       await storePendingAuth({
         email: sanitizedEmail,
         name: sanitizedName,
-        meetingCode: sanitizedCode
+        meetingCode: sanitizedCode,
       });
 
-      setAuthState(prev => ({
+      setAuthState((prev) => ({
         ...prev,
         email: sanitizedEmail,
         name: sanitizedName,
-        meetingCode: sanitizedCode
+        meetingCode: sanitizedCode,
       }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to send verification code';
@@ -269,11 +283,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      await apiRequestVerification(
-        authState.email,
-        authState.name,
-        authState.meetingCode
-      );
+      await apiRequestVerification(authState.email, authState.name, authState.meetingCode);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to resend verification code';
       setError(message);
@@ -282,44 +292,43 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [authState.email, authState.name, authState.meetingCode]);
 
   // Verify code and get token
-  const verifyCode = useCallback(async (code: string): Promise<boolean> => {
-    setError(null);
+  const verifyCode = useCallback(
+    async (code: string): Promise<boolean> => {
+      setError(null);
 
-    // Validate code format
-    const codeError = validateVerificationCode(code);
-    if (codeError) {
-      setError(codeError);
-      return false;
-    }
+      // Validate code format
+      const codeError = validateVerificationCode(code);
+      if (codeError) {
+        setError(codeError);
+        return false;
+      }
 
-    const sanitizedCode = code.trim();
+      const sanitizedCode = code.trim();
 
-    try {
-      const data = await apiVerifyCode(
-        authState.email,
-        sanitizedCode,
-        authState.meetingCode
-      );
+      try {
+        const data = await apiVerifyCode(authState.email, sanitizedCode, authState.meetingCode);
 
-      // Store token in AsyncStorage
-      await storeToken(data.token);
+        // Store token in AsyncStorage
+        await storeToken(data.token);
 
-      // Clear pending auth
-      await removePendingAuth();
+        // Clear pending auth
+        await removePendingAuth();
 
-      setAuthState(prev => ({
-        ...prev,
-        token: data.token,
-        userId: parseInt(data.user.id, 10)
-      }));
+        setAuthState((prev) => ({
+          ...prev,
+          token: data.token,
+          userId: parseInt(data.user.id, 10),
+        }));
 
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Verification failed';
-      setError(message);
-      return false;
-    }
-  }, [authState.email, authState.meetingCode]);
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Verification failed';
+        setError(message);
+        return false;
+      }
+    },
+    [authState.email, authState.meetingCode],
+  );
 
   // Logout
   const logout = useCallback(async () => {
@@ -344,7 +353,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       name: '',
       meetingCode: '',
       token: null,
-      userId: null
+      userId: null,
     });
     setState(initialState);
     setIsConnected(false);
@@ -374,34 +383,38 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     newSocket.on('connect', () => {
       // Join meeting with token in payload
-      newSocket.emit('JOIN_MEETING', {
-        meetingCode: authState.meetingCode,
-        token: authState.token!
-      }, (response) => {
-        isConnectingRef.current = false;
-        if (response.success) {
-          setState(response.state!);
-          setConnectedMembers(response.members || []);
-          setIsConnected(true);
-          setError(null);
-          setSocket(newSocket);
-        } else {
-          setError(response.error || 'Failed to join meeting');
-          if (response.error?.includes('Invalid token')) {
-            // Clear auth state on invalid token
-            newSocket.disconnect();
-            socketRef.current = null;
-            clearAuthData();
-            setAuthState({
-              email: '',
-              name: '',
-              meetingCode: '',
-              token: null,
-              userId: null
-            });
+      newSocket.emit(
+        'JOIN_MEETING',
+        {
+          meetingCode: authState.meetingCode,
+          token: authState.token!,
+        },
+        (response) => {
+          isConnectingRef.current = false;
+          if (response.success) {
+            setState(response.state!);
+            setConnectedMembers(response.members || []);
+            setIsConnected(true);
+            setError(null);
+            setSocket(newSocket);
+          } else {
+            setError(response.error || 'Failed to join meeting');
+            if (response.error?.includes('Invalid token')) {
+              // Clear auth state on invalid token
+              newSocket.disconnect();
+              socketRef.current = null;
+              clearAuthData();
+              setAuthState({
+                email: '',
+                name: '',
+                meetingCode: '',
+                token: null,
+                userId: null,
+              });
+            }
           }
-        }
-      });
+        },
+      );
     });
 
     newSocket.on('connect_error', (err) => {
@@ -419,14 +432,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     newSocket.on('MEMBER_JOINED', ({ member }) => {
-      setConnectedMembers(prev => {
-        if (prev.find(m => m.id === member.id)) return prev;
+      setConnectedMembers((prev) => {
+        if (prev.find((m) => m.id === member.id)) return prev;
         return [...prev, member];
       });
     });
 
     newSocket.on('MEMBER_LEFT', ({ member }) => {
-      setConnectedMembers(prev => prev.filter(m => m.id !== member.id));
+      setConnectedMembers((prev) => prev.filter((m) => m.id !== member.id));
     });
 
     newSocket.on('ACTION_REJECTED', ({ reason }) => {
@@ -445,38 +458,41 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [authState.token, authState.meetingCode, setTemporaryError]);
 
   // Dispatch action through socket with timeout
-  const dispatch = useCallback(async (action: MeetingAction): Promise<boolean> => {
-    const currentSocket = socketRef.current;
-    if (!currentSocket || !isConnected) {
-      setError('Not connected to server');
-      return false;
-    }
+  const dispatch = useCallback(
+    async (action: MeetingAction): Promise<boolean> => {
+      const currentSocket = socketRef.current;
+      if (!currentSocket || !isConnected) {
+        setError('Not connected to server');
+        return false;
+      }
 
-    const sequence = clientSequence + 1;
-    setClientSequence(sequence);
+      const sequence = clientSequence + 1;
+      setClientSequence(sequence);
 
-    const TIMEOUT_MS = 10000;
+      const TIMEOUT_MS = 10000;
 
-    const actionPromise = new Promise<boolean>((resolve) => {
-      currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
-        if (response.success) {
-          resolve(true);
-        } else {
-          setTemporaryError(response.error || 'Action failed');
-          resolve(false);
-        }
+      const actionPromise = new Promise<boolean>((resolve) => {
+        currentSocket.emit('DISPATCH_ACTION', { action, clientSequence: sequence }, (response) => {
+          if (response.success) {
+            resolve(true);
+          } else {
+            setTemporaryError(response.error || 'Action failed');
+            resolve(false);
+          }
+        });
       });
-    });
 
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      setTimeout(() => {
-        setTemporaryError('Action timed out. Please try again.');
-        resolve(false);
-      }, TIMEOUT_MS);
-    });
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          setTemporaryError('Action timed out. Please try again.');
+          resolve(false);
+        }, TIMEOUT_MS);
+      });
 
-    return Promise.race([actionPromise, timeoutPromise]);
-  }, [isConnected, clientSequence, setTemporaryError]);
+      return Promise.race([actionPromise, timeoutPromise]);
+    },
+    [isConnected, clientSequence, setTemporaryError],
+  );
 
   // Reconnect
   const reconnect = useCallback(() => {
@@ -486,28 +502,42 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Memoize the context value
-  const value = useMemo<SocketContextValue>(() => ({
-    state,
-    dispatch,
-    isConnected,
-    isAuthenticated,
-    isLoading,
-    currentUser,
-    connectedMembers,
-    error,
-    pendingEmail: authState.email || null,
-    login,
-    resendCode,
-    verifyCode,
-    logout,
-    reconnect
-  }), [state, dispatch, isConnected, isAuthenticated, isLoading, currentUser, connectedMembers, error, authState.email, login, resendCode, verifyCode, logout, reconnect]);
-
-  return (
-    <SocketContext.Provider value={value}>
-      {children}
-    </SocketContext.Provider>
+  const value = useMemo<SocketContextValue>(
+    () => ({
+      state,
+      dispatch,
+      isConnected,
+      isAuthenticated,
+      isLoading,
+      currentUser,
+      connectedMembers,
+      error,
+      pendingEmail: authState.email || null,
+      login,
+      resendCode,
+      verifyCode,
+      logout,
+      reconnect,
+    }),
+    [
+      state,
+      dispatch,
+      isConnected,
+      isAuthenticated,
+      isLoading,
+      currentUser,
+      connectedMembers,
+      error,
+      authState.email,
+      login,
+      resendCode,
+      verifyCode,
+      logout,
+      reconnect,
+    ],
   );
+
+  return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 
 export function useSocket(): SocketContextValue {

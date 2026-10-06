@@ -25,10 +25,10 @@ interface RateLimiterOptions {
 }
 
 const DEFAULT_OPTIONS: RateLimiterOptions = {
-  maxTokens: 30,       // Allow burst of 30 actions
-  refillRate: 2,       // Refill 2 tokens per second
+  maxTokens: 30, // Allow burst of 30 actions
+  refillRate: 2, // Refill 2 tokens per second
   tokensPerRequest: 1, // Each action costs 1 token
-  maxBuckets: 10000,   // Limit memory usage
+  maxBuckets: 10000, // Limit memory usage
 };
 
 export class SocketRateLimiter {
@@ -40,9 +40,12 @@ export class SocketRateLimiter {
     this.options = { ...DEFAULT_OPTIONS, ...options } as Required<RateLimiterOptions>;
 
     // Cleanup old buckets every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   /**
@@ -154,14 +157,14 @@ export class SocketRateLimiter {
 
 // Singleton instance for action rate limiting
 export const actionRateLimiter = new SocketRateLimiter({
-  maxTokens: 30,      // Allow burst of 30 actions
-  refillRate: 2,      // 2 actions per second sustainable rate
+  maxTokens: 30, // Allow burst of 30 actions
+  refillRate: 2, // 2 actions per second sustainable rate
   tokensPerRequest: 1,
 });
 
 // Stricter limiter for join attempts (prevent meeting code guessing)
 export const joinRateLimiter = new SocketRateLimiter({
-  maxTokens: 5,       // Max 5 join attempts
-  refillRate: 0.1,    // 1 attempt per 10 seconds sustainable
+  maxTokens: 5, // Max 5 join attempts
+  refillRate: 0.1, // 1 attempt per 10 seconds sustainable
   tokensPerRequest: 1,
 });

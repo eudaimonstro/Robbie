@@ -10,7 +10,7 @@ interface CommitteeReportsPanelProps {
 
 export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
   state,
-  dispatch
+  dispatch,
 }: CommitteeReportsPanelProps) {
   if (state.meetingStage !== 'reports') {
     return null;
@@ -31,9 +31,7 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
               key={report.id}
               role="listitem"
               className={`border rounded-lg p-4 ${
-                report.presented
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-gray-50 border-gray-200'
+                report.presented ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
               }`}
             >
               <div className="flex items-start justify-between mb-2">
@@ -54,11 +52,13 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
               )}
               {!report.presented && (
                 <button
-                  onClick={() => dispatch({
-                    type: 'PRESENT_COMMITTEE_REPORT',
-                    reportId: report.id,
-                    timestamp: generateTimestamp()
-                  })}
+                  onClick={() =>
+                    dispatch({
+                      type: 'PRESENT_COMMITTEE_REPORT',
+                      reportId: report.id,
+                      timestamp: generateTimestamp(),
+                    })
+                  }
                   className="w-full mt-2 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium"
                 >
                   Present Report

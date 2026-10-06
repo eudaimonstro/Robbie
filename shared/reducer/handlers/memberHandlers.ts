@@ -1,5 +1,9 @@
 import type { MeetingState, MeetingAction } from '../../types/index.js';
-import { logMemberJoined, logMemberPresenceChanged, logMemberRenamed } from '../../constants/logMessages.js';
+import {
+  logMemberJoined,
+  logMemberPresenceChanged,
+  logMemberRenamed,
+} from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const memberHandler: ActionHandler = (state, action, log) => {
@@ -7,30 +11,34 @@ export const memberHandler: ActionHandler = (state, action, log) => {
     case 'ADD_MEMBER': {
       const typedAction = action as Extract<MeetingAction, { type: 'ADD_MEMBER' }>;
       // Check if member already exists
-      if (state.members.some(m => m.id === typedAction.member.id)) {
+      if (state.members.some((m) => m.id === typedAction.member.id)) {
         return state;
       }
       return {
         ...state,
         members: [...state.members, typedAction.member],
-        meetingLog: log(typedAction.timestamp, logMemberJoined(typedAction.member.name))
+        meetingLog: log(typedAction.timestamp, logMemberJoined(typedAction.member.name)),
       };
     }
 
     case 'SET_MEMBER_ROLE': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_MEMBER_ROLE' }>;
-      const targetMember = state.members.find(m => m.id === typedAction.targetMemberId);
+      const targetMember = state.members.find((m) => m.id === typedAction.targetMemberId);
       if (!targetMember) return state;
 
       const oldRole = targetMember.role;
 
       // Update the target member's role and demote previous chair if needed
-      const updatedMembers = state.members.map(member => {
+      const updatedMembers = state.members.map((member) => {
         if (member.id === typedAction.targetMemberId) {
           return { ...member, role: typedAction.newRole };
         }
         // If assigning a new chair, demote the previous chair to member
-        if (typedAction.newRole === 'chair' && typedAction.previousChairId && member.id === typedAction.previousChairId) {
+        if (
+          typedAction.newRole === 'chair' &&
+          typedAction.previousChairId &&
+          member.id === typedAction.previousChairId
+        ) {
           return { ...member, role: 'member' as const };
         }
         return member;
@@ -38,7 +46,7 @@ export const memberHandler: ActionHandler = (state, action, log) => {
 
       // Build audit log message including who made the change
       const previousChair = typedAction.previousChairId
-        ? state.members.find(m => m.id === typedAction.previousChairId)
+        ? state.members.find((m) => m.id === typedAction.previousChairId)
         : null;
 
       // changedBy is optional (added by server enrichment), fallback to 'System' if not present
@@ -54,27 +62,30 @@ export const memberHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         members: updatedMembers,
-        meetingLog: log(typedAction.timestamp, logMessage)
+        meetingLog: log(typedAction.timestamp, logMessage),
       };
     }
 
     case 'SET_MEMBER_PRESENCE': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_MEMBER_PRESENCE' }>;
-      const member = state.members.find(m => m.id === typedAction.memberId);
+      const member = state.members.find((m) => m.id === typedAction.memberId);
       if (!member) return state;
 
       return {
         ...state,
-        members: state.members.map(m =>
-          m.id === typedAction.memberId ? { ...m, present: typedAction.present } : m
+        members: state.members.map((m) =>
+          m.id === typedAction.memberId ? { ...m, present: typedAction.present } : m,
         ),
-        meetingLog: log(typedAction.timestamp, logMemberPresenceChanged(member.name, typedAction.present))
+        meetingLog: log(
+          typedAction.timestamp,
+          logMemberPresenceChanged(member.name, typedAction.present),
+        ),
       };
     }
 
     case 'RENAME_MEMBER': {
       const typedAction = action as Extract<MeetingAction, { type: 'RENAME_MEMBER' }>;
-      const member = state.members.find(m => m.id === typedAction.memberId);
+      const member = state.members.find((m) => m.id === typedAction.memberId);
       if (!member) return state;
 
       // Validate new name
@@ -82,7 +93,7 @@ export const memberHandler: ActionHandler = (state, action, log) => {
       if (!trimmedName || trimmedName.length < 2) return state;
 
       const oldName = member.name;
-      const renamedByMember = state.members.find(m => m.id === typedAction.renamedBy);
+      const renamedByMember = state.members.find((m) => m.id === typedAction.renamedBy);
       const renamedByName = renamedByMember?.name || 'System';
 
       // Check if this is a self-rename (member renaming themselves)
@@ -90,12 +101,15 @@ export const memberHandler: ActionHandler = (state, action, log) => {
 
       return {
         ...state,
-        members: state.members.map(m =>
+        members: state.members.map((m) =>
           m.id === typedAction.memberId
             ? { ...m, name: trimmedName, ...(isSelfRename && { selfRenameUsed: true }) }
-            : m
+            : m,
         ),
-        meetingLog: log(typedAction.timestamp, logMemberRenamed(oldName, trimmedName, renamedByName))
+        meetingLog: log(
+          typedAction.timestamp,
+          logMemberRenamed(oldName, trimmedName, renamedByName),
+        ),
       };
     }
 

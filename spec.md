@@ -12,15 +12,15 @@ Robbie-Bylawyer is a governance platform for organizations that run on Robert's 
 
 ### Current state (verified 2026-10-05)
 
-| Check | Result |
-|---|---|
-| `tsc --noEmit` (shared, backend-node, frontend-unified) | Pass |
-| `npm run build` | Pass |
-| shared tests | 239 pass (10 files) |
-| backend-node tests | 226 pass, but only 3 files (validator, permission guard, rate limiter) |
-| frontend-unified tests | **0 test files, step exits 1** |
-| `npm run lint` | **140 errors, 60 warnings** |
-| `npm run format:check` | **377 files unformatted** |
+| Check                                                   | Result                                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `tsc --noEmit` (shared, backend-node, frontend-unified) | Pass                                                                   |
+| `npm run build`                                         | Pass                                                                   |
+| shared tests                                            | 239 pass (10 files)                                                    |
+| backend-node tests                                      | 226 pass, but only 3 files (validator, permission guard, rate limiter) |
+| frontend-unified tests                                  | **0 test files, step exits 1**                                         |
+| `npm run lint`                                          | **140 errors, 60 warnings**                                            |
+| `npm run format:check`                                  | **377 files unformatted**                                              |
 
 CI as written would fail on format, lint, and frontend tests. All 510 items in `features/*.json` are marked `passes: true`, so that checklist no longer reflects reality.
 
@@ -205,19 +205,19 @@ Target: one VPS running Docker Compose. Single node is accepted for v1, so in-me
 - Boot-time config validation (zod) and a `/api/health` that checks the database, used as the compose healthcheck. Pino logs to stdout with Docker log rotation, and dependency audit runs in CI.
 - Graceful shutdown on SIGTERM: stop accepting sockets, flush meeting state, close the DB pool. Deploys mid-meeting then reconnect clients cleanly.
 - Done when: a fresh VPS goes from the documented steps to a running HTTPS deployment, passes the M9 smoke tests, survives `docker compose restart` mid-meeting, and a backup restores to a clean instance.
-**Target VPS (surveyed 2026-10-05):**
+  **Target VPS (surveyed 2026-10-05):**
 
-| Item | Value |
-|---|---|
-| Provider | DigitalOcean droplet, public IP 157.245.128.187 |
-| OS | Ubuntu 24.04.5 LTS, kernel 6.8 |
-| Size | 1 vCPU, 1.9 GiB RAM, 48 GB disk (4 GB used), no swap checked |
+| Item         | Value                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider     | DigitalOcean droplet, public IP 157.245.128.187                                                                                           |
+| OS           | Ubuntu 24.04.5 LTS, kernel 6.8                                                                                                            |
+| Size         | 1 vCPU, 1.9 GiB RAM, 48 GB disk (4 GB used), no swap checked                                                                              |
 | Admin access | sshd on port 4444, bound to the Tailscale address only (`100.118.73.91`, tailnet name `vps`), key plus TOTP (`sshd_config.d/99-2fa.conf`) |
-| Firewall | ufw active (rules not yet reviewed) |
-| Ports 80/443 | Free. No nginx, Caddy, or Apache installed |
-| Postgres | Not installed on the host |
-| Docker | Engine 29.1.3 from Ubuntu's `docker.io` package. **Compose plugin missing.** `steve` is not in the `docker` group |
-| fail2ban | Installed but in a failed state |
+| Firewall     | ufw active (rules not yet reviewed)                                                                                                       |
+| Ports 80/443 | Free. No nginx, Caddy, or Apache installed                                                                                                |
+| Postgres     | Not installed on the host                                                                                                                 |
+| Docker       | Engine 29.1.3 from Ubuntu's `docker.io` package. **Compose plugin missing.** `steve` is not in the `docker` group                         |
+| fail2ban     | Installed but in a failed state                                                                                                           |
 
 Host prep before the first deploy:
 

@@ -8,15 +8,13 @@ import type { Votes, VoteRequirement, VoteCalculationResult } from '../types/ind
  */
 export function calculateVoteResult(
   votes: Votes,
-  requirement: VoteRequirement
+  requirement: VoteRequirement,
 ): VoteCalculationResult {
   const { yea, nay, abstain } = votes;
   const total = yea + nay; // Abstentions don't count toward total per Robert's Rules
 
   // Calculate threshold based on requirement
-  const threshold = requirement === '2/3'
-    ? total * (2 / 3)
-    : total / 2;
+  const threshold = requirement === '2/3' ? total * (2 / 3) : total / 2;
 
   // Motion passes if yea exceeds threshold (strict majority)
   const passed = yea > threshold;
@@ -28,7 +26,7 @@ export function calculateVoteResult(
     abstain,
     total,
     threshold,
-    requirement
+    requirement,
   };
 }
 
@@ -47,6 +45,6 @@ export function getChairVotingOptions(votes: Votes): {
 
   return {
     canBreakTie: isTied,
-    canCreateTie: yeaAheadByOne
+    canCreateTie: yeaAheadByOne,
   };
 }

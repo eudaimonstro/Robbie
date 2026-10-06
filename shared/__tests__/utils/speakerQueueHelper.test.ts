@@ -5,7 +5,7 @@ import {
   getQueueStats,
   canRemoveSelfFromQueue,
   formatWaitTime,
-  getNextSpeakerInfo
+  getNextSpeakerInfo,
 } from '../../utils/index.js';
 import type { MeetingState, SpeakerQueueEntry, Member } from '../../types/index.js';
 
@@ -231,15 +231,17 @@ describe('getNextSpeakerInfo', () => {
         { member: member1, stance: 'pro' },
         { member: member2, stance: 'con' },
       ],
-      suspendedRules: [{
-        id: 1,
-        rule: 'pro-con-alternation',
-        purpose: 'Test',
-        specificAction: '',
-        scope: 'meeting-remainder',
-        suspendedAt: '10:00:00',
-        motionId: 1,
-      }],
+      suspendedRules: [
+        {
+          id: 1,
+          rule: 'pro-con-alternation',
+          purpose: 'Test',
+          specificAction: '',
+          scope: 'meeting-remainder',
+          suspendedAt: '10:00:00',
+          motionId: 1,
+        },
+      ],
     });
 
     const info = getNextSpeakerInfo(state);

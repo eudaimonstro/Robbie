@@ -1,15 +1,15 @@
-import { Link } from 'react-router-dom'
-import { ChevronRight, Edit2, Play, CheckCircle, XCircle } from 'lucide-react'
-import { Meeting } from '../../../../api/client'
-import { MeetingTypeBadge } from '../../../../components/ui/Badge'
+import { Link } from 'react-router-dom';
+import { ChevronRight, Edit2, Play, CheckCircle, XCircle } from 'lucide-react';
+import { Meeting } from '../../../../api/client';
+import { MeetingTypeBadge } from '../../../../components/ui/Badge';
 
 interface MeetingHeaderProps {
-  meeting: Meeting
-  organizationName?: string
-  onEdit: () => void
-  onStart: () => void
-  onComplete: () => void
-  onCancel: () => void
+  meeting: Meeting;
+  organizationName?: string;
+  onEdit: () => void;
+  onStart: () => void;
+  onComplete: () => void;
+  onCancel: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -17,14 +17,14 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: 'bg-accent-100 text-accent-700',
   completed: 'bg-success-100 text-success-700',
   cancelled: 'bg-secondary-200 text-secondary-600',
-}
+};
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
-}
+};
 
 export function MeetingHeader({
   meeting,
@@ -34,10 +34,10 @@ export function MeetingHeader({
   onComplete,
   onCancel,
 }: MeetingHeaderProps) {
-  const isScheduled = meeting.status === 'scheduled'
-  const isInProgress = meeting.status === 'in_progress'
-  const isCompleted = meeting.status === 'completed'
-  const isCancelled = meeting.status === 'cancelled'
+  const isScheduled = meeting.status === 'scheduled';
+  const isInProgress = meeting.status === 'in_progress';
+  const isCompleted = meeting.status === 'completed';
+  const isCancelled = meeting.status === 'cancelled';
 
   return (
     <div className="mb-6">
@@ -90,5 +90,5 @@ export function MeetingHeader({
         </div>
       </div>
     </div>
-  )
+  );
 }

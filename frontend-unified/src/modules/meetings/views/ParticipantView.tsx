@@ -2,7 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronRight, CheckCircle } from 'lucide-react';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import { getValidMotions, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { ParticipantViewProps, SuspendableRule, AgendaAmendment, BylawAmendment, MotionDefinition } from '../types';
+import type {
+  ParticipantViewProps,
+  SuspendableRule,
+  AgendaAmendment,
+  BylawAmendment,
+  MotionDefinition,
+} from '../types';
 import { AgendaAmendmentForm } from '../components/AgendaAmendmentForm';
 import { BylawAmendmentForm } from '../components/BylawAmendmentForm';
 import { SuspendRulesForm } from '../components/SuspendRulesForm';
@@ -19,14 +25,14 @@ import {
   ProxyRequestPanel,
   ProxyAcceptancePanel,
   CurrentBusinessPanel,
-  MotionSelector
+  MotionSelector,
 } from '../components/participant';
 import { useVoteResults } from '../hooks/useVoteResults';
 import { useQuorumStatus } from '../hooks/useQuorumStatus';
 
 export function ParticipantView({ state, dispatch, currentUser }: ParticipantViewProps) {
-  const [motionText, setMotionText] = useState("");
-  const [selectedMotion, setSelectedMotion] = useState("mainMotion");
+  const [motionText, setMotionText] = useState('');
+  const [selectedMotion, setSelectedMotion] = useState('mainMotion');
   const [showAgendaAmendForm, setShowAgendaAmendForm] = useState(false);
   const [showBylawAmendForm, setShowBylawAmendForm] = useState(false);
   const [showSuspendRulesForm, setShowSuspendRulesForm] = useState(false);
@@ -34,33 +40,38 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
   const [showReconsiderForm, setShowReconsiderForm] = useState(false);
 
   // Memoize expensive computations
-  const validMotions = useMemo(() => getValidMotions(state, currentUser.id), [state, currentUser.id]);
+  const validMotions = useMemo(
+    () => getValidMotions(state, currentUser.id),
+    [state, currentUser.id],
+  );
   const selectedMotionDef = MOTIONS[selectedMotion];
   const handRaised = useMemo(
-    () => state.speakerQueue.find(s => s.member.id === currentUser.id),
-    [state.speakerQueue, currentUser.id]
+    () => state.speakerQueue.find((s) => s.member.id === currentUser.id),
+    [state.speakerQueue, currentUser.id],
   );
   const hasFloor = state.recognizedSpeaker?.id === currentUser.id;
 
   // Memoize motion grouping by category
   const groupedMotions = useMemo(() => {
-    return validMotions.reduce<Record<string, Array<MotionDefinition & { key: string }>>>((acc, m) => {
-      if (!acc[m.category]) acc[m.category] = [];
-      acc[m.category].push(m);
-      return acc;
-    }, {});
+    return validMotions.reduce<Record<string, Array<MotionDefinition & { key: string }>>>(
+      (acc, m) => {
+        if (!acc[m.category]) acc[m.category] = [];
+        acc[m.category].push(m);
+        return acc;
+      },
+      {},
+    );
   }, [validMotions]);
 
   // Use custom hooks
   const voteResults = useVoteResults(state.meetingLog);
-  const { presentCount, hasQuorum } = useQuorumStatus(
-    state.members,
-    state.quorum,
-    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
-  );
+  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum, {
+    proxiesCountForQuorum: state.proxiesCountForQuorum,
+    proxies: state.proxies,
+  });
 
   useEffect(() => {
-    if (!validMotions.find(m => m.key === selectedMotion) && validMotions.length > 0) {
+    if (!validMotions.find((m) => m.key === selectedMotion) && validMotions.length > 0) {
       setSelectedMotion(validMotions[0].key);
     }
   }, [validMotions, selectedMotion]);
@@ -84,87 +95,102 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         mover: currentUser.name,
         moverId: currentUser.id,
         motionId: generateId(),
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
-      setMotionText("");
+      setMotionText('');
     }
   }, [selectedMotion, motionText, selectedMotionDef, currentUser, dispatch]);
 
-  const handleAgendaAmendSubmit = useCallback((text: string, agendaAmendment: AgendaAmendment) => {
-    dispatch({
-      type: 'MAKE_MOTION',
-      motionType: 'amendAgenda',
-      text,
-      mover: currentUser.name,
-      moverId: currentUser.id,
-      agendaAmendment,
-      motionId: generateId(),
-      timestamp: generateTimestamp()
-    });
-    setShowAgendaAmendForm(false);
-  }, [currentUser, dispatch]);
+  const handleAgendaAmendSubmit = useCallback(
+    (text: string, agendaAmendment: AgendaAmendment) => {
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'amendAgenda',
+        text,
+        mover: currentUser.name,
+        moverId: currentUser.id,
+        agendaAmendment,
+        motionId: generateId(),
+        timestamp: generateTimestamp(),
+      });
+      setShowAgendaAmendForm(false);
+    },
+    [currentUser, dispatch],
+  );
 
-  const handleBylawAmendSubmit = useCallback((text: string, bylawAmendment: BylawAmendment) => {
-    dispatch({
-      type: 'MAKE_MOTION',
-      motionType: 'bylawAmendment',
-      text,
-      mover: currentUser.name,
-      moverId: currentUser.id,
-      bylawAmendment,
-      motionId: generateId(),
-      timestamp: generateTimestamp()
-    });
-    setShowBylawAmendForm(false);
-  }, [currentUser, dispatch]);
+  const handleBylawAmendSubmit = useCallback(
+    (text: string, bylawAmendment: BylawAmendment) => {
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'bylawAmendment',
+        text,
+        mover: currentUser.name,
+        moverId: currentUser.id,
+        bylawAmendment,
+        motionId: generateId(),
+        timestamp: generateTimestamp(),
+      });
+      setShowBylawAmendForm(false);
+    },
+    [currentUser, dispatch],
+  );
 
-  const handleSuspendRulesSubmit = useCallback((
-    purpose: string,
-    specificAction: string,
-    scope: 'single-action' | 'meeting-remainder',
-    rule: SuspendableRule
-  ) => {
-    const text = `I move to suspend the rules (${rule}) for the following purpose: ${purpose}. Specific action: ${specificAction}`;
-    dispatch({
-      type: 'MAKE_MOTION',
-      motionType: 'suspendRules',
-      text,
-      mover: currentUser.name,
-      moverId: currentUser.id,
-      ruleSuspension: { rule, purpose, specificAction, scope },
-      motionId: generateId(),
-      timestamp: generateTimestamp()
-    });
-    setShowSuspendRulesForm(false);
-  }, [currentUser, dispatch]);
+  const handleSuspendRulesSubmit = useCallback(
+    (
+      purpose: string,
+      specificAction: string,
+      scope: 'single-action' | 'meeting-remainder',
+      rule: SuspendableRule,
+    ) => {
+      const text = `I move to suspend the rules (${rule}) for the following purpose: ${purpose}. Specific action: ${specificAction}`;
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'suspendRules',
+        text,
+        mover: currentUser.name,
+        moverId: currentUser.id,
+        ruleSuspension: { rule, purpose, specificAction, scope },
+        motionId: generateId(),
+        timestamp: generateTimestamp(),
+      });
+      setShowSuspendRulesForm(false);
+    },
+    [currentUser, dispatch],
+  );
 
-  const handleTakeFromTableSubmit = useCallback((text: string, tabledMotionId: number) => {
-    dispatch({
-      type: 'MAKE_MOTION',
-      motionType: 'takeFromTable',
-      text,
-      mover: currentUser.name,
-      moverId: currentUser.id,
-      tabledMotionId,
-      motionId: generateId(),
-      timestamp: generateTimestamp()
-    });
-    setShowTakeFromTableForm(false);
-  }, [currentUser, dispatch]);
+  const handleTakeFromTableSubmit = useCallback(
+    (text: string, tabledMotionId: number) => {
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'takeFromTable',
+        text,
+        mover: currentUser.name,
+        moverId: currentUser.id,
+        tabledMotionId,
+        motionId: generateId(),
+        timestamp: generateTimestamp(),
+      });
+      setShowTakeFromTableForm(false);
+    },
+    [currentUser, dispatch],
+  );
 
-  const handleReconsiderSubmit = useCallback((text: string, reconsideredMotionId: number) => {
-    dispatch({
-      type: 'MAKE_MOTION',
-      motionType: 'reconsider',
-      text,
-      mover: currentUser.name,
-      moverId: currentUser.id,
-      reconsideredMotionId,
-      motionId: generateId(),
-      timestamp: generateTimestamp()
-    });
-    setShowReconsiderForm(false);
-  }, [currentUser, dispatch]);
+  const handleReconsiderSubmit = useCallback(
+    (text: string, reconsideredMotionId: number) => {
+      dispatch({
+        type: 'MAKE_MOTION',
+        motionType: 'reconsider',
+        text,
+        mover: currentUser.name,
+        moverId: currentUser.id,
+        reconsideredMotionId,
+        motionId: generateId(),
+        timestamp: generateTimestamp(),
+      });
+      setShowReconsiderForm(false);
+    },
+    [currentUser, dispatch],
+  );
 
   return (
     <div className="space-y-4">
@@ -181,7 +207,9 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       {hasFloor && (
         <div className="bg-success-100 dark:bg-success-900/30 border-2 border-success-300 dark:border-success-700 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-success-800 dark:text-success-300 font-semibold text-lg">You have the floor</span>
+            <span className="text-success-800 dark:text-success-300 font-semibold text-lg">
+              You have the floor
+            </span>
             <button
               onClick={() => dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() })}
               className="min-h-[40px] px-4 py-2 bg-success-600 text-white rounded-lg font-medium hover:bg-success-700 touch-manipulation active:scale-[0.98] transition-transform focus:outline-none focus:ring-2 focus:ring-success-400 focus:ring-offset-2"
@@ -224,18 +252,35 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       {/* Agenda Display */}
       {state.agendaAdopted && (
         <section className="card p-4" aria-labelledby="agenda-heading">
-          <h3 id="agenda-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">Agenda</h3>
+          <h3 id="agenda-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">
+            Agenda
+          </h3>
           <ul className="space-y-2" role="list">
             {state.agenda.map((item, i) => (
               <li
                 key={item.id}
                 className={`flex items-center gap-2 p-2 rounded ${
-                  item.status === 'completed' ? 'bg-success-50 dark:bg-success-900/20 text-secondary-500 dark:text-secondary-400' :
-                  item.status === 'active' ? 'bg-meeting-100 dark:bg-meeting-900/30 font-medium' : ''
+                  item.status === 'completed'
+                    ? 'bg-success-50 dark:bg-success-900/20 text-secondary-500 dark:text-secondary-400'
+                    : item.status === 'active'
+                      ? 'bg-meeting-100 dark:bg-meeting-900/30 font-medium'
+                      : ''
                 }`}
               >
-                {item.status === 'completed' && <CheckCircle size={16} className="text-success-600 dark:text-success-400" aria-hidden="true" />}
-                {item.status === 'active' && <ChevronRight size={16} className="text-meeting-600 dark:text-meeting-400" aria-hidden="true" />}
+                {item.status === 'completed' && (
+                  <CheckCircle
+                    size={16}
+                    className="text-success-600 dark:text-success-400"
+                    aria-hidden="true"
+                  />
+                )}
+                {item.status === 'active' && (
+                  <ChevronRight
+                    size={16}
+                    className="text-meeting-600 dark:text-meeting-400"
+                    aria-hidden="true"
+                  />
+                )}
                 <span className={item.status === 'completed' ? 'line-through' : ''}>
                   {i + 1}. {item.title}
                 </span>
@@ -246,52 +291,59 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       )}
 
       {/* Make Motion Panel */}
-      {!state.votingOpen && !state.pendingSecond && (state.agendaAdopted || state.agendaObjection) && (
-        <section className="card p-4" aria-labelledby="motion-heading">
-          <h3 id="motion-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">Make a Motion</h3>
-          {showAgendaAmendForm ? (
-            <AgendaAmendmentForm
-              agenda={state.agenda}
-              onSubmit={handleAgendaAmendSubmit}
-              onCancel={() => setShowAgendaAmendForm(false)}
-            />
-          ) : showBylawAmendForm ? (
-            <BylawAmendmentForm
-              meetingCode={state.meetingCode || ''}
-              onSubmit={handleBylawAmendSubmit}
-              onCancel={() => setShowBylawAmendForm(false)}
-            />
-          ) : showSuspendRulesForm ? (
-            <SuspendRulesForm
-              onSubmit={handleSuspendRulesSubmit}
-              onCancel={() => setShowSuspendRulesForm(false)}
-            />
-          ) : showTakeFromTableForm ? (
-            <TakeFromTableForm
-              tabledMotions={state.tabledMotions}
-              onSubmit={handleTakeFromTableSubmit}
-              onCancel={() => setShowTakeFromTableForm(false)}
-            />
-          ) : showReconsiderForm ? (
-            <ReconsiderForm
-              completedMotions={state.completedMotions}
-              currentUserId={currentUser.id}
-              onSubmit={handleReconsiderSubmit}
-              onCancel={() => setShowReconsiderForm(false)}
-            />
-          ) : (
-            <MotionSelector
-              selectedMotion={selectedMotion}
-              setSelectedMotion={setSelectedMotion}
-              selectedMotionDef={selectedMotionDef}
-              motionText={motionText}
-              setMotionText={setMotionText}
-              groupedMotions={groupedMotions}
-              onSubmit={handleMotionSubmit}
-            />
-          )}
-        </section>
-      )}
+      {!state.votingOpen &&
+        !state.pendingSecond &&
+        (state.agendaAdopted || state.agendaObjection) && (
+          <section className="card p-4" aria-labelledby="motion-heading">
+            <h3
+              id="motion-heading"
+              className="font-semibold mb-3 text-secondary-800 dark:text-white"
+            >
+              Make a Motion
+            </h3>
+            {showAgendaAmendForm ? (
+              <AgendaAmendmentForm
+                agenda={state.agenda}
+                onSubmit={handleAgendaAmendSubmit}
+                onCancel={() => setShowAgendaAmendForm(false)}
+              />
+            ) : showBylawAmendForm ? (
+              <BylawAmendmentForm
+                meetingCode={state.meetingCode || ''}
+                onSubmit={handleBylawAmendSubmit}
+                onCancel={() => setShowBylawAmendForm(false)}
+              />
+            ) : showSuspendRulesForm ? (
+              <SuspendRulesForm
+                onSubmit={handleSuspendRulesSubmit}
+                onCancel={() => setShowSuspendRulesForm(false)}
+              />
+            ) : showTakeFromTableForm ? (
+              <TakeFromTableForm
+                tabledMotions={state.tabledMotions}
+                onSubmit={handleTakeFromTableSubmit}
+                onCancel={() => setShowTakeFromTableForm(false)}
+              />
+            ) : showReconsiderForm ? (
+              <ReconsiderForm
+                completedMotions={state.completedMotions}
+                currentUserId={currentUser.id}
+                onSubmit={handleReconsiderSubmit}
+                onCancel={() => setShowReconsiderForm(false)}
+              />
+            ) : (
+              <MotionSelector
+                selectedMotion={selectedMotion}
+                setSelectedMotion={setSelectedMotion}
+                selectedMotionDef={selectedMotionDef}
+                motionText={motionText}
+                setMotionText={setMotionText}
+                groupedMotions={groupedMotions}
+                onSubmit={handleMotionSubmit}
+              />
+            )}
+          </section>
+        )}
 
       {/* Inquiries Panel */}
       <InquiryPanel state={state} dispatch={dispatch} currentUser={currentUser} isChair={false} />

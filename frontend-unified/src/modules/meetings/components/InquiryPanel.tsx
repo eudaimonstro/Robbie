@@ -1,6 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member, InquiryType } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  InquiryType,
+} from '@robbie-bylawyer/shared/types';
 
 interface InquiryPanelProps {
   state: MeetingState;
@@ -24,46 +29,47 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
       askedBy: currentUser.name,
       askerId: currentUser.id,
       inquiryId: generateId(),
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
     setQuestion('');
   }, [dispatch, inquiryType, question, currentUser.name, currentUser.id]);
 
-  const handleAnswerInquiry = useCallback((inquiryId: number) => {
-    const answer = answerText[inquiryId];
-    if (!answer?.trim()) return;
+  const handleAnswerInquiry = useCallback(
+    (inquiryId: number) => {
+      const answer = answerText[inquiryId];
+      if (!answer?.trim()) return;
 
-    dispatch({
-      type: 'ANSWER_INQUIRY',
-      inquiryId,
-      answer: answer.trim(),
-      answeredBy: currentUser.name,
-      timestamp: generateTimestamp()
-    });
-    setAnswerText(prev => ({ ...prev, [inquiryId]: '' }));
-  }, [dispatch, answerText, currentUser.name]);
+      dispatch({
+        type: 'ANSWER_INQUIRY',
+        inquiryId,
+        answer: answer.trim(),
+        answeredBy: currentUser.name,
+        timestamp: generateTimestamp(),
+      });
+      setAnswerText((prev) => ({ ...prev, [inquiryId]: '' }));
+    },
+    [dispatch, answerText, currentUser.name],
+  );
 
   const unansweredInquiries = useMemo(
-    () => state.inquiries.filter(inq => !inq.answer),
-    [state.inquiries]
+    () => state.inquiries.filter((inq) => !inq.answer),
+    [state.inquiries],
   );
 
   const answeredInquiries = useMemo(
-    () => state.inquiries.filter(inq => inq.answer),
-    [state.inquiries]
+    () => state.inquiries.filter((inq) => inq.answer),
+    [state.inquiries],
   );
 
   // Memoize the recent answered inquiries (last 5, reversed for display)
   const recentAnsweredInquiries = useMemo(
     () => answeredInquiries.slice(-5).reverse(),
-    [answeredInquiries]
+    [answeredInquiries],
   );
 
   return (
     <div className="bg-white rounded-lg p-4 shadow">
-      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-        Ask a Question
-      </h3>
+      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">Ask a Question</h3>
 
       {/* Submit Question Form */}
       {!isChair && (
@@ -104,9 +110,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
             </div>
           </div>
 
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Your Question
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -142,7 +146,9 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <span className="text-xs font-semibold text-amber-900 uppercase">
-                      {inquiry.type === 'parliamentary' ? 'Parliamentary Inquiry' : 'Request for Information'}
+                      {inquiry.type === 'parliamentary'
+                        ? 'Parliamentary Inquiry'
+                        : 'Request for Information'}
                     </span>
                     <p className="text-sm text-gray-700 mt-1">
                       <span className="font-medium">{inquiry.askedBy}:</span> "{inquiry.question}"
@@ -158,7 +164,9 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                       type="text"
                       placeholder="Enter your answer..."
                       value={answerText[inquiry.id] || ''}
-                      onChange={(e) => setAnswerText({ ...answerText, [inquiry.id]: e.target.value })}
+                      onChange={(e) =>
+                        setAnswerText({ ...answerText, [inquiry.id]: e.target.value })
+                      }
                       onKeyPress={(e) => e.key === 'Enter' && handleAnswerInquiry(inquiry.id)}
                       className="flex-1 p-2 border rounded text-sm"
                     />
@@ -185,10 +193,15 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
           </p>
           <div className="space-y-2">
             {recentAnsweredInquiries.map((inquiry) => (
-              <div key={inquiry.id} className="p-2 bg-green-50 border border-green-200 rounded text-sm">
+              <div
+                key={inquiry.id}
+                className="p-2 bg-green-50 border border-green-200 rounded text-sm"
+              >
                 <div className="mb-1">
                   <span className="text-xs font-semibold text-green-900 uppercase">
-                    {inquiry.type === 'parliamentary' ? 'Parliamentary Inquiry' : 'Request for Information'}
+                    {inquiry.type === 'parliamentary'
+                      ? 'Parliamentary Inquiry'
+                      : 'Request for Information'}
                   </span>
                 </div>
                 <p className="text-gray-700">
@@ -197,9 +210,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                 <p className="text-green-800 mt-1">
                   <span className="font-medium">A:</span> {inquiry.answer}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Answered by {inquiry.answeredBy}
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Answered by {inquiry.answeredBy}</p>
               </div>
             ))}
           </div>

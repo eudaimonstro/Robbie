@@ -1,56 +1,56 @@
-import { useState, useEffect, useRef, ReactNode } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import Sidebar from './Sidebar'
-import Header from './Header'
-import Modal from '../ui/Modal'
-import { useOrganization } from '../../context/OrganizationContext'
-import { documents, DocumentCreate } from '../../api/client'
-import { useToast } from '../../context/ToastContext'
+import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Sidebar from './Sidebar';
+import Header from './Header';
+import Modal from '../ui/Modal';
+import { useOrganization } from '../../context/OrganizationContext';
+import { documents, DocumentCreate } from '../../api/client';
+import { useToast } from '../../context/ToastContext';
 
 interface AppLayoutProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { currentOrganization } = useOrganization()
-  const { showToast } = useToast()
-  const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const modalTriggerRef = useRef<HTMLElement | null>(null)
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { currentOrganization } = useOrganization();
+  const { showToast } = useToast();
+  const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const modalTriggerRef = useRef<HTMLElement | null>(null);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
-    setSidebarOpen(false)
-  }, [location.pathname])
-  const [newDocTitle, setNewDocTitle] = useState('')
-  const [newDocType, setNewDocType] = useState<'bylaws' | 'standing_rules' | 'policy'>('bylaws')
-  const [creating, setCreating] = useState(false)
+    setSidebarOpen(false);
+  }, [location.pathname]);
+  const [newDocTitle, setNewDocTitle] = useState('');
+  const [newDocType, setNewDocType] = useState<'bylaws' | 'standing_rules' | 'policy'>('bylaws');
+  const [creating, setCreating] = useState(false);
 
   const handleCreateDocument = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newDocTitle.trim() || !currentOrganization) return
+    e.preventDefault();
+    if (!newDocTitle.trim() || !currentOrganization) return;
 
     try {
-      setCreating(true)
+      setCreating(true);
       const data: DocumentCreate = {
         title: newDocTitle.trim(),
         doc_type: newDocType,
-      }
-      const newDoc = await documents.create(currentOrganization.id, data)
-      setNewDocTitle('')
-      setNewDocType('bylaws')
-      setIsNewDocModalOpen(false)
-      modalTriggerRef.current = null // Don't restore focus since we're navigating away
-      showToast('success', `Document "${newDoc.title}" created successfully`)
-      navigate(`/documents/${newDoc.id}`)
+      };
+      const newDoc = await documents.create(currentOrganization.id, data);
+      setNewDocTitle('');
+      setNewDocType('bylaws');
+      setIsNewDocModalOpen(false);
+      modalTriggerRef.current = null; // Don't restore focus since we're navigating away
+      showToast('success', `Document "${newDoc.title}" created successfully`);
+      navigate(`/documents/${newDoc.id}`);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to create document')
+      showToast('error', err instanceof Error ? err.message : 'Failed to create document');
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-screen">
@@ -71,19 +71,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
       )}
 
       {/* Sidebar - hidden on mobile by default, shown when sidebarOpen */}
-      <div className={`
+      <div
+        className={`
         fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <Sidebar onNewDocument={() => {
-          modalTriggerRef.current = document.activeElement as HTMLElement
-          setIsNewDocModalOpen(true)
-        }} onClose={() => setSidebarOpen(false)} />
+      `}
+      >
+        <Sidebar
+          onNewDocument={() => {
+            modalTriggerRef.current = document.activeElement as HTMLElement;
+            setIsNewDocModalOpen(true);
+          }}
+          onClose={() => setSidebarOpen(false)}
+        />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 bg-secondary-50 dark:bg-secondary-900" tabIndex={-1}>
+        <main
+          id="main-content"
+          className="flex-1 overflow-auto p-4 md:p-6 bg-secondary-50 dark:bg-secondary-900"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>
@@ -92,12 +101,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Modal
         isOpen={isNewDocModalOpen}
         onClose={() => {
-          setIsNewDocModalOpen(false)
+          setIsNewDocModalOpen(false);
           // Restore focus to trigger element
           setTimeout(() => {
-            modalTriggerRef.current?.focus()
-            modalTriggerRef.current = null
-          }, 0)
+            modalTriggerRef.current?.focus();
+            modalTriggerRef.current = null;
+          }, 0);
         }}
         title="Create New Document"
       >
@@ -132,11 +141,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </select>
           </div>
           <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setIsNewDocModalOpen(false)}
-              className="btn-ghost"
-            >
+            <button type="button" onClick={() => setIsNewDocModalOpen(false)} className="btn-ghost">
               Cancel
             </button>
             <button
@@ -150,5 +155,5 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </form>
       </Modal>
     </div>
-  )
+  );
 }

@@ -24,11 +24,8 @@ export interface QueueStats {
 /**
  * Get information about a specific member's position in the speaker queue
  */
-export function getMemberQueueInfo(
-  state: MeetingState,
-  memberId: number
-): SpeakerQueueInfo | null {
-  const queueIndex = state.speakerQueue.findIndex(entry => entry.member.id === memberId);
+export function getMemberQueueInfo(state: MeetingState, memberId: number): SpeakerQueueInfo | null {
+  const queueIndex = state.speakerQueue.findIndex((entry) => entry.member.id === memberId);
 
   if (queueIndex === -1) {
     return null; // Member not in queue
@@ -56,7 +53,7 @@ export function getMemberQueueInfo(
     position,
     estimatedWaitSeconds: waitSeconds,
     willSpeakNext,
-    stanceBalance: calculateStanceBalance(state.speakerQueue)
+    stanceBalance: calculateStanceBalance(state.speakerQueue),
   };
 }
 
@@ -64,15 +61,15 @@ export function getMemberQueueInfo(
  * Calculate the balance of stances in the speaker queue
  */
 export function calculateStanceBalance(queue: SpeakerQueueEntry[]): StanceBalance {
-  const pro = queue.filter(e => e.stance === 'pro').length;
-  const con = queue.filter(e => e.stance === 'con').length;
-  const neutral = queue.filter(e => e.stance === 'neutral').length;
+  const pro = queue.filter((e) => e.stance === 'pro').length;
+  const con = queue.filter((e) => e.stance === 'con').length;
+  const neutral = queue.filter((e) => e.stance === 'neutral').length;
 
   return {
     pro,
     con,
     neutral,
-    isBalanced: Math.abs(pro - con) <= 1
+    isBalanced: Math.abs(pro - con) <= 1,
   };
 }
 
@@ -91,26 +88,23 @@ export function getQueueStats(state: MeetingState): QueueStats {
   }
 
   // Estimate total time for all speakers in queue
-  const estimatedTotalTime = state.speakerQueue.length * speakerTimeLimit +
-    (currentSpeakerRemaining ?? 0);
+  const estimatedTotalTime =
+    state.speakerQueue.length * speakerTimeLimit + (currentSpeakerRemaining ?? 0);
 
   return {
     totalInQueue: state.speakerQueue.length,
     stanceBalance,
     estimatedTotalTime,
-    currentSpeakerRemaining
+    currentSpeakerRemaining,
   };
 }
 
 /**
  * Check if a member can remove themselves from the queue
  */
-export function canRemoveSelfFromQueue(
-  state: MeetingState,
-  memberId: number
-): boolean {
+export function canRemoveSelfFromQueue(state: MeetingState, memberId: number): boolean {
   // Can only remove yourself if you're in the queue
-  const isInQueue = state.speakerQueue.some(e => e.member.id === memberId);
+  const isInQueue = state.speakerQueue.some((e) => e.member.id === memberId);
 
   // Cannot remove yourself if you're the currently recognized speaker
   const isCurrentSpeaker = state.recognizedSpeaker?.id === memberId;
@@ -147,14 +141,14 @@ export function getNextSpeakerInfo(state: MeetingState): {
   }
 
   // Check if alternation rule is active
-  const isAlternating = !state.suspendedRules.some(r => r.rule === 'pro-con-alternation');
+  const isAlternating = !state.suspendedRules.some((r) => r.rule === 'pro-con-alternation');
 
   if (!isAlternating) {
     // No alternation - first in queue speaks next
     return {
       nextSpeaker: state.speakerQueue[0],
       isAlternating: false,
-      preferredStance: null
+      preferredStance: null,
     };
   }
 
@@ -169,7 +163,7 @@ export function getNextSpeakerInfo(state: MeetingState): {
   // Find the first speaker matching preferred stance, or fall back to first in queue
   let nextSpeaker = state.speakerQueue[0];
   if (preferredStance) {
-    const preferredSpeaker = state.speakerQueue.find(e => e.stance === preferredStance);
+    const preferredSpeaker = state.speakerQueue.find((e) => e.stance === preferredStance);
     if (preferredSpeaker) {
       nextSpeaker = preferredSpeaker;
     }

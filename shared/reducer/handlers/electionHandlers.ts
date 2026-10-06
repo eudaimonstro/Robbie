@@ -9,7 +9,10 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         ...state,
         nominationsOpen: true,
         currentNominationPosition: typedAction.position,
-        meetingLog: log(typedAction.timestamp, `Chair: Nominations are now open for ${typedAction.position}.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair: Nominations are now open for ${typedAction.position}.`,
+        ),
       };
     }
 
@@ -23,26 +26,32 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         nominatedBy: typedAction.nominatedBy,
         nominatorId: typedAction.nominatorId,
         timestamp: typedAction.timestamp,
-        declined: false
+        declined: false,
       };
       return {
         ...state,
         nominations: [...state.nominations, nomination],
-        meetingLog: log(typedAction.timestamp, `${typedAction.nominatedBy} nominates ${typedAction.nomineeName} for ${typedAction.position}.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `${typedAction.nominatedBy} nominates ${typedAction.nomineeName} for ${typedAction.position}.`,
+        ),
       };
     }
 
     case 'DECLINE_NOMINATION': {
       const typedAction = action as Extract<MeetingAction, { type: 'DECLINE_NOMINATION' }>;
-      const nomination = state.nominations.find(n => n.id === typedAction.nominationId);
+      const nomination = state.nominations.find((n) => n.id === typedAction.nominationId);
       if (!nomination) return state;
 
       return {
         ...state,
-        nominations: state.nominations.map(n =>
-          n.id === typedAction.nominationId ? { ...n, declined: true } : n
+        nominations: state.nominations.map((n) =>
+          n.id === typedAction.nominationId ? { ...n, declined: true } : n,
         ),
-        meetingLog: log(typedAction.timestamp, `${nomination.nomineeName} declines nomination for ${nomination.position}.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `${nomination.nomineeName} declines nomination for ${nomination.position}.`,
+        ),
       };
     }
 
@@ -51,7 +60,10 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         nominationsOpen: false,
-        meetingLog: log(typedAction.timestamp, `Chair: Nominations for ${state.currentNominationPosition} are now closed.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair: Nominations for ${state.currentNominationPosition} are now closed.`,
+        ),
       };
     }
 
@@ -59,11 +71,11 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       const typedAction = action as Extract<MeetingAction, { type: 'START_ELECTION' }>;
       // Gather candidates from nominations for this position (excluding declined)
       const candidates = state.nominations
-        .filter(n => n.position === typedAction.position && !n.declined)
-        .map(n => ({ name: n.nomineeName, id: n.nomineeId }))
+        .filter((n) => n.position === typedAction.position && !n.declined)
+        .map((n) => ({ name: n.nomineeName, id: n.nomineeId }))
         // Remove duplicates
-        .filter((candidate, index, self) =>
-          index === self.findIndex(c => c.name === candidate.name)
+        .filter(
+          (candidate, index, self) => index === self.findIndex((c) => c.name === candidate.name),
         );
 
       const election = {
@@ -72,16 +84,22 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         candidates,
         requiredVotes: typedAction.requiredVotes,
         votingInProgress: true,
-        ballotResults: candidates.reduce((acc, c) => ({ ...acc, [c.name]: 0 }), {} as Record<string, number>),
+        ballotResults: candidates.reduce(
+          (acc, c) => ({ ...acc, [c.name]: 0 }),
+          {} as Record<string, number>,
+        ),
         votersWhoVoted: [],
-        elected: null
+        elected: null,
       };
 
       return {
         ...state,
         currentElection: election,
         currentNominationPosition: null,
-        meetingLog: log(typedAction.timestamp, `Chair: Voting is now open for ${typedAction.position}. ${candidates.length} candidate(s).`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair: Voting is now open for ${typedAction.position}. ${candidates.length} candidate(s).`,
+        ),
       };
     }
 
@@ -98,10 +116,11 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           ...state.currentElection,
           ballotResults: {
             ...state.currentElection.ballotResults,
-            [typedAction.candidateName]: (state.currentElection.ballotResults[typedAction.candidateName] || 0) + 1
+            [typedAction.candidateName]:
+              (state.currentElection.ballotResults[typedAction.candidateName] || 0) + 1,
           },
-          votersWhoVoted: [...state.currentElection.votersWhoVoted, typedAction.voterId]
-        }
+          votersWhoVoted: [...state.currentElection.votersWhoVoted, typedAction.voterId],
+        },
       };
     }
 
@@ -126,16 +145,17 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             winner = topCandidate[0];
           }
         } else if (requiredVotes === '2/3') {
-          if (topVotes >= (totalVotes * 2 / 3)) {
+          if (topVotes >= (totalVotes * 2) / 3) {
             winner = topCandidate[0];
           }
-        } else { // plurality
+        } else {
+          // plurality
           winner = topCandidate[0];
         }
       }
 
       // Determine if each result is a write-in
-      const officialCandidateNames = new Set(state.currentElection.candidates.map(c => c.name));
+      const officialCandidateNames = new Set(state.currentElection.candidates.map((c) => c.name));
       const resultsText = sortedCandidates
         .map(([name, votes]) => {
           const isWriteIn = !officialCandidateNames.has(name);
@@ -151,8 +171,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
 
       if (needsRunoff) {
         const tiedCandidateInfo = tiedCandidates.map(([name]) => {
-          const officialCandidate = state.currentElection!.candidates.find(c => c.name === name);
-          const member = state.members.find(m => m.name === name);
+          const officialCandidate = state.currentElection!.candidates.find((c) => c.name === name);
+          const member = state.members.find((m) => m.name === name);
           return { name, id: officialCandidate?.id ?? member?.id ?? 0 };
         });
 
@@ -169,9 +189,12 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             votingInProgress: true,
             elected: null,
             isRunoff: true,
-            runoffRound
+            runoffRound,
           },
-          meetingLog: log(typedAction.timestamp, `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. TIE between: ${tiedNames}. Runoff vote (round ${runoffRound}) now open.`)
+          meetingLog: log(
+            typedAction.timestamp,
+            `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. TIE between: ${tiedNames}. Runoff vote (round ${runoffRound}) now open.`,
+          ),
         };
       }
 
@@ -180,9 +203,12 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         currentElection: {
           ...state.currentElection,
           votingInProgress: false,
-          elected: winner
+          elected: winner,
         },
-        meetingLog: log(typedAction.timestamp, `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner ? `${winner} elected.` : 'No candidate elected (majority not reached).'}`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner ? `${winner} elected.` : 'No candidate elected (majority not reached).'}`,
+        ),
       };
     }
 
@@ -191,7 +217,9 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       if (!state.currentElection) return state;
 
       // Check if candidate is an official nominee
-      const nominatedCandidate = state.currentElection.candidates.find(c => c.name === typedAction.candidateName);
+      const nominatedCandidate = state.currentElection.candidates.find(
+        (c) => c.name === typedAction.candidateName,
+      );
 
       // Check if candidate received any votes
       const hasVotes = typedAction.candidateName in state.currentElection.ballotResults;
@@ -199,8 +227,9 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       // Allow declaring if they're a nominated candidate OR received write-in votes
       if (!nominatedCandidate && !hasVotes) return state;
 
-      const memberId = nominatedCandidate?.id ??
-        state.members.find(m => m.name === typedAction.candidateName)?.id ??
+      const memberId =
+        nominatedCandidate?.id ??
+        state.members.find((m) => m.name === typedAction.candidateName)?.id ??
         0;
 
       const isWriteIn = !nominatedCandidate;
@@ -208,7 +237,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         position: state.currentElection.position,
         name: typedAction.candidateName,
         memberId,
-        electedAt: typedAction.timestamp
+        electedAt: typedAction.timestamp,
       };
 
       const writeInNote = isWriteIn ? ' (write-in candidate)' : '';
@@ -216,7 +245,10 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         ...state,
         electedOfficers: [...state.electedOfficers, officer],
         currentElection: null,
-        meetingLog: log(typedAction.timestamp, `Chair declares ${typedAction.candidateName}${writeInNote} elected as ${officer.position}.`)
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair declares ${typedAction.candidateName}${writeInNote} elected as ${officer.position}.`,
+        ),
       };
     }
 

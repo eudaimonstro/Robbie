@@ -1,12 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSocket } from '../../context/SocketContext';
@@ -24,11 +17,10 @@ export default function MeetingScreen() {
   const { state, dispatch, currentUser, isConnected, logout, reconnect } = useSocket();
 
   // Get quorum status
-  const { presentCount, hasQuorum } = useQuorumStatus(
-    state.members,
-    state.quorum,
-    { proxiesCountForQuorum: state.proxiesCountForQuorum, proxies: state.proxies }
-  );
+  const { presentCount, hasQuorum } = useQuorumStatus(state.members, state.quorum, {
+    proxiesCountForQuorum: state.proxiesCountForQuorum,
+    proxies: state.proxies,
+  });
 
   // Check if user has voted
   const currentVote = useMemo(() => {
@@ -60,7 +52,7 @@ export default function MeetingScreen() {
 
       await dispatch(action);
     },
-    [state.currentMotion, currentUser, dispatch]
+    [state.currentMotion, currentUser, dispatch],
   );
 
   // Handle raise/lower hand
@@ -91,9 +83,7 @@ export default function MeetingScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={false} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
       >
         {/* Connection status */}
         {!isConnected && (
@@ -107,19 +97,13 @@ export default function MeetingScreen() {
         {!state.meetingActive && (
           <Card style={styles.statusCard}>
             <Text style={styles.statusTitle}>Meeting Not Started</Text>
-            <Text style={styles.statusSubtitle}>
-              Waiting for the chair to start the meeting
-            </Text>
+            <Text style={styles.statusSubtitle}>Waiting for the chair to start the meeting</Text>
           </Card>
         )}
 
         {/* Quorum warning */}
         {state.meetingActive && (
-          <QuorumBanner
-            presentCount={presentCount}
-            quorum={state.quorum}
-            hasQuorum={hasQuorum}
-          />
+          <QuorumBanner presentCount={presentCount} quorum={state.quorum} hasQuorum={hasQuorum} />
         )}
 
         {/* Current motion and voting */}
@@ -152,9 +136,7 @@ export default function MeetingScreen() {
 
             {!state.votingOpen && state.currentMotion.status === 'active' && (
               <View style={styles.infoCard}>
-                <Text style={styles.infoText}>
-                  Motion is being debated
-                </Text>
+                <Text style={styles.infoText}>Motion is being debated</Text>
               </View>
             )}
           </View>

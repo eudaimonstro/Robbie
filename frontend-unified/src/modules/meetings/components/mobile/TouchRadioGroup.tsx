@@ -95,14 +95,12 @@ export function TouchRadioGroup<T extends string>({
           break;
       }
     },
-    [options, onChange, disabled]
+    [options, onChange, disabled],
   );
 
   return (
     <div role="radiogroup" aria-label={label} aria-required={required}>
-      {label && (
-        <div className="text-sm font-medium text-gray-700 mb-2">{label}</div>
-      )}
+      {label && <div className="text-sm font-medium text-gray-700 mb-2">{label}</div>}
       <div className={layoutStyles[layout]}>
         {options.map((option, index) => {
           const isSelected = value === option.value;
@@ -124,7 +122,9 @@ export function TouchRadioGroup<T extends string>({
                 ${isSelected ? styles.selected : styles.unselected}
                 ${disabled ? 'opacity-50 cursor-not-allowed active:scale-100' : ''}
                 ${layout === 'horizontal' ? 'flex-1 min-w-[100px]' : ''}
-              `.trim().replace(/\s+/g, ' ')}
+              `
+                .trim()
+                .replace(/\s+/g, ' ')}
             >
               <input
                 type="radio"

@@ -1,7 +1,13 @@
-import type { MeetingState, MeetingAction, MeetingLogEntry, PendingProxyRequest } from '../../types/index.js';
+import type {
+  MeetingState,
+  MeetingAction,
+  MeetingLogEntry,
+  PendingProxyRequest,
+} from '../../types/index.js';
 import type { ActionHandler } from './types.js';
 
-type ProxyAction = Extract<MeetingAction,
+type ProxyAction = Extract<
+  MeetingAction,
   | { type: 'SET_PROXY_SETTINGS' }
   | { type: 'GRANT_PROXY' }
   | { type: 'REVOKE_PROXY' }
@@ -26,7 +32,7 @@ type ProxyAction = Extract<MeetingAction,
 export const proxyHandler: ActionHandler = (
   state: MeetingState,
   action: MeetingAction,
-  log: (timestamp: string, msg: string) => MeetingLogEntry[]
+  log: (timestamp: string, msg: string) => MeetingLogEntry[],
 ): MeetingState => {
   const typedAction = action as ProxyAction;
 
@@ -40,11 +46,12 @@ export const proxyHandler: ActionHandler = (
         maxProxiesPerMember: typedAction.maxProxiesPerMember,
         proxiesCountForQuorum: typedAction.proxiesCountForQuorum,
         allowMemberProxyGrant: typedAction.allowMemberProxyGrant ?? state.allowMemberProxyGrant,
-        meetingLog: log(typedAction.timestamp,
+        meetingLog: log(
+          typedAction.timestamp,
           typedAction.allowProxyVoting
             ? `Proxy voting enabled (max ${typedAction.maxProxiesPerMember === 0 ? 'unlimited' : typedAction.maxProxiesPerMember} per member${quorumNote}${memberGrantNote})`
-            : 'Proxy voting disabled'
-        )
+            : 'Proxy voting disabled',
+        ),
       };
     }
 
@@ -55,27 +62,29 @@ export const proxyHandler: ActionHandler = (
       }
 
       // Check if granting member exists and is not present
-      const grantingMember = state.members.find(m => m.id === typedAction.grantedBy);
+      const grantingMember = state.members.find((m) => m.id === typedAction.grantedBy);
       if (!grantingMember) {
         return state;
       }
 
       // Check if receiving member exists and is present
-      const receivingMember = state.members.find(m => m.id === typedAction.grantedTo);
+      const receivingMember = state.members.find((m) => m.id === typedAction.grantedTo);
       if (!receivingMember || !receivingMember.present) {
         return state;
       }
 
       // Check max proxies limit (0 = unlimited)
       if (state.maxProxiesPerMember > 0) {
-        const currentProxyCount = state.proxies.filter(p => p.grantedTo === typedAction.grantedTo).length;
+        const currentProxyCount = state.proxies.filter(
+          (p) => p.grantedTo === typedAction.grantedTo,
+        ).length;
         if (currentProxyCount >= state.maxProxiesPerMember) {
           return state;
         }
       }
 
       // Check if this member already has a proxy
-      const existingProxy = state.proxies.find(p => p.grantedBy === typedAction.grantedBy);
+      const existingProxy = state.proxies.find((p) => p.grantedBy === typedAction.grantedBy);
       if (existingProxy) {
         return state;
       }
@@ -87,30 +96,32 @@ export const proxyHandler: ActionHandler = (
         grantedByName: typedAction.grantedByName,
         grantedToName: typedAction.grantedToName,
         grantedAt: typedAction.timestamp,
-        scope: typedAction.scope
+        scope: typedAction.scope,
       };
 
       return {
         ...state,
         proxies: [...state.proxies, newProxy],
-        meetingLog: log(typedAction.timestamp,
-          `Proxy granted: ${typedAction.grantedByName} authorized ${typedAction.grantedToName} to vote on their behalf (scope: ${typedAction.scope})`
-        )
+        meetingLog: log(
+          typedAction.timestamp,
+          `Proxy granted: ${typedAction.grantedByName} authorized ${typedAction.grantedToName} to vote on their behalf (scope: ${typedAction.scope})`,
+        ),
       };
     }
 
     case 'REVOKE_PROXY': {
-      const proxy = state.proxies.find(p => p.id === typedAction.proxyId);
+      const proxy = state.proxies.find((p) => p.id === typedAction.proxyId);
       if (!proxy) {
         return state;
       }
 
       return {
         ...state,
-        proxies: state.proxies.filter(p => p.id !== typedAction.proxyId),
-        meetingLog: log(typedAction.timestamp,
-          `Proxy revoked: ${proxy.grantedToName} no longer authorized to vote for ${proxy.grantedByName}`
-        )
+        proxies: state.proxies.filter((p) => p.id !== typedAction.proxyId),
+        meetingLog: log(
+          typedAction.timestamp,
+          `Proxy revoked: ${proxy.grantedToName} no longer authorized to vote for ${proxy.grantedByName}`,
+        ),
       };
     }
 
@@ -127,7 +138,7 @@ export const proxyHandler: ActionHandler = (
 
       // Validate the caster has proxy authority for this member
       const proxy = state.proxies.find(
-        p => p.grantedBy === typedAction.forMemberId && p.grantedTo === typedAction.castById
+        (p) => p.grantedBy === typedAction.forMemberId && p.grantedTo === typedAction.castById,
       );
       if (!proxy) {
         return state;
@@ -145,18 +156,20 @@ export const proxyHandler: ActionHandler = (
         newVotes[typedAction.vote]++;
 
         // Update proxy vote record
-        const newProxyVotes = state.proxyVotes.filter(pv => pv.memberId !== typedAction.forMemberId);
+        const newProxyVotes = state.proxyVotes.filter(
+          (pv) => pv.memberId !== typedAction.forMemberId,
+        );
         newProxyVotes.push({
           memberId: typedAction.forMemberId,
           castBy: typedAction.castById,
-          vote: typedAction.vote
+          vote: typedAction.vote,
         });
 
         return {
           ...state,
           votes: newVotes,
           voterChoices: { ...state.voterChoices, [typedAction.forMemberId]: typedAction.vote },
-          proxyVotes: newProxyVotes
+          proxyVotes: newProxyVotes,
         };
       }
 
@@ -164,20 +177,22 @@ export const proxyHandler: ActionHandler = (
       const newVotes = { ...state.votes };
       newVotes[typedAction.vote]++;
 
-      const absentMember = state.members.find(m => m.id === typedAction.forMemberId);
-      const proxyHolder = state.members.find(m => m.id === typedAction.castById);
+      const absentMember = state.members.find((m) => m.id === typedAction.forMemberId);
+      const proxyHolder = state.members.find((m) => m.id === typedAction.castById);
 
       // For roll call votes, log the proxy vote
-      const updatedLog = state.votingMethod === 'rollcall'
-        ? log(typedAction.timestamp,
-            `${absentMember?.name || 'Unknown'} (proxy via ${proxyHolder?.name || 'Unknown'}): ${typedAction.vote.toUpperCase()}`
-          )
-        : state.meetingLog;
+      const updatedLog =
+        state.votingMethod === 'rollcall'
+          ? log(
+              typedAction.timestamp,
+              `${absentMember?.name || 'Unknown'} (proxy via ${proxyHolder?.name || 'Unknown'}): ${typedAction.vote.toUpperCase()}`,
+            )
+          : state.meetingLog;
 
       // Handle single-vote scope - revoke proxy after use
       let updatedProxies = state.proxies;
       if (proxy.scope === 'single-vote') {
-        updatedProxies = state.proxies.filter(p => p.id !== proxy.id);
+        updatedProxies = state.proxies.filter((p) => p.id !== proxy.id);
       }
 
       return {
@@ -185,13 +200,16 @@ export const proxyHandler: ActionHandler = (
         votes: newVotes,
         voters: [...state.voters, typedAction.forMemberId],
         voterChoices: { ...state.voterChoices, [typedAction.forMemberId]: typedAction.vote },
-        proxyVotes: [...state.proxyVotes, {
-          memberId: typedAction.forMemberId,
-          castBy: typedAction.castById,
-          vote: typedAction.vote
-        }],
+        proxyVotes: [
+          ...state.proxyVotes,
+          {
+            memberId: typedAction.forMemberId,
+            castBy: typedAction.castById,
+            vote: typedAction.vote,
+          },
+        ],
         proxies: updatedProxies,
-        meetingLog: updatedLog
+        meetingLog: updatedLog,
       };
     }
 
@@ -202,13 +220,13 @@ export const proxyHandler: ActionHandler = (
       }
 
       // Check if requesting member exists
-      const requestingMember = state.members.find(m => m.id === typedAction.requestedBy);
+      const requestingMember = state.members.find((m) => m.id === typedAction.requestedBy);
       if (!requestingMember) {
         return state;
       }
 
       // Check if designated proxy holder exists
-      const designatedHolder = state.members.find(m => m.id === typedAction.requestedFor);
+      const designatedHolder = state.members.find((m) => m.id === typedAction.requestedFor);
       if (!designatedHolder) {
         return state;
       }
@@ -220,14 +238,14 @@ export const proxyHandler: ActionHandler = (
 
       // Check for existing pending request from this member
       const existingRequest = state.pendingProxyRequests.find(
-        r => r.requestedBy === typedAction.requestedBy && r.status === 'pending'
+        (r) => r.requestedBy === typedAction.requestedBy && r.status === 'pending',
       );
       if (existingRequest) {
         return state;
       }
 
       // Check for existing active proxy from this member
-      const existingProxy = state.proxies.find(p => p.grantedBy === typedAction.requestedBy);
+      const existingProxy = state.proxies.find((p) => p.grantedBy === typedAction.requestedBy);
       if (existingProxy) {
         return state;
       }
@@ -240,22 +258,23 @@ export const proxyHandler: ActionHandler = (
         requestedForName: typedAction.requestedForName,
         requestedAt: typedAction.timestamp,
         scope: typedAction.scope,
-        status: 'pending'
+        status: 'pending',
       };
 
       return {
         ...state,
         pendingProxyRequests: [...state.pendingProxyRequests, newRequest],
-        meetingLog: log(typedAction.timestamp,
-          `${typedAction.requestedByName} requested proxy authorization to ${typedAction.requestedForName} (scope: ${typedAction.scope})`
-        )
+        meetingLog: log(
+          typedAction.timestamp,
+          `${typedAction.requestedByName} requested proxy authorization to ${typedAction.requestedForName} (scope: ${typedAction.scope})`,
+        ),
       };
     }
 
     case 'ACCEPT_PROXY': {
       // Find the pending request
       const request = state.pendingProxyRequests.find(
-        r => r.id === typedAction.requestId && r.status === 'pending'
+        (r) => r.id === typedAction.requestId && r.status === 'pending',
       );
       if (!request) {
         return state;
@@ -263,17 +282,19 @@ export const proxyHandler: ActionHandler = (
 
       // Check max proxies limit (0 = unlimited)
       if (state.maxProxiesPerMember > 0) {
-        const currentProxyCount = state.proxies.filter(p => p.grantedTo === request.requestedFor).length;
+        const currentProxyCount = state.proxies.filter(
+          (p) => p.grantedTo === request.requestedFor,
+        ).length;
         if (currentProxyCount >= state.maxProxiesPerMember) {
           return state;
         }
       }
 
       // Update request status to accepted
-      const updatedRequests = state.pendingProxyRequests.map(r =>
+      const updatedRequests = state.pendingProxyRequests.map((r) =>
         r.id === typedAction.requestId
           ? { ...r, status: 'accepted' as const, respondedAt: typedAction.timestamp }
-          : r
+          : r,
       );
 
       // Create the actual proxy authorization
@@ -284,71 +305,74 @@ export const proxyHandler: ActionHandler = (
         grantedByName: request.requestedByName,
         grantedToName: request.requestedForName,
         grantedAt: typedAction.timestamp,
-        scope: request.scope
+        scope: request.scope,
       };
 
       return {
         ...state,
         pendingProxyRequests: updatedRequests,
         proxies: [...state.proxies, newProxy],
-        meetingLog: log(typedAction.timestamp,
-          `${request.requestedForName} accepted proxy request from ${request.requestedByName}`
-        )
+        meetingLog: log(
+          typedAction.timestamp,
+          `${request.requestedForName} accepted proxy request from ${request.requestedByName}`,
+        ),
       };
     }
 
     case 'DECLINE_PROXY': {
       // Find the pending request
       const request = state.pendingProxyRequests.find(
-        r => r.id === typedAction.requestId && r.status === 'pending'
+        (r) => r.id === typedAction.requestId && r.status === 'pending',
       );
       if (!request) {
         return state;
       }
 
       // Update request status to declined
-      const updatedRequests = state.pendingProxyRequests.map(r =>
+      const updatedRequests = state.pendingProxyRequests.map((r) =>
         r.id === typedAction.requestId
           ? {
               ...r,
               status: 'declined' as const,
               respondedAt: typedAction.timestamp,
-              declineReason: typedAction.reason
+              declineReason: typedAction.reason,
             }
-          : r
+          : r,
       );
 
       return {
         ...state,
         pendingProxyRequests: updatedRequests,
-        meetingLog: log(typedAction.timestamp,
-          `${request.requestedForName} declined proxy request from ${request.requestedByName}${typedAction.reason ? `: ${typedAction.reason}` : ''}`
-        )
+        meetingLog: log(
+          typedAction.timestamp,
+          `${request.requestedForName} declined proxy request from ${request.requestedByName}${typedAction.reason ? `: ${typedAction.reason}` : ''}`,
+        ),
       };
     }
 
     case 'CANCEL_PROXY_REQUEST': {
       // Find the pending request
       const request = state.pendingProxyRequests.find(
-        r => r.id === typedAction.requestId && r.status === 'pending'
+        (r) => r.id === typedAction.requestId && r.status === 'pending',
       );
       if (!request) {
         return state;
       }
 
       // Update request status to cancelled
-      const updatedRequests = state.pendingProxyRequests.map(r =>
+      const updatedRequests = state.pendingProxyRequests.map((r) =>
         r.id === typedAction.requestId
           ? { ...r, status: 'cancelled' as const, respondedAt: typedAction.timestamp }
-          : r
+          : r,
       );
 
       return {
         ...state,
         pendingProxyRequests: updatedRequests,
-        meetingLog: log(typedAction.timestamp,
-          `${request.requestedByName} cancelled their proxy request to ${request.requestedForName}`
-        )
+        meetingLog: log(
+          typedAction.timestamp,
+          `${request.requestedByName} cancelled their proxy request to ${request.requestedForName}`,
+        ),
       };
     }
 

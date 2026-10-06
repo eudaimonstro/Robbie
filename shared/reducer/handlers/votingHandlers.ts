@@ -10,7 +10,10 @@ export const votingHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'OPEN_VOTING': {
       const typedAction = action as Extract<MeetingAction, { type: 'OPEN_VOTING' }>;
-      let logEntries = log(typedAction.timestamp, `Chair puts the question: "${state.currentMotion?.text}"`);
+      let logEntries = log(
+        typedAction.timestamp,
+        `Chair puts the question: "${state.currentMotion?.text}"`,
+      );
       if (typedAction.withoutQuorum) {
         logEntries = [...logEntries, { time: typedAction.timestamp, message: LOG_QUORUM_WARNING }];
       }
@@ -21,15 +24,15 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
         voterChoices: {},
-        proxyVotes: [],  // Reset proxy votes for new vote
-        meetingLog: logEntries
+        proxyVotes: [], // Reset proxy votes for new vote
+        meetingLog: logEntries,
       };
     }
 
     case 'CAST_VOTE': {
       const typedAction = action as Extract<MeetingAction, { type: 'CAST_VOTE' }>;
       // Check if voter is chair
-      const voter = state.members.find(m => m.id === typedAction.voterId);
+      const voter = state.members.find((m) => m.id === typedAction.voterId);
       const isChair = voter?.role === 'chair';
 
       // Chair can only vote on ballot votes or when it affects outcome
@@ -56,25 +59,23 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       const newVoters = previousVote ? state.voters : [...state.voters, typedAction.voterId];
 
       // Log roll call votes individually
-      const rollCallLog = state.votingMethod === 'rollcall' && typedAction.timestamp && voter && !previousVote
-        ? log(typedAction.timestamp, logRollCallVote(voter.name, typedAction.vote))
-        : state.meetingLog;
+      const rollCallLog =
+        state.votingMethod === 'rollcall' && typedAction.timestamp && voter && !previousVote
+          ? log(typedAction.timestamp, logRollCallVote(voter.name, typedAction.vote))
+          : state.meetingLog;
 
       return {
         ...state,
         votes: newVotes,
         voters: newVoters,
         voterChoices: newVoterChoices,
-        meetingLog: rollCallLog
+        meetingLog: rollCallLog,
       };
     }
 
     case 'CLOSE_VOTING': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_VOTING' }>;
-      const voteCalc = calculateVoteResult(
-        state.votes,
-        state.currentMotion?.vote || 'majority'
-      );
+      const voteCalc = calculateVoteResult(state.votes, state.currentMotion?.vote || 'majority');
       const { passed, yea, nay } = voteCalc;
       const newStack = state.motionStack.slice(0, -1);
 
@@ -82,37 +83,50 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       const isAppeal = state.currentMotion?.type === 'appeal';
 
       const voteResultText = isAppeal
-        ? (passed ? "Chair's decision SUSTAINED" : "Chair's decision OVERTURNED")
-        : (passed ? "CARRIED" : "FAILED");
+        ? passed
+          ? "Chair's decision SUSTAINED"
+          : "Chair's decision OVERTURNED"
+        : passed
+          ? 'CARRIED'
+          : 'FAILED';
 
       // Track defeated motions for renewal rule enforcement
-      const defeatedMotions = !passed && state.currentMotion && !isAppeal
-        ? [...state.defeatedMotions, {
-            type: state.currentMotion.type,
-            text: state.currentMotion.text,
-            timestamp: typedAction.timestamp
-          }]
-        : state.defeatedMotions;
+      const defeatedMotions =
+        !passed && state.currentMotion && !isAppeal
+          ? [
+              ...state.defeatedMotions,
+              {
+                type: state.currentMotion.type,
+                text: state.currentMotion.text,
+                timestamp: typedAction.timestamp,
+              },
+            ]
+          : state.defeatedMotions;
 
       // Apply motion outcome if passed (Appeals don't have outcomes to apply)
-      const outcome = passed && !isAppeal ? applyMotionOutcome(state, typedAction.timestamp) : {
-        tabledMotions: state.tabledMotions,
-        agendaAdopted: state.agendaAdopted,
-        agendaObjection: state.agendaObjection,
-        agenda: state.agenda,
-        newSuspension: null,
-        restoredMotion: null,
-        objectionKilledMotion: null,
-        reconsideredMotionId: null,
-        dividedParts: null,
-        dividedMainMotion: null
-      };
+      const outcome =
+        passed && !isAppeal
+          ? applyMotionOutcome(state, typedAction.timestamp)
+          : {
+              tabledMotions: state.tabledMotions,
+              agendaAdopted: state.agendaAdopted,
+              agendaObjection: state.agendaObjection,
+              agenda: state.agenda,
+              newSuspension: null,
+              restoredMotion: null,
+              objectionKilledMotion: null,
+              reconsideredMotionId: null,
+              dividedParts: null,
+              dividedMainMotion: null,
+            };
 
       // Handle reconsider - reconstruct motion from completed motions
-      let reconsideredMotion: typeof state.tabledMotions[0] | null = null;
+      let reconsideredMotion: (typeof state.tabledMotions)[0] | null = null;
       let updatedCompletedMotions = state.completedMotions;
       if (outcome.reconsideredMotionId) {
-        const completedMotion = state.completedMotions.find(cm => cm.id === outcome.reconsideredMotionId);
+        const completedMotion = state.completedMotions.find(
+          (cm) => cm.id === outcome.reconsideredMotionId,
+        );
         if (completedMotion) {
           reconsideredMotion = {
             id: generateId(),
@@ -134,10 +148,10 @@ export const votingHandler: ActionHandler = (state, action, log) => {
             phrase: MOTIONS[completedMotion.type]?.phrase || '',
             help: MOTIONS[completedMotion.type]?.help || '',
             whenToUse: MOTIONS[completedMotion.type]?.whenToUse || '',
-            moverHasSpoken: false
+            moverHasSpoken: false,
           };
-          updatedCompletedMotions = state.completedMotions.map(cm =>
-            cm.id === outcome.reconsideredMotionId ? { ...cm, reconsidered: true } : cm
+          updatedCompletedMotions = state.completedMotions.map((cm) =>
+            cm.id === outcome.reconsideredMotionId ? { ...cm, reconsidered: true } : cm,
           );
         }
       }
@@ -151,7 +165,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       let divideLog = '';
       let workingStack = newStack;
       if (outcome.dividedParts && outcome.dividedMainMotion) {
-        workingStack = workingStack.filter(m => m.id !== outcome.dividedMainMotion!.id);
+        workingStack = workingStack.filter((m) => m.id !== outcome.dividedMainMotion!.id);
 
         const firstPart = outcome.dividedParts[0];
         const firstPartMotion = {
@@ -159,7 +173,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
           id: firstPart.id,
           text: firstPart.text,
           status: 'active' as const,
-          moverHasSpoken: false
+          moverHasSpoken: false,
         };
         workingStack = [...workingStack, firstPartMotion];
         dividedQuestionParts = outcome.dividedParts.slice(1);
@@ -167,21 +181,30 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         divideLog = `\n[DIVIDED] Original motion split into ${outcome.dividedParts.length} parts. Now considering: "${firstPart.text}"`;
       }
 
-      const processed = processOutcomeResult(outcome, state.suspendedRules, workingStack, reconsideredMotion);
+      const processed = processOutcomeResult(
+        outcome,
+        state.suspendedRules,
+        workingStack,
+        reconsideredMotion,
+      );
 
       // Save completed motion for potential reconsideration
-      const completedMotions = state.currentMotion && state.currentMotion.reconsidered
-        ? [...updatedCompletedMotions, {
-            id: state.currentMotion.id,
-            type: state.currentMotion.type,
-            name: state.currentMotion.name,
-            text: state.currentMotion.text,
-            passed,
-            voterChoices: state.voterChoices,
-            timestamp: typedAction.timestamp,
-            reconsidered: false
-          }]
-        : updatedCompletedMotions;
+      const completedMotions =
+        state.currentMotion && state.currentMotion.reconsidered
+          ? [
+              ...updatedCompletedMotions,
+              {
+                id: state.currentMotion.id,
+                type: state.currentMotion.type,
+                name: state.currentMotion.name,
+                text: state.currentMotion.text,
+                passed,
+                voterChoices: state.voterChoices,
+                timestamp: typedAction.timestamp,
+                reconsidered: false,
+              },
+            ]
+          : updatedCompletedMotions;
 
       return {
         ...state,
@@ -201,8 +224,8 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`
-        )
+          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
+        ),
       };
     }
 

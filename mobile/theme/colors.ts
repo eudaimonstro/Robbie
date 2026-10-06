@@ -79,21 +79,21 @@ export const colors = {
 
   // Semantic colors (shortcuts)
   text: {
-    primary: '#111827',    // gray-900
-    secondary: '#4b5563',  // gray-600
-    muted: '#9ca3af',      // gray-400
-    inverse: '#ffffff',    // white
+    primary: '#111827', // gray-900
+    secondary: '#4b5563', // gray-600
+    muted: '#9ca3af', // gray-400
+    inverse: '#ffffff', // white
   },
 
   background: {
     default: '#ffffff',
-    secondary: '#f9fafb',  // gray-50
-    tertiary: '#f3f4f6',   // gray-100
+    secondary: '#f9fafb', // gray-50
+    tertiary: '#f3f4f6', // gray-100
   },
 
   border: {
-    default: '#e5e7eb',    // gray-200
-    focus: '#4f46e5',      // primary-600
+    default: '#e5e7eb', // gray-200
+    focus: '#4f46e5', // primary-600
   },
 } as const;
 

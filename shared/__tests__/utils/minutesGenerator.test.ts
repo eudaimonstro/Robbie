@@ -63,9 +63,7 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   currentNominationPosition: null,
   nominations: [],
   currentElection: null,
-  electedOfficers: [
-    { position: 'Secretary', name: 'Bob', memberId: 2, electedAt: '10:20:00' },
-  ],
+  electedOfficers: [{ position: 'Secretary', name: 'Bob', memberId: 2, electedAt: '10:20:00' }],
   inquiries: [],
   debatePositions: {},
   dividedQuestionParts: [],
@@ -88,8 +86,8 @@ describe('generateMeetingMinutes', () => {
     const minutes = generateMeetingMinutes(state);
 
     expect(minutes.attendance).toHaveLength(3);
-    expect(minutes.attendance.find(a => a.name === 'Alice')?.status).toBe('present');
-    expect(minutes.attendance.find(a => a.name === 'Charlie')?.status).toBe('absent');
+    expect(minutes.attendance.find((a) => a.name === 'Alice')?.status).toBe('present');
+    expect(minutes.attendance.find((a) => a.name === 'Charlie')?.status).toBe('absent');
   });
 
   it('should calculate quorum status', () => {
@@ -120,31 +118,33 @@ describe('generateMeetingMinutes', () => {
 
   it('should include tabled motions', () => {
     const state = createMockState({
-      tabledMotions: [{
-        id: 2,
-        type: 'mainMotion',
-        name: 'Main Motion',
-        text: 'Postponed discussion',
-        mover: 'Bob',
-        moverId: 2,
-        secondedBy: 'Alice',
-        status: 'active',
-        precedence: 1,
-        category: 'main',
-        interrupt: false,
-        needsSecond: true,
-        debatable: true,
-        amendable: true,
-        reconsidered: false,
-        vote: 'majority',
-        phrase: 'I move...',
-        help: '',
-        whenToUse: '',
-      }],
+      tabledMotions: [
+        {
+          id: 2,
+          type: 'mainMotion',
+          name: 'Main Motion',
+          text: 'Postponed discussion',
+          mover: 'Bob',
+          moverId: 2,
+          secondedBy: 'Alice',
+          status: 'active',
+          precedence: 1,
+          category: 'main',
+          interrupt: false,
+          needsSecond: true,
+          debatable: true,
+          amendable: true,
+          reconsidered: false,
+          vote: 'majority',
+          phrase: 'I move...',
+          help: '',
+          whenToUse: '',
+        },
+      ],
     });
     const minutes = generateMeetingMinutes(state);
 
-    const tabledMotion = minutes.motions.find(m => m.text === 'Postponed discussion');
+    const tabledMotion = minutes.motions.find((m) => m.text === 'Postponed discussion');
     expect(tabledMotion).toBeDefined();
     expect(tabledMotion?.outcome).toBe('tabled');
   });

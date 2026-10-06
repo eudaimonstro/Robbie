@@ -1,106 +1,112 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Calendar, Plus, Clock, MapPin, ChevronRight } from 'lucide-react'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { meetings as meetingsApi, Meeting, MeetingCreate } from '../../../api/client'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import EmptyState from '../../../components/ui/EmptyState'
-import { MeetingTypeBadge } from '../../../components/ui/Badge'
-import Modal from '../../../components/ui/Modal'
-import { useToast } from '../../../context/ToastContext'
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Calendar, Plus, Clock, MapPin, ChevronRight } from 'lucide-react';
+import { useOrganization } from '../../../context/OrganizationContext';
+import { meetings as meetingsApi, Meeting, MeetingCreate } from '../../../api/client';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import EmptyState from '../../../components/ui/EmptyState';
+import { MeetingTypeBadge } from '../../../components/ui/Badge';
+import Modal from '../../../components/ui/Modal';
+import { useToast } from '../../../context/ToastContext';
 
 export default function MeetingsPage() {
-  const { currentOrganization } = useOrganization()
-  const { showToast } = useToast()
-  const [meetings, setMeetings] = useState<Meeting[]>([])
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { currentOrganization } = useOrganization();
+  const { showToast } = useToast();
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Create meeting modal
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newType, setNewType] = useState<MeetingCreate['meeting_type']>('regular')
-  const [newDate, setNewDate] = useState('')
-  const [newLocation, setNewLocation] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newType, setNewType] = useState<MeetingCreate['meeting_type']>('regular');
+  const [newDate, setNewDate] = useState('');
+  const [newLocation, setNewLocation] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const fetchMeetings = async () => {
       if (!currentOrganization) {
-        setLoading(false)
-        return
+        setLoading(false);
+        return;
       }
 
       try {
-        setLoading(true)
-        const data = await meetingsApi.list(currentOrganization.id)
-        setMeetings(data.sort((a, b) =>
-          new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
-        ))
+        setLoading(true);
+        const data = await meetingsApi.list(currentOrganization.id);
+        setMeetings(
+          data.sort(
+            (a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime(),
+          ),
+        );
       } catch (err) {
-        showToast('error', 'Failed to load meetings')
+        showToast('error', 'Failed to load meetings');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchMeetings()
-  }, [currentOrganization, showToast])
+    fetchMeetings();
+  }, [currentOrganization, showToast]);
 
   const handleCreateMeeting = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentOrganization || !newTitle.trim() || !newDate) return
+    e.preventDefault();
+    if (!currentOrganization || !newTitle.trim() || !newDate) return;
 
     try {
-      setCreating(true)
+      setCreating(true);
       const data: MeetingCreate = {
         title: newTitle.trim(),
         meeting_type: newType,
         scheduled_date: newDate,
         location: newLocation.trim() || undefined,
-      }
-      const meeting = await meetingsApi.create(currentOrganization.id, data)
-      setMeetings([meeting, ...meetings])
-      setCreateModalOpen(false)
-      resetForm()
-      showToast('success', 'Meeting created')
+      };
+      const meeting = await meetingsApi.create(currentOrganization.id, data);
+      setMeetings([meeting, ...meetings]);
+      setCreateModalOpen(false);
+      resetForm();
+      showToast('success', 'Meeting created');
     } catch (err) {
-      showToast('error', 'Failed to create meeting')
+      showToast('error', 'Failed to create meeting');
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const resetForm = () => {
-    setNewTitle('')
-    setNewType('regular')
-    setNewDate('')
-    setNewLocation('')
-  }
+    setNewTitle('');
+    setNewType('regular');
+    setNewDate('');
+    setNewLocation('');
+  };
 
-  const filteredMeetings = statusFilter === 'all'
-    ? meetings
-    : meetings.filter(m => m.status === statusFilter)
+  const filteredMeetings =
+    statusFilter === 'all' ? meetings : meetings.filter((m) => m.status === statusFilter);
 
   const statusLabels: Record<string, string> = {
     scheduled: 'Scheduled',
     in_progress: 'In Progress',
     completed: 'Completed',
     cancelled: 'Cancelled',
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'text-primary-600'
-      case 'in_progress': return 'text-accent-600'
-      case 'completed': return 'text-success-600'
-      case 'cancelled': return 'text-secondary-500'
-      default: return 'text-secondary-600'
+      case 'scheduled':
+        return 'text-primary-600';
+      case 'in_progress':
+        return 'text-accent-600';
+      case 'completed':
+        return 'text-success-600';
+      case 'cancelled':
+        return 'text-secondary-500';
+      default:
+        return 'text-secondary-600';
     }
-  }
+  };
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (!currentOrganization) {
@@ -110,7 +116,7 @@ export default function MeetingsPage() {
         title="No organization selected"
         description="Select an organization to view and manage meetings."
       />
-    )
+    );
   }
 
   return (
@@ -125,10 +131,7 @@ export default function MeetingsPage() {
             Schedule and manage organization meetings
           </p>
         </div>
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="btn-primary"
-        >
+        <button onClick={() => setCreateModalOpen(true)} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" />
           Schedule Meeting
         </button>
@@ -212,7 +215,10 @@ export default function MeetingsPage() {
       {/* Create Meeting Modal */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => { setCreateModalOpen(false); resetForm(); }}
+        onClose={() => {
+          setCreateModalOpen(false);
+          resetForm();
+        }}
         title="Schedule Meeting"
       >
         <form onSubmit={handleCreateMeeting}>
@@ -279,7 +285,10 @@ export default function MeetingsPage() {
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => { setCreateModalOpen(false); resetForm(); }}
+              onClick={() => {
+                setCreateModalOpen(false);
+                resetForm();
+              }}
               className="btn-ghost"
             >
               Cancel
@@ -295,5 +304,5 @@ export default function MeetingsPage() {
         </form>
       </Modal>
     </div>
-  )
+  );
 }

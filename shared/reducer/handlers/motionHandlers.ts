@@ -5,7 +5,7 @@ import {
   logMotionMade,
   logMotionSeconded,
   logMotionWithdrawn,
-  logMotionModified
+  logMotionModified,
 } from '../../constants/logMessages.js';
 import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
 import type { ActionHandler } from './types.js';
@@ -23,7 +23,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         mover: typedAction.mover,
         moverId: typedAction.moverId,
         secondedBy: null,
-        status: "pending" as const,
+        status: 'pending' as const,
         isAgendaAdoption: typedAction.motionType === 'adoptAgenda',
         agendaAmendment: typedAction.agendaAmendment || null,
         ruleSuspension: typedAction.ruleSuspension || null,
@@ -31,7 +31,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         moverHasSpoken: false,
         tabledMotionId: typedAction.tabledMotionId,
         reconsideredMotionId: typedAction.reconsideredMotionId,
-        dividedParts: typedAction.dividedParts
+        dividedParts: typedAction.dividedParts,
       };
 
       // Check if second requirement is suspended
@@ -43,7 +43,10 @@ export const motionHandler: ActionHandler = (state, action, log) => {
           pendingSecond: motion,
           // Clear lastChairRuling for non-Appeal motions
           lastChairRuling: typedAction.motionType === 'appeal' ? state.lastChairRuling : null,
-          meetingLog: log(typedAction.timestamp, logMotionMade(typedAction.mover, typedAction.text, motion.name))
+          meetingLog: log(
+            typedAction.timestamp,
+            logMotionMade(typedAction.mover, typedAction.text, motion.name),
+          ),
         };
       }
 
@@ -64,7 +67,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         motionStack: [...state.motionStack, motion],
         suspendedRules: updatedSuspensions,
         lastChairRuling: typedAction.motionType === 'appeal' ? state.lastChairRuling : null,
-        meetingLog: log(typedAction.timestamp, logMessage)
+        meetingLog: log(typedAction.timestamp, logMessage),
       };
     }
 
@@ -72,13 +75,17 @@ export const motionHandler: ActionHandler = (state, action, log) => {
       const typedAction = action as Extract<MeetingAction, { type: 'SECOND_MOTION' }>;
       if (!state.pendingSecond) return state;
 
-      const seconded = { ...state.pendingSecond, secondedBy: typedAction.seconder, status: "active" as const };
+      const seconded = {
+        ...state.pendingSecond,
+        secondedBy: typedAction.seconder,
+        status: 'active' as const,
+      };
       return {
         ...state,
         pendingSecond: null,
         currentMotion: seconded,
         motionStack: [...state.motionStack, seconded],
-        meetingLog: log(typedAction.timestamp, logMotionSeconded(typedAction.seconder))
+        meetingLog: log(typedAction.timestamp, logMotionSeconded(typedAction.seconder)),
       };
     }
 
@@ -87,7 +94,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         pendingSecond: null,
-        meetingLog: log(typedAction.timestamp, LOG_MOTION_FAILED_NO_SECOND)
+        meetingLog: log(typedAction.timestamp, LOG_MOTION_FAILED_NO_SECOND),
       };
     }
 
@@ -107,7 +114,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         return {
           ...state,
           pendingSecond: null,
-          meetingLog: log(typedAction.timestamp, logMotionWithdrawn(state.pendingSecond.mover))
+          meetingLog: log(typedAction.timestamp, logMotionWithdrawn(state.pendingSecond.mover)),
         };
       }
 
@@ -124,7 +131,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         speakerQueue: [],
         recognizedSpeaker: null,
         debatePositions: {},
-        meetingLog: log(typedAction.timestamp, logMotionWithdrawn(motionToWithdraw.mover))
+        meetingLog: log(typedAction.timestamp, logMotionWithdrawn(motionToWithdraw.mover)),
       };
     }
 
@@ -145,14 +152,17 @@ export const motionHandler: ActionHandler = (state, action, log) => {
 
       const modifiedMotion = {
         ...motionToModify,
-        text: typedAction.newText
+        text: typedAction.newText,
       };
 
       if (state.pendingSecond) {
         return {
           ...state,
           pendingSecond: modifiedMotion,
-          meetingLog: log(typedAction.timestamp, logMotionModified(motionToModify.mover, typedAction.newText))
+          meetingLog: log(
+            typedAction.timestamp,
+            logMotionModified(motionToModify.mover, typedAction.newText),
+          ),
         };
       }
 
@@ -162,7 +172,10 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         ...state,
         currentMotion: modifiedMotion,
         motionStack: newStack,
-        meetingLog: log(typedAction.timestamp, logMotionModified(motionToModify.mover, typedAction.newText))
+        meetingLog: log(
+          typedAction.timestamp,
+          logMotionModified(motionToModify.mover, typedAction.newText),
+        ),
       };
     }
 

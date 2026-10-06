@@ -26,9 +26,7 @@ export const VotingButtons = memo(function VotingButtons({
     <View style={styles.container}>
       {!hasQuorum && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            Quorum not met - voting paused
-          </Text>
+          <Text style={styles.warningText}>Quorum not met - voting paused</Text>
         </View>
       )}
       <View style={styles.buttonRow}>
@@ -54,11 +52,7 @@ export const VotingButtons = memo(function VotingButtons({
           disabled={disabled || !hasQuorum}
         />
       </View>
-      {currentVote && (
-        <Text style={styles.voteStatus}>
-          Your vote: {currentVote.toUpperCase()}
-        </Text>
-      )}
+      {currentVote && <Text style={styles.voteStatus}>Your vote: {currentVote.toUpperCase()}</Text>}
     </View>
   );
 });
@@ -71,7 +65,13 @@ interface VoteButtonProps {
   disabled: boolean;
 }
 
-const VoteButton = memo(function VoteButton({ type, label, onPress, isSelected, disabled }: VoteButtonProps) {
+const VoteButton = memo(function VoteButton({
+  type,
+  label,
+  onPress,
+  isSelected,
+  disabled,
+}: VoteButtonProps) {
   const buttonColors = {
     yea: {
       bg: isSelected ? voteColors.yea : voteColors.yeaBg,
@@ -94,7 +94,9 @@ const VoteButton = memo(function VoteButton({ type, label, onPress, isSelected, 
 
   // Accessibility labels for screen readers
   const accessibilityLabel = `Vote ${label}${isSelected ? ', currently selected' : ''}`;
-  const accessibilityHint = isSelected ? 'Double tap to change your vote' : `Double tap to vote ${label}`;
+  const accessibilityHint = isSelected
+    ? 'Double tap to change your vote'
+    : `Double tap to vote ${label}`;
 
   return (
     <Pressable

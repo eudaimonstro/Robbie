@@ -10,38 +10,46 @@ interface MeetingControlPanelProps {
 
 export const MeetingControlPanel = React.memo(function MeetingControlPanel({
   state,
-  dispatch
+  dispatch,
 }: MeetingControlPanelProps) {
   const [showTransferConfirm, setShowTransferConfirm] = useState<number | null>(null);
 
   const transferableMembers = useMemo(
-    () => state.members.filter(m => m.role !== 'chair'),
-    [state.members]
+    () => state.members.filter((m) => m.role !== 'chair'),
+    [state.members],
   );
 
-  const handleTransferChair = useCallback((targetMemberId: number) => {
-    dispatch({
-      type: 'SET_MEMBER_ROLE',
-      targetMemberId,
-      newRole: 'chair',
-      timestamp: generateTimestamp()
-    });
-    setShowTransferConfirm(null);
-  }, [dispatch]);
+  const handleTransferChair = useCallback(
+    (targetMemberId: number) => {
+      dispatch({
+        type: 'SET_MEMBER_ROLE',
+        targetMemberId,
+        newRole: 'chair',
+        timestamp: generateTimestamp(),
+      });
+      setShowTransferConfirm(null);
+    },
+    [dispatch],
+  );
 
   return (
     <section className="card p-4" aria-labelledby="meeting-control-heading">
-      <h3 id="meeting-control-heading" className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white">
+      <h3
+        id="meeting-control-heading"
+        className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"
+      >
         <Gavel size={18} aria-hidden="true" /> Meeting Control
       </h3>
 
       {!state.meetingActive ? (
         <button
-          onClick={() => dispatch({
-            type: 'START_MEETING',
-            meetingCode: generateMeetingCode(),
-            timestamp: generateTimestamp()
-          })}
+          onClick={() =>
+            dispatch({
+              type: 'START_MEETING',
+              meetingCode: generateMeetingCode(),
+              timestamp: generateTimestamp(),
+            })
+          }
           className="w-full bg-success-500 text-white py-3 rounded-lg hover:bg-success-600 font-medium"
         >
           Call Meeting to Order
@@ -49,8 +57,12 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-success-50 dark:bg-success-900/20 rounded-lg">
-            <span className="text-success-700 dark:text-success-300 font-medium">Meeting in Progress</span>
-            <span className="text-success-600 dark:text-success-400 font-mono">{state.meetingCode}</span>
+            <span className="text-success-700 dark:text-success-300 font-medium">
+              Meeting in Progress
+            </span>
+            <span className="text-success-600 dark:text-success-400 font-mono">
+              {state.meetingCode}
+            </span>
           </div>
           <button
             onClick={() => dispatch({ type: 'END_MEETING', timestamp: generateTimestamp() })}
@@ -67,9 +79,14 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
                 Transfer Chair Role
               </h4>
               <div className="space-y-2">
-                {transferableMembers.map(member => (
-                  <div key={member.id} className="flex items-center justify-between p-2 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-                    <span className="text-sm text-secondary-900 dark:text-white">{member.name}</span>
+                {transferableMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-2 bg-secondary-50 dark:bg-secondary-800 rounded-lg"
+                  >
+                    <span className="text-sm text-secondary-900 dark:text-white">
+                      {member.name}
+                    </span>
                     {showTransferConfirm === member.id ? (
                       <div className="flex gap-2">
                         <button

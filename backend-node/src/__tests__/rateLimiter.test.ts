@@ -261,8 +261,8 @@ describe('SocketRateLimiter', () => {
         results.push(limiter.consume('user1'));
       }
 
-      const allowed = results.filter(r => r).length;
-      const denied = results.filter(r => !r).length;
+      const allowed = results.filter((r) => r).length;
+      const denied = results.filter((r) => !r).length;
 
       expect(allowed).toBe(100);
       expect(denied).toBe(10);

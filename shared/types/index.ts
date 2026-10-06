@@ -4,7 +4,7 @@ export interface Member {
   name: string;
   role: 'member' | 'chair' | 'admin';
   present: boolean;
-  selfRenameUsed?: boolean;  // Members can only rename themselves once
+  selfRenameUsed?: boolean; // Members can only rename themselves once
 }
 
 export type DebateStance = 'pro' | 'con' | 'neutral';
@@ -43,7 +43,7 @@ export interface Motion {
   isAgendaAdoption?: boolean;
   agendaAmendment?: AgendaAmendment | null;
   ruleSuspension?: Partial<RuleSuspension> | null;
-  bylawAmendment?: BylawAmendment | null;  // For bylawAmendment motion type
+  bylawAmendment?: BylawAmendment | null; // For bylawAmendment motion type
   moverHasSpoken?: boolean;
   tabledMotionId?: number;
   reconsideredMotionId?: number;
@@ -63,15 +63,15 @@ export interface AgendaAmendment {
 export type BylawChangeType = 'add' | 'modify' | 'delete' | 'renumber';
 
 export interface BylawAmendment {
-  documentId: string;           // Bylawyer document ID
-  documentTitle?: string;       // Document title for display
+  documentId: string; // Bylawyer document ID
+  documentTitle?: string; // Document title for display
   changeType: BylawChangeType;
-  targetSectionId?: string;     // Section being modified
-  targetSectionLabel?: string;  // Section label for display (e.g., "Article III, Section 2")
-  newContent?: string;          // New/modified content
-  newNumberLabel?: string;      // New section number (for renumber)
-  newTitle?: string;            // New section title
-  parentSectionId?: string;     // Parent section for add operations
+  targetSectionId?: string; // Section being modified
+  targetSectionLabel?: string; // Section label for display (e.g., "Article III, Section 2")
+  newContent?: string; // New/modified content
+  newNumberLabel?: string; // New section number (for renumber)
+  newTitle?: string; // New section title
+  parentSectionId?: string; // Parent section for add operations
 }
 
 export interface CommitteeReport {
@@ -139,7 +139,7 @@ export interface CompletedMotion {
   readonly voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
   readonly timestamp: string;
   readonly reconsidered: boolean;
-  readonly bylawAmendment?: BylawAmendment;  // Preserved for Bylawyer sync
+  readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
 }
 
 export interface Nomination {
@@ -192,17 +192,17 @@ export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded
 // Proxy voting types
 export interface ProxyAuthorization {
   readonly id: number;
-  readonly grantedBy: number;      // Absent member's ID
-  readonly grantedTo: number;      // Proxy holder's ID
-  readonly grantedByName: string;  // For display
-  readonly grantedToName: string;  // For display
-  readonly grantedAt: string;      // Timestamp
-  readonly scope: 'all' | 'single-vote';  // For all votes or just next one
+  readonly grantedBy: number; // Absent member's ID
+  readonly grantedTo: number; // Proxy holder's ID
+  readonly grantedByName: string; // For display
+  readonly grantedToName: string; // For display
+  readonly grantedAt: string; // Timestamp
+  readonly scope: 'all' | 'single-vote'; // For all votes or just next one
 }
 
 export interface ProxyVoteRecord {
-  readonly memberId: number;       // The member whose vote this represents
-  readonly castBy: number;         // The proxy holder who cast it
+  readonly memberId: number; // The member whose vote this represents
+  readonly castBy: number; // The proxy holder who cast it
   readonly vote: 'yea' | 'nay' | 'abstain';
 }
 
@@ -211,9 +211,9 @@ export type ProxyRequestStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 
 export interface PendingProxyRequest {
   readonly id: number;
-  readonly requestedBy: number;         // Member requesting the proxy
+  readonly requestedBy: number; // Member requesting the proxy
   readonly requestedByName: string;
-  readonly requestedFor: number;        // Designated proxy holder
+  readonly requestedFor: number; // Designated proxy holder
   readonly requestedForName: string;
   readonly requestedAt: string;
   readonly scope: 'all' | 'single-vote';
@@ -283,29 +283,55 @@ export interface MeetingState {
   rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
   // Proxy voting
-  allowProxyVoting: boolean;       // Whether proxy voting is enabled
-  maxProxiesPerMember: number;     // Max proxies one member can hold (0 = unlimited)
-  proxiesCountForQuorum: boolean;  // Whether proxy holders count absent members toward quorum
-  proxies: ProxyAuthorization[];   // Active proxy authorizations
-  proxyVotes: ProxyVoteRecord[];   // Proxy votes cast in current vote (reset when voting opens)
+  allowProxyVoting: boolean; // Whether proxy voting is enabled
+  maxProxiesPerMember: number; // Max proxies one member can hold (0 = unlimited)
+  proxiesCountForQuorum: boolean; // Whether proxy holders count absent members toward quorum
+  proxies: ProxyAuthorization[]; // Active proxy authorizations
+  proxyVotes: ProxyVoteRecord[]; // Proxy votes cast in current vote (reset when voting opens)
   // Member-controlled proxy authorization
-  allowMemberProxyGrant: boolean;  // Whether members can request proxies themselves
-  pendingProxyRequests: PendingProxyRequest[];  // Requests awaiting acceptance
+  allowMemberProxyGrant: boolean; // Whether members can request proxies themselves
+  pendingProxyRequests: PendingProxyRequest[]; // Requests awaiting acceptance
 }
 
 // Action types
 export type MeetingAction =
   | { type: 'START_MEETING'; meetingCode: string; timestamp: string }
   | { type: 'END_MEETING'; timestamp: string }
-  | { type: 'MAKE_MOTION'; motionType: string; text: string; mover: string; moverId: number; motionId: number; timestamp: string; agendaAmendment?: AgendaAmendment; ruleSuspension?: Partial<RuleSuspension>; bylawAmendment?: BylawAmendment; tabledMotionId?: number; reconsideredMotionId?: number; dividedParts?: string[] }
+  | {
+      type: 'MAKE_MOTION';
+      motionType: string;
+      text: string;
+      mover: string;
+      moverId: number;
+      motionId: number;
+      timestamp: string;
+      agendaAmendment?: AgendaAmendment;
+      ruleSuspension?: Partial<RuleSuspension>;
+      bylawAmendment?: BylawAmendment;
+      tabledMotionId?: number;
+      reconsideredMotionId?: number;
+      dividedParts?: string[];
+    }
   | { type: 'SECOND_MOTION'; seconder: string; timestamp: string }
   | { type: 'DECLINE_SECOND'; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
-  | { type: 'CAST_VOTE'; vote: 'yea' | 'nay' | 'abstain'; voterId: number; isChairDecidingVote?: boolean; timestamp?: string }
+  | {
+      type: 'CAST_VOTE';
+      vote: 'yea' | 'nay' | 'abstain';
+      voterId: number;
+      isChairDecidingVote?: boolean;
+      timestamp?: string;
+    }
   | { type: 'CLOSE_VOTING'; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
   | { type: 'LOWER_HAND'; member: Member }
-  | { type: 'RECOGNIZE_SPEAKER'; member: Member; stance: DebateStance; speakerTimerEnd: number | null; timestamp: string }
+  | {
+      type: 'RECOGNIZE_SPEAKER';
+      member: Member;
+      stance: DebateStance;
+      speakerTimerEnd: number | null;
+      timestamp: string;
+    }
   | { type: 'YIELD_FLOOR'; timestamp: string }
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
@@ -329,18 +355,60 @@ export type MeetingAction =
   | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
   | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string }
   | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string }
-  | { type: 'CHAIR_RULING'; ruling: 'sustain' | 'overrule' | 'allow' | 'deny'; explanation?: string; timestamp: string }
+  | {
+      type: 'CHAIR_RULING';
+      ruling: 'sustain' | 'overrule' | 'allow' | 'deny';
+      explanation?: string;
+      timestamp: string;
+    }
   | { type: 'OPEN_NOMINATIONS'; position: string; timestamp: string }
-  | { type: 'NOMINATE'; position: string; nomineeName: string; nomineeId: number; nominatedBy: string; nominatorId: number; nominationId: number; timestamp: string }
+  | {
+      type: 'NOMINATE';
+      position: string;
+      nomineeName: string;
+      nomineeId: number;
+      nominatedBy: string;
+      nominatorId: number;
+      nominationId: number;
+      timestamp: string;
+    }
   | { type: 'DECLINE_NOMINATION'; nominationId: number; timestamp: string }
   | { type: 'CLOSE_NOMINATIONS'; timestamp: string }
-  | { type: 'START_ELECTION'; electionId: number; position: string; requiredVotes: 'majority' | 'plurality' | '2/3'; timestamp: string }
+  | {
+      type: 'START_ELECTION';
+      electionId: number;
+      position: string;
+      requiredVotes: 'majority' | 'plurality' | '2/3';
+      timestamp: string;
+    }
   | { type: 'CAST_BALLOT'; candidateName: string; voterId: number }
   | { type: 'CLOSE_ELECTION'; timestamp: string }
   | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
-  | { type: 'ASK_INQUIRY'; inquiryType: InquiryType; question: string; askedBy: string; askerId: number; inquiryId: number; timestamp: string }
-  | { type: 'ANSWER_INQUIRY'; inquiryId: number; answer: string; answeredBy: string; timestamp: string }
-  | { type: 'SET_MEMBER_ROLE'; targetMemberId: number; newRole: 'member' | 'chair' | 'admin'; previousChairId?: number; changedBy?: string; changedById?: number; timestamp: string }
+  | {
+      type: 'ASK_INQUIRY';
+      inquiryType: InquiryType;
+      question: string;
+      askedBy: string;
+      askerId: number;
+      inquiryId: number;
+      timestamp: string;
+    }
+  | {
+      type: 'ANSWER_INQUIRY';
+      inquiryId: number;
+      answer: string;
+      answeredBy: string;
+      timestamp: string;
+    }
+  | {
+      type: 'SET_MEMBER_ROLE';
+      targetMemberId: number;
+      newRole: 'member' | 'chair' | 'admin';
+      previousChairId?: number;
+      changedBy?: string;
+      changedById?: number;
+      timestamp: string;
+    }
   | { type: 'ADD_MEMBER'; member: Member; timestamp: string }
   | { type: 'SET_MEMBER_PRESENCE'; memberId: number; present: boolean; timestamp: string }
   | { type: 'WITHDRAW_MOTION'; requesterId: number; timestamp: string }
@@ -351,17 +419,54 @@ export type MeetingAction =
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
   | { type: 'SET_AUTO_YIELD'; enabled: boolean }
   // Proxy voting actions
-  | { type: 'SET_PROXY_SETTINGS'; allowProxyVoting: boolean; maxProxiesPerMember: number; proxiesCountForQuorum: boolean; allowMemberProxyGrant?: boolean; timestamp: string }
-  | { type: 'GRANT_PROXY'; proxyId: number; grantedBy: number; grantedTo: number; grantedByName: string; grantedToName: string; scope: 'all' | 'single-vote'; timestamp: string }
+  | {
+      type: 'SET_PROXY_SETTINGS';
+      allowProxyVoting: boolean;
+      maxProxiesPerMember: number;
+      proxiesCountForQuorum: boolean;
+      allowMemberProxyGrant?: boolean;
+      timestamp: string;
+    }
+  | {
+      type: 'GRANT_PROXY';
+      proxyId: number;
+      grantedBy: number;
+      grantedTo: number;
+      grantedByName: string;
+      grantedToName: string;
+      scope: 'all' | 'single-vote';
+      timestamp: string;
+    }
   | { type: 'REVOKE_PROXY'; proxyId: number; timestamp: string }
-  | { type: 'CAST_PROXY_VOTE'; vote: 'yea' | 'nay' | 'abstain'; forMemberId: number; castById: number; timestamp: string }
+  | {
+      type: 'CAST_PROXY_VOTE';
+      vote: 'yea' | 'nay' | 'abstain';
+      forMemberId: number;
+      castById: number;
+      timestamp: string;
+    }
   // Member-initiated proxy request actions
-  | { type: 'REQUEST_PROXY'; requestId: number; requestedBy: number; requestedByName: string; requestedFor: number; requestedForName: string; scope: 'all' | 'single-vote'; timestamp: string }
+  | {
+      type: 'REQUEST_PROXY';
+      requestId: number;
+      requestedBy: number;
+      requestedByName: string;
+      requestedFor: number;
+      requestedForName: string;
+      scope: 'all' | 'single-vote';
+      timestamp: string;
+    }
   | { type: 'ACCEPT_PROXY'; requestId: number; proxyId: number; timestamp: string }
   | { type: 'DECLINE_PROXY'; requestId: number; reason?: string; timestamp: string }
   | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; timestamp: string }
   // Member management
-  | { type: 'RENAME_MEMBER'; memberId: number; newName: string; renamedBy: number; timestamp: string };
+  | {
+      type: 'RENAME_MEMBER';
+      memberId: number;
+      newName: string;
+      renamedBy: number;
+      timestamp: string;
+    };
 
 // Motion definition type
 export interface MotionDefinition {

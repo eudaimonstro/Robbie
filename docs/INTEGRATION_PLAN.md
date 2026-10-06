@@ -7,11 +7,13 @@ This document describes how motions made in Robbie (parliamentary procedure app)
 ## Current State
 
 ### Robbie Data Model
+
 - **Meeting**: Contains meeting state including `completedMotions[]`
 - **CompletedMotion**: `{ id, type, name, text, passed, voterChoices, timestamp }`
 - **Motion types**: Main motions, amendments, and various procedural motions
 
 ### Bylawyer Data Model
+
 - **Organization**: Top-level entity
 - **Document**: Bylaws, standing rules, policies
 - **Amendment**: Proposed changes with workflow (draft → proposed → passed/failed)
@@ -38,6 +40,7 @@ Connect Robbie meetings to Bylawyer organizations.
 **Schema Changes:**
 
 1. Add to Robbie `meetings` table:
+
    ```sql
    ALTER TABLE meetings
    ADD COLUMN bylawyer_organization_id UUID REFERENCES bylawyer.organizations(id);
@@ -50,16 +53,17 @@ Connect Robbie meetings to Bylawyer organizations.
 Add a new motion type in Robbie specifically for bylaw amendments.
 
 **New Motion Type: `bylawAmendment`**
+
 ```typescript
 interface BylawAmendmentMotion extends Motion {
   type: 'bylawAmendment';
   bylawAmendment: {
-    documentId: string;        // Bylawyer document ID
+    documentId: string; // Bylawyer document ID
     changeType: 'add' | 'modify' | 'delete' | 'renumber';
-    targetSectionId?: string;  // Section being modified
-    newContent?: string;       // New/modified content
-    newNumberLabel?: string;   // New section number
-    newTitle?: string;         // New section title
+    targetSectionId?: string; // Section being modified
+    newContent?: string; // New/modified content
+    newNumberLabel?: string; // New section number
+    newTitle?: string; // New section title
   };
 }
 ```
@@ -104,11 +108,13 @@ When a bylaw amendment motion passes in Robbie, automatically update Bylawyer.
 ### Phase 4: Cross-Reference UI
 
 **In Robbie:**
+
 - When creating a bylaw amendment motion, show document/section picker from Bylawyer
 - Display current bylaws text during debate
 - Show amendment history for context
 
 **In Bylawyer:**
+
 - Show linked Robbie meeting details on amendments
 - Display vote results from Robbie meetings
 - Link to meeting minutes
@@ -169,6 +175,7 @@ ADD COLUMN robbie_vote_data JSONB;
 ### New Endpoints
 
 **Robbie API:**
+
 ```
 GET  /api/bylawyer/organizations         # List linked organizations
 GET  /api/bylawyer/documents/:orgId      # Get documents for org
@@ -177,6 +184,7 @@ POST /api/bylawyer/link-meeting          # Link meeting to org
 ```
 
 **Bylawyer API:**
+
 ```
 GET  /api/robbie/meetings/:amendmentId   # Get linked meeting details
 POST /api/robbie/sync-motion             # Sync passed motion to amendment
@@ -210,27 +218,32 @@ async function syncPassedMotionToAmendment(req: SyncMotionRequest): Promise<void
 ## Implementation Steps
 
 ### Step 1: Database Setup
+
 1. ✅ Create PostgreSQL databases for both apps
 2. Add shared schema for cross-references
 3. Run migrations for schema changes
 
 ### Step 2: API Integration Layer
+
 1. Create shared API client in `shared/` package
 2. Add Bylawyer endpoints to Robbie backend
 3. Add Robbie endpoints to Bylawyer backend
 
 ### Step 3: UI Integration - Robbie
+
 1. Add "Bylaw Amendment" motion type to motion picker
 2. Create document/section selector component
 3. Show bylaws text during debate
 4. Display sync status for passed amendments
 
 ### Step 4: UI Integration - Bylawyer
+
 1. Show linked meeting info on amendment detail page
 2. Display vote results from Robbie
 3. Add "View in Robbie" link to meeting
 
 ### Step 5: Sync Service
+
 1. Implement motion-to-amendment sync
 2. Add webhook/event system for real-time updates
 3. Handle conflict resolution

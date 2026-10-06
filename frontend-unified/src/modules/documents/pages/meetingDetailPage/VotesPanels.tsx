@@ -1,14 +1,18 @@
-import { Plus } from 'lucide-react'
-import { Vote, Amendment, Document } from '../../../../api/client'
-import { StatusBadge } from '../../../../components/ui/Badge'
+import { Plus } from 'lucide-react';
+import { Vote, Amendment, Document } from '../../../../api/client';
+import { StatusBadge } from '../../../../components/ui/Badge';
 
 interface RecordedVotesPanelProps {
-  votes: Vote[]
-  getAmendmentTitle: (id: string) => string
-  getDocumentTitle: (id: string) => string
+  votes: Vote[];
+  getAmendmentTitle: (id: string) => string;
+  getDocumentTitle: (id: string) => string;
 }
 
-export function RecordedVotesPanel({ votes, getAmendmentTitle, getDocumentTitle }: RecordedVotesPanelProps) {
+export function RecordedVotesPanel({
+  votes,
+  getAmendmentTitle,
+  getDocumentTitle,
+}: RecordedVotesPanelProps) {
   return (
     <div className="card">
       <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
@@ -17,9 +21,7 @@ export function RecordedVotesPanel({ votes, getAmendmentTitle, getDocumentTitle 
         </h3>
       </div>
       {votes.length === 0 ? (
-        <div className="p-6 text-center text-sm text-secondary-500">
-          No votes recorded yet
-        </div>
+        <div className="p-6 text-center text-sm text-secondary-500">No votes recorded yet</div>
       ) : (
         <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
           {votes.map((vote) => (
@@ -48,14 +50,14 @@ export function RecordedVotesPanel({ votes, getAmendmentTitle, getDocumentTitle 
         </div>
       )}
     </div>
-  )
+  );
 }
 
 interface PendingAmendmentsPanelProps {
-  amendments: Amendment[]
-  documents: Document[]
-  isInProgress: boolean
-  onRecordVote: (amendment: Amendment) => void
+  amendments: Amendment[];
+  documents: Document[];
+  isInProgress: boolean;
+  onRecordVote: (amendment: Amendment) => void;
 }
 
 export function PendingAmendmentsPanel({
@@ -96,12 +98,10 @@ export function PendingAmendmentsPanel({
                 <StatusBadge status={amendment.status} />
               </div>
               <p className="text-xs text-secondary-500 mb-1">
-                {documents.find(d => d.id === amendment.document_id)?.title}
+                {documents.find((d) => d.id === amendment.document_id)?.title}
               </p>
               {amendment.description && (
-                <p className="text-xs text-secondary-400 line-clamp-2">
-                  {amendment.description}
-                </p>
+                <p className="text-xs text-secondary-400 line-clamp-2">{amendment.description}</p>
               )}
               <p className="text-xs text-secondary-400 mt-1">
                 {amendment.changes?.length || 0} change(s)
@@ -117,5 +117,5 @@ export function PendingAmendmentsPanel({
         </div>
       )}
     </div>
-  )
+  );
 }

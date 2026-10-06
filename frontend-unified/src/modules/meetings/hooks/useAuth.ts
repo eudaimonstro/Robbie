@@ -1,7 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Member } from '@robbie-bylawyer/shared/types';
 import type { AuthState } from '../types/socket';
-import { validateEmail, validateName, validateMeetingCode, validateVerificationCode } from '../utils/validators';
+import {
+  validateEmail,
+  validateName,
+  validateMeetingCode,
+  validateVerificationCode,
+} from '../utils/validators';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
@@ -10,7 +15,7 @@ const INITIAL_AUTH_STATE: AuthState = {
   name: '',
   meetingCode: '',
   token: null,
-  userId: null
+  userId: null,
 };
 
 function loadSavedAuthState(): AuthState {
@@ -80,8 +85,8 @@ export function useAuth(): UseAuthReturn {
         body: JSON.stringify({
           email: sanitizedEmail,
           name: sanitizedName,
-          meetingCode: sanitizedCode
-        })
+          meetingCode: sanitizedCode,
+        }),
       });
 
       const data = await response.json();
@@ -89,11 +94,11 @@ export function useAuth(): UseAuthReturn {
         throw new Error(data.error || 'Failed to send verification code');
       }
 
-      setAuthState(prev => ({
+      setAuthState((prev) => ({
         ...prev,
         email: sanitizedEmail,
         name: sanitizedName,
-        meetingCode: sanitizedCode
+        meetingCode: sanitizedCode,
       }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to send verification code';
@@ -103,61 +108,64 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   // Verify code and get token
-  const verifyCode = useCallback(async (code: string): Promise<boolean> => {
-    setError(null);
+  const verifyCode = useCallback(
+    async (code: string): Promise<boolean> => {
+      setError(null);
 
-    const codeError = validateVerificationCode(code);
-    if (codeError) {
-      setError(codeError);
-      return false;
-    }
-
-    const sanitizedCode = code.trim();
-
-    try {
-      const response = await fetch(`${SERVER_URL}/api/auth/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: authState.email,
-          code: sanitizedCode,
-          meetingCode: authState.meetingCode
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Invalid verification code');
+      const codeError = validateVerificationCode(code);
+      if (codeError) {
+        setError(codeError);
+        return false;
       }
 
-      const newAuthState = {
-        email: authState.email,
-        name: authState.name,
-        meetingCode: authState.meetingCode,
-        token: data.token,
-        userId: data.user.id
-      };
-      setAuthState(newAuthState);
+      const sanitizedCode = code.trim();
 
       try {
-        localStorage.setItem('robbie_auth', JSON.stringify(newAuthState));
-      } catch {
-        // localStorage may be unavailable
-      }
+        const response = await fetch(`${SERVER_URL}/api/auth/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: authState.email,
+            code: sanitizedCode,
+            meetingCode: authState.meetingCode,
+          }),
+        });
 
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
-      return false;
-    }
-  }, [authState.email, authState.meetingCode, authState.name]);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Invalid verification code');
+        }
+
+        const newAuthState = {
+          email: authState.email,
+          name: authState.name,
+          meetingCode: authState.meetingCode,
+          token: data.token,
+          userId: data.user.id,
+        };
+        setAuthState(newAuthState);
+
+        try {
+          localStorage.setItem('robbie_auth', JSON.stringify(newAuthState));
+        } catch {
+          // localStorage may be unavailable
+        }
+
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Verification failed');
+        return false;
+      }
+    },
+    [authState.email, authState.meetingCode, authState.name],
+  );
 
   // Clear auth state (called by provider when logging out)
   const clearAuth = useCallback(() => {
     fetch(`${SERVER_URL}/api/auth/logout`, {
       method: 'POST',
-      credentials: 'include'
+      credentials: 'include',
     }).catch((err) => {
       console.warn('Logout request failed:', err.message || 'Network error');
     });
@@ -179,20 +187,20 @@ export function useAuth(): UseAuthReturn {
     verifyCode,
     clearAuth,
     error,
-    setError
+    setError,
   };
 }
 
 export function useCurrentUser(authState: AuthState, members: Member[]): Member | null {
   return useMemo(() => {
     if (!authState.userId) return null;
-    const foundMember = members.find(m => m.id === authState.userId);
+    const foundMember = members.find((m) => m.id === authState.userId);
     if (foundMember) return foundMember;
     return {
       id: authState.userId,
       name: authState.name,
       role: 'member' as const,
-      present: true
+      present: true,
     };
   }, [authState.userId, authState.name, members]);
 }

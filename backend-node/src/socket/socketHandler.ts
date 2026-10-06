@@ -2,15 +2,25 @@ import type { Server, Socket } from 'socket.io';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
-  SocketData
+  SocketData,
 } from '@robbie-bylawyer/shared/types/socket';
 import { handleJoinMeeting } from './joinHandler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { handleDispatchAction } from './actionHandler.js';
 import { handleRequestState } from './stateRequestHandler.js';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type TypedSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
+type TypedServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
 
 /**
  * Set up all socket event handlers for the meeting system.

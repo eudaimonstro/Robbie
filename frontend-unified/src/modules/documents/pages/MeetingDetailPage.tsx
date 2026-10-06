@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { AlertCircle } from 'lucide-react'
-import { VoteCreate, Amendment } from '../../../api/client'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import { useToast } from '../../../context/ToastContext'
+import { useState, useMemo } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
+import { VoteCreate, Amendment } from '../../../api/client';
+import { useOrganization } from '../../../context/OrganizationContext';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import { useToast } from '../../../context/ToastContext';
 import {
   useMeetingData,
   MeetingHeader,
@@ -14,12 +14,12 @@ import {
   EditMeetingModal,
   VoteRecordingModal,
   MeetingStatusDialogs,
-} from './meetingDetailPage'
+} from './meetingDetailPage';
 
 export default function MeetingDetailPage() {
-  const { meetingId } = useParams<{ meetingId: string }>()
-  const { currentOrganization } = useOrganization()
-  const { showToast } = useToast()
+  const { meetingId } = useParams<{ meetingId: string }>();
+  const { currentOrganization } = useOrganization();
+  const { showToast } = useToast();
 
   const {
     meeting,
@@ -33,31 +33,31 @@ export default function MeetingDetailPage() {
     recordVote,
     getAmendmentTitle,
     getDocumentTitle,
-  } = useMeetingData(meetingId, currentOrganization?.id)
+  } = useMeetingData(meetingId, currentOrganization?.id);
 
   // Modal states
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [voteModalOpen, setVoteModalOpen] = useState(false)
-  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [voteModalOpen, setVoteModalOpen] = useState(false);
+  const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
 
   // Status dialog states
-  const [startDialogOpen, setStartDialogOpen] = useState(false)
-  const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [statusLoading, setStatusLoading] = useState(false)
+  const [startDialogOpen, setStartDialogOpen] = useState(false);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   // Filter amendments that haven't been voted on
-  const unvotedAmendments = useMemo(() =>
-    proposedAmendments.filter(a => !votes.some(v => v.amendment_id === a.id)),
-    [proposedAmendments, votes]
-  )
+  const unvotedAmendments = useMemo(
+    () => proposedAmendments.filter((a) => !votes.some((v) => v.amendment_id === a.id)),
+    [proposedAmendments, votes],
+  );
 
   const handleEditSubmit = async (data: {
-    title: string
-    type: typeof meeting extends null ? never : NonNullable<typeof meeting>['meeting_type']
-    date: string
-    location?: string
-    notes?: string
+    title: string;
+    type: typeof meeting extends null ? never : NonNullable<typeof meeting>['meeting_type'];
+    date: string;
+    location?: string;
+    notes?: string;
   }) => {
     await updateMeeting({
       title: data.title,
@@ -65,44 +65,46 @@ export default function MeetingDetailPage() {
       scheduled_date: data.date,
       location: data.location,
       notes: data.notes,
-    })
-  }
+    });
+  };
 
-  const handleStatusChange = async (newStatus: 'scheduled' | 'in_progress' | 'completed' | 'cancelled') => {
+  const handleStatusChange = async (
+    newStatus: 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+  ) => {
     try {
-      setStatusLoading(true)
-      await changeStatus(newStatus)
-      setStartDialogOpen(false)
-      setCompleteDialogOpen(false)
-      setCancelDialogOpen(false)
+      setStatusLoading(true);
+      await changeStatus(newStatus);
+      setStartDialogOpen(false);
+      setCompleteDialogOpen(false);
+      setCancelDialogOpen(false);
     } catch {
-      showToast('error', 'Failed to update meeting status')
+      showToast('error', 'Failed to update meeting status');
     } finally {
-      setStatusLoading(false)
+      setStatusLoading(false);
     }
-  }
+  };
 
   const handleRecordVote = async (data: VoteCreate) => {
-    const result = await recordVote(data)
+    const result = await recordVote(data);
     showToast(
       result.passed ? 'success' : 'info',
-      `Vote recorded: Amendment ${result.passed ? 'PASSED' : 'FAILED'}`
-    )
-    return result
-  }
+      `Vote recorded: Amendment ${result.passed ? 'PASSED' : 'FAILED'}`,
+    );
+    return result;
+  };
 
   const handleOpenVoteModal = (amendment: Amendment) => {
-    setSelectedAmendment(amendment)
-    setVoteModalOpen(true)
-  }
+    setSelectedAmendment(amendment);
+    setVoteModalOpen(true);
+  };
 
   const handleCloseVoteModal = () => {
-    setVoteModalOpen(false)
-    setSelectedAmendment(null)
-  }
+    setVoteModalOpen(false);
+    setSelectedAmendment(null);
+  };
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (error || !meeting) {
@@ -116,10 +118,10 @@ export default function MeetingDetailPage() {
           Return to meetings
         </Link>
       </div>
-    )
+    );
   }
 
-  const isInProgress = meeting.status === 'in_progress'
+  const isInProgress = meeting.status === 'in_progress';
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -178,5 +180,5 @@ export default function MeetingDetailPage() {
         onCancelConfirm={() => handleStatusChange('cancelled')}
       />
     </div>
-  )
+  );
 }

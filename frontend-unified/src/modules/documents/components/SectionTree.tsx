@@ -1,4 +1,4 @@
-import { useState, memo, useCallback } from 'react'
+import { useState, memo, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -9,28 +9,28 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-} from '@dnd-kit/core'
+} from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
   arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { ChevronDown, ChevronRight, Plus, Edit2, Trash2, GripVertical } from 'lucide-react'
-import { SectionTree as SectionTreeType } from '../../../api/client'
-import ReactMarkdown from 'react-markdown'
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronDown, ChevronRight, Plus, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { SectionTree as SectionTreeType } from '../../../api/client';
+import ReactMarkdown from 'react-markdown';
 
 interface SectionTreeProps {
-  sections: SectionTreeType[]
-  selectedSectionId?: string
-  onSelectSection?: (section: SectionTreeType) => void
-  onEditSection?: (section: SectionTreeType) => void
-  onDeleteSection?: (section: SectionTreeType) => void
-  onAddChild?: (parentSection: SectionTreeType) => void
-  onReorder?: (updates: Array<{ id: string; position: number }>) => Promise<void>
-  editable?: boolean
+  sections: SectionTreeType[];
+  selectedSectionId?: string;
+  onSelectSection?: (section: SectionTreeType) => void;
+  onEditSection?: (section: SectionTreeType) => void;
+  onDeleteSection?: (section: SectionTreeType) => void;
+  onAddChild?: (parentSection: SectionTreeType) => void;
+  onReorder?: (updates: Array<{ id: string; position: number }>) => Promise<void>;
+  editable?: boolean;
 }
 
 const SectionTree = memo(function SectionTree({
@@ -43,7 +43,7 @@ const SectionTree = memo(function SectionTree({
   onReorder,
   editable = false,
 }: SectionTreeProps) {
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -51,77 +51,74 @@ const SectionTree = memo(function SectionTree({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
+    }),
+  );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }, [])
+    setActiveId(event.active.id as string);
+  }, []);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
-      const { active, over } = event
-      setActiveId(null)
+      const { active, over } = event;
+      setActiveId(null);
 
-      if (!over || active.id === over.id || !onReorder) return
+      if (!over || active.id === over.id || !onReorder) return;
 
       // Find which sibling array contains both items
       const findSiblings = (
         items: SectionTreeType[],
         activeId: string,
-        overId: string
+        overId: string,
       ): SectionTreeType[] | null => {
         // Check if both are in current level
-        const activeIdx = items.findIndex((s) => s.id === activeId)
-        const overIdx = items.findIndex((s) => s.id === overId)
+        const activeIdx = items.findIndex((s) => s.id === activeId);
+        const overIdx = items.findIndex((s) => s.id === overId);
         if (activeIdx !== -1 && overIdx !== -1) {
-          return items
+          return items;
         }
         // Recurse into children
         for (const item of items) {
           if (item.children && item.children.length > 0) {
-            const found = findSiblings(item.children, activeId, overId)
-            if (found) return found
+            const found = findSiblings(item.children, activeId, overId);
+            if (found) return found;
           }
         }
-        return null
-      }
+        return null;
+      };
 
-      const siblings = findSiblings(sections, active.id as string, over.id as string)
-      if (!siblings) return
+      const siblings = findSiblings(sections, active.id as string, over.id as string);
+      if (!siblings) return;
 
-      const oldIndex = siblings.findIndex((s) => s.id === active.id)
-      const newIndex = siblings.findIndex((s) => s.id === over.id)
+      const oldIndex = siblings.findIndex((s) => s.id === active.id);
+      const newIndex = siblings.findIndex((s) => s.id === over.id);
 
-      if (oldIndex === -1 || newIndex === -1) return
+      if (oldIndex === -1 || newIndex === -1) return;
 
-      const reordered = arrayMove(siblings, oldIndex, newIndex)
+      const reordered = arrayMove(siblings, oldIndex, newIndex);
       const updates = reordered.map((section, index) => ({
         id: section.id,
         position: index,
-      }))
+      }));
 
-      await onReorder(updates)
+      await onReorder(updates);
     },
-    [sections, onReorder]
-  )
+    [sections, onReorder],
+  );
 
   // Find the active section for the drag overlay
-  const findSection = (
-    items: SectionTreeType[],
-    id: string
-  ): SectionTreeType | null => {
+  const findSection = (items: SectionTreeType[], id: string): SectionTreeType | null => {
     for (const item of items) {
-      if (item.id === id) return item
+      if (item.id === id) return item;
       if (item.children && item.children.length > 0) {
-        const found = findSection(item.children, id)
-        if (found) return found
+        const found = findSection(item.children, id);
+        if (found) return found;
       }
     }
-    return null
-  }
+    return null;
+  };
 
-  const activeSection = activeId ? findSection(sections, activeId) : null
+  const activeSection = activeId ? findSection(sections, activeId) : null;
 
   return (
     <DndContext
@@ -130,10 +127,7 @@ const SectionTree = memo(function SectionTree({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext
-        items={sections.map((s) => s.id)}
-        strategy={verticalListSortingStrategy}
-      >
+      <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-1">
           {sections.map((section) => (
             <SortableSectionNode
@@ -171,20 +165,20 @@ const SectionTree = memo(function SectionTree({
         ) : null}
       </DragOverlay>
     </DndContext>
-  )
-})
+  );
+});
 
-export default SectionTree
+export default SectionTree;
 
 interface SectionNodeProps {
-  section: SectionTreeType
-  depth: number
-  selectedSectionId?: string
-  onSelectSection?: (section: SectionTreeType) => void
-  onEditSection?: (section: SectionTreeType) => void
-  onDeleteSection?: (section: SectionTreeType) => void
-  onAddChild?: (parentSection: SectionTreeType) => void
-  editable?: boolean
+  section: SectionTreeType;
+  depth: number;
+  selectedSectionId?: string;
+  onSelectSection?: (section: SectionTreeType) => void;
+  onEditSection?: (section: SectionTreeType) => void;
+  onDeleteSection?: (section: SectionTreeType) => void;
+  onAddChild?: (parentSection: SectionTreeType) => void;
+  editable?: boolean;
 }
 
 const SortableSectionNode = memo(function SortableSectionNode({
@@ -197,60 +191,55 @@ const SortableSectionNode = memo(function SortableSectionNode({
   onAddChild,
   editable,
 }: SectionNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
-  const hasChildren = section.children && section.children.length > 0
-  const isSelected = selectedSectionId === section.id
+  const [isExpanded, setIsExpanded] = useState(true);
+  const hasChildren = section.children && section.children.length > 0;
+  const isSelected = selectedSectionId === section.id;
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: section.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  }
+  };
 
   const handleClick = useCallback(() => {
-    onSelectSection?.(section)
-  }, [onSelectSection, section])
+    onSelectSection?.(section);
+  }, [onSelectSection, section]);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsExpanded((prev) => !prev)
-  }, [])
+    e.stopPropagation();
+    setIsExpanded((prev) => !prev);
+  }, []);
 
   const handleAddChild = useCallback(
     (e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
-      onAddChild?.(section)
+      e.stopPropagation();
+      e.preventDefault();
+      onAddChild?.(section);
     },
-    [onAddChild, section]
-  )
+    [onAddChild, section],
+  );
 
   const handleEdit = useCallback(
     (e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
-      onEditSection?.(section)
+      e.stopPropagation();
+      e.preventDefault();
+      onEditSection?.(section);
     },
-    [onEditSection, section]
-  )
+    [onEditSection, section],
+  );
 
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
-      onDeleteSection?.(section)
+      e.stopPropagation();
+      e.preventDefault();
+      onDeleteSection?.(section);
     },
-    [onDeleteSection, section]
-  )
+    [onDeleteSection, section],
+  );
 
   return (
     <div ref={setNodeRef} style={style} className={depth > 0 ? 'ml-6' : ''}>
@@ -380,5 +369,5 @@ const SortableSectionNode = memo(function SortableSectionNode({
         </SortableContext>
       )}
     </div>
-  )
-})
+  );
+});

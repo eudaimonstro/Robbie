@@ -27,7 +27,9 @@ import type { MeetingLogEntry } from '@robbie-bylawyer/shared/types';
 export function useVoteResults(meetingLog: MeetingLogEntry[]) {
   return useMemo(() => {
     // Find the most recent vote result in the meeting log (search backwards)
-    const voteResult = meetingLog.findLast((log: MeetingLogEntry) => log.message.includes('CARRIED') || log.message.includes('FAILED'));
+    const voteResult = meetingLog.findLast(
+      (log: MeetingLogEntry) => log.message.includes('CARRIED') || log.message.includes('FAILED'),
+    );
 
     if (!voteResult) return null;
 
@@ -52,7 +54,7 @@ export function useVoteResults(meetingLog: MeetingLogEntry[]) {
       outcome,
       passed,
       motionText,
-      timestamp: voteResult.time
+      timestamp: voteResult.time,
     };
   }, [meetingLog]);
 }

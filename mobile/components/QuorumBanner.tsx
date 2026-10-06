@@ -8,7 +8,11 @@ interface QuorumBannerProps {
   hasQuorum: boolean;
 }
 
-export const QuorumBanner = memo(function QuorumBanner({ presentCount, quorum, hasQuorum }: QuorumBannerProps) {
+export const QuorumBanner = memo(function QuorumBanner({
+  presentCount,
+  quorum,
+  hasQuorum,
+}: QuorumBannerProps) {
   if (hasQuorum) return null;
 
   const needed = quorum - presentCount;

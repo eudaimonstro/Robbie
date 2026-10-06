@@ -30,39 +30,38 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const error = auth.error || connection.error;
 
   // Memoize the context value
-  const value = useMemo<SocketContextValue>(() => ({
-    state: connection.state,
-    dispatch: connection.dispatch,
-    isConnected: connection.isConnected,
-    isAuthenticated: auth.isAuthenticated,
-    currentUser,
-    currentUserEmail: auth.authState.email || null,
-    connectedMembers: connection.connectedMembers,
-    error,
-    login: auth.login,
-    verifyCode: auth.verifyCode,
-    logout,
-    reconnect: connection.reconnect
-  }), [
-    connection.state,
-    connection.dispatch,
-    connection.isConnected,
-    connection.connectedMembers,
-    connection.reconnect,
-    auth.isAuthenticated,
-    auth.authState.email,
-    auth.login,
-    auth.verifyCode,
-    currentUser,
-    error,
-    logout
-  ]);
-
-  return (
-    <SocketContext.Provider value={value}>
-      {children}
-    </SocketContext.Provider>
+  const value = useMemo<SocketContextValue>(
+    () => ({
+      state: connection.state,
+      dispatch: connection.dispatch,
+      isConnected: connection.isConnected,
+      isAuthenticated: auth.isAuthenticated,
+      currentUser,
+      currentUserEmail: auth.authState.email || null,
+      connectedMembers: connection.connectedMembers,
+      error,
+      login: auth.login,
+      verifyCode: auth.verifyCode,
+      logout,
+      reconnect: connection.reconnect,
+    }),
+    [
+      connection.state,
+      connection.dispatch,
+      connection.isConnected,
+      connection.connectedMembers,
+      connection.reconnect,
+      auth.isAuthenticated,
+      auth.authState.email,
+      auth.login,
+      auth.verifyCode,
+      currentUser,
+      error,
+      logout,
+    ],
   );
+
+  return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 
 export function useSocket(): SocketContextValue {

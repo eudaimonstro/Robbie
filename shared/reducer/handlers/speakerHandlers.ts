@@ -8,7 +8,7 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
     case 'RAISE_HAND': {
       const typedAction = action as Extract<MeetingAction, { type: 'RAISE_HAND' }>;
       // Already in queue? Don't add again
-      if (state.speakerQueue.find(s => s.member.id === typedAction.member.id)) return state;
+      if (state.speakerQueue.find((s) => s.member.id === typedAction.member.id)) return state;
 
       // Check for side-switching (member already spoke with different stance)
       // Only enforce for pro/con, neutral is always allowed
@@ -25,7 +25,10 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
 
       return {
         ...state,
-        speakerQueue: [...state.speakerQueue, { member: typedAction.member, stance: typedAction.stance }]
+        speakerQueue: [
+          ...state.speakerQueue,
+          { member: typedAction.member, stance: typedAction.stance },
+        ],
       };
     }
 
@@ -33,7 +36,7 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
       const typedAction = action as Extract<MeetingAction, { type: 'LOWER_HAND' }>;
       return {
         ...state,
-        speakerQueue: state.speakerQueue.filter(e => e.member.id !== typedAction.member.id)
+        speakerQueue: state.speakerQueue.filter((e) => e.member.id !== typedAction.member.id),
       };
     }
 
@@ -41,7 +44,11 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
       const typedAction = action as Extract<MeetingAction, { type: 'RECOGNIZE_SPEAKER' }>;
 
       // Enforce motion-maker-priority rule: mover speaks first unless rule is suspended
-      if (state.currentMotion && state.currentMotion.debatable && !state.currentMotion.moverHasSpoken) {
+      if (
+        state.currentMotion &&
+        state.currentMotion.debatable &&
+        !state.currentMotion.moverHasSpoken
+      ) {
         const isMover = state.currentMotion.moverId === typedAction.member.id;
         const prioritySuspended = isRuleSuspended(state, 'motion-maker-priority');
 
@@ -52,19 +59,22 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
       }
 
       // Mark motion maker as having spoken if they're being recognized
-      const updatedMotion = state.currentMotion && state.currentMotion.moverId === typedAction.member.id
-        ? { ...state.currentMotion, moverHasSpoken: true }
-        : state.currentMotion;
+      const updatedMotion =
+        state.currentMotion && state.currentMotion.moverId === typedAction.member.id
+          ? { ...state.currentMotion, moverHasSpoken: true }
+          : state.currentMotion;
 
       // Update motion stack if current motion was updated
-      const updatedStack = updatedMotion && updatedMotion !== state.currentMotion
-        ? state.motionStack.map(m => m.id === updatedMotion.id ? updatedMotion : m)
-        : state.motionStack;
+      const updatedStack =
+        updatedMotion && updatedMotion !== state.currentMotion
+          ? state.motionStack.map((m) => (m.id === updatedMotion.id ? updatedMotion : m))
+          : state.motionStack;
 
       // Lock member's debate position (pro/con/neutral) when they speak
-      const updatedDebatePositions = typedAction.stance !== 'neutral'
-        ? { ...state.debatePositions, [typedAction.member.id]: typedAction.stance }
-        : state.debatePositions;
+      const updatedDebatePositions =
+        typedAction.stance !== 'neutral'
+          ? { ...state.debatePositions, [typedAction.member.id]: typedAction.stance }
+          : state.debatePositions;
 
       return {
         ...state,
@@ -74,8 +84,8 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
         lastSpeakerStance: typedAction.stance,
         debatePositions: updatedDebatePositions,
         speakerTimerEnd: typedAction.speakerTimerEnd,
-        speakerQueue: state.speakerQueue.filter(s => s.member.id !== typedAction.member.id),
-        meetingLog: log(typedAction.timestamp, logSpeakerRecognized(typedAction.member.name))
+        speakerQueue: state.speakerQueue.filter((s) => s.member.id !== typedAction.member.id),
+        meetingLog: log(typedAction.timestamp, logSpeakerRecognized(typedAction.member.name)),
       };
     }
 
@@ -86,7 +96,7 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
         ...state,
         recognizedSpeaker: null,
         speakerTimerEnd: null,
-        meetingLog: log(typedAction.timestamp, logSpeakerYields(speakerName))
+        meetingLog: log(typedAction.timestamp, logSpeakerYields(speakerName)),
       };
     }
 

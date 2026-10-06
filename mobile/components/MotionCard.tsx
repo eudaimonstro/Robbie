@@ -9,7 +9,10 @@ interface MotionCardProps {
   votingOpen?: boolean;
 }
 
-export const MotionCard = memo(function MotionCard({ motion, votingOpen = false }: MotionCardProps) {
+export const MotionCard = memo(function MotionCard({
+  motion,
+  votingOpen = false,
+}: MotionCardProps) {
   // Determine status badge based on motion.status and votingOpen
   const getStatusBadge = () => {
     if (votingOpen) {
@@ -39,12 +42,8 @@ export const MotionCard = memo(function MotionCard({ motion, votingOpen = false 
             </View>
           )}
         </View>
-        {motion.mover && (
-          <Text style={styles.mover}>Moved by: {motion.mover}</Text>
-        )}
-        {motion.secondedBy && (
-          <Text style={styles.seconder}>Seconded by: {motion.secondedBy}</Text>
-        )}
+        {motion.mover && <Text style={styles.mover}>Moved by: {motion.mover}</Text>}
+        {motion.secondedBy && <Text style={styles.seconder}>Seconded by: {motion.secondedBy}</Text>}
       </View>
 
       {motion.text && (
@@ -57,7 +56,11 @@ export const MotionCard = memo(function MotionCard({ motion, votingOpen = false 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Vote Required:</Text>
           <Text style={styles.infoValue}>
-            {motion.vote === 'majority' ? 'Majority' : motion.vote === '2/3' ? 'Two-Thirds' : 'None'}
+            {motion.vote === 'majority'
+              ? 'Majority'
+              : motion.vote === '2/3'
+                ? 'Two-Thirds'
+                : 'None'}
           </Text>
         </View>
         {motion.debatable && (

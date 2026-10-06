@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { UserPlus, X, Clock, Send } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  PendingProxyRequest,
+} from '@robbie-bylawyer/shared/types';
 
 interface ProxyRequestPanelProps {
   state: MeetingState;
@@ -12,7 +17,7 @@ interface ProxyRequestPanelProps {
 export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
   state,
   dispatch,
-  currentUser
+  currentUser,
 }: ProxyRequestPanelProps) {
   const [selectedHolder, setSelectedHolder] = useState<number | ''>('');
   const [proxyScope, setProxyScope] = useState<'all' | 'single-vote'>('all');
@@ -20,24 +25,24 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
 
   // Check if user already has an active proxy
   const hasActiveProxy = useMemo(() => {
-    return state.proxies.some(p => p.grantedBy === currentUser.id);
+    return state.proxies.some((p) => p.grantedBy === currentUser.id);
   }, [state.proxies, currentUser.id]);
 
   // Check if user has a pending proxy request
   const pendingRequest = useMemo(() => {
     return state.pendingProxyRequests.find(
-      r => r.requestedBy === currentUser.id && r.status === 'pending'
+      (r) => r.requestedBy === currentUser.id && r.status === 'pending',
     );
   }, [state.pendingProxyRequests, currentUser.id]);
 
   // Get eligible proxy holders (present members who can hold more proxies, excluding self)
   const eligibleHolders = useMemo(() => {
-    return state.members.filter(m => {
+    return state.members.filter((m) => {
       if (!m.present) return false;
       if (m.id === currentUser.id) return false;
       // Check if they've reached max proxies (0 = unlimited)
       if (state.maxProxiesPerMember === 0) return true;
-      const currentCount = state.proxies.filter(p => p.grantedTo === m.id).length;
+      const currentCount = state.proxies.filter((p) => p.grantedTo === m.id).length;
       return currentCount < state.maxProxiesPerMember;
     });
   }, [state.members, state.proxies, state.maxProxiesPerMember, currentUser.id]);
@@ -55,7 +60,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
   const handleRequestProxy = useCallback(async () => {
     if (selectedHolder === '' || isSubmitting) return;
 
-    const holder = state.members.find(m => m.id === selectedHolder);
+    const holder = state.members.find((m) => m.id === selectedHolder);
     if (!holder) return;
 
     setIsSubmitting(true);
@@ -68,7 +73,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
         requestedFor: selectedHolder,
         requestedForName: holder.name,
         scope: proxyScope,
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
       setSelectedHolder('');
     } finally {
@@ -82,16 +87,22 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
     dispatch({
       type: 'CANCEL_PROXY_REQUEST',
       requestId: pendingRequest.id,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
   }, [dispatch, pendingRequest]);
 
   // If user already has an active proxy, show that status
   if (hasActiveProxy) {
-    const proxy = state.proxies.find(p => p.grantedBy === currentUser.id);
+    const proxy = state.proxies.find((p) => p.grantedBy === currentUser.id);
     return (
-      <section className="bg-green-50 border border-green-200 rounded-lg p-4" aria-labelledby="proxy-status-heading">
-        <h3 id="proxy-status-heading" className="font-semibold flex items-center gap-2 text-green-800 mb-2">
+      <section
+        className="bg-green-50 border border-green-200 rounded-lg p-4"
+        aria-labelledby="proxy-status-heading"
+      >
+        <h3
+          id="proxy-status-heading"
+          className="font-semibold flex items-center gap-2 text-green-800 mb-2"
+        >
           <UserPlus size={18} aria-hidden="true" /> Proxy Active
         </h3>
         <p className="text-green-700 text-sm">
@@ -107,12 +118,19 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
   // If there's a pending request, show that status
   if (pendingRequest) {
     return (
-      <section className="bg-amber-50 border border-amber-200 rounded-lg p-4" aria-labelledby="proxy-pending-heading">
-        <h3 id="proxy-pending-heading" className="font-semibold flex items-center gap-2 text-amber-800 mb-2">
+      <section
+        className="bg-amber-50 border border-amber-200 rounded-lg p-4"
+        aria-labelledby="proxy-pending-heading"
+      >
+        <h3
+          id="proxy-pending-heading"
+          className="font-semibold flex items-center gap-2 text-amber-800 mb-2"
+        >
           <Clock size={18} aria-hidden="true" /> Proxy Request Pending
         </h3>
         <p className="text-amber-700 text-sm mb-3">
-          Waiting for <strong>{pendingRequest.requestedForName}</strong> to accept your proxy request
+          Waiting for <strong>{pendingRequest.requestedForName}</strong> to accept your proxy
+          request
           <span className="text-amber-600 text-xs ml-1">
             ({pendingRequest.scope === 'single-vote' ? 'single vote only' : 'all votes'})
           </span>
@@ -130,7 +148,10 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
   // Show request form
   return (
     <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="proxy-request-heading">
-      <h3 id="proxy-request-heading" className="font-semibold flex items-center gap-2 text-gray-800 mb-3">
+      <h3
+        id="proxy-request-heading"
+        className="font-semibold flex items-center gap-2 text-gray-800 mb-3"
+      >
         <UserPlus size={18} aria-hidden="true" /> Request Proxy
       </h3>
 
@@ -155,11 +176,12 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
               className="w-full p-2 border rounded text-sm"
             >
               <option value="">Select a member...</option>
-              {eligibleHolders.map(m => {
-                const proxyCount = state.proxies.filter(p => p.grantedTo === m.id).length;
+              {eligibleHolders.map((m) => {
+                const proxyCount = state.proxies.filter((p) => p.grantedTo === m.id).length;
                 return (
                   <option key={m.id} value={m.id}>
-                    {m.name} {proxyCount > 0 ? `(${proxyCount} proxy${proxyCount > 1 ? 'ies' : ''})` : ''}
+                    {m.name}{' '}
+                    {proxyCount > 0 ? `(${proxyCount} proxy${proxyCount > 1 ? 'ies' : ''})` : ''}
                   </option>
                 );
               })}
@@ -208,7 +230,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
       {/* Show declined requests for context */}
       <DeclinedRequestsHistory
         requests={state.pendingProxyRequests.filter(
-          r => r.requestedBy === currentUser.id && r.status === 'declined'
+          (r) => r.requestedBy === currentUser.id && r.status === 'declined',
         )}
       />
     </section>
@@ -223,7 +245,7 @@ function DeclinedRequestsHistory({ requests }: { requests: PendingProxyRequest[]
     <div className="mt-3 pt-3 border-t border-gray-200">
       <p className="text-xs text-gray-500 mb-1">Recent declined requests:</p>
       <ul className="text-xs text-gray-400 space-y-1">
-        {requests.slice(0, 3).map(req => (
+        {requests.slice(0, 3).map((req) => (
           <li key={req.id}>
             {req.requestedForName} declined
             {req.declineReason && `: "${req.declineReason}"`}

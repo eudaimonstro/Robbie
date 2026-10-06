@@ -102,7 +102,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   };
 
   // Find the suggested org name if we have one
-  const suggestedOrg = suggestedOrgId ? organizations.find(o => o.id === suggestedOrgId) : null;
+  const suggestedOrg = suggestedOrgId ? organizations.find((o) => o.id === suggestedOrgId) : null;
 
   // Show compact unavailable state if Bylawyer is not available
   if (!bylawyerAvailable) {
@@ -193,7 +193,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
               className="flex-1 p-2 border border-gray-300 rounded-lg bg-white disabled:bg-gray-100"
             >
               <option value="">Select an organization...</option>
-              {organizations.map(org => (
+              {organizations.map((org) => (
                 <option key={org.id} value={org.id}>
                   {org.name}
                   {org.id === suggestedOrgId ? ' (Current)' : ''}

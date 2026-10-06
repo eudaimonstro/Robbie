@@ -12,28 +12,19 @@
   {
     "category": "style",
     "description": "Success color is green (#10b981)",
-    "steps": [
-      "Step 1: View passed status badge",
-      "Step 2: Verify badge uses green color scheme"
-    ],
+    "steps": ["Step 1: View passed status badge", "Step 2: Verify badge uses green color scheme"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Danger color is red (#ef4444)",
-    "steps": [
-      "Step 1: View failed status badge",
-      "Step 2: Verify badge uses red color scheme"
-    ],
+    "steps": ["Step 1: View failed status badge", "Step 2: Verify badge uses red color scheme"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Accent color is amber (#f59e0b)",
-    "steps": [
-      "Step 1: View warning/accent elements",
-      "Step 2: Verify amber color is used"
-    ],
+    "steps": ["Step 1: View warning/accent elements", "Step 2: Verify amber color is used"],
     "passes": true
   },
   {
@@ -120,19 +111,13 @@
   {
     "category": "style",
     "description": "Font family uses Inter for headings",
-    "steps": [
-      "Step 1: Inspect heading elements",
-      "Step 2: Verify font-family includes Inter"
-    ],
+    "steps": ["Step 1: Inspect heading elements", "Step 2: Verify font-family includes Inter"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Body text uses system-ui font stack",
-    "steps": [
-      "Step 1: Inspect body text",
-      "Step 2: Verify font-family includes system-ui"
-    ],
+    "steps": ["Step 1: Inspect body text", "Step 2: Verify font-family includes system-ui"],
     "passes": true
   },
   {
@@ -159,10 +144,7 @@
   {
     "category": "style",
     "description": "Select dropdowns match input styling",
-    "steps": [
-      "Step 1: View select element",
-      "Step 2: Verify consistent styling with input fields"
-    ],
+    "steps": ["Step 1: View select element", "Step 2: Verify consistent styling with input fields"],
     "passes": true
   },
   {
@@ -298,10 +280,7 @@
   {
     "category": "style",
     "description": "Diff view modifications have yellow background",
-    "steps": [
-      "Step 1: View diff with modifications",
-      "Step 2: Verify bg-yellow-100 or equivalent"
-    ],
+    "steps": ["Step 1: View diff with modifications", "Step 2: Verify bg-yellow-100 or equivalent"],
     "passes": true
   },
   {
@@ -496,10 +475,7 @@
   {
     "category": "style",
     "description": "Time formatting includes AM/PM or 24h consistently",
-    "steps": [
-      "Step 1: View timestamps throughout app",
-      "Step 2: Verify consistent time format"
-    ],
+    "steps": ["Step 1: View timestamps throughout app", "Step 2: Verify consistent time format"],
     "passes": true
   },
   {
@@ -565,10 +541,7 @@
   {
     "category": "style",
     "description": "Form labels associated with inputs",
-    "steps": [
-      "Step 1: Inspect form labels",
-      "Step 2: Verify htmlFor matches input id"
-    ],
+    "steps": ["Step 1: Inspect form labels", "Step 2: Verify htmlFor matches input id"],
     "passes": true
   },
   {
@@ -682,10 +655,7 @@
   {
     "category": "style",
     "description": "Card shadows use consistent shadow-sm or shadow-md",
-    "steps": [
-      "Step 1: Inspect card elements",
-      "Step 2: Verify consistent shadow class usage"
-    ],
+    "steps": ["Step 1: Inspect card elements", "Step 2: Verify consistent shadow class usage"],
     "passes": true
   },
   {
@@ -758,82 +728,55 @@
   {
     "category": "style",
     "description": "Modal width is consistent",
-    "steps": [
-      "Step 1: Open various modals",
-      "Step 2: Verify consistent max-width"
-    ],
+    "steps": ["Step 1: Open various modals", "Step 2: Verify consistent max-width"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Modal padding is consistent",
-    "steps": [
-      "Step 1: Inspect modal content padding",
-      "Step 2: Verify consistent p-6 or similar"
-    ],
+    "steps": ["Step 1: Inspect modal content padding", "Step 2: Verify consistent p-6 or similar"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Button border-radius matches design system",
-    "steps": [
-      "Step 1: Inspect button border-radius",
-      "Step 2: Verify rounded-md (6px)"
-    ],
+    "steps": ["Step 1: Inspect button border-radius", "Step 2: Verify rounded-md (6px)"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Input border-radius matches buttons",
-    "steps": [
-      "Step 1: Compare input and button border-radius",
-      "Step 2: Verify they match"
-    ],
+    "steps": ["Step 1: Compare input and button border-radius", "Step 2: Verify they match"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Card border-radius is rounded-lg (8px)",
-    "steps": [
-      "Step 1: Inspect card border-radius",
-      "Step 2: Verify rounded-lg"
-    ],
+    "steps": ["Step 1: Inspect card border-radius", "Step 2: Verify rounded-lg"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Badge padding is appropriate for size",
-    "steps": [
-      "Step 1: Inspect badge padding",
-      "Step 2: Verify px-2 py-0.5 or similar"
-    ],
+    "steps": ["Step 1: Inspect badge padding", "Step 2: Verify px-2 py-0.5 or similar"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Badge font-size is smaller than body",
-    "steps": [
-      "Step 1: Inspect badge font-size",
-      "Step 2: Verify text-xs"
-    ],
+    "steps": ["Step 1: Inspect badge font-size", "Step 2: Verify text-xs"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Badge font-weight is medium or semibold",
-    "steps": [
-      "Step 1: Inspect badge font-weight",
-      "Step 2: Verify font-medium or font-semibold"
-    ],
+    "steps": ["Step 1: Inspect badge font-weight", "Step 2: Verify font-medium or font-semibold"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Dropdown menu styling matches design",
-    "steps": [
-      "Step 1: View dropdown/select elements",
-      "Step 2: Verify background, border, shadow"
-    ],
+    "steps": ["Step 1: View dropdown/select elements", "Step 2: Verify background, border, shadow"],
     "passes": true
   },
   {
@@ -859,10 +802,7 @@
   {
     "category": "style",
     "description": "Active states on button press",
-    "steps": [
-      "Step 1: Click and hold button",
-      "Step 2: Verify slight scale or color change"
-    ],
+    "steps": ["Step 1: Click and hold button", "Step 2: Verify slight scale or color change"],
     "passes": true
   },
   {
@@ -888,28 +828,19 @@
   {
     "category": "style",
     "description": "Empty state icon size is appropriate",
-    "steps": [
-      "Step 1: View empty state",
-      "Step 2: Verify icon is w-10 h-10 or w-12 h-12"
-    ],
+    "steps": ["Step 1: View empty state", "Step 2: Verify icon is w-10 h-10 or w-12 h-12"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Empty state text is centered",
-    "steps": [
-      "Step 1: View empty state",
-      "Step 2: Verify text-center class"
-    ],
+    "steps": ["Step 1: View empty state", "Step 2: Verify text-center class"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Form error state shows red border",
-    "steps": [
-      "Step 1: Trigger validation error",
-      "Step 2: Verify input has border-red-500"
-    ],
+    "steps": ["Step 1: Trigger validation error", "Step 2: Verify input has border-red-500"],
     "passes": true
   },
   {
@@ -924,10 +855,7 @@
   {
     "category": "style",
     "description": "Label spacing above inputs",
-    "steps": [
-      "Step 1: View form labels",
-      "Step 2: Verify mb-1 or mb-2 spacing"
-    ],
+    "steps": ["Step 1: View form labels", "Step 2: Verify mb-1 or mb-2 spacing"],
     "passes": true
   },
   {
@@ -1037,28 +965,19 @@
   {
     "category": "style",
     "description": "Favicon is set",
-    "steps": [
-      "Step 1: View browser tab",
-      "Step 2: Verify favicon appears"
-    ],
+    "steps": ["Step 1: View browser tab", "Step 2: Verify favicon appears"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Page title is set",
-    "steps": [
-      "Step 1: View browser tab",
-      "Step 2: Verify title shows application name"
-    ],
+    "steps": ["Step 1: View browser tab", "Step 2: Verify title shows application name"],
     "passes": true
   },
   {
     "category": "style",
     "description": "Meta description is set",
-    "steps": [
-      "Step 1: View page source",
-      "Step 2: Verify meta description tag"
-    ],
+    "steps": ["Step 1: View page source", "Step 2: Verify meta description tag"],
     "passes": true
   },
   {

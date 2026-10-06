@@ -1,13 +1,13 @@
-import { useState, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { FileText } from 'lucide-react'
-import { SectionTree as SectionTreeType, SectionCreate, SectionUpdate } from '../../../api/client'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { useToast } from '../../../context/ToastContext'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import SectionEditor from '../components/SectionEditor'
-import ConfirmDialog from '../../../components/ui/ConfirmDialog'
-import ShareModal from '../components/ShareModal'
+import { useState, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
+import { SectionTree as SectionTreeType, SectionCreate, SectionUpdate } from '../../../api/client';
+import { useOrganization } from '../../../context/OrganizationContext';
+import { useToast } from '../../../context/ToastContext';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import SectionEditor from '../components/SectionEditor';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import ShareModal from '../components/ShareModal';
 import {
   useDocumentData,
   DocumentHeader,
@@ -15,13 +15,13 @@ import {
   PendingAmendmentsPanel,
   CreateVersionModal,
   CreateAmendmentModal,
-} from './documentPage'
+} from './documentPage';
 
 export default function DocumentPage() {
-  const { documentId } = useParams<{ documentId: string }>()
-  const navigate = useNavigate()
-  const { currentOrganization } = useOrganization()
-  const { showToast } = useToast()
+  const { documentId } = useParams<{ documentId: string }>();
+  const navigate = useNavigate();
+  const { currentOrganization } = useOrganization();
+  const { showToast } = useToast();
 
   const {
     doc,
@@ -36,84 +36,84 @@ export default function DocumentPage() {
     handleReorderSections,
     handleCreateVersion,
     handleCreateAmendment,
-  } = useDocumentData(documentId)
+  } = useDocumentData(documentId);
 
-  const [selectedSection, setSelectedSection] = useState<SectionTreeType | null>(null)
+  const [selectedSection, setSelectedSection] = useState<SectionTreeType | null>(null);
 
   // Editor state
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editorMode, setEditorMode] = useState<'create' | 'edit' | 'addChild'>('create')
-  const [editingSection, setEditingSection] = useState<SectionTreeType | null>(null)
-  const [parentSection, setParentSection] = useState<SectionTreeType | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<'create' | 'edit' | 'addChild'>('create');
+  const [editingSection, setEditingSection] = useState<SectionTreeType | null>(null);
+  const [parentSection, setParentSection] = useState<SectionTreeType | null>(null);
 
   // Delete confirmation
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deletingSection, setDeletingSection] = useState<SectionTreeType | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingSection, setDeletingSection] = useState<SectionTreeType | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Modals
-  const [versionModalOpen, setVersionModalOpen] = useState(false)
-  const [amendmentModalOpen, setAmendmentModalOpen] = useState(false)
-  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [amendmentModalOpen, setAmendmentModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const handleAddSection = useCallback(() => {
-    setEditorMode('create')
-    setEditingSection(null)
-    setParentSection(null)
-    setEditorOpen(true)
-  }, [])
+    setEditorMode('create');
+    setEditingSection(null);
+    setParentSection(null);
+    setEditorOpen(true);
+  }, []);
 
   const handleEditSection = useCallback((section: SectionTreeType) => {
-    setEditorMode('edit')
-    setEditingSection(section)
-    setParentSection(null)
-    setEditorOpen(true)
-  }, [])
+    setEditorMode('edit');
+    setEditingSection(section);
+    setParentSection(null);
+    setEditorOpen(true);
+  }, []);
 
   const handleAddChild = useCallback((parent: SectionTreeType) => {
-    setEditorMode('addChild')
-    setEditingSection(null)
-    setParentSection(parent)
-    setEditorOpen(true)
-  }, [])
+    setEditorMode('addChild');
+    setEditingSection(null);
+    setParentSection(parent);
+    setEditorOpen(true);
+  }, []);
 
   const openDeleteDialog = useCallback((section: SectionTreeType) => {
-    setDeletingSection(section)
-    setDeleteDialogOpen(true)
-  }, [])
+    setDeletingSection(section);
+    setDeleteDialogOpen(true);
+  }, []);
 
   const confirmDelete = async () => {
-    if (!deletingSection) return
+    if (!deletingSection) return;
 
     try {
-      setDeleting(true)
-      await handleDeleteSection(deletingSection.id)
-      setDeleteDialogOpen(false)
-      setDeletingSection(null)
+      setDeleting(true);
+      await handleDeleteSection(deletingSection.id);
+      setDeleteDialogOpen(false);
+      setDeletingSection(null);
     } catch (err) {
-      showToast('error', 'Failed to delete section')
+      showToast('error', 'Failed to delete section');
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   const onSaveSection = async (data: SectionCreate | SectionUpdate) => {
-    await handleSaveSection(data, editorMode, editingSection, parentSection)
-  }
+    await handleSaveSection(data, editorMode, editingSection, parentSection);
+  };
 
   const onCreateVersion = async (notes?: string) => {
-    await handleCreateVersion(notes)
-  }
+    await handleCreateVersion(notes);
+  };
 
   const onCreateAmendment = async (title: string, description?: string) => {
-    const amendment = await handleCreateAmendment(title, description)
+    const amendment = await handleCreateAmendment(title, description);
     if (amendment) {
-      navigate(`/amendments/${amendment.id}`)
+      navigate(`/amendments/${amendment.id}`);
     }
-  }
+  };
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (!doc) {
@@ -127,7 +127,7 @@ export default function DocumentPage() {
           Return to documents
         </Link>
       </div>
-    )
+    );
   }
 
   return (
@@ -207,5 +207,5 @@ export default function DocumentPage() {
         />
       )}
     </div>
-  )
+  );
 }

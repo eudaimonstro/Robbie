@@ -94,10 +94,7 @@ export default function VerifyScreen() {
       }
       // Navigation happens automatically via root layout when authenticated
     } catch (err) {
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Verification failed'
-      );
+      Alert.alert('Error', err instanceof Error ? err.message : 'Verification failed');
       setCode(Array(CODE_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
     } finally {
@@ -124,7 +121,7 @@ export default function VerifyScreen() {
         [
           { text: 'OK', style: 'cancel' },
           { text: 'Go Back', onPress: () => router.back() },
-        ]
+        ],
       );
     } finally {
       setIsResending(false);
@@ -160,9 +157,7 @@ export default function VerifyScreen() {
                   ]}
                   value={digit}
                   onChangeText={(value) => handleCodeChange(value, index)}
-                  onKeyPress={({ nativeEvent }) =>
-                    handleKeyPress(nativeEvent.key, index)
-                  }
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"
                   maxLength={1}
                   selectTextOnFocus
@@ -204,11 +199,7 @@ export default function VerifyScreen() {
             </Pressable>
           </View>
 
-          <Button
-            title="Back to Login"
-            onPress={() => router.back()}
-            variant="ghost"
-          />
+          <Button title="Back to Login" onPress={() => router.back()} variant="ghost" />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

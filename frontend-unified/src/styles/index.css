@@ -7,7 +7,12 @@
     @apply font-body text-secondary-900 bg-secondary-50 dark:bg-secondary-900 dark:text-secondary-100;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading font-semibold;
   }
 }
@@ -189,7 +194,8 @@
     @apply mb-4;
   }
 
-  .document-content ul, .document-content ol {
+  .document-content ul,
+  .document-content ol {
     @apply mb-4 pl-6;
   }
 
@@ -396,7 +402,9 @@
   }
 
   /* Page breaks */
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     page-break-after: avoid;
   }
 

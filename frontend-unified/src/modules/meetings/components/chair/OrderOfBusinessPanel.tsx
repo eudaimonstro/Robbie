@@ -11,7 +11,7 @@ interface OrderOfBusinessPanelProps {
 
 export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
   state,
-  dispatch
+  dispatch,
 }: OrderOfBusinessPanelProps) {
   if (!state.meetingActive || state.meetingStage === 'adjourned') {
     return null;
@@ -19,7 +19,10 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
 
   return (
     <section className="card p-4" aria-labelledby="order-of-business-heading">
-      <h3 id="order-of-business-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">
+      <h3
+        id="order-of-business-heading"
+        className="font-semibold mb-3 text-secondary-800 dark:text-white"
+      >
         Order of Business
       </h3>
       <div className="space-y-2" role="list" aria-label="Meeting stages">
@@ -34,7 +37,11 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
               role="listitem"
               onClick={() => {
                 if (isClickable) {
-                  dispatch({ type: 'SET_MEETING_STAGE', stage: item.stage, timestamp: generateTimestamp() });
+                  dispatch({
+                    type: 'SET_MEETING_STAGE',
+                    stage: item.stage,
+                    timestamp: generateTimestamp(),
+                  });
                 }
               }}
               disabled={isCurrent}
@@ -45,14 +52,22 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
               }`}
               aria-current={isCurrent ? 'step' : undefined}
             >
-              <span className={`flex items-center gap-2 ${
-                isCurrent ? 'font-semibold text-meeting-900 dark:text-meeting-200' : 'text-secondary-600 dark:text-secondary-400'
-              }`}>
+              <span
+                className={`flex items-center gap-2 ${
+                  isCurrent
+                    ? 'font-semibold text-meeting-900 dark:text-meeting-200'
+                    : 'text-secondary-600 dark:text-secondary-400'
+                }`}
+              >
                 <span aria-hidden="true">{item.icon}</span>
                 {item.label}
               </span>
               {isCurrent && (
-                <ChevronRight size={18} className="text-meeting-600 dark:text-meeting-400" aria-hidden="true" />
+                <ChevronRight
+                  size={18}
+                  className="text-meeting-600 dark:text-meeting-400"
+                  aria-hidden="true"
+                />
               )}
             </button>
           );

@@ -2,14 +2,24 @@ import type { Server, Socket } from 'socket.io';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
-  SocketData
+  SocketData,
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
 import { applyAction } from './stateManager.js';
 import { actionRateLimiter, joinRateLimiter } from './rateLimiter.js';
 
-type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
-type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type TypedSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
+type TypedServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  Record<string, never>,
+  SocketData
+>;
 
 /**
  * Handle socket disconnect and LEAVE_MEETING events
@@ -31,7 +41,7 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
         type: 'SET_MEMBER_PRESENCE',
         memberId: socket.data.userId,
         present: false,
-        timestamp
+        timestamp,
       });
 
       // Broadcast state update if presence changed
@@ -39,7 +49,7 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
         io.to(roomName).emit('STATE_UPDATE', {
           state: presenceResult.state,
           stateVersion: presenceResult.stateVersion!,
-          triggeredBy: { actionType: 'MEMBER_LEFT', userId: socket.data.userId }
+          triggeredBy: { actionType: 'MEMBER_LEFT', userId: socket.data.userId },
         });
       }
     }
@@ -50,9 +60,9 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
         id: socket.data.userId,
         name: socket.data.name,
         role: socket.data.role,
-        present: stillConnected
+        present: stillConnected,
       },
-      timestamp
+      timestamp,
     });
 
     socket.leave(roomName);

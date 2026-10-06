@@ -9,12 +9,7 @@ import { Plus, Clock, FileText, Loader2 } from 'lucide-react';
 import type { MeetingPacket, AgendaItem, Attachment } from './types';
 import { AgendaItemEditor } from './AgendaItemEditor';
 import { AttachmentUploader } from './AttachmentUploader';
-import {
-  createAgendaItem,
-  updateAgendaItem,
-  deleteAgendaItem,
-  reorderAgendaItems
-} from './api';
+import { createAgendaItem, updateAgendaItem, deleteAgendaItem, reorderAgendaItems } from './api';
 
 interface PacketBuilderProps {
   packet: MeetingPacket;
@@ -34,7 +29,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
       const newItem = await createAgendaItem(packet.id, { title: newItemTitle.trim() });
       onPacketUpdate({
         ...packet,
-        agendaItems: [...packet.agendaItems, newItem]
+        agendaItems: [...packet.agendaItems, newItem],
       });
       setNewItemTitle('');
     } catch (err) {
@@ -44,67 +39,83 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     }
   };
 
-  const handleUpdateItem = useCallback(async (itemId: string, updates: Partial<AgendaItem>) => {
-    try {
-      const updated = await updateAgendaItem(itemId, updates);
+  const handleUpdateItem = useCallback(
+    async (itemId: string, updates: Partial<AgendaItem>) => {
+      try {
+        const updated = await updateAgendaItem(itemId, updates);
+        onPacketUpdate({
+          ...packet,
+          agendaItems: packet.agendaItems.map((item) =>
+            item.id === itemId ? { ...item, ...updated } : item,
+          ),
+        });
+      } catch (err) {
+        console.error('Failed to update agenda item:', err);
+      }
+    },
+    [packet, onPacketUpdate],
+  );
+
+  const handleDeleteItem = useCallback(
+    async (itemId: string) => {
+      try {
+        await deleteAgendaItem(itemId);
+        onPacketUpdate({
+          ...packet,
+          agendaItems: packet.agendaItems.filter((item) => item.id !== itemId),
+        });
+      } catch (err) {
+        console.error('Failed to delete agenda item:', err);
+      }
+    },
+    [packet, onPacketUpdate],
+  );
+
+  const handleItemAttachmentAdded = useCallback(
+    (itemId: string, attachment: Attachment) => {
       onPacketUpdate({
         ...packet,
-        agendaItems: packet.agendaItems.map(item =>
-          item.id === itemId ? { ...item, ...updated } : item
-        )
+        agendaItems: packet.agendaItems.map((item) =>
+          item.id === itemId ? { ...item, attachments: [...item.attachments, attachment] } : item,
+        ),
       });
-    } catch (err) {
-      console.error('Failed to update agenda item:', err);
-    }
-  }, [packet, onPacketUpdate]);
+    },
+    [packet, onPacketUpdate],
+  );
 
-  const handleDeleteItem = useCallback(async (itemId: string) => {
-    try {
-      await deleteAgendaItem(itemId);
+  const handleItemAttachmentRemoved = useCallback(
+    (itemId: string, attachmentId: string) => {
       onPacketUpdate({
         ...packet,
-        agendaItems: packet.agendaItems.filter(item => item.id !== itemId)
+        agendaItems: packet.agendaItems.map((item) =>
+          item.id === itemId
+            ? { ...item, attachments: item.attachments.filter((a) => a.id !== attachmentId) }
+            : item,
+        ),
       });
-    } catch (err) {
-      console.error('Failed to delete agenda item:', err);
-    }
-  }, [packet, onPacketUpdate]);
+    },
+    [packet, onPacketUpdate],
+  );
 
-  const handleItemAttachmentAdded = useCallback((itemId: string, attachment: Attachment) => {
-    onPacketUpdate({
-      ...packet,
-      agendaItems: packet.agendaItems.map(item =>
-        item.id === itemId
-          ? { ...item, attachments: [...item.attachments, attachment] }
-          : item
-      )
-    });
-  }, [packet, onPacketUpdate]);
+  const handlePacketAttachmentAdded = useCallback(
+    (attachment: Attachment) => {
+      onPacketUpdate({
+        ...packet,
+        attachments: [...packet.attachments, attachment],
+      });
+    },
+    [packet, onPacketUpdate],
+  );
 
-  const handleItemAttachmentRemoved = useCallback((itemId: string, attachmentId: string) => {
-    onPacketUpdate({
-      ...packet,
-      agendaItems: packet.agendaItems.map(item =>
-        item.id === itemId
-          ? { ...item, attachments: item.attachments.filter(a => a.id !== attachmentId) }
-          : item
-      )
-    });
-  }, [packet, onPacketUpdate]);
-
-  const handlePacketAttachmentAdded = useCallback((attachment: Attachment) => {
-    onPacketUpdate({
-      ...packet,
-      attachments: [...packet.attachments, attachment]
-    });
-  }, [packet, onPacketUpdate]);
-
-  const handlePacketAttachmentRemoved = useCallback((attachmentId: string) => {
-    onPacketUpdate({
-      ...packet,
-      attachments: packet.attachments.filter(a => a.id !== attachmentId)
-    });
-  }, [packet, onPacketUpdate]);
+  const handlePacketAttachmentRemoved = useCallback(
+    (attachmentId: string) => {
+      onPacketUpdate({
+        ...packet,
+        attachments: packet.attachments.filter((a) => a.id !== attachmentId),
+      });
+    },
+    [packet, onPacketUpdate],
+  );
 
   // Simple drag and drop handlers (without external library)
   const handleDragStart = (itemId: string) => {
@@ -122,8 +133,8 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
       return;
     }
 
-    const draggedIndex = packet.agendaItems.findIndex(i => i.id === draggedItemId);
-    const targetIndex = packet.agendaItems.findIndex(i => i.id === targetId);
+    const draggedIndex = packet.agendaItems.findIndex((i) => i.id === draggedItemId);
+    const targetIndex = packet.agendaItems.findIndex((i) => i.id === targetId);
 
     if (draggedIndex === -1 || targetIndex === -1) return;
 
@@ -135,17 +146,17 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     // Update positions
     const reorderedItems = newItems.map((item, index) => ({
       ...item,
-      position: index
+      position: index,
     }));
 
     onPacketUpdate({
       ...packet,
-      agendaItems: reorderedItems
+      agendaItems: reorderedItems,
     });
 
     // Then sync to server
     try {
-      await reorderAgendaItems(reorderedItems.map(i => i.id));
+      await reorderAgendaItems(reorderedItems.map((i) => i.id));
     } catch (err) {
       console.error('Failed to reorder:', err);
       // Could revert on error
@@ -154,8 +165,12 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     setDraggedItemId(null);
   };
 
-  const totalMinutes = packet.agendaItems.reduce((sum, item) => sum + (item.estimatedMinutes || 0), 0);
-  const totalAttachments = packet.attachments.length +
+  const totalMinutes = packet.agendaItems.reduce(
+    (sum, item) => sum + (item.estimatedMinutes || 0),
+    0,
+  );
+  const totalAttachments =
+    packet.attachments.length +
     packet.agendaItems.reduce((sum, item) => sum + item.attachments.length, 0);
 
   return (
@@ -207,9 +222,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
               style={{ opacity: draggedItemId === item.id ? 0.5 : 1 }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-400 w-6">
-                  {index + 1}.
-                </span>
+                <span className="text-sm font-medium text-gray-400 w-6">{index + 1}.</span>
                 <div className="flex-1">
                   <AgendaItemEditor
                     item={item}
@@ -217,12 +230,16 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
                     packetId={packet.id}
                     onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                     onDelete={() => handleDeleteItem(item.id)}
-                    onAttachmentAdded={(attachment) => handleItemAttachmentAdded(item.id, attachment)}
-                    onAttachmentRemoved={(attachmentId) => handleItemAttachmentRemoved(item.id, attachmentId)}
+                    onAttachmentAdded={(attachment) =>
+                      handleItemAttachmentAdded(item.id, attachment)
+                    }
+                    onAttachmentRemoved={(attachmentId) =>
+                      handleItemAttachmentRemoved(item.id, attachmentId)
+                    }
                     isDragging={draggedItemId === item.id}
                     dragHandleProps={{
                       draggable: true,
-                      onDragStart: () => handleDragStart(item.id)
+                      onDragStart: () => handleDragStart(item.id),
                     }}
                   />
                 </div>
@@ -247,11 +264,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
             disabled={!newItemTitle.trim() || isCreating}
             className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isCreating ? (
-              <Loader2 size={20} className="animate-spin" />
-            ) : (
-              <Plus size={20} />
-            )}
+            {isCreating ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
             Add
           </button>
         </div>

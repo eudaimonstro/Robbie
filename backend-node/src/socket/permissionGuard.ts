@@ -74,18 +74,18 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   RESPOND_ROLL_CALL: ['member', 'chair', 'admin'],
 
   // Proxy voting actions
-  SET_PROXY_SETTINGS: ['admin', 'chair'],  // Admin/chair can enable/configure proxy voting
-  GRANT_PROXY: ['admin', 'chair'],          // Admin/chair grants proxies on behalf of absent members
-  REVOKE_PROXY: ['admin', 'chair'],         // Admin/chair can revoke proxies
-  CAST_PROXY_VOTE: ['member', 'chair', 'admin'],  // Proxy holders can cast proxy votes
+  SET_PROXY_SETTINGS: ['admin', 'chair'], // Admin/chair can enable/configure proxy voting
+  GRANT_PROXY: ['admin', 'chair'], // Admin/chair grants proxies on behalf of absent members
+  REVOKE_PROXY: ['admin', 'chair'], // Admin/chair can revoke proxies
+  CAST_PROXY_VOTE: ['member', 'chair', 'admin'], // Proxy holders can cast proxy votes
   // Member-initiated proxy request actions
-  REQUEST_PROXY: ['member', 'chair', 'admin'],    // Members can request proxies
-  ACCEPT_PROXY: ['member', 'chair', 'admin'],     // Members can accept proxy requests
-  DECLINE_PROXY: ['member', 'chair', 'admin'],    // Members can decline proxy requests
-  CANCEL_PROXY_REQUEST: ['member', 'chair', 'admin'],  // Members can cancel their own requests
+  REQUEST_PROXY: ['member', 'chair', 'admin'], // Members can request proxies
+  ACCEPT_PROXY: ['member', 'chair', 'admin'], // Members can accept proxy requests
+  DECLINE_PROXY: ['member', 'chair', 'admin'], // Members can decline proxy requests
+  CANCEL_PROXY_REQUEST: ['member', 'chair', 'admin'], // Members can cancel their own requests
 
   // Member management
-  RENAME_MEMBER: ['member', 'chair', 'admin'],    // Members can rename themselves, admin/chair can rename anyone
+  RENAME_MEMBER: ['member', 'chair', 'admin'], // Members can rename themselves, admin/chair can rename anyone
 };
 
 /**

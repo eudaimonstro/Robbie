@@ -10,7 +10,7 @@ interface PendingSecondPanelProps {
 
 export const PendingSecondPanel = React.memo(function PendingSecondPanel({
   state,
-  dispatch
+  dispatch,
 }: PendingSecondPanelProps) {
   if (!state.pendingSecond) {
     return null;

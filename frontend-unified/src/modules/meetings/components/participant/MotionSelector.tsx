@@ -13,7 +13,13 @@ interface MotionSelectorProps {
   onSubmit: () => void;
 }
 
-const SPECIAL_MOTIONS = ['amendAgenda', 'bylawAmendment', 'suspendRules', 'takeFromTable', 'reconsider'];
+const SPECIAL_MOTIONS = [
+  'amendAgenda',
+  'bylawAmendment',
+  'suspendRules',
+  'takeFromTable',
+  'reconsider',
+];
 
 export const MotionSelector = React.memo(function MotionSelector({
   selectedMotion,
@@ -22,19 +28,25 @@ export const MotionSelector = React.memo(function MotionSelector({
   motionText,
   setMotionText,
   groupedMotions,
-  onSubmit
+  onSubmit,
 }: MotionSelectorProps) {
   const isSpecialMotion = SPECIAL_MOTIONS.includes(selectedMotion);
   const needsText = !isSpecialMotion && !motionText.trim() && !selectedMotionDef?.phrase;
 
   const getButtonLabel = () => {
     switch (selectedMotion) {
-      case 'amendAgenda': return 'Configure Amendment...';
-      case 'bylawAmendment': return 'Configure Bylaw Amendment...';
-      case 'suspendRules': return 'Configure Suspension...';
-      case 'takeFromTable': return 'Select Tabled Motion...';
-      case 'reconsider': return 'Select Motion to Reconsider...';
-      default: return 'Submit Motion';
+      case 'amendAgenda':
+        return 'Configure Amendment...';
+      case 'bylawAmendment':
+        return 'Configure Bylaw Amendment...';
+      case 'suspendRules':
+        return 'Configure Suspension...';
+      case 'takeFromTable':
+        return 'Select Tabled Motion...';
+      case 'reconsider':
+        return 'Select Motion to Reconsider...';
+      default:
+        return 'Submit Motion';
     }
   };
 
@@ -47,9 +59,14 @@ export const MotionSelector = React.memo(function MotionSelector({
         aria-label="Select motion type"
       >
         {Object.entries(groupedMotions).map(([cat, motions]) => (
-          <optgroup key={cat} label={`${CATEGORY_INFO[cat as keyof typeof CATEGORY_INFO].label} Motions`}>
+          <optgroup
+            key={cat}
+            label={`${CATEGORY_INFO[cat as keyof typeof CATEGORY_INFO].label} Motions`}
+          >
             {motions.map((m) => (
-              <option key={m.key} value={m.key}>{m.name}</option>
+              <option key={m.key} value={m.key}>
+                {m.name}
+              </option>
             ))}
           </optgroup>
         ))}
@@ -61,7 +78,9 @@ export const MotionSelector = React.memo(function MotionSelector({
             <HelpTooltip motion={selectedMotionDef} />
             <div>
               <p className="text-secondary-700 dark:text-secondary-300">{selectedMotionDef.help}</p>
-              <p className="text-secondary-500 dark:text-secondary-400 italic mt-1">"{selectedMotionDef.phrase}"</p>
+              <p className="text-secondary-500 dark:text-secondary-400 italic mt-1">
+                "{selectedMotionDef.phrase}"
+              </p>
             </div>
           </div>
         </div>
@@ -71,7 +90,7 @@ export const MotionSelector = React.memo(function MotionSelector({
         <div className="mb-3">
           <input
             type="text"
-            placeholder={selectedMotionDef?.phrase || "I move that..."}
+            placeholder={selectedMotionDef?.phrase || 'I move that...'}
             value={motionText}
             onChange={(e) => setMotionText(e.target.value.slice(0, 500))}
             maxLength={500}
@@ -79,7 +98,10 @@ export const MotionSelector = React.memo(function MotionSelector({
             aria-label="Motion text"
             aria-describedby="motion-char-count"
           />
-          <div id="motion-char-count" className="text-xs text-secondary-500 dark:text-secondary-400 text-right mt-1">
+          <div
+            id="motion-char-count"
+            className="text-xs text-secondary-500 dark:text-secondary-400 text-right mt-1"
+          >
             {motionText.length}/500
           </div>
         </div>

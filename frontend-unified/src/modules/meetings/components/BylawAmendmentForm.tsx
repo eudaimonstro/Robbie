@@ -10,7 +10,7 @@ import {
   ErrorState,
   NoOrgLinkedState,
   NoDocumentsState,
-  LoadingSections
+  LoadingSections,
 } from './bylawAmendment';
 
 export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAmendmentFormProps) {
@@ -33,11 +33,11 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   const [newTitle, setNewTitle] = useState<string>('');
   const [newNumberLabel, setNewNumberLabel] = useState<string>('');
 
-  const selectedDocument = documents.find(d => d.id === selectedDocumentId);
-  const selectedSection = flatSections.find(s => s.id === targetSectionId);
+  const selectedDocument = documents.find((d) => d.id === selectedDocumentId);
+  const selectedSection = flatSections.find((s) => s.id === targetSectionId);
 
   const buildMotionText = useCallback((): string => {
-    const parentSection = flatSections.find(s => s.id === parentSectionId);
+    const parentSection = flatSections.find((s) => s.id === parentSectionId);
 
     switch (changeType) {
       case 'add':
@@ -70,25 +70,43 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       case 'modify':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
+        bylawAmendment.targetSectionLabel = selectedSection
+          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          : undefined;
         bylawAmendment.newContent = newContent;
         if (newTitle) bylawAmendment.newTitle = newTitle;
         break;
       case 'delete':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
+        bylawAmendment.targetSectionLabel = selectedSection
+          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          : undefined;
         break;
       case 'renumber':
         if (!targetSectionId) return;
         bylawAmendment.targetSectionId = targetSectionId;
-        bylawAmendment.targetSectionLabel = selectedSection ? `${selectedSection.number_label} "${selectedSection.title}"` : undefined;
+        bylawAmendment.targetSectionLabel = selectedSection
+          ? `${selectedSection.number_label} "${selectedSection.title}"`
+          : undefined;
         bylawAmendment.newNumberLabel = newNumberLabel;
         break;
     }
 
     onSubmit(buildMotionText(), bylawAmendment);
-  }, [selectedDocumentId, selectedDocument, changeType, parentSectionId, newTitle, newContent, newNumberLabel, targetSectionId, selectedSection, onSubmit, buildMotionText]);
+  }, [
+    selectedDocumentId,
+    selectedDocument,
+    changeType,
+    parentSectionId,
+    newTitle,
+    newContent,
+    newNumberLabel,
+    targetSectionId,
+    selectedSection,
+    onSubmit,
+    buildMotionText,
+  ]);
 
   const canSubmit = useCallback((): boolean => {
     if (!selectedDocumentId) return false;
@@ -109,8 +127,10 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   // Early returns for status states
   if (loading) return <LoadingState />;
   if (error) return <ErrorState error={error} onCancel={onCancel} />;
-  if (!linkedOrg?.linked || !linkedOrg.organization) return <NoOrgLinkedState onCancel={onCancel} />;
-  if (documents.length === 0) return <NoDocumentsState orgName={linkedOrg.organization.name} onCancel={onCancel} />;
+  if (!linkedOrg?.linked || !linkedOrg.organization)
+    return <NoOrgLinkedState onCancel={onCancel} />;
+  if (documents.length === 0)
+    return <NoDocumentsState orgName={linkedOrg.organization.name} onCancel={onCancel} />;
 
   return (
     <div className="space-y-4">
@@ -131,8 +151,10 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
           onChange={(e) => setSelectedDocumentId(e.target.value)}
           className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
         >
-          {documents.map(doc => (
-            <option key={doc.id} value={doc.id}>{doc.title}</option>
+          {documents.map((doc) => (
+            <option key={doc.id} value={doc.id}>
+              {doc.title}
+            </option>
           ))}
         </select>
       </div>

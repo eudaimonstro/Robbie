@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Users, UserPlus, UserMinus, Settings, Clock, X } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member, PendingProxyRequest } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  PendingProxyRequest,
+} from '@robbie-bylawyer/shared/types';
 
 interface ProxyManagementPanelProps {
   state: MeetingState;
@@ -10,7 +15,7 @@ interface ProxyManagementPanelProps {
 
 export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
   state,
-  dispatch
+  dispatch,
 }: ProxyManagementPanelProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [maxProxies, setMaxProxies] = useState(state.maxProxiesPerMember);
@@ -22,22 +27,22 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
 
   // Get pending proxy requests
   const pendingRequests = useMemo(() => {
-    return state.pendingProxyRequests.filter(r => r.status === 'pending');
+    return state.pendingProxyRequests.filter((r) => r.status === 'pending');
   }, [state.pendingProxyRequests]);
 
   // Get absent members who don't already have a proxy
   const absentMembersWithoutProxy = useMemo(() => {
-    const membersWithProxy = new Set(state.proxies.map(p => p.grantedBy));
-    return state.members.filter(m => !m.present && !membersWithProxy.has(m.id));
+    const membersWithProxy = new Set(state.proxies.map((p) => p.grantedBy));
+    return state.members.filter((m) => !m.present && !membersWithProxy.has(m.id));
   }, [state.members, state.proxies]);
 
   // Get present members who can hold proxies
   const eligibleProxyHolders = useMemo(() => {
-    return state.members.filter(m => {
+    return state.members.filter((m) => {
       if (!m.present) return false;
       // Check if they've reached max proxies (0 = unlimited)
       if (state.maxProxiesPerMember === 0) return true;
-      const currentCount = state.proxies.filter(p => p.grantedTo === m.id).length;
+      const currentCount = state.proxies.filter((p) => p.grantedTo === m.id).length;
       return currentCount < state.maxProxiesPerMember;
     });
   }, [state.members, state.proxies, state.maxProxiesPerMember]);
@@ -47,7 +52,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
     const grouped: Record<number, { holder: Member; proxies: typeof state.proxies }> = {};
     for (const proxy of state.proxies) {
       if (!grouped[proxy.grantedTo]) {
-        const holder = state.members.find(m => m.id === proxy.grantedTo);
+        const holder = state.members.find((m) => m.id === proxy.grantedTo);
         if (holder) {
           grouped[proxy.grantedTo] = { holder, proxies: [] };
         }
@@ -65,7 +70,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
       allowProxyVoting: !state.allowProxyVoting,
       maxProxiesPerMember: state.maxProxiesPerMember,
       proxiesCountForQuorum: state.proxiesCountForQuorum,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
   }, [dispatch, state.allowProxyVoting, state.maxProxiesPerMember, state.proxiesCountForQuorum]);
 
@@ -76,24 +81,27 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
       maxProxiesPerMember: maxProxies,
       proxiesCountForQuorum: countForQuorum,
       allowMemberProxyGrant: allowMemberGrant,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
     setShowSettings(false);
   }, [dispatch, state.allowProxyVoting, maxProxies, countForQuorum, allowMemberGrant]);
 
-  const handleCancelRequest = useCallback((requestId: number) => {
-    dispatch({
-      type: 'CANCEL_PROXY_REQUEST',
-      requestId,
-      timestamp: generateTimestamp()
-    });
-  }, [dispatch]);
+  const handleCancelRequest = useCallback(
+    (requestId: number) => {
+      dispatch({
+        type: 'CANCEL_PROXY_REQUEST',
+        requestId,
+        timestamp: generateTimestamp(),
+      });
+    },
+    [dispatch],
+  );
 
   const handleGrantProxy = useCallback(() => {
     if (selectedAbsentMember === '' || selectedProxyHolder === '') return;
 
-    const absentMember = state.members.find(m => m.id === selectedAbsentMember);
-    const holder = state.members.find(m => m.id === selectedProxyHolder);
+    const absentMember = state.members.find((m) => m.id === selectedAbsentMember);
+    const holder = state.members.find((m) => m.id === selectedProxyHolder);
     if (!absentMember || !holder) return;
 
     dispatch({
@@ -104,20 +112,23 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
       grantedByName: absentMember.name,
       grantedToName: holder.name,
       scope: proxyScope,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
 
     setSelectedAbsentMember('');
     setSelectedProxyHolder('');
   }, [dispatch, selectedAbsentMember, selectedProxyHolder, proxyScope, state.members]);
 
-  const handleRevokeProxy = useCallback((proxyId: number) => {
-    dispatch({
-      type: 'REVOKE_PROXY',
-      proxyId,
-      timestamp: generateTimestamp()
-    });
-  }, [dispatch]);
+  const handleRevokeProxy = useCallback(
+    (proxyId: number) => {
+      dispatch({
+        type: 'REVOKE_PROXY',
+        proxyId,
+        timestamp: generateTimestamp(),
+      });
+    },
+    [dispatch],
+  );
 
   return (
     <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="proxy-heading">
@@ -140,7 +151,9 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               onChange={handleToggleProxyVoting}
               className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            <span className={state.allowProxyVoting ? 'text-green-700 font-medium' : 'text-gray-500'}>
+            <span
+              className={state.allowProxyVoting ? 'text-green-700 font-medium' : 'text-gray-500'}
+            >
               {state.allowProxyVoting ? 'Enabled' : 'Disabled'}
             </span>
           </label>
@@ -150,8 +163,8 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
       {/* Warning about Robert's Rules */}
       {state.allowProxyVoting && (
         <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-          <strong>Note:</strong> Proxy voting is not standard under Robert's Rules of Order.
-          Only use if authorized by your organization's bylaws.
+          <strong>Note:</strong> Proxy voting is not standard under Robert's Rules of Order. Only
+          use if authorized by your organization's bylaws.
         </div>
       )}
 
@@ -187,11 +200,14 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               onChange={(e) => setAllowMemberGrant(e.target.checked)}
               className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-600">Allow members to request their own proxies</span>
+            <span className="text-sm text-gray-600">
+              Allow members to request their own proxies
+            </span>
           </label>
           {allowMemberGrant && (
             <p className="text-xs text-amber-600 mb-3">
-              Members can send proxy requests to other members, who must accept before the proxy is active.
+              Members can send proxy requests to other members, who must accept before the proxy is
+              active.
             </p>
           )}
           <button
@@ -215,13 +231,17 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                 <label className="block text-xs text-gray-600 mb-1">Absent Member</label>
                 <select
                   value={selectedAbsentMember}
-                  onChange={(e) => setSelectedAbsentMember(e.target.value ? parseInt(e.target.value) : '')}
+                  onChange={(e) =>
+                    setSelectedAbsentMember(e.target.value ? parseInt(e.target.value) : '')
+                  }
                   className="w-full p-2 border rounded text-sm"
                   disabled={absentMembersWithoutProxy.length === 0}
                 >
                   <option value="">Select member...</option>
-                  {absentMembersWithoutProxy.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
+                  {absentMembersWithoutProxy.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -229,14 +249,16 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                 <label className="block text-xs text-gray-600 mb-1">Proxy Holder</label>
                 <select
                   value={selectedProxyHolder}
-                  onChange={(e) => setSelectedProxyHolder(e.target.value ? parseInt(e.target.value) : '')}
+                  onChange={(e) =>
+                    setSelectedProxyHolder(e.target.value ? parseInt(e.target.value) : '')
+                  }
                   className="w-full p-2 border rounded text-sm"
                   disabled={eligibleProxyHolders.length === 0}
                 >
                   <option value="">Select holder...</option>
-                  {eligibleProxyHolders.map(m => (
+                  {eligibleProxyHolders.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({state.proxies.filter(p => p.grantedTo === m.id).length} proxies)
+                      {m.name} ({state.proxies.filter((p) => p.grantedTo === m.id).length} proxies)
                     </option>
                   ))}
                 </select>
@@ -286,10 +308,11 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                 {proxiesByHolder.map(({ holder, proxies }) => (
                   <div key={holder.id} className="p-2 bg-gray-50 rounded border">
                     <p className="text-sm font-medium text-gray-800 mb-1">
-                      {holder.name} <span className="text-gray-500">holds {proxies.length} proxy(ies)</span>
+                      {holder.name}{' '}
+                      <span className="text-gray-500">holds {proxies.length} proxy(ies)</span>
                     </p>
                     <ul className="space-y-1">
-                      {proxies.map(proxy => (
+                      {proxies.map((proxy) => (
                         <li key={proxy.id} className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">
                             • {proxy.grantedByName}
@@ -320,8 +343,11 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                 <Clock size={14} /> Pending Requests ({pendingRequests.length})
               </h4>
               <div className="space-y-2">
-                {pendingRequests.map(request => (
-                  <div key={request.id} className="p-2 bg-amber-50 rounded border border-amber-200 flex items-center justify-between">
+                {pendingRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="p-2 bg-amber-50 rounded border border-amber-200 flex items-center justify-between"
+                  >
                     <div className="text-sm">
                       <span className="font-medium text-gray-800">{request.requestedByName}</span>
                       <span className="text-gray-500"> → </span>

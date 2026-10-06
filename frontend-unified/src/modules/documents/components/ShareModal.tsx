@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react'
-import { Copy, Check, RefreshCw, Link, AlertTriangle } from 'lucide-react'
-import { documents as documentsApi, ShareStatus } from '../../../api/client'
-import Modal from '../../../components/ui/Modal'
-import { useToast } from '../../../context/ToastContext'
+import { useState, useEffect } from 'react';
+import { Copy, Check, RefreshCw, Link, AlertTriangle } from 'lucide-react';
+import { documents as documentsApi, ShareStatus } from '../../../api/client';
+import Modal from '../../../components/ui/Modal';
+import { useToast } from '../../../context/ToastContext';
 
 interface ShareModalProps {
-  isOpen: boolean
-  onClose: () => void
-  documentId: string
-  documentTitle: string
+  isOpen: boolean;
+  onClose: () => void;
+  documentId: string;
+  documentTitle: string;
 }
 
 export default function ShareModal({
@@ -17,97 +17,98 @@ export default function ShareModal({
   documentId,
   documentTitle,
 }: ShareModalProps) {
-  const { showToast } = useToast()
-  const [shareStatus, setShareStatus] = useState<ShareStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [copying, setCopying] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
-  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
+  const { showToast } = useToast();
+  const [shareStatus, setShareStatus] = useState<ShareStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      fetchShareStatus()
+      fetchShareStatus();
     }
-  }, [isOpen, documentId])
+  }, [isOpen, documentId]);
 
   const fetchShareStatus = async () => {
     try {
-      setLoading(true)
-      const status = await documentsApi.getShareStatus(documentId)
-      setShareStatus(status)
+      setLoading(true);
+      const status = await documentsApi.getShareStatus(documentId);
+      setShareStatus(status);
     } catch (err) {
-      showToast('error', 'Failed to load sharing status')
+      showToast('error', 'Failed to load sharing status');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleEnableSharing = async () => {
     try {
-      setLoading(true)
-      const status = await documentsApi.enableSharing(documentId)
-      setShareStatus(status)
-      showToast('success', 'Sharing enabled')
+      setLoading(true);
+      const status = await documentsApi.enableSharing(documentId);
+      setShareStatus(status);
+      showToast('success', 'Sharing enabled');
     } catch (err) {
-      showToast('error', 'Failed to enable sharing')
+      showToast('error', 'Failed to enable sharing');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleDisableSharing = async () => {
     try {
-      setLoading(true)
-      await documentsApi.disableSharing(documentId)
+      setLoading(true);
+      await documentsApi.disableSharing(documentId);
       if (shareStatus) {
-        setShareStatus({ ...shareStatus, share_enabled: false })
+        setShareStatus({ ...shareStatus, share_enabled: false });
       }
-      showToast('success', 'Sharing disabled')
+      showToast('success', 'Sharing disabled');
     } catch (err) {
-      showToast('error', 'Failed to disable sharing')
+      showToast('error', 'Failed to disable sharing');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleRegenerateToken = async () => {
     try {
-      setRegenerating(true)
-      const status = await documentsApi.regenerateShareToken(documentId)
-      setShareStatus(status)
-      setShowRegenerateConfirm(false)
-      showToast('success', 'New share link generated. Old links no longer work.')
+      setRegenerating(true);
+      const status = await documentsApi.regenerateShareToken(documentId);
+      setShareStatus(status);
+      setShowRegenerateConfirm(false);
+      showToast('success', 'New share link generated. Old links no longer work.');
     } catch (err) {
-      showToast('error', 'Failed to regenerate share link')
+      showToast('error', 'Failed to regenerate share link');
     } finally {
-      setRegenerating(false)
+      setRegenerating(false);
     }
-  }
+  };
 
   const getFullShareUrl = () => {
-    if (!shareStatus) return ''
-    return `${window.location.origin}/share/${shareStatus.share_token}`
-  }
+    if (!shareStatus) return '';
+    return `${window.location.origin}/share/${shareStatus.share_token}`;
+  };
 
   const handleCopyLink = async () => {
     try {
-      setCopying(true)
-      await navigator.clipboard.writeText(getFullShareUrl())
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setCopying(true);
+      await navigator.clipboard.writeText(getFullShareUrl());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      showToast('error', 'Failed to copy link')
+      showToast('error', 'Failed to copy link');
     } finally {
-      setCopying(false)
+      setCopying(false);
     }
-  }
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Share Document" size="md">
       <div className="space-y-4">
         <p className="text-sm text-secondary-600 dark:text-secondary-400">
-          Share "{documentTitle}" with a read-only link. Anyone with this link can view the document.
+          Share "{documentTitle}" with a read-only link. Anyone with this link can view the
+          document.
         </p>
 
         {loading ? (
@@ -121,10 +122,7 @@ export default function ShareModal({
             <p className="text-secondary-600 dark:text-secondary-400 mb-4">
               Sharing is not enabled for this document.
             </p>
-            <button
-              onClick={handleEnableSharing}
-              className="btn-primary"
-            >
+            <button onClick={handleEnableSharing} className="btn-primary">
               Enable Sharing
             </button>
           </div>
@@ -188,7 +186,8 @@ export default function ShareModal({
                           Regenerate share link?
                         </p>
                         <p className="text-sm text-warning-700 dark:text-warning-300 mt-1">
-                          This will create a new link. Anyone using the old link will no longer be able to access this document.
+                          This will create a new link. Anyone using the old link will no longer be
+                          able to access this document.
                         </p>
                         <div className="flex items-center gap-2 mt-3">
                           <button
@@ -223,5 +222,5 @@ export default function ShareModal({
         )}
       </div>
     </Modal>
-  )
+  );
 }

@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react'
-import Modal from '../../../components/ui/Modal'
-import { SectionCreate, SectionUpdate } from '../../../api/client'
+import { useState, useEffect } from 'react';
+import Modal from '../../../components/ui/Modal';
+import { SectionCreate, SectionUpdate } from '../../../api/client';
 
 interface SectionEditorProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (data: SectionCreate | SectionUpdate) => Promise<void>
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: SectionCreate | SectionUpdate) => Promise<void>;
   section?: {
-    id?: string
-    number_label: string | null
-    title: string | null
-    content: string | null
-    annotation: string | null
-  }
-  parentLabel?: string
-  mode: 'create' | 'edit' | 'addChild'
+    id?: string;
+    number_label: string | null;
+    title: string | null;
+    content: string | null;
+    annotation: string | null;
+  };
+  parentLabel?: string;
+  mode: 'create' | 'edit' | 'addChild';
 }
 
 export default function SectionEditor({
@@ -25,75 +25,75 @@ export default function SectionEditor({
   parentLabel,
   mode,
 }: SectionEditorProps) {
-  const [numberLabel, setNumberLabel] = useState('')
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [annotation, setAnnotation] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [validationError, setValidationError] = useState<string | null>(null)
+  const [numberLabel, setNumberLabel] = useState('');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [annotation, setAnnotation] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Validation: require number_label and title for new sections, allow editing without
-  const isCreateMode = mode === 'create' || mode === 'addChild'
+  const isCreateMode = mode === 'create' || mode === 'addChild';
   const isValid = isCreateMode
     ? numberLabel.trim() !== '' && title.trim() !== ''
-    : title.trim() !== '' || content.trim() !== '' || numberLabel.trim() !== ''
+    : title.trim() !== '' || content.trim() !== '' || numberLabel.trim() !== '';
 
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && section) {
-        setNumberLabel(section.number_label || '')
-        setTitle(section.title || '')
-        setContent(section.content || '')
-        setAnnotation(section.annotation || '')
+        setNumberLabel(section.number_label || '');
+        setTitle(section.title || '');
+        setContent(section.content || '');
+        setAnnotation(section.annotation || '');
       } else {
-        setNumberLabel('')
-        setTitle('')
-        setContent('')
-        setAnnotation('')
+        setNumberLabel('');
+        setTitle('');
+        setContent('');
+        setAnnotation('');
       }
-      setError(null)
-      setValidationError(null)
+      setError(null);
+      setValidationError(null);
     }
-  }, [isOpen, section, mode])
+  }, [isOpen, section, mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setValidationError(null)
+    e.preventDefault();
+    setError(null);
+    setValidationError(null);
 
     // Validate required fields
     if (!isValid) {
       if (isCreateMode) {
-        setValidationError('Section number and title are required.')
+        setValidationError('Section number and title are required.');
       } else {
-        setValidationError('Please provide at least a section number, title, or content.')
+        setValidationError('Please provide at least a section number, title, or content.');
       }
-      return
+      return;
     }
 
     try {
-      setSaving(true)
+      setSaving(true);
       const data: SectionCreate | SectionUpdate = {
         number_label: numberLabel.trim() || undefined,
         title: title.trim() || undefined,
         content: content.trim() || undefined,
         annotation: annotation.trim() || undefined,
-      }
-      await onSave(data)
-      onClose()
+      };
+      await onSave(data);
+      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save section')
+      setError(err instanceof Error ? err.message : 'Failed to save section');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const titles = {
     create: 'Add New Section',
     edit: 'Edit Section',
     addChild: parentLabel ? `Add Child to ${parentLabel}` : 'Add Child Section',
-  }
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={titles[mode]} size="lg">
@@ -146,9 +146,7 @@ export default function SectionEditor({
             className="textarea h-40"
             placeholder="Enter section content (Markdown supported)"
           />
-          <p className="text-xs text-secondary-500 mt-1">
-            Markdown formatting is supported
-          </p>
+          <p className="text-xs text-secondary-500 mt-1">Markdown formatting is supported</p>
         </div>
 
         <div className="mb-6">
@@ -165,23 +163,14 @@ export default function SectionEditor({
         </div>
 
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-ghost"
-            disabled={saving}
-          >
+          <button type="button" onClick={onClose} className="btn-ghost" disabled={saving}>
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={saving || !isValid}
-          >
+          <button type="submit" className="btn-primary" disabled={saving || !isValid}>
             {saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Add Section'}
           </button>
         </div>
       </form>
     </Modal>
-  )
+  );
 }

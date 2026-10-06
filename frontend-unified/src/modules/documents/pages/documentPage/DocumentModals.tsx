@@ -1,40 +1,41 @@
-import { useState } from 'react'
-import Modal from '../../../../components/ui/Modal'
+import { useState } from 'react';
+import Modal from '../../../../components/ui/Modal';
 
 interface CreateVersionModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (notes?: string) => Promise<void>
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (notes?: string) => Promise<void>;
 }
 
 export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionModalProps) {
-  const [notes, setNotes] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [notes, setNotes] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setCreating(true)
-      await onSubmit(notes.trim() || undefined)
-      setNotes('')
-      onClose()
+      setCreating(true);
+      await onSubmit(notes.trim() || undefined);
+      setNotes('');
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    setNotes('')
-    onClose()
-  }
+    setNotes('');
+    onClose();
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create New Version">
       <form onSubmit={handleSubmit}>
         <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
-          Create a new version to make changes to the document. The current version will be preserved.
+          Create a new version to make changes to the document. The current version will be
+          preserved.
         </p>
         <div className="mb-4">
           <label htmlFor="versionNotes" className="label">
@@ -58,42 +59,42 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
         </div>
       </form>
     </Modal>
-  )
+  );
 }
 
 interface CreateAmendmentModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (title: string, description?: string) => Promise<void>
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (title: string, description?: string) => Promise<void>;
 }
 
 export function CreateAmendmentModal({ isOpen, onClose, onSubmit }: CreateAmendmentModalProps) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title.trim()) return
+    e.preventDefault();
+    if (!title.trim()) return;
 
     try {
-      setCreating(true)
-      await onSubmit(title.trim(), description.trim() || undefined)
-      setTitle('')
-      setDescription('')
-      onClose()
+      setCreating(true);
+      await onSubmit(title.trim(), description.trim() || undefined);
+      setTitle('');
+      setDescription('');
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    setTitle('')
-    setDescription('')
-    onClose()
-  }
+    setTitle('');
+    setDescription('');
+    onClose();
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Propose Amendment">
@@ -128,15 +129,11 @@ export function CreateAmendmentModal({ isOpen, onClose, onSubmit }: CreateAmendm
           <button type="button" onClick={handleClose} className="btn-ghost">
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={!title.trim() || creating}
-          >
+          <button type="submit" className="btn-primary" disabled={!title.trim() || creating}>
             {creating ? 'Creating...' : 'Create Amendment'}
           </button>
         </div>
       </form>
     </Modal>
-  )
+  );
 }

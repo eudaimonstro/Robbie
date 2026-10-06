@@ -8,71 +8,84 @@ import { getPagination, paginatedResponse } from '../../middleware/pagination.js
 export const meetingsRouter: RouterType = Router();
 
 // List meetings for an organization
-meetingsRouter.get('/organizations/:orgId/meetings', validate({ params: orgIdParam }), async (req, res) => {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { id: req.params.orgId }
-    });
+meetingsRouter.get(
+  '/organizations/:orgId/meetings',
+  validate({ params: orgIdParam }),
+  async (req, res) => {
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { id: req.params.orgId },
+      });
 
-    if (!org) {
-      return res.status(404).json({ error: 'Organization not found' });
+      if (!org) {
+        return res.status(404).json({ error: 'Organization not found' });
+      }
+
+      const where = { organizationId: req.params.orgId };
+
+      if (req.query.page) {
+        const pagination = getPagination(req);
+        const [meetings, total] = await Promise.all([
+          prisma.meeting.findMany({
+            where,
+            orderBy: { scheduledDate: 'desc' },
+            skip: pagination.skip,
+            take: pagination.limit,
+          }),
+          prisma.meeting.count({ where }),
+        ]);
+        return res.json(paginatedResponse(meetings, total, pagination));
+      }
+
+      const meetings = await prisma.meeting.findMany({
+        where,
+        orderBy: { scheduledDate: 'desc' },
+      });
+
+      res.json(meetings);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to list meetings' });
     }
-
-    const where = { organizationId: req.params.orgId };
-
-    if (req.query.page) {
-      const pagination = getPagination(req);
-      const [meetings, total] = await Promise.all([
-        prisma.meeting.findMany({ where, orderBy: { scheduledDate: 'desc' }, skip: pagination.skip, take: pagination.limit }),
-        prisma.meeting.count({ where }),
-      ]);
-      return res.json(paginatedResponse(meetings, total, pagination));
-    }
-
-    const meetings = await prisma.meeting.findMany({
-      where,
-      orderBy: { scheduledDate: 'desc' }
-    });
-
-    res.json(meetings);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to list meetings' });
-  }
-});
+  },
+);
 
 // Create meeting
-meetingsRouter.post('/organizations/:orgId/meetings', validate({ params: orgIdParam, body: createMeetingBody }), async (req, res) => {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { id: req.params.orgId }
-    });
+meetingsRouter.post(
+  '/organizations/:orgId/meetings',
+  validate({ params: orgIdParam, body: createMeetingBody }),
+  async (req, res) => {
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { id: req.params.orgId },
+      });
 
-    if (!org) {
-      return res.status(404).json({ error: 'Organization not found' });
-    }
-
-    const meeting = await prisma.meeting.create({
-      data: {
-        organizationId: req.params.orgId,
-        title: req.body.title || 'Meeting',
-        scheduledDate: new Date(req.body.scheduled_date || req.body.scheduledDate),
-        meetingType: req.body.meeting_type || req.body.meetingType || 'regular',
-        location: req.body.location,
-        notes: req.body.notes
+      if (!org) {
+        return res.status(404).json({ error: 'Organization not found' });
       }
-    });
 
-    res.status(201).json(meeting);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create meeting' });
-  }
-});
+      const meeting = await prisma.meeting.create({
+        data: {
+          organizationId: req.params.orgId,
+          title: req.body.title || 'Meeting',
+          scheduledDate: new Date(req.body.scheduled_date || req.body.scheduledDate),
+          meetingType: req.body.meeting_type || req.body.meetingType || 'regular',
+          location: req.body.location,
+          notes: req.body.notes,
+        },
+      });
+
+      res.status(201).json(meeting);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create meeting' });
+    }
+  },
+);
 
 // Get meeting by ID
 meetingsRouter.get('/meetings/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!meeting) {
@@ -86,40 +99,47 @@ meetingsRouter.get('/meetings/:id', validate({ params: uuidParam }), async (req,
 });
 
 // Update meeting
-meetingsRouter.put('/meetings/:id', validate({ params: uuidParam, body: updateMeetingBody }), async (req, res) => {
-  try {
-    const meeting = await prisma.meeting.findUnique({
-      where: { id: req.params.id }
-    });
+meetingsRouter.put(
+  '/meetings/:id',
+  validate({ params: uuidParam, body: updateMeetingBody }),
+  async (req, res) => {
+    try {
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: req.params.id },
+      });
 
-    if (!meeting) {
-      return res.status(404).json({ error: 'Meeting not found' });
-    }
-
-    const updated = await prisma.meeting.update({
-      where: { id: req.params.id },
-      data: {
-        title: req.body.title ?? meeting.title,
-        scheduledDate: req.body.scheduled_date ? new Date(req.body.scheduled_date) :
-          req.body.scheduledDate ? new Date(req.body.scheduledDate) : meeting.scheduledDate,
-        meetingType: req.body.meeting_type || req.body.meetingType || meeting.meetingType,
-        location: req.body.location ?? meeting.location,
-        status: req.body.status ?? meeting.status,
-        notes: req.body.notes ?? meeting.notes
+      if (!meeting) {
+        return res.status(404).json({ error: 'Meeting not found' });
       }
-    });
 
-    res.json(updated);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update meeting' });
-  }
-});
+      const updated = await prisma.meeting.update({
+        where: { id: req.params.id },
+        data: {
+          title: req.body.title ?? meeting.title,
+          scheduledDate: req.body.scheduled_date
+            ? new Date(req.body.scheduled_date)
+            : req.body.scheduledDate
+              ? new Date(req.body.scheduledDate)
+              : meeting.scheduledDate,
+          meetingType: req.body.meeting_type || req.body.meetingType || meeting.meetingType,
+          location: req.body.location ?? meeting.location,
+          status: req.body.status ?? meeting.status,
+          notes: req.body.notes ?? meeting.notes,
+        },
+      });
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update meeting' });
+    }
+  },
+);
 
 // Delete meeting
 meetingsRouter.delete('/meetings/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!meeting) {
@@ -134,69 +154,73 @@ meetingsRouter.delete('/meetings/:id', validate({ params: uuidParam }), async (r
 });
 
 // Record vote
-meetingsRouter.post('/meetings/:id/votes', validate({ params: uuidParam, body: createVoteBody }), async (req, res) => {
-  try {
-    const meeting = await prisma.meeting.findUnique({
-      where: { id: req.params.id }
-    });
+meetingsRouter.post(
+  '/meetings/:id/votes',
+  validate({ params: uuidParam, body: createVoteBody }),
+  async (req, res) => {
+    try {
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: req.params.id },
+      });
 
-    if (!meeting) {
-      return res.status(404).json({ error: 'Meeting not found' });
-    }
-
-    const amendmentId = req.body.amendment_id || req.body.amendmentId;
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: amendmentId }
-    });
-
-    if (!amendment) {
-      return res.status(404).json({ error: 'Amendment not found' });
-    }
-
-    if (amendment.status !== 'proposed') {
-      return res.status(400).json({ error: 'Can only vote on proposed amendments' });
-    }
-
-    const yeaCount = req.body.yea_count ?? req.body.yeaCount ?? 0;
-    const nayCount = req.body.nay_count ?? req.body.nayCount ?? 0;
-    const abstainCount = req.body.abstain_count ?? req.body.abstainCount ?? 0;
-
-    // Calculate result (simple majority)
-    const passed = yeaCount > nayCount;
-    const result = passed ? 'passed' : 'failed';
-
-    const vote = await prisma.vote.create({
-      data: {
-        meetingId: req.params.id,
-        amendmentId,
-        yeaCount,
-        nayCount,
-        abstainCount,
-        result,
-        requires: req.body.requires
+      if (!meeting) {
+        return res.status(404).json({ error: 'Meeting not found' });
       }
-    });
 
-    // Update amendment status
-    await prisma.amendment.update({
-      where: { id: amendmentId },
-      data: {
-        status: result,
-        decidedAt: new Date()
+      const amendmentId = req.body.amendment_id || req.body.amendmentId;
+      const amendment = await prisma.amendment.findUnique({
+        where: { id: amendmentId },
+      });
+
+      if (!amendment) {
+        return res.status(404).json({ error: 'Amendment not found' });
       }
-    });
 
-    res.status(201).json(vote);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to record vote' });
-  }
-});
+      if (amendment.status !== 'proposed') {
+        return res.status(400).json({ error: 'Can only vote on proposed amendments' });
+      }
+
+      const yeaCount = req.body.yea_count ?? req.body.yeaCount ?? 0;
+      const nayCount = req.body.nay_count ?? req.body.nayCount ?? 0;
+      const abstainCount = req.body.abstain_count ?? req.body.abstainCount ?? 0;
+
+      // Calculate result (simple majority)
+      const passed = yeaCount > nayCount;
+      const result = passed ? 'passed' : 'failed';
+
+      const vote = await prisma.vote.create({
+        data: {
+          meetingId: req.params.id,
+          amendmentId,
+          yeaCount,
+          nayCount,
+          abstainCount,
+          result,
+          requires: req.body.requires,
+        },
+      });
+
+      // Update amendment status
+      await prisma.amendment.update({
+        where: { id: amendmentId },
+        data: {
+          status: result,
+          decidedAt: new Date(),
+        },
+      });
+
+      res.status(201).json(vote);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to record vote' });
+    }
+  },
+);
 
 // Get vote by ID
 meetingsRouter.get('/votes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const vote = await prisma.vote.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!vote) {
@@ -213,7 +237,7 @@ meetingsRouter.get('/votes/:id', validate({ params: uuidParam }), async (req, re
 meetingsRouter.delete('/votes/:id', validate({ params: uuidParam }), async (req, res) => {
   try {
     const vote = await prisma.vote.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!vote) {
@@ -231,7 +255,7 @@ meetingsRouter.delete('/votes/:id', validate({ params: uuidParam }), async (req,
 meetingsRouter.get('/meetings/:id/votes', validate({ params: uuidParam }), async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!meeting) {
@@ -239,7 +263,7 @@ meetingsRouter.get('/meetings/:id/votes', validate({ params: uuidParam }), async
     }
 
     const votes = await prisma.vote.findMany({
-      where: { meetingId: req.params.id }
+      where: { meetingId: req.params.id },
     });
 
     res.json(votes);
@@ -252,7 +276,7 @@ meetingsRouter.get('/meetings/:id/votes', validate({ params: uuidParam }), async
 meetingsRouter.get('/amendments/:id/votes', validate({ params: uuidParam }), async (req, res) => {
   try {
     const amendment = await prisma.amendment.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
     });
 
     if (!amendment) {
@@ -260,7 +284,7 @@ meetingsRouter.get('/amendments/:id/votes', validate({ params: uuidParam }), asy
     }
 
     const votes = await prisma.vote.findMany({
-      where: { amendmentId: req.params.id }
+      where: { amendmentId: req.params.id },
     });
 
     res.json(votes);

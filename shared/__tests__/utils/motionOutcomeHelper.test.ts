@@ -211,7 +211,7 @@ describe('applyMotionOutcome', () => {
       const result = applyMotionOutcome(state, '10:00:00');
 
       expect(result.agenda).toHaveLength(2);
-      expect(result.agenda.find(i => i.id === 2)).toBeUndefined();
+      expect(result.agenda.find((i) => i.id === 2)).toBeUndefined();
     });
 
     it('should reorder agenda items', () => {
@@ -279,16 +279,18 @@ describe('applyMotionOutcome', () => {
       const state = createMockState({
         currentMotion: suspendMotion,
         motionStack: [suspendMotion],
-        suspendedRules: [{
-          id: 3,
-          rule: 'debate-rules',
-          purpose: 'Previous suspension',
-          specificAction: 'Previous action',
-          scope: 'meeting-remainder',
-          suspendedAt: '09:00:00',
-          actionCompleted: false,
-          motionId: 1,
-        }],
+        suspendedRules: [
+          {
+            id: 3,
+            rule: 'debate-rules',
+            purpose: 'Previous suspension',
+            specificAction: 'Previous action',
+            scope: 'meeting-remainder',
+            suspendedAt: '09:00:00',
+            actionCompleted: false,
+            motionId: 1,
+          },
+        ],
       });
 
       const result = applyMotionOutcome(state, '10:00:00');
@@ -375,7 +377,11 @@ describe('applyMotionOutcome', () => {
 
   describe('divide the question', () => {
     it('should return divided parts when divideQuestion motion has parts', () => {
-      const mainMotion = createMockMotion({ id: 10, category: 'main', text: 'Original complex motion' });
+      const mainMotion = createMockMotion({
+        id: 10,
+        category: 'main',
+        text: 'Original complex motion',
+      });
       const divideMotion = createMockMotion({
         id: 20,
         type: 'divideQuestion',

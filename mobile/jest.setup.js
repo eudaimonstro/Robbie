@@ -3,7 +3,7 @@
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
 // Mock expo-router
@@ -64,10 +64,7 @@ jest.mock('@react-native-picker/picker', () => {
 // Silence console warnings during tests (optional - comment out for debugging)
 const originalWarn = console.warn;
 console.warn = (...args) => {
-  if (
-    typeof args[0] === 'string' &&
-    args[0].includes('Please update the following components')
-  ) {
+  if (typeof args[0] === 'string' && args[0].includes('Please update the following components')) {
     return;
   }
   originalWarn.call(console, ...args);

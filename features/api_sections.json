@@ -336,10 +336,7 @@
   {
     "category": "functional",
     "description": "Section content is optional",
-    "steps": [
-      "Step 1: Create section with only title",
-      "Step 2: Verify section is created"
-    ],
+    "steps": ["Step 1: Create section with only title", "Step 2: Verify section is created"],
     "passes": true
   },
   {

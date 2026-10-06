@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generateId, generateMeetingCode, generateTimestamp, calculateTimerEnd } from '../../utils/index.js';
+import {
+  generateId,
+  generateMeetingCode,
+  generateTimestamp,
+  calculateTimerEnd,
+} from '../../utils/index.js';
 
 describe('idGenerators', () => {
   describe('generateId', () => {
@@ -10,7 +15,7 @@ describe('idGenerators', () => {
 
     it('should return different IDs on subsequent calls', async () => {
       const id1 = generateId();
-      await new Promise(resolve => setTimeout(resolve, 2));
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const id2 = generateId();
       expect(id1).not.toBe(id2);
     });

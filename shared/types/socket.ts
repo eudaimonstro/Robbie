@@ -4,9 +4,15 @@ import type { MeetingAction, MeetingState, Member } from './index.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
-  JOIN_MEETING: (data: JoinMeetingPayload, callback: (response: JoinMeetingResponse) => void) => void;
+  JOIN_MEETING: (
+    data: JoinMeetingPayload,
+    callback: (response: JoinMeetingResponse) => void,
+  ) => void;
   LEAVE_MEETING: () => void;
-  DISPATCH_ACTION: (data: DispatchActionPayload, callback: (response: ActionResponse) => void) => void;
+  DISPATCH_ACTION: (
+    data: DispatchActionPayload,
+    callback: (response: ActionResponse) => void,
+  ) => void;
   REQUEST_STATE: (callback: (response: StateResponse) => void) => void;
 }
 

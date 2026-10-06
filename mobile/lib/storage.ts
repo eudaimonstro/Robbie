@@ -58,8 +58,5 @@ export async function removePendingAuth(): Promise<void> {
  * Clear all stored auth data (for logout)
  */
 export async function clearAuthData(): Promise<void> {
-  await AsyncStorage.multiRemove([
-    STORAGE_KEYS.AUTH_TOKEN,
-    STORAGE_KEYS.PENDING_AUTH,
-  ]);
+  await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.PENDING_AUTH]);
 }

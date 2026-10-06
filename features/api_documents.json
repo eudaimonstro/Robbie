@@ -239,10 +239,7 @@
   {
     "category": "functional",
     "description": "Amendment detail shows document title",
-    "steps": [
-      "Step 1: View amendment detail",
-      "Step 2: Verify associated document title is shown"
-    ],
+    "steps": ["Step 1: View amendment detail", "Step 2: Verify associated document title is shown"],
     "passes": true
   },
   {

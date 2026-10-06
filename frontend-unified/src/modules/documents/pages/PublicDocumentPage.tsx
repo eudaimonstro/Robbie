@@ -1,138 +1,140 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { Clock, FileText, Download, ChevronDown, Eye, AlertCircle } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Clock, FileText, Download, ChevronDown, Eye, AlertCircle } from 'lucide-react';
 import {
   publicDocuments,
   versions as versionsApi,
   PublicDocument,
   PublicVersion,
   SectionTree as SectionTreeType,
-} from '../../../api/client'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
-import { DocumentTypeBadge } from '../../../components/ui/Badge'
-import SectionTree from '../components/SectionTree'
-import { useToast } from '../../../context/ToastContext'
+} from '../../../api/client';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import { DocumentTypeBadge } from '../../../components/ui/Badge';
+import SectionTree from '../components/SectionTree';
+import { useToast } from '../../../context/ToastContext';
 
 export default function PublicDocumentPage() {
-  const { shareToken } = useParams<{ shareToken: string }>()
-  const { showToast } = useToast()
+  const { shareToken } = useParams<{ shareToken: string }>();
+  const { showToast } = useToast();
 
-  const [doc, setDoc] = useState<PublicDocument | null>(null)
-  const [versions, setVersions] = useState<PublicVersion[]>([])
-  const [selectedVersion, setSelectedVersion] = useState<PublicVersion | null>(null)
-  const [sectionTree, setSectionTree] = useState<SectionTreeType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [doc, setDoc] = useState<PublicDocument | null>(null);
+  const [versions, setVersions] = useState<PublicVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<PublicVersion | null>(null);
+  const [sectionTree, setSectionTree] = useState<SectionTreeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Export dropdown
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const exportDropdownRef = useRef<HTMLDivElement>(null)
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close export dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
-        setExportDropdownOpen(false)
+        setExportDropdownOpen(false);
       }
-    }
+    };
 
     if (exportDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [exportDropdownOpen])
+  }, [exportDropdownOpen]);
 
   const fetchDocument = useCallback(async () => {
-    if (!shareToken) return
+    if (!shareToken) return;
 
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
       const [fetchedDoc, vers] = await Promise.all([
         publicDocuments.get(shareToken),
         publicDocuments.getVersions(shareToken),
-      ])
+      ]);
 
-      setDoc(fetchedDoc)
-      setVersions(vers)
+      setDoc(fetchedDoc);
+      setVersions(vers);
 
       // Select current version or latest
       const currentVersion = fetchedDoc.current_version_id
-        ? vers.find(v => v.id === fetchedDoc.current_version_id)
-        : vers[vers.length - 1]
+        ? vers.find((v) => v.id === fetchedDoc.current_version_id)
+        : vers[vers.length - 1];
 
       if (currentVersion) {
-        setSelectedVersion(currentVersion)
-        const tree = await publicDocuments.getTree(shareToken, currentVersion.id)
-        setSectionTree(tree)
+        setSelectedVersion(currentVersion);
+        const tree = await publicDocuments.getTree(shareToken, currentVersion.id);
+        setSectionTree(tree);
       }
     } catch (err: unknown) {
-      console.error(err)
+      console.error(err);
       if (err && typeof err === 'object' && 'message' in err) {
-        const errorObj = err as { message: string }
+        const errorObj = err as { message: string };
         if (errorObj.message.includes('404')) {
-          setError('This document is not available. The link may be invalid or sharing may have been disabled.')
+          setError(
+            'This document is not available. The link may be invalid or sharing may have been disabled.',
+          );
         } else {
-          setError('Failed to load document')
+          setError('Failed to load document');
         }
       } else {
-        setError('Failed to load document')
+        setError('Failed to load document');
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [shareToken])
+  }, [shareToken]);
 
   useEffect(() => {
-    fetchDocument()
-  }, [fetchDocument])
+    fetchDocument();
+  }, [fetchDocument]);
 
   const handleVersionChange = async (versionId: string) => {
-    if (!shareToken) return
+    if (!shareToken) return;
 
-    const version = versions.find(v => v.id === versionId)
+    const version = versions.find((v) => v.id === versionId);
     if (version) {
-      setSelectedVersion(version)
+      setSelectedVersion(version);
       try {
-        const tree = await publicDocuments.getTree(shareToken, version.id)
-        setSectionTree(tree)
+        const tree = await publicDocuments.getTree(shareToken, version.id);
+        setSectionTree(tree);
       } catch (err) {
-        showToast('error', 'Failed to load version')
+        showToast('error', 'Failed to load version');
       }
     }
-  }
+  };
 
   const handleExport = async (format: 'pdf' | 'markdown' | 'html') => {
-    if (!selectedVersion) return
+    if (!selectedVersion) return;
 
     try {
-      setExporting(true)
-      setExportDropdownOpen(false)
+      setExporting(true);
+      setExportDropdownOpen(false);
 
       switch (format) {
         case 'pdf':
-          await versionsApi.exportPdf(selectedVersion.id)
-          break
+          await versionsApi.exportPdf(selectedVersion.id);
+          break;
         case 'markdown':
-          await versionsApi.exportMarkdown(selectedVersion.id)
-          break
+          await versionsApi.exportMarkdown(selectedVersion.id);
+          break;
         case 'html':
-          await versionsApi.exportHtml(selectedVersion.id)
-          break
+          await versionsApi.exportHtml(selectedVersion.id);
+          break;
       }
 
-      showToast('success', `Exported as ${format.toUpperCase()}`)
+      showToast('success', `Exported as ${format.toUpperCase()}`);
     } catch (err) {
-      showToast('error', `Failed to export as ${format.toUpperCase()}`)
+      showToast('error', `Failed to export as ${format.toUpperCase()}`);
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (error) {
@@ -143,15 +145,13 @@ export default function PublicDocumentPage() {
           <h2 className="text-xl font-semibold text-secondary-900 dark:text-white mb-2">
             Document Not Available
           </h2>
-          <p className="text-secondary-600 dark:text-secondary-400 mb-6">
-            {error}
-          </p>
+          <p className="text-secondary-600 dark:text-secondary-400 mb-6">{error}</p>
           <Link to="/" className="btn-primary">
             Go to Home
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   if (!doc) {
@@ -162,7 +162,7 @@ export default function PublicDocumentPage() {
           Document not found
         </h2>
       </div>
-    )
+    );
   }
 
   return (
@@ -245,9 +245,7 @@ export default function PublicDocumentPage() {
         {/* Section tree */}
         <div className="card">
           <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
-            <h3 className="font-semibold text-secondary-900 dark:text-white">
-              Document Content
-            </h3>
+            <h3 className="font-semibold text-secondary-900 dark:text-white">Document Content</h3>
           </div>
 
           <div className="p-4">
@@ -259,10 +257,7 @@ export default function PublicDocumentPage() {
                 </p>
               </div>
             ) : (
-              <SectionTree
-                sections={sectionTree}
-                editable={false}
-              />
+              <SectionTree sections={sectionTree} editable={false} />
             )}
           </div>
         </div>
@@ -278,19 +273,15 @@ export default function PublicDocumentPage() {
                 </div>
               )}
               {selectedVersion.adopted_at && (
-                <div>
-                  Adopted: {new Date(selectedVersion.adopted_at).toLocaleDateString()}
-                </div>
+                <div>Adopted: {new Date(selectedVersion.adopted_at).toLocaleDateString()}</div>
               )}
               {selectedVersion.notes && (
-                <div className="flex-1 truncate">
-                  Notes: {selectedVersion.notes}
-                </div>
+                <div className="flex-1 truncate">Notes: {selectedVersion.notes}</div>
               )}
             </div>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

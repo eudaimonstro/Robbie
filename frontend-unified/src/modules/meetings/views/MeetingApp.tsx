@@ -13,7 +13,7 @@ type ViewType = 'participant' | 'chair' | 'admin';
 
 export function MeetingApp() {
   const { state, dispatch, currentUser, currentUserEmail } = useSocket();
-  const [view, setView] = useState<ViewType>("participant");
+  const [view, setView] = useState<ViewType>('participant');
   const [isRenamingName, setIsRenamingName] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -49,9 +49,9 @@ export function MeetingApp() {
   }, [activeUser?.id, activeUser?.role]);
 
   const tabs = [
-    { id: "participant", label: "Member", icon: Users },
-    { id: "chair", label: "Chair", icon: Gavel },
-    { id: "admin", label: "Admin", icon: Settings }
+    { id: 'participant', label: 'Member', icon: Users },
+    { id: 'chair', label: 'Chair', icon: Gavel },
+    { id: 'admin', label: 'Admin', icon: Settings },
   ];
 
   const openRenameModal = useCallback(() => {
@@ -73,7 +73,7 @@ export function MeetingApp() {
       memberId: activeUser.id,
       newName: trimmedName,
       renamedBy: activeUser.id,
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
     setIsRenamingName(false);
   }, [activeUser, newName, dispatch]);
@@ -106,7 +106,7 @@ export function MeetingApp() {
             role="tablist"
             aria-label="Meeting view selection"
           >
-            {tabs.map(tab => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setView(tab.id as ViewType)}
@@ -134,20 +134,26 @@ export function MeetingApp() {
               <span className="text-secondary-600 dark:text-secondary-400">View:</span>
               <span className="font-medium text-meeting-700 dark:text-meeting-400 capitalize flex items-center gap-2">
                 {allowedView === 'chair' ? (
-                  <><Gavel size={16} /> Chair Dashboard</>
+                  <>
+                    <Gavel size={16} /> Chair Dashboard
+                  </>
                 ) : (
-                  <><Users size={16} /> Member View</>
+                  <>
+                    <Users size={16} /> Member View
+                  </>
                 )}
               </span>
             </div>
           </div>
         )}
 
-        {allowedView === "participant" && (
+        {allowedView === 'participant' && (
           <div className="card p-3">
             <div className="flex items-center gap-3">
               <span className="text-secondary-600 dark:text-secondary-400">Logged in as:</span>
-              <span className="font-medium text-meeting-700 dark:text-meeting-400">{activeUser.name}</span>
+              <span className="font-medium text-meeting-700 dark:text-meeting-400">
+                {activeUser.name}
+              </span>
               {activeUser.selfRenameUsed ? (
                 <span
                   className="p-1 text-secondary-300 dark:text-secondary-600 cursor-not-allowed"
@@ -173,22 +179,28 @@ export function MeetingApp() {
         )}
 
         {/* Pre-meeting lobby for non-chair users */}
-        {!state.meetingActive && allowedView !== "chair" && (
+        {!state.meetingActive && allowedView !== 'chair' && (
           <div className="card p-6" role="status" aria-live="polite">
             <div className="text-center mb-6">
               <Clock size={32} className="mx-auto mb-3 text-meeting-500" aria-hidden="true" />
-              <h2 className="text-xl font-semibold text-secondary-800 dark:text-white">Pre-Meeting Lobby</h2>
-              <p className="text-secondary-600 dark:text-secondary-400 mt-1">The meeting has not started yet</p>
+              <h2 className="text-xl font-semibold text-secondary-800 dark:text-white">
+                Pre-Meeting Lobby
+              </h2>
+              <p className="text-secondary-600 dark:text-secondary-400 mt-1">
+                The meeting has not started yet
+              </p>
             </div>
 
             {/* Chair status */}
             {(() => {
-              const chair = state.members.find(m => m.role === 'chair');
+              const chair = state.members.find((m) => m.role === 'chair');
               return chair ? (
                 <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-center gap-2">
                     <Crown className="text-success-600 dark:text-success-400" size={18} />
-                    <span className="font-medium text-success-800 dark:text-success-300">Chair: {chair.name}</span>
+                    <span className="font-medium text-success-800 dark:text-success-300">
+                      Chair: {chair.name}
+                    </span>
                   </div>
                   <p className="text-center text-success-700 dark:text-success-400 text-sm mt-2">
                     Waiting for the chair to call the meeting to order
@@ -198,7 +210,9 @@ export function MeetingApp() {
                 <div className="bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-center gap-2">
                     <AlertCircle className="text-accent-600 dark:text-accent-400" size={18} />
-                    <span className="font-medium text-accent-800 dark:text-accent-300">No Chair Appointed</span>
+                    <span className="font-medium text-accent-800 dark:text-accent-300">
+                      No Chair Appointed
+                    </span>
                   </div>
                   <p className="text-center text-accent-700 dark:text-accent-400 text-sm mt-2">
                     Waiting for an admin to appoint a chair
@@ -211,21 +225,21 @@ export function MeetingApp() {
             <div className="mt-4">
               <h3 className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2 flex items-center gap-2">
                 <Users size={16} />
-                Members Joined ({state.members.filter(m => m.present).length})
+                Members Joined ({state.members.filter((m) => m.present).length})
               </h3>
               {state.members.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {state.members
-                    .filter(m => m.present)
-                    .map(m => (
+                    .filter((m) => m.present)
+                    .map((m) => (
                       <span
                         key={m.id}
                         className={`px-3 py-1 rounded-full text-sm ${
                           m.role === 'chair'
                             ? 'bg-meeting-100 dark:bg-meeting-900/30 text-meeting-800 dark:text-meeting-300'
                             : m.role === 'admin'
-                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300'
-                            : 'bg-secondary-100 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300'
+                              ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300'
+                              : 'bg-secondary-100 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300'
                         }`}
                       >
                         {m.name}
@@ -236,16 +250,20 @@ export function MeetingApp() {
                     ))}
                 </div>
               ) : (
-                <p className="text-secondary-500 dark:text-secondary-400 text-sm italic">No members have joined yet</p>
+                <p className="text-secondary-500 dark:text-secondary-400 text-sm italic">
+                  No members have joined yet
+                </p>
               )}
             </div>
           </div>
         )}
 
         <ErrorBoundary>
-          {allowedView === "participant" && <ParticipantView state={state} dispatch={dispatch} currentUser={activeUser}/>}
-          {allowedView === "chair" && <ChairView state={state} dispatch={dispatch}/>}
-          {allowedView === "admin" && <AdminView state={state} dispatch={dispatch}/>}
+          {allowedView === 'participant' && (
+            <ParticipantView state={state} dispatch={dispatch} currentUser={activeUser} />
+          )}
+          {allowedView === 'chair' && <ChairView state={state} dispatch={dispatch} />}
+          {allowedView === 'admin' && <AdminView state={state} dispatch={dispatch} />}
         </ErrorBoundary>
       </div>
 
@@ -263,7 +281,10 @@ export function MeetingApp() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 id="rename-modal-title" className="text-lg font-semibold text-secondary-900 dark:text-white">
+              <h3
+                id="rename-modal-title"
+                className="text-lg font-semibold text-secondary-900 dark:text-white"
+              >
                 Change Your Name
               </h3>
               <button
@@ -277,18 +298,25 @@ export function MeetingApp() {
             {/* Warning banner */}
             <div className="mb-4 p-3 bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="text-accent-600 dark:text-accent-400 mt-0.5 flex-shrink-0" />
+                <AlertCircle
+                  size={16}
+                  className="text-accent-600 dark:text-accent-400 mt-0.5 flex-shrink-0"
+                />
                 <div className="text-sm text-accent-800 dark:text-accent-300">
                   <p className="font-medium">Use a name others will recognize</p>
                   <p className="mt-1 text-accent-700 dark:text-accent-400">
-                    You can only change your name once. If others can't identify you, you may not be recognized to speak or vote.
+                    You can only change your name once. If others can't identify you, you may not be
+                    recognized to speak or vote.
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="mb-4">
-              <label htmlFor="new-name" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+              <label
+                htmlFor="new-name"
+                className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+              >
                 New Name
               </label>
               <input

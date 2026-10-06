@@ -1,41 +1,51 @@
-import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { FileText, GitBranch, Calendar, Settings, Plus, ChevronRight, ChevronDown, X, Users } from 'lucide-react'
-import { useOrganization } from '../../context/OrganizationContext'
-import { documents as documentsApi, Document } from '../../api/client'
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  FileText,
+  GitBranch,
+  Calendar,
+  Settings,
+  Plus,
+  ChevronRight,
+  ChevronDown,
+  X,
+  Users,
+} from 'lucide-react';
+import { useOrganization } from '../../context/OrganizationContext';
+import { documents as documentsApi, Document } from '../../api/client';
 
 const navItems = [
   { icon: FileText, label: 'Documents', path: '/' },
   { icon: GitBranch, label: 'Amendments', path: '/amendments' },
   { icon: Calendar, label: 'Meeting Records', path: '/bylawyer-meetings' },
   { icon: Users, label: 'Live Meetings', path: '/meetings' },
-]
+];
 
 interface SidebarProps {
-  onNewDocument: () => void
-  onClose?: () => void
+  onNewDocument: () => void;
+  onClose?: () => void;
 }
 
 export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
-  const location = useLocation()
-  const { currentOrganization } = useOrganization()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [expandedDocs, setExpandedDocs] = useState(true)
+  const location = useLocation();
+  const { currentOrganization } = useOrganization();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [expandedDocs, setExpandedDocs] = useState(true);
 
   useEffect(() => {
     if (currentOrganization) {
-      documentsApi.list(currentOrganization.id).then(setDocuments).catch(console.error)
+      documentsApi.list(currentOrganization.id).then(setDocuments).catch(console.error);
     } else {
-      setDocuments([])
+      setDocuments([]);
     }
-  }, [currentOrganization])
+  }, [currentOrganization]);
 
   const isActive = (path: string) => {
     if (path === '/') {
-      return location.pathname === '/' || location.pathname.startsWith('/documents')
+      return location.pathname === '/' || location.pathname.startsWith('/documents');
     }
-    return location.pathname.startsWith(path)
-  }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <aside className="w-64 bg-primary-600 text-white flex flex-col h-full">
@@ -67,8 +77,8 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
       {/* Main Navigation */}
       <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin">
         {navItems.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.path)
+          const Icon = item.icon;
+          const active = isActive(item.path);
 
           if (item.path === '/') {
             // Documents with expandable list
@@ -110,7 +120,7 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
                   </div>
                 )}
               </div>
-            )
+            );
           }
 
           // Live Meetings gets special styling
@@ -128,7 +138,7 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
                 <Icon className="w-5 h-5" />
                 <span>{item.label}</span>
               </Link>
-            )
+            );
           }
 
           return (
@@ -144,7 +154,7 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
               <Icon className="w-5 h-5" />
               <span>{item.label}</span>
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -163,5 +173,5 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
         </Link>
       </div>
     </aside>
-  )
+  );
 }

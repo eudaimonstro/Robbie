@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { Home, ArrowLeft } from 'lucide-react'
+import { Link } from 'react-router-dom';
+import { Home, ArrowLeft } from 'lucide-react';
 
 export default function NotFoundPage() {
   return (
@@ -12,21 +12,15 @@ export default function NotFoundPage() {
         The page you're looking for doesn't exist or has been moved.
       </p>
       <div className="flex gap-4">
-        <Link
-          to="/"
-          className="btn-primary flex items-center gap-2"
-        >
+        <Link to="/" className="btn-primary flex items-center gap-2">
           <Home className="w-4 h-4" />
           Go to Dashboard
         </Link>
-        <button
-          onClick={() => window.history.back()}
-          className="btn-ghost flex items-center gap-2"
-        >
+        <button onClick={() => window.history.back()} className="btn-ghost flex items-center gap-2">
           <ArrowLeft className="w-4 h-4" />
           Go Back
         </button>
       </div>
     </div>
-  )
+  );
 }

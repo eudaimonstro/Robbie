@@ -12,11 +12,31 @@ export interface MeetingStageInfo {
  */
 export const MEETING_STAGES: readonly MeetingStageInfo[] = [
   { stage: 'not-started', label: 'Not Started', icon: '', logMessage: '' },
-  { stage: 'call-to-order', label: 'Call to Order', icon: '🔔', logMessage: 'Meeting called to order' },
-  { stage: 'minutes-approval', label: 'Approval of Minutes', icon: '📝', logMessage: 'Reading and approval of minutes' },
-  { stage: 'reports', label: 'Reports', icon: '📊', logMessage: 'Reports of officers and committees' },
+  {
+    stage: 'call-to-order',
+    label: 'Call to Order',
+    icon: '🔔',
+    logMessage: 'Meeting called to order',
+  },
+  {
+    stage: 'minutes-approval',
+    label: 'Approval of Minutes',
+    icon: '📝',
+    logMessage: 'Reading and approval of minutes',
+  },
+  {
+    stage: 'reports',
+    label: 'Reports',
+    icon: '📊',
+    logMessage: 'Reports of officers and committees',
+  },
   { stage: 'special-orders', label: 'Special Orders', icon: '⭐', logMessage: 'Special orders' },
-  { stage: 'unfinished-business', label: 'Unfinished Business', icon: '📋', logMessage: 'Unfinished business and general orders' },
+  {
+    stage: 'unfinished-business',
+    label: 'Unfinished Business',
+    icon: '📋',
+    logMessage: 'Unfinished business and general orders',
+  },
   { stage: 'new-business', label: 'New Business', icon: '✨', logMessage: 'New business' },
   { stage: 'announcements', label: 'Announcements', icon: '📢', logMessage: 'Announcements' },
   { stage: 'adjourned', label: 'Adjourned', icon: '🔚', logMessage: 'Meeting adjourned' },
@@ -27,19 +47,19 @@ export const MEETING_STAGES: readonly MeetingStageInfo[] = [
  * (excludes not-started and adjourned)
  */
 export const DISPLAYABLE_STAGES = MEETING_STAGES.filter(
-  s => s.stage !== 'not-started' && s.stage !== 'adjourned'
+  (s) => s.stage !== 'not-started' && s.stage !== 'adjourned',
 );
 
 /**
  * Get the stage order array for navigation
  */
-export const STAGE_ORDER: readonly MeetingStage[] = MEETING_STAGES.map(s => s.stage);
+export const STAGE_ORDER: readonly MeetingStage[] = MEETING_STAGES.map((s) => s.stage);
 
 /**
  * Get the log message for a given stage
  */
 export function getStageLogMessage(stage: MeetingStage): string {
-  return MEETING_STAGES.find(s => s.stage === stage)?.logMessage || '';
+  return MEETING_STAGES.find((s) => s.stage === stage)?.logMessage || '';
 }
 
 /**

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { getValidMotions, normalizeMotionText, isSimilarMotionSubject, wasMotionDefeated } from '../../utils/index.js';
+import {
+  getValidMotions,
+  normalizeMotionText,
+  isSimilarMotionSubject,
+  wasMotionDefeated,
+} from '../../utils/index.js';
 import type { MeetingState, Motion } from '../../types/index.js';
 
 // Helper to create a minimal meeting state for testing
@@ -74,7 +79,7 @@ describe('motionHelpers', () => {
       const state = createMockState();
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       // Incidental motions should always be available
       expect(motionKeys).toContain('pointOrder');
       expect(motionKeys).toContain('pointInfo');
@@ -87,7 +92,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       // Privileged motions with higher precedence should be available
       expect(motionKeys).toContain('adjourn');
       expect(motionKeys).toContain('recess');
@@ -100,7 +105,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).not.toContain('mainMotion');
     });
 
@@ -112,7 +117,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).toContain('adoptAgenda');
       expect(motionKeys).toContain('amendAgenda');
     });
@@ -123,7 +128,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).not.toContain('adoptAgenda');
     });
 
@@ -133,7 +138,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).not.toContain('appeal');
     });
 
@@ -147,7 +152,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).toContain('appeal');
     });
 
@@ -158,7 +163,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       // Subsidiary motions should be available
       expect(motionKeys).toContain('amend');
       expect(motionKeys).toContain('previousQuestion');
@@ -172,7 +177,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).not.toContain('amendAmendment');
     });
 
@@ -186,7 +191,7 @@ describe('motionHelpers', () => {
       });
       const validMotions = getValidMotions(state);
 
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).toContain('amendAmendment');
     });
 
@@ -194,19 +199,21 @@ describe('motionHelpers', () => {
     // The function validates reconsider eligibility but main motions are handled separately in UI
     it('should not include reconsider in validMotions (main category)', () => {
       const state = createMockState({
-        completedMotions: [{
-          id: 1,
-          type: 'mainMotion',
-          text: 'Test',
-          passed: true,
-          voterChoices: { 1: 'yea' },
-          reconsidered: false,
-        }],
+        completedMotions: [
+          {
+            id: 1,
+            type: 'mainMotion',
+            text: 'Test',
+            passed: true,
+            voterChoices: { 1: 'yea' },
+            reconsidered: false,
+          },
+        ],
       });
       // Even with valid reconsider conditions, main motions aren't added to validMotions
       // They're handled through separate UI flows
       const validMotions = getValidMotions(state, 1);
-      const motionKeys = validMotions.map(m => m.key);
+      const motionKeys = validMotions.map((m) => m.key);
       expect(motionKeys).not.toContain('reconsider');
     });
 
@@ -217,7 +224,9 @@ describe('motionHelpers', () => {
       const validMotions = getValidMotions(state);
 
       // Main motion category motions that were defeated should not appear
-      const mainMotions = validMotions.filter(m => m.category === 'main' && m.key === 'mainMotion');
+      const mainMotions = validMotions.filter(
+        (m) => m.category === 'main' && m.key === 'mainMotion',
+      );
       expect(mainMotions).toHaveLength(0);
     });
   });
@@ -246,12 +255,16 @@ describe('motionHelpers', () => {
     });
 
     it('should return true when one text contains the other', () => {
-      expect(isSimilarMotionSubject('approve the budget', 'approve the budget for 2024')).toBe(true);
+      expect(isSimilarMotionSubject('approve the budget', 'approve the budget for 2024')).toBe(
+        true,
+      );
     });
 
     it('should return true for 50% or more word overlap', () => {
       // "approve" and "budget" are in both (2 of 4 significant words = 50%)
-      expect(isSimilarMotionSubject('approve the budget proposal', 'approve our new budget')).toBe(true);
+      expect(isSimilarMotionSubject('approve the budget proposal', 'approve our new budget')).toBe(
+        true,
+      );
     });
 
     it('should return false for completely different subjects', () => {
@@ -286,7 +299,9 @@ describe('motionHelpers', () => {
 
     it('should use subject-matter matching for mainMotion type', () => {
       const state = createMockState({
-        defeatedMotions: [{ type: 'mainMotion', text: 'approve the budget proposal', timestamp: '10:00:00' }],
+        defeatedMotions: [
+          { type: 'mainMotion', text: 'approve the budget proposal', timestamp: '10:00:00' },
+        ],
       });
       // Similar subject (both about budget approval)
       expect(wasMotionDefeated(state, 'mainMotion', 'approve our new budget')).toBe(true);
@@ -296,7 +311,9 @@ describe('motionHelpers', () => {
 
     it('should allow mainMotion with different subject even if one was defeated', () => {
       const state = createMockState({
-        defeatedMotions: [{ type: 'mainMotion', text: 'approve the budget', timestamp: '10:00:00' }],
+        defeatedMotions: [
+          { type: 'mainMotion', text: 'approve the budget', timestamp: '10:00:00' },
+        ],
       });
       expect(wasMotionDefeated(state, 'mainMotion', 'schedule a picnic event')).toBe(false);
     });

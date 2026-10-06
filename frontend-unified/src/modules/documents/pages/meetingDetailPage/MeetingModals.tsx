@@ -1,47 +1,47 @@
-import { useState } from 'react'
-import Modal from '../../../../components/ui/Modal'
-import ConfirmDialog from '../../../../components/ui/ConfirmDialog'
-import { Meeting, Amendment, Document, VoteCreate } from '../../../../api/client'
+import { useState } from 'react';
+import Modal from '../../../../components/ui/Modal';
+import ConfirmDialog from '../../../../components/ui/ConfirmDialog';
+import { Meeting, Amendment, Document, VoteCreate } from '../../../../api/client';
 
 interface EditMeetingModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
   onSubmit: (data: {
-    title: string
-    type: Meeting['meeting_type']
-    date: string
-    location?: string
-    notes?: string
-  }) => Promise<void>
-  meeting: Meeting
+    title: string;
+    type: Meeting['meeting_type'];
+    date: string;
+    location?: string;
+    notes?: string;
+  }) => Promise<void>;
+  meeting: Meeting;
 }
 
 export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMeetingModalProps) {
-  const [title, setTitle] = useState(meeting.title)
-  const [type, setType] = useState<Meeting['meeting_type']>(meeting.meeting_type)
-  const [date, setDate] = useState(meeting.scheduled_date.slice(0, 16))
-  const [location, setLocation] = useState(meeting.location || '')
-  const [notes, setNotes] = useState(meeting.notes || '')
-  const [saving, setSaving] = useState(false)
+  const [title, setTitle] = useState(meeting.title);
+  const [type, setType] = useState<Meeting['meeting_type']>(meeting.meeting_type);
+  const [date, setDate] = useState(meeting.scheduled_date.slice(0, 16));
+  const [location, setLocation] = useState(meeting.location || '');
+  const [notes, setNotes] = useState(meeting.notes || '');
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setSaving(true)
+      setSaving(true);
       await onSubmit({
         title: title.trim(),
         type,
         date,
         location: location.trim() || undefined,
         notes: notes.trim() || undefined,
-      })
-      onClose()
+      });
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Meeting">
@@ -110,17 +110,17 @@ export function EditMeetingModal({ isOpen, onClose, onSubmit, meeting }: EditMee
         </div>
       </form>
     </Modal>
-  )
+  );
 }
 
 interface VoteRecordingModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (data: VoteCreate) => Promise<{ passed: boolean }>
-  amendments: Amendment[]
-  documents: Document[]
-  selectedAmendment: Amendment | null
-  onSelectAmendment: (amendment: Amendment | null) => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: VoteCreate) => Promise<{ passed: boolean }>;
+  amendments: Amendment[];
+  documents: Document[];
+  selectedAmendment: Amendment | null;
+  onSelectAmendment: (amendment: Amendment | null) => void;
 }
 
 export function VoteRecordingModal({
@@ -132,43 +132,43 @@ export function VoteRecordingModal({
   selectedAmendment,
   onSelectAmendment,
 }: VoteRecordingModalProps) {
-  const [yeaCount, setYeaCount] = useState(0)
-  const [nayCount, setNayCount] = useState(0)
-  const [abstainCount, setAbstainCount] = useState(0)
-  const [recording, setRecording] = useState(false)
+  const [yeaCount, setYeaCount] = useState(0);
+  const [nayCount, setNayCount] = useState(0);
+  const [abstainCount, setAbstainCount] = useState(0);
+  const [recording, setRecording] = useState(false);
 
   const resetForm = () => {
-    setYeaCount(0)
-    setNayCount(0)
-    setAbstainCount(0)
-  }
+    setYeaCount(0);
+    setNayCount(0);
+    setAbstainCount(0);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedAmendment) return
+    e.preventDefault();
+    if (!selectedAmendment) return;
 
     try {
-      setRecording(true)
+      setRecording(true);
       await onSubmit({
         amendment_id: selectedAmendment.id,
         yea_count: yeaCount,
         nay_count: nayCount,
         abstain_count: abstainCount,
-      })
-      resetForm()
-      onClose()
+      });
+      resetForm();
+      onClose();
     } catch {
       // Error handled by parent
     } finally {
-      setRecording(false)
+      setRecording(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    resetForm()
-    onSelectAmendment(null)
-    onClose()
-  }
+    resetForm();
+    onSelectAmendment(null);
+    onClose();
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Record Vote">
@@ -178,15 +178,17 @@ export function VoteRecordingModal({
           <select
             value={selectedAmendment?.id || ''}
             onChange={(e) => {
-              const amend = amendments.find(a => a.id === e.target.value)
-              onSelectAmendment(amend || null)
+              const amend = amendments.find((a) => a.id === e.target.value);
+              onSelectAmendment(amend || null);
             }}
             className="select"
             required
           >
             <option value="">Select amendment...</option>
             {amendments.map((a) => (
-              <option key={a.id} value={a.id}>{a.title}</option>
+              <option key={a.id} value={a.id}>
+                {a.title}
+              </option>
             ))}
           </select>
         </div>
@@ -194,7 +196,7 @@ export function VoteRecordingModal({
         {selectedAmendment && (
           <div className="mb-4 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
             <p className="text-xs text-secondary-500 mb-1">
-              {documents.find(d => d.id === selectedAmendment.document_id)?.title}
+              {documents.find((d) => d.id === selectedAmendment.document_id)?.title}
             </p>
             <p className="text-sm text-secondary-600 dark:text-secondary-400">
               {selectedAmendment.description || 'No description'}
@@ -242,7 +244,9 @@ export function VoteRecordingModal({
           <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-1">
             Total votes: {yeaCount + nayCount + abstainCount}
           </p>
-          <p className={`text-2xl font-bold ${yeaCount > nayCount ? 'text-success-600' : yeaCount < nayCount ? 'text-danger-600' : 'text-secondary-600'}`}>
+          <p
+            className={`text-2xl font-bold ${yeaCount > nayCount ? 'text-success-600' : yeaCount < nayCount ? 'text-danger-600' : 'text-secondary-600'}`}
+          >
             {yeaCount > nayCount ? 'PASSING' : yeaCount < nayCount ? 'FAILING' : 'TIE'}
           </p>
           {yeaCount === nayCount && yeaCount > 0 && (
@@ -256,30 +260,26 @@ export function VoteRecordingModal({
           <button type="button" onClick={handleClose} className="btn-ghost">
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={!selectedAmendment || recording}
-          >
+          <button type="submit" className="btn-primary" disabled={!selectedAmendment || recording}>
             {recording ? 'Recording...' : 'Record Vote'}
           </button>
         </div>
       </form>
     </Modal>
-  )
+  );
 }
 
 interface MeetingStatusDialogsProps {
-  startDialogOpen: boolean
-  completeDialogOpen: boolean
-  cancelDialogOpen: boolean
-  loading: boolean
-  onStartClose: () => void
-  onStartConfirm: () => void
-  onCompleteClose: () => void
-  onCompleteConfirm: () => void
-  onCancelClose: () => void
-  onCancelConfirm: () => void
+  startDialogOpen: boolean;
+  completeDialogOpen: boolean;
+  cancelDialogOpen: boolean;
+  loading: boolean;
+  onStartClose: () => void;
+  onStartConfirm: () => void;
+  onCompleteClose: () => void;
+  onCompleteConfirm: () => void;
+  onCancelClose: () => void;
+  onCancelConfirm: () => void;
 }
 
 export function MeetingStatusDialogs({
@@ -327,5 +327,5 @@ export function MeetingStatusDialogs({
         loading={loading}
       />
     </>
-  )
+  );
 }

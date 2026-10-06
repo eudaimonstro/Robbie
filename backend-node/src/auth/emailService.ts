@@ -124,7 +124,7 @@ async function deliver(message: OutgoingEmail): Promise<string | undefined> {
 // Log provider on startup
 if (isProduction && emailProvider === 'development') {
   logger.error(
-    'No email provider configured in production. Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY'
+    'No email provider configured in production. Set one of: SMTP_HOST, SENDGRID_API_KEY, or RESEND_API_KEY',
   );
 } else {
   logger.info({ emailProvider }, 'Email service initialized');
@@ -207,14 +207,17 @@ Robbie - Parliamentary Procedure Made Easy
 export async function sendVerificationEmail(
   email: string,
   code: string,
-  meetingCode: string
+  meetingCode: string,
 ): Promise<void> {
   // Always store code for dev testing endpoint
   lastGeneratedCode = code;
 
   // Development mode - just log to console
   if (emailProvider === 'development') {
-    logger.info({ to: email, meetingCode, verificationCode: code }, 'Verification email (development mode)');
+    logger.info(
+      { to: email, meetingCode, verificationCode: code },
+      'Verification email (development mode)',
+    );
     return;
   }
 
@@ -271,7 +274,9 @@ export async function verifyEmailConfiguration(): Promise<boolean> {
  */
 export async function sendTestEmail(to: string): Promise<string | undefined> {
   if (emailProvider === 'development') {
-    throw new Error('No email provider configured. Set RESEND_API_KEY (or SMTP_HOST / SENDGRID_API_KEY).');
+    throw new Error(
+      'No email provider configured. Set RESEND_API_KEY (or SMTP_HOST / SENDGRID_API_KEY).',
+    );
   }
 
   return deliver({

@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { Clock, FileText } from 'lucide-react'
-import { AmendmentChange, AmendmentChangeCreate } from '../../../api/client'
-import { useOrganization } from '../../../context/OrganizationContext'
-import { useToast } from '../../../context/ToastContext'
-import { LoadingPage } from '../../../components/ui/LoadingSpinner'
+import { useState, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Clock, FileText } from 'lucide-react';
+import { AmendmentChange, AmendmentChangeCreate } from '../../../api/client';
+import { useOrganization } from '../../../context/OrganizationContext';
+import { useToast } from '../../../context/ToastContext';
+import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import {
   useAmendmentData,
   AmendmentHeader,
@@ -12,12 +12,12 @@ import {
   EditAmendmentModal,
   AddChangeModal,
   AmendmentActionDialogs,
-} from './amendmentDetailPage'
+} from './amendmentDetailPage';
 
 export default function AmendmentDetailPage() {
-  const { amendmentId } = useParams<{ amendmentId: string }>()
-  const { currentOrganization } = useOrganization()
-  const { showToast } = useToast()
+  const { amendmentId } = useParams<{ amendmentId: string }>();
+  const { currentOrganization } = useOrganization();
+  const { showToast } = useToast();
 
   const {
     amendment,
@@ -32,61 +32,67 @@ export default function AmendmentDetailPage() {
     pass,
     fail,
     apply,
-  } = useAmendmentData(amendmentId)
+  } = useAmendmentData(amendmentId);
 
   // Modal states
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [changeModalOpen, setChangeModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [changeModalOpen, setChangeModalOpen] = useState(false);
 
   // Delete change dialog
-  const [deleteChangeDialogOpen, setDeleteChangeDialogOpen] = useState(false)
-  const [deletingChange, setDeletingChange] = useState<AmendmentChange | null>(null)
-  const [deletingChangeLoading, setDeletingChangeLoading] = useState(false)
+  const [deleteChangeDialogOpen, setDeleteChangeDialogOpen] = useState(false);
+  const [deletingChange, setDeletingChange] = useState<AmendmentChange | null>(null);
+  const [deletingChangeLoading, setDeletingChangeLoading] = useState(false);
 
   // Status action dialogs
-  const [proposeDialogOpen, setProposeDialogOpen] = useState(false)
-  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
-  const [passDialogOpen, setPassDialogOpen] = useState(false)
-  const [failDialogOpen, setFailDialogOpen] = useState(false)
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false)
-  const [actionLoading, setActionLoading] = useState(false)
+  const [proposeDialogOpen, setProposeDialogOpen] = useState(false);
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
+  const [passDialogOpen, setPassDialogOpen] = useState(false);
+  const [failDialogOpen, setFailDialogOpen] = useState(false);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const handleEditAmendment = useCallback(async (title: string, description?: string) => {
-    await updateAmendment(title, description)
-  }, [updateAmendment])
+  const handleEditAmendment = useCallback(
+    async (title: string, description?: string) => {
+      await updateAmendment(title, description);
+    },
+    [updateAmendment],
+  );
 
-  const handleAddChange = useCallback(async (data: AmendmentChangeCreate) => {
-    await addChange(data)
-  }, [addChange])
+  const handleAddChange = useCallback(
+    async (data: AmendmentChangeCreate) => {
+      await addChange(data);
+    },
+    [addChange],
+  );
 
   const handleDeleteChange = useCallback(async () => {
-    if (!deletingChange) return
+    if (!deletingChange) return;
     try {
-      setDeletingChangeLoading(true)
-      await deleteChange(deletingChange.id)
-      setDeleteChangeDialogOpen(false)
-      setDeletingChange(null)
+      setDeletingChangeLoading(true);
+      await deleteChange(deletingChange.id);
+      setDeleteChangeDialogOpen(false);
+      setDeletingChange(null);
     } catch (err) {
-      showToast('error', 'Failed to delete change')
+      showToast('error', 'Failed to delete change');
     } finally {
-      setDeletingChangeLoading(false)
+      setDeletingChangeLoading(false);
     }
-  }, [deletingChange, deleteChange, showToast])
+  }, [deletingChange, deleteChange, showToast]);
 
   const handleAction = useCallback(async (action: () => Promise<void>, closeDialog: () => void) => {
     try {
-      setActionLoading(true)
-      await action()
-      closeDialog()
+      setActionLoading(true);
+      await action();
+      closeDialog();
     } catch (err) {
       // Error already shown by hook
     } finally {
-      setActionLoading(false)
+      setActionLoading(false);
     }
-  }, [])
+  }, []);
 
   if (loading) {
-    return <LoadingPage />
+    return <LoadingPage />;
   }
 
   if (!amendment || !document) {
@@ -100,10 +106,10 @@ export default function AmendmentDetailPage() {
           Return to amendments
         </Link>
       </div>
-    )
+    );
   }
 
-  const isDraft = amendment.status === 'draft'
+  const isDraft = amendment.status === 'draft';
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -125,9 +131,7 @@ export default function AmendmentDetailPage() {
           <h3 className="font-medium text-secondary-900 dark:text-white mb-2">
             Description / Rationale
           </h3>
-          <p className="text-secondary-600 dark:text-secondary-400">
-            {amendment.description}
-          </p>
+          <p className="text-secondary-600 dark:text-secondary-400">{amendment.description}</p>
         </div>
       )}
 
@@ -149,9 +153,7 @@ export default function AmendmentDetailPage() {
             </div>
           )}
           {amendment.resulting_version_id && (
-            <div className="text-success-600">
-              Applied to new version
-            </div>
+            <div className="text-success-600">Applied to new version</div>
           )}
         </div>
       </div>
@@ -163,8 +165,8 @@ export default function AmendmentDetailPage() {
         canEdit={isDraft}
         onAddChange={() => setChangeModalOpen(true)}
         onDeleteChange={(change) => {
-          setDeletingChange(change)
-          setDeleteChangeDialogOpen(true)
+          setDeletingChange(change);
+          setDeleteChangeDialogOpen(true);
         }}
       />
 
@@ -206,8 +208,15 @@ export default function AmendmentDetailPage() {
         onFailClose={() => setFailDialogOpen(false)}
         onFailConfirm={() => handleAction(fail, () => setFailDialogOpen(false))}
         onApplyClose={() => setApplyDialogOpen(false)}
-        onApplyConfirm={() => handleAction(async () => { await apply() }, () => setApplyDialogOpen(false))}
+        onApplyConfirm={() =>
+          handleAction(
+            async () => {
+              await apply();
+            },
+            () => setApplyDialogOpen(false),
+          )
+        }
       />
     </div>
-  )
+  );
 }

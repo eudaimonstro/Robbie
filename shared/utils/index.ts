@@ -2,13 +2,10 @@ export {
   generateId,
   generateMeetingCode,
   generateTimestamp,
-  calculateTimerEnd
+  calculateTimerEnd,
 } from './idGenerators.js';
 
-export {
-  calculateVoteResult,
-  getChairVotingOptions
-} from './voteCalculator.js';
+export { calculateVoteResult, getChairVotingOptions } from './voteCalculator.js';
 
 export {
   isRuleSuspended,
@@ -16,7 +13,7 @@ export {
   getRuleName,
   getRuleDescription,
   getActiveSuspensions,
-  getRuleWarning
+  getRuleWarning,
 } from './ruleSuspensionHelper.js';
 
 export { applyMotionOutcome } from './motionOutcomeHelper.js';
@@ -26,13 +23,13 @@ export {
   normalizeMotionText,
   isSimilarMotionSubject,
   wasMotionDefeated,
-  type ValidMotion
+  type ValidMotion,
 } from './motionHelpers.js';
 
 export {
   generateMeetingMinutes,
   formatMinutesAsMarkdown,
-  formatMinutesAsJSON
+  formatMinutesAsJSON,
 } from './minutesGenerator.js';
 
 export {
@@ -42,7 +39,7 @@ export {
   getMotionHistoryStats,
   type HistoricalMotion,
   type MotionHistoryFilters,
-  type MotionOutcome
+  type MotionOutcome,
 } from './motionHistoryHelper.js';
 
 export {
@@ -54,5 +51,5 @@ export {
   getNextSpeakerInfo,
   type SpeakerQueueInfo,
   type StanceBalance,
-  type QueueStats
+  type QueueStats,
 } from './speakerQueueHelper.js';

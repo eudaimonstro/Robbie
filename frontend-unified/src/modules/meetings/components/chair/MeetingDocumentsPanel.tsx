@@ -5,7 +5,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Paperclip, Download, ExternalLink, ChevronDown, ChevronUp, Loader2, Folder } from 'lucide-react';
+import {
+  FileText,
+  Paperclip,
+  Download,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Folder,
+} from 'lucide-react';
 import type { MeetingPacket, Attachment, AgendaItem } from '../scheduling/types';
 import { getOrCreatePacket, getAttachmentDownloadUrl } from '../scheduling/api';
 
@@ -37,7 +46,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   };
 
   const toggleItem = (itemId: string) => {
-    setExpandedItems(prev => {
+    setExpandedItems((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) {
         next.delete(itemId);
@@ -49,7 +58,8 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   };
 
   const totalDocs = packet
-    ? packet.attachments.length + packet.agendaItems.reduce((sum, item) => sum + item.attachments.length, 0)
+    ? packet.attachments.length +
+      packet.agendaItems.reduce((sum, item) => sum + item.attachments.length, 0)
     : 0;
 
   if (isLoading) {
@@ -105,7 +115,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-600 mb-2">General Documents</h4>
           <div className="space-y-1">
-            {packet.attachments.map(attachment => (
+            {packet.attachments.map((attachment) => (
               <AttachmentRow key={attachment.id} attachment={attachment} />
             ))}
           </div>
@@ -113,19 +123,21 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
       )}
 
       {/* Agenda item documents */}
-      {packet.agendaItems.filter(item => item.attachments.length > 0).length > 0 && (
+      {packet.agendaItems.filter((item) => item.attachments.length > 0).length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-2">Agenda Item Documents</h4>
           <div className="space-y-2">
-            {packet.agendaItems.filter(item => item.attachments.length > 0).map((item, index) => (
-              <AgendaItemDocuments
-                key={item.id}
-                item={item}
-                index={index}
-                isExpanded={expandedItems.has(item.id)}
-                onToggle={() => toggleItem(item.id)}
-              />
-            ))}
+            {packet.agendaItems
+              .filter((item) => item.attachments.length > 0)
+              .map((item, index) => (
+                <AgendaItemDocuments
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  isExpanded={expandedItems.has(item.id)}
+                  onToggle={() => toggleItem(item.id)}
+                />
+              ))}
           </div>
         </div>
       )}
@@ -173,7 +185,7 @@ function AgendaItemDocuments({
   item,
   index,
   isExpanded,
-  onToggle
+  onToggle,
 }: {
   item: AgendaItem;
   index: number;
@@ -196,7 +208,7 @@ function AgendaItemDocuments({
       </button>
       {isExpanded && (
         <div className="p-2 space-y-1">
-          {item.attachments.map(attachment => (
+          {item.attachments.map((attachment) => (
             <AttachmentRow key={attachment.id} attachment={attachment} />
           ))}
         </div>

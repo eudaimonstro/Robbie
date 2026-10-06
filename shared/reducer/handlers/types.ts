@@ -10,5 +10,5 @@ export type { MeetingState, MeetingAction, MeetingLogEntry };
 export type ActionHandler = (
   state: MeetingState,
   action: MeetingAction,
-  log: (timestamp: string, msg: string) => MeetingLogEntry[]
+  log: (timestamp: string, msg: string) => MeetingLogEntry[],
 ) => MeetingState;

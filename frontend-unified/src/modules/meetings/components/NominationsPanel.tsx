@@ -9,7 +9,12 @@ interface NominationsPanelProps {
   isChair?: boolean;
 }
 
-export function NominationsPanel({ state, dispatch, currentUser, isChair = false }: NominationsPanelProps) {
+export function NominationsPanel({
+  state,
+  dispatch,
+  currentUser,
+  isChair = false,
+}: NominationsPanelProps) {
   const [position, setPosition] = useState('');
   const [nomineeName, setNomineeName] = useState('');
 
@@ -18,7 +23,7 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
     dispatch({
       type: 'OPEN_NOMINATIONS',
       position: position.trim(),
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
     setPosition('');
   }, [dispatch, position]);
@@ -27,7 +32,9 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
     if (!nomineeName.trim() || !state.currentNominationPosition) return;
 
     // Check if nominee is a member
-    const nominee = state.members.find(m => m.name.toLowerCase() === nomineeName.trim().toLowerCase());
+    const nominee = state.members.find(
+      (m) => m.name.toLowerCase() === nomineeName.trim().toLowerCase(),
+    );
 
     dispatch({
       type: 'NOMINATE',
@@ -37,34 +44,47 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
       nominatedBy: currentUser.name,
       nominatorId: currentUser.id,
       nominationId: generateId(),
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
     setNomineeName('');
-  }, [dispatch, nomineeName, state.currentNominationPosition, state.members, currentUser.name, currentUser.id]);
+  }, [
+    dispatch,
+    nomineeName,
+    state.currentNominationPosition,
+    state.members,
+    currentUser.name,
+    currentUser.id,
+  ]);
 
-  const handleDeclineNomination = useCallback((nominationId: number) => {
-    dispatch({
-      type: 'DECLINE_NOMINATION',
-      nominationId,
-      timestamp: generateTimestamp()
-    });
-  }, [dispatch]);
+  const handleDeclineNomination = useCallback(
+    (nominationId: number) => {
+      dispatch({
+        type: 'DECLINE_NOMINATION',
+        nominationId,
+        timestamp: generateTimestamp(),
+      });
+    },
+    [dispatch],
+  );
 
   const handleCloseNominations = useCallback(() => {
     dispatch({
       type: 'CLOSE_NOMINATIONS',
-      timestamp: generateTimestamp()
+      timestamp: generateTimestamp(),
     });
   }, [dispatch]);
 
   const currentPositionNominations = useMemo(
-    () => state.nominations.filter(n => n.position === state.currentNominationPosition),
-    [state.nominations, state.currentNominationPosition]
+    () => state.nominations.filter((n) => n.position === state.currentNominationPosition),
+    [state.nominations, state.currentNominationPosition],
   );
 
   return (
     <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="nominations-heading">
-      <h3 id="nominations-heading" className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+      <h3
+        id="nominations-heading"
+        className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
+      >
         <span aria-hidden="true">🗳️</span> Nominations and Elections
       </h3>
 
@@ -96,9 +116,14 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
       {/* Active Nominations */}
       {state.nominationsOpen && state.currentNominationPosition && (
         <div className="mb-4">
-          <div className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3" role="status" aria-live="polite">
+          <div
+            className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3"
+            role="status"
+            aria-live="polite"
+          >
             <p className="font-semibold text-green-900">
-              <span aria-hidden="true">✅</span> Nominations are open for: {state.currentNominationPosition}
+              <span aria-hidden="true">✅</span> Nominations are open for:{' '}
+              {state.currentNominationPosition}
             </p>
             <p className="text-xs text-green-700 mt-1">
               Per RONR, nominations do not require a second. Members may nominate themselves.
@@ -133,7 +158,8 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
           {currentPositionNominations.length > 0 && (
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-2">
-                Nominations Received ({currentPositionNominations.filter(n => !n.declined).length}):
+                Nominations Received ({currentPositionNominations.filter((n) => !n.declined).length}
+                ):
               </p>
               <div className="space-y-2">
                 {currentPositionNominations.map((nomination) => (
@@ -155,15 +181,14 @@ export function NominationsPanel({ state, dispatch, currentUser, isChair = false
                           Nominated by {nomination.nominatedBy}
                         </p>
                       </div>
-                      {!nomination.declined &&
-                        nomination.nomineeId === currentUser.id && (
-                          <button
-                            onClick={() => handleDeclineNomination(nomination.id)}
-                            className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
-                          >
-                            Decline
-                          </button>
-                        )}
+                      {!nomination.declined && nomination.nomineeId === currentUser.id && (
+                        <button
+                          onClick={() => handleDeclineNomination(nomination.id)}
+                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
+                        >
+                          Decline
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

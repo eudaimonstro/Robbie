@@ -3,7 +3,7 @@ import {
   getMotionHistory,
   filterMotionHistory,
   getMotionTypes,
-  getMotionHistoryStats
+  getMotionHistoryStats,
 } from '../../utils/index.js';
 import type { MeetingState, Motion } from '../../types/index.js';
 
@@ -87,16 +87,18 @@ describe('getMotionHistory', () => {
 
   it('should include completed motions with passed outcome', () => {
     const state = createMockState({
-      completedMotions: [{
-        id: 1,
-        type: 'mainMotion',
-        name: 'Main Motion',
-        text: 'Approve the budget',
-        passed: true,
-        voterChoices: { 1: 'yea', 2: 'yea' },
-        timestamp: '10:15:00',
-        reconsidered: false,
-      }],
+      completedMotions: [
+        {
+          id: 1,
+          type: 'mainMotion',
+          name: 'Main Motion',
+          text: 'Approve the budget',
+          passed: true,
+          voterChoices: { 1: 'yea', 2: 'yea' },
+          timestamp: '10:15:00',
+          reconsidered: false,
+        },
+      ],
     });
 
     const history = getMotionHistory(state);
@@ -108,16 +110,18 @@ describe('getMotionHistory', () => {
 
   it('should include failed motions', () => {
     const state = createMockState({
-      completedMotions: [{
-        id: 1,
-        type: 'mainMotion',
-        name: 'Main Motion',
-        text: 'Rejected proposal',
-        passed: false,
-        voterChoices: { 1: 'nay', 2: 'nay' },
-        timestamp: '10:15:00',
-        reconsidered: false,
-      }],
+      completedMotions: [
+        {
+          id: 1,
+          type: 'mainMotion',
+          name: 'Main Motion',
+          text: 'Rejected proposal',
+          passed: false,
+          voterChoices: { 1: 'nay', 2: 'nay' },
+          timestamp: '10:15:00',
+          reconsidered: false,
+        },
+      ],
     });
 
     const history = getMotionHistory(state);
@@ -148,16 +152,18 @@ describe('getMotionHistory', () => {
 
   it('should sort pending motions first', () => {
     const state = createMockState({
-      completedMotions: [{
-        id: 1,
-        type: 'mainMotion',
-        name: 'Main Motion',
-        text: 'Completed motion',
-        passed: true,
-        voterChoices: {},
-        timestamp: '10:00:00',
-        reconsidered: false,
-      }],
+      completedMotions: [
+        {
+          id: 1,
+          type: 'mainMotion',
+          name: 'Main Motion',
+          text: 'Completed motion',
+          passed: true,
+          voterChoices: {},
+          timestamp: '10:00:00',
+          reconsidered: false,
+        },
+      ],
       motionStack: [createMockMotion({ id: 2, text: 'Pending motion' })],
     });
 
@@ -169,9 +175,33 @@ describe('getMotionHistory', () => {
 
 describe('filterMotionHistory', () => {
   const history = [
-    { id: 1, type: 'mainMotion', name: 'Main Motion', text: 'Budget proposal', mover: 'Alice', outcome: 'passed' as const, timestamp: '10:00:00' },
-    { id: 2, type: 'amend', name: 'Amendment', text: 'Amend budget', mover: 'Bob', outcome: 'failed' as const, timestamp: '10:05:00' },
-    { id: 3, type: 'mainMotion', name: 'Main Motion', text: 'New policy', mover: 'Charlie', outcome: 'tabled' as const, timestamp: '10:10:00' },
+    {
+      id: 1,
+      type: 'mainMotion',
+      name: 'Main Motion',
+      text: 'Budget proposal',
+      mover: 'Alice',
+      outcome: 'passed' as const,
+      timestamp: '10:00:00',
+    },
+    {
+      id: 2,
+      type: 'amend',
+      name: 'Amendment',
+      text: 'Amend budget',
+      mover: 'Bob',
+      outcome: 'failed' as const,
+      timestamp: '10:05:00',
+    },
+    {
+      id: 3,
+      type: 'mainMotion',
+      name: 'Main Motion',
+      text: 'New policy',
+      mover: 'Charlie',
+      outcome: 'tabled' as const,
+      timestamp: '10:10:00',
+    },
   ];
 
   it('should filter by outcome', () => {
@@ -212,9 +242,33 @@ describe('filterMotionHistory', () => {
 describe('getMotionTypes', () => {
   it('should return unique motion types', () => {
     const history = [
-      { id: 1, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'passed' as const, timestamp: '' },
-      { id: 2, type: 'amend', name: 'Amend', text: '', mover: '', outcome: 'passed' as const, timestamp: '' },
-      { id: 3, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'failed' as const, timestamp: '' },
+      {
+        id: 1,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'passed' as const,
+        timestamp: '',
+      },
+      {
+        id: 2,
+        type: 'amend',
+        name: 'Amend',
+        text: '',
+        mover: '',
+        outcome: 'passed' as const,
+        timestamp: '',
+      },
+      {
+        id: 3,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'failed' as const,
+        timestamp: '',
+      },
     ];
 
     const types = getMotionTypes(history);
@@ -227,11 +281,51 @@ describe('getMotionTypes', () => {
 describe('getMotionHistoryStats', () => {
   it('should calculate correct statistics', () => {
     const history = [
-      { id: 1, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'passed' as const, timestamp: '' },
-      { id: 2, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'passed' as const, timestamp: '' },
-      { id: 3, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'failed' as const, timestamp: '' },
-      { id: 4, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'tabled' as const, timestamp: '' },
-      { id: 5, type: 'mainMotion', name: 'Main', text: '', mover: '', outcome: 'pending' as const, timestamp: '' },
+      {
+        id: 1,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'passed' as const,
+        timestamp: '',
+      },
+      {
+        id: 2,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'passed' as const,
+        timestamp: '',
+      },
+      {
+        id: 3,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'failed' as const,
+        timestamp: '',
+      },
+      {
+        id: 4,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'tabled' as const,
+        timestamp: '',
+      },
+      {
+        id: 5,
+        type: 'mainMotion',
+        name: 'Main',
+        text: '',
+        mover: '',
+        outcome: 'pending' as const,
+        timestamp: '',
+      },
     ];
 
     const stats = getMotionHistoryStats(history);

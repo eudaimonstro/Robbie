@@ -37,7 +37,7 @@ export function processOutcomeResult(
   outcome: MotionOutcome,
   currentSuspendedRules: RuleSuspension[],
   newStack: Motion[],
-  motionToRestore?: Motion | null
+  motionToRestore?: Motion | null,
 ): ProcessedOutcome {
   // Handle suspended rules
   const suspendedRules = outcome.newSuspension
@@ -51,7 +51,7 @@ export function processOutcomeResult(
   // Handle objection killing main motion
   let workingStack = newStack;
   if (outcome.objectionKilledMotion) {
-    workingStack = newStack.filter(m => m.id !== outcome.objectionKilledMotion!.id);
+    workingStack = newStack.filter((m) => m.id !== outcome.objectionKilledMotion!.id);
   }
 
   const objectionLog = outcome.objectionKilledMotion
@@ -60,17 +60,16 @@ export function processOutcomeResult(
 
   // Handle restored motion (from table or reconsider)
   const restoreMotion = motionToRestore ?? outcome.restoredMotion;
-  const finalStack = restoreMotion
-    ? [...workingStack, restoreMotion]
-    : workingStack;
+  const finalStack = restoreMotion ? [...workingStack, restoreMotion] : workingStack;
 
   const finalCurrentMotion = restoreMotion
     ? restoreMotion
-    : (workingStack[workingStack.length - 1] || null);
+    : workingStack[workingStack.length - 1] || null;
 
-  const restoredLog = outcome.restoredMotion && !motionToRestore
-    ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
-    : '';
+  const restoredLog =
+    outcome.restoredMotion && !motionToRestore
+      ? `\n[RESTORED FROM TABLE] "${outcome.restoredMotion.text}"`
+      : '';
 
   return {
     suspendedRules,
@@ -79,7 +78,7 @@ export function processOutcomeResult(
     objectionLog,
     finalStack,
     finalCurrentMotion,
-    restoredLog
+    restoredLog,
   };
 }
 
@@ -114,7 +113,7 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
 
   // Handle table motion
   if (state.currentMotion?.type === 'layOnTable') {
-    const mainMotion = newStack.find(m => m.category === 'main');
+    const mainMotion = newStack.find((m) => m.category === 'main');
     if (mainMotion) {
       tabledMotions = [...tabledMotions, mainMotion];
     }
@@ -134,7 +133,7 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
       const newItem: AgendaItem = {
         id: amendment.itemId || 0,
         title: amendment.title,
-        status: "pending" as const
+        status: 'pending' as const,
       };
 
       if (amendment.position === 'end') {
@@ -145,11 +144,11 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
         agenda = [
           ...agenda.slice(0, amendment.position),
           newItem,
-          ...agenda.slice(amendment.position)
+          ...agenda.slice(amendment.position),
         ];
       }
     } else if (amendment.action === 'remove') {
-      agenda = agenda.filter(item => item.id !== amendment.itemId);
+      agenda = agenda.filter((item) => item.id !== amendment.itemId);
     } else if (amendment.action === 'reorder') {
       const newAgenda = [...agenda];
       const [moved] = newAgenda.splice(amendment.fromIndex!, 1);
@@ -173,18 +172,18 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
       scope: suspension.scope!,
       suspendedAt: timestamp,
       actionCompleted: false,
-      motionId: state.currentMotion.id
+      motionId: state.currentMotion.id,
     };
   }
 
   // Handle take from table
   if (state.currentMotion?.type === 'takeFromTable' && state.currentMotion?.tabledMotionId) {
     const motionId = state.currentMotion.tabledMotionId;
-    const motion = tabledMotions.find(m => m.id === motionId);
+    const motion = tabledMotions.find((m) => m.id === motionId);
 
     if (motion) {
       // Remove from tabled motions
-      tabledMotions = tabledMotions.filter(m => m.id !== motionId);
+      tabledMotions = tabledMotions.filter((m) => m.id !== motionId);
       // Restore the motion (will be added to stack by reducer)
       restoredMotion = { ...motion, status: 'active' as const };
     }
@@ -193,7 +192,7 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
   // Handle objection to consideration
   // When objection is sustained (2/3 vote passes), it kills the main motion
   if (state.currentMotion?.type === 'objectionConsideration') {
-    const mainMotion = newStack.find(m => m.category === 'main');
+    const mainMotion = newStack.find((m) => m.category === 'main');
     if (mainMotion) {
       objectionKilledMotion = mainMotion;
     }
@@ -211,22 +210,29 @@ export function applyMotionOutcome(state: MeetingState, timestamp: string): Moti
   let dividedParts: DividedPart[] | null = null;
   let dividedMainMotion: Motion | null = null;
   if (state.currentMotion?.type === 'divideQuestion' && state.currentMotion?.dividedParts) {
-    const mainMotion = newStack.find(m => m.category === 'main');
+    const mainMotion = newStack.find((m) => m.category === 'main');
     if (mainMotion && state.currentMotion.dividedParts.length > 0) {
       dividedMainMotion = mainMotion;
       // Create divided parts with sequential IDs starting after highest existing ID
-      const maxId = Math.max(
-        ...state.motionStack.map(m => m.id),
-        state.currentMotion.id,
-        0
-      );
+      const maxId = Math.max(...state.motionStack.map((m) => m.id), state.currentMotion.id, 0);
       dividedParts = state.currentMotion.dividedParts.map((text, index) => ({
         id: maxId + 1 + index,
         text,
-        originalMotionId: mainMotion.id
+        originalMotionId: mainMotion.id,
       }));
     }
   }
 
-  return { tabledMotions, agendaAdopted, agendaObjection, agenda, newSuspension, restoredMotion, objectionKilledMotion, reconsideredMotionId, dividedParts, dividedMainMotion };
+  return {
+    tabledMotions,
+    agendaAdopted,
+    agendaObjection,
+    agenda,
+    newSuspension,
+    restoredMotion,
+    objectionKilledMotion,
+    reconsideredMotionId,
+    dividedParts,
+    dividedMainMotion,
+  };
 }

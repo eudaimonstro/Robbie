@@ -29,7 +29,7 @@ interface VerifyCodeResponse {
 export async function requestVerification(
   email: string,
   name: string,
-  meetingCode: string
+  meetingCode: string,
 ): Promise<RequestVerificationResponse> {
   const response = await fetch(`${API_URL}/api/auth/request-verification`, {
     method: 'POST',
@@ -53,7 +53,7 @@ export async function requestVerification(
 export async function verifyCode(
   email: string,
   code: string,
-  meetingCode: string
+  meetingCode: string,
 ): Promise<VerifyCodeResponse> {
   const response = await fetch(`${API_URL}/api/auth/verify`, {
     method: 'POST',
@@ -79,7 +79,7 @@ export async function logout(token: string): Promise<void> {
     await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
   } catch {

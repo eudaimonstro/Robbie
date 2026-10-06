@@ -9,21 +9,15 @@ interface AgendaPanelProps {
   dispatch: React.Dispatch<MeetingAction>;
 }
 
-export const AgendaPanel = React.memo(function AgendaPanel({
-  state,
-  dispatch
-}: AgendaPanelProps) {
-  const [newAgendaItem, setNewAgendaItem] = useState("");
+export const AgendaPanel = React.memo(function AgendaPanel({ state, dispatch }: AgendaPanelProps) {
+  const [newAgendaItem, setNewAgendaItem] = useState('');
 
   const handleAddAgendaItem = useCallback(() => {
     dispatch({ type: 'ADD_AGENDA_ITEM', title: newAgendaItem, itemId: generateId() });
-    setNewAgendaItem("");
+    setNewAgendaItem('');
   }, [newAgendaItem, dispatch]);
 
-  const chair = useMemo(
-    () => state.members.find(m => m.role === 'chair'),
-    [state.members]
-  );
+  const chair = useMemo(() => state.members.find((m) => m.role === 'chair'), [state.members]);
 
   const handlePutToVote = useCallback(() => {
     if (chair && state.currentAgendaItem) {
@@ -34,7 +28,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({
         mover: 'Chair',
         moverId: chair.id,
         motionId: generateId(),
-        timestamp: generateTimestamp()
+        timestamp: generateTimestamp(),
       });
     }
   }, [chair, state.currentAgendaItem, dispatch]);
@@ -44,7 +38,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({
     return (
       <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="agenda-adoption-heading">
         <h3 id="agenda-adoption-heading" className="font-semibold mb-3 text-gray-800">
-          {state.agendaObjection ? "Agenda (Objection)" : "Adopt Agenda"}
+          {state.agendaObjection ? 'Agenda (Objection)' : 'Adopt Agenda'}
         </h3>
         <p className="text-sm text-gray-600 mb-3">Drag items to reorder before adoption.</p>
 
@@ -84,7 +78,10 @@ export const AgendaPanel = React.memo(function AgendaPanel({
             </button>
           </div>
         ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm" role="alert">
+          <div
+            className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm"
+            role="alert"
+          >
             <strong>Objection noted.</strong> A member must move to adopt or amend the agenda.
           </div>
         )}
@@ -93,10 +90,17 @@ export const AgendaPanel = React.memo(function AgendaPanel({
   }
 
   // Show current agenda item panel
-  if (state.agendaAdopted && state.currentAgendaItem && !state.currentMotion && !state.pendingSecond) {
+  if (
+    state.agendaAdopted &&
+    state.currentAgendaItem &&
+    !state.currentMotion &&
+    !state.pendingSecond
+  ) {
     return (
       <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="current-item-heading">
-        <h3 id="current-item-heading" className="font-semibold mb-2 text-gray-800">Current Item</h3>
+        <h3 id="current-item-heading" className="font-semibold mb-2 text-gray-800">
+          Current Item
+        </h3>
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">
           {state.currentAgendaItem.title}
         </div>
@@ -108,11 +112,13 @@ export const AgendaPanel = React.memo(function AgendaPanel({
             Put to Vote
           </button>
           <button
-            onClick={() => dispatch({
-              type: 'COMPLETE_AGENDA_ITEM',
-              id: state.currentAgendaItem!.id,
-              timestamp: generateTimestamp()
-            })}
+            onClick={() =>
+              dispatch({
+                type: 'COMPLETE_AGENDA_ITEM',
+                id: state.currentAgendaItem!.id,
+                timestamp: generateTimestamp(),
+              })
+            }
             className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
           >
             Mark Complete (No Vote)
@@ -123,10 +129,17 @@ export const AgendaPanel = React.memo(function AgendaPanel({
   }
 
   // Show agenda list panel (after adoption, no current item)
-  if (state.agendaAdopted && !state.currentAgendaItem && !state.currentMotion && !state.pendingSecond) {
+  if (
+    state.agendaAdopted &&
+    !state.currentAgendaItem &&
+    !state.currentMotion &&
+    !state.pendingSecond
+  ) {
     return (
       <section className="bg-white rounded-lg p-4 shadow" aria-labelledby="agenda-list-heading">
-        <h3 id="agenda-list-heading" className="font-semibold mb-3 text-gray-800">Agenda</h3>
+        <h3 id="agenda-list-heading" className="font-semibold mb-3 text-gray-800">
+          Agenda
+        </h3>
         <ul className="space-y-2" role="list">
           {state.agenda.map((item, i) => (
             <li
@@ -145,11 +158,13 @@ export const AgendaPanel = React.memo(function AgendaPanel({
               </div>
               {item.status === 'pending' && (
                 <button
-                  onClick={() => dispatch({
-                    type: 'CALL_AGENDA_ITEM',
-                    id: item.id,
-                    timestamp: generateTimestamp()
-                  })}
+                  onClick={() =>
+                    dispatch({
+                      type: 'CALL_AGENDA_ITEM',
+                      id: item.id,
+                      timestamp: generateTimestamp(),
+                    })
+                  }
                   className="bg-indigo-500 text-white px-3 py-1 rounded text-sm"
                 >
                   Call

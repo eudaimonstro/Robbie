@@ -4,8 +4,8 @@
  */
 
 // Meeting lifecycle
-export const LOG_MEETING_CALLED_TO_ORDER = "Meeting called to order.";
-export const LOG_MEETING_ADJOURNED = "Meeting adjourned.";
+export const LOG_MEETING_CALLED_TO_ORDER = 'Meeting called to order.';
+export const LOG_MEETING_ADJOURNED = 'Meeting adjourned.';
 
 // Motion workflow
 export function logMotionMade(mover: string, text: string, motionName: string): string {
@@ -16,7 +16,7 @@ export function logMotionSeconded(seconder: string): string {
   return `${seconder} seconds the motion.`;
 }
 
-export const LOG_MOTION_FAILED_NO_SECOND = "Motion fails for lack of a second.";
+export const LOG_MOTION_FAILED_NO_SECOND = 'Motion fails for lack of a second.';
 
 export function logMotionWithdrawn(mover: string): string {
   return `${mover}'s motion is withdrawn.`;
@@ -43,7 +43,7 @@ export function logVoteResultWithExtras(
   suspensionLog: string,
   restoredLog: string,
   objectionLog: string,
-  reconsideredLog: string
+  reconsideredLog: string,
 ): string {
   return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`;
 }
@@ -58,8 +58,8 @@ export function logSpeakerYields(name: string | undefined): string {
 }
 
 // Agenda
-export const LOG_AGENDA_ADOPTED = "Agenda adopted by unanimous consent.";
-export const LOG_AGENDA_OBJECTION = "Objection raised to agenda.";
+export const LOG_AGENDA_ADOPTED = 'Agenda adopted by unanimous consent.';
+export const LOG_AGENDA_OBJECTION = 'Objection raised to agenda.';
 
 export function logAgendaItemCalled(title: string | undefined): string {
   return `Chair calls: "${title}"`;
@@ -79,7 +79,7 @@ export function logUnanimousConsentObjection(objector: string): string {
 export function logUnanimousConsentPassed(
   suspensionLog: string,
   restoredLog: string,
-  objectionLog: string
+  objectionLog: string,
 ): string {
   return `Motion CARRIED by unanimous consent.${suspensionLog}${restoredLog}${objectionLog}`;
 }
@@ -88,7 +88,7 @@ export function logUnanimousConsentPassed(
 export function logCommitteeReportPresented(
   committee: string,
   presenter: string,
-  hasRecommendations: boolean
+  hasRecommendations: boolean,
 ): string {
   return `${committee} report presented by ${presenter}.${hasRecommendations ? ' Recommendations made.' : ''}`;
 }
@@ -99,7 +99,7 @@ export function logRuleSuspended(rule: string, purpose: string): string {
 }
 
 // Minutes
-export const LOG_MINUTES_APPROVED = "Minutes from previous meeting approved.";
+export const LOG_MINUTES_APPROVED = 'Minutes from previous meeting approved.';
 
 // Nominations
 export function logNominationsOpened(position: string): string {
@@ -123,10 +123,12 @@ export function logElectionVotingOpen(position: string, candidateCount: number):
   return `Chair: Voting is now open for ${position}. ${candidateCount} candidate(s).`;
 }
 
-export function logElectionClosed(position: string, resultsText: string, winner: string | null): string {
-  const winnerMsg = winner
-    ? `${winner} elected.`
-    : 'No candidate elected (majority not reached).';
+export function logElectionClosed(
+  position: string,
+  resultsText: string,
+  winner: string | null,
+): string {
+  const winnerMsg = winner ? `${winner} elected.` : 'No candidate elected (majority not reached).';
   return `Voting closed for ${position}. Results: ${resultsText}. ${winnerMsg}`;
 }
 
@@ -135,7 +137,11 @@ export function logElected(candidateName: string, position: string): string {
 }
 
 // Inquiries
-export function logInquiryRaised(askedBy: string, inquiryTypeLabel: string, question: string): string {
+export function logInquiryRaised(
+  askedBy: string,
+  inquiryTypeLabel: string,
+  question: string,
+): string {
   return `${askedBy} raises ${inquiryTypeLabel}: "${question}"`;
 }
 
@@ -158,7 +164,12 @@ export function logMemberRenamed(oldName: string, newName: string, renamedBy: st
     : `${renamedBy} renamed ${oldName} to ${newName}.`;
 }
 
-export function logRoleChanged(memberName: string, oldRole: string, newRole: string, changedBy: string): string {
+export function logRoleChanged(
+  memberName: string,
+  oldRole: string,
+  newRole: string,
+  changedBy: string,
+): string {
   return `${changedBy} changed ${memberName}'s role from ${oldRole} to ${newRole}.`;
 }
 

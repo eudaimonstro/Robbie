@@ -52,10 +52,7 @@
   {
     "category": "functional",
     "description": "Frontend settings page loads",
-    "steps": [
-      "Step 1: Navigate to /settings",
-      "Step 2: Verify page loads without errors"
-    ],
+    "steps": ["Step 1: Navigate to /settings", "Step 2: Verify page loads without errors"],
     "passes": true
   },
   {
@@ -274,11 +271,7 @@
   {
     "category": "functional",
     "description": "Frontend ESC key closes modals",
-    "steps": [
-      "Step 1: Open modal",
-      "Step 2: Press ESC key",
-      "Step 3: Verify modal closes"
-    ],
+    "steps": ["Step 1: Open modal", "Step 2: Press ESC key", "Step 3: Verify modal closes"],
     "passes": true
   },
   {
@@ -797,10 +790,7 @@
   {
     "category": "functional",
     "description": "TypeScript types compile without errors",
-    "steps": [
-      "Step 1: Run tsc --noEmit",
-      "Step 2: Verify no type errors"
-    ],
+    "steps": ["Step 1: Run tsc --noEmit", "Step 2: Verify no type errors"],
     "passes": true
   },
   {
@@ -836,28 +826,19 @@
   {
     "category": "functional",
     "description": "Accessibility: Landmark regions defined",
-    "steps": [
-      "Step 1: Inspect page structure",
-      "Step 2: Verify main, nav, header landmarks"
-    ],
+    "steps": ["Step 1: Inspect page structure", "Step 2: Verify main, nav, header landmarks"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Accessibility: Forms have proper labels",
-    "steps": [
-      "Step 1: Test with screen reader",
-      "Step 2: Verify all inputs announced correctly"
-    ],
+    "steps": ["Step 1: Test with screen reader", "Step 2: Verify all inputs announced correctly"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Accessibility: Error messages are announced",
-    "steps": [
-      "Step 1: Trigger form error",
-      "Step 2: Verify screen reader announces error"
-    ],
+    "steps": ["Step 1: Trigger form error", "Step 2: Verify screen reader announces error"],
     "passes": true
   },
   {
@@ -893,10 +874,7 @@
   {
     "category": "functional",
     "description": "Accessibility: Touch targets are 44px minimum",
-    "steps": [
-      "Step 1: Measure touch targets on mobile",
-      "Step 2: Verify minimum 44x44px"
-    ],
+    "steps": ["Step 1: Measure touch targets on mobile", "Step 2: Verify minimum 44x44px"],
     "passes": true
   },
   {
@@ -912,19 +890,13 @@
   {
     "category": "functional",
     "description": "Accessibility: Animations can be disabled",
-    "steps": [
-      "Step 1: Enable reduced motion",
-      "Step 2: Verify animations are reduced/disabled"
-    ],
+    "steps": ["Step 1: Enable reduced motion", "Step 2: Verify animations are reduced/disabled"],
     "passes": true
   },
   {
     "category": "functional",
     "description": "Accessibility: Page works with JavaScript disabled",
-    "steps": [
-      "Step 1: Disable JavaScript",
-      "Step 2: Verify graceful degradation message"
-    ],
+    "steps": ["Step 1: Disable JavaScript", "Step 2: Verify graceful degradation message"],
     "passes": true
   },
   {
@@ -951,11 +923,7 @@
   {
     "category": "functional",
     "description": "Frontend invalidates cache on mutations",
-    "steps": [
-      "Step 1: Load list",
-      "Step 2: Create new item",
-      "Step 3: Verify list updated"
-    ],
+    "steps": ["Step 1: Load list", "Step 2: Create new item", "Step 3: Verify list updated"],
     "passes": true
   },
   {

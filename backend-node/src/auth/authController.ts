@@ -50,7 +50,10 @@ if (process.env.ENABLE_TEST_AUTH === 'true' && isProduction) {
 }
 
 if (TEST_AUTH_ENABLED) {
-  logger.info({ testMeetingCode: TEST_MEETING_CODE, testVerificationCode: TEST_VERIFICATION_CODE }, 'TEST AUTH ENABLED');
+  logger.info(
+    { testMeetingCode: TEST_MEETING_CODE, testVerificationCode: TEST_VERIFICATION_CODE },
+    'TEST AUTH ENABLED',
+  );
 }
 
 // Input validation patterns (matching frontend)
@@ -84,7 +87,7 @@ function sanitizeInputs(email: string, name: string, meetingCode: string) {
   return {
     email: email.trim().toLowerCase(),
     name: name.trim(),
-    meetingCode: meetingCode.trim().toUpperCase()
+    meetingCode: meetingCode.trim().toUpperCase(),
   };
 }
 
@@ -186,7 +189,7 @@ authRouter.post('/request-verification', requestVerificationLimiter, async (req,
       meetingCode: sanitized.meetingCode,
       token,
       expiresAt,
-      verified: false
+      verified: false,
     });
 
     // Send verification email (logs to console in dev)
@@ -219,9 +222,10 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
     const sanitizedMeetingCode = meetingCode.trim().toUpperCase();
 
     // Check for test auth bypass
-    const isTestAuth = TEST_AUTH_ENABLED &&
-                       sanitizedMeetingCode === TEST_MEETING_CODE &&
-                       trimmedCode === TEST_VERIFICATION_CODE;
+    const isTestAuth =
+      TEST_AUTH_ENABLED &&
+      sanitizedMeetingCode === TEST_MEETING_CODE &&
+      trimmedCode === TEST_VERIFICATION_CODE;
 
     // Find verification record (may not exist for test auth)
     const key = `${sanitizedEmail}:${sanitizedMeetingCode}`;
@@ -229,10 +233,12 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
 
     if (!isTestAuth) {
       // Validate verification token
-      if (!verification ||
-          verification.token !== trimmedCode ||
-          verification.verified ||
-          verification.expiresAt < new Date()) {
+      if (
+        !verification ||
+        verification.token !== trimmedCode ||
+        verification.verified ||
+        verification.expiresAt < new Date()
+      ) {
         return res.status(401).json({ error: 'Invalid or expired verification code' });
       }
 
@@ -241,7 +247,10 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
     }
 
     // Determine user name from verification record, request body, or derive from email
-    const derivedName = sanitizedEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    const derivedName = sanitizedEmail
+      .split('@')[0]
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, (c: string) => c.toUpperCase());
     const userName = verification?.name || name?.trim() || derivedName || 'Participant';
 
     // Create or find user
@@ -250,7 +259,7 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       user = {
         id: nextUserId++,
         email: sanitizedEmail,
-        name: userName
+        name: userName,
       };
       users.set(sanitizedEmail, user);
     } else {
@@ -263,10 +272,10 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
         userId: user.id,
         email: user.email,
         name: user.name,
-        meetingCode: sanitizedMeetingCode
+        meetingCode: sanitizedMeetingCode,
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' },
     );
 
     // Set HttpOnly cookie with the token
@@ -275,7 +284,7 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       secure: isProduction, // Only send over HTTPS in production
       sameSite: isProduction ? 'strict' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/'
+      path: '/',
     });
 
     res.json({
@@ -284,8 +293,8 @@ authRouter.post('/verify', verifyCodeLimiter, async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
-      }
+        name: user.name,
+      },
     });
   } catch (error) {
     logger.error({ err: error }, 'Error verifying code');
@@ -299,7 +308,7 @@ authRouter.post('/logout', (_req, res) => {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'strict' : 'lax',
-    path: '/'
+    path: '/',
   });
   res.json({ success: true });
 });
@@ -354,12 +363,12 @@ if (TEST_AUTH_ENABLED) {
       // Also update the member's role in the meeting state
       const meeting = await storage.getMeeting(sanitizedMeetingCode);
       if (meeting) {
-        const member = meeting.state.members.find(m => m.id === user.id);
+        const member = meeting.state.members.find((m) => m.id === user.id);
         if (member) {
           // Find current chair if we're making someone else chair
           let previousChairId: number | undefined;
           if (role === 'chair') {
-            const currentChair = meeting.state.members.find(m => m.role === 'chair');
+            const currentChair = meeting.state.members.find((m) => m.role === 'chair');
             if (currentChair && currentChair.id !== user.id) {
               previousChairId = currentChair.id;
             }
@@ -373,7 +382,7 @@ if (TEST_AUTH_ENABLED) {
             previousChairId,
             changedBy: 'Test Mode',
             changedById: 0,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
 
           // Broadcast state update to all connected clients in the meeting room
@@ -385,7 +394,7 @@ if (TEST_AUTH_ENABLED) {
               io.to(roomName).emit('STATE_UPDATE', {
                 state: result.state,
                 stateVersion: result.stateVersion,
-                triggeredBy: { actionType: 'SET_MEMBER_ROLE', userId: user.id }
+                triggeredBy: { actionType: 'SET_MEMBER_ROLE', userId: user.id },
               });
             }
           }
@@ -399,19 +408,22 @@ if (TEST_AUTH_ENABLED) {
           email: user.email,
           name: user.name,
           meetingCode: sanitizedMeetingCode,
-          testRole: role // Hint for debugging, not used for auth
+          testRole: role, // Hint for debugging, not used for auth
         },
         jwtSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '24h' },
       );
 
-      logger.info({ email: user.email, meetingCode: sanitizedMeetingCode, role }, 'TEST: Changed role');
+      logger.info(
+        { email: user.email, meetingCode: sanitizedMeetingCode, role },
+        'TEST: Changed role',
+      );
 
       res.json({
         success: true,
         message: `Role changed to ${role}. Refresh the page to see the new view.`,
         token,
-        role
+        role,
       });
     } catch (error) {
       logger.error({ err: error }, 'Error changing test role');
@@ -421,7 +433,9 @@ if (TEST_AUTH_ENABLED) {
 }
 
 // Verify JWT token (for socket connection)
-export function verifyToken(token: string): { userId: number; email: string; name: string; meetingCode: string } | null {
+export function verifyToken(
+  token: string,
+): { userId: number; email: string; name: string; meetingCode: string } | null {
   try {
     const decoded = jwt.verify(token, jwtSecret) as {
       userId: number;

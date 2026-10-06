@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Hand } from 'lucide-react';
-import type { MeetingState, MeetingAction, Member, SpeakerQueueEntry } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingState,
+  MeetingAction,
+  Member,
+  SpeakerQueueEntry,
+} from '@robbie-bylawyer/shared/types';
 
 interface SpeakerRecognitionPanelProps {
   state: MeetingState;
@@ -13,32 +18,46 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
   state,
   dispatch,
   currentUser,
-  handRaised
+  handRaised,
 }: SpeakerRecognitionPanelProps) {
   const [selectedStance, setSelectedStance] = useState<'pro' | 'con' | 'neutral'>('neutral');
 
   // Calculate queue position for user feedback
   const queuePosition = handRaised
-    ? state.speakerQueue.findIndex(s => s.member.id === currentUser.id) + 1
+    ? state.speakerQueue.findIndex((s) => s.member.id === currentUser.id) + 1
     : 0;
 
   if (handRaised) {
     return (
       <section className="bg-white rounded-xl p-4 shadow" aria-labelledby="speaker-heading">
-        <h3 id="speaker-heading" className="font-semibold mb-3 flex items-center gap-2 text-gray-800">
+        <h3
+          id="speaker-heading"
+          className="font-semibold mb-3 flex items-center gap-2 text-gray-800"
+        >
           <Hand size={18} aria-hidden="true" /> Seek Recognition
         </h3>
         <div className="space-y-3">
-          <div className="bg-amber-100 border-2 border-amber-300 rounded-xl p-4 text-center" role="status">
-            <div className="text-3xl mb-2" aria-hidden="true">✋</div>
+          <div
+            className="bg-amber-100 border-2 border-amber-300 rounded-xl p-4 text-center"
+            role="status"
+          >
+            <div className="text-3xl mb-2" aria-hidden="true">
+              ✋
+            </div>
             <p className="font-semibold text-amber-800 text-lg">Hand Raised</p>
             {queuePosition > 0 && (
               <p className="text-sm text-amber-700 mt-1">
-                Position in queue: <span className="font-bold">{queuePosition}</span> of {state.speakerQueue.length}
+                Position in queue: <span className="font-bold">{queuePosition}</span> of{' '}
+                {state.speakerQueue.length}
               </p>
             )}
             <p className="text-sm text-amber-600 mt-2">
-              Stance: {handRaised.stance === 'pro' ? '✓ For' : handRaised.stance === 'con' ? '✗ Against' : '○ Neutral'}
+              Stance:{' '}
+              {handRaised.stance === 'pro'
+                ? '✓ For'
+                : handRaised.stance === 'con'
+                  ? '✗ Against'
+                  : '○ Neutral'}
             </p>
           </div>
           <button
@@ -57,7 +76,9 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
     transition-all duration-150 ease-out
     touch-manipulation active:scale-[0.97]
     focus:outline-none focus:ring-2 focus:ring-offset-2
-  `.trim().replace(/\s+/g, ' ');
+  `
+    .trim()
+    .replace(/\s+/g, ' ');
 
   return (
     <section className="bg-white rounded-xl p-4 shadow" aria-labelledby="speaker-heading">
@@ -66,7 +87,9 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
       </h3>
       <div className="space-y-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800 mb-3 font-medium">Select your position on the motion:</p>
+          <p className="text-sm text-blue-800 mb-3 font-medium">
+            Select your position on the motion:
+          </p>
           <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Debate position">
             <button
               onClick={() => setSelectedStance('pro')}
@@ -107,7 +130,9 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
           </div>
         </div>
         <button
-          onClick={() => dispatch({ type: 'RAISE_HAND', member: currentUser, stance: selectedStance })}
+          onClick={() =>
+            dispatch({ type: 'RAISE_HAND', member: currentUser, stance: selectedStance })
+          }
           className="w-full min-h-[56px] py-4 bg-blue-500 text-white rounded-xl font-semibold text-lg hover:bg-blue-600 touch-manipulation active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
         >
           ✋ Raise Hand to Speak
