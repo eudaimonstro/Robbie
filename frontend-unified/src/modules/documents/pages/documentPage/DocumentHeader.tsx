@@ -3,6 +3,7 @@ import { ChevronRight, Edit, GitCompare, Share2, Users } from 'lucide-react';
 import { Document, Version } from '../../../../api/client';
 import { DocumentTypeBadge } from '../../../../components/ui/Badge';
 import { ExportDropdown } from './ExportDropdown';
+import { formatCalendarDate } from '../../../../utils/dates';
 
 interface DocumentHeaderProps {
   doc: Document;
@@ -51,7 +52,7 @@ export function DocumentHeader({
             <option key={v.id} value={v.id}>
               Version {v.versionNumber}
               {v.id === doc.currentVersionId ? ' (Current)' : ''}
-              {v.effectiveDate && ` - ${new Date(v.effectiveDate).toLocaleDateString()}`}
+              {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
             </option>
           ))}
         </select>

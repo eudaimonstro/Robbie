@@ -12,6 +12,7 @@ import {
 import { useOrganization } from '../../../context/OrganizationContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import { useToast } from '../../../context/ToastContext';
+import { formatCalendarDate } from '../../../utils/dates';
 
 export default function DocumentDiffPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -99,7 +100,7 @@ export default function DocumentDiffPage() {
   const getVersionLabel = (versionId: string) => {
     const version = versions.find((v) => v.id === versionId);
     if (!version) return 'Unknown';
-    return `Version ${version.versionNumber}${version.effectiveDate ? ` (${new Date(version.effectiveDate).toLocaleDateString()})` : ''}`;
+    return `Version ${version.versionNumber}${version.effectiveDate ? ` (${formatCalendarDate(version.effectiveDate)})` : ''}`;
   };
 
   const swapVersions = () => {
@@ -157,7 +158,7 @@ export default function DocumentDiffPage() {
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
                   Version {v.versionNumber}
-                  {v.effectiveDate && ` - ${new Date(v.effectiveDate).toLocaleDateString()}`}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
                   {v.id === document.currentVersionId && ' (Current)'}
                 </option>
               ))}
@@ -178,7 +179,7 @@ export default function DocumentDiffPage() {
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
                   Version {v.versionNumber}
-                  {v.effectiveDate && ` - ${new Date(v.effectiveDate).toLocaleDateString()}`}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
                   {v.id === document.currentVersionId && ' (Current)'}
                 </option>
               ))}

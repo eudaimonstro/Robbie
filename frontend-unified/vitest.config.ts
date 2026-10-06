@@ -12,6 +12,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Run in a non-UTC zone so date-shift bugs show up (CI runs in UTC)
+    env: { TZ: 'America/Chicago' },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

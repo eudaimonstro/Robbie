@@ -12,6 +12,7 @@ import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import { DocumentTypeBadge } from '../../../components/ui/Badge';
 import SectionTree from '../components/SectionTree';
 import { useToast } from '../../../context/ToastContext';
+import { formatCalendarDate } from '../../../utils/dates';
 
 export default function PublicDocumentPage() {
   const { shareToken } = useParams<{ shareToken: string }>();
@@ -199,7 +200,7 @@ export default function PublicDocumentPage() {
                 <option key={v.id} value={v.id}>
                   Version {v.versionNumber}
                   {v.id === doc.currentVersionId ? ' (Current)' : ''}
-                  {v.effectiveDate && ` - ${new Date(v.effectiveDate).toLocaleDateString()}`}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
                 </option>
               ))}
             </select>
@@ -269,11 +270,11 @@ export default function PublicDocumentPage() {
               {selectedVersion.effectiveDate && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  Effective: {new Date(selectedVersion.effectiveDate).toLocaleDateString()}
+                  Effective: {formatCalendarDate(selectedVersion.effectiveDate)}
                 </div>
               )}
               {selectedVersion.adoptedAt && (
-                <div>Adopted: {new Date(selectedVersion.adoptedAt).toLocaleDateString()}</div>
+                <div>Adopted: {formatCalendarDate(selectedVersion.adoptedAt)}</div>
               )}
               {selectedVersion.notes && (
                 <div className="flex-1 truncate">Notes: {selectedVersion.notes}</div>

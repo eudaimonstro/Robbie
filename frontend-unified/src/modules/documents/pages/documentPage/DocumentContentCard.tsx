@@ -1,6 +1,7 @@
 import { Plus, FileText, Clock } from 'lucide-react';
 import { Version, SectionTree as SectionTreeType } from '../../../../api/client';
 import SectionTree from '../../components/SectionTree';
+import { formatCalendarDate } from '../../../../utils/dates';
 
 interface DocumentContentCardProps {
   selectedVersion: Version | null;
@@ -81,7 +82,7 @@ export function DocumentContentCard({
               Created: {new Date(selectedVersion.createdAt).toLocaleString()}
             </div>
             {selectedVersion.effectiveDate && (
-              <div>Effective: {new Date(selectedVersion.effectiveDate).toLocaleDateString()}</div>
+              <div>Effective: {formatCalendarDate(selectedVersion.effectiveDate)}</div>
             )}
             {selectedVersion.notes && (
               <div className="flex-1 truncate">Notes: {selectedVersion.notes}</div>
