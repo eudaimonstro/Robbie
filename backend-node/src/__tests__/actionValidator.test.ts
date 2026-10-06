@@ -404,6 +404,14 @@ describe('actionValidator', () => {
         expect(decidingVote(3, 2).valid).toBe(true);
       });
 
+      it('is not needed on a secret ballot, where the chair votes like any member', () => {
+        const result = validateAction(
+          { ...votingState(), votingMethod: 'ballot' },
+          { type: 'CAST_VOTE', vote: 'nay', voterId: 1 },
+        );
+        expect(result.valid).toBe(true);
+      });
+
       it('is rejected before anyone has voted or when it would not change the result', () => {
         // The client's isChairDecidingVote flag alone must not let the chair vote
         expect(decidingVote(0, 0).errorCode).toBe('CHAIR_CANNOT_VOTE');

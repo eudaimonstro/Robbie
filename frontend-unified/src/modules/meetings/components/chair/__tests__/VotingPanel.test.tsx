@@ -61,4 +61,22 @@ describe('chair VotingPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Vote Yea' })).toBeNull();
   });
+
+  it('lets the chair vote on a secret ballot', () => {
+    const dispatch = vi.fn();
+    const state = votingState([member(1, 'chair'), member(2, 'member')]);
+    render(
+      <VotingPanel
+        state={{ ...state, votingMethod: 'ballot', voters: [2] }}
+        dispatch={dispatch}
+        hasQuorum
+        presentCount={2}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vote Nay' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'CAST_VOTE', vote: 'nay', voterId: 1 }),
+    );
+  });
 });

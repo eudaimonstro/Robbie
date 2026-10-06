@@ -149,7 +149,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // change the result. That is checked here, not taken from the client's flag.
       {
         const voter = state.members.find((m) => m.id === action.voterId);
-        if (voter?.role === 'chair' && !isRuleSuspended(state, 'chair-voting-restriction')) {
+        // On a secret ballot the chair votes like any member (RONR)
+        if (
+          voter?.role === 'chair' &&
+          state.votingMethod !== 'ballot' &&
+          !isRuleSuspended(state, 'chair-voting-restriction')
+        ) {
           // Judge on the other members' votes, leaving out a vote the chair already cast
           const previous = state.voterChoices[action.voterId];
           const othersVotes = previous

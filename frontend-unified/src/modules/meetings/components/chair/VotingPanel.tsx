@@ -182,9 +182,22 @@ export const VotingPanel = React.memo(function VotingPanel({
         )}
 
       {state.votingMethod === 'ballot' && !votingData.chairHasVoted && chair && (
-        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-3 bg-secondary-50 dark:bg-secondary-800 p-2 rounded-sm">
-          🔒 Secret Ballot - Chair votes like other members
-        </p>
+        <div className="mb-3 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
+          <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-2">
+            🔒 Secret Ballot - Chair votes like other members
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['yea', 'nay', 'abstain'] as const).map((vote) => (
+              <button
+                key={vote}
+                onClick={() => dispatch({ type: 'CAST_VOTE', vote, voterId: chair.id })}
+                className="bg-secondary-600 text-white py-2 rounded-lg font-medium hover:bg-secondary-700"
+              >
+                Vote {vote === 'yea' ? 'Yea' : vote === 'nay' ? 'Nay' : 'Abstain'}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <button
