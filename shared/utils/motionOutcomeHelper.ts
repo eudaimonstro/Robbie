@@ -1,4 +1,11 @@
-import type { MeetingState, AgendaItem, RuleSuspension, Motion } from '../types/index.js';
+import type {
+  MeetingState,
+  AgendaItem,
+  RuleSuspension,
+  Motion,
+  CompletedMotion,
+} from '../types/index.js';
+import { MOTIONS } from '../constants/motions.js';
 import { moveItem } from './moveItem.js';
 
 export interface DividedPart {
@@ -28,6 +35,44 @@ export interface ProcessedOutcome {
   finalStack: Motion[];
   finalCurrentMotion: Motion | null;
   restoredLog: string;
+}
+
+/**
+ * Bring back a motion whose vote is being reconsidered, once the motion to reconsider is
+ * adopted (by vote or by unanimous consent). The motion returns as it was: its own
+ * definition (so a motion that isn't debatable stays undebatable) and its original mover. It
+ * takes the reconsider motion's ID, which is unique and keeps the reducer pure.
+ *
+ * @returns the restored motion and the completed motions with the original marked
+ *   reconsidered, or null when the motion is not found
+ */
+export function restoreReconsideredMotion(
+  state: MeetingState,
+  reconsideredMotionId: number,
+): { motion: Motion; completedMotions: CompletedMotion[] } | null {
+  const completed = state.completedMotions.find((cm) => cm.id === reconsideredMotionId);
+  if (!completed || !state.currentMotion) return null;
+
+  const definition = MOTIONS[completed.type] ?? MOTIONS.mainMotion;
+  const motion: Motion = {
+    ...definition,
+    id: state.currentMotion.id,
+    type: completed.type,
+    name: completed.name,
+    text: completed.text,
+    mover: completed.mover ?? state.currentMotion.mover,
+    moverId: completed.moverId ?? state.currentMotion.moverId,
+    secondedBy: null,
+    status: 'active' as const,
+    moverHasSpoken: false,
+    ...(completed.bylawAmendment && { bylawAmendment: completed.bylawAmendment }),
+  };
+  return {
+    motion,
+    completedMotions: state.completedMotions.map((cm) =>
+      cm.id === reconsideredMotionId ? { ...cm, reconsidered: true } : cm,
+    ),
+  };
 }
 
 /**

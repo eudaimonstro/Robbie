@@ -1,9 +1,11 @@
 import type { MeetingAction } from '../../types/index.js';
-import { MOTIONS } from '../../constants/motions.js';
 import { LOG_QUORUM_WARNING, logRollCallVote } from '../../constants/logMessages.js';
-import { applyMotionOutcome, processOutcomeResult } from '../../utils/motionOutcomeHelper.js';
+import {
+  applyMotionOutcome,
+  processOutcomeResult,
+  restoreReconsideredMotion,
+} from '../../utils/motionOutcomeHelper.js';
 import { calculateVoteResult } from '../../utils/voteCalculator.js';
-import { generateId } from '../../utils/idGenerators.js';
 import type { ActionHandler } from './types.js';
 
 export const votingHandler: ActionHandler = (state, action, log) => {
@@ -126,41 +128,12 @@ export const votingHandler: ActionHandler = (state, action, log) => {
               dividedMainMotion: null,
             };
 
-      // Handle reconsider - reconstruct motion from completed motions
-      let reconsideredMotion: (typeof state.tabledMotions)[0] | null = null;
-      let updatedCompletedMotions = state.completedMotions;
-      if (outcome.reconsideredMotionId) {
-        const completedMotion = state.completedMotions.find(
-          (cm) => cm.id === outcome.reconsideredMotionId,
-        );
-        if (completedMotion) {
-          reconsideredMotion = {
-            id: generateId(),
-            type: completedMotion.type,
-            name: completedMotion.name,
-            text: completedMotion.text,
-            mover: state.currentMotion?.mover || 'Unknown',
-            moverId: state.currentMotion?.moverId || 0,
-            secondedBy: null,
-            status: 'active' as const,
-            precedence: MOTIONS[completedMotion.type]?.precedence || 1,
-            category: MOTIONS[completedMotion.type]?.category || 'main',
-            interrupt: MOTIONS[completedMotion.type]?.interrupt || false,
-            needsSecond: MOTIONS[completedMotion.type]?.needsSecond || true,
-            debatable: MOTIONS[completedMotion.type]?.debatable || true,
-            amendable: MOTIONS[completedMotion.type]?.amendable || true,
-            reconsidered: MOTIONS[completedMotion.type]?.reconsidered || false,
-            vote: MOTIONS[completedMotion.type]?.vote || 'majority',
-            phrase: MOTIONS[completedMotion.type]?.phrase || '',
-            help: MOTIONS[completedMotion.type]?.help || '',
-            whenToUse: MOTIONS[completedMotion.type]?.whenToUse || '',
-            moverHasSpoken: false,
-          };
-          updatedCompletedMotions = state.completedMotions.map((cm) =>
-            cm.id === outcome.reconsideredMotionId ? { ...cm, reconsidered: true } : cm,
-          );
-        }
-      }
+      // Handle reconsider: bring the motion back as it was
+      const restored = outcome.reconsideredMotionId
+        ? restoreReconsideredMotion(state, outcome.reconsideredMotionId)
+        : null;
+      const reconsideredMotion = restored?.motion ?? null;
+      const updatedCompletedMotions = restored?.completedMotions ?? state.completedMotions;
 
       const reconsideredLog = reconsideredMotion
         ? `\n[RECONSIDERED] Motion brought back for new vote: "${reconsideredMotion.text}"`
@@ -204,6 +177,8 @@ export const votingHandler: ActionHandler = (state, action, log) => {
                 type: state.currentMotion.type,
                 name: state.currentMotion.name,
                 text: state.currentMotion.text,
+                mover: state.currentMotion.mover,
+                moverId: state.currentMotion.moverId,
                 passed,
                 voterChoices: state.voterChoices,
                 timestamp: typedAction.timestamp,

@@ -1383,6 +1383,67 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('reconsider', () => {
+    // A limit-debate motion (not debatable) was adopted, moved by Alice
+    const completed = {
+      id: 10,
+      type: 'limitDebate',
+      name: 'Limit Debate',
+      text: 'Limit debate to 2 minutes',
+      mover: 'Alice',
+      moverId: 5,
+      passed: true,
+      voterChoices: { 6: 'yea' as const },
+      timestamp: '10:00:00',
+      reconsidered: false,
+    };
+    const reconsider = createMockMotion({
+      id: 20,
+      type: 'reconsider',
+      vote: 'majority',
+      mover: 'Bob',
+      moverId: 6,
+      reconsideredMotionId: 10,
+    });
+    const pending: MeetingState = {
+      ...initialState,
+      meetingActive: true,
+      currentMotion: reconsider,
+      motionStack: [reconsider],
+      completedMotions: [completed],
+    };
+
+    const byVote = () =>
+      meetingReducer(
+        { ...pending, votingOpen: true, votes: { yea: 3, nay: 1, abstain: 0 } },
+        { type: 'CLOSE_VOTING', timestamp: '10:20:00' },
+      );
+
+    it('brings the motion back as it was', () => {
+      const motion = byVote().currentMotion;
+      expect(motion).toMatchObject({
+        type: 'limitDebate',
+        text: 'Limit debate to 2 minutes',
+        debatable: false,
+        mover: 'Alice',
+        moverId: 5,
+      });
+    });
+
+    it('gives the same result each time (the reducer stays pure)', () => {
+      expect(byVote().currentMotion).toEqual(byVote().currentMotion);
+    });
+
+    it('brings the motion back when adopted by unanimous consent', () => {
+      const state = meetingReducer(
+        { ...pending, unanimousConsentPending: true },
+        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:20:00' },
+      );
+      expect(state.currentMotion?.text).toBe('Limit debate to 2 minutes');
+      expect(state.completedMotions[0].reconsidered).toBe(true);
+    });
+  });
+
   describe('RESTORE_RULE', () => {
     it('should remove rule suspension', () => {
       const stateWithSuspension: MeetingState = {

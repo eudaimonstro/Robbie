@@ -140,6 +140,8 @@ export interface CompletedMotion {
   readonly timestamp: string;
   readonly reconsidered: boolean;
   readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
+  readonly mover?: string; // Restored with the motion if it is reconsidered
+  readonly moverId?: number;
 }
 
 export interface Nomination {

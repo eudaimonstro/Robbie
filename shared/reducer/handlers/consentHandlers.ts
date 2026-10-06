@@ -1,5 +1,9 @@
 import type { MeetingAction } from '../../types/index.js';
-import { applyMotionOutcome, processOutcomeResult } from '../../utils/motionOutcomeHelper.js';
+import {
+  applyMotionOutcome,
+  processOutcomeResult,
+  restoreReconsideredMotion,
+} from '../../utils/motionOutcomeHelper.js';
 import type { ActionHandler } from './types.js';
 
 export const consentHandler: ActionHandler = (state, action, log) => {
@@ -51,7 +55,20 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         divideLog = `\n[DIVIDED] Original motion split into ${outcome.dividedParts.length} parts. Now considering: "${firstPart.text}"`;
       }
 
-      const processed = processOutcomeResult(outcome, state.suspendedRules, workingStack);
+      // Handle reconsider: bring the motion back as it was
+      const restored = outcome.reconsideredMotionId
+        ? restoreReconsideredMotion(state, outcome.reconsideredMotionId)
+        : null;
+      const reconsideredLog = restored
+        ? `\n[RECONSIDERED] Motion brought back for new vote: "${restored.motion.text}"`
+        : '';
+
+      const processed = processOutcomeResult(
+        outcome,
+        state.suspendedRules,
+        workingStack,
+        restored?.motion ?? null,
+      );
 
       return {
         ...state,
@@ -63,6 +80,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         agendaAdopted: outcome.agendaAdopted,
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
+        completedMotions: restored?.completedMotions ?? state.completedMotions,
         debatePositions: {},
         // Debate on the decided question is over; none of it carries to the next one
         speakerQueue: [],
@@ -72,7 +90,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
-          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${divideLog}`,
+          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
         ),
       };
     }
