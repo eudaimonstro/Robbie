@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { TypedSocket, StateUpdatePayload } from '../types/socket';
+import { TERMS_NOT_ACCEPTED } from '../../../api/client';
 
 // Unset in development: the socket connects to the page's own origin, which Vite proxies
 const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL;
@@ -21,6 +22,7 @@ interface UseSocketConnectionReturn {
 export function useSocketConnection(
   meetingCode: string | null,
   onNotSignedIn: () => void,
+  onTermsNotAccepted?: () => void,
 ): UseSocketConnectionReturn {
   const [state, setState] = useState<MeetingState>(initialState);
   const [isConnected, setIsConnected] = useState(false);
@@ -40,6 +42,10 @@ export function useSocketConnection(
   useEffect(() => {
     onNotSignedInRef.current = onNotSignedIn;
   }, [onNotSignedIn]);
+  const onTermsNotAcceptedRef = useRef(onTermsNotAccepted);
+  useEffect(() => {
+    onTermsNotAcceptedRef.current = onTermsNotAccepted;
+  }, [onTermsNotAccepted]);
 
   // Helper to set error with auto-clear
   const setTemporaryError = useCallback((message: string, duration = 5000) => {
@@ -102,6 +108,12 @@ export function useSocketConnection(
       isConnectingRef.current = false;
       if (err.message === 'Not signed in') {
         onNotSignedInRef.current();
+        return;
+      }
+      // The user hasn't accepted the current terms: the app shows the terms step, and this
+      // connects again once they have
+      if (err.data?.code === TERMS_NOT_ACCEPTED) {
+        onTermsNotAcceptedRef.current?.();
         return;
       }
       setError(`Connection error: ${err.message}`);

@@ -1,27 +1,34 @@
 /**
  * Bylawyer Router for Robbie Integration
  *
- * Provides direct database access to Bylawyer data for Robbie.
- * Used for linking meetings to organizations and fetching document data.
+ * Organizations, documents and section trees for the live meeting screens, and linking a live
+ * meeting to an organization. A meeting's packet records its organization; linking creates it.
  */
 
 import { Router, type Router as RouterType, type RequestHandler } from 'express';
-import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { logger } from '../middleware/logger.js';
-import type { RouteParams } from '../middleware/validate.js';
+import { validate, type RouteParams } from '../middleware/validate.js';
+import { docIdParam, orgIdParam } from '../schemas/common.js';
+import { linkMeetingBody, meetingCodeParam } from '../schemas/bylawyer.js';
+import { userOrganizations } from '../orgs/organizationService.js';
+import { fromBody, fromParam, requireRole, signedInOnly } from '../orgs/requireRole.js';
+import { orgOfDocument, orgOfOrganization, orgOfPacketCode } from '../orgs/resolvers.js';
+import { CODE_IN_USE } from './routes/packets.js';
 
 export const bylawyerRouter: RouterType = Router();
 
+const byOrganization = fromParam('orgId', orgOfOrganization);
+const byMeetingCode = fromParam('meetingCode', orgOfPacketCode);
+
 /**
  * GET /api/bylawyer/organizations
- * List all organizations
+ * The signed-in user's organizations, each with the user's role
  */
-const listOrganizations: RequestHandler<RouteParams> = async (_req, res) => {
+const listOrganizations: RequestHandler<RouteParams> = async (req, res) => {
   try {
-    const organizations = await prisma.organization.findMany({
-      orderBy: { name: 'asc' },
-    });
+    const { organizations } = await userOrganizations(req.user!.id);
     res.json(organizations);
   } catch (error) {
     logger.error({ err: error }, 'Error fetching organizations');
@@ -31,7 +38,7 @@ const listOrganizations: RequestHandler<RouteParams> = async (_req, res) => {
   }
 };
 
-bylawyerRouter.get('/organizations', listOrganizations);
+bylawyerRouter.get('/organizations', signedInOnly(), listOrganizations);
 
 /**
  * GET /api/bylawyer/organizations/:orgId
@@ -57,7 +64,12 @@ const getOrganization: RequestHandler<RouteParams> = async (req, res) => {
   }
 };
 
-bylawyerRouter.get('/organizations/:orgId', getOrganization);
+bylawyerRouter.get(
+  '/organizations/:orgId',
+  validate({ params: orgIdParam }),
+  requireRole('viewer', byOrganization),
+  getOrganization,
+);
 
 /**
  * GET /api/bylawyer/organizations/:orgId/documents
@@ -65,19 +77,10 @@ bylawyerRouter.get('/organizations/:orgId', getOrganization);
  */
 const getOrganizationDocuments: RequestHandler<RouteParams> = async (req, res) => {
   try {
-    const { orgId } = req.params;
-
-    // Verify organization exists
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId },
-    });
-
-    if (!org) {
-      return res.status(404).json({ error: 'Organization not found' });
-    }
-
     const documents = await prisma.document.findMany({
-      where: { organizationId: orgId },
+      where: { organizationId: req.params.orgId },
+      // Only an admin sees a share token, through the share routes
+      omit: { shareToken: true },
       orderBy: { title: 'asc' },
     });
 
@@ -90,40 +93,52 @@ const getOrganizationDocuments: RequestHandler<RouteParams> = async (req, res) =
   }
 };
 
-bylawyerRouter.get('/organizations/:orgId/documents', getOrganizationDocuments);
+bylawyerRouter.get(
+  '/organizations/:orgId/documents',
+  validate({ params: orgIdParam }),
+  requireRole('viewer', byOrganization),
+  getOrganizationDocuments,
+);
 
 /**
  * POST /api/bylawyer/link-meeting
- * Link a Robbie meeting to a Bylawyer organization
+ * Link a live meeting to an organization by giving its code a packet there. Linking a code
+ * that is already the organization's succeeds; another organization's code is 409.
  * Body: { meetingCode: string, organizationId: string }
  */
 const linkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
-    const { meetingCode, organizationId } = req.body;
+    const { meetingCode } = req.body as { meetingCode: string };
+    const organizationId = req.org!.id;
 
-    if (!meetingCode || !organizationId) {
-      return res.status(400).json({
-        error: 'Missing required fields: meetingCode and organizationId',
+    const find = () =>
+      prisma.meetingPacket.findUnique({
+        where: { robbieCode: meetingCode },
+        select: { organizationId: true },
       });
+    let packet = await find();
+    if (!packet) {
+      try {
+        packet = await prisma.meetingPacket.create({
+          data: { robbieCode: meetingCode, organizationId },
+          select: { organizationId: true },
+        });
+      } catch (error) {
+        // Two links at once: the one that loses reads the packet the other made
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) {
+          throw error;
+        }
+        packet = await find();
+      }
     }
 
-    // Verify organization exists
-    const organization = await prisma.organization.findUnique({
+    if (packet?.organizationId !== organizationId) {
+      return res.status(409).json({ error: CODE_IN_USE });
+    }
+
+    const organization = await prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },
     });
-
-    if (!organization) {
-      return res.status(404).json({ error: 'Organization not found in Bylawyer' });
-    }
-
-    // Link the meeting to the organization
-    const storage = getStorage();
-    const success = await storage.linkToBylawyerOrg(meetingCode, organizationId);
-
-    if (!success) {
-      return res.status(404).json({ error: 'Meeting not found' });
-    }
-
     res.json({
       success: true,
       meetingCode,
@@ -141,21 +156,41 @@ const linkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   }
 };
 
-bylawyerRouter.post('/link-meeting', linkMeeting);
+bylawyerRouter.post(
+  '/link-meeting',
+  validate({ body: linkMeetingBody }),
+  requireRole('secretary', fromBody('organizationId', orgOfOrganization)),
+  linkMeeting,
+);
 
 /**
  * DELETE /api/bylawyer/link-meeting/:meetingCode
- * Unlink a Robbie meeting from its Bylawyer organization
+ * Unlink a live meeting by deleting its packet, which must have no agenda or attachments
  */
 const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
+    const organizationId = req.org!.id;
 
-    const storage = getStorage();
-    const success = await storage.unlinkFromBylawyerOrg(meetingCode);
-
-    if (!success) {
-      return res.status(404).json({ error: 'Meeting not found' });
+    // One statement, so an item added meanwhile can't be deleted with the packet. It names the
+    // organization too: the code may have been unlinked and linked elsewhere since the rule.
+    const deleted = await prisma.meetingPacket.deleteMany({
+      where: {
+        robbieCode: meetingCode,
+        organizationId,
+        agendaItems: { none: {} },
+        attachments: { none: {} },
+      },
+    });
+    if (deleted.count === 0) {
+      const packet = await prisma.meetingPacket.findFirst({
+        where: { robbieCode: meetingCode, organizationId },
+        select: { id: true },
+      });
+      if (!packet) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      return res.status(409).json({ error: 'Remove the agenda and attachments first' });
     }
 
     res.json({ success: true, meetingCode });
@@ -167,36 +202,22 @@ const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   }
 };
 
-bylawyerRouter.delete('/link-meeting/:meetingCode', unlinkMeeting);
+bylawyerRouter.delete(
+  '/link-meeting/:meetingCode',
+  validate({ params: meetingCodeParam }),
+  requireRole('secretary', byMeetingCode),
+  unlinkMeeting,
+);
 
 /**
  * GET /api/bylawyer/meeting/:meetingCode/organization
- * Get the linked Bylawyer organization for a meeting
+ * The organization a live meeting is linked to, through its packet. An unlinked code is 404.
  */
 const getMeetingOrganization: RequestHandler<RouteParams> = async (req, res) => {
   try {
-    const { meetingCode } = req.params;
-
-    const storage = getStorage();
-    const orgId = await storage.getBylawyerOrgId(meetingCode);
-
-    if (!orgId) {
-      return res.json({ linked: false, organization: null });
-    }
-
-    // Fetch organization details
-    const organization = await prisma.organization.findUnique({
-      where: { id: orgId },
+    const organization = await prisma.organization.findUniqueOrThrow({
+      where: { id: req.org!.id },
     });
-
-    if (!organization) {
-      return res.json({
-        linked: true,
-        organizationId: orgId,
-        organization: null,
-        warning: 'Organization not found in Bylawyer',
-      });
-    }
 
     res.json({
       linked: true,
@@ -215,7 +236,12 @@ const getMeetingOrganization: RequestHandler<RouteParams> = async (req, res) => 
   }
 };
 
-bylawyerRouter.get('/meeting/:meetingCode/organization', getMeetingOrganization);
+bylawyerRouter.get(
+  '/meeting/:meetingCode/organization',
+  validate({ params: meetingCodeParam }),
+  requireRole('viewer', byMeetingCode),
+  getMeetingOrganization,
+);
 
 /**
  * GET /api/bylawyer/documents/:docId/sections
@@ -271,4 +297,9 @@ const getDocumentSections: RequestHandler<RouteParams> = async (req, res) => {
   }
 };
 
-bylawyerRouter.get('/documents/:docId/sections', getDocumentSections);
+bylawyerRouter.get(
+  '/documents/:docId/sections',
+  validate({ params: docIdParam }),
+  requireRole('viewer', fromParam('docId', orgOfDocument)),
+  getDocumentSections,
+);

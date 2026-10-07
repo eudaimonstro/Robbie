@@ -2,7 +2,13 @@ import { useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Clock, FileText } from 'lucide-react';
 import { AmendmentChange, AmendmentChangeCreate } from '../../../api/client';
-import { useOrganization } from '../../../context/OrganizationContext';
+import {
+  useOrganization,
+  useCan,
+  useSelectRecordOrganization,
+} from '../../../context/OrganizationContext';
+import { useSession } from '../../../context/SessionContext';
+import { canEditAmendment } from '../../../utils/roles';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import {
@@ -16,7 +22,8 @@ import {
 
 export default function AmendmentDetailPage() {
   const { amendmentId } = useParams<{ amendmentId: string }>();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, role } = useOrganization();
+  const { user } = useSession();
   const { showToast } = useToast();
 
   const {
@@ -33,6 +40,11 @@ export default function AmendmentDetailPage() {
     fail,
     apply,
   } = useAmendmentData(amendmentId);
+
+  // The role and breadcrumb are the document's organization's, not the header's
+  useSelectRecordOrganization(document?.organizationId);
+  // Proposing, withdrawing, deciding and applying need the secretary role
+  const canDecide = useCan('secretary');
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -110,6 +122,9 @@ export default function AmendmentDetailPage() {
   }
 
   const isDraft = amendment.status === 'draft';
+  // A member edits only drafts they created; a secretary any draft (the server's rule)
+  const canEditDraft =
+    isDraft && role !== null && user !== null && canEditAmendment(role, user.id, amendment);
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -117,6 +132,8 @@ export default function AmendmentDetailPage() {
         amendment={amendment}
         document={document}
         organizationName={currentOrganization?.name}
+        canDecide={canDecide}
+        canEditDraft={canEditDraft}
         onEdit={() => setEditModalOpen(true)}
         onPropose={() => setProposeDialogOpen(true)}
         onWithdraw={() => setWithdrawDialogOpen(true)}
@@ -162,7 +179,7 @@ export default function AmendmentDetailPage() {
       <AmendmentChangesList
         changes={amendment.changes || []}
         sectionTree={sectionTree}
-        canEdit={isDraft}
+        canEdit={canEditDraft}
         onAddChange={() => setChangeModalOpen(true)}
         onDeleteChange={(change) => {
           setDeletingChange(change);

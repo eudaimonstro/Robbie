@@ -5,6 +5,17 @@ export const dateString = z
   .string()
   .refine((value) => !Number.isNaN(Date.parse(value)), { message: 'Invalid date' });
 
+/**
+ * A live meeting's code, as the meeting screens and packets use it: 4-8 letters or digits,
+ * compared in upper case. It also names the meeting's upload directory.
+ */
+const MEETING_CODE_FORMAT = 'Meeting code must be 4-8 letters or digits';
+export const meetingCode = z
+  .string({ error: MEETING_CODE_FORMAT })
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9]{4,8}$/, MEETING_CODE_FORMAT);
+
 export const uuidParam = z.object({
   id: z.string().uuid(),
 });

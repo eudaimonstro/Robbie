@@ -10,7 +10,7 @@ import {
   Users,
   ExternalLink,
 } from 'lucide-react';
-import { useOrganization } from '../../../context/OrganizationContext';
+import { useOrganization, useCan } from '../../../context/OrganizationContext';
 import {
   documents as documentsApi,
   amendments as amendmentsApi,
@@ -21,10 +21,13 @@ import {
 } from '../../../api/client';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import EmptyState from '../../../components/ui/EmptyState';
+import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import { StatusBadge, DocumentTypeBadge, MeetingTypeBadge } from '../../../components/ui/Badge';
 
 export default function HomePage() {
-  const { currentOrganization, loading: orgLoading } = useOrganization();
+  const { currentOrganization, organizations: orgs, loading: orgLoading } = useOrganization();
+  // Documents are created by secretaries and above
+  const canCreate = useCan('secretary');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [recentAmendments, setRecentAmendments] = useState<Amendment[]>([]);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
@@ -80,6 +83,7 @@ export default function HomePage() {
   }
 
   if (!currentOrganization) {
+    if (orgs.length === 0) return <NoOrganizations />;
     return (
       <EmptyState
         icon={Building2}
@@ -165,7 +169,9 @@ export default function HomePage() {
               <div className="p-8 text-center">
                 <FileText className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
                 <p className="text-secondary-600 dark:text-secondary-400">
-                  No documents yet. Create your first document to get started.
+                  {canCreate
+                    ? 'No documents yet. Create your first document to get started.'
+                    : 'No documents yet.'}
                 </p>
               </div>
             ) : (

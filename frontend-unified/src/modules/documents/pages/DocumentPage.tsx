@@ -7,7 +7,11 @@ import {
   SectionUpdate,
   VersionCreate,
 } from '../../../api/client';
-import { useOrganization } from '../../../context/OrganizationContext';
+import {
+  useOrganization,
+  useCan,
+  useSelectRecordOrganization,
+} from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import SectionEditor from '../components/SectionEditor';
@@ -42,6 +46,12 @@ export default function DocumentPage() {
     handleCreateVersion,
     handleCreateAmendment,
   } = useDocumentData(documentId);
+
+  // The role, breadcrumb and panels are the document's organization's, not the header's
+  useSelectRecordOrganization(doc?.organizationId);
+  const canEdit = useCan('secretary');
+  const canDraft = useCan('member');
+  const canShare = useCan('admin');
 
   const [selectedSection, setSelectedSection] = useState<SectionTreeType | null>(null);
 
@@ -144,6 +154,8 @@ export default function DocumentPage() {
           versions={versions}
           selectedVersion={selectedVersion}
           organizationName={currentOrganization?.name}
+          canDraft={canDraft}
+          canShare={canShare}
           onVersionChange={handleVersionChange}
           onProposeAmendment={() => setAmendmentModalOpen(true)}
           onShare={() => setShareModalOpen(true)}
@@ -153,6 +165,7 @@ export default function DocumentPage() {
           selectedVersion={selectedVersion}
           sectionTree={sectionTree}
           selectedSection={selectedSection}
+          canEdit={canEdit}
           onSelectSection={setSelectedSection}
           onEditSection={handleEditSection}
           onDeleteSection={openDeleteDialog}

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { SessionStatus } from '../../../context/SessionContext';
@@ -6,7 +6,10 @@ import type { SessionStatus } from '../../../context/SessionContext';
 const session = vi.hoisted(() => ({
   status: 'signedOut' as SessionStatus,
   user: null as null | { id: number; email: string; name: string | null },
+  termsAccepted: true as boolean,
   retry: vi.fn(async () => {}),
+  acceptTerms: vi.fn(async () => {}),
+  signOut: vi.fn(async () => {}),
 }));
 vi.mock('../../../context/SessionContext', () => ({ useSession: () => session }));
 
@@ -36,6 +39,10 @@ function renderAt(path: string) {
 }
 
 describe('RequireSession', () => {
+  beforeEach(() => {
+    session.termsAccepted = true;
+  });
+
   it('sends a signed-out user to sign in, remembering the page', () => {
     session.status = 'signedOut';
     renderAt('/documents/d1?tab=history');
@@ -71,5 +78,22 @@ describe('RequireSession', () => {
     expect(screen.queryByText(/^sign-in/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(session.retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the terms step, not the page, until the current terms are accepted', () => {
+    session.status = 'signedIn';
+    session.user = { id: 1, email: 'a@b.c', name: 'Ann' };
+    session.termsAccepted = false;
+    renderAt('/documents/d1');
+    expect(screen.getByRole('heading', { name: 'Before you go on' })).toBeTruthy();
+    expect(screen.queryByText('Document page')).toBeNull();
+  });
+
+  it('asks a new user for a name, where the terms are asked too, before the terms step', () => {
+    session.status = 'signedIn';
+    session.user = { id: 1, email: 'a@b.c', name: null };
+    session.termsAccepted = false;
+    renderAt('/documents/d1');
+    expect(screen.getByText(/^sign-in/)).toBeTruthy();
   });
 });

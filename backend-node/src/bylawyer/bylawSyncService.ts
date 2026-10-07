@@ -9,7 +9,6 @@
 
 import type { MeetingState, MeetingAction, CompletedMotion } from '@robbie-bylawyer/shared/types';
 import type { ChangeType, AmendmentStatus } from '../generated/prisma/client.js';
-import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { AmendmentService } from './services/amendmentService.js';
 import { logger } from '../middleware/logger.js';
@@ -57,13 +56,48 @@ export async function checkAndSyncBylawAmendment(
     return null;
   }
 
-  // Check if meeting is linked to a Bylawyer organization
-  const storage = getStorage();
-  const orgId = await storage.getBylawyerOrgId(meetingCode);
+  // The meeting's packet records its organization (see POST /api/bylawyer/link-meeting)
+  const packet = await prisma.meetingPacket.findUnique({
+    where: { robbieCode: meetingCode },
+    select: { organizationId: true },
+  });
 
-  if (!orgId) {
-    logger.info({ meetingCode }, 'Meeting not linked to Bylawyer org, skipping sync');
+  if (!packet) {
+    logger.info({ meetingCode }, 'Meeting not linked to an organization, skipping sync');
     return null;
+  }
+
+  // Only a document of the meeting's organization can be amended from it
+  const document = await prisma.document.findUnique({
+    where: { id: votedMotion.bylawAmendment.documentId },
+    select: { organizationId: true, currentVersionId: true },
+  });
+
+  if (document?.organizationId !== packet.organizationId) {
+    logger.warn(
+      { meetingCode, documentId: votedMotion.bylawAmendment.documentId },
+      "Motion's document is not in the meeting's organization, skipping sync",
+    );
+    return null;
+  }
+
+  // The target section must be in the document's current version, as for a change added
+  // through POST /api/amendments/:id/changes
+  const { targetSectionId } = votedMotion.bylawAmendment;
+  if (targetSectionId) {
+    const section = document.currentVersionId
+      ? await prisma.section.findFirst({
+          where: { id: targetSectionId, versionId: document.currentVersionId },
+          select: { id: true },
+        })
+      : null;
+    if (!section) {
+      logger.warn(
+        { meetingCode, documentId: votedMotion.bylawAmendment.documentId, targetSectionId },
+        "Motion's section is not in the document's current version, skipping sync",
+      );
+      return null;
+    }
   }
 
   // Sync the motion to Bylawyer
@@ -202,40 +236,5 @@ async function syncMotionToBylawyer(
       success: false,
       error: error.message,
     };
-  }
-}
-
-/**
- * Check if a motion has been synced to Bylawyer.
- */
-export async function checkSyncStatus(
-  meetingCode: string,
-  motionId: number,
-): Promise<{ synced: boolean; amendmentId?: string; applied?: boolean }> {
-  try {
-    const amendment = await prisma.amendment.findFirst({
-      where: {
-        robbieMeetingCode: meetingCode,
-        robbieMotionId: motionId,
-      },
-      select: {
-        id: true,
-        status: true,
-        resultingVersionId: true,
-      },
-    });
-
-    if (!amendment) {
-      return { synced: false };
-    }
-
-    return {
-      synced: true,
-      amendmentId: amendment.id,
-      applied: !!amendment.resultingVersionId,
-    };
-  } catch (error) {
-    logger.error({ err: error }, 'Error checking sync status');
-    return { synced: false };
   }
 }

@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 
 // Get API URL from Expo constants or use default
 const API_URL = Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:3001';
@@ -26,6 +27,12 @@ export interface SessionUser {
   name: string | null;
 }
 
+/** The signed-in user, and whether they accepted the current Terms of Service and Privacy Policy */
+export interface Me {
+  user: SessionUser;
+  termsAccepted: boolean;
+}
+
 const json = { 'Content-Type': 'application/json' };
 const bearer = (token: string) => ({ ...json, Authorization: `Bearer ${token}` });
 
@@ -51,12 +58,27 @@ export async function verifyCode(
   return response.json();
 }
 
-/** The signed-in user, or null when the token no longer works */
-export async function getMe(token: string): Promise<SessionUser | null> {
+/** The signed-in user and their terms acceptance, or null when the token no longer works */
+export async function getMe(token: string): Promise<Me | null> {
   const response = await fetch(`${API_URL}/api/auth/me`, { headers: bearer(token) });
   if (response.status === 401) return null;
   if (!response.ok) throw new Error(await errorMessage(response, "Couldn't load your account"));
-  return ((await response.json()) as { user: SessionUser }).user;
+  return (await response.json()) as Me;
+}
+
+/**
+ * Accept the current terms: the version this app shows, so an old app can't accept terms the
+ * user never saw. False when the token no longer works.
+ */
+export async function acceptTerms(token: string): Promise<boolean> {
+  const response = await fetch(`${API_URL}/api/auth/accept-terms`, {
+    method: 'POST',
+    headers: bearer(token),
+    body: JSON.stringify({ version: TERMS_VERSION }),
+  });
+  if (response.status === 401) return false;
+  if (!response.ok) throw new Error(await errorMessage(response, "Couldn't record your agreement"));
+  return true;
 }
 
 /** The renamed user, or null when the token no longer works */
@@ -85,4 +107,12 @@ export async function signOut(token: string): Promise<void> {
  */
 export function getApiUrl(): string {
   return API_URL;
+}
+
+/**
+ * The web app, where the Terms of Service and Privacy Policy are. In production it is served on
+ * the API's origin.
+ */
+export function getWebUrl(): string {
+  return Constants.expoConfig?.extra?.webUrl ?? API_URL;
 }

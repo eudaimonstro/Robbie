@@ -17,6 +17,11 @@ vi.mock('../context/SocketContext', () => ({
 }));
 vi.mock('../context/OrganizationBridge', () => ({
   MeetingOrganizationProvider: ({ children }: { children: ReactNode }) => children,
+  useMeetingOrganization: () => ({
+    currentOrganization: null,
+    availableOrganizations: [],
+    loading: false,
+  }),
 }));
 vi.mock('../components/scheduling', () => ({ MeetingScheduler: () => <p>Scheduler</p> }));
 vi.mock('../../../context/ToastContext', () => ({ useToast: () => ({ showToast: () => {} }) }));

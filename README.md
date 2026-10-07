@@ -78,14 +78,15 @@ npm run dev
 
 ### Available Scripts
 
-| Command                | Description                      |
-| ---------------------- | -------------------------------- |
-| `npm run dev`          | Start all backends and frontends |
-| `npm run dev:robbie`   | Start Robbie only                |
-| `npm run dev:bylawyer` | Start Bylawyer only              |
-| `npm run build`        | Build all packages               |
-| `npm run test`         | Run tests                        |
-| `npm run db:studio`    | Open Prisma Studio               |
+| Command                             | Description                                                |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `npm run dev`                       | Start the backend and the web app                          |
+| `npm run build`                     | Build all packages                                         |
+| `npm run test`                      | Run tests                                                  |
+| `npm run db:studio`                 | Open Prisma Studio                                         |
+| `npm run seed:demo -w backend-node` | Create the Maple Grove HOA demo (`-- --reset` replaces it) |
+
+The demo's people sign in with the code `000000` when the server runs with `ENABLE_TEST_AUTH=true`; the seed prints their emails and roles.
 
 ## Environment Variables
 

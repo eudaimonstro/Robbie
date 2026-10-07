@@ -6,6 +6,8 @@ import { MeetingTypeBadge } from '../../../../components/ui/Badge';
 interface MeetingHeaderProps {
   meeting: Meeting;
   organizationName?: string;
+  /** Whether the user may change the record (secretary and above) */
+  canManage: boolean;
   onEdit: () => void;
   onStart: () => void;
   onComplete: () => void;
@@ -29,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
 export function MeetingHeader({
   meeting,
   organizationName,
+  canManage,
   onEdit,
   onStart,
   onComplete,
@@ -63,13 +66,13 @@ export function MeetingHeader({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {!isCancelled && !isCompleted && (
+          {canManage && !isCancelled && !isCompleted && (
             <button onClick={onEdit} className="btn-ghost btn-sm">
               <Edit2 className="w-4 h-4 mr-1" />
               Edit
             </button>
           )}
-          {isScheduled && (
+          {canManage && isScheduled && (
             <>
               <button onClick={onCancel} className="btn-ghost btn-sm text-danger-600">
                 <XCircle className="w-4 h-4 mr-1" />
@@ -81,7 +84,7 @@ export function MeetingHeader({
               </button>
             </>
           )}
-          {isInProgress && (
+          {canManage && isInProgress && (
             <button onClick={onComplete} className="btn-success btn-sm">
               <CheckCircle className="w-4 h-4 mr-1" />
               Complete Meeting

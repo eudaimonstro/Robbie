@@ -5,7 +5,8 @@ import { logger } from '../../middleware/logger.js';
 
 export const publicRouter: RouterType = Router();
 
-// Build nested section tree from flat list
+// Build nested section tree from flat list. Annotations are internal commentary, so share
+// links leave them out.
 function buildSectionTree(sections: Section[], parentId: string | null = null): any[] {
   const result = sections
     .filter((s) => s.parentId === parentId)
@@ -18,7 +19,6 @@ function buildSectionTree(sections: Section[], parentId: string | null = null): 
       numberLabel: section.numberLabel,
       title: section.title,
       content: section.content,
-      annotation: section.annotation,
       children: buildSectionTree(sections, section.id),
     }));
 

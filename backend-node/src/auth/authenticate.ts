@@ -10,6 +10,8 @@ declare module 'express-serve-static-core' {
     user?: SessionUser;
     /** The session in use, set by authenticate */
     sessionId?: string;
+    /** The terms version the signed-in user last accepted, set by authenticate */
+    termsVersion?: string | null;
   }
 }
 
@@ -44,6 +46,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     if (!session) return res.status(401).json({ error: 'Not signed in' });
     req.user = session.user;
     req.sessionId = session.sessionId;
+    req.termsVersion = session.termsVersion;
     // The server extended the session, so extend the web cookie too, or the browser drops it
     // 30 days after sign-in however active the user is
     const bearer = req.headers.authorization?.startsWith('Bearer ');

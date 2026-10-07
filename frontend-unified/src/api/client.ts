@@ -1,3 +1,6 @@
+import type { OrgRole } from '../utils/roles';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
+
 const API_BASE = '/api';
 
 // Simple in-memory cache for GET requests
@@ -43,11 +46,28 @@ function noteUnauthorized(endpoint: string, status: number): void {
   }
 }
 
-/** An error response from the API, with its HTTP status */
+/** The code of a refusal because the user hasn't accepted the current terms */
+export const TERMS_NOT_ACCEPTED = 'TERMS_NOT_ACCEPTED';
+
+// Called when a request is refused until the user accepts the current terms, so the app can
+// show the terms step. It is told when the request started, so a refusal of a request made
+// before the user accepted the terms can be ignored.
+let termsHandler: ((startedAt: number) => void) | null = null;
+
+export function setTermsHandler(handler: ((startedAt: number) => void) | null): void {
+  termsHandler = handler;
+}
+
+function noteTermsRefusal(status: number, code: string | undefined, startedAt: number): void {
+  if (status === 403 && code === TERMS_NOT_ACCEPTED) termsHandler?.(startedAt);
+}
+
+/** An error response from the API, with its HTTP status and, for some refusals, a code */
 export class HttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
     this.name = 'HttpError';
@@ -56,11 +76,21 @@ export class HttpError extends Error {
 
 /**
  * A plain same-origin fetch of `/api${endpoint}`, for callers that read the response
- * themselves. A 401 is reported as a lost session, the same as for the rest of the client.
+ * themselves. A 401 is reported as a lost session and a terms refusal as one, the same as for
+ * the rest of the client.
  */
 export async function apiFetch(endpoint: string, init?: RequestInit): Promise<Response> {
+  const startedAt = Date.now();
   const response = await fetch(`${API_BASE}${endpoint}`, init);
   noteUnauthorized(endpoint, response.status);
+  if (response.status === 403) {
+    // Read a copy, so the caller can still read the body
+    const body = await response
+      .clone()
+      .json()
+      .catch(() => null);
+    noteTermsRefusal(response.status, body?.code, startedAt);
+  }
   return response;
 }
 
@@ -73,19 +103,25 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The backend sends { error: string } from route handlers, or
+// The backend sends { error: string } from route handlers (with a code for some refusals), or
 // { error: { code, message, details? } } from validation and the error handler
-async function errorMessage(response: Response): Promise<string> {
+async function readError(response: Response): Promise<{ message: string; code?: string }> {
   const body = await response.json().catch(() => null);
   const error = body?.error;
-  if (typeof error === 'string') return error;
+  const code = typeof body?.code === 'string' ? body.code : undefined;
+  if (typeof error === 'string') return { message: error, code };
   if (error && typeof error.message === 'string') {
     const detail = Array.isArray(error.details) ? error.details[0] : null;
-    return detail?.message
+    const message = detail?.message
       ? `${error.message} (${detail.path ? `${detail.path}: ` : ''}${detail.message})`
       : error.message;
+    return { message, code: typeof error.code === 'string' ? error.code : code };
   }
-  return `HTTP ${response.status}`;
+  return { message: `HTTP ${response.status}`, code };
+}
+
+async function errorMessage(response: Response): Promise<string> {
+  return (await readError(response)).message;
 }
 
 async function downloadFile(endpoint: string): Promise<void> {
@@ -117,9 +153,11 @@ async function downloadFile(endpoint: string): Promise<void> {
   window.URL.revokeObjectURL(url);
 }
 
-function shouldRetry(status: number, attempt: number): boolean {
-  // Retry on network errors, 5xx server errors, and 429 (rate limit)
-  return attempt < MAX_RETRIES && (status >= 500 || status === 429 || status === 0);
+function shouldRetry(status: number, attempt: number, isGet: boolean): boolean {
+  // Retry on network errors and 5xx server errors. A 429 is retried only for reads: on a write
+  // it is a limit (organizations owned, people added in a day) that a retry can't get past, and
+  // retrying would hold back the server's message for several seconds.
+  return attempt < MAX_RETRIES && (status >= 500 || status === 0 || (status === 429 && isGet));
 }
 
 function getRetryDelay(attempt: number): number {
@@ -136,6 +174,7 @@ async function request<T>(
 ): Promise<T> {
   const isGet = !options.method || options.method === 'GET';
   const cacheKey = getCacheKey(endpoint);
+  const startedAt = Date.now();
 
   // Check cache for GET requests
   if (isGet && useCache) {
@@ -160,7 +199,7 @@ async function request<T>(
       if (!response.ok) {
         noteUnauthorized(endpoint, response.status);
 
-        if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt)) {
+        if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt, isGet)) {
           const delay = getRetryDelay(attempt);
           console.warn(
             `Request failed with ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
@@ -169,7 +208,9 @@ async function request<T>(
           continue;
         }
 
-        throw new HttpError(await errorMessage(response), response.status);
+        const { message, code } = await readError(response);
+        noteTermsRefusal(response.status, code, startedAt);
+        throw new HttpError(message, response.status, code);
       }
 
       if (response.status === 204) {
@@ -219,10 +260,10 @@ async function request<T>(
 
 // Organizations
 export const organizations = {
-  list: () => request<Organization[]>('/organizations'),
+  list: () => request<OrganizationWithRole[]>('/organizations'),
   get: (id: string) => request<Organization>(`/organizations/${id}`),
   create: (data: OrganizationCreate) =>
-    request<Organization>('/organizations', {
+    request<OrganizationWithRole>('/organizations', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -232,6 +273,27 @@ export const organizations = {
       body: JSON.stringify(data),
     }),
   delete: (id: string) => request<void>(`/organizations/${id}`, { method: 'DELETE' }),
+};
+
+// Members of an organization
+export const members = {
+  /** The members, and for admins the pending additions */
+  list: (orgId: string) => request<MemberList>(`/organizations/${orgId}/members`, {}, false),
+  add: (orgId: string, email: string, role: OrgRole) =>
+    request<AddMemberResult>(`/organizations/${orgId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+  changeRole: (orgId: string, userId: number, role: OrgRole) =>
+    request<{ member: OrgMember }>(`/organizations/${orgId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+  /** Remove a member, or leave the organization when userId is the signed-in user's */
+  remove: (orgId: string, userId: number) =>
+    request<void>(`/organizations/${orgId}/members/${userId}`, { method: 'DELETE' }),
+  cancelInvite: (orgId: string, inviteId: string) =>
+    request<void>(`/organizations/${orgId}/invites/${inviteId}`, { method: 'DELETE' }),
 };
 
 // Documents
@@ -417,6 +479,37 @@ export interface OrganizationUpdate {
   isActive?: boolean;
 }
 
+/** One of the signed-in user's organizations, with their role in it */
+export interface OrganizationWithRole extends Organization {
+  role: OrgRole;
+}
+
+export interface OrgMember {
+  userId: number;
+  name: string | null;
+  email: string;
+  role: OrgRole;
+}
+
+/** An addition by email that waits until that email first signs in */
+export interface PendingInvite {
+  id: string;
+  email: string;
+  role: OrgRole;
+  createdAt: string;
+}
+
+export interface MemberList {
+  members: OrgMember[];
+  /** Only for admins */
+  invites?: PendingInvite[];
+}
+
+export type AddMemberResult =
+  | { status: 'added'; member: OrgMember; emailSent: boolean }
+  | { status: 'invited'; invite: PendingInvite; emailSent: boolean }
+  | { status: 'updated'; invite: PendingInvite; emailSent: false };
+
 export interface Document {
   id: string;
   organizationId: string;
@@ -492,6 +585,8 @@ export interface Amendment {
   proposedAt: string | null;
   decidedAt: string | null;
   resultingVersionId: string | null;
+  /** Who created it; null for amendments synced from a live meeting or made before this was kept */
+  createdById: number | null;
   createdAt: string;
   changes: AmendmentChange[];
 }
@@ -645,7 +740,7 @@ export interface SharedDocument {
   currentVersion: SharedVersion | null;
 }
 
-// Robbie-Bylawyer Integration (bylaw sync)
+// Live meetings and the bylaws they amend (bylaw sync)
 export interface LinkedOrganization {
   id: string;
   name: string;
@@ -674,8 +769,8 @@ export interface SyncStatusResponse {
 
 // Bylaw Sync API - for Robbie/Bylawyer integration
 export const bylawSync = {
-  // Get all organizations (for linking dropdown)
-  getOrganizations: () => request<LinkedOrganization[]>('/bylawyer/organizations'),
+  // The user's organizations, each with their role (the link needs secretary)
+  getOrganizations: () => request<OrganizationWithRole[]>('/bylawyer/organizations'),
 
   // Link a Robbie meeting to a Bylawyer organization
   linkMeeting: (meetingCode: string, organizationId: string) =>
@@ -690,9 +785,22 @@ export const bylawSync = {
       method: 'DELETE',
     }),
 
-  // Get the organization linked to a meeting
-  getMeetingOrganization: (meetingCode: string) =>
-    request<MeetingOrganizationResponse>(`/bylawyer/meeting/${meetingCode}/organization`),
+  // The organization a meeting is linked to. A code without a packet, or with one in an
+  // organization the user isn't in, is a 404: not linked, as far as this user can tell.
+  getMeetingOrganization: async (meetingCode: string): Promise<MeetingOrganizationResponse> => {
+    try {
+      return await request<MeetingOrganizationResponse>(
+        `/bylawyer/meeting/${meetingCode}/organization`,
+        {},
+        false,
+      );
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) {
+        return { linked: false, organization: null };
+      }
+      throw err;
+    }
+  },
 
   // Get documents for a linked organization
   getOrganizationDocuments: (orgId: string) =>
@@ -702,9 +810,19 @@ export const bylawSync = {
   getDocumentSections: (docId: string) =>
     request<SectionTree[]>(`/bylawyer/documents/${docId}/sections`),
 
-  // Check sync status for a motion
-  getSyncStatus: (meetingCode: string, motionId: number) =>
-    request<SyncStatusResponse>(`/robbie/sync-status/${meetingCode}/${motionId}`),
+  // Check sync status for a motion; an unlinked meeting (404) has synced nothing
+  getSyncStatus: async (meetingCode: string, motionId: number): Promise<SyncStatusResponse> => {
+    try {
+      return await request<SyncStatusResponse>(
+        `/robbie/sync-status/${meetingCode}/${motionId}`,
+        {},
+        false,
+      );
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) return { synced: false };
+      throw err;
+    }
+  },
 };
 
 export interface SessionUser {
@@ -713,13 +831,19 @@ export interface SessionUser {
   name: string | null;
 }
 
+/** The signed-in user, and whether they accepted the current Terms of Service and Privacy Policy */
+export interface Me {
+  user: SessionUser;
+  termsAccepted: boolean;
+}
+
 export const auth = {
-  /** The signed-in user, or null when there is no session */
-  me: async (): Promise<SessionUser | null> => {
+  /** The signed-in user and their terms acceptance, or null when there is no session */
+  me: async (): Promise<Me | null> => {
     const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'same-origin' });
     if (response.status === 401) return null;
     if (!response.ok) throw new Error(await errorMessage(response));
-    return ((await response.json()) as { user: SessionUser }).user;
+    return (await response.json()) as Me;
   },
   requestCode: (email: string) =>
     request<{ success: boolean }>(
@@ -743,6 +867,13 @@ export const auth = {
         false,
       )
     ).user,
+  /** Accept the current terms: the version this app shows, so a stale page can't accept others */
+  acceptTerms: () =>
+    request<{ termsAccepted: boolean }>(
+      '/auth/accept-terms',
+      { method: 'POST', body: JSON.stringify({ version: TERMS_VERSION }) },
+      false,
+    ),
   signOut: () => request<{ success: boolean }>('/auth/sign-out', { method: 'POST' }, false),
   signOutEverywhere: () =>
     request<{ success: boolean }>('/auth/sign-out-everywhere', { method: 'POST' }, false),

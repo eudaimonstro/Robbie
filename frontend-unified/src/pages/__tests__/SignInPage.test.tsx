@@ -5,9 +5,11 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 const session = vi.hoisted(() => ({
   status: 'signedOut' as 'signedOut' | 'signedIn',
   user: null as null | { id: number; email: string; name: string | null },
+  termsAccepted: true as boolean,
   requestCode: vi.fn(async () => {}),
   verify: vi.fn(),
   setName: vi.fn(async () => {}),
+  acceptTerms: vi.fn(async () => {}),
   signOut: vi.fn(async () => {}),
 }));
 vi.mock('../../context/SessionContext', () => ({ useSession: () => session }));
@@ -37,6 +39,9 @@ describe('SignInPage', () => {
     vi.clearAllMocks();
     session.status = 'signedOut';
     session.user = null;
+    session.termsAccepted = true;
+    // The last existing test makes setName throw; clearAllMocks keeps implementations
+    session.setName.mockImplementation(async () => {});
   });
 
   it('signs in with an emailed code and returns to the page asked for', async () => {
@@ -144,5 +149,55 @@ describe('SignInPage', () => {
 
     expect(await screen.findByText('Your sign-in has expired. Sign in again.')).toBeTruthy();
     expect(screen.getByLabelText('Email')).toBeTruthy();
+  });
+
+  it('has a new user agree to the terms with their name, agreeing first', async () => {
+    session.status = 'signedIn';
+    session.user = { id: 1, email: 'ann@example.org', name: null };
+    session.termsAccepted = false;
+    renderAt('/sign-in');
+
+    fireEvent.change(await screen.findByLabelText('Your name'), { target: { value: 'Ann' } });
+    const continueButton = screen.getByRole('button', { name: 'Continue' });
+    expect(continueButton).toHaveProperty('disabled', true);
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: "I'm 13 or older and I agree to the Terms of Service and Privacy Policy",
+      }),
+    );
+    fireEvent.click(continueButton);
+
+    await waitFor(() => expect(session.setName).toHaveBeenCalledWith('Ann'));
+    expect(session.acceptTerms).toHaveBeenCalledOnce();
+    expect(session.acceptTerms.mock.invocationCallOrder[0]).toBeLessThan(
+      session.setName.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('opens the terms and the privacy policy in a new tab', async () => {
+    session.status = 'signedIn';
+    session.user = { id: 1, email: 'ann@example.org', name: null };
+    session.termsAccepted = false;
+    renderAt('/sign-in');
+
+    const terms = await screen.findByRole('link', { name: 'Terms of Service' });
+    expect(terms.getAttribute('href')).toBe('/terms');
+    expect(terms.getAttribute('target')).toBe('_blank');
+    expect(screen.getByRole('link', { name: 'Privacy Policy' }).getAttribute('href')).toBe(
+      '/privacy',
+    );
+  });
+
+  it('asks only for the name when the terms are already accepted', async () => {
+    session.status = 'signedIn';
+    session.user = { id: 1, email: 'ann@example.org', name: null };
+    renderAt('/sign-in');
+
+    fireEvent.change(await screen.findByLabelText('Your name'), { target: { value: 'Ann' } });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(session.setName).toHaveBeenCalledWith('Ann'));
+    expect(session.acceptTerms).not.toHaveBeenCalled();
   });
 });

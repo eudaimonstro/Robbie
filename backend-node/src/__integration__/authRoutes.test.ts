@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { app } from '../app.js';
 import { captureEmailsForTests } from '../auth/emailService.js';
 import { createSession } from '../auth/sessionService.js';
@@ -175,6 +176,11 @@ describe('auth routes', () => {
 
   it('removes the old per-meeting endpoints', async () => {
     const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    await request(app)
+      .post('/api/auth/accept-terms')
+      .set('Cookie', cookie)
+      .send({ version: TERMS_VERSION })
+      .expect(200);
     const old1 = await request(app)
       .post('/api/auth/request-verification')
       .set('Cookie', cookie)

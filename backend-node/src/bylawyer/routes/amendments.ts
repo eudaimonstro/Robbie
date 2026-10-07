@@ -1,7 +1,12 @@
-import { Router, type Router as RouterType } from 'express';
+import { Router, type RequestHandler, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import { AmendmentService, AmendmentConflictError } from '../services/amendmentService.js';
-import { validate } from '../../middleware/validate.js';
+import type { AmendmentStatus, Prisma } from '../../generated/prisma/client.js';
+import {
+  AmendmentService,
+  AmendmentAppliedError,
+  AmendmentConflictError,
+} from '../services/amendmentService.js';
+import { validate, type RouteParams } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
 import {
   createAmendmentBody,
@@ -11,13 +16,51 @@ import {
 } from '../../schemas/amendments.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
+import { fromParam, requireRole } from '../../orgs/requireRole.js';
+import { orgOfAmendment, orgOfAmendmentChange, orgOfDocument } from '../../orgs/resolvers.js';
+import { canEditAmendment, roleNeeded } from '../../orgs/roles.js';
 
 export const amendmentsRouter: RouterType = Router();
+
+const byDocument = fromParam('docId', orgOfDocument);
+const byAmendment = fromParam('id', orgOfAmendment);
+const byChange = fromParam('id', orgOfAmendmentChange);
+const NEEDS_SECRETARY = roleNeeded('secretary');
+
+/**
+ * Hold the amendment's row until the transaction ends and answer whether it is still a draft.
+ * A status change (propose, withdraw) waits for the lock, so a draft edit made under it can't
+ * land after the amendment left draft.
+ */
+async function lockDraft(tx: Prisma.TransactionClient, amendmentId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<Array<{ status: string }>>`
+    SELECT status FROM "Amendment" WHERE id = ${amendmentId} FOR UPDATE`;
+  return rows[0]?.status === 'draft';
+}
+
+/**
+ * Change an amendment's status only if it is still in one of `from`, so a status change since
+ * the caller's read can't be overtaken (a propose can't bring back a withdrawn amendment).
+ * Answers the amendment with its changes, or null if it had left `from`.
+ */
+async function transition(
+  id: string,
+  from: AmendmentStatus[],
+  data: Prisma.AmendmentUpdateManyMutationInput,
+) {
+  const { count } = await prisma.amendment.updateMany({
+    where: { id, status: { in: from } },
+    data,
+  });
+  if (count === 0) return null;
+  return prisma.amendment.findUniqueOrThrow({ where: { id }, include: { changes: true } });
+}
 
 // List amendments for a document
 amendmentsRouter.get(
   '/documents/:docId/amendments',
   validate({ params: docIdParam }),
+  requireRole('viewer', byDocument),
   async (req, res) => {
     try {
       const doc = await prisma.document.findUnique({
@@ -63,6 +106,7 @@ amendmentsRouter.get(
 amendmentsRouter.post(
   '/documents/:docId/amendments',
   validate({ params: docIdParam, body: createAmendmentBody }),
+  requireRole('member', byDocument),
   async (req, res) => {
     try {
       const doc = await prisma.document.findUnique({
@@ -78,6 +122,7 @@ amendmentsRouter.post(
           documentId: req.params.docId,
           title: req.body.title,
           description: req.body.description,
+          createdById: req.user!.id,
         },
         include: { changes: true },
       });
@@ -91,28 +136,34 @@ amendmentsRouter.post(
 );
 
 // Get amendment by ID
-amendmentsRouter.get('/amendments/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: req.params.id },
-      include: { changes: true },
-    });
+amendmentsRouter.get(
+  '/amendments/:id',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byAmendment),
+  async (req, res) => {
+    try {
+      const amendment = await prisma.amendment.findUnique({
+        where: { id: req.params.id },
+        include: { changes: true },
+      });
 
-    if (!amendment) {
-      return res.status(404).json({ error: 'Amendment not found' });
+      if (!amendment) {
+        return res.status(404).json({ error: 'Amendment not found' });
+      }
+
+      res.json(amendment);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get amendment');
+      res.status(500).json({ error: 'Failed to get amendment' });
     }
-
-    res.json(amendment);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get amendment');
-    res.status(500).json({ error: 'Failed to get amendment' });
-  }
-});
+  },
+);
 
 // Update amendment
 amendmentsRouter.put(
   '/amendments/:id',
   validate({ params: uuidParam, body: updateAmendmentBody }),
+  requireRole('member', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -123,19 +174,23 @@ amendmentsRouter.put(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'draft') {
+      if (!canEditAmendment(req.org!.role, req.user!.id, amendment)) {
+        return res.status(403).json({ error: NEEDS_SECRETARY });
+      }
+
+      // Written only if still a draft, so a status change since the read can't be overtaken
+      const { count } = await prisma.amendment.updateMany({
+        where: { id: req.params.id, status: 'draft' },
+        data: { title: req.body.title, description: req.body.description },
+      });
+      if (count === 0) {
         return res.status(400).json({ error: 'Can only update draft amendments' });
       }
 
-      const updated = await prisma.amendment.update({
+      const updated = await prisma.amendment.findUniqueOrThrow({
         where: { id: req.params.id },
-        data: {
-          title: req.body.title ?? amendment.title,
-          description: req.body.description ?? amendment.description,
-        },
         include: { changes: true },
       });
-
       res.json(updated);
     } catch (error) {
       logger.error({ err: error }, 'Failed to update amendment');
@@ -145,32 +200,10 @@ amendmentsRouter.put(
 );
 
 // Delete amendment
-amendmentsRouter.delete('/amendments/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!amendment) {
-      return res.status(404).json({ error: 'Amendment not found' });
-    }
-
-    if (amendment.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only delete draft amendments' });
-    }
-
-    await prisma.amendment.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to delete amendment');
-    res.status(500).json({ error: 'Failed to delete amendment' });
-  }
-});
-
-// Propose amendment
-amendmentsRouter.post(
-  '/amendments/:id/propose',
+amendmentsRouter.delete(
+  '/amendments/:id',
   validate({ params: uuidParam }),
+  requireRole('member', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -181,18 +214,47 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'draft') {
-        return res.status(400).json({ error: 'Can only propose draft amendments' });
+      if (!canEditAmendment(req.org!.role, req.user!.id, amendment)) {
+        return res.status(403).json({ error: NEEDS_SECRETARY });
       }
 
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'proposed',
-          proposedAt: new Date(),
-        },
-        include: { changes: true },
+      // Deleted only if still a draft, so a status change since the read can't be overtaken
+      const { count } = await prisma.amendment.deleteMany({
+        where: { id: req.params.id, status: 'draft' },
       });
+      if (count === 0) {
+        return res.status(400).json({ error: 'Can only delete draft amendments' });
+      }
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to delete amendment');
+      res.status(500).json({ error: 'Failed to delete amendment' });
+    }
+  },
+);
+
+// Propose amendment
+amendmentsRouter.post(
+  '/amendments/:id/propose',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
+  async (req, res) => {
+    try {
+      const amendment = await prisma.amendment.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!amendment) {
+        return res.status(404).json({ error: 'Amendment not found' });
+      }
+
+      const updated = await transition(req.params.id, ['draft'], {
+        status: 'proposed',
+        proposedAt: new Date(),
+      });
+      if (!updated) {
+        return res.status(400).json({ error: 'Can only propose draft amendments' });
+      }
 
       res.json(updated);
     } catch (error) {
@@ -206,6 +268,7 @@ amendmentsRouter.post(
 amendmentsRouter.post(
   '/amendments/:id/withdraw',
   validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -216,18 +279,13 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (!['draft', 'proposed'].includes(amendment.status)) {
+      const updated = await transition(req.params.id, ['draft', 'proposed'], {
+        status: 'withdrawn',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
         return res.status(400).json({ error: 'Cannot withdraw this amendment' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: {
-          status: 'withdrawn',
-          decidedAt: new Date(),
-        },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -238,71 +296,10 @@ amendmentsRouter.post(
 );
 
 // Pass amendment
-amendmentsRouter.post('/amendments/:id/pass', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!amendment) {
-      return res.status(404).json({ error: 'Amendment not found' });
-    }
-
-    if (amendment.status !== 'proposed') {
-      return res.status(400).json({ error: 'Can only pass proposed amendments' });
-    }
-
-    const updated = await prisma.amendment.update({
-      where: { id: req.params.id },
-      data: {
-        status: 'passed',
-        decidedAt: new Date(),
-      },
-      include: { changes: true },
-    });
-
-    res.json(updated);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to pass amendment');
-    res.status(500).json({ error: 'Failed to pass amendment' });
-  }
-});
-
-// Fail amendment
-amendmentsRouter.post('/amendments/:id/fail', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!amendment) {
-      return res.status(404).json({ error: 'Amendment not found' });
-    }
-
-    if (amendment.status !== 'proposed') {
-      return res.status(400).json({ error: 'Can only fail proposed amendments' });
-    }
-
-    const updated = await prisma.amendment.update({
-      where: { id: req.params.id },
-      data: {
-        status: 'failed',
-        decidedAt: new Date(),
-      },
-      include: { changes: true },
-    });
-
-    res.json(updated);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to fail amendment');
-    res.status(500).json({ error: 'Failed to fail amendment' });
-  }
-});
-
-// Table amendment
 amendmentsRouter.post(
-  '/amendments/:id/table',
+  '/amendments/:id/pass',
   validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -313,15 +310,72 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'proposed') {
-        return res.status(400).json({ error: 'Can only table proposed amendments' });
+      const updated = await transition(req.params.id, ['proposed'], {
+        status: 'passed',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
+        return res.status(400).json({ error: 'Can only pass proposed amendments' });
       }
 
-      const updated = await prisma.amendment.update({
+      res.json(updated);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to pass amendment');
+      res.status(500).json({ error: 'Failed to pass amendment' });
+    }
+  },
+);
+
+// Fail amendment
+amendmentsRouter.post(
+  '/amendments/:id/fail',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
+  async (req, res) => {
+    try {
+      const amendment = await prisma.amendment.findUnique({
         where: { id: req.params.id },
-        data: { status: 'tabled' },
-        include: { changes: true },
       });
+
+      if (!amendment) {
+        return res.status(404).json({ error: 'Amendment not found' });
+      }
+
+      const updated = await transition(req.params.id, ['proposed'], {
+        status: 'failed',
+        decidedAt: new Date(),
+      });
+      if (!updated) {
+        return res.status(400).json({ error: 'Can only fail proposed amendments' });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to fail amendment');
+      res.status(500).json({ error: 'Failed to fail amendment' });
+    }
+  },
+);
+
+// Table amendment
+amendmentsRouter.post(
+  '/amendments/:id/table',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
+  async (req, res) => {
+    try {
+      const amendment = await prisma.amendment.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!amendment) {
+        return res.status(404).json({ error: 'Amendment not found' });
+      }
+
+      const updated = await transition(req.params.id, ['proposed'], { status: 'tabled' });
+      if (!updated) {
+        return res.status(400).json({ error: 'Can only table proposed amendments' });
+      }
 
       res.json(updated);
     } catch (error) {
@@ -335,6 +389,7 @@ amendmentsRouter.post(
 amendmentsRouter.post(
   '/amendments/:id/untable',
   validate({ params: uuidParam }),
+  requireRole('secretary', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -345,15 +400,10 @@ amendmentsRouter.post(
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
-      if (amendment.status !== 'tabled') {
+      const updated = await transition(req.params.id, ['tabled'], { status: 'proposed' });
+      if (!updated) {
         return res.status(400).json({ error: 'Can only untable tabled amendments' });
       }
-
-      const updated = await prisma.amendment.update({
-        where: { id: req.params.id },
-        data: { status: 'proposed' },
-        include: { changes: true },
-      });
 
       res.json(updated);
     } catch (error) {
@@ -367,6 +417,7 @@ amendmentsRouter.post(
 amendmentsRouter.get(
   '/amendments/:id/changes',
   validate({ params: uuidParam }),
+  requireRole('viewer', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -394,35 +445,69 @@ amendmentsRouter.get(
 amendmentsRouter.post(
   '/amendments/:id/changes',
   validate({ params: uuidParam, body: createAmendmentChangeBody }),
+  requireRole('member', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
         where: { id: req.params.id },
-        include: { changes: true },
       });
 
       if (!amendment) {
         return res.status(404).json({ error: 'Amendment not found' });
       }
 
+      if (!canEditAmendment(req.org!.role, req.user!.id, amendment)) {
+        return res.status(403).json({ error: NEEDS_SECRETARY });
+      }
+
       if (amendment.status !== 'draft') {
         return res.status(400).json({ error: 'Can only add changes to draft amendments' });
       }
 
-      const maxPosition =
-        amendment.changes.length > 0 ? Math.max(...amendment.changes.map((c) => c.position)) : -1;
+      // The sections a change names must be in the document's current version, so in this
+      // organization. parentSectionId is checked too, though only targetSectionId is stored.
+      const sectionIds = [
+        req.body.target_section_id || req.body.targetSectionId,
+        req.body.parent_section_id || req.body.parentSectionId,
+      ].filter((id): id is string => Boolean(id));
+      if (sectionIds.length > 0) {
+        const document = await prisma.document.findUnique({
+          where: { id: amendment.documentId },
+          select: { currentVersionId: true },
+        });
+        const found = document?.currentVersionId
+          ? await prisma.section.count({
+              where: { id: { in: sectionIds }, versionId: document.currentVersionId },
+            })
+          : 0;
+        if (found !== new Set(sectionIds).size) {
+          return res.status(404).json({ error: 'Section not found' });
+        }
+      }
 
-      const change = await prisma.amendmentChange.create({
-        data: {
-          amendmentId: req.params.id,
-          changeType: req.body.change_type || req.body.changeType,
-          targetSectionId: req.body.target_section_id || req.body.targetSectionId,
-          newContent: req.body.new_content || req.body.newContent,
-          newNumberLabel: req.body.new_number_label || req.body.newNumberLabel,
-          newTitle: req.body.new_title || req.body.newTitle,
-          position: maxPosition + 1,
-        },
+      const change = await prisma.$transaction(async (tx) => {
+        if (!(await lockDraft(tx, req.params.id))) {
+          return null;
+        }
+        const { _max } = await tx.amendmentChange.aggregate({
+          where: { amendmentId: req.params.id },
+          _max: { position: true },
+        });
+        return tx.amendmentChange.create({
+          data: {
+            amendmentId: req.params.id,
+            changeType: req.body.change_type || req.body.changeType,
+            targetSectionId: req.body.target_section_id || req.body.targetSectionId,
+            newContent: req.body.new_content || req.body.newContent,
+            newNumberLabel: req.body.new_number_label || req.body.newNumberLabel,
+            newTitle: req.body.new_title || req.body.newTitle,
+            position: (_max.position ?? -1) + 1,
+          },
+        });
       });
+      if (!change) {
+        return res.status(400).json({ error: 'Can only add changes to draft amendments' });
+      }
 
       res.status(201).json(change);
     } catch (error) {
@@ -433,67 +518,61 @@ amendmentsRouter.post(
 );
 
 // Delete amendment change
-amendmentsRouter.delete('/changes/:id', validate({ params: uuidParam }), async (req, res) => {
+const deleteChange: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const change = await prisma.amendmentChange.findUnique({
       where: { id: req.params.id },
+      include: { amendment: true },
     });
 
     if (!change) {
       return res.status(404).json({ error: 'Change not found' });
     }
 
-    const amendment = await prisma.amendment.findUnique({
-      where: { id: change.amendmentId },
-    });
-
-    if (amendment?.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only modify draft amendments' });
+    if (!canEditAmendment(req.org!.role, req.user!.id, change.amendment)) {
+      return res.status(403).json({ error: NEEDS_SECRETARY });
     }
 
-    await prisma.amendmentChange.delete({ where: { id: req.params.id } });
+    const result = await prisma.$transaction(async (tx) => {
+      if (!(await lockDraft(tx, change.amendmentId))) {
+        return 'not draft';
+      }
+      const { count } = await tx.amendmentChange.deleteMany({ where: { id: req.params.id } });
+      return count === 0 ? 'gone' : 'deleted';
+    });
+    if (result === 'not draft') {
+      return res.status(400).json({ error: 'Can only modify draft amendments' });
+    }
+    if (result === 'gone') {
+      return res.status(404).json({ error: 'Change not found' });
+    }
     res.status(204).send();
   } catch (error) {
     logger.error({ err: error }, 'Failed to delete amendment change');
     res.status(500).json({ error: 'Failed to delete amendment change' });
   }
-});
+};
+
+amendmentsRouter.delete(
+  '/changes/:id',
+  validate({ params: uuidParam }),
+  requireRole('member', byChange),
+  deleteChange,
+);
 
 // Alternate delete endpoint
 amendmentsRouter.delete(
   '/amendment-changes/:id',
   validate({ params: uuidParam }),
-  async (req, res) => {
-    try {
-      const change = await prisma.amendmentChange.findUnique({
-        where: { id: req.params.id },
-      });
-
-      if (!change) {
-        return res.status(404).json({ error: 'Change not found' });
-      }
-
-      const amendment = await prisma.amendment.findUnique({
-        where: { id: change.amendmentId },
-      });
-
-      if (amendment?.status !== 'draft') {
-        return res.status(400).json({ error: 'Can only modify draft amendments' });
-      }
-
-      await prisma.amendmentChange.delete({ where: { id: req.params.id } });
-      res.status(204).send();
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to delete amendment change');
-      res.status(500).json({ error: 'Failed to delete amendment change' });
-    }
-  },
+  requireRole('member', byChange),
+  deleteChange,
 );
 
 // Apply amendment
 amendmentsRouter.post(
   '/amendments/:id/apply',
   validate({ params: uuidParam, query: applyAmendmentQuery }),
+  requireRole('secretary', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({
@@ -537,6 +616,9 @@ amendmentsRouter.post(
       if (error instanceof AmendmentConflictError) {
         return res.status(409).json({ error: error.message });
       }
+      if (error instanceof AmendmentAppliedError) {
+        return res.status(400).json({ error: error.message });
+      }
       // Other failures are logged, not echoed: a database error's text describes the schema
       logger.error({ err: error }, 'Failed to apply amendment');
       res.status(500).json({ error: 'Failed to apply amendment' });
@@ -548,6 +630,7 @@ amendmentsRouter.post(
 amendmentsRouter.get(
   '/amendments/:id/preview',
   validate({ params: uuidParam }),
+  requireRole('viewer', byAmendment),
   async (req, res) => {
     try {
       const amendment = await prisma.amendment.findUnique({

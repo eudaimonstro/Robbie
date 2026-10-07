@@ -6,8 +6,13 @@ import { uuidParam, docIdParam } from '../../schemas/common.js';
 import { createVersionBody, updateVersionBody, diffParams } from '../../schemas/versions.js';
 import { diffSections } from '../services/versionDiff.js';
 import { logger } from '../../middleware/logger.js';
+import { fromParam, requireRole } from '../../orgs/requireRole.js';
+import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
 
 export const versionsRouter: RouterType = Router();
+
+const byDocument = fromParam('docId', orgOfDocument);
+const byVersion = fromParam('id', orgOfVersion);
 
 // Build nested section tree from flat list
 function buildSectionTree(sections: Section[], parentId: string | null = null): any[] {
@@ -88,6 +93,7 @@ function renderMarkdown(sections: Section[], parentId: string | null = null, dep
 versionsRouter.get(
   '/documents/:docId/versions',
   validate({ params: docIdParam }),
+  requireRole('viewer', byDocument),
   async (req, res) => {
     try {
       const doc = await prisma.document.findUnique({
@@ -115,6 +121,7 @@ versionsRouter.get(
 versionsRouter.post(
   '/documents/:docId/versions',
   validate({ params: docIdParam, body: createVersionBody }),
+  requireRole('secretary', byDocument),
   async (req, res) => {
     try {
       const doc = await prisma.document.findUnique({
@@ -198,65 +205,81 @@ versionsRouter.post(
 );
 
 // Get version by ID
-versionsRouter.get('/versions/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const version = await prisma.version.findUnique({
-      where: { id: req.params.id },
-    });
+versionsRouter.get(
+  '/versions/:id',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byVersion),
+  async (req, res) => {
+    try {
+      const version = await prisma.version.findUnique({
+        where: { id: req.params.id },
+      });
 
-    if (!version) {
-      return res.status(404).json({ error: 'Version not found' });
+      if (!version) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      res.json(version);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get version');
+      res.status(500).json({ error: 'Failed to get version' });
     }
-
-    res.json(version);
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get version');
-    res.status(500).json({ error: 'Failed to get version' });
-  }
-});
+  },
+);
 
 // Get version tree
-versionsRouter.get('/versions/:id/tree', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const version = await prisma.version.findUnique({
-      where: { id: req.params.id },
-      include: { sections: true },
-    });
+versionsRouter.get(
+  '/versions/:id/tree',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byVersion),
+  async (req, res) => {
+    try {
+      const version = await prisma.version.findUnique({
+        where: { id: req.params.id },
+        include: { sections: true },
+      });
 
-    if (!version) {
-      return res.status(404).json({ error: 'Version not found' });
+      if (!version) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      res.json(buildSectionTree(version.sections));
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get version tree');
+      res.status(500).json({ error: 'Failed to get version tree' });
     }
-
-    res.json(buildSectionTree(version.sections));
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get version tree');
-    res.status(500).json({ error: 'Failed to get version tree' });
-  }
-});
+  },
+);
 
 // Get version text
-versionsRouter.get('/versions/:id/text', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const version = await prisma.version.findUnique({
-      where: { id: req.params.id },
-      include: { sections: true },
-    });
+versionsRouter.get(
+  '/versions/:id/text',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byVersion),
+  async (req, res) => {
+    try {
+      const version = await prisma.version.findUnique({
+        where: { id: req.params.id },
+        include: { sections: true },
+      });
 
-    if (!version) {
-      return res.status(404).json({ error: 'Version not found' });
+      if (!version) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      res.json({ text: renderFullText(version.sections) });
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get version text');
+      res.status(500).json({ error: 'Failed to get version text' });
     }
-
-    res.json({ text: renderFullText(version.sections) });
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get version text');
-    res.status(500).json({ error: 'Failed to get version text' });
-  }
-});
+  },
+);
 
 // Diff versions
 versionsRouter.get(
   '/versions/:id/diff/:otherId',
   validate({ params: diffParams }),
+  requireRole('viewer', byVersion),
   async (req, res) => {
     try {
       const version1 = await prisma.version.findUnique({
@@ -269,7 +292,9 @@ versionsRouter.get(
         include: { sections: true },
       });
 
-      if (!version1 || !version2) {
+      // The other version must be of the same document (so in the same organization); any
+      // other version is treated as not found
+      if (!version1 || !version2 || version2.documentId !== version1.documentId) {
         return res.status(404).json({ error: 'Version not found' });
       }
 
@@ -292,6 +317,7 @@ versionsRouter.get(
 versionsRouter.put(
   '/versions/:id',
   validate({ params: uuidParam, body: updateVersionBody }),
+  requireRole('secretary', byVersion),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -323,48 +349,54 @@ versionsRouter.put(
 );
 
 // Delete version
-versionsRouter.delete('/versions/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const version = await prisma.version.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!version) {
-      return res.status(404).json({ error: 'Version not found' });
-    }
-
-    // Update document's current version if needed
-    const doc = await prisma.document.findFirst({
-      where: { currentVersionId: version.id },
-    });
-
-    if (doc) {
-      const otherVersion = await prisma.version.findFirst({
-        where: {
-          documentId: doc.id,
-          id: { not: version.id },
-        },
-        orderBy: { versionNumber: 'desc' },
+versionsRouter.delete(
+  '/versions/:id',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byVersion),
+  async (req, res) => {
+    try {
+      const version = await prisma.version.findUnique({
+        where: { id: req.params.id },
       });
 
-      await prisma.document.update({
-        where: { id: doc.id },
-        data: { currentVersionId: otherVersion?.id || null },
-      });
-    }
+      if (!version) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
 
-    await prisma.version.delete({ where: { id: req.params.id } });
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to delete version');
-    res.status(500).json({ error: 'Failed to delete version' });
-  }
-});
+      // Update document's current version if needed
+      const doc = await prisma.document.findFirst({
+        where: { currentVersionId: version.id },
+      });
+
+      if (doc) {
+        const otherVersion = await prisma.version.findFirst({
+          where: {
+            documentId: doc.id,
+            id: { not: version.id },
+          },
+          orderBy: { versionNumber: 'desc' },
+        });
+
+        await prisma.document.update({
+          where: { id: doc.id },
+          data: { currentVersionId: otherVersion?.id || null },
+        });
+      }
+
+      await prisma.version.delete({ where: { id: req.params.id } });
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to delete version');
+      res.status(500).json({ error: 'Failed to delete version' });
+    }
+  },
+);
 
 // Export as markdown
 versionsRouter.get(
   '/versions/:id/export/markdown',
   validate({ params: uuidParam }),
+  requireRole('viewer', byVersion),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({

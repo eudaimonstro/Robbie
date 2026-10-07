@@ -2,7 +2,11 @@ import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { VoteCreate, Amendment } from '../../../api/client';
-import { useOrganization } from '../../../context/OrganizationContext';
+import {
+  useOrganization,
+  useCan,
+  useSelectRecordOrganization,
+} from '../../../context/OrganizationContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import { useToast } from '../../../context/ToastContext';
 import {
@@ -33,7 +37,12 @@ export default function MeetingDetailPage() {
     recordVote,
     getAmendmentTitle,
     getDocumentTitle,
-  } = useMeetingData(meetingId, currentOrganization?.id);
+  } = useMeetingData(meetingId);
+
+  // The role, breadcrumb and documents are the meeting's organization's, not the header's
+  useSelectRecordOrganization(meeting?.organizationId);
+  // Changing the record and recording votes need the secretary role
+  const canManage = useCan('secretary');
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -128,6 +137,7 @@ export default function MeetingDetailPage() {
       <MeetingHeader
         meeting={meeting}
         organizationName={currentOrganization?.name}
+        canManage={canManage}
         onEdit={() => setEditModalOpen(true)}
         onStart={() => setStartDialogOpen(true)}
         onComplete={() => setCompleteDialogOpen(true)}
@@ -145,7 +155,7 @@ export default function MeetingDetailPage() {
         <PendingAmendmentsPanel
           amendments={unvotedAmendments}
           documents={documents}
-          isInProgress={isInProgress}
+          isInProgress={isInProgress && canManage}
           onRecordVote={handleOpenVoteModal}
         />
       </div>

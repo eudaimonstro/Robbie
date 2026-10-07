@@ -9,3 +9,5 @@ export * from './robbie.js';
 export * from './packets.js';
 export * from './agenda-items.js';
 export * from './attachments.js';
+export * from './bylawyer.js';
+export * from './members.js';

@@ -13,6 +13,7 @@ import { applyAction } from './stateManager.js';
 import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { logger } from '../middleware/logger.js';
+import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -54,12 +55,12 @@ export async function handleJoinMeeting(
       return;
     }
 
-    const meetingCode = data.meetingCode?.trim().toUpperCase() ?? '';
-    if (!/^[A-Z0-9]{4,8}$/.test(meetingCode)) {
-      callback({ success: false, error: 'Meeting code must be 4-8 letters or digits' });
+    const parsedCode = meetingCodeSchema.safeParse(data.meetingCode);
+    if (!parsedCode.success) {
+      callback({ success: false, error: parsedCode.error.issues[0].message });
       return;
     }
-    data = { ...data, meetingCode };
+    data = { ...data, meetingCode: parsedCode.data };
 
     // A socket already in another meeting leaves it first, as on disconnect; otherwise it
     // kept receiving that meeting's updates and its member stayed present there

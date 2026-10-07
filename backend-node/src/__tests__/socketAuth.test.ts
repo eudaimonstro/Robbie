@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { socketAuth } from '../socket/socketAuth.js';
 
 const session = {
   sessionId: 's-1',
   user: { id: 7, email: 'ann@example.org', name: 'Ann' },
+  termsVersion: TERMS_VERSION,
   extended: false,
 };
 
@@ -58,5 +60,15 @@ describe('socketAuth', () => {
     const { next } = await run(fakeSocket({ cookie: 'session=%E0%A4%A' }), find);
     expect(next).toHaveBeenCalledWith(expect.any(Error));
     expect(find).not.toHaveBeenCalled();
+  });
+
+  it('refuses a user who has not accepted the current terms', async () => {
+    const { next } = await run(
+      fakeSocket({ cookie: 'session=abc123' }),
+      vi.fn(async () => ({ ...session, termsVersion: null })),
+    );
+    const error = next.mock.calls[0][0];
+    expect(error.message).toBe('Accept the terms to continue');
+    expect(error.data).toEqual({ code: 'TERMS_NOT_ACCEPTED' });
   });
 });

@@ -7,6 +7,10 @@ interface AmendmentHeaderProps {
   amendment: Amendment;
   document: Document;
   organizationName?: string;
+  /** Whether the user may propose, withdraw, decide and apply amendments (secretary and above) */
+  canDecide: boolean;
+  /** Whether the user may edit this amendment: a draft, theirs or as a secretary */
+  canEditDraft: boolean;
   onEdit: () => void;
   onPropose: () => void;
   onWithdraw: () => void;
@@ -19,6 +23,8 @@ export function AmendmentHeader({
   amendment,
   document,
   organizationName,
+  canDecide,
+  canEditDraft,
   onEdit,
   onPropose,
   onWithdraw,
@@ -29,11 +35,11 @@ export function AmendmentHeader({
   const isDraft = amendment.status === 'draft';
   const isProposed = amendment.status === 'proposed';
   const isPassed = amendment.status === 'passed';
-  const canEdit = isDraft;
-  const canPropose = isDraft && (amendment.changes?.length ?? 0) > 0;
-  const canWithdraw = isDraft || isProposed;
-  const canVote = isProposed;
-  const canApply = isPassed && !amendment.resultingVersionId;
+  const canEdit = isDraft && canEditDraft;
+  const canPropose = canDecide && isDraft && (amendment.changes?.length ?? 0) > 0;
+  const canWithdraw = canDecide && (isDraft || isProposed);
+  const canVote = canDecide && isProposed;
+  const canApply = canDecide && isPassed && !amendment.resultingVersionId;
 
   return (
     <div className="mb-6">

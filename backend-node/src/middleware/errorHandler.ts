@@ -4,6 +4,12 @@ import { ZodError } from 'zod';
 import { ApiError } from './apiError.js';
 import { logger } from './logger.js';
 
+const CLIENT_ERROR_CODES: Record<number, string> = {
+  400: 'BAD_REQUEST',
+  413: 'PAYLOAD_TOO_LARGE',
+  415: 'UNSUPPORTED_MEDIA_TYPE',
+};
+
 export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   const requestId = (req as unknown as Record<string, unknown>).id as string | undefined;
 
@@ -54,6 +60,20 @@ export function errorHandler(err: Error, req: Request, res: Response, _next: Nex
     logger.warn({ err, requestId }, 'Prisma validation error');
     return res.status(400).json({
       error: { code: 'VALIDATION_ERROR', message: 'Invalid data format', requestId },
+    });
+  }
+
+  // A client's mistake reported by a library, such as body-parser's malformed JSON (400) or
+  // body over the limit (413): expose says its message is safe to show
+  const { status, expose } = err as { status?: unknown; expose?: unknown };
+  if (typeof status === 'number' && status >= 400 && status < 500 && expose === true) {
+    logger.warn({ err, requestId }, 'Client error');
+    return res.status(status).json({
+      error: {
+        code: CLIENT_ERROR_CODES[status] ?? 'CLIENT_ERROR',
+        message: err.message,
+        requestId,
+      },
     });
   }
 

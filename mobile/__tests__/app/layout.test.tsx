@@ -2,13 +2,15 @@ import type { ReactNode } from 'react';
 import { render } from '@testing-library/react-native';
 
 let mockStatus = 'loading';
+let mockUser: { id: number; email: string; name: string | null } | null = null;
+let mockTermsAccepted = true;
 let mockSegments: string[] = [];
 const mockReplace = jest.fn();
 const mockHideAsync = jest.fn(async () => {});
 
 jest.mock('../../context/SessionContext', () => ({
   SessionProvider: ({ children }: { children: ReactNode }) => children,
-  useSession: () => ({ status: mockStatus, user: null }),
+  useSession: () => ({ status: mockStatus, user: mockUser, termsAccepted: mockTermsAccepted }),
 }));
 jest.mock('../../context/SocketContext', () => ({
   SocketProvider: ({ children }: { children: ReactNode }) => children,
@@ -38,6 +40,8 @@ describe('root layout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSegments = [];
+    mockUser = null;
+    mockTermsAccepted = true;
   });
 
   it("goes to the offline screen, not sign-in, when the session can't be checked", async () => {
@@ -68,5 +72,32 @@ describe('root layout', () => {
     await render(<RootLayout />);
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockHideAsync).not.toHaveBeenCalled();
+  });
+
+  it('asks a new user for a name, where the terms are asked too, before the terms screen', async () => {
+    mockStatus = 'signedIn';
+    mockUser = { id: 1, email: 'a@b.c', name: null };
+    mockTermsAccepted = false;
+    mockSegments = ['(auth)', 'verify'];
+    await render(<RootLayout />);
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/name');
+  });
+
+  it('asks a signed-in user for the current terms before anything else', async () => {
+    mockStatus = 'signedIn';
+    mockUser = { id: 1, email: 'a@b.c', name: 'Ann' };
+    mockTermsAccepted = false;
+    mockSegments = ['(meeting)', 'join'];
+    await render(<RootLayout />);
+    expect(mockReplace).toHaveBeenCalledWith('/terms');
+  });
+
+  it('stays on the terms screen until the terms are accepted', async () => {
+    mockStatus = 'signedIn';
+    mockUser = { id: 1, email: 'a@b.c', name: 'Ann' };
+    mockTermsAccepted = false;
+    mockSegments = ['terms'];
+    await render(<RootLayout />);
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,8 @@ export interface AgendaItem {
 
 export interface MeetingPacket {
   id: string;
+  /** The organization the meeting belongs to */
+  organizationId: string;
   robbieCode: string;
   title?: string;
   description?: string;
@@ -48,10 +50,4 @@ export interface BylawyerDocument {
   title: string;
   docType: string;
   organizationId: string;
-}
-
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
 }

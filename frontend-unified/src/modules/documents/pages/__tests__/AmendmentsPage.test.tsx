@@ -21,12 +21,34 @@ vi.mock('../../../../api/client', () => ({
   documents: { list: api.listDocuments },
   amendments: { list: api.listAmendments },
 }));
-const org = vi.hoisted(() => ({ currentOrganization: { id: 'org-1', name: 'Org' } }));
+const org = vi.hoisted(() => ({
+  currentOrganization: { id: 'org-1', name: 'Org' } as { id: string; name: string } | null,
+  organizations: [{ id: 'org-1', name: 'Org' }],
+}));
 vi.mock('../../../../context/OrganizationContext', () => ({ useOrganization: () => org }));
+vi.mock('../../../../components/organizations/NoOrganizations', () => ({
+  NoOrganizations: () => <p>No organizations yet</p>,
+}));
 
 const { default: AmendmentsPage } = await import('../AmendmentsPage');
 
 describe('AmendmentsPage', () => {
+  it('offers a way in to a user with no organization', async () => {
+    org.currentOrganization = null;
+    org.organizations = [];
+    render(
+      <MemoryRouter initialEntries={['/amendments']}>
+        <Routes>
+          <Route path="/amendments" element={<AmendmentsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('No organizations yet')).toBeTruthy();
+    expect(screen.queryByText('No organization selected')).toBeNull();
+    org.currentOrganization = { id: 'org-1', name: 'Org' };
+    org.organizations = [org.currentOrganization];
+  });
+
   it("drops one document's filter when moving to all amendments", async () => {
     render(
       <MemoryRouter initialEntries={['/documents/d1/amendments']}>

@@ -16,7 +16,7 @@ import {
   Folder,
 } from 'lucide-react';
 import type { MeetingPacket, Attachment, AgendaItem } from '../scheduling/types';
-import { getOrCreatePacket, getAttachmentDownloadUrl } from '../scheduling/api';
+import { getPacket, getAttachmentDownloadUrl } from '../scheduling/api';
 
 interface MeetingDocumentsPanelProps {
   meetingCode: string;
@@ -32,7 +32,8 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
     setIsLoading(true);
     setError(null);
     try {
-      const loadedPacket = await getOrCreatePacket(meetingCode);
+      // A meeting that was never scheduled or linked has no packet (null): no documents
+      const loadedPacket = await getPacket(meetingCode);
       setPacket(loadedPacket);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load documents');
@@ -95,7 +96,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
           <Folder size={18} />
           Meeting Documents
         </h3>
-        <p className="text-sm text-gray-500">No documents attached to this meeting.</p>
+        <p className="text-sm text-gray-500">No meeting documents.</p>
       </section>
     );
   }
@@ -168,7 +169,7 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
         </a>
       ) : (
         <a
-          href={`/bylawyer/documents/${attachment.documentId}`}
+          href={`/documents/${attachment.documentId}`}
           target="_blank"
           rel="noopener noreferrer"
           className="p-1 text-indigo-600 hover:text-indigo-800"

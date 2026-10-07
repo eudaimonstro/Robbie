@@ -10,6 +10,10 @@ interface DocumentHeaderProps {
   versions: Version[];
   selectedVersion: Version | null;
   organizationName?: string;
+  /** Whether the user may draft an amendment (member and above) */
+  canDraft: boolean;
+  /** Whether the user may turn share links on and off (admin and above) */
+  canShare: boolean;
   onVersionChange: (versionId: string) => void;
   onProposeAmendment: () => void;
   onShare: () => void;
@@ -20,6 +24,8 @@ export function DocumentHeader({
   versions,
   selectedVersion,
   organizationName,
+  canDraft,
+  canShare,
   onVersionChange,
   onProposeAmendment,
   onShare,
@@ -64,20 +70,24 @@ export function DocumentHeader({
           Compare
         </Link>
 
-        <button onClick={onShare} className="btn-secondary btn-sm">
-          <Share2 className="w-4 h-4 mr-2" />
-          Share
-        </button>
+        {canShare && (
+          <button onClick={onShare} className="btn-secondary btn-sm">
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </button>
+        )}
 
         <Link to="/meetings" className="btn-secondary btn-sm">
           <Users className="w-4 h-4 mr-2" />
           Meetings
         </Link>
 
-        <button onClick={onProposeAmendment} className="btn-primary btn-sm">
-          <Edit className="w-4 h-4 mr-2" />
-          Propose Amendment
-        </button>
+        {canDraft && (
+          <button onClick={onProposeAmendment} className="btn-primary btn-sm">
+            <Edit className="w-4 h-4 mr-2" />
+            Propose Amendment
+          </button>
+        )}
       </div>
     </div>
   );

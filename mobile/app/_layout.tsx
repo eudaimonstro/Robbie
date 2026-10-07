@@ -12,7 +12,7 @@ import { colors } from '../theme';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayoutNav() {
-  const { status, user } = useSession();
+  const { status, user, termsAccepted } = useSession();
   const { isConnected, isLoading, meetingCode } = useSocket();
   const segments = useSegments();
   const router = useRouter();
@@ -35,6 +35,11 @@ function RootLayoutNav() {
       if (screen !== 'name') router.replace('/(auth)/name');
       return;
     }
+    // The current terms before anything else: they changed, or the socket was refused
+    if (!termsAccepted) {
+      if (group !== 'terms') router.replace('/terms');
+      return;
+    }
     // Wait for the remembered meeting, so a restart doesn't flash the join screen
     if (isLoading) return;
     if (isConnected) {
@@ -47,7 +52,7 @@ function RootLayoutNav() {
     }
     // Joining, or reconnecting after a dropped connection: stay on the meeting screens
     if (group !== '(meeting)') router.replace('/(meeting)/join');
-  }, [status, user?.name, isConnected, isLoading, meetingCode, segments, router]);
+  }, [status, user?.name, termsAccepted, isConnected, isLoading, meetingCode, segments, router]);
 
   useEffect(() => {
     if (status !== 'loading') SplashScreen.hideAsync().catch(() => {});
@@ -75,6 +80,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(meeting)" options={{ headerShown: false }} />
         <Stack.Screen name="offline" options={{ headerShown: false }} />
+        <Stack.Screen name="terms" options={{ headerShown: false }} />
       </Stack>
     </>
   );

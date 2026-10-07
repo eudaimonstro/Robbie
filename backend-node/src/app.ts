@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 import cookieParser from 'cookie-parser';
 import { authRouter } from './auth/authRoutes.js';
 import { authenticate } from './auth/authenticate.js';
+import { requireTerms } from './auth/terms.js';
 import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
 import { getStorage } from './db/meetingStorage.js';
 import {
@@ -27,6 +28,7 @@ import {
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { membersRouter } from './orgs/memberRoutes.js';
 
 export const app = express();
 
@@ -66,11 +68,12 @@ app.use(
 );
 app.use(cookieParser() as unknown as express.RequestHandler);
 
-// Raw body parser for file uploads (before JSON parser). Check the session first, so nobody
-// can make the server read 10 MB without signing in.
+// Raw body parser for file uploads (before JSON parser). Check the session and the terms
+// first, so nobody can make the server read 10 MB without signing in.
 app.use(
   '/api/attachments/upload',
   authenticate,
+  requireTerms,
   express.raw({
     type: [
       'application/pdf',
@@ -101,8 +104,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api', publicRouter);
 
-// Everything else under /api needs a signed-in user
-app.use('/api', authenticate);
+// Everything else under /api needs a signed-in user who has accepted the current terms
+app.use('/api', authenticate, requireTerms);
 
 app.use('/api/bylawyer', bylawyerRouter);
 app.use('/api', organizationsRouter);
@@ -115,6 +118,7 @@ app.use('/api/robbie', robbieRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
+app.use('/api', membersRouter);
 
 // An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
 // catch-all below

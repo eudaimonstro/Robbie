@@ -10,3 +10,4 @@ export {
   type MeetingStageInfo,
 } from './meetingStages.js';
 export * from './logMessages.js';
+export { TERMS_VERSION } from './terms.js';

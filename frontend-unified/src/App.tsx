@@ -21,6 +21,8 @@ const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDe
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 const NotFoundPage = lazy(() => import('./modules/documents/pages/NotFoundPage'));
 
 // Lazy load meetings module
@@ -38,6 +40,8 @@ function App() {
                 {/* Public routes (no layout, no session) */}
                 <Route path="/share/:shareToken" element={<PublicDocumentPage />} />
                 <Route path="/sign-in" element={<SignInPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
 
                 {/* Everything else needs a signed-in user */}
                 <Route

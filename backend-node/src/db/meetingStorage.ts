@@ -84,7 +84,6 @@ export interface MeetingRecord {
   code: string;
   state: MeetingState;
   stateVersion: number;
-  bylawyerOrgId?: string; // UUID of linked Bylawyer organization
 }
 
 /** Result of state update with optimistic locking */
@@ -129,18 +128,6 @@ export interface StorageProvider {
     payload: unknown,
     userId?: number,
   ): Promise<void>;
-  /**
-   * Link a meeting to a Bylawyer organization
-   */
-  linkToBylawyerOrg(meetingCode: string, orgId: string): Promise<boolean>;
-  /**
-   * Unlink a meeting from its Bylawyer organization
-   */
-  unlinkFromBylawyerOrg(meetingCode: string): Promise<boolean>;
-  /**
-   * Get the linked Bylawyer organization ID for a meeting
-   */
-  getBylawyerOrgId(meetingCode: string): Promise<string | null>;
 }
 
 // In-memory implementation
@@ -214,25 +201,6 @@ class InMemoryStorage implements StorageProvider {
     const key = `${meetingCode}:${odUserId}`;
     this.participantRoles.set(key, role);
   }
-
-  async linkToBylawyerOrg(meetingCode: string, orgId: string): Promise<boolean> {
-    const meeting = this.meetings.get(meetingCode);
-    if (!meeting) return false;
-    meeting.bylawyerOrgId = orgId;
-    return true;
-  }
-
-  async unlinkFromBylawyerOrg(meetingCode: string): Promise<boolean> {
-    const meeting = this.meetings.get(meetingCode);
-    if (!meeting) return false;
-    delete meeting.bylawyerOrgId;
-    return true;
-  }
-
-  async getBylawyerOrgId(meetingCode: string): Promise<string | null> {
-    const meeting = this.meetings.get(meetingCode);
-    return meeting?.bylawyerOrgId || null;
-  }
 }
 
 // PostgreSQL implementation
@@ -305,7 +273,7 @@ class PostgresStorage implements StorageProvider {
 
   async getMeeting(code: string): Promise<MeetingRecord | null> {
     const result = await pool.query(
-      `SELECT id, code, current_state, state_version, bylawyer_org_id FROM meetings WHERE code = $1`,
+      `SELECT id, code, current_state, state_version FROM meetings WHERE code = $1`,
       [code],
     );
 
@@ -318,7 +286,6 @@ class PostgresStorage implements StorageProvider {
       code: result.rows[0].code,
       state: result.rows[0].current_state,
       stateVersion: result.rows[0].state_version,
-      bylawyerOrgId: result.rows[0].bylawyer_org_id || undefined,
     };
   }
 
@@ -383,29 +350,6 @@ class PostgresStorage implements StorageProvider {
       // Log but don't fail - action logging is non-critical
       logger.error({ err: error }, 'Failed to log action');
     }
-  }
-
-  async linkToBylawyerOrg(meetingCode: string, orgId: string): Promise<boolean> {
-    const result = await pool.query(`UPDATE meetings SET bylawyer_org_id = $1 WHERE code = $2`, [
-      orgId,
-      meetingCode,
-    ]);
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async unlinkFromBylawyerOrg(meetingCode: string): Promise<boolean> {
-    const result = await pool.query(`UPDATE meetings SET bylawyer_org_id = NULL WHERE code = $1`, [
-      meetingCode,
-    ]);
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async getBylawyerOrgId(meetingCode: string): Promise<string | null> {
-    const result = await pool.query(`SELECT bylawyer_org_id FROM meetings WHERE code = $1`, [
-      meetingCode,
-    ]);
-    if (result.rows.length === 0) return null;
-    return result.rows[0].bylawyer_org_id;
   }
 }
 

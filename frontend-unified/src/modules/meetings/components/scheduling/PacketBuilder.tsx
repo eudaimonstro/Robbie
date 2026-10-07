@@ -198,6 +198,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
         </p>
         <AttachmentUploader
           robbieCode={packet.robbieCode}
+          organizationId={packet.organizationId}
           attachments={packet.attachments}
           target={{ packetId: packet.id }}
           onAttachmentAdded={handlePacketAttachmentAdded}
@@ -227,6 +228,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
                   <AgendaItemEditor
                     item={item}
                     robbieCode={packet.robbieCode}
+                    organizationId={packet.organizationId}
                     packetId={packet.id}
                     onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                     onDelete={() => handleDeleteItem(item.id)}

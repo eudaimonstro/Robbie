@@ -12,6 +12,14 @@ export class AmendmentConflictError extends Error {
   }
 }
 
+/** The amendment already has a resulting version */
+export class AmendmentAppliedError extends Error {
+  constructor() {
+    super('Amendment has already been applied');
+    this.name = 'AmendmentAppliedError';
+  }
+}
+
 type Tx = Prisma.TransactionClient;
 
 export class AmendmentService {
@@ -21,13 +29,24 @@ export class AmendmentService {
     }
 
     if (amendment.resultingVersionId) {
-      throw new Error('Amendment has already been applied');
+      throw new AmendmentAppliedError();
     }
 
-    // All writes happen in one transaction, so a failure part way leaves no orphan version and
-    // two applies can't take the same version number
+    // All writes happen in one transaction, so a failure part way leaves no orphan version
     return prisma.$transaction(
       async (tx) => {
+        // Applies to one document run one at a time, so two can't take the same version
+        // number, and an apply of this amendment that waited here finds it applied. (A passed
+        // amendment stays passed, so only that needs checking again.)
+        await tx.$queryRaw`SELECT id FROM "Document" WHERE id = ${amendment.documentId} FOR UPDATE`;
+        const current = await tx.amendment.findUnique({
+          where: { id: amendment.id },
+          select: { resultingVersionId: true },
+        });
+        if (current?.resultingVersionId) {
+          throw new AmendmentAppliedError();
+        }
+
         const document = await tx.document.findUnique({
           where: { id: amendment.documentId },
         });

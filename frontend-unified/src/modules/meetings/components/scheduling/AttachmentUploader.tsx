@@ -6,18 +6,19 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, File, X, Link, Loader2, FileText, Download, Trash2 } from 'lucide-react';
-import type { Attachment, BylawyerDocument, Organization } from './types';
+import type { Attachment, BylawyerDocument } from './types';
 import {
   uploadAttachment,
   linkDocument,
   deleteAttachment,
   getAttachmentDownloadUrl,
-  listOrganizations,
   listDocuments,
 } from './api';
 
 interface AttachmentUploaderProps {
   robbieCode: string;
+  /** The packet's organization: only its documents can be linked */
+  organizationId: string;
   attachments: Attachment[];
   target: { packetId?: string; agendaItemId?: string };
   onAttachmentAdded: (attachment: Attachment) => void;
@@ -44,6 +45,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export function AttachmentUploader({
   robbieCode,
+  organizationId,
   attachments,
   target,
   onAttachmentAdded,
@@ -201,7 +203,7 @@ export function AttachmentUploader({
       {/* Document picker modal */}
       {showDocPicker && (
         <DocumentPicker
-          target={target}
+          organizationId={organizationId}
           onSelect={async (doc) => {
             try {
               const attachment = await linkDocument(doc.id, target);
@@ -278,49 +280,33 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Picks a document of the packet's organization (the server accepts no other) */
 function DocumentPicker({
+  organizationId,
   onSelect,
   onClose,
 }: {
-  target: { packetId?: string; agendaItemId?: string };
+  organizationId: string;
   onSelect: (doc: BylawyerDocument) => void;
   onClose: () => void;
 }) {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [documents, setDocuments] = useState<BylawyerDocument[]>([]);
-  const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadDocuments = async (orgId: string) => {
-    setLoading(true);
-    try {
-      const docs = await listDocuments(orgId);
-      setDocuments(docs);
-    } catch (err) {
-      console.error('Failed to load documents:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  async function loadOrganizations() {
-    try {
-      const orgs = await listOrganizations();
-      setOrganizations(orgs);
-      if (orgs.length === 1) {
-        setSelectedOrg(orgs[0].id);
-        loadDocuments(orgs[0].id);
-      }
-    } catch (err) {
-      console.error('Failed to load organizations:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   React.useEffect(() => {
-    loadOrganizations();
-  }, []);
+    let cancelled = false;
+    listDocuments(organizationId)
+      .then((docs) => {
+        if (!cancelled) setDocuments(docs);
+      })
+      .catch((err) => console.error('Failed to load documents:', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -337,58 +323,25 @@ function DocumentPicker({
             <div className="flex items-center justify-center py-8">
               <Loader2 size={24} className="animate-spin text-gray-400" />
             </div>
-          ) : organizations.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              No organizations found. Create an organization in Bylawyer first.
-            </p>
           ) : (
-            <>
-              {organizations.length > 1 && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Organization
-                  </label>
-                  <select
-                    value={selectedOrg || ''}
-                    onChange={(e) => {
-                      setSelectedOrg(e.target.value);
-                      loadDocuments(e.target.value);
-                    }}
-                    className="w-full p-2 border rounded-lg"
+            <div className="space-y-2">
+              {documents.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No documents in this organization.</p>
+              ) : (
+                documents.map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => onSelect(doc)}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-colors"
                   >
-                    <option value="">Select organization...</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {selectedOrg && (
-                <div className="space-y-2">
-                  {documents.length === 0 ? (
-                    <p className="text-center text-gray-500 py-4">
-                      No documents in this organization.
+                    <p className="font-medium text-gray-800">{doc.title}</p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {doc.docType.replace('_', ' ')}
                     </p>
-                  ) : (
-                    documents.map((doc) => (
-                      <button
-                        key={doc.id}
-                        onClick={() => onSelect(doc)}
-                        className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-colors"
-                      >
-                        <p className="font-medium text-gray-800">{doc.title}</p>
-                        <p className="text-xs text-gray-500 capitalize">
-                          {doc.docType.replace('_', ' ')}
-                        </p>
-                      </button>
-                    ))
-                  )}
-                </div>
+                  </button>
+                ))
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

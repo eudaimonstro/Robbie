@@ -26,6 +26,7 @@ describe('sessionService', () => {
     expect(found).toEqual({
       sessionId,
       user: { id: userId, email: 'ann@example.org', name: 'Ann' },
+      termsVersion: null,
       extended: false,
     });
     const stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });

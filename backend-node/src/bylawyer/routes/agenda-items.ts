@@ -17,8 +17,19 @@ import {
 } from '../../schemas/agenda-items.js';
 import { uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
+import { fromBody, fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
+import { orgOfAgendaItem, orgOfPacket } from '../../orgs/resolvers.js';
 
 export const agendaItemsRouter: RouterType = Router();
+
+const byPacket = fromParam('packetId', orgOfPacket);
+const byItem = fromParam('id', orgOfAgendaItem);
+
+// A reorder is checked through its first item; the handler checks the rest share its packet
+const byFirstItem: OrgResolver = async (req) => {
+  const first = (req.body as { itemIds?: unknown[] } | undefined)?.itemIds?.[0];
+  return typeof first === 'string' ? orgOfAgendaItem(first) : null;
+};
 
 /**
  * GET /api/packets/:packetId/agenda
@@ -27,6 +38,7 @@ export const agendaItemsRouter: RouterType = Router();
 agendaItemsRouter.get(
   '/packets/:packetId/agenda',
   validate({ params: z.object({ packetId: z.string().uuid() }) }),
+  requireRole('viewer', byPacket),
   async (req, res) => {
     try {
       const { packetId } = req.params;
@@ -70,6 +82,7 @@ agendaItemsRouter.get(
 agendaItemsRouter.post(
   '/packets/:packetId/agenda',
   validate({ params: z.object({ packetId: z.string().uuid() }), body: createAgendaItemBody }),
+  requireRole('secretary', byPacket),
   async (req, res) => {
     try {
       const { packetId } = req.params;
@@ -121,34 +134,39 @@ agendaItemsRouter.post(
  * GET /api/agenda-items/:id
  * Get a single agenda item
  */
-agendaItemsRouter.get('/agenda-items/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const { id } = req.params;
+agendaItemsRouter.get(
+  '/agenda-items/:id',
+  validate({ params: uuidParam }),
+  requireRole('viewer', byItem),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const item = await prisma.meetingAgendaItem.findUnique({
-      where: { id },
-      include: {
-        attachments: {
-          orderBy: { position: 'asc' },
-          include: {
-            document: {
-              select: { id: true, title: true, docType: true },
+      const item = await prisma.meetingAgendaItem.findUnique({
+        where: { id },
+        include: {
+          attachments: {
+            orderBy: { position: 'asc' },
+            include: {
+              document: {
+                select: { id: true, title: true, docType: true },
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!item) {
-      return res.status(404).json({ error: 'Agenda item not found' });
+      if (!item) {
+        return res.status(404).json({ error: 'Agenda item not found' });
+      }
+
+      res.json(item);
+    } catch (error) {
+      logger.error({ err: error }, 'Error getting agenda item');
+      res.status(500).json({ error: 'Failed to get agenda item' });
     }
-
-    res.json(item);
-  } catch (error) {
-    logger.error({ err: error }, 'Error getting agenda item');
-    res.status(500).json({ error: 'Failed to get agenda item' });
-  }
-});
+  },
+);
 
 /**
  * PUT /api/agenda-items/reorder
@@ -158,12 +176,23 @@ agendaItemsRouter.get('/agenda-items/:id', validate({ params: uuidParam }), asyn
 agendaItemsRouter.put(
   '/agenda-items/reorder',
   validate({ body: reorderAgendaItemsBody }),
+  requireRole('secretary', byFirstItem),
   async (req, res) => {
     try {
       const { itemIds } = req.body;
 
       if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ error: 'itemIds array required' });
+      }
+
+      // Every item must be in one packet: the first item's, which the rule checked
+      const items = await prisma.meetingAgendaItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { packetId: true },
+      });
+      const packets = new Set(items.map((item) => item.packetId));
+      if (items.length !== new Set(itemIds).size || packets.size !== 1) {
+        return res.status(400).json({ error: 'Every item must be in the same packet' });
       }
 
       // Update positions
@@ -196,6 +225,7 @@ agendaItemsRouter.put(
 agendaItemsRouter.put(
   '/agenda-items/:id',
   validate({ params: uuidParam, body: updateAgendaItemBody }),
+  requireRole('secretary', byItem),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -242,27 +272,32 @@ agendaItemsRouter.put(
  * DELETE /api/agenda-items/:id
  * Delete agenda item (cascades to attachments)
  */
-agendaItemsRouter.delete('/agenda-items/:id', validate({ params: uuidParam }), async (req, res) => {
-  try {
-    const { id } = req.params;
+agendaItemsRouter.delete(
+  '/agenda-items/:id',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byItem),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const item = await prisma.meetingAgendaItem.findUnique({
-      where: { id },
-    });
+      const item = await prisma.meetingAgendaItem.findUnique({
+        where: { id },
+      });
 
-    if (!item) {
-      return res.status(404).json({ error: 'Agenda item not found' });
+      if (!item) {
+        return res.status(404).json({ error: 'Agenda item not found' });
+      }
+
+      // Cascade delete handles attachments
+      await prisma.meetingAgendaItem.delete({ where: { id } });
+
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ err: error }, 'Error deleting agenda item');
+      res.status(500).json({ error: 'Failed to delete agenda item' });
     }
-
-    // Cascade delete handles attachments
-    await prisma.meetingAgendaItem.delete({ where: { id } });
-
-    res.status(204).send();
-  } catch (error) {
-    logger.error({ err: error }, 'Error deleting agenda item');
-    res.status(500).json({ error: 'Failed to delete agenda item' });
-  }
-});
+  },
+);
 
 /**
  * POST /api/agenda-items/bulk
@@ -272,6 +307,7 @@ agendaItemsRouter.delete('/agenda-items/:id', validate({ params: uuidParam }), a
 agendaItemsRouter.post(
   '/agenda-items/bulk',
   validate({ body: bulkCreateAgendaItemsBody }),
+  requireRole('secretary', fromBody('packetId', orgOfPacket)),
   async (req, res) => {
     try {
       const { packetId, items } = req.body;
