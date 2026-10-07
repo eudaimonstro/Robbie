@@ -285,6 +285,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.meetingActive) {
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
+      // The console offers no Adjourn while a vote or an election's ballot is open: the vote is
+      // closed (or the election set aside) first, so no ballot is left undecided
+      if (state.votingOpen || state.currentElection?.votingInProgress) {
+        return {
+          valid: false,
+          error: 'Close the vote before adjourning',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
       return { valid: true };
 
     case 'MAKE_MOTION':

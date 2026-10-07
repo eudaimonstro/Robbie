@@ -10,6 +10,7 @@ import {
   logAdjournedUnfinished,
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
+import { NO_VOTES } from '../../utils/voteCalculator.js';
 import type { ActionHandler } from './types.js';
 
 /**
@@ -66,6 +67,16 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
           (m) => `the motion "${m.text}"`,
         ),
       ];
+      // A vote interrupted by adjourning is never decided, so its choices would never be cleared
+      // or redacted: they go with it, as a secret ballot's must. (An election's ballot goes with
+      // currentElection.)
+      const voteCleared = state.votingOpen && {
+        votes: NO_VOTES,
+        voters: [],
+        voterChoices: {},
+        proxyVotes: [],
+        floorVotes: NO_VOTES,
+      };
       return {
         ...state,
         meetingActive: false,
@@ -84,6 +95,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts: [],
         votingOpen: false,
         voteTimerEnd: null,
+        ...voteCleared,
         unanimousConsentPending: false,
         speakerQueue: [],
         recognizedSpeaker: null,

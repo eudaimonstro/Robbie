@@ -109,6 +109,49 @@ describe('actionValidator', () => {
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MEETING_NOT_ACTIVE');
     });
+
+    it('refuses to adjourn while a vote is open', () => {
+      const state = { ...activeMeetingState(), votingOpen: true, votingMethod: 'ballot' as const };
+      expect(validateAction(state, { type: 'END_MEETING', timestamp: '' })).toEqual({
+        valid: false,
+        error: 'Close the vote before adjourning',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+    });
+
+    it("refuses to adjourn while an election's ballot is open, but not before it", () => {
+      const election = {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Member 2', id: 2 }],
+        requiredVotes: 'majority' as const,
+        votingInProgress: true,
+        ballotResults: { 'Member 2': 1 },
+        votersWhoVoted: [3],
+        elected: null,
+      };
+      const end = (state: MeetingState) =>
+        validateAction(state, { type: 'END_MEETING', timestamp: '' });
+      expect(end({ ...activeMeetingState(), currentElection: election })).toEqual({
+        valid: false,
+        error: 'Close the vote before adjourning',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+      // Nominations open, or a winner awaiting the declaration: the election is left unfinished
+      expect(
+        end({
+          ...activeMeetingState(),
+          nominationsOpen: true,
+          currentNominationPosition: 'Director',
+        }).valid,
+      ).toBe(true);
+      expect(
+        end({
+          ...activeMeetingState(),
+          currentElection: { ...election, votingInProgress: false, elected: 'Member 2' },
+        }).valid,
+      ).toBe(true);
+    });
   });
 
   describe('after adjournment', () => {

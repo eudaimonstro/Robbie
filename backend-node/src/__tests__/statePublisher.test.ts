@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { initialState } from '@robbie-bylawyer/shared/reducer';
+import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
 import type { CompletedMotion, Election, MeetingState } from '@robbie-bylawyer/shared/types';
 import { emitState, publicState, publicUpdate } from '../socket/statePublisher.js';
 
@@ -72,6 +72,17 @@ describe('publicState', () => {
     expect(publicState({ ...initialState, currentElection: decided }).currentElection).toEqual(
       decided,
     );
+  });
+
+  it('sends no choice of a secret ballot the meeting adjourned during', () => {
+    const adjourned = meetingReducer(
+      { ...ballot, meetingActive: true },
+      { type: 'END_MEETING', timestamp: '11:00:00' },
+    );
+    const shown = publicState(adjourned);
+    expect(shown.voterChoices).toEqual({});
+    expect(shown.proxyVotes).toEqual([]);
+    expect(shown.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
   });
 
   it('sends any other state as it is', () => {

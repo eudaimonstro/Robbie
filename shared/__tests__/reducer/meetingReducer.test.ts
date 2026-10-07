@@ -271,6 +271,49 @@ describe('meetingReducer', () => {
       ]);
     });
 
+    it('takes the choices of a secret ballot it interrupts with it', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          members: mockMembers,
+          currentMotion: createMockMotion({ id: 1, text: 'Resurface the pool' }),
+          motionStack: [createMockMotion({ id: 1, text: 'Resurface the pool' })],
+          votingOpen: true,
+          votingMethod: 'ballot',
+          votes: { yea: 2, nay: 1, abstain: 0 },
+          voters: [2, 3, 4],
+          voterChoices: { 2: 'yea', 3: 'nay', 4: 'yea' },
+          proxyVotes: [{ memberId: 4, castBy: 2, vote: 'yea' }],
+          floorVotes: { yea: 4, nay: 2, abstain: 0 },
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+
+      expect(state).toMatchObject({
+        votingOpen: false,
+        votes: { yea: 0, nay: 0, abstain: 0 },
+        voters: [],
+        voterChoices: {},
+        proxyVotes: [],
+        floorVotes: { yea: 0, nay: 0, abstain: 0 },
+      });
+      // It was never decided, so it leaves no record
+      expect(state.completedMotions).toEqual([]);
+    });
+
+    it('keeps the count of a vote already decided', () => {
+      const decided: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votes: { yea: 3, nay: 1, abstain: 0 },
+        voters: [2, 3, 4, 5],
+      };
+      const state = meetingReducer(decided, { type: 'END_MEETING', timestamp: '11:00:00' });
+      expect(state.votes).toEqual(decided.votes);
+      expect(state.voters).toEqual(decided.voters);
+    });
+
     it('records an election under way as unfinished', () => {
       const state = meetingReducer(
         {
