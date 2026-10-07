@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import {
   SectionTree as SectionTreeType,
@@ -31,6 +31,8 @@ export default function DocumentPage() {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
   const { showToast } = useToast();
+  // A link may open a particular version (an applied amendment links to the one it produced)
+  const [searchParams] = useSearchParams();
 
   const {
     doc,
@@ -45,7 +47,7 @@ export default function DocumentPage() {
     handleReorderSections,
     handleCreateVersion,
     handleCreateAmendment,
-  } = useDocumentData(documentId);
+  } = useDocumentData(documentId, searchParams.get('version'));
 
   // The role, breadcrumb and panels are the document's organization's, not the header's
   useSelectRecordOrganization(doc?.organizationId);

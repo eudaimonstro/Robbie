@@ -36,7 +36,14 @@ interface UseDocumentDataReturn {
   refreshTree: () => Promise<void>;
 }
 
-export function useDocumentData(documentId: string | undefined): UseDocumentDataReturn {
+/**
+ * A document, its versions and amendments, and the section tree of the version shown: the one
+ * asked for (`versionId`, from ?version=) when the document has it, else the current one
+ */
+export function useDocumentData(
+  documentId: string | undefined,
+  versionId: string | null = null,
+): UseDocumentDataReturn {
   const { showToast } = useToast();
 
   const [doc, setDoc] = useState<Document | null>(null);
@@ -79,13 +86,17 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
       setVersions(vers);
       setAmendments(amends.filter((a) => a.status === 'draft' || a.status === 'proposed'));
 
-      // Select the current version, or the newest one if none is marked current
-      const currentVersion = fetchedDoc.currentVersionId
-        ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
-        : vers.reduce<Version | undefined>(
-            (newest, v) => (!newest || v.versionNumber > newest.versionNumber ? v : newest),
-            undefined,
-          );
+      // Select the version asked for, else the current version, or the newest one if none is
+      // marked current
+      const asked = versionId ? vers.find((v) => v.id === versionId) : undefined;
+      const currentVersion =
+        asked ??
+        (fetchedDoc.currentVersionId
+          ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
+          : vers.reduce<Version | undefined>(
+              (newest, v) => (!newest || v.versionNumber > newest.versionNumber ? v : newest),
+              undefined,
+            ));
 
       if (currentVersion) {
         setSelectedVersion(currentVersion);
@@ -100,7 +111,7 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [documentId, showToast]);
+  }, [documentId, versionId, showToast]);
 
   useEffect(() => {
     fetchDocument();

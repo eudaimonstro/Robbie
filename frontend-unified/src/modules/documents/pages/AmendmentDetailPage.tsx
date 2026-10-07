@@ -15,6 +15,7 @@ import {
   useAmendmentData,
   AmendmentHeader,
   AmendmentChangesList,
+  AmendmentTabs,
   EditAmendmentModal,
   AddChangeModal,
   AmendmentActionDialogs,
@@ -171,16 +172,21 @@ export default function AmendmentDetailPage() {
         </div>
       </div>
 
-      {/* Changes */}
-      <AmendmentChangesList
-        changes={amendment.changes || []}
-        sectionTree={sectionTree}
-        canEdit={canEditDraft}
-        onAddChange={() => setChangeModalOpen(true)}
-        onDeleteChange={(change) => {
-          setDeletingChange(change);
-          setDeleteChangeDialogOpen(true);
-        }}
+      {/* The changes, and a preview of the document as it would read */}
+      <AmendmentTabs
+        amendment={amendment}
+        changes={
+          <AmendmentChangesList
+            changes={amendment.changes || []}
+            sectionTree={sectionTree}
+            canEdit={canEditDraft}
+            onAddChange={() => setChangeModalOpen(true)}
+            onDeleteChange={(change) => {
+              setDeletingChange(change);
+              setDeleteChangeDialogOpen(true);
+            }}
+          />
+        }
       />
 
       {/* Modals */}

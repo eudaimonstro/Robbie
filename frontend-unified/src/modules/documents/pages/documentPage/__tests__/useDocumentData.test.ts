@@ -77,4 +77,18 @@ describe('useDocumentData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.selectedVersion?.id).toBe('c3');
   });
+
+  it('shows the version asked for (?version=), when the document has it', async () => {
+    api.getDocument.mockResolvedValue({ id: 'Q', title: 'Q', currentVersionId: 'q2' });
+    api.listVersions.mockResolvedValue([
+      { id: 'q2', versionNumber: 2 },
+      { id: 'q1', versionNumber: 1 },
+    ]);
+    api.listAmendments.mockResolvedValue([]);
+    api.getTree.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useDocumentData('Q', 'q1'));
+    await waitFor(() => expect(result.current.selectedVersion?.id).toBe('q1'));
+    expect(api.getTree).toHaveBeenCalledWith('q1');
+  });
 });
