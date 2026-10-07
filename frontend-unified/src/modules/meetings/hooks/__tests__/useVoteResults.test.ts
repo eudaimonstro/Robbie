@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useVoteResults } from '../useVoteResults';
+import { parseVoteResult, useVoteResults } from '../useVoteResults';
 import type { MeetingLogEntry, MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
@@ -140,5 +140,44 @@ describe('useVoteResults', () => {
     const secondResult = result.current;
 
     expect(firstResult).toBe(secondResult);
+  });
+});
+
+describe('parseVoteResult with a floor tally', () => {
+  const log = (message: string): MeetingLogEntry[] => [
+    { time: '19:41:00', message: 'Chair puts the question: "Approve the pool contract"' },
+    { time: '19:45:00', message },
+  ];
+
+  it('reads both parts and writes the tally the room reads', () => {
+    const result = parseVoteResult(
+      log('Vote: Yea 21, Nay 5. CARRIED. On devices 12 to 3, in the room 9 to 2.'),
+    );
+    expect(result).toMatchObject({
+      yea: 21,
+      nay: 5,
+      outcome: 'CARRIED',
+      parts: { device: { yea: 12, nay: 3 }, floor: { yea: 9, nay: 2 } },
+      tally: 'On devices 12 to 3, in the room 9 to 2: 21 to 5',
+    });
+  });
+
+  it('gives the total alone without a floor tally', () => {
+    const result = parseVoteResult(log('Vote: Yea 6, Nay 4. FAILED.'));
+    expect(result).toMatchObject({ parts: null, tally: '6 to 4', passed: false });
+  });
+
+  it('treats the vote as old news once something else is decided', () => {
+    const decided = (message: string) => [
+      ...log('Vote: Yea 6, Nay 4. CARRIED.'),
+      { time: '19:50:00', message },
+    ];
+    expect(parseVoteResult(decided('Motion CARRIED by unanimous consent.'))).toBeNull();
+    expect(
+      parseVoteResult(
+        decided('Voting closed for Director. Results: Carmen Diaz: 9. Carmen Diaz elected.'),
+      ),
+    ).toBeNull();
+    expect(parseVoteResult(decided('Chair declares Carmen Diaz elected as Director.'))).toBeNull();
   });
 });
