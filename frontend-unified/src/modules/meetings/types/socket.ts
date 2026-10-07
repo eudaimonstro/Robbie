@@ -73,9 +73,15 @@ export interface JoinError {
   code: string | null;
 }
 
+/**
+ * Sends an action to the server: true once the server has applied it, false when it refused it
+ * (its reason is in the connection's error) or didn't answer
+ */
+export type MeetingDispatch = (action: MeetingAction) => Promise<boolean>;
+
 export interface SocketContextValue {
   state: MeetingState;
-  dispatch: (action: MeetingAction) => Promise<boolean>;
+  dispatch: MeetingDispatch;
   isConnected: boolean;
   /** The signed-in user as a member of the meeting; null on a display */
   currentUser: Member | null;

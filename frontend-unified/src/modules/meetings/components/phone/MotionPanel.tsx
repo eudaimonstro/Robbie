@@ -9,10 +9,12 @@ import { TakeFromTableForm } from '../TakeFromTableForm';
 import { ReconsiderForm } from '../ReconsiderForm';
 import { FORM_MOTIONS, motionWords } from '../../utils/motionWords';
 import { electionUnderway } from '../../utils/chairActions';
+import { useSocket } from '../../context/SocketContext';
+import type { MeetingDispatch } from '../../types/socket';
 
 interface MotionPanelProps {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   me: Member;
   /**
    * Only the other motions, without the heading and the main motion's box: inside the debate
@@ -45,6 +47,8 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
   const mainId = useId();
   const [mainText, setMainText] = useState('');
   const [form, setForm] = useState<FormMotion | null>(null);
+  const [sending, setSending] = useState(false);
+  const [refused, setRefused] = useState(false);
 
   const validMotions = useMemo(() => {
     const valid = getValidMotions(state, me.id);
@@ -62,8 +66,16 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
     [state.completedMotions],
   );
 
-  const move = (motionType: string, text: string, details: MotionDetails = {}) => {
-    dispatch({
+  // True once the server has the motion; refused, whatever was typed stays for another try
+  const move = async (
+    motionType: string,
+    text: string,
+    details: MotionDetails = {},
+  ): Promise<boolean> => {
+    if (sending) return false;
+    setSending(true);
+    setRefused(false);
+    const made = await dispatch({
       type: 'MAKE_MOTION',
       motionType,
       text,
@@ -73,21 +85,26 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
       timestamp: generateTimestamp(),
       ...details,
     });
-    setForm(null);
+    setSending(false);
+    if (made) setForm(null);
+    else setRefused(true);
+    return made;
   };
 
-  const moveMain = (e: FormEvent) => {
+  const moveMain = async (e: FormEvent) => {
     e.preventDefault();
     if (!mainText.trim()) return;
-    move('mainMotion', mainText.trim());
-    setMainText('');
+    if (await move('mainMotion', mainText.trim())) setMainText('');
   };
 
   const cancel = () => setForm(null);
 
+  const problem = refused && <Refused />;
+
   if (form) {
     return (
       <section aria-label="Make a motion" className="space-y-3">
+        {problem}
         {form === 'amendAgenda' ? (
           <AgendaAmendmentForm
             agenda={state.agenda}
@@ -134,18 +151,30 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
   const list = (
     <OtherMotions
       motions={others}
-      onMove={(key, text) =>
-        FORM_MOTIONS.includes(key) ? setForm(key as FormMotion) : move(key, text)
-      }
+      sending={sending}
+      onMove={async (key, text) => {
+        if (!FORM_MOTIONS.includes(key)) return move(key, text);
+        setRefused(false);
+        setForm(key as FormMotion);
+        return true;
+      }}
     />
   );
-  if (othersOnly) return list;
+  if (othersOnly) {
+    return (
+      <div className="space-y-3">
+        {problem}
+        {list}
+      </div>
+    );
+  }
 
   return (
     <section aria-labelledby={headingId} className="space-y-3">
       <h3 id={headingId} className="label-caps">
         Make a motion
       </h3>
+      {problem}
       {mainInOrder && (
         <form onSubmit={moveMain} className="space-y-2">
           <label htmlFor={mainId} className="sr-only">
@@ -160,7 +189,11 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
             value={mainText}
             onChange={(e) => setMainText(e.target.value)}
           />
-          <button type="submit" className="btn-primary btn-lg w-full" disabled={!mainText.trim()}>
+          <button
+            type="submit"
+            className="btn-primary btn-lg w-full"
+            disabled={!mainText.trim() || sending}
+          >
             Move
           </button>
         </form>
@@ -186,10 +219,13 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
  */
 function OtherMotions({
   motions,
+  sending,
   onMove,
 }: {
   motions: string[];
-  onMove: (key: string, text: string) => void;
+  sending: boolean;
+  /** True once the motion is made (or its form opened): the choice is cleared then */
+  onMove: (key: string, text: string) => Promise<boolean>;
 }) {
   const groupId = useId();
   const [chosen, setChosen] = useState<string | null>(null);
@@ -230,9 +266,12 @@ function OtherMotions({
             {selected && (
               <form
                 className="space-y-2 px-3 pb-3"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  onMove(key, text.trim() || phrase);
+                  if (await onMove(key, text.trim() || phrase)) {
+                    setChosen(null);
+                    setText('');
+                  }
                 }}
               >
                 {!FORM_MOTIONS.includes(key) && (
@@ -253,7 +292,7 @@ function OtherMotions({
                 <button
                   type="submit"
                   className="btn-primary w-full"
-                  disabled={!FORM_MOTIONS.includes(key) && !text.trim() && !phrase}
+                  disabled={sending || (!FORM_MOTIONS.includes(key) && !text.trim() && !phrase)}
                 >
                   Move
                 </button>
@@ -263,5 +302,15 @@ function OtherMotions({
         );
       })}
     </fieldset>
+  );
+}
+
+/** What the server said when it refused the motion, while it says it */
+function Refused() {
+  const { error } = useSocket();
+  return (
+    <p role="alert" className="text-sm text-gavel">
+      {error ?? 'The motion was not made. Try again.'}
+    </p>
   );
 }

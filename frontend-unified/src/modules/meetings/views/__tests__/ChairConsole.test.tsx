@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
@@ -9,6 +9,7 @@ const socket = vi.hoisted(() => ({
   state: null as unknown as MeetingState,
   currentUser: null as unknown as Member,
   dispatch: vi.fn(),
+  error: null as string | null,
 }));
 vi.mock('../../context/SocketContext', () => ({
   useSocket: () => ({
@@ -22,7 +23,7 @@ vi.mock('../../context/SocketContext', () => ({
     connectedMembers: [],
     leaveMeeting: vi.fn(),
     reconnect: vi.fn(),
-    error: null,
+    error: socket.error,
   }),
 }));
 vi.mock('../../context/OrganizationBridge', () => ({
@@ -84,7 +85,10 @@ const alice: Member = {
 describe('ChairConsole', () => {
   beforeEach(() => {
     socket.currentUser = dana;
-    socket.dispatch.mockClear();
+    socket.dispatch.mockReset();
+    // The server applies each action, unless a test says otherwise
+    socket.dispatch.mockResolvedValue(true);
+    socket.error = null;
   });
 
   it('calls the meeting to order from the question card, with the join card beside it', () => {
@@ -288,7 +292,7 @@ describe('ChairConsole', () => {
   });
 
   describe('business from the floor', () => {
-    it('records a motion made by a member without a phone', () => {
+    it('records a motion made by a member without a phone', async () => {
       socket.state = { ...active, members: [dana, alice, carmen] };
       render(<ChairConsole />);
       fireEvent.click(screen.getByRole('button', { name: 'A motion from the floor' }));
@@ -315,7 +319,64 @@ describe('ChairConsole', () => {
           moverMemberId: 5,
         }),
       );
-      expect(screen.queryByRole('dialog')).toBeNull();
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
+    it('keeps the motion from the floor open with what was typed when the server refuses it', async () => {
+      socket.state = { ...active, members: [dana, carmen] };
+      socket.dispatch.mockImplementation(async () => {
+        socket.error = 'Finish or set aside the election first';
+        return false;
+      });
+      const { rerender } = render(<ChairConsole />);
+      fireEvent.click(screen.getByRole('button', { name: 'A motion from the floor' }));
+      fireEvent.change(screen.getByLabelText('The motion'), {
+        target: { value: 'Plant a hedge' },
+      });
+      fireEvent.change(screen.getByLabelText('Who moved it'), {
+        target: { value: 'Frank Ruiz' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Record the motion' }));
+      const dialog = screen.getByRole('dialog', { name: 'A motion from the floor' });
+      await waitFor(() => expect(within(dialog).getByRole('alert')).toBeTruthy());
+      rerender(<ChairConsole />);
+      expect(within(dialog).getByRole('alert').textContent).toBe(
+        'Finish or set aside the election first',
+      );
+      expect((screen.getByLabelText('The motion') as HTMLTextAreaElement).value).toBe(
+        'Plant a hedge',
+      );
+      expect((screen.getByLabelText('Who moved it') as HTMLInputElement).value).toBe('Frank Ruiz');
+    });
+
+    it('never offers the admin recording at the console as the mover', () => {
+      socket.currentUser = admin;
+      socket.state = { ...active, members: [dana, admin, carmen] };
+      render(<ChairConsole />);
+      fireEvent.click(screen.getByRole('button', { name: 'A motion from the floor' }));
+      const dialog = screen.getByRole('dialog', { name: 'A motion from the floor' });
+      fireEvent.change(within(dialog).getByLabelText('Who moved it'), {
+        target: { value: 'a' },
+      });
+      expect(within(dialog).getByRole('button', { name: /Carmen Diaz/ })).toBeTruthy();
+      expect(within(dialog).queryByRole('button', { name: /^Admin/ })).toBeNull();
+    });
+
+    it('keeps the second from the floor open when the server refuses it', async () => {
+      const awaiting = { ...motion, mover: 'Carmen Diaz', moverId: 5, secondedBy: null };
+      socket.state = { ...active, members: [dana, alice, carmen], pendingSecond: awaiting };
+      socket.dispatch.mockResolvedValue(false);
+      render(<ChairConsole />);
+      fireEvent.click(screen.getByRole('button', { name: 'Seconded from the floor' }));
+      fireEvent.change(screen.getByLabelText('Who seconded it'), { target: { value: '3' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Record the second' }));
+      const form = screen.getByRole('form', { name: 'Seconded from the floor' });
+      await waitFor(() =>
+        expect(within(form).getByRole('alert').textContent).toBe(
+          'The second was not recorded. Try again.',
+        ),
+      );
+      expect((screen.getByLabelText('Who seconded it') as HTMLSelectElement).value).toBe('3');
     });
 
     it('records a motion by a name typed for someone not in the meeting', () => {

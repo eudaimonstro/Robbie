@@ -1,18 +1,35 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_FLOOR_NAME_LENGTH, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
-import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
+import { useSocket } from '../../context/SocketContext';
+import type { MeetingDispatch } from '../../types/socket';
 import { FORM_MOTIONS, motionWords } from '../../utils/motionWords';
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the
- * meeting, on a device or marked present, never a guest or the presiding officer (the server
- * refuses both)
+ * meeting, on a device or marked present, never a guest, the presiding officer or the one
+ * recording it (an admin at the console): the server refuses them
  */
-function floorMembers(state: MeetingState, presidingId: number | null): Member[] {
+function floorMembers(state: MeetingState, presidingId: number | null, meId: number | null) {
   return state.members.filter(
-    (m) => m.present && m.role !== 'guest' && m.role !== 'chair' && m.id !== presidingId,
+    (m) =>
+      m.present &&
+      m.role !== 'guest' &&
+      m.role !== 'chair' &&
+      m.id !== presidingId &&
+      m.id !== meId,
+  );
+}
+
+/** What the server said when it refused, while it says it; otherwise a line of our own */
+function Refused({ fallback }: { fallback: string }) {
+  const { error } = useSocket();
+  return (
+    <p role="alert" className="text-sm text-gavel">
+      {error ?? fallback}
+    </p>
   );
 }
 
@@ -24,8 +41,10 @@ interface FloorMotionDialogProps {
   isOpen: boolean;
   onClose: () => void;
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   presidingId: number | null;
+  /** The one at the console, who can't record themself */
+  meId: number | null;
 }
 
 /**
@@ -38,6 +57,7 @@ export function FloorMotionDialog({
   state,
   dispatch,
   presidingId,
+  meId,
 }: FloorMotionDialogProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="A motion from the floor">
@@ -47,6 +67,7 @@ export function FloorMotionDialog({
           state={state}
           dispatch={dispatch}
           presidingId={presidingId}
+          meId={meId}
           onDone={onClose}
         />
       )}
@@ -58,6 +79,7 @@ function FloorMotionForm({
   state,
   dispatch,
   presidingId,
+  meId,
   onDone,
 }: Omit<FloorMotionDialogProps, 'isOpen' | 'onClose'> & { onDone: () => void }) {
   const kindId = useId();
@@ -78,8 +100,10 @@ function FloorMotionForm({
   const [text, setText] = useState('');
   const [who, setWho] = useState('');
   const [mover, setMover] = useState<Member | null>(null);
+  const [sending, setSending] = useState(false);
+  const [refused, setRefused] = useState(false);
 
-  const members = floorMembers(state, presidingId);
+  const members = floorMembers(state, presidingId, meId);
   const query = who.trim().toLowerCase();
   const matches = mover
     ? []
@@ -89,10 +113,13 @@ function FloorMotionForm({
   const words = text.trim() || (kind === 'mainMotion' ? '' : phrase);
   const ready = words !== '' && (mover !== null || who.trim() !== '');
 
-  const record = (e: FormEvent) => {
+  // Closes once the server has recorded it; refused, it stays open with what was typed
+  const record = async (e: FormEvent) => {
     e.preventDefault();
-    if (!ready) return;
-    dispatch({
+    if (!ready || sending) return;
+    setSending(true);
+    setRefused(false);
+    const recorded = await dispatch({
       type: 'MAKE_FLOOR_MOTION',
       motionType: kind,
       text: words,
@@ -102,7 +129,9 @@ function FloorMotionForm({
       motionId: generateId(),
       timestamp: generateTimestamp(),
     });
-    onDone();
+    setSending(false);
+    if (recorded) onDone();
+    else setRefused(true);
   };
 
   return (
@@ -188,11 +217,12 @@ function FloorMotionForm({
           )
         )}
       </div>
+      {refused && <Refused fallback="The motion was not recorded. Try again." />}
       <div className="flex justify-end gap-3 border-t border-rule pt-4">
         <button type="button" className="btn-ghost" onClick={onDone}>
           Cancel
         </button>
-        <button type="submit" className="btn-primary" disabled={!ready}>
+        <button type="submit" className="btn-primary" disabled={!ready || sending}>
           Record the motion
         </button>
       </div>
@@ -202,8 +232,10 @@ function FloorMotionForm({
 
 interface FloorSecondFormProps {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   presidingId: number | null;
+  /** The one at the console, who can't record themself */
+  meId: number | null;
   onDone: () => void;
 }
 
@@ -211,20 +243,34 @@ interface FloorSecondFormProps {
  * A second from someone in the room, under the toolbar: a member present, or nobody named for
  * "a member in the room". The mover can't second their own motion, so they aren't offered.
  */
-export function FloorSecondForm({ state, dispatch, presidingId, onDone }: FloorSecondFormProps) {
+export function FloorSecondForm({
+  state,
+  dispatch,
+  presidingId,
+  meId,
+  onDone,
+}: FloorSecondFormProps) {
   const whoId = useId();
   const [who, setWho] = useState('');
+  const [sending, setSending] = useState(false);
+  const [refused, setRefused] = useState(false);
   const moverId = state.pendingSecond?.moverId;
-  const members = floorMembers(state, presidingId).filter((m) => m.id !== moverId);
+  const members = floorMembers(state, presidingId, meId).filter((m) => m.id !== moverId);
 
-  const record = (e: FormEvent) => {
+  // Closes once the server has recorded it; refused, it stays open with the choice made
+  const record = async (e: FormEvent) => {
     e.preventDefault();
-    dispatch({
+    if (sending) return;
+    setSending(true);
+    setRefused(false);
+    const recorded = await dispatch({
       type: 'SECOND_FROM_FLOOR',
       ...(who ? { seconderMemberId: Number(who) } : {}),
       timestamp: generateTimestamp(),
     });
-    onDone();
+    setSending(false);
+    if (recorded) onDone();
+    else setRefused(true);
   };
 
   return (
@@ -246,8 +292,9 @@ export function FloorSecondForm({ state, dispatch, presidingId, onDone }: FloorS
           ))}
         </select>
       </div>
+      {refused && <Refused fallback="The second was not recorded. Try again." />}
       <div className="flex gap-2">
-        <button type="submit" className="btn-primary btn-sm">
+        <button type="submit" className="btn-primary btn-sm" disabled={sending}>
           Record the second
         </button>
         <button type="button" className="btn-ghost btn-sm" onClick={onDone}>

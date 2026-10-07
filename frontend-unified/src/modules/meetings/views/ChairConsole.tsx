@@ -136,6 +136,7 @@ export function ChairConsole() {
                 state={state}
                 dispatch={dispatch}
                 presidingId={presidingId}
+                meId={currentUser?.id ?? null}
                 onDone={() => setSecondingId(null)}
               />
             )}
@@ -219,6 +220,7 @@ export function ChairConsole() {
         state={state}
         dispatch={dispatch}
         presidingId={presidingId}
+        meId={currentUser?.id ?? null}
       />
     </div>
   );

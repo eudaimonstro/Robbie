@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import type {
-  DebateStance,
-  MeetingAction,
-  MeetingState,
-  Member,
-} from '@robbie-bylawyer/shared/types';
+import type { DebateStance, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { STANCE_LABELS } from '../../utils/phoneMoment';
 import { MotionPanel } from './MotionPanel';
+import type { MeetingDispatch } from '../../types/socket';
 
 interface DebateBlockProps {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   me: Member;
 }
 

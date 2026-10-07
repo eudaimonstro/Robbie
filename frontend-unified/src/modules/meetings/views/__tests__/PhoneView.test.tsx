@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Member, Motion } from '@robbie-bylawyer/shared/types';
@@ -9,6 +9,7 @@ const socket = vi.hoisted(() => ({
   currentUser: null as unknown as Member,
   dispatch: vi.fn(),
   leaveMeeting: vi.fn(),
+  error: null as string | null,
 }));
 vi.mock('../../context/SocketContext', () => ({ useSocket: () => socket }));
 
@@ -77,6 +78,9 @@ function renderAs(me: Member, state: MeetingState) {
 describe('PhoneView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The server applies each action, unless a test says otherwise
+    socket.dispatch.mockResolvedValue(true);
+    socket.error = null;
   });
 
   it('shows the question and three vote buttons while the vote is open, and nothing else to do', () => {
@@ -138,6 +142,24 @@ describe('PhoneView', () => {
         text: 'I move that we resurface the pool',
         moverId: 3,
       }),
+    );
+  });
+
+  it('keeps the motion typed, with the reason, when the server refuses it', async () => {
+    socket.dispatch.mockImplementation(async () => {
+      socket.error = 'Finish or set aside the election first';
+      return false;
+    });
+    const { rerender } = renderAs(alice, active);
+    fireEvent.change(screen.getByLabelText('Motion text'), {
+      target: { value: 'I move that we resurface the pool' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    rerender(<PhoneView />);
+    expect(screen.getByRole('alert').textContent).toBe('Finish or set aside the election first');
+    expect((screen.getByLabelText('Motion text') as HTMLTextAreaElement).value).toBe(
+      'I move that we resurface the pool',
     );
   });
 

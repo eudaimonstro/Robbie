@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
 import { nomineesFor } from '../../utils/question';
 import { NominationsPanel } from '../NominationsPanel';
@@ -9,10 +9,11 @@ import { UnanimousConsentSection } from '../participant';
 import { VoteBlock } from './VoteBlock';
 import { DebateBlock } from './DebateBlock';
 import { MotionPanel } from './MotionPanel';
+import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   me: Member;
 }
 
