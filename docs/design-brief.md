@@ -25,7 +25,7 @@ Labels (badges, section headers like "Attendance") are Public Sans 600, 0.75rem,
 
 ## Color
 
-Tokens replace the current `primary`, `secondary`, `accent` and `meeting` palettes in `frontend-unified/src/styles/index.css`. The names below are the new tokens; `primary-*` is remapped to `gavel-*` and `secondary-*` to `ink-*` so existing utility classes keep working while screens migrate.
+These tokens, defined in `frontend-unified/src/styles/index.css`, are the only colors in the app. Tailwind's own palette is switched off and the old `primary`, `secondary`, `accent`, `success`, `danger` and `meeting` scales are gone; `scripts/check-palette.sh` (part of `npm run lint`) fails on a raw palette class or an emoji icon.
 
 | Token          | Light (day session) | Dark (evening session) | Use                                                   |
 | -------------- | ------------------- | ---------------------- | ----------------------------------------------------- |
