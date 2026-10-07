@@ -4,8 +4,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { validateAction } from '../socket/actionValidator.js';
+import { ACTION_TYPES, isServerOnly } from '../socket/permissionGuard.js';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { MeetingState, Member, DebateStance } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingAction,
+  MeetingState,
+  Member,
+  DebateStance,
+} from '@robbie-bylawyer/shared/types';
 
 // Helper to create a member
 function createMember(
@@ -102,6 +108,51 @@ describe('actionValidator', () => {
       const result = validateAction(initialState, { type: 'END_MEETING', timestamp: '' });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MEETING_NOT_ACTIVE');
+    });
+  });
+
+  describe('after adjournment', () => {
+    const adjourned: MeetingState = {
+      ...activeMeetingState(),
+      meetingActive: false,
+      meetingStage: 'adjourned',
+    };
+    const clientActions = ACTION_TYPES.filter(
+      (type) => type !== 'START_MEETING' && !isServerOnly(type),
+    );
+
+    it.each(clientActions)('refuses %s', (type) => {
+      expect(validateAction(adjourned, { type } as MeetingAction)).toEqual({
+        valid: false,
+        error: 'The meeting has adjourned',
+        errorCode: 'MEETING_NOT_ACTIVE',
+      });
+    });
+
+    it('can be called to order again', () => {
+      expect(validateAction(adjourned, { type: 'START_MEETING', timestamp: '' }).valid).toBe(true);
+    });
+
+    it('still records who comes and goes', () => {
+      const actions: MeetingAction[] = [
+        { type: 'SET_MEMBER_PRESENCE', memberId: 2, present: false, timestamp: '' },
+        { type: 'ADD_MEMBER', member: createMember(4), timestamp: '' },
+        {
+          type: 'REFRESH_MEMBERS',
+          members: [{ id: 2, name: 'Member 2', role: 'admin' }],
+          timestamp: '',
+        },
+        {
+          type: 'SET_MEETING_INFO',
+          organizationId: 'org',
+          title: 'October meeting',
+          scheduledFor: null,
+          timestamp: '',
+        },
+      ];
+      for (const action of actions) {
+        expect(validateAction(adjourned, action), action.type).toEqual({ valid: true });
+      }
     });
   });
 

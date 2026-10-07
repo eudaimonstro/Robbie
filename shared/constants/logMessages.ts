@@ -7,6 +7,13 @@
 export const LOG_MEETING_CALLED_TO_ORDER = 'Meeting called to order.';
 export const LOG_MEETING_ADJOURNED = 'Meeting adjourned.';
 
+/** The business left pending at adjournment, each as "the election for Treasurer" */
+export function logAdjournedUnfinished(items: string[]): string {
+  const listed =
+    items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : (items[0] ?? '');
+  return `The meeting adjourned with ${listed} unfinished.`;
+}
+
 // Motion workflow
 export function logMotionMade(mover: string, text: string, motionName: string): string {
   return `${mover} moves: "${text}" (${motionName}). Awaiting second.`;

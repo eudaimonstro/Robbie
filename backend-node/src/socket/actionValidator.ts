@@ -21,7 +21,7 @@ import {
   wasMotionDefeated,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
-import { checkPermission } from './permissionGuard.js';
+import { checkPermission, isServerOnly } from './permissionGuard.js';
 
 /** The most people the chair can count in the room without an account */
 export const MAX_HEADCOUNT = 100_000;
@@ -226,6 +226,16 @@ const NOT_PRESIDING: ValidationResult = {
  * Returns meaningful errors instead of letting the reducer silently fail
  */
 export function validateAction(state: MeetingState, action: MeetingAction): ValidationResult {
+  // Nothing changes once the meeting has adjourned, except calling it to order again; the
+  // server still records who joins and leaves
+  if (
+    state.meetingStage === 'adjourned' &&
+    action.type !== 'START_MEETING' &&
+    !isServerOnly(action.type)
+  ) {
+    return { valid: false, error: 'The meeting has adjourned', errorCode: 'MEETING_NOT_ACTIVE' };
+  }
+
   // The role a socket carries can be stale (a membership removed since it joined, a recovered
   // socket), so the state's role decides: a sender the meeting has as a guest can't take part
   const actorField = ACTOR_FIELDS[action.type]?.id;

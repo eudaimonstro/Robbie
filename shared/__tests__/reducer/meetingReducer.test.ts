@@ -179,6 +179,77 @@ describe('meetingReducer', () => {
         'Meeting adjourned.',
       ]);
     });
+    it('ends the business under way, and records what was left unfinished', () => {
+      const main = createMockMotion({ id: 1, text: 'Resurface the pool' });
+      const amendment = createMockMotion({ id: 2, type: 'amend', text: 'add "by June"' });
+      const awaiting = createMockMotion({ id: 3, type: 'previousQuestion', text: 'Vote now' });
+      const busy: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        members: mockMembers,
+        nominationsOpen: true,
+        currentNominationPosition: 'Treasurer',
+        motionStack: [main, amendment],
+        currentMotion: amendment,
+        pendingSecond: awaiting,
+        votingOpen: true,
+        voteTimerEnd: 1000,
+        unanimousConsentPending: true,
+        speakerQueue: [{ member: mockMembers[0], stance: 'pro' }],
+        recognizedSpeaker: mockMembers[1],
+        speakerTimerEnd: 2000,
+        debatePositions: { 2: 'pro' },
+      };
+
+      const state = meetingReducer(busy, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state).toMatchObject({
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+        pendingSecond: null,
+        currentMotion: null,
+        motionStack: [],
+        votingOpen: false,
+        voteTimerEnd: null,
+        unanimousConsentPending: false,
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        debatePositions: {},
+      });
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'The meeting adjourned with the election for Treasurer, the motion "Resurface the pool", ' +
+          'the motion "add "by June"" and the motion "Vote now" unfinished.',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it('records an election under way as unfinished', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentElection: {
+            id: 1,
+            position: 'Secretary',
+            candidates: [{ name: 'Alice', id: 1 }],
+            requiredVotes: 'majority',
+            votingInProgress: true,
+            ballotResults: { Alice: 0 },
+            votersWhoVoted: [],
+            elected: null,
+          },
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+
+      expect(state.currentElection).toBeNull();
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'The meeting adjourned with the election for Secretary unfinished.',
+        'Meeting adjourned.',
+      ]);
+    });
   });
 
   describe('MAKE_MOTION', () => {

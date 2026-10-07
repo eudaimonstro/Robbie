@@ -133,6 +133,11 @@ export function checkPermission(role: Role, actionType: MeetingAction['type']): 
   return allowedRoles.includes(role);
 }
 
+/** Whether only the server applies this action (on join, disconnect and from REST routes) */
+export function isServerOnly(actionType: MeetingAction['type']): boolean {
+  return PERMISSIONS[actionType]?.length === 0;
+}
+
 /** Every action type, for tests that walk the action union */
 export const ACTION_TYPES = Object.keys(PERMISSIONS) as MeetingAction['type'][];
 

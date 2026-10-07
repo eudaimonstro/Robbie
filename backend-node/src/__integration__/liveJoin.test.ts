@@ -3,6 +3,7 @@ import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { pool } from '../db/client.js';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
+import { handleDisconnect } from '../socket/disconnectHandler.js';
 import { prisma } from '../db/prisma.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -267,6 +268,79 @@ describe('the chair in a live meeting', () => {
     const resumed = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
     expect(resumed.startedAt).toEqual(started.startedAt);
     expect(resumed.endedAt).toBeNull();
+  });
+});
+
+describe('a live meeting after adjournment', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { chairUserId: f.users.secretary.id },
+    });
+  });
+  afterEach(live.disconnectAll);
+
+  it('refuses business, but still records who comes and goes, and can be called to order again', async () => {
+    const secretary = live.connect(f.users.secretary);
+    const member = live.connect(f.users.member);
+    await live.join(secretary, f.packet.code);
+    await live.join(member, f.packet.code);
+    await live.dispatch(secretary, { type: 'START_MEETING', timestamp: '' });
+    expect((await live.dispatch(secretary, { type: 'END_MEETING', timestamp: '' })).success).toBe(
+      true,
+    );
+
+    const adjourned = {
+      success: false,
+      error: 'The meeting has adjourned',
+      errorCode: 'MEETING_NOT_ACTIVE',
+    };
+    expect(
+      await live.dispatch(member, {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'Resurface the pool',
+        motionId: 1,
+        timestamp: '',
+      }),
+    ).toEqual(adjourned);
+    expect(
+      await live.dispatch(secretary, {
+        type: 'MARK_PRESENT',
+        userId: f.users.owner.id,
+        timestamp: '',
+      }),
+    ).toEqual(adjourned);
+
+    // Someone new arrives
+    expect((await live.join(live.connect(f.users.owner), f.packet.code)).success).toBe(true);
+    // The member leaves, then comes back with a new role in the organization
+    await handleDisconnect(member as never, live.io as never, 'leave');
+    const left = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.member.id);
+    expect(left?.present).toBe(false);
+    await prisma.organizationMember.update({
+      where: {
+        organizationId_userId: { organizationId: f.orgA.id, userId: f.users.member.id },
+      },
+      data: { role: 'secretary' },
+    });
+    expect((await live.join(member, f.packet.code)).success).toBe(true);
+
+    const state = await stateOf(f.packet.code);
+    expect(state.meetingStage).toBe('adjourned');
+    expect(state.members.map((m) => [m.id, m.role, m.present])).toEqual([
+      [f.users.secretary.id, 'chair', true],
+      [f.users.member.id, 'admin', true],
+      [f.users.owner.id, 'admin', true],
+    ]);
+
+    expect((await live.dispatch(secretary, { type: 'START_MEETING', timestamp: '' })).success).toBe(
+      true,
+    );
   });
 });
 

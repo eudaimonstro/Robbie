@@ -7,6 +7,7 @@ import {
 import {
   LOG_MEETING_CALLED_TO_ORDER,
   LOG_MEETING_ADJOURNED,
+  logAdjournedUnfinished,
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
@@ -53,6 +54,15 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       const completes = (a: AgendaItem) =>
         a.id === item?.id || (a.status === 'pending' && ADJOURNMENT.test(a.title.trim()));
       const completed = state.agenda.filter(completes);
+      // Adjourning ends the business under way: an election, the motions pending and the one
+      // awaiting a second are left unfinished, and the record says so
+      const position = state.currentElection?.position ?? state.currentNominationPosition;
+      const unfinished = [
+        ...(position ? [`the election for ${position}`] : []),
+        ...[...state.motionStack, ...(state.pendingSecond ? [state.pendingSecond] : [])].map(
+          (m) => `the motion "${m.text}"`,
+        ),
+      ];
       return {
         ...state,
         meetingActive: false,
@@ -62,9 +72,27 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         agenda: state.agenda.map((a) =>
           completes(a) ? { ...a, status: 'completed' as const } : a,
         ),
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+        pendingSecond: null,
+        currentMotion: null,
+        motionStack: [],
+        dividedQuestionParts: [],
+        votingOpen: false,
+        voteTimerEnd: null,
+        unanimousConsentPending: false,
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        lastSpeakerStance: null,
+        debatePositions: {},
         meetingLog: [
           ...state.meetingLog,
           ...completed.map((a) => ({ time: timestamp, message: logAgendaItemCompleted(a.title) })),
+          ...(unfinished.length > 0
+            ? [{ time: timestamp, message: logAdjournedUnfinished(unfinished) }]
+            : []),
           { time: timestamp, message: LOG_MEETING_ADJOURNED },
         ],
       };
