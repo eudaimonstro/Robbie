@@ -331,6 +331,10 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
       slug: DEMO_SLUG,
       description:
         'The homeowners association of the Maple Grove subdivision: 142 lots, the clubhouse, the pool and the common areas.',
+      // 142 lots, one vote each; the bylaws' Section 4.2 sets the quorum at 20%
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
       members: {
         create: DEMO_PEOPLE.map((person) => ({ userId: idOf(person.email), role: person.role })),
       },
@@ -427,6 +431,8 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
       title: '2026 Annual Meeting',
       description: 'Maple Grove Clubhouse, 400 Maple Grove Drive',
       scheduledFor: new Date('2026-10-20T19:00:00-05:00'),
+      // The president presides
+      chairUserId: idOf('dana@maplegrove.example'),
       agendaItems: { create: AGENDA.map((item, position) => ({ ...item, position })) },
     },
   });

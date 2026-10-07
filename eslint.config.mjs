@@ -12,6 +12,8 @@ export default defineConfig(
       '**/build/**',
       '**/node_modules/**',
       '**/coverage/**',
+      '**/test-results/**',
+      '**/playwright-report/**',
       '**/*.config.*',
       'backend-node/src/generated/**',
       'mobile/**',
