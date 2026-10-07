@@ -29,7 +29,7 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
   if (!sections) return <p className="card p-6 text-ink-muted">Loading the preview...</p>;
 
   return (
-    <div className="card p-5">
+    <div className="card p-4 sm:p-5">
       <p className="text-sm text-ink-muted">
         The document as it would read if this amendment were adopted: added sections are marked,
         removed ones struck through, and changed ones can show their old text.
@@ -46,6 +46,9 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
     </div>
   );
 }
+
+/** Section text as the document page sets it, without the space after its last paragraph */
+const CONTENT = 'document-content [&>:last-child]:mb-0';
 
 function PreviewNode({ section, depth }: { section: PreviewSection; depth: number }) {
   const [showOld, setShowOld] = useState(false);
@@ -69,7 +72,7 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
   const oldHeading = old ? [old.numberLabel, old.title].filter(Boolean).join(' ') : '';
 
   return (
-    <div className={depth > 0 ? 'ml-6' : ''}>
+    <div className={depth > 0 ? 'ml-3 sm:ml-6' : ''}>
       <section
         aria-label={heading || 'Untitled section'}
         data-change={change ?? undefined}
@@ -78,7 +81,7 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
         <div className="flex flex-wrap items-center gap-2">
           {heading && (
             <span
-              className={`font-document font-semibold ${change === 'removed' ? 'text-ink-muted line-through' : 'text-ink'}`}
+              className={`font-document font-semibold ${depth === 0 ? 'text-lg' : ''} ${change === 'removed' ? 'text-ink-muted line-through' : 'text-ink'}`}
             >
               {heading}
             </span>
@@ -99,11 +102,11 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
         </div>
         {section.content &&
           (change === 'removed' ? (
-            <div className="mt-2 font-document text-ink-muted line-through">
+            <div className={`${CONTENT} mt-2 text-ink-muted line-through`}>
               <ReactMarkdown>{section.content}</ReactMarkdown>
             </div>
           ) : (
-            <div className="document-content mt-2">
+            <div className={`${CONTENT} mt-2`}>
               <ReactMarkdown>{section.content}</ReactMarkdown>
             </div>
           ))}
@@ -114,7 +117,7 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
               <p className="mt-1 font-document text-ink-muted">{oldHeading}</p>
             )}
             {old.content && (
-              <div className="mt-1 font-document text-ink-muted">
+              <div className={`${CONTENT} mt-1 text-ink-muted`}>
                 <ReactMarkdown>{old.content}</ReactMarkdown>
               </div>
             )}
