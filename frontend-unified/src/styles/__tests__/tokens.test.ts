@@ -1,9 +1,5 @@
-// @vitest-environment node
-/// <reference types="node" />
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-
-const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
+import css from '../index.css?raw';
 
 /** The declarations of the rule with this selector, at the start of a line */
 function block(selector: string): string {
