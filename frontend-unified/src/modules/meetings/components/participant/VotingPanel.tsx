@@ -63,13 +63,10 @@ export const VotingPanel = React.memo(function VotingPanel({
 
   return (
     <section
-      className="bg-white rounded-lg p-4 shadow-sm border-2 border-indigo-200"
+      className="bg-surface rounded-lg p-4 shadow-sm border-2 border-rule"
       aria-labelledby="voting-heading"
     >
-      <h3
-        id="voting-heading"
-        className="font-semibold mb-2 flex items-center gap-2 text-indigo-700"
-      >
+      <h3 id="voting-heading" className="font-semibold mb-2 flex items-center gap-2 text-gavel">
         <Vote size={18} aria-hidden="true" />
         {state.votingMethod === 'standard' && 'Vote Now'}
         {state.votingMethod === 'ballot' && 'Secret Ballot'}
@@ -77,9 +74,9 @@ export const VotingPanel = React.memo(function VotingPanel({
       </h3>
 
       {!hasQuorum && (
-        <div className="mb-3 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg" role="alert">
-          <p className="text-amber-800 font-semibold text-sm">⚠️ Voting Without Quorum</p>
-          <p className="text-amber-700 text-xs">
+        <div className="mb-3 p-3 bg-caution-tint border-2 border-caution rounded-lg" role="alert">
+          <p className="text-ink font-semibold text-sm">Voting Without Quorum</p>
+          <p className="text-caution-ink text-xs">
             Only {presentCount} of {state.quorum} required members are present.
           </p>
         </div>
@@ -91,31 +88,31 @@ export const VotingPanel = React.memo(function VotingPanel({
         </div>
       )}
 
-      <p className="text-gray-700 mb-2">"{state.currentMotion?.text}"</p>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-ink mb-2">"{state.currentMotion?.text}"</p>
+      <p className="text-sm text-ink-muted mb-4">
         Requires: {state.currentMotion?.vote === '2/3' ? 'Two-thirds' : 'Majority'}
       </p>
 
       {/* Special notice for Appeal votes */}
       {state.currentMotion?.type === 'appeal' && state.lastChairRuling && (
-        <div className="mb-4 p-3 bg-purple-50 border-2 border-purple-300 rounded-lg">
-          <p className="text-purple-800 font-semibold text-sm mb-1">⚖️ Appealing Chair's Ruling</p>
-          <p className="text-purple-700 text-xs">
+        <div className="mb-4 p-3 bg-gavel-tint border-2 border-rule rounded-lg">
+          <p className="text-ink font-semibold text-sm mb-1">Appealing Chair's Ruling</p>
+          <p className="text-ink text-xs">
             <strong>Ruling:</strong> "{state.lastChairRuling.ruling}"
           </p>
-          <p className="text-purple-600 text-xs mt-2">YEA = Sustain chair | NAY = Overturn chair</p>
+          <p className="text-ink-muted text-xs mt-2">YEA = Sustain chair | NAY = Overturn chair</p>
         </div>
       )}
 
       {(state.votingMethod === 'standard' || state.votingMethod === 'ballot') && (
         <>
           {state.votingMethod === 'ballot' && (
-            <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded-sm">
-              🔒 Secret Ballot - your vote is anonymous
+            <p className="text-sm text-ink-muted mb-3 bg-surface-2 p-2 rounded-sm">
+              Secret Ballot - your vote is anonymous
             </p>
           )}
           {userVote && (
-            <p className="text-xs text-blue-600 mb-2 text-center">
+            <p className="text-xs text-gavel mb-2 text-center">
               You may change your vote before the chair closes voting
             </p>
           )}
@@ -129,13 +126,13 @@ export const VotingPanel = React.memo(function VotingPanel({
       )}
 
       {state.votingMethod === 'rollcall' && (
-        <div className="bg-indigo-50 p-4 rounded-lg">
-          <p className="text-indigo-800 font-medium mb-2">Roll Call Vote</p>
-          <p className="text-indigo-700 text-sm mb-3">
+        <div className="bg-gavel-tint p-4 rounded-lg">
+          <p className="text-ink font-medium mb-2">Roll Call Vote</p>
+          <p className="text-ink-muted text-sm mb-3">
             Chair will call each member by name. Respond when called.
           </p>
           {userVote && (
-            <p className="text-xs text-blue-600 mb-2 text-center">
+            <p className="text-xs text-ink-muted mb-2 text-center">
               You may change your vote before the chair closes voting
             </p>
           )}
@@ -149,7 +146,7 @@ export const VotingPanel = React.memo(function VotingPanel({
       )}
 
       {state.voters.includes(currentUser.id) && (
-        <p className="text-center text-green-600 mt-3 font-medium" role="status">
+        <p className="text-center text-carried mt-3 font-medium" role="status">
           ✓ Vote recorded
         </p>
       )}
@@ -195,10 +192,10 @@ function VoteButtons({
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: currentUserId })}
-        className={`${baseButtonClass} focus:ring-green-500 ${
+        className={`${baseButtonClass} focus:ring-gavel ${
           userVote === 'yea'
-            ? 'bg-green-600 text-white ring-4 ring-green-300 scale-[1.02]'
-            : 'bg-green-500 text-white hover:bg-green-600'
+            ? 'bg-carried text-paper ring-4 ring-carried/40 scale-[1.02]'
+            : 'bg-carried text-paper hover:bg-carried/90'
         }`}
         aria-pressed={userVote === 'yea'}
         aria-label={`Vote ${yeaLabel}`}
@@ -208,10 +205,10 @@ function VoteButtons({
       </button>
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'nay', voterId: currentUserId })}
-        className={`${baseButtonClass} focus:ring-red-500 ${
+        className={`${baseButtonClass} focus:ring-gavel ${
           userVote === 'nay'
-            ? 'bg-red-600 text-white ring-4 ring-red-300 scale-[1.02]'
-            : 'bg-red-500 text-white hover:bg-red-600'
+            ? 'bg-gavel text-paper ring-4 ring-gavel/30 scale-[1.02]'
+            : 'bg-gavel text-paper hover:bg-gavel/90'
         }`}
         aria-pressed={userVote === 'nay'}
         aria-label={`Vote ${nayLabel}`}
@@ -221,10 +218,10 @@ function VoteButtons({
       </button>
       <button
         onClick={() => dispatch({ type: 'CAST_VOTE', vote: 'abstain', voterId: currentUserId })}
-        className={`${baseButtonClass} col-span-2 sm:col-span-1 focus:ring-gray-500 ${
+        className={`${baseButtonClass} col-span-2 sm:col-span-1 focus:ring-gavel ${
           userVote === 'abstain'
-            ? 'bg-gray-600 text-white ring-4 ring-gray-400 scale-[1.02]'
-            : 'bg-gray-400 text-white hover:bg-gray-500'
+            ? 'bg-ink text-paper ring-4 ring-ink-muted scale-[1.02]'
+            : 'bg-ink-muted text-paper hover:bg-ink'
         }`}
         aria-pressed={userVote === 'abstain'}
         aria-label="Abstain from vote"
@@ -260,8 +257,8 @@ function ProxyVotingSection({
     .replace(/\s+/g, ' ');
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-200">
-      <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+    <div className="mt-4 pt-4 border-t border-rule">
+      <h4 className="text-sm font-semibold text-gavel mb-3 flex items-center gap-2">
         <Users size={16} aria-hidden="true" />
         Cast Proxy Votes ({proxies.length})
       </h4>
@@ -269,21 +266,20 @@ function ProxyVotingSection({
         {proxies.map((proxy) => {
           const castVote = proxyVotesCast[proxy.grantedBy];
           return (
-            <div key={proxy.id} className="bg-indigo-50 rounded-xl p-4">
-              <p className="text-sm font-medium text-gray-700 mb-3">
-                Voting for:{' '}
-                <span className="text-indigo-700 font-semibold">{proxy.grantedByName}</span>
+            <div key={proxy.id} className="bg-gavel-tint rounded-xl p-4">
+              <p className="text-sm font-medium text-ink mb-3">
+                Voting for: <span className="text-ink font-semibold">{proxy.grantedByName}</span>
                 {proxy.scope === 'single-vote' && (
-                  <span className="text-xs text-amber-600 ml-2">(single vote only)</span>
+                  <span className="text-xs text-ink-muted ml-2">(single vote only)</span>
                 )}
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'yea')}
-                  className={`${proxyButtonClass} focus:ring-green-500 ${
+                  className={`${proxyButtonClass} focus:ring-gavel ${
                     castVote === 'yea'
-                      ? 'bg-green-600 text-white ring-2 ring-green-300'
-                      : 'bg-green-500 text-white hover:bg-green-600'
+                      ? 'bg-carried text-paper ring-2 ring-carried/40'
+                      : 'bg-carried text-paper hover:bg-carried/90'
                   }`}
                   aria-label={`Vote ${yeaLabel} for ${proxy.grantedByName}`}
                 >
@@ -292,10 +288,10 @@ function ProxyVotingSection({
                 </button>
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'nay')}
-                  className={`${proxyButtonClass} focus:ring-red-500 ${
+                  className={`${proxyButtonClass} focus:ring-gavel ${
                     castVote === 'nay'
-                      ? 'bg-red-600 text-white ring-2 ring-red-300'
-                      : 'bg-red-500 text-white hover:bg-red-600'
+                      ? 'bg-gavel text-paper ring-2 ring-gavel/30'
+                      : 'bg-gavel text-paper hover:bg-gavel/90'
                   }`}
                   aria-label={`Vote ${nayLabel} for ${proxy.grantedByName}`}
                 >
@@ -304,10 +300,10 @@ function ProxyVotingSection({
                 </button>
                 <button
                   onClick={() => onProxyVote(proxy.grantedBy, 'abstain')}
-                  className={`${proxyButtonClass} focus:ring-gray-500 ${
+                  className={`${proxyButtonClass} focus:ring-gavel ${
                     castVote === 'abstain'
-                      ? 'bg-gray-600 text-white ring-2 ring-gray-400'
-                      : 'bg-gray-400 text-white hover:bg-gray-500'
+                      ? 'bg-ink text-paper ring-2 ring-ink-muted'
+                      : 'bg-ink-muted text-paper hover:bg-ink'
                   }`}
                   aria-label={`Abstain for ${proxy.grantedByName}`}
                 >
@@ -315,7 +311,7 @@ function ProxyVotingSection({
                 </button>
               </div>
               {castVote !== undefined && (
-                <p className="text-center text-green-600 mt-3 text-sm font-medium">
+                <p className="text-center text-carried mt-3 text-sm font-medium">
                   ✓ Proxy vote recorded
                 </p>
               )}

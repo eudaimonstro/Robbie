@@ -43,4 +43,9 @@ describe('design tokens', () => {
     expect(css).toContain("--font-heading: 'Fraunces Variable', Georgia, serif;");
     expect(css).toContain("--font-body: 'Public Sans', system-ui, sans-serif;");
   });
+
+  it("switches Tailwind's own palette off, and the old meeting palette is gone", () => {
+    expect(css).toContain('--color-*: initial;');
+    expect(css).not.toContain('--color-meeting-');
+  });
 });

@@ -48,10 +48,10 @@ export const CountdownTimer = React.memo(function CountdownTimer({
     <div
       className={`flex items-center gap-2 p-3 rounded-lg border-2 ${
         isExpired
-          ? 'bg-red-100 border-red-300 text-red-800'
+          ? 'bg-gavel-tint border-gavel/30 text-ink'
           : isWarning
-            ? 'bg-amber-100 border-amber-300 text-amber-800'
-            : 'bg-blue-50 border-blue-200 text-blue-700'
+            ? 'bg-caution-tint border-caution/40 text-ink'
+            : 'bg-gavel-tint border-rule text-ink'
       }`}
       role="timer"
       aria-label={`${label}: ${timeDisplay} remaining${statusText ? `. ${statusText}` : ''}`}

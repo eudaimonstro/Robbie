@@ -55,7 +55,7 @@ export const MotionSelector = React.memo(function MotionSelector({
       <select
         value={selectedMotion}
         onChange={(e) => setSelectedMotion(e.target.value)}
-        className="w-full min-h-[48px] p-3 border border-secondary-300 dark:border-secondary-600 rounded-xl mb-3 bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white text-base"
+        className="w-full min-h-[48px] p-3 border border-rule rounded-xl mb-3 bg-surface text-ink text-base"
         aria-label="Select motion type"
       >
         {Object.entries(groupedMotions).map(([cat, motions]) => (
@@ -73,14 +73,12 @@ export const MotionSelector = React.memo(function MotionSelector({
       </select>
 
       {selectedMotionDef && (
-        <div className="bg-secondary-50 dark:bg-secondary-700/50 rounded-lg p-3 mb-3 text-sm">
+        <div className="bg-surface-2 rounded-lg p-3 mb-3 text-sm">
           <div className="flex items-start gap-2">
             <HelpTooltip motion={selectedMotionDef} />
             <div>
-              <p className="text-secondary-700 dark:text-secondary-300">{selectedMotionDef.help}</p>
-              <p className="text-secondary-500 dark:text-secondary-400 italic mt-1">
-                "{selectedMotionDef.phrase}"
-              </p>
+              <p className="text-ink">{selectedMotionDef.help}</p>
+              <p className="text-ink-muted italic mt-1">"{selectedMotionDef.phrase}"</p>
             </div>
           </div>
         </div>
@@ -94,14 +92,11 @@ export const MotionSelector = React.memo(function MotionSelector({
             value={motionText}
             onChange={(e) => setMotionText(e.target.value.slice(0, 500))}
             maxLength={500}
-            className="w-full min-h-[48px] p-3 border border-secondary-300 dark:border-secondary-600 rounded-xl bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white text-base"
+            className="w-full min-h-[48px] p-3 border border-rule rounded-xl bg-surface text-ink text-base"
             aria-label="Motion text"
             aria-describedby="motion-char-count"
           />
-          <div
-            id="motion-char-count"
-            className="text-xs text-secondary-500 dark:text-secondary-400 text-right mt-1"
-          >
+          <div id="motion-char-count" className="text-xs text-ink-muted text-right mt-1">
             {motionText.length}/500
           </div>
         </div>
@@ -110,7 +105,7 @@ export const MotionSelector = React.memo(function MotionSelector({
       <button
         onClick={onSubmit}
         disabled={needsText}
-        className="w-full min-h-[48px] bg-meeting-600 text-white py-3 rounded-xl hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-700 disabled:cursor-not-allowed font-medium touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-meeting-400 focus:ring-offset-2"
+        className="w-full min-h-[48px] bg-gavel text-paper py-3 rounded-xl hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed font-medium touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
       >
         {getButtonLabel()}
       </button>

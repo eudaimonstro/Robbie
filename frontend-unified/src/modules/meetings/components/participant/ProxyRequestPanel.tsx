@@ -96,18 +96,18 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
     const proxy = state.proxies.find((p) => p.grantedBy === currentUser.id);
     return (
       <section
-        className="bg-green-50 border border-green-200 rounded-lg p-4"
+        className="bg-carried-tint border border-carried/40 rounded-lg p-4"
         aria-labelledby="proxy-status-heading"
       >
         <h3
           id="proxy-status-heading"
-          className="font-semibold flex items-center gap-2 text-green-800 mb-2"
+          className="font-semibold flex items-center gap-2 text-ink mb-2"
         >
           <UserPlus size={18} aria-hidden="true" /> Proxy Active
         </h3>
-        <p className="text-green-700 text-sm">
+        <p className="text-carried text-sm">
           <strong>{proxy?.grantedToName}</strong> holds your proxy
-          <span className="text-green-600 text-xs ml-1">
+          <span className="text-carried text-xs ml-1">
             ({proxy?.scope === 'single-vote' ? 'single vote only' : 'all votes'})
           </span>
         </p>
@@ -119,25 +119,25 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
   if (pendingRequest) {
     return (
       <section
-        className="bg-amber-50 border border-amber-200 rounded-lg p-4"
+        className="bg-caution-tint border border-caution/40 rounded-lg p-4"
         aria-labelledby="proxy-pending-heading"
       >
         <h3
           id="proxy-pending-heading"
-          className="font-semibold flex items-center gap-2 text-amber-800 mb-2"
+          className="font-semibold flex items-center gap-2 text-ink mb-2"
         >
           <Clock size={18} aria-hidden="true" /> Proxy Request Pending
         </h3>
-        <p className="text-amber-700 text-sm mb-3">
+        <p className="text-caution-ink text-sm mb-3">
           Waiting for <strong>{pendingRequest.requestedForName}</strong> to accept your proxy
           request
-          <span className="text-amber-600 text-xs ml-1">
+          <span className="text-caution-ink text-xs ml-1">
             ({pendingRequest.scope === 'single-vote' ? 'single vote only' : 'all votes'})
           </span>
         </p>
         <button
           onClick={handleCancelRequest}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm text-amber-700 border border-amber-300 rounded-sm hover:bg-amber-100"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm text-caution-ink border border-caution/40 rounded-sm hover:bg-caution-tint"
         >
           <X size={14} /> Cancel Request
         </button>
@@ -147,26 +147,29 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
 
   // Show request form
   return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="proxy-request-heading">
+    <section
+      className="bg-surface rounded-lg p-4 shadow-sm"
+      aria-labelledby="proxy-request-heading"
+    >
       <h3
         id="proxy-request-heading"
-        className="font-semibold flex items-center gap-2 text-gray-800 mb-3"
+        className="font-semibold flex items-center gap-2 text-ink mb-3"
       >
         <UserPlus size={18} aria-hidden="true" /> Request Proxy
       </h3>
 
-      <p className="text-sm text-gray-600 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         You're marked as absent. Request another member to vote on your behalf.
       </p>
 
       {eligibleHolders.length === 0 ? (
-        <p className="text-sm text-gray-500 italic">
+        <p className="text-sm text-ink-muted italic">
           No eligible members available to hold your proxy.
         </p>
       ) : (
         <>
           <div className="mb-3">
-            <label htmlFor="proxy-holder-select" className="block text-sm text-gray-600 mb-1">
+            <label htmlFor="proxy-holder-select" className="block text-sm text-ink-muted mb-1">
               Select Proxy Holder
             </label>
             <select
@@ -189,7 +192,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
           </div>
 
           <div className="mb-4">
-            <span className="block text-sm text-gray-600 mb-1">Scope</span>
+            <span className="block text-sm text-ink-muted mb-1">Scope</span>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1 text-sm cursor-pointer">
                 <input
@@ -198,7 +201,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
                   value="all"
                   checked={proxyScope === 'all'}
                   onChange={() => setProxyScope('all')}
-                  className="text-indigo-600"
+                  className="text-gavel"
                 />
                 All votes
               </label>
@@ -209,7 +212,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
                   value="single-vote"
                   checked={proxyScope === 'single-vote'}
                   onChange={() => setProxyScope('single-vote')}
-                  className="text-indigo-600"
+                  className="text-gavel"
                 />
                 Single vote only
               </label>
@@ -219,7 +222,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
           <button
             onClick={handleRequestProxy}
             disabled={selectedHolder === '' || isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed text-sm font-medium"
           >
             <Send size={14} />
             {isSubmitting ? 'Sending...' : 'Send Request'}
@@ -242,9 +245,9 @@ function DeclinedRequestsHistory({ requests }: { requests: PendingProxyRequest[]
   if (requests.length === 0) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-200">
-      <p className="text-xs text-gray-500 mb-1">Recent declined requests:</p>
-      <ul className="text-xs text-gray-400 space-y-1">
+    <div className="mt-3 pt-3 border-t border-rule">
+      <p className="text-xs text-ink-muted mb-1">Recent declined requests:</p>
+      <ul className="text-xs text-ink-muted space-y-1">
         {requests.slice(0, 3).map((req) => (
           <li key={req.id}>
             {req.requestedForName} declined

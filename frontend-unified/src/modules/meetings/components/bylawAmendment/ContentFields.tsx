@@ -21,8 +21,8 @@ export const ContentFields = React.memo(function ContentFields({
   setNewNumberLabel,
 }: ContentFieldsProps) {
   const inputClass =
-    'w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white placeholder-secondary-400 dark:placeholder-secondary-500';
-  const labelClass = 'block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1';
+    'w-full p-3 border border-rule rounded-lg bg-surface text-ink placeholder:text-ink-muted';
+  const labelClass = 'block text-sm font-medium text-ink mb-1';
 
   return (
     <>

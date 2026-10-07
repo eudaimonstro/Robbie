@@ -26,50 +26,36 @@ export const VoteResultsPanel = React.memo(function VoteResultsPanel({
 
   return (
     <section
-      className={`bg-white rounded-lg p-4 shadow border-2 ${
-        voteResults.passed ? 'border-green-300' : 'border-red-300'
+      className={`bg-surface rounded-lg p-4 shadow border-2 ${
+        voteResults.passed ? 'border-carried/40' : 'border-rule'
       }`}
       aria-labelledby="vote-results-heading"
     >
       <h3
         id="vote-results-heading"
         className={`font-semibold mb-3 flex items-center gap-2 ${
-          voteResults.passed ? 'text-green-700' : 'text-red-700'
+          voteResults.passed ? 'text-carried' : 'text-ink'
         }`}
       >
         <Vote size={18} aria-hidden="true" />
         Vote Result: {voteResults.outcome}
       </h3>
 
-      {voteResults.motionText && (
-        <p className="text-gray-800 mb-3 italic">"{voteResults.motionText}"</p>
-      )}
+      {voteResults.motionText && <p className="text-ink mb-3 italic">"{voteResults.motionText}"</p>}
 
       <div className="grid grid-cols-2 gap-3 mb-2">
-        <div
-          className={`${voteResults.passed ? 'bg-green-100' : 'bg-green-50'} p-3 rounded-lg text-center`}
-        >
-          <p
-            className={`text-2xl font-bold ${voteResults.passed ? 'text-green-700' : 'text-green-600'}`}
-          >
-            {voteResults.yea}
-          </p>
-          <p className="text-green-600 text-sm">Yea</p>
+        <div className="bg-carried-tint p-3 rounded-lg text-center">
+          <p className="text-2xl font-bold text-carried">{voteResults.yea}</p>
+          <p className="text-carried text-sm">Yea</p>
         </div>
-        <div
-          className={`${!voteResults.passed ? 'bg-red-100' : 'bg-red-50'} p-3 rounded-lg text-center`}
-        >
-          <p
-            className={`text-2xl font-bold ${!voteResults.passed ? 'text-red-700' : 'text-red-600'}`}
-          >
-            {voteResults.nay}
-          </p>
-          <p className="text-red-600 text-sm">Nay</p>
+        <div className="bg-gavel-tint p-3 rounded-lg text-center">
+          <p className="text-2xl font-bold text-gavel">{voteResults.nay}</p>
+          <p className="text-ink text-sm">Nay</p>
         </div>
       </div>
 
       <p
-        className={`text-center text-sm ${voteResults.passed ? 'text-green-600' : 'text-red-600'}`}
+        className={`text-center text-sm ${voteResults.passed ? 'text-carried' : 'text-ink-muted'}`}
       >
         {voteResults.timestamp}
       </p>

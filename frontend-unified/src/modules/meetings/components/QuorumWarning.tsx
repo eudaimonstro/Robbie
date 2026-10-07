@@ -20,18 +20,15 @@ export const QuorumWarning = React.memo(function QuorumWarning({
 
   return (
     <div
-      className="bg-accent-50 dark:bg-accent-900/20 border-l-4 border-accent-400 dark:border-accent-600 p-4 mb-4 rounded-r-lg"
+      className="bg-caution-tint border-l-4 border-caution p-4 mb-4 rounded-r-lg"
       role="alert"
       aria-live="polite"
     >
       <div className="flex items-center gap-3">
-        <AlertTriangle
-          className="h-5 w-5 text-accent-600 dark:text-accent-400 shrink-0"
-          aria-hidden="true"
-        />
+        <AlertTriangle className="h-5 w-5 text-caution-ink shrink-0" aria-hidden="true" />
         <div>
-          <h4 className="text-accent-800 dark:text-accent-300 font-semibold">Quorum Not Present</h4>
-          <p className="text-accent-700 dark:text-accent-400 text-sm">
+          <h4 className="text-ink font-semibold">Quorum Not Present</h4>
+          <p className="text-ink text-sm">
             Only {presentCount} of {quorum} required members are present. The meeting may continue,
             but some actions may not be valid without quorum.
           </p>

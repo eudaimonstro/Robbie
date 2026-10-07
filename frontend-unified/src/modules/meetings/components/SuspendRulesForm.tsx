@@ -43,12 +43,12 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
   };
 
   return (
-    <div className="bg-white border-2 border-amber-500 rounded-lg p-6 shadow-lg max-w-md mx-auto">
-      <h3 className="text-xl font-bold mb-4 text-amber-900">Suspend the Rules</h3>
+    <div className="bg-surface border-2 border-caution rounded-lg p-6 shadow-lg max-w-md mx-auto">
+      <h3 className="text-xl font-bold mb-4 text-ink">Suspend the Rules</h3>
 
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-sm">
-        <p className="text-sm font-semibold text-amber-900 mb-1">⚠️ Requires 2/3 vote</p>
-        <p className="text-xs text-amber-800">
+      <div className="mb-4 p-3 bg-caution-tint border border-caution/40 rounded-sm">
+        <p className="text-sm font-semibold text-ink mb-1">Requires 2/3 vote</p>
+        <p className="text-xs text-ink">
           This motion requires approval by two-thirds of the assembly.
         </p>
       </div>
@@ -56,14 +56,14 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
       <form onSubmit={handleSubmit}>
         {/* Rule selection (Tier 1 rules) */}
         <div className="mb-4">
-          <label htmlFor="rule" className="block text-sm font-semibold mb-2 text-gray-700">
-            Which rule to suspend? <span className="text-red-600">*</span>
+          <label htmlFor="rule" className="block text-sm font-semibold mb-2 text-ink">
+            Which rule to suspend? <span className="text-gavel">*</span>
           </label>
           <select
             id="rule"
             value={rule}
             onChange={(e) => setRule(e.target.value as SuspendableRule)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 mb-2"
+            className="w-full px-3 py-2 border border-rule rounded-sm focus:outline-hidden focus:ring-2 focus:ring-gavel mb-2"
           >
             {COMMON_RULES.map((r) => (
               <option key={r} value={r}>
@@ -71,15 +71,15 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
               </option>
             ))}
           </select>
-          <div className="p-2 bg-gray-50 border border-gray-200 rounded-sm">
-            <p className="text-xs text-gray-600">{getRuleDescription(rule)}</p>
+          <div className="p-2 bg-surface-2 border border-rule rounded-sm">
+            <p className="text-xs text-ink-muted">{getRuleDescription(rule)}</p>
           </div>
         </div>
 
         {/* Purpose (RONR requirement) */}
         <div className="mb-4">
-          <label htmlFor="purpose" className="block text-sm font-semibold mb-2 text-gray-700">
-            For what purpose? <span className="text-red-600">*</span>
+          <label htmlFor="purpose" className="block text-sm font-semibold mb-2 text-ink">
+            For what purpose? <span className="text-gavel">*</span>
           </label>
           <input
             type="text"
@@ -87,21 +87,18 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             placeholder="e.g., 'Emergency situation requires immediate action'"
-            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 border border-rule rounded-sm focus:outline-hidden focus:ring-2 focus:ring-gavel"
             required
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             Robert's Rules requires stating why the rule should be suspended.
           </p>
         </div>
 
         {/* Specific Action */}
         <div className="mb-4">
-          <label
-            htmlFor="specificAction"
-            className="block text-sm font-semibold mb-2 text-gray-700"
-          >
-            What specific action is allowed? <span className="text-red-600">*</span>
+          <label htmlFor="specificAction" className="block text-sm font-semibold mb-2 text-ink">
+            What specific action is allowed? <span className="text-gavel">*</span>
           </label>
           <input
             type="text"
@@ -109,17 +106,17 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
             value={specificAction}
             onChange={(e) => setSpecificAction(e.target.value)}
             placeholder="e.g., 'Allow motion to proceed without a second'"
-            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            className="w-full px-3 py-2 border border-rule rounded-sm focus:outline-hidden focus:ring-2 focus:ring-gavel"
             required
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             Describe exactly what action will be permitted under this suspension.
           </p>
         </div>
 
         {/* Duration/Scope */}
         <div className="mb-6">
-          <label className="block text-sm font-semibold mb-2 text-gray-700">Duration:</label>
+          <label className="block text-sm font-semibold mb-2 text-ink">Duration:</label>
           <div className="space-y-2">
             <label className="flex items-center">
               <input
@@ -130,7 +127,8 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
                 className="mr-2"
               />
               <span className="text-sm">
-                Single action <span className="text-gray-500">(suspension ends after one use)</span>
+                Single action{' '}
+                <span className="text-ink-muted">(suspension ends after one use)</span>
               </span>
             </label>
             <label className="flex items-center">
@@ -142,7 +140,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
                 className="mr-2"
               />
               <span className="text-sm">
-                Remainder of meeting <span className="text-gray-500">(until adjournment)</span>
+                Remainder of meeting <span className="text-ink-muted">(until adjournment)</span>
               </span>
             </label>
           </div>
@@ -153,13 +151,13 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-sm hover:bg-gray-300 transition-colors"
+            className="flex-1 px-4 py-2 bg-surface-2 text-ink rounded-sm hover:bg-rule transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-sm hover:bg-amber-700 transition-colors font-semibold"
+            className="flex-1 px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 transition-colors font-semibold"
           >
             Submit Motion
           </button>

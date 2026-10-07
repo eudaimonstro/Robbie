@@ -68,14 +68,14 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
   );
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm">
-      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">Ask a Question</h3>
+    <div className="bg-surface rounded-lg p-4 shadow-sm">
+      <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">Ask a Question</h3>
 
       {/* Submit Question Form */}
       {!isChair && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mb-4 p-3 bg-gavel-tint border border-rule rounded-lg">
           <div className="mb-3">
-            <p className="text-sm font-medium text-gray-700 mb-2">Question Type</p>
+            <p className="text-sm font-medium text-ink mb-2">Question Type</p>
             <div className="space-y-2">
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -87,7 +87,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                 />
                 <div>
                   <div className="font-medium">Parliamentary Inquiry</div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-ink-muted">
                     Ask the chair about rules of procedure, precedence, or what motion is in order
                   </div>
                 </div>
@@ -102,7 +102,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                 />
                 <div>
                   <div className="font-medium">Request for Information</div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-ink-muted">
                     Ask for factual information relevant to the business at hand
                   </div>
                 </div>
@@ -110,7 +110,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
             </div>
           </div>
 
-          <label className="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
+          <label className="block text-sm font-medium text-ink mb-2">Your Question</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -123,12 +123,12 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
             <button
               onClick={handleAskInquiry}
               disabled={!question.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+              className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 disabled:bg-rule text-sm font-medium"
             >
               Ask
             </button>
           </div>
-          <p className="text-xs text-blue-700 mt-2">
+          <p className="text-xs text-ink mt-2">
             Per RONR, inquiries do not require a second and can interrupt pending business.
           </p>
         </div>
@@ -137,28 +137,29 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
       {/* Unanswered Inquiries - Chair View */}
       {isChair && unansweredInquiries.length > 0 && (
         <div className="mb-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">
+          <p className="text-sm font-medium text-ink mb-2">
             Pending Inquiries ({unansweredInquiries.length}):
           </p>
           <div className="space-y-3">
             {unansweredInquiries.map((inquiry) => (
-              <div key={inquiry.id} className="p-3 bg-amber-50 border border-amber-300 rounded-lg">
+              <div
+                key={inquiry.id}
+                className="p-3 bg-caution-tint border border-caution/40 rounded-lg"
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <span className="text-xs font-semibold text-amber-900 uppercase">
+                    <span className="text-xs font-semibold text-ink uppercase">
                       {inquiry.type === 'parliamentary'
                         ? 'Parliamentary Inquiry'
                         : 'Request for Information'}
                     </span>
-                    <p className="text-sm text-gray-700 mt-1">
+                    <p className="text-sm text-ink mt-1">
                       <span className="font-medium">{inquiry.askedBy}:</span> "{inquiry.question}"
                     </p>
                   </div>
                 </div>
                 <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Your Answer
-                  </label>
+                  <label className="block text-xs font-medium text-ink mb-1">Your Answer</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -173,7 +174,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                     <button
                       onClick={() => handleAnswerInquiry(inquiry.id)}
                       disabled={!answerText[inquiry.id]?.trim()}
-                      className="px-3 py-2 bg-green-600 text-white rounded-sm hover:bg-green-700 disabled:bg-gray-300 text-xs font-medium"
+                      className="px-3 py-2 bg-carried text-paper rounded-sm hover:bg-carried/90 disabled:bg-rule text-xs font-medium"
                     >
                       Answer
                     </button>
@@ -188,29 +189,29 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
       {/* Answered Inquiries - All Views */}
       {recentAnsweredInquiries.length > 0 && (
         <div className="mt-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">
+          <p className="text-sm font-medium text-ink mb-2">
             Recent Q&A ({recentAnsweredInquiries.length}):
           </p>
           <div className="space-y-2">
             {recentAnsweredInquiries.map((inquiry) => (
               <div
                 key={inquiry.id}
-                className="p-2 bg-green-50 border border-green-200 rounded-sm text-sm"
+                className="p-2 bg-carried-tint border border-carried/40 rounded-sm text-sm"
               >
                 <div className="mb-1">
-                  <span className="text-xs font-semibold text-green-900 uppercase">
+                  <span className="text-xs font-semibold text-ink uppercase">
                     {inquiry.type === 'parliamentary'
                       ? 'Parliamentary Inquiry'
                       : 'Request for Information'}
                   </span>
                 </div>
-                <p className="text-gray-700">
+                <p className="text-ink">
                   <span className="font-medium">Q:</span> {inquiry.question}
                 </p>
-                <p className="text-green-800 mt-1">
+                <p className="text-ink mt-1">
                   <span className="font-medium">A:</span> {inquiry.answer}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Answered by {inquiry.answeredBy}</p>
+                <p className="text-xs text-ink-muted mt-1">Answered by {inquiry.answeredBy}</p>
               </div>
             ))}
           </div>
@@ -219,13 +220,13 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
 
       {/* No Inquiries State */}
       {state.inquiries.length === 0 && !isChair && (
-        <div className="text-center text-gray-500 text-sm py-4">
+        <div className="text-center text-ink-muted text-sm py-4">
           <p>No questions yet. Use the form above to ask the chair a question.</p>
         </div>
       )}
 
       {isChair && unansweredInquiries.length === 0 && (
-        <div className="text-center text-gray-500 text-sm py-4">
+        <div className="text-center text-ink-muted text-sm py-4">
           <p>No pending inquiries</p>
         </div>
       )}

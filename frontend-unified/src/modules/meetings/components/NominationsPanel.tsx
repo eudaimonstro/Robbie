@@ -80,18 +80,15 @@ export function NominationsPanel({
   );
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="nominations-heading">
-      <h3
-        id="nominations-heading"
-        className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
-      >
-        <span aria-hidden="true">🗳️</span> Nominations and Elections
+    <section className="bg-surface rounded-lg p-4 shadow-sm" aria-labelledby="nominations-heading">
+      <h3 id="nominations-heading" className="font-semibold mb-3 text-ink flex items-center gap-2">
+        Nominations and Elections
       </h3>
 
       {/* Chair Controls - Open Nominations */}
       {isChair && !state.nominationsOpen && !state.currentElection && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="mb-4 p-3 bg-gavel-tint border border-rule rounded-lg">
+          <label className="block text-sm font-medium text-ink mb-2">
             Open Nominations for Position
           </label>
           <div className="flex gap-2">
@@ -105,7 +102,7 @@ export function NominationsPanel({
             <button
               onClick={handleOpenNominations}
               disabled={!position.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+              className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 disabled:bg-rule text-sm font-medium"
             >
               Open Nominations
             </button>
@@ -117,24 +114,21 @@ export function NominationsPanel({
       {state.nominationsOpen && state.currentNominationPosition && (
         <div className="mb-4">
           <div
-            className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3"
+            className="p-3 bg-carried-tint border border-carried/40 rounded-lg mb-3"
             role="status"
             aria-live="polite"
           >
-            <p className="font-semibold text-green-900">
-              <span aria-hidden="true">✅</span> Nominations are open for:{' '}
-              {state.currentNominationPosition}
+            <p className="font-semibold text-ink">
+              Nominations are open for: {state.currentNominationPosition}
             </p>
-            <p className="text-xs text-green-700 mt-1">
+            <p className="text-xs text-carried mt-1">
               Per RONR, nominations do not require a second. Members may nominate themselves.
             </p>
           </div>
 
           {/* Nominate Form */}
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nominate a Candidate
-            </label>
+            <label className="block text-sm font-medium text-ink mb-2">Nominate a Candidate</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -147,7 +141,7 @@ export function NominationsPanel({
               <button
                 onClick={handleNominate}
                 disabled={!nomineeName.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+                className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 disabled:bg-rule text-sm font-medium"
               >
                 Nominate
               </button>
@@ -157,7 +151,7 @@ export function NominationsPanel({
           {/* Current Nominations List */}
           {currentPositionNominations.length > 0 && (
             <div className="mb-3">
-              <p className="text-sm font-medium text-gray-700 mb-2">
+              <p className="text-sm font-medium text-ink mb-2">
                 Nominations Received ({currentPositionNominations.filter((n) => !n.declined).length}
                 ):
               </p>
@@ -167,24 +161,24 @@ export function NominationsPanel({
                     key={nomination.id}
                     className={`p-2 rounded border text-sm ${
                       nomination.declined
-                        ? 'bg-gray-50 border-gray-300 opacity-60'
-                        : 'bg-white border-gray-300'
+                        ? 'bg-surface-2 border-rule opacity-60'
+                        : 'bg-surface border-rule'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-medium">{nomination.nomineeName}</span>
                         {nomination.declined && (
-                          <span className="ml-2 text-xs text-red-600">(Declined)</span>
+                          <span className="ml-2 text-xs text-ink-muted">(Declined)</span>
                         )}
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-ink-muted">
                           Nominated by {nomination.nominatedBy}
                         </p>
                       </div>
                       {!nomination.declined && nomination.nomineeId === currentUser.id && (
                         <button
                           onClick={() => handleDeclineNomination(nomination.id)}
-                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-sm hover:bg-red-200"
+                          className="text-xs text-gavel px-2 py-1 rounded-sm hover:bg-gavel-tint"
                         >
                           Decline
                         </button>
@@ -200,7 +194,7 @@ export function NominationsPanel({
           {isChair && (
             <button
               onClick={handleCloseNominations}
-              className="w-full py-2 bg-gray-600 text-white rounded-sm hover:bg-gray-700 text-sm font-medium"
+              className="w-full py-2 bg-ink text-paper rounded-sm hover:bg-ink/90 text-sm font-medium"
             >
               Close Nominations
             </button>
@@ -211,15 +205,15 @@ export function NominationsPanel({
       {/* Elected Officers */}
       {state.electedOfficers.length > 0 && (
         <div className="mt-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">Elected Officers:</p>
+          <p className="text-sm font-medium text-ink mb-2">Elected Officers:</p>
           <div className="space-y-2">
             {state.electedOfficers.map((officer, index) => (
               <div
                 key={index}
-                className="p-2 bg-green-50 border border-green-200 rounded-sm text-sm"
+                className="p-2 bg-carried-tint border border-carried/40 rounded-sm text-sm"
               >
                 <span className="font-medium">{officer.position}:</span>{' '}
-                <span className="text-green-800">{officer.name}</span>
+                <span className="text-ink">{officer.name}</span>
               </div>
             ))}
           </div>

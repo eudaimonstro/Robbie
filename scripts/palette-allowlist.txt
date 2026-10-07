@@ -1,34 +1,3 @@
 # Web source files that still use raw Tailwind palette classes, white or black, the old
 # meeting- palette, or emoji icons (see scripts/check-palette.sh). Remove a file once it is on
 # the design tokens; never add one.
-frontend-unified/src/modules/meetings/components/ActiveSuspensionsBanner.tsx
-frontend-unified/src/modules/meetings/components/AgendaAmendmentForm.tsx
-frontend-unified/src/modules/meetings/components/bylawAmendment/ChangeTypeSelector.tsx
-frontend-unified/src/modules/meetings/components/bylawAmendment/ContentFields.tsx
-frontend-unified/src/modules/meetings/components/bylawAmendment/FormStatusDisplays.tsx
-frontend-unified/src/modules/meetings/components/BylawAmendmentForm.tsx
-frontend-unified/src/modules/meetings/components/bylawAmendment/SectionSelector.tsx
-frontend-unified/src/modules/meetings/components/CountdownTimer.tsx
-frontend-unified/src/modules/meetings/components/DraggableAgendaList.tsx
-frontend-unified/src/modules/meetings/components/ElectionPanel.tsx
-frontend-unified/src/modules/meetings/components/ErrorBoundary.tsx
-frontend-unified/src/modules/meetings/components/HelpTooltip.tsx
-frontend-unified/src/modules/meetings/components/InquiryPanel.tsx
-frontend-unified/src/modules/meetings/components/mobile/BottomSheet.tsx
-frontend-unified/src/modules/meetings/components/mobile/ResponsiveGrid.tsx
-frontend-unified/src/modules/meetings/components/mobile/TouchButton.tsx
-frontend-unified/src/modules/meetings/components/mobile/TouchRadioGroup.tsx
-frontend-unified/src/modules/meetings/components/MotionCard.tsx
-frontend-unified/src/modules/meetings/components/NominationsPanel.tsx
-frontend-unified/src/modules/meetings/components/participant/CurrentBusinessPanel.tsx
-frontend-unified/src/modules/meetings/components/participant/MotionSelector.tsx
-frontend-unified/src/modules/meetings/components/participant/PendingSecondSection.tsx
-frontend-unified/src/modules/meetings/components/participant/ProxyAcceptancePanel.tsx
-frontend-unified/src/modules/meetings/components/participant/ProxyRequestPanel.tsx
-frontend-unified/src/modules/meetings/components/participant/SpeakerRecognitionPanel.tsx
-frontend-unified/src/modules/meetings/components/participant/UnanimousConsentSection.tsx
-frontend-unified/src/modules/meetings/components/participant/VoteResultsPanel.tsx
-frontend-unified/src/modules/meetings/components/participant/VotingPanel.tsx
-frontend-unified/src/modules/meetings/components/ReconsiderForm.tsx
-frontend-unified/src/modules/meetings/components/SuspendRulesForm.tsx
-frontend-unified/src/modules/meetings/components/TakeFromTableForm.tsx

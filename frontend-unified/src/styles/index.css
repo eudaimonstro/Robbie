@@ -44,6 +44,14 @@
   color-scheme: dark;
 }
 
+/*
+  Only the colors defined here exist: Tailwind's own palette (gray, blue, white...) is off. This
+  block comes first: a reset after the @theme inline block would clear the tokens too.
+*/
+@theme {
+  --color-*: initial;
+}
+
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
@@ -168,18 +176,6 @@
   --color-danger-700: var(--color-gavel-700);
   --color-danger-800: var(--color-gavel-800);
   --color-danger-900: var(--color-gavel-900);
-
-  /* Until the meetings module moves onto the tokens (see scripts/check-palette.sh) */
-  --color-meeting-50: var(--color-gavel-50);
-  --color-meeting-100: var(--color-gavel-100);
-  --color-meeting-200: var(--color-gavel-200);
-  --color-meeting-300: var(--color-gavel-300);
-  --color-meeting-400: var(--color-gavel-400);
-  --color-meeting-500: var(--color-gavel-500);
-  --color-meeting-600: var(--color-gavel-600);
-  --color-meeting-700: var(--color-gavel-700);
-  --color-meeting-800: var(--color-gavel-800);
-  --color-meeting-900: var(--color-gavel-900);
 
   /* Fraunces for headings, questions, results and the display; Public Sans for everything else */
   --font-heading: 'Fraunces Variable', Georgia, serif;

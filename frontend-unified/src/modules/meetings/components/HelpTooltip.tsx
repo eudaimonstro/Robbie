@@ -7,24 +7,24 @@ export const HelpTooltip = React.memo(function HelpTooltip({ motion }: HelpToolt
 
   return (
     <div className="relative">
-      <button onClick={() => setShow(!show)} className="text-gray-400 hover:text-gray-600">
+      <button onClick={() => setShow(!show)} className="text-ink-muted hover:text-ink">
         <HelpCircle size={16} />
       </button>
       {show && (
-        <div className="absolute z-50 left-0 sm:left-auto sm:right-0 top-6 w-[calc(100vw-2rem)] sm:w-72 max-w-sm bg-white border rounded-lg shadow-xl p-4 text-sm">
+        <div className="absolute z-50 left-0 sm:left-auto sm:right-0 top-6 w-[calc(100vw-2rem)] sm:w-72 max-w-sm bg-surface border rounded-lg shadow-xl p-4 text-sm">
           <div className="flex justify-between mb-2">
             <span className="font-semibold">{motion.name}</span>
-            <button onClick={() => setShow(false)} className="text-gray-400">
+            <button onClick={() => setShow(false)} className="text-ink-muted hover:text-ink">
               <X size={14} />
             </button>
           </div>
-          <p className="text-gray-600 mb-2">{motion.help}</p>
-          <p className="text-gray-500 italic text-xs mb-2">"{motion.phrase}"</p>
-          <p className="text-xs text-gray-600">
+          <p className="text-ink-muted mb-2">{motion.help}</p>
+          <p className="text-ink-muted italic text-xs mb-2">"{motion.phrase}"</p>
+          <p className="text-xs text-ink-muted">
             <strong>When to use:</strong> {motion.whenToUse}
           </p>
           <div className="grid grid-cols-2 gap-1 mt-2 text-xs border-t pt-2">
-            <span className={motion.needsSecond ? 'text-green-600' : 'text-gray-400'}>
+            <span className={motion.needsSecond ? 'text-carried' : 'text-ink-muted'}>
               {motion.needsSecond ? (
                 <CheckCircle size={12} className="inline mr-1" />
               ) : (
@@ -32,7 +32,7 @@ export const HelpTooltip = React.memo(function HelpTooltip({ motion }: HelpToolt
               )}
               Second
             </span>
-            <span className={motion.debatable ? 'text-green-600' : 'text-gray-400'}>
+            <span className={motion.debatable ? 'text-carried' : 'text-ink-muted'}>
               {motion.debatable ? (
                 <CheckCircle size={12} className="inline mr-1" />
               ) : (
@@ -40,7 +40,7 @@ export const HelpTooltip = React.memo(function HelpTooltip({ motion }: HelpToolt
               )}
               Debatable
             </span>
-            <span className={motion.amendable ? 'text-green-600' : 'text-gray-400'}>
+            <span className={motion.amendable ? 'text-carried' : 'text-ink-muted'}>
               {motion.amendable ? (
                 <CheckCircle size={12} className="inline mr-1" />
               ) : (
@@ -48,7 +48,7 @@ export const HelpTooltip = React.memo(function HelpTooltip({ motion }: HelpToolt
               )}
               Amendable
             </span>
-            <span className="text-gray-700">
+            <span className="text-ink">
               Vote: {motion.vote === '2/3' ? '⅔' : motion.vote === 'majority' ? 'Majority' : 'None'}
             </span>
           </div>
