@@ -176,14 +176,12 @@ export default function ShareModal({
             {shareStatus.shareEnabled && (
               <div className="border-t border-rule pt-4">
                 {showRegenerateConfirm ? (
-                  <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-4">
+                  <div className="bg-caution-tint border border-caution/40 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-caution-ink shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-medium text-warning-800 dark:text-warning-200">
-                          Regenerate share link?
-                        </p>
-                        <p className="text-sm text-warning-700 dark:text-warning-300 mt-1">
+                        <p className="font-medium text-ink">Regenerate share link?</p>
+                        <p className="text-sm text-ink mt-1">
                           This will create a new link. Anyone using the old link will no longer be
                           able to access this document.
                         </p>
@@ -191,7 +189,7 @@ export default function ShareModal({
                           <button
                             onClick={handleRegenerateToken}
                             disabled={regenerating}
-                            className="btn-primary bg-warning-600 hover:bg-warning-700 text-paper"
+                            className="btn-primary"
                           >
                             {regenerating ? 'Regenerating...' : 'Yes, Regenerate'}
                           </button>
