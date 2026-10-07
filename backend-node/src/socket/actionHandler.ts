@@ -15,6 +15,7 @@ import { validateAction } from './actionValidator.js';
 import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 import { applyAction } from './stateManager.js';
+import { recordMeetingTimes } from './meetingPacket.js';
 import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import { logger } from '../middleware/logger.js';
@@ -254,22 +255,26 @@ export async function handleDispatchAction(
       return;
     }
 
-    // Post-action: Update storage and sockets for role changes
-    await handleRoleChangePostAction(io, meetingCode, enrichedAction);
+    // Post-action: a new chair is recorded on the packet, and sockets and roles follow
+    const afterRoleChange = await handleRoleChangePostAction(io, meetingCode, enrichedAction);
+    const latest = afterRoleChange ?? { state: result.state, stateVersion: result.stateVersion };
 
     // Broadcast new state to all clients in the room, after the role change (so a new chair's
     // socket already has its permissions) and before the bylaw sync (so the vote result isn't
     // held up by database work). Clients ignore a state older than the one they have.
     emitState(io, meetingCode, {
-      state: result.state,
-      stateVersion: result.stateVersion,
+      state: latest.state,
+      stateVersion: latest.stateVersion,
       triggeredBy: {
         actionType: data.action.type,
         userId,
       },
     });
 
-    callback({ success: true, stateVersion: result.stateVersion });
+    callback({ success: true, stateVersion: latest.stateVersion });
+
+    // Post-action: the schedule records when the meeting was called to order and adjourned
+    await recordMeetingTimes(meetingCode, enrichedAction);
 
     // Post-action: Sync bylaw amendments to Bylawyer after vote closes
     if (enrichedAction.type === 'CLOSE_VOTING') {

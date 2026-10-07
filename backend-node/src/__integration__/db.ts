@@ -1,3 +1,4 @@
+import { pool } from '../db/client.js';
 import { prisma } from '../db/prisma.js';
 
 /**
@@ -18,4 +19,12 @@ export async function resetDatabase(): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE "Organization", "Session", "SignInCode", "User" RESTART IDENTITY CASCADE',
   );
+}
+
+/**
+ * Empty the live meetings table, which isn't Prisma's (see meetingStorage). The storage must be
+ * initialized (initializeStorage) first, which creates the table.
+ */
+export async function resetLiveMeetings(): Promise<void> {
+  await pool.query('DELETE FROM meetings');
 }

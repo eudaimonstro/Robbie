@@ -25,6 +25,14 @@ type TypedServer = Server<
  * Handle socket disconnect and LEAVE_MEETING events
  */
 export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Promise<void> {
+  // A display was never a member: it only leaves the room
+  if (socket.data.display) {
+    if (socket.data.meetingCode) socket.leave(`meeting:${socket.data.meetingCode}`);
+    socket.data.meetingCode = null;
+    socket.data.display = false;
+    return;
+  }
+
   if (socket.data.meetingCode && socket.data.userId) {
     const meetingCode = socket.data.meetingCode;
     const roomName = `meeting:${meetingCode}`;
@@ -76,6 +84,6 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
 
     // The socket leaves the meeting but stays signed in (its identity came from its session)
     socket.data.meetingCode = null;
-    socket.data.role = null as unknown as 'member' | 'chair' | 'admin';
+    socket.data.role = null as unknown as SocketData['role'];
   }
 }

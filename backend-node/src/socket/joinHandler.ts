@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io';
+import type { Member } from '@robbie-bylawyer/shared/types';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -7,12 +8,20 @@ import type {
   JoinMeetingResponse,
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
-import { getStorage } from '../db/meetingStorage.js';
+import { getStorage, type MeetingRecord } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
-import { applyAction } from './stateManager.js';
+import { applyAction, type ApplyActionResult } from './stateManager.js';
 import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { emitState, publicState } from './statePublisher.js';
+import {
+  countRosterVoters,
+  findMeetingPacket,
+  findPerson,
+  stateFromPacket,
+  type MeetingPacketInfo,
+} from './meetingPacket.js';
+import { deriveMeetingRole, roleChanges, updateSocketRoles } from './meetingRoles.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
 
@@ -29,8 +38,23 @@ type TypedServer = Server<
   SocketData
 >;
 
+/** The answers when a join is refused */
+export const NO_MEETING = 'No meeting with that code';
+export const NAME_FIRST = 'Set your name first';
+export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the display";
+
+/** The live meeting for a packet, created from it when the first person arrives */
+async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
+  const storage = getStorage();
+  const existing = await storage.getMeeting(packet.robbieCode);
+  if (existing) return existing;
+  const rosterVoters = await countRosterVoters(packet.organizationId);
+  return storage.getOrCreateMeeting(packet.robbieCode, stateFromPacket(packet, rosterVoters));
+}
+
 /**
- * Handle JOIN_MEETING socket event
+ * Handle JOIN_MEETING socket event. A live meeting is a scheduled meeting: a code without a
+ * packet is refused, and each person's role comes from the packet's organization.
  */
 export async function handleJoinMeeting(
   socket: TypedSocket,
@@ -40,15 +64,11 @@ export async function handleJoinMeeting(
 ): Promise<void> {
   try {
     // The socket was authenticated at connection (socketAuth)
-    const decoded = {
-      userId: socket.data.userId,
-      email: socket.data.email,
-      name: socket.data.name,
-    };
+    const userId = socket.data.userId;
 
     // Rate limit join attempts per user
-    if (!joinRateLimiter.consume(decoded.userId)) {
-      const retryAfter = joinRateLimiter.getRetryAfter(decoded.userId);
+    if (!joinRateLimiter.consume(userId)) {
+      const retryAfter = joinRateLimiter.getRetryAfter(userId);
       callback({
         success: false,
         error: `Too many join attempts. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`,
@@ -61,83 +81,102 @@ export async function handleJoinMeeting(
       callback({ success: false, error: parsedCode.error.issues[0].message });
       return;
     }
-    data = { ...data, meetingCode: parsedCode.data };
+    const meetingCode = parsedCode.data;
 
     // A socket already in another meeting leaves it first, as on disconnect; otherwise it
     // kept receiving that meeting's updates and its member stayed present there
-    if (socket.data.meetingCode && socket.data.meetingCode !== data.meetingCode) {
+    if (socket.data.meetingCode && socket.data.meetingCode !== meetingCode) {
       await handleDisconnect(socket, io);
     }
 
-    // Get or create meeting
-    const storage = getStorage();
-    const meeting = await storage.getOrCreateMeeting(data.meetingCode);
-
-    // Get user role - check if user is a persistent admin via environment config
-    const odUserId = String(decoded.userId);
-    let role = await storage.getParticipantRole(data.meetingCode, odUserId);
-    if (!role) {
-      // Check if user email is in ADMIN_EMAILS list
-      const adminEmails = (process.env.ADMIN_EMAILS || '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter((e) => e.length > 0);
-      const isAdmin = adminEmails.includes(decoded.email.toLowerCase());
-      role = isAdmin ? 'admin' : 'member';
-      await storage.setParticipantRole(data.meetingCode, odUserId, role);
+    const packet = await findMeetingPacket(meetingCode);
+    const person = packet ? await findPerson(packet.organizationId, userId) : null;
+    if (!packet || !person) {
+      callback({ success: false, error: NO_MEETING, errorCode: 'MEETING_NOT_FOUND' });
+      return;
     }
+    const roomName = `meeting:${meetingCode}`;
+
+    // A display (a TV or projector) receives the meeting without becoming a member of it
+    if (data.display === true) {
+      if (!person.orgRole) {
+        callback({ success: false, error: DISPLAY_FOR_MEMBERS, errorCode: 'PERMISSION_DENIED' });
+        return;
+      }
+      const meeting = await openMeeting(packet);
+      socket.data.meetingCode = meetingCode;
+      socket.data.role = 'guest';
+      socket.data.display = true;
+      socket.join(roomName);
+      callback({
+        success: true,
+        state: publicState(meeting.state),
+        stateVersion: meeting.stateVersion,
+        members: roomManager.getMembers(meetingCode),
+      });
+      return;
+    }
+
+    // Members are known by the name they signed in with
+    const name = person.name?.trim();
+    if (!name) {
+      callback({ success: false, error: NAME_FIRST, errorCode: 'NAME_REQUIRED' });
+      return;
+    }
+    const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
+    const meeting = await openMeeting(packet);
 
     // Store socket data
-    socket.data.userId = decoded.userId;
-    socket.data.email = decoded.email;
-    socket.data.name = decoded.name;
-    socket.data.meetingCode = data.meetingCode;
+    socket.data.name = name;
+    socket.data.meetingCode = meetingCode;
     socket.data.role = role;
+    socket.data.display = false;
 
     // Join the room
-    const roomName = `meeting:${data.meetingCode}`;
     socket.join(roomName);
-    roomManager.addMember(data.meetingCode, socket.id, {
-      id: decoded.userId,
-      name: decoded.name,
-      role,
-      present: true,
-    });
+    const memberData: Member = { id: userId, name, role, present: true, presentBy: 'device' };
+    roomManager.addMember(meetingCode, socket.id, memberData);
 
-    const memberData = { id: decoded.userId, name: decoded.name, role, present: true };
     const timestamp = new Date().toISOString();
-
-    // Add member to state if not already present
     let currentState = meeting.state;
     let currentVersion = meeting.stateVersion;
-
-    if (!currentState.members.some((m) => m.id === decoded.userId)) {
-      const addResult = await applyAction(data.meetingCode, {
-        type: 'ADD_MEMBER',
-        member: memberData,
-        timestamp,
-      });
-      if (addResult.success && addResult.state) {
-        currentState = addResult.state;
-        currentVersion = addResult.stateVersion!;
+    const track = (result: ApplyActionResult) => {
+      if (result.success) {
+        currentState = result.state;
+        currentVersion = result.stateVersion;
       }
-    }
+    };
 
-    // Set member presence to true
-    const presenceResult = await applyAction(data.meetingCode, {
-      type: 'SET_MEMBER_PRESENCE',
-      memberId: decoded.userId,
-      present: true,
-      timestamp,
-    });
-    if (presenceResult.success && presenceResult.state) {
-      currentState = presenceResult.state;
-      currentVersion = presenceResult.stateVersion!;
+    // Add the member, or mark them present again
+    const existing = currentState.members.find((m) => m.id === userId);
+    track(
+      await applyAction(
+        meetingCode,
+        existing
+          ? { type: 'SET_MEMBER_PRESENCE', memberId: userId, present: true, timestamp }
+          : { type: 'ADD_MEMBER', member: memberData, timestamp },
+      ),
+    );
+
+    // Names and roles as the organization has them now: this member's, and those of others
+    // that changed since they joined (a new presiding officer, a changed role, a restart)
+    const others = await roleChanges(
+      packet,
+      currentState.members.filter((m) => m.id !== userId),
+    );
+    const self = currentState.members.find((m) => m.id === userId);
+    const selfChanged = !!self && (self.name !== name || self.role !== role);
+    const changes = selfChanged ? [{ id: userId, name, role }, ...others] : others;
+    if (changes.length > 0) {
+      track(
+        await applyAction(meetingCode, { type: 'REFRESH_MEMBERS', members: changes, timestamp }),
+      );
+      await updateSocketRoles(io, meetingCode, others);
     }
 
     // Members still shown as present with no connection (left over from a server restart)
     // are marked absent, so quorum counts only who is here
-    const reconciled = await markDisconnectedMembersAbsent(data.meetingCode, currentState);
+    const reconciled = await markDisconnectedMembersAbsent(meetingCode, currentState);
     if (reconciled) {
       currentState = reconciled.state;
       currentVersion = reconciled.stateVersion;
@@ -150,17 +189,17 @@ export async function handleJoinMeeting(
     });
 
     // Broadcast updated state to all (including the joiner via callback)
-    emitState(io, data.meetingCode, {
+    emitState(io, meetingCode, {
       state: currentState,
       stateVersion: currentVersion,
-      triggeredBy: { actionType: 'MEMBER_JOINED', userId: decoded.userId },
+      triggeredBy: { actionType: 'MEMBER_JOINED', userId },
     });
 
     callback({
       success: true,
       state: publicState(currentState),
       stateVersion: currentVersion,
-      members: roomManager.getMembers(data.meetingCode),
+      members: roomManager.getMembers(meetingCode),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

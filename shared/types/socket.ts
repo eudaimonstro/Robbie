@@ -159,6 +159,7 @@ export type ActionErrorCode =
   | 'ROLE_UNCHANGED'
   | 'MEMBER_EXISTS'
   | 'MEMBER_CONNECTED'
+  | 'NAME_REQUIRED'
   // Report errors
   | 'REPORT_NOT_FOUND'
   | 'REPORT_ALREADY_PRESENTED'
