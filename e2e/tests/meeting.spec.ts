@@ -81,7 +81,11 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     const sam = await open(PEOPLE.sam, PHONE);
     await sam.goto(`/meetings/${code}`);
     await expect(sam.getByText('Guest', { exact: true })).toBeVisible();
-    await expect(sam.getByRole('button', { name: 'Ask to speak' })).toBeVisible();
+    // A guest asks to speak only while a motion is debated, not during the vote
+    await expect(
+      sam.getByText('You can ask to speak once a motion is being debated.'),
+    ).toBeVisible();
+    await expect(sam.getByRole('button', { name: 'Ask to speak' })).toHaveCount(0);
     await expect(sam.getByRole('button', { name: /^Vote / })).toHaveCount(0);
 
     // The phones vote; Dana enters the show of hands and closes the vote

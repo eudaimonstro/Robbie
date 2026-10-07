@@ -119,8 +119,8 @@ function ElectionWaiting({ state }: { state: MeetingState }) {
 }
 
 /**
- * A guest follows the meeting, asks to speak and asks the chair a question (below, as members
- * do): the only things the server lets a guest do
+ * A guest follows the meeting, asks to speak while a motion is debated, and asks the chair a
+ * question (below, as members do): the only things the server lets a guest do
  */
 function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment: PhoneMoment }) {
   if (moment === 'adjourned') return null;
@@ -146,6 +146,10 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
         >
           Withdraw the request
         </button>
+      ) : moment !== 'debate' ? (
+        <p className="text-sm text-ink-muted">
+          You can ask to speak once a motion is being debated.
+        </p>
       ) : (
         <button
           type="button"

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Member, Motion } from '@robbie-bylawyer/shared/types';
@@ -255,11 +255,24 @@ describe('PhoneView', () => {
     expect(screen.getByLabelText(/^About the rules/)).toBeTruthy();
   });
 
-  it('gives a guest a Guest badge, Ask to speak and Ask the chair, and no vote', () => {
+  it('gives a guest a Guest badge and Ask the chair, and no vote', () => {
     renderAs(sam, voting);
     expect(screen.getByText('Guest')).toBeTruthy();
     expect(screen.queryAllByRole('button', { name: /^Vote / })).toHaveLength(0);
     expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
+  });
+
+  it('lets a guest ask to speak only while a debatable motion is pending', () => {
+    const { unmount } = renderAs(sam, voting);
+    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+    expect(screen.getByText('You can ask to speak once a motion is being debated.')).toBeTruthy();
+    unmount();
+
+    renderAs(sam, active);
+    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+    cleanup();
+
+    renderAs(sam, { ...active, currentMotion: motion, motionStack: [motion] });
     fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'RAISE_HAND', stance: 'neutral' }),
