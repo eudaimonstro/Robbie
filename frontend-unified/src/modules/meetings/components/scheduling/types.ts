@@ -40,6 +40,11 @@ export interface MeetingPacket {
   title?: string;
   description?: string;
   scheduledFor?: string;
+  /** The presiding officer, who chairs the live meeting; null when the admins run it */
+  chairUserId?: number | null;
+  /** When the meeting was called to order and adjourned */
+  startedAt?: string | null;
+  endedAt?: string | null;
   createdAt: string;
   attachments: Attachment[];
   agendaItems: AgendaItem[];
