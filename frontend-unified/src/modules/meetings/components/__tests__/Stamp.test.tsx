@@ -26,6 +26,13 @@ describe('Stamp', () => {
     expect(word.className).not.toContain('gavel');
   });
 
+  it('says adopted, by unanimous consent, in the carried color', () => {
+    render(<Stamp outcome="adopted" tally="By unanimous consent" />);
+    const word = screen.getByText('Adopted');
+    expect(word.className).toContain('border-carried');
+    expect(screen.getByText('By unanimous consent')).toBeTruthy();
+  });
+
   it('declares who was elected', () => {
     render(<Stamp outcome="elected" subject="Carmen Diaz, Director" size="display" />);
     expect(screen.getByText('Elected')).toBeTruthy();

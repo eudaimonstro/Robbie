@@ -3,7 +3,14 @@ import { renderHook } from '@testing-library/react';
 import { parseVoteResult, useVoteResults } from '../useVoteResults';
 import type { MeetingLogEntry, MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MOTION_FAILED_NO_SECOND,
+  MOTIONS,
+  logAdoptedByConsent,
+  logChairRuled,
+  logElectionSetAside,
+  logMotionWithdrawn,
+} from '@robbie-bylawyer/shared/constants';
 
 describe('useVoteResults', () => {
   // Runs a vote through the reducer so the log has the messages the app really writes
@@ -172,7 +179,15 @@ describe('parseVoteResult with a floor tally', () => {
       ...log('Vote: Yea 6, Nay 4. CARRIED.'),
       { time: '19:50:00', message },
     ];
-    expect(parseVoteResult(decided('Motion CARRIED by unanimous consent.'))).toBeNull();
+    expect(parseVoteResult(decided(logAdoptedByConsent()))).toBeNull();
+    expect(
+      parseVoteResult(decided(logChairRuled('The request is granted.', undefined, 'x'))),
+    ).toBeNull();
+    expect(parseVoteResult(decided(LOG_MOTION_FAILED_NO_SECOND))).toBeNull();
+    expect(parseVoteResult(decided(logMotionWithdrawn('Alice Brennan')))).toBeNull();
+    expect(parseVoteResult(decided(logElectionSetAside('Director')))).toBeNull();
+    // A line that decides nothing leaves the vote up
+    expect(parseVoteResult(decided('Frank Ruiz has joined the meeting.'))).not.toBeNull();
     expect(
       parseVoteResult(
         decided('Voting closed for Director. Results: Carmen Diaz: 9. Carmen Diaz elected.'),

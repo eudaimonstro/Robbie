@@ -9,6 +9,7 @@ import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
 import { STANCE_LABELS } from '../utils/phoneMoment';
+import { latestDecision } from '../utils/decisions';
 import { joinUrl } from '../utils/meetingLinks';
 import { formatScheduledStart } from '../../../utils/dates';
 import { AttendanceBlock } from '../components/attendance/AttendanceBlock';
@@ -115,10 +116,11 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
   const question = describeQuestion(state);
   const result = currentResult(state, voteResult);
   const debate = !!state.recognizedSpeaker || queue.length > 0;
-  // The chair's latest ruling, while nothing has happened since
-  const ruling = state.meetingLog.at(-1)?.message.startsWith('Chair ruled:')
-    ? state.lastChairRuling
-    : null;
+  // The chair's ruling, while it is the latest decision and no new motion has been made
+  const ruling =
+    latestDecision(state.meetingLog)?.kind === 'ruling' && !state.pendingSecond
+      ? state.lastChairRuling
+      : null;
 
   return (
     <>

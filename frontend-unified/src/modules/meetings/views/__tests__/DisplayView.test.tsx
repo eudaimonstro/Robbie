@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import { MOTIONS, logAdoptedByConsent, logChairRuled } from '@robbie-bylawyer/shared/constants';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 
@@ -165,6 +165,45 @@ describe('DisplayView', () => {
     render(<DisplayView />);
     expect(screen.getByText('Carried')).toBeTruthy();
     expect(screen.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeTruthy();
+  });
+
+  it('stamps a motion adopted by unanimous consent as ADOPTED, in place of an earlier vote', () => {
+    socket.state = {
+      ...inSession,
+      meetingLog: [
+        { time: '7:41:00 PM', message: 'Chair puts the question: "Resurface the pool"' },
+        { time: '7:45:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' },
+        { time: '7:52:00 PM', message: logAdoptedByConsent() },
+      ],
+    };
+    render(<DisplayView />);
+    const word = screen.getByText('Adopted');
+    expect(word.className).toContain('text-carried');
+    expect(screen.getByText('By unanimous consent')).toBeTruthy();
+    expect(screen.queryByText('Carried')).toBeNull();
+  });
+
+  it("says the chair's ruling, and takes the earlier vote down", () => {
+    socket.state = {
+      ...inSession,
+      lastChairRuling: {
+        ruling: 'The point is well taken.',
+        motionText: 'Point of order',
+        timestamp: '7:50:00 PM',
+      },
+      meetingLog: [
+        { time: '7:45:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' },
+        {
+          time: '7:50:00 PM',
+          message: logChairRuled('The point is well taken.', undefined, 'Point of order'),
+        },
+        // Someone joining afterward doesn't hide it
+        { time: '7:51:00 PM', message: 'Frank Ruiz has joined the meeting.' },
+      ],
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('The chair rules: The point is well taken.')).toBeTruthy();
+    expect(screen.queryByText('Carried')).toBeNull();
   });
 
   it('keeps ELECTED up after the chair declares the winner, until the next question', () => {

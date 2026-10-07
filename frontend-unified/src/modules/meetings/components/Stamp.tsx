@@ -14,6 +14,7 @@ const WORDS: Record<StampOutcome, string> = {
   carried: 'Carried',
   failed: 'Failed',
   elected: 'Elected',
+  adopted: 'Adopted',
 };
 
 const SIZES = {
@@ -30,8 +31,8 @@ const SIZES = {
 
 /**
  * The stamp (docs/design-brief.md), the only theater in the app: the result in Fraunces 700,
- * uppercase, in a 3px border, tilted -4 degrees, landing with a short scale and fade. Carried and
- * elected are in the carried color; failed is ink, never red.
+ * uppercase, in a 3px border, tilted -4 degrees, landing with a short scale and fade. Carried,
+ * adopted (by unanimous consent) and elected are in the carried color; failed is ink, never red.
  */
 export function Stamp({ outcome, subject, tally, size = 'panel' }: StampProps) {
   const sizes = SIZES[size];

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { MeetingLogEntry } from '@robbie-bylawyer/shared/types';
+import { latestDecision, VOTE_LINE } from '../utils/decisions';
 
 /** The last vote, as its log line recorded it */
 export interface VoteResult {
@@ -17,26 +18,22 @@ export interface VoteResult {
   tally: string;
 }
 
-// The reducer's line for a closed vote, "Vote: Yea 21, Nay 5. CARRIED.", with the parts after it
-// when the chair entered a floor tally: " On devices 12 to 3, in the room 9 to 2."
-const VOTE = /Vote: Yea (\d+), Nay (\d+)\. (CARRIED|FAILED)/;
+// The parts of a closed vote's line when the chair entered a floor tally:
+// " On devices 12 to 3, in the room 9 to 2."
 const PARTS = /On devices (\d+) to (\d+), in the room (\d+) to (\d+)\./;
-// Decisions of other kinds: once one comes after the last vote, that vote is old news
-const OTHER_DECISION =
-  /CARRIED by unanimous consent|^Voting closed for |^Chair declares .+ elected/;
 
 /**
- * The most recent vote result in the meeting log, or null when there is none or something else
- * has been decided since
+ * The most recent vote result in the meeting log, or null when there is none or the floor has
+ * moved on since (another decision, a ruling, a motion that died or was withdrawn, an election
+ * set aside)
  */
 export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | null {
-  const index = meetingLog.findLastIndex(
-    (entry) => VOTE.test(entry.message) || OTHER_DECISION.test(entry.message),
-  );
-  if (index < 0) return null;
+  const decision = latestDecision(meetingLog);
+  if (decision?.kind !== 'vote') return null;
+  const index = decision.index;
   const entry = meetingLog[index];
-  const match = entry.message.match(VOTE);
-  if (!match || OTHER_DECISION.test(entry.message)) return null;
+  const match = entry.message.match(VOTE_LINE);
+  if (!match) return null;
 
   const yea = parseInt(match[1], 10);
   const nay = parseInt(match[2], 10);

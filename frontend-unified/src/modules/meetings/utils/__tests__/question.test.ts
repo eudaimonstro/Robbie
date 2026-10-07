@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MOTION_FAILED_NO_SECOND,
+  MOTIONS,
+  logAdoptedByConsent,
+  logChairRuled,
+  logElectionSetAside,
+  logMotionWithdrawn,
+} from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import { parseVoteResult } from '../../hooks/useVoteResults';
 import {
@@ -193,6 +200,53 @@ describe('currentResult', () => {
     const vote = parseVoteResult(state.meetingLog);
     expect(currentResult(state, vote)).toMatchObject({ outcome: 'failed', tally: '3 to 9' });
     expect(currentResult({ ...state, pendingSecond: motion('mainMotion') }, vote)).toBeNull();
+  });
+
+  describe('the latest decision wins', () => {
+    const carried = 'Vote: Yea 11, Nay 2. CARRIED.';
+    const after = (message: string, state: MeetingState = voted(carried)) => {
+      const later = {
+        ...state,
+        meetingLog: [
+          ...state.meetingLog,
+          { time: '7:50:00 PM', message },
+          // Lines that decide nothing don't change it
+          { time: '7:51:00 PM', message: 'Frank Ruiz has joined the meeting.' },
+        ],
+      };
+      return currentResult(later, parseVoteResult(later.meetingLog));
+    };
+
+    it.each([
+      ['a ruling of the chair', logChairRuled('The point is well taken.', undefined, 'Order')],
+      ['a motion that died for lack of a second', LOG_MOTION_FAILED_NO_SECOND],
+      ['a withdrawal', logMotionWithdrawn('Alice Brennan')],
+      ['an election set aside', logElectionSetAside('Director')],
+      ['an election with no office set aside', logElectionSetAside(null)],
+    ])('takes a vote down after %s', (_what, message) => {
+      expect(
+        currentResult(voted(carried), parseVoteResult(voted(carried).meetingLog)),
+      ).not.toBeNull();
+      expect(after(message)).toBeNull();
+    });
+
+    it('stamps a motion adopted by unanimous consent as adopted, after a vote too', () => {
+      const adopted = {
+        outcome: 'adopted',
+        subject: null,
+        tally: 'By unanimous consent',
+      };
+      expect(after(logAdoptedByConsent())).toMatchObject(adopted);
+      expect(after(logAdoptedByConsent(), active)).toMatchObject(adopted);
+    });
+
+    it('takes an adoption by unanimous consent down after a withdrawal', () => {
+      const adopted = {
+        ...active,
+        meetingLog: [{ time: '7:45:00 PM', message: logAdoptedByConsent() }],
+      };
+      expect(after(logMotionWithdrawn('Ben Whitaker'), adopted)).toBeNull();
+    });
   });
 
   it('stamps an election when the ballot is closed with a winner', () => {
