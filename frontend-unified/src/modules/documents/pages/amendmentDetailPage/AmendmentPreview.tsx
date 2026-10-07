@@ -63,7 +63,8 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
       {sections.length === 0 ? (
         <p className="mt-4 text-ink-muted">The document has no current version to preview.</p>
       ) : (
-        <div className="mt-4 space-y-2">
+        // A readable measure, as the document page's: the page is wider than a line of text
+        <div className="mt-4 max-w-3xl space-y-2">
           {sections.map((section) => (
             <PreviewNode key={section.id} section={section} depth={0} />
           ))}
