@@ -1,16 +1,24 @@
 import { useState } from 'react';
-import { Settings, Building2, UserCircle, Trash2, Sun, Moon, Monitor } from 'lucide-react';
-import { useOrganization } from '../../../context/OrganizationContext';
+import { Settings, Building2, UserCircle, Trash2, Sun, Moon, Monitor, LogOut } from 'lucide-react';
+import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { organizations as organizationsApi } from '../../../api/client';
+import { members as membersApi, organizations as organizationsApi } from '../../../api/client';
 import Modal from '../../../components/ui/Modal';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../context/ToastContext';
+import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
+import { MembersCard } from '../components/MembersCard';
+import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
+
+const messageOf = (err: unknown, fallback: string) =>
+  err instanceof Error ? err.message : fallback;
 
 export default function SettingsPage() {
   const { currentOrganization, refreshOrganizations, setCurrentOrganization } = useOrganization();
-  const { theme, setTheme } = useTheme();
+  // The organization's name and description are the admins'; deleting it is the owners'
+  const isAdmin = useCan('admin');
+  const isOwner = useCan('owner');
   const { showToast } = useToast();
   const { user, setName } = useSession();
 
@@ -25,7 +33,7 @@ export default function SettingsPage() {
       await setName(displayName.trim());
       showToast('success', 'Name updated');
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to update your name');
+      showToast('error', messageOf(err, 'Failed to update your name'));
     } finally {
       setSavingName(false);
     }
@@ -34,9 +42,12 @@ export default function SettingsPage() {
   // Edit organization
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Delete organization
+  // Leave, and delete
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -46,14 +57,36 @@ export default function SettingsPage() {
 
     try {
       setSaving(true);
-      await organizationsApi.update(currentOrganization.id, { name: editName.trim() });
+      await organizationsApi.update(currentOrganization.id, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+      });
       await refreshOrganizations();
       setEditModalOpen(false);
       showToast('success', 'Organization updated');
-    } catch {
-      showToast('error', 'Failed to update organization');
+    } catch (err) {
+      showToast('error', messageOf(err, 'Failed to update organization'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!currentOrganization || !user) return;
+    const name = currentOrganization.name;
+    try {
+      setLeaving(true);
+      await membersApi.remove(currentOrganization.id, user.id);
+      setLeaveDialogOpen(false);
+      setCurrentOrganization(null);
+      await refreshOrganizations();
+      showToast('success', `You left ${name}`);
+    } catch (err) {
+      // The last owner can't leave: "An organization needs at least one owner"
+      setLeaveDialogOpen(false);
+      showToast('error', messageOf(err, 'Failed to leave the organization'));
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -63,12 +96,12 @@ export default function SettingsPage() {
     try {
       setDeleting(true);
       await organizationsApi.delete(currentOrganization.id);
+      setDeleteDialogOpen(false);
       setCurrentOrganization(null);
       await refreshOrganizations();
-      setDeleteDialogOpen(false);
       showToast('success', 'Organization deleted');
-    } catch {
-      showToast('error', 'Failed to delete organization');
+    } catch (err) {
+      showToast('error', messageOf(err, 'Failed to delete organization'));
     } finally {
       setDeleting(false);
     }
@@ -77,6 +110,7 @@ export default function SettingsPage() {
   const openEditModal = () => {
     if (currentOrganization) {
       setEditName(currentOrganization.name);
+      setEditDescription(currentOrganization.description ?? '');
       setEditModalOpen(true);
     }
   };
@@ -89,7 +123,7 @@ export default function SettingsPage() {
           Settings
         </h2>
         <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-          Manage your organization settings
+          Your name, your organization and its members
         </p>
       </div>
 
@@ -130,7 +164,7 @@ export default function SettingsPage() {
 
       {currentOrganization ? (
         <div className="space-y-6">
-          {/* Organization Settings */}
+          {/* Organization */}
           <div className="card">
             <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
               <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
@@ -138,18 +172,28 @@ export default function SettingsPage() {
                 Organization
               </h3>
             </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-secondary-500">Organization Name</p>
                   <p className="font-medium text-secondary-900 dark:text-white">
                     {currentOrganization.name}
                   </p>
                 </div>
-                <button onClick={openEditModal} className="btn-secondary btn-sm">
-                  Edit
-                </button>
+                {isAdmin && (
+                  <button onClick={openEditModal} className="btn-secondary btn-sm">
+                    Edit
+                  </button>
+                )}
               </div>
+              {currentOrganization.description && (
+                <div>
+                  <p className="text-sm text-secondary-500">Description</p>
+                  <p className="text-secondary-700 dark:text-secondary-300">
+                    {currentOrganization.description}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-secondary-500">Created</p>
                 <p className="text-secondary-700 dark:text-secondary-300">
@@ -159,91 +203,55 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <MembersCard />
+
           {/* Danger Zone */}
           <div className="card border-danger-200 dark:border-danger-900">
             <div className="px-6 py-4 border-b border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-900/20 rounded-t-lg">
               <h3 className="font-semibold text-danger-700 dark:text-danger-400">Danger Zone</h3>
             </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-secondary-900 dark:text-white">
-                    Delete Organization
+                    Leave Organization
                   </p>
                   <p className="text-sm text-secondary-500">
-                    Permanently delete this organization and all its data
+                    You lose access to its documents and meetings. Its last owner can't leave.
                   </p>
                 </div>
-                <button onClick={() => setDeleteDialogOpen(true)} className="btn-danger btn-sm">
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
+                <button onClick={() => setLeaveDialogOpen(true)} className="btn-secondary btn-sm">
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Leave
                 </button>
               </div>
+              {isOwner && (
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-secondary-900 dark:text-white">
+                      Delete Organization
+                    </p>
+                    <p className="text-sm text-secondary-500">
+                      Permanently delete this organization and all its data
+                    </p>
+                  </div>
+                  <button onClick={() => setDeleteDialogOpen(true)} className="btn-danger btn-sm">
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Appearance Settings */}
-          <div className="card">
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
-                <Sun className="w-5 h-5" />
-                Appearance
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-secondary-900 dark:text-white">Theme</p>
-                  <p className="text-sm text-secondary-500">Choose your preferred color scheme</p>
-                </div>
-                <div className="flex gap-1 p-1 bg-secondary-100 dark:bg-secondary-800 rounded-lg">
-                  <button
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'light'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="Light theme"
-                  >
-                    <Sun className="w-4 h-4" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'dark'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="Dark theme"
-                  >
-                    <Moon className="w-4 h-4" />
-                    Dark
-                  </button>
-                  <button
-                    onClick={() => setTheme('system')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'system'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="System theme"
-                  >
-                    <Monitor className="w-4 h-4" />
-                    System
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AppearanceCard />
 
           {/* App Info */}
           <div className="card">
             <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
               <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5" />
-                About Robbie-Bylawyer
+                About Robbie
               </h3>
             </div>
             <div className="p-6 space-y-3">
@@ -259,8 +267,8 @@ export default function SettingsPage() {
               </div>
               <div className="pt-3 border-t border-secondary-200 dark:border-secondary-700">
                 <p className="text-sm text-secondary-500">
-                  Robbie-Bylawyer combines real-time parliamentary procedure management with
-                  organizational bylaws version control.
+                  Robbie runs meetings by Robert's Rules of Order and keeps your organization's
+                  bylaws, with every version and amendment.
                 </p>
               </div>
             </div>
@@ -268,71 +276,8 @@ export default function SettingsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="card p-8 text-center">
-            <Building2 className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-secondary-900 dark:text-white mb-2">
-              No Organization Selected
-            </h3>
-            <p className="text-secondary-600 dark:text-secondary-400">
-              Select an organization from the header dropdown to manage its settings.
-            </p>
-          </div>
-
-          {/* Appearance Settings - always visible */}
-          <div className="card">
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
-                <Sun className="w-5 h-5" />
-                Appearance
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-secondary-900 dark:text-white">Theme</p>
-                  <p className="text-sm text-secondary-500">Choose your preferred color scheme</p>
-                </div>
-                <div className="flex gap-1 p-1 bg-secondary-100 dark:bg-secondary-800 rounded-lg">
-                  <button
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'light'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="Light theme"
-                  >
-                    <Sun className="w-4 h-4" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'dark'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="Dark theme"
-                  >
-                    <Moon className="w-4 h-4" />
-                    Dark
-                  </button>
-                  <button
-                    onClick={() => setTheme('system')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      theme === 'system'
-                        ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                        : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
-                    }`}
-                    aria-label="System theme"
-                  >
-                    <Monitor className="w-4 h-4" />
-                    System
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <NoOrganizations />
+          <AppearanceCard />
         </div>
       )}
 
@@ -343,7 +288,7 @@ export default function SettingsPage() {
         title="Edit Organization"
       >
         <form onSubmit={handleEditOrganization}>
-          <div className="mb-6">
+          <div className="mb-4">
             <label htmlFor="orgName" className="label">
               Organization Name
             </label>
@@ -353,7 +298,20 @@ export default function SettingsPage() {
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               className="input"
+              maxLength={200}
               autoFocus
+            />
+          </div>
+          <div className="mb-6">
+            <label htmlFor="orgDescription" className="label">
+              Description
+            </label>
+            <textarea
+              id="orgDescription"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              className="textarea h-24"
+              maxLength={2000}
             />
           </div>
           <div className="flex justify-end gap-3">
@@ -367,17 +325,73 @@ export default function SettingsPage() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation */}
+      {/* Leave Confirmation */}
       <ConfirmDialog
-        isOpen={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteOrganization}
-        title="Delete Organization"
-        message={`Are you sure you want to delete "${currentOrganization?.name}"? This will permanently delete all documents, versions, amendments, and meetings. This action cannot be undone.`}
-        confirmText="Delete Organization"
+        isOpen={leaveDialogOpen}
+        onClose={() => setLeaveDialogOpen(false)}
+        onConfirm={handleLeave}
+        title="Leave Organization"
+        message={`Leave ${currentOrganization?.name}? You lose access to its documents and meetings until someone adds you again.`}
+        confirmText="Leave organization"
         variant="danger"
-        loading={deleting}
+        loading={leaving}
       />
+
+      {/* Delete Confirmation */}
+      {deleteDialogOpen && currentOrganization && (
+        <DeleteOrganizationDialog
+          organizationName={currentOrganization.name}
+          deleting={deleting}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={handleDeleteOrganization}
+        />
+      )}
+    </div>
+  );
+}
+
+const THEMES = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'system', label: 'System', Icon: Monitor },
+] as const;
+
+/** Light, dark or the system's color scheme */
+function AppearanceCard() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="card">
+      <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
+        <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+          <Sun className="w-5 h-5" />
+          Appearance
+        </h3>
+      </div>
+      <div className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-secondary-900 dark:text-white">Theme</p>
+            <p className="text-sm text-secondary-500">Choose your preferred color scheme</p>
+          </div>
+          <div className="flex gap-1 p-1 bg-secondary-100 dark:bg-secondary-800 rounded-lg">
+            {THEMES.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  theme === value
+                    ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
+                    : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
+                }`}
+                aria-label={`${label} theme`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
