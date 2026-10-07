@@ -337,3 +337,56 @@ describe('amendment status changes', () => {
     expect(await prisma.version.count({ where: { documentId: f.doc } })).toBe(before + 1);
   });
 });
+
+describe('amendment previews', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    f = await seedFixture();
+  });
+
+  const preview = () =>
+    call('get', `/api/amendments/${f.draft}/preview`, { cookie: f.users.viewer.cookie });
+
+  it('show a modified section with its text from before', async () => {
+    const res = await preview();
+    expect(res.status).toBe(200);
+    const [name] = res.body.sections;
+    expect(name).toMatchObject({
+      id: f.section,
+      content: 'The name is A2.',
+      modified: true,
+      previous: { numberLabel: '1', title: 'Name', content: 'The name is A.' },
+    });
+    expect(name.children[0]).toMatchObject({ id: f.child, modified: false, previous: null });
+  });
+
+  it('show added and deleted sections without text from before', async () => {
+    await prisma.amendmentChange.createMany({
+      data: [
+        {
+          amendmentId: f.draft,
+          changeType: 'add',
+          newNumberLabel: '2',
+          newTitle: 'Purpose',
+          newContent: 'Gardens.',
+          position: 1,
+        },
+        { amendmentId: f.draft, changeType: 'delete', targetSectionId: f.child, position: 2 },
+      ],
+    });
+    const res = await preview();
+    const added = res.body.sections.find((s: { added: boolean }) => s.added);
+    expect(added).toMatchObject({
+      numberLabel: '2',
+      title: 'Purpose',
+      content: 'Gardens.',
+      previous: null,
+    });
+    expect(res.body.sections[0].children[0]).toMatchObject({
+      id: f.child,
+      deleted: true,
+      previous: null,
+    });
+  });
+});
