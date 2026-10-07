@@ -36,9 +36,9 @@ robbie-bylawyer/
 │       └── modules/
 │           ├── documents/  # Bylawyer functionality (document management)
 │           └── meetings/   # Robbie functionality (real-time meetings)
-│               ├── views/      # AuthScreen, MeetingApp, ChairView, ParticipantView
-│               ├── components/ # chair/, participant/, mobile/, scheduling/
-│               ├── hooks/      # useQuorumStatus, useSortedSpeakerQueue, useVoteResults
+│               ├── views/      # LiveMeetingsPage, MeetingApp, ChairConsole, PhoneView, DisplayView
+│               ├── components/ # console/, phone/, attendance/, chair/, participant/, scheduling/
+│               ├── hooks/      # useQuorumStatus, useRoster, usePacket, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
 ├── mobile/              # @robbie-bylawyer/mobile - React Native + Expo
 └── features/            # Feature specifications for Bylawyer
@@ -71,12 +71,12 @@ npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint, then the palette check
-npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes or emoji icons
-npm run e2e              # Playwright: builds, starts the API (3101) and the web build (4173) on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo
+npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes, and no emoji in frontend-unified/src or shared's constants, reducer and utils
+npm run e2e              # Playwright: builds, starts the API (3101) and the web build (4173) on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke and header tests, screenshots in both palettes and a four-browser meeting scenario
 npm run format:check     # Prettier
 ```
 
-`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101 or 4173, so stop stale ones first. Screenshots land in `e2e/test-results/`.
+`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101 or 4173, so stop stale ones first. Screenshots land in `e2e/test-results/`. The meeting scenario (`e2e/tests/meeting.spec.ts`) schedules a meeting and runs a vote with Dana chairing, Alice and Ben on phones, Pat's display and Sam as a guest, each in a browser context of their own (`personPage` in `e2e/helpers.ts`), all closed in a `finally`.
 
 The web tokens test (`frontend-unified/src/styles/__tests__/tokens.test.ts`) imports `index.css?raw`; that works because `vitest.config.ts` sets `test.css.include` to that one stylesheet (every other CSS import stays an empty module).
 
@@ -137,7 +137,8 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
 - `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer) and the code box (Robbie)
-- `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in (Robbie)
+- `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
+- `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
 - `/style-guide` - The design language: the tokens and components in both palettes
 - `/settings` - App settings
 - `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
@@ -163,6 +164,8 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 
 - Client → Server: `JOIN_MEETING` (`{ meetingCode, display? }`; a display receives the state without becoming a member), `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
 - Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR`
+
+**Screens** (`docs/design-brief.md`): `MeetingApp` shows the chair console (`views/ChairConsole.tsx`) to the chair and admins and the phone view (`views/PhoneView.tsx`) to members and guests, by `myRole` from `SocketContext` (the role the server derived and put in the state; never assume one). `/meetings/:code/display` (`display.tsx`, `views/DisplayView.tsx`) joins with `display: true`. The question card, the stamp and the attendance block are shared by all three, fed by `describeQuestion`, `currentResult` and `parseVoteResult` (`utils/question.ts`, `hooks/useVoteResults.ts`) and `attendanceSummary` (shared); the console's toolbar shows only `chairActions(state)`, and the phone's one action block follows `phoneMoment(state)`. Counts the chair enters (`SET_HEADCOUNT`, `SET_FLOOR_TALLY`, `SET_FLOOR_BALLOTS`) replace the last entry, so their forms reset with a `key` on the meeting's value. Names come from accounts: there is no Rename in the console (a rejoin restores the account name), only Hand over the chair. The console's join card folds to one line after the call to order. Adjourn is the primary action at the last agenda item, and `END_MEETING` completes the item in progress. The floor tally goes in before the chair's deciding vote, a voice vote can't close without one, and an election's totals stay hidden until the ballot closes.
 
 **Shared Package Exports:**
 
