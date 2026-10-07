@@ -12,16 +12,17 @@ describe('fileName', () => {
 describe('downloadText', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
   it('hands the browser a text file to save', () => {
+    // The release waits on a timer: faked first, so it runs only when the test says
+    vi.useFakeTimers();
     const createObjectURL = vi.fn(() => 'blob:minutes');
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-
-    vi.useFakeTimers();
 
     downloadText('minutes.md', '# Minutes');
 
@@ -32,6 +33,5 @@ describe('downloadText', () => {
     expect(revokeObjectURL).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1000);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:minutes');
-    click.mockRestore();
   });
 });
