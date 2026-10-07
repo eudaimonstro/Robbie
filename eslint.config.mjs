@@ -57,4 +57,11 @@ export default defineConfig(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // Node scripts and the Playwright harness
+    files: ['scripts/**/*.mjs', 'e2e/**/*.ts'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 );
