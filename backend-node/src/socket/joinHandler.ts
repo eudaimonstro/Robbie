@@ -11,7 +11,7 @@ import { roomManager } from './roomManager.js';
 import { getStorage, type MeetingRecord } from '../db/meetingStorage.js';
 import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction, type ApplyActionResult } from './stateManager.js';
-import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
+import { scheduleReconcile } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { emitState, publicState } from './statePublisher.js';
 import {
@@ -86,7 +86,7 @@ export async function handleJoinMeeting(
     // A socket already in another meeting leaves it first, as on disconnect; otherwise it
     // kept receiving that meeting's updates and its member stayed present there
     if (socket.data.meetingCode && socket.data.meetingCode !== meetingCode) {
-      await handleDisconnect(socket, io);
+      await handleDisconnect(socket, io, 'leave');
     }
 
     const packet = await findMeetingPacket(meetingCode);
@@ -174,13 +174,10 @@ export async function handleJoinMeeting(
       await updateSocketRoles(io, meetingCode, others);
     }
 
-    // Members still shown as present with no connection (left over from a server restart)
-    // are marked absent, so quorum counts only who is here
-    const reconciled = await markDisconnectedMembersAbsent(meetingCode, currentState);
-    if (reconciled) {
-      currentState = reconciled.state;
-      currentVersion = reconciled.stateVersion;
-    }
+    // Members still shown as present on a device with no connection (left over from a server
+    // restart) are marked absent once the grace period has passed, so quorum counts only who
+    // is here
+    scheduleReconcile(io, meetingCode);
 
     // Notify others of member joined
     socket.to(roomName).emit('MEMBER_JOINED', {
@@ -205,5 +202,35 @@ export async function handleJoinMeeting(
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error({ err: error }, 'Error joining meeting');
     callback({ success: false, error: `Failed to join meeting: ${errorMessage}` });
+  }
+}
+
+/**
+ * A socket that connection state recovery brought back (after a moment without signal):
+ * socket.io restores its rooms and socket.data, and the client doesn't join again. Count it as
+ * connected again, which ends its grace period; if the grace period ran out meanwhile, the
+ * member is present again.
+ */
+export async function handleRecoveredSocket(socket: TypedSocket, io: TypedServer): Promise<void> {
+  const meetingCode = socket.data.meetingCode;
+  if (!meetingCode || socket.data.display) return;
+  const { userId, name, role } = socket.data;
+  roomManager.addMember(meetingCode, socket.id, { id: userId, name, role, present: true });
+
+  const meeting = await getStorage().getMeeting(meetingCode);
+  const member = meeting?.state.members.find((m) => m.id === userId);
+  if (!member || member.present) return;
+  const result = await applyAction(meetingCode, {
+    type: 'SET_MEMBER_PRESENCE',
+    memberId: userId,
+    present: true,
+    timestamp: new Date().toISOString(),
+  });
+  if (result.success) {
+    emitState(io, meetingCode, {
+      state: result.state,
+      stateVersion: result.stateVersion,
+      triggeredBy: { actionType: 'MEMBER_JOINED', userId },
+    });
   }
 }

@@ -6,6 +6,7 @@ import type {
   SocketData,
 } from '@robbie-bylawyer/shared/types/socket';
 import { handleDispatchAction } from '../socket/actionHandler.js';
+import { handleDisconnect } from '../socket/disconnectHandler.js';
 import { handleJoinMeeting } from '../socket/joinHandler.js';
 import { actionRateLimiter, joinRateLimiter } from '../socket/rateLimiter.js';
 import { roomManager } from '../socket/roomManager.js';
@@ -96,14 +97,21 @@ export function liveSockets() {
     return callback.mock.calls[0][0];
   }
 
+  /** A socket's connection drops (a phone locks), starting its member's grace period */
+  function drop(socket: FakeSocket): Promise<void> {
+    return handleDisconnect(socket as never, io as never, 'disconnect');
+  }
+
   /** Forget the sockets this made, so the next test starts with nobody connected */
   function disconnectAll(): void {
     for (const socket of sockets) {
-      if (socket.data.meetingCode) roomManager.removeMember(socket.data.meetingCode, socket.id);
+      if (!socket.data.meetingCode) continue;
+      roomManager.removeMember(socket.data.meetingCode, socket.id);
+      roomManager.cancelGrace(socket.data.meetingCode, socket.data.userId);
     }
     sockets.length = 0;
     broadcasts.length = 0;
   }
 
-  return { io, sockets, broadcasts, connect, join, dispatch, disconnectAll };
+  return { io, sockets, broadcasts, connect, join, dispatch, drop, disconnectAll };
 }

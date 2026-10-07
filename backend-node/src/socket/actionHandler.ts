@@ -16,6 +16,7 @@ import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 import { applyAction } from './stateManager.js';
 import { recordMeetingTimes } from './meetingPacket.js';
+import { prepareAttendanceAction } from './attendanceActions.js';
 import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import { logger } from '../middleware/logger.js';
@@ -213,6 +214,19 @@ export async function handleDispatchAction(
       }
       enrichedAction = roleAction as MeetingAction;
     }
+
+    // Attendance: the roster entry for MARK_PRESENT, and MARK_ABSENT only once a device is gone
+    const prepared = await prepareAttendanceAction(meetingCode, meeting.state, enrichedAction);
+    if ('error' in prepared) {
+      callback({ success: false, error: prepared.error, errorCode: prepared.errorCode });
+      socket.emit('ACTION_REJECTED', {
+        clientSequence: data.clientSequence,
+        reason: prepared.error,
+        errorCode: prepared.errorCode,
+      });
+      return;
+    }
+    enrichedAction = prepared.action;
 
     // Pre-validate action before applying
     const validation = validateAction(meeting.state, enrichedAction);

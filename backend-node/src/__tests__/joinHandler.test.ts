@@ -38,9 +38,7 @@ vi.mock('../socket/meetingRoles.js', () => ({
 vi.mock('../socket/stateManager.js', () => ({
   applyAction: async () => ({ success: true, state: initialState, stateVersion: 2 }),
 }));
-vi.mock('../socket/presenceReconciler.js', () => ({
-  markDisconnectedMembersAbsent: async () => null,
-}));
+vi.mock('../socket/presenceReconciler.js', () => ({ scheduleReconcile: () => {} }));
 
 const { handleJoinMeeting } = await import('../socket/joinHandler.js');
 
