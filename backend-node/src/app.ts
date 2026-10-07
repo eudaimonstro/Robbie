@@ -24,6 +24,7 @@ import {
   packetsRouter,
   attachmentsRouter,
   agendaItemsRouter,
+  minutesRouter,
 } from './bylawyer/routes/index.js';
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
@@ -91,9 +92,10 @@ app.use(
 // The Word document for the bylaws import is read in its route (versions.ts), after the role
 // check, since express.json below leaves its types alone.
 
-// The JSON bodies that can be larger than the 100 KB default (a whole set of bylaws), also
-// read only after sign-in. The JSON parser below skips a body already read here.
-export const LARGE_JSON_PATHS = ['/api/documents/:docId/versions/import'];
+// The JSON bodies that can be larger than the 100 KB default (a whole set of bylaws, a
+// meeting's minutes), also read only after sign-in. The JSON parser below skips a body already
+// read here.
+export const LARGE_JSON_PATHS = ['/api/documents/:docId/versions/import', '/api/minutes/:id'];
 app.use(LARGE_JSON_PATHS, authenticate, requireTerms, express.json({ limit: '2mb' }));
 
 app.use(express.json());
@@ -127,6 +129,7 @@ app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
 app.use('/api', membersRouter);
+app.use('/api', minutesRouter);
 
 // An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
 // catch-all below

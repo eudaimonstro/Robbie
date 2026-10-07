@@ -7,6 +7,7 @@ import {
   orgOfAttachment,
   orgOfDocument,
   orgOfMeeting,
+  orgOfMinutes,
   orgOfOrganization,
   orgOfPacket,
   orgOfPacketCode,
@@ -42,6 +43,7 @@ describe('resolvers', () => {
     expect(await orgOfPacketCode('ORGA01')).toBe(a);
     expect(await orgOfAgendaItem(f.item)).toBe(a);
     expect(await orgOfAttachment(f.upload)).toBe(a);
+    expect(await orgOfMinutes(f.minutes)).toBe(a);
     expect(await orgOfDocument(f.docB)).toBe(f.orgB.id);
     expect(await orgOfPacketCode('ORGB01')).toBe(f.orgB.id);
   });
@@ -71,6 +73,7 @@ describe('resolvers', () => {
       orgOfPacket,
       orgOfAgendaItem,
       orgOfAttachment,
+      orgOfMinutes,
     ];
     for (const find of byId) expect(await find(MISSING)).toBeNull();
     expect(await orgOfSlug('no-such-org')).toBeNull();

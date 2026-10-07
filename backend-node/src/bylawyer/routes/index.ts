@@ -17,3 +17,6 @@ export { robbieRouter } from './robbie.js';
 export { packetsRouter } from './packets.js';
 export { attachmentsRouter } from './attachments.js';
 export { agendaItemsRouter } from './agenda-items.js';
+
+// The minutes of scheduled meetings
+export { minutesRouter } from './minutes.js';
