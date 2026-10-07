@@ -103,7 +103,9 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 - Socket.io for real-time meeting state synchronization
 - Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
 - Organization membership with roles (viewer, member, secretary, admin, owner); acceptance of the current Terms of Service (`TERMS_VERSION` in shared) before using the API or socket
-- Meeting storage (PostgreSQL or in-memory fallback)
+- Meeting storage in PostgreSQL. A live meeting is created from its packet (its scheduled meeting), so meetings need the database; the in-memory storage mode can't run one.
+- Meeting roles from the organization at every join: the packet's presiding officer is the chair, secretaries and above are admins, members are members, everyone else is a non-voting guest
+- Attendance as members on a device, members marked present by the chair, and a headcount of people without an account (`attendanceSummary` in shared); votes as device votes plus the chair's floor tally
 - Parliamentary procedure state management
 
 **Bylawyer Features:**
@@ -152,7 +154,7 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 
 **Socket.io Events:**
 
-- Client → Server: `JOIN_MEETING`, `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
+- Client → Server: `JOIN_MEETING` (`{ meetingCode, display? }`; a display receives the state without becoming a member), `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
 - Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR`
 
 **Shared Package Exports:**
@@ -197,7 +199,10 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `GET/POST /api/documents/{id}/amendments` - Amendments for document
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
-- `POST /api/organizations/{id}/packets` - Create a meeting packet (claims a meeting code); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `PUT /api/organizations/{id}` - Name, description, and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
+- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `GET /api/packets/{code}/roster` - The meeting's organization's members and pending additions, for marking people present
+- `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
 - `POST /api/auth/accept-terms` - Accept the current terms
 - `GET /api/robbie/sync-status/:meetingCode/:motionId` - Check sync status
@@ -229,6 +234,8 @@ APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
+No variable sets meeting roles: the chair, admins, members and guests of a live meeting come from the organization at every join (see Key Conventions, Live meetings).
+
 ### Frontend Unified
 
 Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST client always calls same-origin `/api`, so production must serve the API on the app's origin (or behind a reverse proxy).
@@ -259,7 +266,9 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 
 10. **Organizations and roles:** roles, lowest first: viewer (reads everything in the organization, lists members), member (drafts amendments and edits or deletes their own drafts), secretary (edits documents, decides and applies amendments, records meetings and votes, manages packets, agenda items and attachments, links live meetings), admin (name and description, share links, adds, changes and removes members up to admin), owner (manages owners, deletes the organization). An organization keeps at least one owner. Every `/api` route outside `/api/auth`, `/api/share` and `/api/health` runs `requireRole(minRole, resolver)` from `backend-node/src/orgs` (or `signedInOnly()` for the user's own organizations) after `validate(...)`; outsiders get 404, roles too low 403. `src/__integration__/routeCoverage.test.ts` fails on a route without a rule. A handler that takes a second resource checks it against `req.org.id` and answers 404 if it is elsewhere. For development data, `npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <role>`.
 
-11. **Design brief:** new UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); existing screens move onto it as they are touched.
+11. **Live meetings:** a meeting code is a `MeetingPacket`; `JOIN_MEETING` refuses a code without one and creates the live state from it (`backend-node/src/socket/meetingPacket.ts`). Meeting roles come from `deriveMeetingRole` (`socket/meetingRoles.ts`) at every join, never from memory. Every action goes through the reducer, `actionValidator`, `permissionGuard` and `actionEnricher`, and all four are exhaustive over the action union: a new action needs a case in the reducer and the validator, an entry in `PERMISSIONS` (empty for server-only actions) and an entry in `ACTOR_FIELDS`. Every state sent to clients goes through `publicState` (`socket/statePublisher.ts`), which strips secret ballot choices. A dropped connection gets `PRESENCE_GRACE_MS` (90 seconds) before its member is marked absent; only device presence (`presentBy: 'device'`) is cleared automatically.
+
+12. **Design brief:** new UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); existing screens move onto it as they are touched.
 
 ## Feature Specifications
 

@@ -39,6 +39,7 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+.vitest/
 
 # Mobile
 mobile/.expo/

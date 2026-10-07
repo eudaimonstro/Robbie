@@ -160,4 +160,4 @@ Three screens are designed with the frontend-design skill and built on the exist
 - The headcount is the chair's word. The display shows it, and the minutes record it, but nothing verifies it.
 - A floor tally for a ballot vote is a tellers' count entered by the chair; the paper ballots themselves are outside the app.
 - Members marked present by the chair cannot vote on a device unless they sign in; their votes are part of the floor tally.
-- A device-present member who leaves the room with their phone connected stays present until they disconnect or the chair marks them absent.
+- A device-present member who leaves the room with their phone connected stays present until they disconnect; the chair can mark them absent only once the device is gone.
