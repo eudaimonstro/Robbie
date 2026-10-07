@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { initialState } from '../../reducer/index.js';
 import { NO_VOTES, formatMinutesAsMarkdown, generateMeetingMinutes } from '../../utils/index.js';
+import { md } from '../../utils/minutesGenerator.js';
 import type { CompletedMotion, MeetingState, MinutesContext } from '../../types/index.js';
 
 /** The server's clock on the night, in UTC (7:00 PM in Chicago is midnight UTC) */
@@ -477,5 +478,61 @@ describe('the minutes', () => {
       calledToOrderAt: '2026-10-21T00:02:00.000Z',
     });
     expect(markdown).toContain('The meeting was called to order at 12:02 AM.');
+  });
+});
+
+describe('what members typed, in the minutes', () => {
+  it('is escaped, so Markdown reads it as text', () => {
+    expect(md('![x](http://e)')).toBe('\\!\\[x\\]\\(http://e\\)');
+    expect(md('<img onerror=x>')).toBe('\\<img onerror=x\\>');
+    expect(md('[link](javascript:x)')).toBe('\\[link\\]\\(javascript:x\\)');
+    expect(md('Ann *Star* Lee_')).toBe('Ann \\*Star\\* Lee\\_');
+    expect(md('a | b ` c ~ d \\ e # f')).toBe('a \\| b \\` c \\~ d \\\\ e \\# f');
+  });
+
+  it('is one line, and never starts a list, a quote or a heading', () => {
+    expect(md('Repave the lot\n\n# Fake heading')).toBe('Repave the lot \\# Fake heading');
+    expect(md('  - item')).toBe('\\- item');
+    expect(md('+ item')).toBe('\\+ item');
+    expect(md('> quote')).toBe('\\> quote');
+    expect(md('# heading')).toBe('\\# heading');
+    expect(md('2026. A year')).toBe('2026\\. A year');
+    expect(md('Plain words, 4.2 and 15%')).toBe('Plain words, 4.2 and 15%');
+  });
+
+  it('prints in the minutes as the member typed it, never as markup', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      members: [{ id: 1, name: 'Dana *the Chair*', role: 'chair', present: true }],
+      attendedIds: [1],
+      headcount: 1,
+      headcountNames: ['<img onerror=x>'],
+      agenda: [{ id: 1, title: '[link](javascript:x)', status: 'completed' }],
+      completedMotions: [
+        record({
+          id: 1,
+          text: 'Buy a sign ![x](http://e)\n# Fake heading',
+          mover: 'Ann *Star* Lee',
+          seconder: '[Bo](javascript:x)',
+          disposition: 'unanimous',
+          agendaItemId: 1,
+        }),
+      ],
+    } as MeetingState);
+    const markdown = formatMinutesAsMarkdown(minutes, {
+      ...nothingKnown,
+      organizationName: 'Garden <b>Club</b>',
+      location: '# The hall',
+    });
+    expect(markdown).toContain('# Garden \\<b\\>Club\\</b\\>\n');
+    expect(markdown).toContain('At \\# The hall.\n');
+    expect(markdown).toContain('**Members present (1):** Dana \\*the Chair\\*.\n');
+    expect(markdown).toContain('**Also present without an account (1):** \\<img onerror=x\\>.\n');
+    expect(markdown).toContain('### 1. \\[link\\]\\(javascript:x\\)\n');
+    expect(markdown).toContain(
+      '**Main motion.** Ann \\*Star\\* Lee moved: "Buy a sign \\!\\[x\\]\\(http://e\\) \\# Fake heading." Seconded by \\[Bo\\]\\(javascript:x\\). Adopted by unanimous consent.\n',
+    );
+    // No line of the minutes is the member's heading
+    expect(markdown.split('\n')).not.toContain('# Fake heading');
   });
 });

@@ -28,6 +28,21 @@ interface Placed {
 const byName = (a: string, b: string) => a.localeCompare(b);
 
 /**
+ * What a member typed, as literal text in the minutes' Markdown: on one line (newlines and runs
+ * of spaces made one space), with every character Markdown reads as markup escaped, and a start
+ * that would make a list item, a quote or a heading escaped too. The formatter's own Markdown
+ * is never put through this.
+ */
+export function md(text: string): string {
+  return String(text)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[\\*_[\]()!#<>|`~]/g, '\\$&')
+    .replace(/^([-+])/, '\\$1')
+    .replace(/^(\d+)\./, '$1\\.');
+}
+
+/**
  * What the minutes of a meeting record, from its final state: who attended (anyone present at
  * any point), and each agenda item with what was decided under it, in the order it happened
  * by the server's clock. Votes and ballots are counts: who voted which way is never kept here.
@@ -197,20 +212,20 @@ function outcomeText(motion: CompletedMotion): string {
 }
 
 function motionText(motion: CompletedMotion): string {
-  const text = `"${sentence(motion.text)}"`;
+  const text = `"${sentence(md(motion.text))}"`;
   const moved =
     motion.mover === PUT_BY_CHAIR
       ? `The chair put the question: ${text}`
       : motion.mover
-        ? `${motion.mover} moved: ${text}`
+        ? `${md(motion.mover)} moved: ${text}`
         : `Moved: ${text}`;
-  const seconded = motion.seconder ? ` Seconded by ${motion.seconder}.` : '';
-  return `**${plainMotionName(motion.name, motion.type)}.** ${moved}${seconded} ${outcomeText(motion)}`;
+  const seconded = motion.seconder ? ` Seconded by ${md(motion.seconder)}.` : '';
+  return `**${md(plainMotionName(motion.name, motion.type))}.** ${moved}${seconded} ${outcomeText(motion)}`;
 }
 
 function rulingText(ruling: ChairRulingRecord): string {
-  const why = ruling.explanation ? ` ${sentence(ruling.explanation)}` : '';
-  return `**Ruling of the chair.** On "${sentence(ruling.motionText)}" the chair ruled: ${ruling.ruling}${why}`;
+  const why = ruling.explanation ? ` ${sentence(md(ruling.explanation))}` : '';
+  return `**Ruling of the chair.** On "${sentence(md(ruling.motionText))}" the chair ruled: ${md(ruling.ruling)}${why}`;
 }
 
 type Ballots = ReadonlyArray<Record<string, number>> | undefined;
@@ -220,7 +235,7 @@ function ballotTallies(ballots: Ballots): string[] {
   return (ballots ?? []).map((counts, index) => {
     const tally = Object.entries(counts)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([name, count]) => `${name} ${count}`)
+      .map(([name, count]) => `${md(name)} ${count}`)
       .join(', ');
     return `Ballot ${index + 1}: ${tally}`;
   });
@@ -230,37 +245,38 @@ function ballotTallies(ballots: Ballots): string[] {
 function electedText(officer: Officer): string {
   switch (officer.requiredVotes) {
     case '2/3':
-      return `${officer.name} was elected, two thirds required.`;
+      return `${md(officer.name)} was elected, two thirds required.`;
     case 'plurality':
-      return `${officer.name} was elected by a plurality.`;
+      return `${md(officer.name)} was elected by a plurality.`;
     default:
-      return `${officer.name} was elected.`;
+      return `${md(officer.name)} was elected.`;
   }
 }
 
 function electionText(officer: Officer): string {
   const ballots = ballotTallies(officer.ballots).map((tally) => `${tally}.`);
-  return [`**Election for ${officer.position}.**`, ...ballots, electedText(officer)].join(' ');
+  return [`**Election for ${md(officer.position)}.**`, ...ballots, electedText(officer)].join(' ');
 }
 
 function setAsideText(setAside: ElectionSetAsideRecord): string {
   const ballots = ballotTallies(setAside.ballots).map((tally) => `${tally}.`);
-  return [logElectionSetAside(setAside.position), ...ballots].join(' ');
+  const position = setAside.position === null ? null : md(setAside.position);
+  return [logElectionSetAside(position), ...ballots].join(' ');
 }
 
 /** 'the motion "Repave the lot" (Main motion, moved by Pat and seconded by Carmen)' and the like */
 function unfinishedText(record: UnfinishedBusinessRecord): string {
   if (record.kind === 'election') {
     const ballots = ballotTallies(record.ballots);
-    return `the election for ${record.position}${ballots.length > 0 ? ` (${ballots.join('; ')})` : ''}`;
+    return `the election for ${md(record.position)}${ballots.length > 0 ? ` (${ballots.join('; ')})` : ''}`;
   }
-  const moved = record.mover === PUT_BY_CHAIR ? 'put by the chair' : `moved by ${record.mover}`;
+  const moved = record.mover === PUT_BY_CHAIR ? 'put by the chair' : `moved by ${md(record.mover)}`;
   const seconded = record.seconder
-    ? ` and seconded by ${record.seconder}`
+    ? ` and seconded by ${md(record.seconder)}`
     : record.awaitingSecond
       ? ' and awaiting a second'
       : '';
-  return `the motion "${record.text.trim()}" (${plainMotionName(record.name)}, ${moved}${seconded})`;
+  return `the motion "${md(record.text)}" (${md(plainMotionName(record.name))}, ${moved}${seconded})`;
 }
 
 /** "The meeting adjourned at 8:42 PM with the following unfinished: ..." */
@@ -279,7 +295,7 @@ function adjournmentText(
 
 function approvalText(approval: MinutesApprovalRecord): string {
   return approval.corrections
-    ? `The minutes of the previous meeting were approved with corrections: ${sentence(approval.corrections)}`
+    ? `The minutes of the previous meeting were approved with corrections: ${sentence(md(approval.corrections))}`
     : 'The minutes of the previous meeting were approved as read.';
 }
 
@@ -308,16 +324,16 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   const lines: string[] = [];
   const paragraph = (text: string) => lines.push(text, '');
 
-  paragraph(`# ${context.organizationName}`);
-  paragraph(`## Minutes of the ${context.title || minutes.title || 'Meeting'}`);
+  paragraph(`# ${md(context.organizationName)}`);
+  paragraph(`## Minutes of the ${md(context.title || minutes.title || 'Meeting')}`);
   const day = context.scheduledFor ?? context.calledToOrderAt;
   if (day) {
-    paragraph(`${longDate(day, zone)}${context.location ? `, at ${context.location}` : ''}.`);
+    paragraph(`${longDate(day, zone)}${context.location ? `, at ${md(context.location)}` : ''}.`);
   } else if (context.location) {
-    paragraph(`At ${context.location}.`);
+    paragraph(`At ${md(context.location)}.`);
   }
   const opening = [
-    ...(minutes.chairName ? [`${minutes.chairName} presided.`] : []),
+    ...(minutes.chairName ? [`${md(minutes.chairName)} presided.`] : []),
     ...(context.calledToOrderAt
       ? [`The meeting was called to order at ${clockTime(context.calledToOrderAt, zone)}.`]
       : []),
@@ -325,14 +341,16 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   if (opening.length > 0) paragraph(opening.join(' '));
 
   paragraph('## Attendance');
-  const members = minutes.present.map((p) => (p.marked ? `${p.name} (marked present)` : p.name));
+  const members = minutes.present.map((p) =>
+    p.marked ? `${md(p.name)} (marked present)` : md(p.name),
+  );
   paragraph(
     members.length > 0
       ? `**Members present (${members.length}):** ${members.join(', ')}.`
       : '**Members present:** none.',
   );
   if (minutes.headcount > 0) {
-    const named = minutes.headcountNames;
+    const named = minutes.headcountNames.map(md);
     const others = minutes.headcount - named.length;
     if (named.length === 0) {
       paragraph(`**Also present without an account:** ${minutes.headcount}.`);
@@ -343,12 +361,13 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
       );
     }
   }
-  if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.join(', ')}.`);
+  if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.map(md).join(', ')}.`);
   const presentIds = new Set(minutes.present.map((p) => p.id));
   const absent = context.voters
     .filter((v) => !presentIds.has(v.id))
     .map((v) => v.name)
-    .sort(byName);
+    .sort(byName)
+    .map(md);
   if (absent.length > 0) paragraph(`**Absent (${absent.length}):** ${absent.join(', ')}.`);
   if (minutes.quorumAtCallToOrder !== null) {
     paragraph(
@@ -358,7 +377,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
 
   paragraph('## Proceedings');
   minutes.items.forEach((item, index) => {
-    paragraph(`### ${index + 1}. ${item.title}`);
+    paragraph(`### ${index + 1}. ${md(item.title)}`);
     if (item.status === 'pending' && item.entries.length === 0) paragraph('Not taken up.');
     for (const entry of item.entries) paragraph(entryText(entry));
   });
