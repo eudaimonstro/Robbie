@@ -40,12 +40,9 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   authenticate,
   requireTerms,
   'rawParser',
-  // The larger JSON bodies (LARGE_JSON_PATHS): the same, for 2 MB. The Word document import
-  // reads its body in its route, after the role check.
-  authenticate,
-  requireTerms,
-  'jsonParser',
-  'jsonParser',
+  // Every JSON body but the larger ones (LARGE_JSON_ROUTES), which their routes read after
+  // the role check, as the Word document import reads its file
+  'jsonBodies',
   // Everything under /api after the public routers
   authenticate,
   requireTerms,

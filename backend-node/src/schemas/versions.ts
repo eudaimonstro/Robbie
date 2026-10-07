@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_SECTION_DEPTH } from '@robbie-bylawyer/shared/utils';
 import { dateString } from './common.js';
 
 export const createVersionBody = z.object({
@@ -30,15 +31,39 @@ export interface ImportedSection {
   children: ImportedSection[];
 }
 
-/** At most this many sections in one import, and this many levels */
+/** At most this many sections in one import, and this many levels (as deep as the parser nests) */
 export const MAX_IMPORTED_SECTIONS = 2000;
-export const MAX_IMPORT_DEPTH = 6;
+export const MAX_IMPORT_DEPTH = MAX_SECTION_DEPTH;
+/** The longest text of one section */
+export const MAX_SECTION_CONTENT = 100_000;
+
+/** The answer when the parser found no headings in a text too long to be one section */
+export const NO_HEADINGS =
+  'The text has no headings Robbie recognizes; add Article or Section headings';
+
+/**
+ * Whether a body is a text the parser found no headings in (all of it one untitled section, the
+ * preamble), too long to be one section: its answer is NO_HEADINGS rather than a limit
+ */
+export function isLongTextWithoutHeadings(body: unknown): boolean {
+  const sections = (body as { sections?: unknown } | null)?.sections;
+  if (!Array.isArray(sections) || sections.length !== 1) return false;
+  const only = sections[0] as Partial<ImportedSection> | null;
+  return (
+    !!only &&
+    only.numberLabel == null &&
+    only.title == null &&
+    (!Array.isArray(only.children) || only.children.length === 0) &&
+    typeof only.content === 'string' &&
+    only.content.length > MAX_SECTION_CONTENT
+  );
+}
 
 const importedSection: z.ZodType<ImportedSection> = z.lazy(() =>
   z.object({
     numberLabel: z.string().max(100).nullable(),
     title: z.string().max(500).nullable(),
-    content: z.string().max(100_000),
+    content: z.string().max(MAX_SECTION_CONTENT),
     children: z.array(importedSection),
   }),
 );

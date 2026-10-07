@@ -4,6 +4,7 @@
 
 import type { MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
 import { formatMinutesAsMarkdown, generateMeetingMinutes } from '@robbie-bylawyer/shared/utils';
+import { getStorage } from '../../db/meetingStorage.js';
 import { prisma } from '../../db/prisma.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { logger } from '../../middleware/logger.js';
@@ -99,6 +100,32 @@ export function previousMinutesFor(
     ],
     select: { id: true, body: true },
   });
+}
+
+/**
+ * Whether these minutes are before a live meeting of the organization: put before it to approve
+ * (its previousMinutesId), and the meeting not adjourned (its packet not ended). Corrections
+ * are made there, so the minutes the meeting holds stay the minutes it approves.
+ */
+export async function minutesBeforeLiveMeeting(
+  organizationId: string,
+  minutesId: string,
+): Promise<boolean> {
+  const packets = await prisma.meetingPacket.findMany({
+    where: { organizationId, endedAt: null },
+    select: { robbieCode: true },
+  });
+  const storage = getStorage();
+  for (const { robbieCode } of packets) {
+    const meeting = await storage.getMeeting(robbieCode);
+    if (
+      meeting?.state.previousMinutesId === minutesId &&
+      meeting.state.meetingStage !== 'adjourned'
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

@@ -38,7 +38,7 @@ export async function handleRequestState(
 
     callback({
       success: true,
-      state: publicState(meeting.state),
+      state: publicState(meeting.state, socket.data.role),
       stateVersion: meeting.stateVersion,
     });
   } catch (error) {

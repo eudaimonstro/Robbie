@@ -91,6 +91,28 @@ describe('bylaw sync', () => {
     });
   });
 
+  it('counts no votes for unanimous consent, whatever an earlier vote left', async () => {
+    // The votes of the last question taken, still in the state, and a record without its parts
+    const { before } = votedStates(f.doc, f.section);
+    const after = {
+      ...initialState,
+      completedMotions: [{ id: 41, passed: true, voterChoices: {}, disposition: 'unanimous' }],
+    } as unknown as MeetingState;
+    const consent = { type: 'UNANIMOUS_CONSENT_PASSED' } as unknown as MeetingAction;
+    const result = await checkAndSyncBylawAmendment(f.packet.code, consent, before, after);
+    expect(result).toMatchObject({ success: true, applied: true });
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+    });
+    expect(amendment.robbieVoteData).toMatchObject({
+      yeaCount: 0,
+      nayCount: 0,
+      abstainCount: 0,
+      deviceVotes: { yea: 0, nay: 0, abstain: 0 },
+      disposition: 'unanimous',
+    });
+  });
+
   it('records the device votes, the floor tally and their total', async () => {
     const { before } = votedStates(f.doc, f.section);
     const after = {

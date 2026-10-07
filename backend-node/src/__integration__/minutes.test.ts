@@ -5,6 +5,7 @@ import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import {
   MINUTES_APPROVED,
+  MINUTES_BEFORE_MEETING,
   NO_MEETING_RECORD,
   ONLY_DRAFTS_REGENERATE,
 } from '../bylawyer/routes/minutes.js';
@@ -154,6 +155,27 @@ describe('minutes', () => {
     expect((await put('x'.repeat(200_001))).status).toBe(400);
   });
 
+  it('take a large body only where the text is saved, after the role check', async () => {
+    // Over the usual 100 KB: refused by every other minutes route, as it is everywhere else
+    const large = { body: 'x'.repeat(200_000) };
+    for (const path of [
+      `/api/minutes/${f.draftMinutes}/publish`,
+      `/api/minutes/${f.draftMinutes}/regenerate`,
+    ]) {
+      const res = await call('post', path, { cookie: as('secretary'), body: large });
+      expect(res.status, path).toBe(413);
+    }
+    // Read only for a secretary: a viewer's is refused for the role, without reading it
+    const viewer = await call('put', `/api/minutes/${f.draftMinutes}`, {
+      cookie: as('viewer'),
+      body: { body: 'x'.repeat(1024 * 1024 + 1) },
+    });
+    expect(viewer.status).toBe(403);
+    expect((await prisma.minutes.findUniqueOrThrow({ where: { id: f.draftMinutes } })).status).toBe(
+      'draft',
+    );
+  });
+
   it('are published once, and approved minutes are not changed', async () => {
     const path = `/api/minutes/${f.draftMinutes}/publish`;
     const published = await call('post', path, { cookie: as('secretary') });
@@ -186,6 +208,53 @@ describe('minutes', () => {
     const stored = await prisma.minutes.findUniqueOrThrow({ where: { id: f.minutes } });
     expect(stored).toMatchObject({ status: 'approved' });
     expect(stored.body).not.toBe('Changed');
+  });
+
+  it('are not changed once they are before a meeting that has not adjourned', async () => {
+    const edit = (body: string) =>
+      call('put', `/api/minutes/${f.minutes}`, { cookie: as('secretary'), body: { body } });
+    // Published, and not yet before any meeting: the secretary can still fix them
+    expect((await edit('Fixed before the meeting')).status).toBe(200);
+
+    // ORGA01 opens and puts them before it to approve
+    await getStorage().getOrCreateMeeting('ORGA01', {
+      ...initialState,
+      meetingCode: 'ORGA01',
+      organizationId: f.orgA.id,
+      minutesFromPreviousMeeting: 'Fixed before the meeting',
+      previousMinutesId: f.minutes,
+    });
+    const locked = await edit('Changed while the meeting has them');
+    expect(locked.status).toBe(409);
+    expect(locked.body).toEqual({ error: MINUTES_BEFORE_MEETING });
+    // Called to order: still before it
+    const meeting = (await getStorage().getMeeting('ORGA01'))!;
+    await getStorage().updateMeetingState(
+      'ORGA01',
+      { ...meeting.state, meetingActive: true, meetingStage: 'call-to-order' },
+      meeting.stateVersion,
+      meeting.stateVersion + 1,
+    );
+    expect((await edit('Changed in the meeting')).status).toBe(409);
+    const stored = await prisma.minutes.findUniqueOrThrow({ where: { id: f.minutes } });
+    expect(stored.body).toBe('Fixed before the meeting');
+
+    // A draft of the same meeting is the secretary's to edit as ever
+    expect(
+      (
+        await call('put', `/api/minutes/${f.draftMinutes}`, {
+          cookie: as('secretary'),
+          body: { body: 'Draft' },
+        })
+      ).status,
+    ).toBe(200);
+
+    // Adjourned (the packet ended) without approving them: they can be fixed again
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { endedAt: new Date() },
+    });
+    expect((await edit('Fixed after the meeting')).status).toBe(200);
   });
 
   it('are written again from the meeting, for a draft only', async () => {

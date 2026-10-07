@@ -90,6 +90,38 @@ describe('searching the bylaws', () => {
     expect((await search('gate')).body.results).toHaveLength(20);
   });
 
+  it('answers the first 20 by document title and position, the same every time', async () => {
+    // Bylaws has 25 matches; Alpha, one, in a version whose id sorts after every other
+    await prisma.section.createMany({
+      data: Array.from({ length: 25 }, (_, position) => ({
+        versionId: f.v2,
+        position: position + 1,
+        content: `The gate code is ${position}.`,
+      })),
+    });
+    const alpha = await prisma.document.create({
+      data: { organizationId: f.orgA.id, title: 'Alpha rules' },
+    });
+    const version = await prisma.version.create({
+      data: { id: 'ffffffff-ffff-4fff-bfff-ffffffffffff', documentId: alpha.id, versionNumber: 1 },
+    });
+    await prisma.document.update({
+      where: { id: alpha.id },
+      data: { currentVersionId: version.id },
+    });
+    const section = await prisma.section.create({
+      data: { versionId: version.id, content: 'Close the gate at dusk.' },
+    });
+
+    const results = (await search('gate')).body.results;
+    expect(results).toHaveLength(20);
+    expect(results[0]).toMatchObject({ documentTitle: 'Alpha rules', sectionId: section.id });
+    // Then Bylaws' sections in order: the first 19 of the 25
+    expect(results.slice(1).map((r: { snippet: string }) => r.snippet)).toEqual(
+      Array.from({ length: 19 }, (_, i) => `The gate code is ${i}.`),
+    );
+  });
+
   it('needs at least 2 characters', async () => {
     expect((await search('a')).status).toBe(400);
     expect((await search(' a ')).status).toBe(400);

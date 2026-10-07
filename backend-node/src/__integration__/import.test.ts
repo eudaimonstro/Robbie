@@ -4,6 +4,7 @@ import { parseBylaws } from '@robbie-bylawyer/shared/utils';
 import { app } from '../app.js';
 import { prisma } from '../db/prisma.js';
 import { DOCX_TOO_LARGE, NOT_A_DOCX, NO_FILE } from '../bylawyer/services/docxText.js';
+import { NO_HEADINGS } from '../schemas/versions.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -250,6 +251,34 @@ describe('importing parsed sections', () => {
       .send(json);
     expect(res.status).toBe(400);
     expect(await prisma.version.count({ where: { documentId: f.doc } })).toBe(2);
+  });
+
+  it('takes whatever the parser finds, however deep the text numbers its sections', async () => {
+    const levels = ['1.1', '1.1.1', '1.1.1.1', '1.1.1.1.1', '1.1.1.1.1.1', '1.1.1.1.1.1.1'];
+    const text = ['Article I. Rules', ...levels.map((label) => `${label} Level ${label}`)].join(
+      '\n',
+    );
+    const res = await importSections({ sections: parseBylaws(text) });
+    expect(res.status).toBe(201);
+    expect(res.body.sectionCount).toBe(6);
+  });
+
+  it('says so when the text has no headings and is too long for one section', async () => {
+    const text = 'The members meet each spring and vote on the budget. '.repeat(2000);
+    const sections = parseBylaws(text);
+    expect(sections).toHaveLength(1);
+    const res = await importSections({ sections });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: NO_HEADINGS });
+  });
+
+  it("doesn't read the large body of a member who isn't a secretary", async () => {
+    // 1 MB the route would refuse once read (400): refused for the role first, a 403
+    const res = await call('post', `/api/documents/${f.doc}/versions/import`, {
+      cookie: f.users.viewer.cookie,
+      body: { sections: 'x'.repeat(1024 * 1024) },
+    });
+    expect(res.status).toBe(403);
   });
 
   it('takes bylaws larger than the usual 100 KB limit', async () => {

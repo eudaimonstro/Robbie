@@ -32,6 +32,9 @@ export const MAX_FLOOR_COUNT = 1_000_000;
 /** The longest corrections to the previous minutes the chair can enter */
 export const MAX_CORRECTIONS_LENGTH = 2000;
 
+/** The longest explanation the chair can give with a ruling (it goes in the minutes) */
+export const MAX_RULING_EXPLANATION_LENGTH = 2000;
+
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
@@ -1126,6 +1129,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'The chair cannot rule while a vote is in progress',
           errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (
+        action.explanation !== undefined &&
+        (typeof action.explanation !== 'string' ||
+          action.explanation.length > MAX_RULING_EXPLANATION_LENGTH)
+      ) {
+        return {
+          valid: false,
+          error: `An explanation can be at most ${MAX_RULING_EXPLANATION_LENGTH} characters`,
+          errorCode: 'INVALID_ACTION',
         };
       }
       // The reducer handles context-specific validation

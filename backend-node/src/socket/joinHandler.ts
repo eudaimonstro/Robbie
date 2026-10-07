@@ -174,7 +174,7 @@ export async function handleJoinMeeting(
       socket.join(roomName);
       callback({
         success: true,
-        state: publicState(meeting.state),
+        state: publicState(meeting.state, 'guest'),
         stateVersion: meeting.stateVersion,
         members: roomManager.getMembers(meetingCode),
       });
@@ -260,7 +260,7 @@ export async function handleJoinMeeting(
 
     callback({
       success: true,
-      state: publicState(currentState),
+      state: publicState(currentState, role),
       stateVersion: currentVersion,
       members: roomManager.getMembers(meetingCode),
     });

@@ -175,7 +175,11 @@ async function syncMotionToBylawyer(
 
     // Build vote data: the device votes and the chair's floor tally, and their total, and how
     // the motion was disposed of (no votes at all when adopted by unanimous consent)
-    const deviceVotes = completedMotion.deviceVotes ?? previousState.votes;
+    // A record made before the parts were kept is counted from the meeting's votes, unless no
+    // vote was taken: the votes left over from an earlier question are not this motion's
+    const deviceVotes =
+      completedMotion.deviceVotes ??
+      (completedMotion.disposition === 'unanimous' ? NO_VOTES : previousState.votes);
     const floorVotes = completedMotion.floorVotes ?? NO_VOTES;
     const voteData = {
       yeaCount: deviceVotes.yea + floorVotes.yea,

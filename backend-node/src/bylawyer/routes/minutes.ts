@@ -10,6 +10,7 @@ import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { OrgRole, Prisma } from '../../generated/prisma/client.js';
 import { getStorage } from '../../db/meetingStorage.js';
+import { largeJson } from '../../middleware/largeJson.js';
 import { validate } from '../../middleware/validate.js';
 import { logger } from '../../middleware/logger.js';
 import { orgIdParam, uuidParam } from '../../schemas/common.js';
@@ -17,7 +18,11 @@ import { updateMinutesBody } from '../../schemas/minutes.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfMinutes, orgOfOrganization } from '../../orgs/resolvers.js';
 import { atLeast } from '../../orgs/roles.js';
-import { minutesContext, writeMinutes } from '../services/meetingMinutes.js';
+import {
+  minutesBeforeLiveMeeting,
+  minutesContext,
+  writeMinutes,
+} from '../services/meetingMinutes.js';
 
 export const minutesRouter: RouterType = Router();
 
@@ -27,6 +32,8 @@ const byMinutes = fromParam('id', orgOfMinutes);
 export const MINUTES_APPROVED = 'Approved minutes are the record and cannot be changed';
 export const ONLY_DRAFTS_REGENERATE = 'Only a draft can be written again from the meeting';
 export const NO_MEETING_RECORD = 'The meeting has no record to write the minutes from';
+export const MINUTES_BEFORE_MEETING =
+  'These minutes are before a meeting; corrections are made there';
 
 /** A minutes response: the text, its status, who did what, its meeting and organization */
 const MINUTES_SELECT = {
@@ -120,16 +127,27 @@ minutesRouter.get(
 /**
  * PUT /api/minutes/:id
  * The secretary's text. The last save wins, and its author is named. Approved minutes are the
- * record and stay as they are.
+ * record and stay as they are; published minutes before a meeting that hasn't adjourned stay as
+ * the meeting has them, since the meeting makes any corrections.
  * Body: { body }
  */
 minutesRouter.put(
   '/minutes/:id',
-  validate({ params: uuidParam, body: updateMinutesBody }),
+  validate({ params: uuidParam }),
   requireRole('secretary', byMinutes),
+  // Read only now, after the role check (see largeJson)
+  largeJson,
+  validate({ body: updateMinutesBody }),
   async (req, res) => {
     try {
       const { id } = req.params;
+      const { status } = await prisma.minutes.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
+      if (status === 'published' && (await minutesBeforeLiveMeeting(req.org!.id, id))) {
+        return res.status(409).json({ error: MINUTES_BEFORE_MEETING });
+      }
       // One statement, so minutes approved in the meantime aren't changed
       const updated = await prisma.minutes.updateMany({
         where: { id, status: { not: 'approved' } },

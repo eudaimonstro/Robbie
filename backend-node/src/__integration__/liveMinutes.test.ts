@@ -119,6 +119,29 @@ describe('minutes in a live meeting', () => {
     );
   });
 
+  it('are read to members, while a guest is told only that minutes are before the meeting', async () => {
+    const { secretary } = await openMeeting();
+    // A viewer of the organization is a guest in its meetings
+    const guest = live.connect(f.users.viewer);
+    const joined = await live.join(guest, f.packet.code);
+    expect(joined.state?.minutesFromPreviousMeeting).toBe('');
+    expect(joined.state?.previousMinutesId).toBe(f.minutes);
+
+    live.broadcasts.length = 0;
+    await act(secretary, { type: 'START_MEETING' });
+    const updates = live.broadcasts.filter((b) => b.event === 'STATE_UPDATE');
+    const stateIn = (b: (typeof updates)[number]) => (b.payload as { state: MeetingState }).state;
+    expect(updates).toHaveLength(2);
+    // The room, apart from the guest, gets the text; the guest's socket gets the state without it
+    expect(updates[0]).toMatchObject({ room: `meeting:${f.packet.code}`, except: [guest.id] });
+    expect(stateIn(updates[0]).minutesFromPreviousMeeting).toContain(
+      'Minutes of the September meeting',
+    );
+    expect(updates[1].room).toBe(guest.id);
+    expect(stateIn(updates[1]).minutesFromPreviousMeeting).toBe('');
+    expect(stateIn(updates[1]).previousMinutesId).toBe(f.minutes);
+  });
+
   it('approved as read, they keep no corrections', async () => {
     const { secretary } = await openMeeting();
     await act(secretary, { type: 'START_MEETING' });

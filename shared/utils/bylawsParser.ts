@@ -4,6 +4,12 @@
  * the import screen runs it again whenever the text changes.
  */
 
+/**
+ * The deepest a section nests (an article is level 1): a heading deeper than this stays a line
+ * of the text of the section above it, so whatever the text, its sections can be saved
+ */
+export const MAX_SECTION_DEPTH = 6;
+
 /** A section found in the text, before it is saved */
 export interface ParsedSection {
   numberLabel: string | null;
@@ -200,6 +206,22 @@ export function parseBylaws(text: string): ParsedSection[] {
     if (!heading) {
       // In a labeled text, a # line without a label is text: keep its words, not its marks
       const plain = labeled ? (MARKDOWN.exec(line)?.[2] ?? raw.trimEnd()) : raw.trimEnd();
+      if (current) bodies.get(current)!.push(plain);
+      else preamble.push(plain);
+      continue;
+    }
+
+    // Deeper than sections nest: a line of the text of the section it falls in
+    const depth =
+      heading.kind === 'markdown'
+        ? openLevels.filter((open) => open.level < heading.level).length + 1
+        : heading.kind === 'article'
+          ? 1
+          : openSections.filter((open) => heading.key.startsWith(`${open.key}.`)).length +
+            (article ? 1 : 0) +
+            1;
+    if (depth > MAX_SECTION_DEPTH) {
+      const plain = MARKDOWN.exec(line)?.[2] ?? raw.trimEnd();
       if (current) bodies.get(current)!.push(plain);
       else preamble.push(plain);
       continue;

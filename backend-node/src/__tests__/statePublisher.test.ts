@@ -43,7 +43,7 @@ const election: Election = {
 
 describe('publicState', () => {
   it('leaves out who voted which way, and the running totals, while a secret ballot is open', () => {
-    const shown = publicState(ballot);
+    const shown = publicState(ballot, 'member');
     expect(shown.voterChoices).toEqual({});
     expect(shown.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
     // Who has voted stays, so the room can see the ballots come in (voters.length); the
@@ -53,30 +53,30 @@ describe('publicState', () => {
   });
 
   it('leaves out the choice of each proxy vote while a secret ballot is open', () => {
-    const shown = publicState(ballot);
+    const shown = publicState(ballot, 'member');
     expect(shown.proxyVotes).toEqual([{ memberId: 4, castBy: 2 }]);
   });
 
   it('leaves out the choices recorded for a decided ballot, and keeps other records', () => {
     const state = { ...initialState, completedMotions: [record('ballot'), record('rollcall')] };
-    const shown = publicState(state);
+    const shown = publicState(state, 'member');
     expect(shown.completedMotions[0].voterChoices).toEqual({});
     expect(shown.completedMotions[1].voterChoices).toEqual({ 2: 'yea', 3: 'nay' });
   });
 
   it('leaves out the running count of an election while its ballot is open', () => {
-    const shown = publicState({ ...initialState, currentElection: election });
+    const shown = publicState({ ...initialState, currentElection: election }, 'member');
     expect(shown.currentElection).toEqual({ ...election, ballotResults: {} });
     // Decided: the count is the result
     const decided = { ...election, votingInProgress: false, elected: 'Ann' };
-    expect(publicState({ ...initialState, currentElection: decided }).currentElection).toEqual(
-      decided,
-    );
+    expect(
+      publicState({ ...initialState, currentElection: decided }, 'member').currentElection,
+    ).toEqual(decided);
   });
 
   it("keeps the counts of an election's closed ballots, which the log announced, while the next is open", () => {
     const runoff = { ...election, ballots: [{ Ann: 4, Bo: 4 }] };
-    const shown = publicState({ ...initialState, currentElection: runoff });
+    const shown = publicState({ ...initialState, currentElection: runoff }, 'member');
     expect(shown.currentElection).toEqual({ ...runoff, ballotResults: {} });
   });
 
@@ -85,26 +85,47 @@ describe('publicState', () => {
       { ...ballot, meetingActive: true },
       { type: 'END_MEETING', timestamp: '11:00:00' },
     );
-    const shown = publicState(adjourned);
+    const shown = publicState(adjourned, 'member');
     expect(shown.voterChoices).toEqual({});
     expect(shown.proxyVotes).toEqual([]);
     expect(shown.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
   });
 
+  it("gives a guest no previous minutes' text, only that there are minutes to approve", () => {
+    const approving = {
+      ...initialState,
+      minutesFromPreviousMeeting: '# Minutes of the September meeting',
+      previousMinutesId: 'minutes-1',
+    };
+    const guest = publicState(approving, 'guest');
+    expect(guest.minutesFromPreviousMeeting).toBe('');
+    expect(guest.previousMinutesId).toBe('minutes-1');
+    for (const role of ['member', 'admin', 'chair'] as const) {
+      expect(publicState(approving, role), role).toBe(approving);
+    }
+    // And the ballot stays secret for a guest too
+    const both = publicState({ ...ballot, ...approving }, 'guest');
+    expect(both.voterChoices).toEqual({});
+    expect(both.minutesFromPreviousMeeting).toBe('');
+  });
+
   it('sends any other state as it is', () => {
     const standard = { ...ballot, votingMethod: 'standard' as const };
-    expect(publicState(standard)).toBe(standard);
+    expect(publicState(standard, 'member')).toBe(standard);
   });
 });
 
 describe('publicUpdate', () => {
   it('leaves out who just voted while a secret ballot is open', () => {
     for (const actionType of ['CAST_VOTE', 'CAST_PROXY_VOTE']) {
-      const shown = publicUpdate({
-        state: ballot,
-        stateVersion: 4,
-        triggeredBy: { actionType, userId: 2 },
-      });
+      const shown = publicUpdate(
+        {
+          state: ballot,
+          stateVersion: 4,
+          triggeredBy: { actionType, userId: 2 },
+        },
+        'member',
+      );
       expect(shown.triggeredBy, actionType).toEqual({ actionType, userId: 0 });
     }
   });
@@ -115,14 +136,20 @@ describe('publicUpdate', () => {
       stateVersion: 4,
       triggeredBy: { actionType: 'RAISE_HAND', userId: 2 },
     };
-    expect(publicUpdate(open).triggeredBy).toEqual({ actionType: 'RAISE_HAND', userId: 2 });
+    expect(publicUpdate(open, 'member').triggeredBy).toEqual({
+      actionType: 'RAISE_HAND',
+      userId: 2,
+    });
     const standard = { ...ballot, votingMethod: 'standard' as const };
     const vote = {
       state: standard,
       stateVersion: 4,
       triggeredBy: { actionType: 'CAST_VOTE', userId: 2 },
     };
-    expect(publicUpdate(vote).triggeredBy).toEqual({ actionType: 'CAST_VOTE', userId: 2 });
+    expect(publicUpdate(vote, 'member').triggeredBy).toEqual({
+      actionType: 'CAST_VOTE',
+      userId: 2,
+    });
   });
 });
 
@@ -146,5 +173,59 @@ describe('emitState', () => {
       stateVersion: 4,
       triggeredBy: { actionType: 'CAST_VOTE', userId: 0 },
     });
+  });
+});
+
+describe('emitState while the previous minutes are before the meeting', () => {
+  const approving: MeetingState = {
+    ...initialState,
+    minutesFromPreviousMeeting: '# Minutes of the September meeting',
+    previousMinutesId: 'minutes-1',
+  };
+
+  /** An io with these sockets in the meeting's room, recording what each emit sends where */
+  function ioWith(sockets: Record<string, { role: string }>) {
+    const sent: Array<{ to: string[]; except: string[]; payload: unknown }> = [];
+    const target = (to: string[], except: string[] = []) => ({
+      except: (ids: string[]) => target(to, [...except, ...ids]),
+      emit: (_event: string, payload: unknown) => sent.push({ to, except, payload }),
+    });
+    const io = {
+      sockets: {
+        adapter: { rooms: new Map([['meeting:TEST01', new Set(Object.keys(sockets))]]) },
+        sockets: new Map(Object.entries(sockets).map(([id, data]) => [id, { data }])),
+      },
+      to: (room: string | string[]) => target(Array.isArray(room) ? room : [room]),
+    };
+    return { io: io as never, sent };
+  }
+
+  it('sends members the minutes and guests the state without their text', () => {
+    const { io, sent } = ioWith({
+      a: { role: 'member' },
+      b: { role: 'guest' },
+      c: { role: 'chair' },
+    });
+    emitState(io, 'TEST01', { state: approving, stateVersion: 5 });
+    expect(sent).toEqual([
+      {
+        to: ['meeting:TEST01'],
+        except: ['b'],
+        payload: { state: approving, stateVersion: 5 },
+      },
+      {
+        to: ['b'],
+        except: [],
+        payload: { state: { ...approving, minutesFromPreviousMeeting: '' }, stateVersion: 5 },
+      },
+    ]);
+  });
+
+  it('sends one update to the room when no guest is in it', () => {
+    const { io, sent } = ioWith({ a: { role: 'member' } });
+    emitState(io, 'TEST01', { state: approving, stateVersion: 5 });
+    expect(sent).toEqual([
+      { to: ['meeting:TEST01'], except: [], payload: { state: approving, stateVersion: 5 } },
+    ]);
   });
 });

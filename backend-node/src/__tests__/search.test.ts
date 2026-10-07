@@ -13,6 +13,14 @@ describe('snippetAround', () => {
     expect(snippet.length).toBeLessThanOrEqual(132);
   });
 
+  it('finds a query with its spaces collapsed as the text has them', () => {
+    const text = `${'a '.repeat(100)}The quorum\n\n   is ten.${' b'.repeat(100)}`;
+    expect(snippetAround(text, 'quorum   is')).toMatch(
+      /^\.\.\.(a )+The quorum is ten\.( b)+\.\.\.$/,
+    );
+    expect(snippetAround(text, 'quorum\nis')).toContain('The quorum is ten.');
+  });
+
   it('gives the start of the text when the match is in the label or title', () => {
     expect(snippetAround('x'.repeat(200), 'quorum')).toBe(`${'x'.repeat(120)}...`);
     expect(snippetAround('', 'quorum')).toBe('');

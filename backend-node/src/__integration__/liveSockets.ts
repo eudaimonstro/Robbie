@@ -22,11 +22,12 @@ export interface FakeSocket {
   emit: (event: string, payload: unknown) => void;
 }
 
-/** What the server sent to a room */
+/** What the server sent to a room (or to sockets by id), and the sockets it left out */
 export interface Broadcast {
   room: string;
   event: string;
   payload: unknown;
+  except?: string[];
 }
 
 /**
@@ -38,14 +39,33 @@ export function liveSockets() {
   const broadcasts: Broadcast[] = [];
   let next = 0;
 
-  const toRoom = (room: string) => ({
-    emit: (event: string, payload: unknown) => broadcasts.push({ room, event, payload }),
+  const toRoom = (room: string, except: string[] = []) => ({
+    except: (ids: string | string[]) => toRoom(room, [...except, ...[ids].flat()]),
+    emit: (event: string, payload: unknown) =>
+      broadcasts.push({ room, event, payload, ...(except.length > 0 && { except }) }),
   });
   const io = {
-    to: toRoom,
+    to: (room: string | string[]) => toRoom([room].flat().join(',')),
     in: (room: string) => ({
       fetchSockets: async () => sockets.filter((s) => s.rooms.has(room)),
     }),
+    // The server's own sockets and rooms, as socket.io's in-memory adapter keeps them
+    sockets: {
+      adapter: {
+        get rooms() {
+          const rooms = new Map<string, Set<string>>();
+          for (const socket of sockets) {
+            for (const room of socket.rooms) {
+              rooms.set(room, (rooms.get(room) ?? new Set()).add(socket.id));
+            }
+          }
+          return rooms;
+        },
+      },
+      get sockets() {
+        return new Map(sockets.map((socket) => [socket.id, socket]));
+      },
+    },
   };
 
   /** A socket signed in as this user (see socketAuth) */

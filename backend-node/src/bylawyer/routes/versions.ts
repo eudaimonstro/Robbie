@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import express, { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { Prisma, Section } from '../../generated/prisma/client.js';
+import { largeJson } from '../../middleware/largeJson.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
 import {
@@ -9,6 +10,8 @@ import {
   updateVersionBody,
   diffParams,
   importVersionBody,
+  isLongTextWithoutHeadings,
+  NO_HEADINGS,
   type ImportedSection,
   type ImportVersionBody,
 } from '../../schemas/versions.js';
@@ -285,8 +288,15 @@ versionsRouter.post(
  */
 versionsRouter.post(
   '/documents/:docId/versions/import',
-  validate({ params: docIdParam, body: importVersionBody }),
+  validate({ params: docIdParam }),
   requireRole('secretary', byDocument),
+  // Read only now, after the role check (see largeJson)
+  largeJson,
+  (req, res, next) => {
+    if (isLongTextWithoutHeadings(req.body)) return res.status(400).json({ error: NO_HEADINGS });
+    next();
+  },
+  validate({ body: importVersionBody }),
   async (req, res) => {
     try {
       const documentId = req.params.docId;

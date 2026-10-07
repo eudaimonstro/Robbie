@@ -70,4 +70,9 @@ export {
   type QueueStats,
 } from './speakerQueueHelper.js';
 
-export { parseBylaws, describeParsedBylaws, type ParsedSection } from './bylawsParser.js';
+export {
+  MAX_SECTION_DEPTH,
+  parseBylaws,
+  describeParsedBylaws,
+  type ParsedSection,
+} from './bylawsParser.js';

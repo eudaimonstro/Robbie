@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { describeParsedBylaws, parseBylaws, type ParsedSection } from '../../utils/index.js';
+import {
+  MAX_SECTION_DEPTH,
+  describeParsedBylaws,
+  parseBylaws,
+  type ParsedSection,
+} from '../../utils/index.js';
 
 /** A parsed section, written compactly */
 function s(
@@ -300,6 +305,43 @@ describe('parseBylaws', () => {
     ],
   ])('reads %s', (_shape, text, expected) => {
     expect(parseBylaws(text)).toEqual(expected);
+  });
+
+  it('nests at most six levels, keeping deeper headings as text of the sixth', () => {
+    const parsed = parseBylaws(
+      lines(
+        'Article I. Rules',
+        'Section 1.1 One',
+        '1.1.1 Two',
+        '1.1.1.1 Three',
+        '1.1.1.1.1 Four',
+        '1.1.1.1.1.1 Five',
+        'Level six text.',
+        '1.1.1.1.1.1.1 Seven',
+        'Level seven text.',
+        '1.1.1.1.1.1.1.1 Eight',
+        '1.1.1.1.1.2 Five More',
+        'Section 1.2 Back up',
+      ),
+    );
+    const depth = (sections: ParsedSection[]): number =>
+      sections.reduce((most, section) => Math.max(most, 1 + depth(section.children)), 0);
+    expect(depth(parsed)).toBe(MAX_SECTION_DEPTH);
+    const one = parsed[0].children[0];
+    const five = one.children[0].children[0].children[0];
+    expect(five.children.map((c) => [c.numberLabel, c.title, c.content])).toEqual([
+      [
+        '1.1.1.1.1.1',
+        'Five',
+        'Level six text.\n1.1.1.1.1.1.1 Seven\nLevel seven text.\n1.1.1.1.1.1.1.1 Eight',
+      ],
+      ['1.1.1.1.1.2', 'Five More', ''],
+    ]);
+    expect(parsed[0].children.map((c) => c.numberLabel)).toEqual(['Section 1.1', 'Section 1.2']);
+
+    // # headings nest by their marks, at most six
+    const marked = parseBylaws(lines('# A', '## B', '### C', '#### D', '##### E', '###### F'));
+    expect(depth(marked)).toBe(MAX_SECTION_DEPTH);
   });
 });
 
