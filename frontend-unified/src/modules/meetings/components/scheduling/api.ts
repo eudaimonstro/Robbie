@@ -61,8 +61,10 @@ export async function updatePacket(
   packetId: string,
   data: {
     title?: string;
-    description?: string;
-    location?: string;
+    /** null clears it */
+    description?: string | null;
+    /** null clears it */
+    location?: string | null;
     scheduledFor?: string;
     chairUserId?: number | null;
   },

@@ -38,7 +38,7 @@ export interface MeetingPacket {
   organizationId: string;
   robbieCode: string;
   title?: string;
-  description?: string;
+  description?: string | null;
   /** Where the meeting is held */
   location?: string | null;
   scheduledFor?: string;

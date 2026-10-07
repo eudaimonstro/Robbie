@@ -104,6 +104,37 @@ describe('MeetingScheduler', () => {
     );
   });
 
+  it('clears a place or description emptied after Edit the details', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Place'), {
+      target: { value: 'Maple Grove Clubhouse' },
+    });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'The pool and the budget' },
+    });
+    next();
+    await screen.findByText('Agenda builder');
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: '  ' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '' } });
+    next();
+    await waitFor(() => expect(api.updatePacket).toHaveBeenCalled());
+    expect(api.updatePacket).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ location: null, description: null }),
+    );
+  });
+
+  it('leaves an empty place and description out of a new meeting', async () => {
+    await schedule();
+    next();
+    await screen.findByText('Agenda builder');
+    const [, data] = api.createPacket.mock.calls[0];
+    expect(data.location).toBeUndefined();
+    expect(data.description).toBeUndefined();
+  });
+
   it('offers members and above to preside, and names who does', async () => {
     await schedule();
     expect(screen.queryByRole('option', { name: 'Morgan Lee' })).toBeNull();

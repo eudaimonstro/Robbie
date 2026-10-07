@@ -97,6 +97,13 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     ...(chairUserId === undefined ? {} : { chairUserId }),
   });
 
+  /** The details for an update: a place or description emptied after Edit the details clears it */
+  const changedDetails = () => ({
+    ...details(),
+    description: description || null,
+    location: location.trim() || null,
+  });
+
   /** Create the packet, with a fresh code if a generated one is already taken */
   const create = async (orgId: string): Promise<MeetingPacket> => {
     let code = meetingCode;
@@ -119,7 +126,9 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     setError(null);
     try {
       // The first time, creating the packet claims the code; after Edit the details, save them
-      setPacket(packet ? await updatePacket(packet.id, details()) : await create(organization.id));
+      setPacket(
+        packet ? await updatePacket(packet.id, changedDetails()) : await create(organization.id),
+      );
       setStep('agenda');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to schedule the meeting');
@@ -137,7 +146,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     if (packet) {
       setIsSaving(true);
       try {
-        await updatePacket(packet.id, details());
+        await updatePacket(packet.id, changedDetails());
       } catch (err) {
         console.error('Failed to save details:', err);
       } finally {

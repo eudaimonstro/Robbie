@@ -285,6 +285,28 @@ describe('packets', () => {
     expect(tooLong.status).toBe(400);
   });
 
+  it('clear their description with null', async () => {
+    const cookie = f.users.secretary.cookie;
+    const created = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+      cookie,
+      body: { robbieCode: 'NEW004', description: 'The pool and the budget' },
+    });
+    expect(created.body.description).toBe('The pool and the budget');
+
+    const unchanged = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { title: 'Pool meeting' },
+    });
+    expect(unchanged.body.description).toBe('The pool and the budget');
+
+    const cleared = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { description: null },
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.description).toBeNull();
+  });
+
   it('are no longer created without an organization', async () => {
     const res = await call('post', '/api/packets', {
       cookie: f.users.owner.cookie,

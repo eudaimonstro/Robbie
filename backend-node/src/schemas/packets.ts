@@ -21,8 +21,8 @@ export const createPacketBody = z.object({
 
 export const updatePacketBody = z.object({
   title: z.string().max(500).optional(),
-  description: z.string().max(2000).optional(),
-  // null clears it
+  // null clears either
+  description: z.string().max(2000).nullable().optional(),
   location: location.nullable().optional(),
   scheduledFor: z.string().optional().nullable(),
   chairUserId: chairUserId.optional(),
