@@ -172,10 +172,21 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
       name: /^Minutes of the Special meeting on the pool/,
     });
     await expect(heading.locator('..').getByText('Draft', { exact: true })).toBeVisible();
+    // Pat corrects a name and publishes at once, before the autosave: Publish saves it first
+    const text = pat.getByLabel('Minutes text');
+    const drafted = await text.inputValue();
+    expect(drafted).toContain('Seconded by Ben Whitaker.');
+    await text.fill(drafted.replace('Seconded by Ben Whitaker.', 'Seconded by Benjamin Whitaker.'));
     await pat.getByRole('button', { name: 'Publish' }).click();
     await expect(heading.locator('..').getByText('Published', { exact: true })).toBeVisible();
     await expect(pat.getByRole('link', { name: 'Print or save as PDF' })).toBeVisible();
     await capture(pat, testInfo, 'minutes');
+
+    // Alice, a member, reads the published minutes with Pat's correction
+    await alice.goto(new URL(pat.url()).pathname);
+    const published = alice.getByRole('article');
+    await expect(published).toContainText('Seconded by Benjamin Whitaker.');
+    await expect(published).not.toContainText('Seconded by Ben Whitaker.');
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
