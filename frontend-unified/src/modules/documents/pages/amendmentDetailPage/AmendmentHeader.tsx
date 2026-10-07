@@ -43,7 +43,7 @@ export function AmendmentHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-1">
         <Link to="/" className="hover:text-gavel">
           {organizationName}
         </Link>
@@ -54,12 +54,12 @@ export function AmendmentHeader({
         <ChevronRight className="w-4 h-4" />
         <span>Amendment</span>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <h2 className="page-title">{amendment.title}</h2>
           <StatusBadge status={amendment.status} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canEdit && (
             <button onClick={onEdit} className="btn-ghost btn-sm">
               <Edit2 className="w-4 h-4 mr-1" />

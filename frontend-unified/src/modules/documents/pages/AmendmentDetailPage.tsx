@@ -151,7 +151,7 @@ export default function AmendmentDetailPage() {
 
       {/* Timeline info */}
       <div className="card p-4 mb-6">
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-1 text-ink-muted">
             <Clock className="w-4 h-4" />
             Created: {new Date(amendment.createdAt).toLocaleString()}
