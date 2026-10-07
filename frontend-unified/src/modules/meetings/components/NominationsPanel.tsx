@@ -164,7 +164,11 @@ export function NominationsPanel({
                       {nomination.nomineeName}
                       {nomination.declined && ' (declined)'}
                     </p>
-                    <p className="text-xs text-ink-muted">Nominated by {nomination.nominatedBy}</p>
+                    <p className="text-xs text-ink-muted">
+                      {nomination.fromFloor
+                        ? 'Nominated from the floor'
+                        : `Nominated by ${nomination.nominatedBy}`}
+                    </p>
                   </div>
                   {!nomination.declined && nomination.nomineeId === currentUser.id && (
                     <button

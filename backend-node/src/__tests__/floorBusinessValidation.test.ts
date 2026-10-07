@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initialState } from '@robbie-bylawyer/shared/reducer';
+import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState, Member, Motion } from '@robbie-bylawyer/shared/types';
 import { validateAction } from '../socket/actionValidator.js';
@@ -278,6 +278,36 @@ describe('business from the floor', () => {
         error: 'Only the chair puts a question to the meeting',
         errorCode: 'PERMISSION_DENIED',
       });
+    });
+
+    it('goes to a vote without a second', () => {
+      const put: MeetingAction = {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'Approve: Pool hours',
+        mover: '',
+        moverId: dana.id,
+        motionId: 1,
+        putByChair: true,
+        timestamp: '',
+      };
+      expect(validateAction(inSession, put)).toEqual({ valid: true });
+      const pending = meetingReducer(inSession, put);
+      expect(
+        validateAction(pending, { type: 'OPEN_VOTING', voteTimerEnd: null, timestamp: '' }),
+      ).toEqual({ valid: true });
+      // Nothing awaits a second, from the floor or from a phone
+      expect(
+        validateAction(pending, { type: 'SECOND_FROM_FLOOR', recordedBy: dana.id, timestamp: '' }),
+      ).toMatchObject({ valid: false, errorCode: 'NO_PENDING_SECOND' });
+      expect(
+        validateAction(pending, {
+          type: 'SECOND_MOTION',
+          seconder: 'Alice Brennan',
+          seconderId: alice.id,
+          timestamp: '',
+        }),
+      ).toMatchObject({ valid: false, errorCode: 'NO_PENDING_SECOND' });
     });
   });
 

@@ -1,3 +1,4 @@
+import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { calculateTimerEnd, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 
@@ -164,13 +165,16 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         id: 'put-item',
         label: 'Put the item to a vote',
         tone: 'secondary',
+        // Recorded as put by the chair, with no mover and no second to wait for; the server
+        // checks that the one sending it presides
         make: () => ({
           type: 'MAKE_MOTION',
           motionType: 'mainMotion',
           text: `Approve: ${item.title}`,
-          mover: 'Chair',
+          mover: PUT_BY_CHAIR,
           moverId: presidingId,
           motionId: generateId(),
+          putByChair: true,
           timestamp: generateTimestamp(),
         }),
       });

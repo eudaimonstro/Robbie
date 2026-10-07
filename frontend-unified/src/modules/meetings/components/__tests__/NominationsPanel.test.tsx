@@ -120,6 +120,28 @@ describe('NominationsPanel', () => {
     );
   });
 
+  it('says a nomination from the floor was made from the floor', () => {
+    const state: MeetingState = {
+      ...open,
+      nominations: [
+        {
+          id: 6,
+          position: 'Director',
+          nomineeName: 'Carmen Diaz',
+          nomineeId: 5,
+          nominatedBy: 'From the floor',
+          nominatorId: 2,
+          timestamp: '',
+          declined: false,
+          fromFloor: true,
+        },
+      ],
+    };
+    render(<NominationsPanel state={state} dispatch={dispatch} currentUser={alice} />);
+    expect(screen.getByText('Nominated from the floor')).toBeTruthy();
+    expect(screen.queryByText(/Nominated by/)).toBeNull();
+  });
+
   it('gives a guest no nomination form', () => {
     render(<NominationsPanel state={open} dispatch={dispatch} currentUser={sam} />);
     expect(screen.queryByLabelText('Nominee')).toBeNull();

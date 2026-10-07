@@ -57,6 +57,31 @@ describe('describeQuestion', () => {
     });
   });
 
+  it('says who moved a motion from the floor, and that a question put by the chair has no mover', () => {
+    const floor = motion('mainMotion', { mover: 'Carmen Diaz', moverId: 0, fromFloor: true });
+    expect(
+      describeQuestion({ ...active, pendingSecond: { ...floor, status: 'pending' } }),
+    ).toMatchObject({
+      byline: 'Moved from the floor by Carmen Diaz, awaiting a second',
+    });
+    expect(
+      describeQuestion({
+        ...active,
+        currentMotion: { ...floor, secondedBy: 'a member in the room' },
+        motionStack: [floor],
+      })?.byline,
+    ).toBe('Moved from the floor by Carmen Diaz, seconded by a member in the room');
+    const put = motion('mainMotion', {
+      text: "Approve: Treasurer's report",
+      mover: 'Put by the chair',
+      moverId: 0,
+      putByChair: true,
+    });
+    expect(describeQuestion({ ...active, currentMotion: put, motionStack: [put] })?.byline).toBe(
+      'Put by the chair',
+    );
+  });
+
   it('shows the motion being considered, who moved and seconded it, and what is beneath it', () => {
     const main = motion('mainMotion', { secondedBy: 'Ben Whitaker' });
     const close = motion('previousQuestion', {

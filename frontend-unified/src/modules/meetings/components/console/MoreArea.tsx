@@ -18,6 +18,7 @@ import {
   ProxyManagementPanel,
 } from '../chair';
 import { BylawyerLinkPanel } from '../BylawyerLinkPanel';
+import { moverLine } from '../../utils/question';
 
 interface MoreAreaProps {
   state: MeetingState;
@@ -286,7 +287,7 @@ function TabledMotions({ state }: { state: MeetingState }) {
         {state.tabledMotions.map((motion) => (
           <li key={motion.id} className="text-sm text-ink">
             <span className="font-medium">{motion.name}:</span> {motion.text}
-            <span className="block text-xs text-ink-muted">Moved by {motion.mover}</span>
+            <span className="block text-xs text-ink-muted">{moverLine(motion)}</span>
           </li>
         ))}
       </ul>

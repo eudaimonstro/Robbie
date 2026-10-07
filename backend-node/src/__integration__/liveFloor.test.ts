@@ -134,7 +134,7 @@ describe('business from the floor in a live meeting', () => {
     ]);
   });
 
-  it('records a question the chair puts with no mover', async () => {
+  it('records a question the chair puts with no mover, and no second to wait for', async () => {
     const put = await live.dispatch(chair, {
       type: 'MAKE_MOTION',
       motionType: 'mainMotion',
@@ -146,7 +146,9 @@ describe('business from the floor in a live meeting', () => {
       timestamp: '',
     });
     expect(put.success).toBe(true);
-    expect((await stateOf(f.packet.code)).pendingSecond).toMatchObject({
+    const state = await stateOf(f.packet.code);
+    expect(state.pendingSecond).toBeNull();
+    expect(state.currentMotion).toMatchObject({
       mover: 'Put by the chair',
       moverId: 0,
       putByChair: true,

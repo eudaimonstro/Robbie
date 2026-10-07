@@ -22,7 +22,7 @@ export function logFloorMotionMade(mover: string, text: string, motionName: stri
 }
 
 export function logQuestionPut(text: string, motionName: string): string {
-  return `The chair puts the question: "${text}" (${motionName}). Awaiting second.`;
+  return `The chair puts the question: "${text}" (${motionName}).`;
 }
 
 export const LOG_SECONDED_FROM_FLOOR = 'Seconded from the floor.';

@@ -184,7 +184,7 @@ describe('business from the floor', () => {
   });
 
   describe('a question put by the chair', () => {
-    it('has no mover', () => {
+    it('has no mover and needs no second', () => {
       const state = meetingReducer(inSession, {
         type: 'MAKE_MOTION',
         motionType: 'mainMotion',
@@ -196,14 +196,50 @@ describe('business from the floor', () => {
         timestamp: '20:15',
       });
 
-      expect(state.pendingSecond).toMatchObject({
+      expect(state.pendingSecond).toBeNull();
+      expect(state.currentMotion).toMatchObject({
         id: 8,
         mover: 'Put by the chair',
         moverId: 0,
         putByChair: true,
+        secondedBy: null,
+        status: 'active',
       });
+      expect(state.motionStack.map((m) => m.id)).toEqual([8]);
       expect(lastLog(state)).toBe(
-        'The chair puts the question: "Approve: Pool hours" (Main Motion). Awaiting second.',
+        'The chair puts the question: "Approve: Pool hours" (Main Motion).',
+      );
+    });
+
+    it('leaves a suspended second requirement for the next motion that needs it', () => {
+      const suspended: MeetingState = {
+        ...inSession,
+        suspendedRules: [
+          {
+            id: 1,
+            rule: 'second-requirement',
+            purpose: 'Move quickly',
+            specificAction: 'One motion without a second',
+            scope: 'single-action',
+            suspendedAt: '20:00',
+            motionId: 1,
+          },
+        ],
+      };
+      const state = meetingReducer(suspended, {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'Approve: Pool hours',
+        mover: '',
+        moverId: dana.id,
+        motionId: 8,
+        putByChair: true,
+        timestamp: '20:15',
+      });
+      expect(state.currentMotion).toMatchObject({ id: 8, putByChair: true });
+      expect(state.suspendedRules).toEqual(suspended.suspendedRules);
+      expect(lastLog(state)).toBe(
+        'The chair puts the question: "Approve: Pool hours" (Main Motion).',
       );
     });
   });

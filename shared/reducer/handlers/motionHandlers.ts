@@ -59,15 +59,16 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
   // Clear lastChairRuling for non-Appeal motions
   const lastChairRuling = made.motionType === 'appeal' ? state.lastChairRuling : null;
 
+  // A question the chair puts from the agenda needs no second: the agenda is the assembly's
+  // business already (and it leaves a suspended second requirement for the next motion)
+  const needsSecond = motion.needsSecond && !made.putByChair;
   // Check if second requirement is suspended
   const secondSuspended = isRuleSuspended(state, 'second-requirement');
 
-  if (motion.needsSecond && !secondSuspended) {
-    const message = made.putByChair
-      ? logQuestionPut(made.text, motion.name)
-      : made.fromFloor
-        ? logFloorMotionMade(made.mover, made.text, motion.name)
-        : logMotionMade(made.mover, made.text, motion.name);
+  if (needsSecond && !secondSuspended) {
+    const message = made.fromFloor
+      ? logFloorMotionMade(made.mover, made.text, motion.name)
+      : logMotionMade(made.mover, made.text, motion.name);
     return {
       ...state,
       pendingSecond: motion,
@@ -77,14 +78,11 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
   }
 
   // If second was bypassed due to suspension, note it in the log
-  const bypassedSecond = motion.needsSecond && secondSuspended;
-  const moves = made.putByChair
-    ? 'The chair puts the question'
-    : `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}`;
-  const logMessage = bypassedSecond
-    ? `${moves}: "${made.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
-    : made.putByChair
-      ? `The chair puts the question: "${made.text}" (${motion.name}).`
+  const bypassedSecond = needsSecond && secondSuspended;
+  const logMessage = made.putByChair
+    ? logQuestionPut(made.text, motion.name)
+    : bypassedSecond
+      ? `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}: "${made.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
       : `${made.mover} raises ${motion.name}${made.fromFloor ? ' from the floor' : ''}.`;
 
   // Auto-complete single-action suspension when used

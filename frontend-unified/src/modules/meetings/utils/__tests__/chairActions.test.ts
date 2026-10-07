@@ -45,7 +45,7 @@ describe('chairActions', () => {
     expect(next[0].make()).toMatchObject({ type: 'CALL_AGENDA_ITEM', id: 1 });
   });
 
-  it("completes the current item, or puts it to a vote in the presiding officer's name", () => {
+  it('completes the current item, or puts it to a vote as put by the chair', () => {
     const state: MeetingState = {
       ...adopted,
       currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
@@ -57,7 +57,9 @@ describe('chairActions', () => {
       type: 'MAKE_MOTION',
       motionType: 'mainMotion',
       text: "Approve: Treasurer's report",
+      // The presiding officer sends it (the server checks who), recorded as put by the chair
       moverId: 2,
+      putByChair: true,
     });
     expect(chairActions(state, null).map((a) => a.id)).toEqual(['complete-item', 'adjourn']);
   });

@@ -1,4 +1,8 @@
-import { DISPLAYABLE_STAGES, LOG_MEETING_ADJOURNED } from '@robbie-bylawyer/shared/constants';
+import {
+  DISPLAYABLE_STAGES,
+  LOG_MEETING_ADJOURNED,
+  PUT_BY_CHAIR,
+} from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import type { VoteResult } from '../hooks/useVoteResults';
 
@@ -24,6 +28,15 @@ const REQUIREMENTS = { majority: 'Majority', '2/3': 'Two thirds', plurality: 'Pl
 
 function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string | null {
   return vote === 'none' ? null : REQUIREMENTS[vote];
+}
+
+/**
+ * Who brought the motion: "Moved by Alice Brennan", "Moved from the floor by Carmen Diaz", or
+ * "Put by the chair" for a question the chair puts from the agenda (it has no mover)
+ */
+export function moverLine(motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'>): string {
+  if (motion.putByChair) return PUT_BY_CHAIR;
+  return motion.fromFloor ? `Moved from the floor by ${motion.mover}` : `Moved by ${motion.mover}`;
 }
 
 function beneathLine(motion: Motion): string {
@@ -66,7 +79,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
     return {
       kind: motion.name,
       text: motion.text,
-      byline: `Moved by ${motion.mover}, awaiting a second`,
+      byline: `${moverLine(motion)}, awaiting a second`,
       requirement: requirementOf(motion.vote),
       awaitingSecond: true,
       beneath: [...state.motionStack].reverse().map(beneathLine),
@@ -80,8 +93,8 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       kind: motion.name,
       text: motion.text,
       byline: motion.secondedBy
-        ? `Moved by ${motion.mover}, seconded by ${motion.secondedBy}`
-        : `Moved by ${motion.mover}`,
+        ? `${moverLine(motion)}, seconded by ${motion.secondedBy}`
+        : moverLine(motion),
       requirement: requirementOf(motion.vote),
       awaitingSecond: false,
       beneath: state.motionStack
