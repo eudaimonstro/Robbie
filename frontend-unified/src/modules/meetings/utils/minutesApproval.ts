@@ -21,11 +21,31 @@ export function minutesItemUnderWay(state: MeetingState): boolean {
   );
 }
 
+/** The first heading that names the minutes: its line and its words */
+function namingHeading(lines: string[]): { index: number; heading: string } | null {
+  for (const [index, line] of lines.entries()) {
+    const heading = /^#{1,6}\s+(.+)$/.exec(line.trim())?.[1]?.trim();
+    if (heading && /minutes/i.test(heading)) return { index, heading };
+  }
+  return null;
+}
+
 /** The minutes' title: their first heading that names them, or a plain description */
 export function minutesHeading(markdown: string): string {
-  for (const line of markdown.split('\n')) {
-    const heading = /^#{1,6}\s+(.+)$/.exec(line.trim())?.[1]?.trim();
-    if (heading && /minutes/i.test(heading)) return heading;
-  }
-  return 'The minutes of the previous meeting';
+  return namingHeading(markdown.split('\n'))?.heading ?? 'The minutes of the previous meeting';
+}
+
+/**
+ * The minutes after that heading (and the organization's name above it), for a page that gives
+ * their title already; minutes without one, as they are
+ */
+export function minutesBody(markdown: string): string {
+  const lines = markdown.split('\n');
+  const found = namingHeading(lines);
+  return found
+    ? lines
+        .slice(found.index + 1)
+        .join('\n')
+        .trim()
+    : markdown;
 }

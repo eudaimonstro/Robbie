@@ -295,4 +295,32 @@ describe('DisplayView', () => {
     expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
     expect(screen.getByText('Any corrections?')).toBeTruthy();
   });
+
+  it('asks for corrections in large type when the minutes are not sent to the display', () => {
+    socket.state = {
+      ...inSession,
+      currentAgendaItem: {
+        id: 2,
+        title: 'Approval of the minutes of the 2025 annual meeting',
+        status: 'active',
+      },
+      minutesFromPreviousMeeting: '',
+      previousMinutesId: 'm1',
+    };
+    const { rerender } = render(<DisplayView />);
+    // The item line names the minutes: no stand-in title under it
+    expect(screen.queryByText('The minutes of the previous meeting')).toBeNull();
+    expect(screen.getByText('Any corrections?').className).toContain('text-display-question');
+
+    socket.state = {
+      ...socket.state,
+      minutesApproved: true,
+      minutesApproval: { corrections: 'Twenty-two were present', timestamp: '' },
+    };
+    rerender(<DisplayView />);
+    expect(screen.getByText('Approved with corrections').className).toContain(
+      'text-display-question',
+    );
+    expect(screen.getByText('Twenty-two were present')).toBeTruthy();
+  });
 });

@@ -27,7 +27,9 @@ describe('MinutesApprovalCard', () => {
   it('shows the minutes and approves them as read', () => {
     render(<MinutesApprovalCard state={atTheMinutes} dispatch={dispatch} />);
     expect(screen.getByText('Approval of the minutes')).toBeTruthy();
-    expect(screen.getAllByText('Minutes of the 2025 Annual Meeting').length).toBeGreaterThan(0);
+    // The title once: the text below it starts after its own heading
+    expect(screen.getAllByText('Minutes of the 2025 Annual Meeting')).toHaveLength(1);
+    expect(screen.queryByText('Maple Grove HOA')).toBeNull();
     expect(screen.getByText('Without a quorum, no business was taken up.')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve as read' }));

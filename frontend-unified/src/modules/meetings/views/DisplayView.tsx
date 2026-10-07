@@ -169,22 +169,36 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
   );
 }
 
-/** The minutes put before the room: their title, and the chair's question or the approval */
+/**
+ * The minutes put before the room: their title, and the chair's question or the approval. A
+ * display is sent the minutes without their text (as guests are): then the item line names
+ * them, and the question takes the large type.
+ */
 function MinutesOnDisplay({ state }: { state: MeetingState }) {
   const made = state.minutesApproval?.corrections;
+  const text = state.minutesFromPreviousMeeting;
+  const verdict = state.minutesApproved
+    ? made
+      ? 'Approved with corrections'
+      : 'Approved as read'
+    : 'Any corrections?';
+  const large = 'font-serif-soft text-display-question font-semibold text-ink';
+  // Corrections run to 2,000 characters: the screen keeps the first lines
+  const line = 'line-clamp-3 text-display-line text-ink-muted';
   return (
     <div className="space-y-6">
       <p className={LABEL}>Approval of the minutes</p>
-      <p className="font-serif-soft text-display-question font-semibold text-ink">
-        {minutesHeading(state.minutesFromPreviousMeeting)}
-      </p>
-      <p className="text-display-line text-ink-muted">
-        {state.minutesApproved
-          ? made
-            ? `Approved with corrections: ${made}`
-            : 'Approved as read'
-          : 'Any corrections?'}
-      </p>
+      {text ? (
+        <>
+          <p className={large}>{minutesHeading(text)}</p>
+          <p className={line}>{made ? `${verdict}: ${made}` : verdict}</p>
+        </>
+      ) : (
+        <>
+          <p className={large}>{verdict}</p>
+          {made && <p className={line}>{made}</p>}
+        </>
+      )}
     </div>
   );
 }

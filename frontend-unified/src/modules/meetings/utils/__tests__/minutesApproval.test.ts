@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import { minutesHeading, minutesItemUnderWay } from '../minutesApproval';
+import { minutesBody, minutesHeading, minutesItemUnderWay } from '../minutesApproval';
 
 const item = (title: string) => ({ id: 2, title, status: 'active' as const });
 const inSession: MeetingState = {
@@ -44,5 +44,17 @@ describe('minutesHeading', () => {
   it('says what they are without one', () => {
     expect(minutesHeading('The board met.')).toBe('The minutes of the previous meeting');
     expect(minutesHeading('')).toBe('The minutes of the previous meeting');
+  });
+});
+
+describe('minutesBody', () => {
+  it('starts after the heading that names the minutes, which their title already gives', () => {
+    expect(minutesBody('# Maple Grove HOA\n\n## Minutes of the 2025 Annual Meeting\n\nText.')).toBe(
+      'Text.',
+    );
+  });
+
+  it('keeps minutes without one as they are', () => {
+    expect(minutesBody('The board met.\n\n## Attendance')).toBe('The board met.\n\n## Attendance');
   });
 });

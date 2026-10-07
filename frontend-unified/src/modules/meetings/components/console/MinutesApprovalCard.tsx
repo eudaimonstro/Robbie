@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { CheckCircle } from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
-import { minutesHeading, minutesItemUnderWay } from '../../utils/minutesApproval';
+import { minutesBody, minutesHeading, minutesItemUnderWay } from '../../utils/minutesApproval';
 
 /** The longest corrections the server takes (MAX_CORRECTIONS_LENGTH) */
 const MAX_CORRECTIONS = 2000;
@@ -62,7 +62,7 @@ export function MinutesApprovalCard({
       {minutes ? (
         <div className="max-h-80 overflow-y-auto rounded-lg border border-rule bg-surface-2 p-4">
           <div className="document-content text-sm">
-            <ReactMarkdown>{minutes}</ReactMarkdown>
+            <ReactMarkdown>{minutesBody(minutes)}</ReactMarkdown>
           </div>
         </div>
       ) : (
