@@ -110,11 +110,11 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
         className={`modal-content ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-          <h3 className="text-lg font-semibold text-secondary-900 dark:text-white">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
+          <h3 className="text-lg font-semibold text-ink">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 rounded-sm transition-colors"
+            className="p-1 text-ink-muted hover:text-ink dark:hover:text-secondary-300 rounded-sm transition-colors"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />

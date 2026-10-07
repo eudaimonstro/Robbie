@@ -1,17 +1,6 @@
 # Web source files that still use raw Tailwind palette classes, white or black, the old
 # meeting- palette, or emoji icons (see scripts/check-palette.sh). Remove a file once it is on
 # the design tokens; never add one.
-frontend-unified/src/components/auth/RequireSession.tsx
-frontend-unified/src/components/auth/TermsStep.tsx
-frontend-unified/src/components/layout/AppLayout.tsx
-frontend-unified/src/components/layout/Header.tsx
-frontend-unified/src/components/layout/OrganizationSwitcher.tsx
-frontend-unified/src/components/layout/Sidebar.tsx
-frontend-unified/src/components/layout/UserMenu.tsx
-frontend-unified/src/components/shared/ErrorBoundary.tsx
-frontend-unified/src/components/ui/EmptyState.tsx
-frontend-unified/src/components/ui/LoadingSpinner.tsx
-frontend-unified/src/components/ui/Modal.tsx
 frontend-unified/src/modules/documents/components/MembersCard.tsx
 frontend-unified/src/modules/documents/components/SectionTree.tsx
 frontend-unified/src/modules/documents/components/ShareModal.tsx
@@ -93,5 +82,3 @@ frontend-unified/src/modules/meetings/views/AdminView.tsx
 frontend-unified/src/modules/meetings/views/JoinMeetingScreen.tsx
 frontend-unified/src/modules/meetings/views/MeetingApp.tsx
 frontend-unified/src/modules/meetings/views/ParticipantView.tsx
-frontend-unified/src/pages/legal/LegalPage.tsx
-frontend-unified/src/pages/SignInPage.tsx

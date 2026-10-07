@@ -79,39 +79,39 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="h-14 border-b border-secondary-200 dark:border-secondary-700 bg-white dark:bg-secondary-800 px-4 md:px-6 flex items-center justify-between">
+    <header className="h-14 border-b border-rule bg-surface px-4 md:px-6 flex items-center justify-between">
       <div className="flex items-center gap-3">
         {/* Mobile menu button */}
         {onMenuClick && (
           <button
             onClick={onMenuClick}
-            className="p-2 -ml-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 dark:text-secondary-400 dark:hover:text-white dark:hover:bg-secondary-700 rounded-md md:hidden"
+            className="p-2 -ml-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 dark:text-secondary-400 dark:hover:text-ink dark:hover:bg-secondary-700 rounded-md md:hidden"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <Scale className="w-6 h-6 text-primary-600" aria-hidden="true" />
-        <h1 className="text-xl font-heading font-bold text-primary-600">Robbie</h1>
+        <Scale className="w-6 h-6 text-gavel" aria-hidden="true" />
+        <h1 className="font-serif-soft text-title font-semibold text-ink">Robbie</h1>
       </div>
 
       <div className="flex items-center gap-4">
         {/* Search */}
         <div className="relative hidden md:block" ref={searchRef}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
               placeholder="Search documents..."
-              className="w-64 pl-9 pr-8 py-1.5 text-sm border border-secondary-300 dark:border-secondary-600 rounded-md bg-white dark:bg-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-primary-400 dark:focus:border-primary-400"
+              className="w-64 pl-9 pr-8 py-1.5 text-sm border border-rule rounded-md bg-surface focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-primary-400 dark:focus:border-primary-400"
             />
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-secondary-400 hover:text-secondary-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-ink-muted hover:text-ink"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -120,11 +120,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
           {/* Search Results Dropdown */}
           {showSearchResults && (
-            <div className="absolute top-full left-0 mt-1 w-96 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-1 w-96 bg-surface border border-rule rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
               {isSearching ? (
-                <div className="p-4 text-center text-secondary-500 text-sm">Searching...</div>
+                <div className="p-4 text-center text-ink-muted text-sm">Searching...</div>
               ) : searchResults.length === 0 ? (
-                <div className="p-4 text-center text-secondary-500 text-sm">
+                <div className="p-4 text-center text-ink-muted text-sm">
                   No results found for "{searchQuery}"
                 </div>
               ) : (
@@ -133,26 +133,26 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     <button
                       key={`${result.type}-${result.id}`}
                       onClick={() => handleSearchResultClick(result)}
-                      className="w-full text-left px-4 py-2 hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-colors"
+                      className="w-full text-left px-4 py-2 hover:bg-surface-2 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5">
                           {result.type === 'document' ? (
-                            <FileText className="w-4 h-4 text-primary-600" />
+                            <FileText className="w-4 h-4 text-gavel" />
                           ) : (
-                            <Hash className="w-4 h-4 text-secondary-400" />
+                            <Hash className="w-4 h-4 text-ink-muted" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-secondary-900 dark:text-white truncate">
+                          <div className="text-sm font-medium text-ink truncate">
                             {result.title}
                           </div>
                           {result.type === 'section' && (
-                            <div className="text-xs text-secondary-500 truncate">
+                            <div className="text-xs text-ink-muted truncate">
                               in {result.documentTitle}
                             </div>
                           )}
-                          <div className="text-xs text-secondary-400 mt-0.5 line-clamp-2">
+                          <div className="text-xs text-ink-muted mt-0.5 line-clamp-2">
                             {result.snippet}
                           </div>
                         </div>

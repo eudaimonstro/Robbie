@@ -21,6 +21,18 @@ const navItems = [
   { icon: Users, label: 'Live Meetings', path: '/meetings' },
 ];
 
+/**
+ * A navigation entry: ink on surface-2, and the current page on surface with a gavel bar at its
+ * left edge (docs/design-brief.md: the sidebar is "not a blue block")
+ */
+function entryClass(current: boolean, nested = false): string {
+  const size = nested ? 'gap-2 px-3 py-1.5 mb-0.5 text-sm' : 'gap-3 px-3 py-2 mb-1';
+  const state = current
+    ? 'bg-surface text-ink font-medium before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-gavel'
+    : 'text-ink-muted hover:bg-surface hover:text-ink';
+  return `relative flex items-center rounded-md transition-colors ${size} ${state}`;
+}
+
 interface SidebarProps {
   onNewDocument: () => void;
   onClose?: () => void;
@@ -50,15 +62,16 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
     }
     return location.pathname.startsWith(path);
   };
+  const onSettings = location.pathname === '/settings';
 
   return (
-    <aside className="w-64 bg-primary-600 text-white flex flex-col h-full">
+    <aside className="w-64 bg-surface-2 text-ink border-r border-rule flex flex-col h-full">
       {/* Mobile close button */}
       {onClose && (
         <div className="flex justify-end p-2 md:hidden">
           <button
             onClick={onClose}
-            className="p-2 text-primary-200 hover:text-white hover:bg-primary-700 rounded-md"
+            className="p-2 rounded-md text-ink-muted hover:text-ink hover:bg-surface"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -69,18 +82,15 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
       {/* New Document Button (a role implies a current organization) */}
       {canCreate && (
         <div className="p-4 pt-2 md:pt-4">
-          <button
-            onClick={onNewDocument}
-            className="w-full btn bg-accent-500 hover:bg-accent-600 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
+          <button onClick={onNewDocument} className="btn-primary w-full">
+            <Plus className="w-4 h-4" aria-hidden="true" />
             New Document
           </button>
         </div>
       )}
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin" aria-label="Main">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -91,58 +101,37 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
               <div key={item.path}>
                 <button
                   onClick={() => setExpandedDocs(!expandedDocs)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md mb-1 transition-colors ${
-                    active
-                      ? 'bg-primary-700 text-white'
-                      : 'text-primary-100 hover:bg-primary-700 hover:text-white'
-                  }`}
+                  aria-expanded={expandedDocs}
+                  className={`w-full ${entryClass(active)}`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                   <span className="flex-1 text-left">{item.label}</span>
                   {expandedDocs ? (
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
                   ) : (
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" aria-hidden="true" />
                   )}
                 </button>
 
                 {expandedDocs && documents.length > 0 && (
                   <div className="ml-4 mb-2">
-                    {documents.map((doc) => (
-                      <Link
-                        key={doc.id}
-                        to={`/documents/${doc.id}`}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md mb-0.5 transition-colors ${
-                          location.pathname === `/documents/${doc.id}`
-                            ? 'bg-primary-700 text-white'
-                            : 'text-primary-200 hover:bg-primary-700 hover:text-white'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="truncate">{doc.title}</span>
-                      </Link>
-                    ))}
+                    {documents.map((doc) => {
+                      const current = location.pathname === `/documents/${doc.id}`;
+                      return (
+                        <Link
+                          key={doc.id}
+                          to={`/documents/${doc.id}`}
+                          aria-current={current ? 'page' : undefined}
+                          className={entryClass(current, true)}
+                        >
+                          <FileText className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate">{doc.title}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            );
-          }
-
-          // Live Meetings gets special styling
-          if (item.path === '/meetings') {
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md mb-1 transition-colors ${
-                  active
-                    ? 'bg-meeting-600 text-white'
-                    : 'text-primary-100 hover:bg-meeting-600/80 hover:text-white'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
-              </Link>
             );
           }
 
@@ -150,13 +139,10 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md mb-1 transition-colors ${
-                active
-                  ? 'bg-primary-700 text-white'
-                  : 'text-primary-100 hover:bg-primary-700 hover:text-white'
-              }`}
+              aria-current={active ? 'page' : undefined}
+              className={entryClass(active)}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-5 h-5" aria-hidden="true" />
               <span>{item.label}</span>
             </Link>
           );
@@ -164,16 +150,13 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
       </nav>
 
       {/* Settings */}
-      <div className="p-4 border-t border-primary-500">
+      <div className="p-4 border-t border-rule">
         <Link
           to="/settings"
-          className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-            location.pathname === '/settings'
-              ? 'bg-primary-700 text-white'
-              : 'text-primary-100 hover:bg-primary-700 hover:text-white'
-          }`}
+          aria-current={onSettings ? 'page' : undefined}
+          className={entryClass(onSettings)}
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-5 h-5" aria-hidden="true" />
           <span>Settings</span>
         </Link>
       </div>

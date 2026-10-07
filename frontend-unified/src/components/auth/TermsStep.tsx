@@ -34,15 +34,13 @@ export function TermsStep() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-secondary-50 dark:bg-secondary-900 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-paper p-4">
       <form onSubmit={onSubmit} className="card w-full max-w-sm p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Scale className="w-6 h-6 text-primary-600" aria-hidden="true" />
-          <h1 className="text-xl font-heading font-bold text-secondary-900 dark:text-white">
-            Before you go on
-          </h1>
+          <Scale className="w-6 h-6 text-gavel" aria-hidden="true" />
+          <h1 className="text-xl font-heading font-bold text-ink">Before you go on</h1>
         </div>
-        <p className="text-sm text-secondary-600 dark:text-secondary-400">
+        <p className="text-sm text-ink-muted">
           Robbie needs your agreement to its Terms of Service and Privacy Policy. If you agreed
           before, they have changed since.
         </p>
@@ -59,7 +57,7 @@ export function TermsStep() {
           Sign out
         </button>
         {error && (
-          <p role="alert" className="text-sm text-danger-600 dark:text-danger-400">
+          <p role="alert" className="text-sm text-gavel">
             {error}
           </p>
         )}

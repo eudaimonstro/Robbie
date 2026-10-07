@@ -47,4 +47,20 @@ describe('Sidebar', () => {
     );
     expect(screen.queryByRole('button', { name: /New Document/ })).toBeNull();
   });
+
+  it('marks the current page for the eye and for screen readers', async () => {
+    list.mockResolvedValueOnce([]);
+    render(
+      <MemoryRouter initialEntries={['/amendments']}>
+        <Sidebar onNewDocument={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Amendments' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Live Meetings' }).getAttribute('aria-current'),
+    ).toBeNull();
+    await waitFor(() => expect(list).toHaveBeenCalled());
+  });
 });

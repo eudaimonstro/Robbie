@@ -12,7 +12,7 @@ export default function LoadingSpinner({ size = 'md', className = '' }: LoadingS
 
   return (
     <div
-      className={`spinner text-primary-600 ${sizeClasses[size]} ${className}`}
+      className={`spinner text-gavel ${sizeClasses[size]} ${className}`}
       role="status"
       aria-label="Loading"
     />
@@ -29,7 +29,7 @@ export function LoadingPage() {
 
 export function LoadingOverlay() {
   return (
-    <div className="absolute inset-0 bg-white/80 dark:bg-secondary-900/80 flex items-center justify-center z-10">
+    <div className="absolute inset-0 bg-paper/80 flex items-center justify-center z-10">
       <LoadingSpinner size="lg" />
     </div>
   );

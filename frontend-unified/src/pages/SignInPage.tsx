@@ -87,11 +87,11 @@ export default function SignInPage() {
   const step = status === 'signedIn' ? 'name' : codeSent ? 'code' : 'email';
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-secondary-50 dark:bg-secondary-900 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-paper p-4">
       <div className="card w-full max-w-sm p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Scale className="w-6 h-6 text-primary-600" aria-hidden="true" />
-          <h1 className="text-xl font-heading font-bold text-secondary-900 dark:text-white">
+          <Scale className="w-6 h-6 text-gavel" aria-hidden="true" />
+          <h1 className="text-xl font-heading font-bold text-ink">
             {step === 'name' ? 'Welcome' : 'Sign in to Robbie'}
           </h1>
         </div>
@@ -120,7 +120,7 @@ export default function SignInPage() {
 
         {step === 'code' && (
           <form onSubmit={onVerify} className="space-y-4">
-            <p className="text-sm text-secondary-600 dark:text-secondary-400">
+            <p className="text-sm text-ink-muted">
               We sent a 6-digit code to {email.trim()}. It works for 15 minutes.
             </p>
             <div>
@@ -156,9 +156,7 @@ export default function SignInPage() {
 
         {step === 'name' && (
           <form onSubmit={onName} className="space-y-4">
-            <p className="text-sm text-secondary-600 dark:text-secondary-400">
-              What should others see in meetings?
-            </p>
+            <p className="text-sm text-ink-muted">What should others see in meetings?</p>
             <div>
               <label htmlFor="name" className="label">
                 Your name
@@ -194,7 +192,7 @@ export default function SignInPage() {
         )}
 
         {error && (
-          <p role="alert" className="mt-4 text-sm text-danger-600 dark:text-danger-400">
+          <p role="alert" className="mt-4 text-sm text-gavel">
             {error}
           </p>
         )}
