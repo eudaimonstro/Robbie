@@ -18,6 +18,29 @@ describe('MinutesNotice', () => {
     expect(screen.getByText('Any corrections?')).toBeTruthy();
   });
 
+  it('labels the notice only when the agenda line above does not say it already', () => {
+    // The minutes stage without an agenda item: the label says what the business is
+    const { unmount } = render(<MinutesNotice state={atTheMinutes} />);
+    expect(screen.getByText('Approval of the minutes')).toBeTruthy();
+    unmount();
+
+    render(
+      <MinutesNotice
+        state={{
+          ...atTheMinutes,
+          meetingStage: 'new-business',
+          currentAgendaItem: {
+            id: 2,
+            title: 'Approval of the minutes of the 2025 annual meeting',
+            status: 'active',
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByText('Approval of the minutes')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Approval of the minutes' })).toBeTruthy();
+  });
+
   it('says once they are approved', () => {
     render(
       <MinutesNotice

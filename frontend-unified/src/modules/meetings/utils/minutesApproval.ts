@@ -21,6 +21,16 @@ export function minutesItemUnderWay(state: MeetingState): boolean {
   );
 }
 
+/**
+ * Whether the agenda item under way says it approves the minutes ("Approval of the minutes of the
+ * 2025 annual meeting"): the screens that show the item's line above the minutes don't label them
+ * "Approval of the minutes" again
+ */
+export function agendaNamesTheApproval(state: MeetingState): boolean {
+  const title = state.currentAgendaItem?.title ?? '';
+  return MINUTES_ITEM.test(title) && /\bapprov/i.test(title);
+}
+
 /** The first heading that names the minutes: its line and its words */
 function namingHeading(lines: string[]): { index: number; heading: string } | null {
   for (const [index, line] of lines.entries()) {

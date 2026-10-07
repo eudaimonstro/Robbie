@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import { minutesBody, minutesHeading, minutesItemUnderWay } from '../minutesApproval';
+import {
+  agendaNamesTheApproval,
+  minutesBody,
+  minutesHeading,
+  minutesItemUnderWay,
+} from '../minutesApproval';
 
 const item = (title: string) => ({ id: 2, title, status: 'active' as const });
 const inSession: MeetingState = {
@@ -31,6 +36,30 @@ describe('minutesItemUnderWay', () => {
     expect(minutesItemUnderWay({ ...minutesItem, currentMotion: motion })).toBe(false);
     expect(minutesItemUnderWay({ ...minutesItem, pendingSecond: motion })).toBe(false);
     expect(minutesItemUnderWay({ ...minutesItem, meetingActive: false })).toBe(false);
+  });
+});
+
+describe('agendaNamesTheApproval', () => {
+  it('is an agenda item that says it approves the minutes', () => {
+    expect(
+      agendaNamesTheApproval({
+        ...inSession,
+        currentAgendaItem: item('Approval of the minutes of the 2025 annual meeting'),
+      }),
+    ).toBe(true);
+    expect(
+      agendaNamesTheApproval({
+        ...inSession,
+        currentAgendaItem: item('Reading and approval of minutes'),
+      }),
+    ).toBe(true);
+  });
+
+  it('is not an item that only names the minutes, or the minutes stage without an item', () => {
+    expect(agendaNamesTheApproval({ ...inSession, currentAgendaItem: item('Minutes') })).toBe(
+      false,
+    );
+    expect(agendaNamesTheApproval({ ...inSession, meetingStage: 'minutes-approval' })).toBe(false);
   });
 });
 

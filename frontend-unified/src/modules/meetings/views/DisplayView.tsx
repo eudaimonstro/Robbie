@@ -9,7 +9,11 @@ import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
 import { STANCE_LABELS } from '../utils/phoneMoment';
-import { minutesHeading, minutesItemUnderWay } from '../utils/minutesApproval';
+import {
+  agendaNamesTheApproval,
+  minutesHeading,
+  minutesItemUnderWay,
+} from '../utils/minutesApproval';
 import { latestDecision } from '../utils/decisions';
 import { joinUrl } from '../utils/meetingLinks';
 import { formatScheduledStart } from '../../../utils/dates';
@@ -187,7 +191,8 @@ function MinutesOnDisplay({ state }: { state: MeetingState }) {
   const line = 'line-clamp-3 text-display-line text-ink-muted';
   return (
     <div className="space-y-6">
-      <p className={LABEL}>Approval of the minutes</p>
+      {/* The agenda line above may say it already */}
+      {!agendaNamesTheApproval(state) && <p className={LABEL}>Approval of the minutes</p>}
       {text ? (
         <>
           <p className={large}>{minutesHeading(text)}</p>

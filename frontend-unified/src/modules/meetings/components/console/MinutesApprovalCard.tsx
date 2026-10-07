@@ -3,7 +3,12 @@ import ReactMarkdown from 'react-markdown';
 import { CheckCircle } from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
-import { minutesBody, minutesHeading, minutesItemUnderWay } from '../../utils/minutesApproval';
+import {
+  agendaNamesTheApproval,
+  minutesBody,
+  minutesHeading,
+  minutesItemUnderWay,
+} from '../../utils/minutesApproval';
 
 /** The longest corrections the server takes (MAX_CORRECTIONS_LENGTH) */
 const MAX_CORRECTIONS = 2000;
@@ -54,8 +59,11 @@ export function MinutesApprovalCard({
   return (
     <section aria-label="Approval of the minutes" className="card space-y-4 p-5">
       <div>
-        <p className="label-caps">Approval of the minutes</p>
-        <p className="mt-1 font-serif-soft text-title font-semibold text-ink">
+        {/* The Now line may say it already */}
+        {!agendaNamesTheApproval(state) && (
+          <p className="mb-1 label-caps">Approval of the minutes</p>
+        )}
+        <p className="font-serif-soft text-title font-semibold text-ink">
           {minutes ? minutesHeading(minutes) : 'No published minutes are before this meeting'}
         </p>
       </div>

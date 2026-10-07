@@ -294,6 +294,21 @@ describe('DisplayView', () => {
     render(<DisplayView />);
     expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
     expect(screen.getByText('Any corrections?')).toBeTruthy();
+    // The agenda line says what the business is: no label repeats it
+    expect(screen.getByText('Approval of the minutes of the 2025 annual meeting')).toBeTruthy();
+    expect(screen.queryByText('Approval of the minutes')).toBeNull();
+  });
+
+  it('labels the minutes when no agenda line names their approval', () => {
+    socket.state = {
+      ...inSession,
+      meetingStage: 'minutes-approval',
+      currentAgendaItem: null,
+      minutesFromPreviousMeeting: '## Minutes of the 2025 Annual Meeting',
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Approval of the minutes')).toBeTruthy();
+    expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
   });
 
   it('asks for corrections in large type when the minutes are not sent to the display', () => {

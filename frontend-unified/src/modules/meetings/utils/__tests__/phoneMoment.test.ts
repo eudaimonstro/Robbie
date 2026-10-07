@@ -90,6 +90,32 @@ describe('phoneMoment', () => {
       { ...active, agendaAdopted: false, currentNominationPosition: 'Director' },
       'election',
     ],
+    [
+      'while the minutes are before the meeting',
+      {
+        ...active,
+        currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      },
+      'minutes',
+    ],
+    [
+      'once the minutes are approved',
+      {
+        ...active,
+        currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+        minutesApproved: true,
+      },
+      'motion',
+    ],
+    [
+      'while a motion is made during the minutes',
+      {
+        ...active,
+        currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+        pendingSecond: motion('mainMotion'),
+      },
+      'second',
+    ],
   ])('asks for one thing %s', (_when, state, moment) => {
     expect(phoneMoment(state)).toBe(moment);
   });

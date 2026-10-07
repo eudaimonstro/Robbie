@@ -1,5 +1,9 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
-import { minutesHeading, minutesItemUnderWay } from '../../utils/minutesApproval';
+import {
+  agendaNamesTheApproval,
+  minutesHeading,
+  minutesItemUnderWay,
+} from '../../utils/minutesApproval';
 
 /** On a phone, while the previous minutes are the business: which minutes, and the question */
 export function MinutesNotice({ state }: { state: MeetingState }) {
@@ -7,7 +11,8 @@ export function MinutesNotice({ state }: { state: MeetingState }) {
   const made = state.minutesApproval?.corrections;
   return (
     <section aria-label="Approval of the minutes" className="card space-y-1 p-4">
-      <p className="label-caps">Approval of the minutes</p>
+      {/* The header's agenda line may say it already */}
+      {!agendaNamesTheApproval(state) && <p className="label-caps">Approval of the minutes</p>}
       <p className="font-serif-soft text-lg font-semibold text-ink">
         {minutesHeading(state.minutesFromPreviousMeeting)}
       </p>
