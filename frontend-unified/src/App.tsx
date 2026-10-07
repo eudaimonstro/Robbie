@@ -24,6 +24,7 @@ const SignInPage = lazy(() => import('./pages/SignInPage'));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 const NotFoundPage = lazy(() => import('./modules/documents/pages/NotFoundPage'));
+const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'));
 
 // Lazy load meetings module
 const MeetingsModule = lazy(() => import('./modules/meetings'));
@@ -72,6 +73,9 @@ function App() {
 
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />
+
+                  {/* The design language (docs/design-brief.md) */}
+                  <Route path="style-guide" element={<StyleGuidePage />} />
 
                   {/* Live meetings (Robbie) */}
                   <Route path="meetings/*" element={<MeetingsModule />} />
