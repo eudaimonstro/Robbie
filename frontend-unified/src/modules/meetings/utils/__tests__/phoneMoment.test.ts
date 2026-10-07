@@ -95,6 +95,7 @@ describe('phoneMoment', () => {
       {
         ...active,
         currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+        previousMinutesId: 'm1',
       },
       'minutes',
     ],
@@ -103,6 +104,7 @@ describe('phoneMoment', () => {
       {
         ...active,
         currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+        previousMinutesId: 'm1',
         minutesApproved: true,
       },
       'motion',
@@ -112,9 +114,31 @@ describe('phoneMoment', () => {
       {
         ...active,
         currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+        previousMinutesId: 'm1',
         pendingSecond: motion('mainMotion'),
       },
       'second',
+    ],
+    [
+      'at an item that gives itself a length of time',
+      {
+        ...active,
+        currentAgendaItem: {
+          id: 3,
+          title: 'Homeowner forum (3 minutes per speaker)',
+          status: 'active',
+        },
+        previousMinutesId: 'm1',
+      },
+      'motion',
+    ],
+    [
+      'at an item about the minutes with no minutes to approve',
+      {
+        ...active,
+        currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      },
+      'motion',
     ],
   ])('asks for one thing %s', (_when, state, moment) => {
     expect(phoneMoment(state)).toBe(moment);

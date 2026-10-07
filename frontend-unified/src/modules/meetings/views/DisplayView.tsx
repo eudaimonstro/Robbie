@@ -13,6 +13,7 @@ import {
   agendaNamesTheApproval,
   minutesHeading,
   minutesItemUnderWay,
+  minutesLatestLine,
 } from '../utils/minutesApproval';
 import { latestDecision } from '../utils/decisions';
 import { joinUrl } from '../utils/meetingLinks';
@@ -127,8 +128,10 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
   );
   const question = describeQuestion(state);
   const result = currentResult(state, voteResult);
-  // The previous minutes, while the room is asked to approve them
-  const minutes = minutesItemUnderWay(state);
+  // The previous minutes, while the room is asked to approve them, unless the room decided
+  // something since they came up: a fresh result keeps its stamp
+  const decidedSince = (latestDecision(state.meetingLog)?.index ?? -1) > minutesLatestLine(state);
+  const minutes = minutesItemUnderWay(state) && !(result && decidedSince);
   const debate = !!state.recognizedSpeaker || queue.length > 0;
   // The chair's ruling, while it is the latest decision and no new motion has been made
   const ruling =

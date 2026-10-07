@@ -1,17 +1,52 @@
+import {
+  LOG_MINUTES_APPROVED,
+  getStageLogMessage,
+  logAgendaItemCalled,
+  logMinutesApprovedWithCorrections,
+} from '@robbie-bylawyer/shared/constants';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 
-/** An agenda item for the minutes: "Approval of the minutes of the 2025 annual meeting" */
-const MINUTES_ITEM = /\bminutes\b/i;
+/**
+ * A length of time in a title, which says nothing about the minutes of a meeting: "Homeowner
+ * forum (3 minutes per speaker)", "Treasurer's report (five minutes)"
+ */
+const DURATION =
+  /\b(?:\d+|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)[\s-]*minutes?\b/gi;
+
+/** The title without its lengths of time */
+function withoutDurations(title: string): string {
+  return title.replace(DURATION, '');
+}
+
+/**
+ * Whether an agenda item's title is about the minutes of a meeting: it names them (not as a
+ * length of time) and says it approves, corrects or reads them, or is the minutes themselves
+ * ("Approval of the minutes of the 2025 annual meeting", "Reading and correction of minutes",
+ * "Minutes")
+ */
+export function titleIsTheMinutes(title: string): boolean {
+  const words = withoutDurations(title);
+  if (!/\bminutes\b/i.test(words)) return false;
+  return /approv|correct|\bread/i.test(words) || /^\W*(?:the\s+)?minutes\b/i.test(words);
+}
+
+/**
+ * Whether there are previous minutes before the meeting: their text for members, and only their
+ * id for guests and the display (the server keeps the text from them)
+ */
+function minutesToApprove(state: MeetingState): boolean {
+  return !!state.previousMinutesId || !!state.minutesFromPreviousMeeting;
+}
 
 /**
  * Whether the approval of the previous minutes is the business now: the meeting is at its
- * minutes-approval stage or has called an agenda item about the minutes, and no question is
- * pending (a motion made during the item comes first)
+ * minutes-approval stage, or has called an agenda item about the minutes while there are minutes
+ * to approve; and no question is pending (a motion made during the item comes first)
  */
 export function minutesItemUnderWay(state: MeetingState): boolean {
   const atMinutes =
     state.meetingStage === 'minutes-approval' ||
-    MINUTES_ITEM.test(state.currentAgendaItem?.title ?? '');
+    (minutesToApprove(state) && titleIsTheMinutes(state.currentAgendaItem?.title ?? ''));
   return (
     state.meetingActive &&
     atMinutes &&
@@ -28,7 +63,26 @@ export function minutesItemUnderWay(state: MeetingState): boolean {
  */
 export function agendaNamesTheApproval(state: MeetingState): boolean {
   const title = state.currentAgendaItem?.title ?? '';
-  return MINUTES_ITEM.test(title) && /\bapprov/i.test(title);
+  return titleIsTheMinutes(title) && /\bapprov/i.test(withoutDurations(title));
+}
+
+/**
+ * Where the minutes last became the news in the meeting log: the line that called their item (or
+ * began their stage), or the line that approved them. A decision logged after it is newer than
+ * the minutes; -1 without such a line.
+ */
+export function minutesLatestLine(state: MeetingState): number {
+  const item = state.currentAgendaItem;
+  const called = item ? logAgendaItemCalled(item.title) : null;
+  const stage = getStageLogMessage('minutes-approval');
+  const approvedWithCorrections = logMinutesApprovedWithCorrections('');
+  return state.meetingLog.findLastIndex(
+    ({ message }) =>
+      message === called ||
+      message === stage ||
+      message === LOG_MINUTES_APPROVED ||
+      message.startsWith(approvedWithCorrections),
+  );
 }
 
 /** The first heading that names the minutes: its line and its words */

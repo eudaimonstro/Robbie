@@ -75,9 +75,16 @@ describe('MinutesApprovalCard', () => {
   });
 
   it('lets minutes read from paper be approved when none were published', () => {
+    // No minutes before the meeting: the chair moves to the minutes stage (Order of business)
     render(
       <MinutesApprovalCard
-        state={{ ...atTheMinutes, minutesFromPreviousMeeting: '', previousMinutesId: null }}
+        state={{
+          ...atTheMinutes,
+          meetingStage: 'minutes-approval',
+          currentAgendaItem: null,
+          minutesFromPreviousMeeting: '',
+          previousMinutesId: null,
+        }}
         dispatch={dispatch}
       />,
     );
