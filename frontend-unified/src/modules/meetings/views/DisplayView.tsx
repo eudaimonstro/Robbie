@@ -10,6 +10,7 @@ import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
 import { STANCE_LABELS } from '../utils/phoneMoment';
 import { joinUrl } from '../utils/meetingLinks';
+import { formatScheduledStart } from '../../../utils/dates';
 import { AttendanceBlock } from '../components/attendance/AttendanceBlock';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
@@ -30,6 +31,7 @@ export function DisplayView() {
   const organization = availableOrganizations.find((o) => o.id === state.organizationId) ?? null;
   const { roster } = useRoster(meetingCode, isConnected);
   const eligible = eligibleCount(organization, roster);
+  const beforeMeeting = !state.meetingActive && state.meetingStage !== 'adjourned';
 
   return (
     <div className="dark relative min-h-screen overflow-hidden bg-paper font-body text-ink">
@@ -46,6 +48,11 @@ export function DisplayView() {
               <h1 className="font-serif-soft text-display-line font-semibold text-ink">
                 {state.title || 'Meeting'}
               </h1>
+              {beforeMeeting && state.scheduledFor && (
+                <p className="text-display-line text-ink-muted">
+                  {formatScheduledStart(state.scheduledFor)}
+                </p>
+              )}
             </header>
             {state.meetingStage === 'adjourned' ? (
               <Adjourned state={state} />

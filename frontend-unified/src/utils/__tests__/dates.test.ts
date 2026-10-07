@@ -3,6 +3,7 @@ import {
   formatCalendarDate,
   formatClockTime,
   formatMeetingTime,
+  formatScheduledStart,
   fromLocalDateTimeInput,
   toLocalDateTimeInput,
 } from '../dates';
@@ -73,5 +74,17 @@ describe('formatClockTime', () => {
     expect(formatClockTime('19:41')).toBe('19:41');
     expect(formatClockTime('')).toBe('');
     expect(formatClockTime(undefined)).toBe('');
+  });
+});
+
+describe('formatScheduledStart', () => {
+  it("spells out the day and gives the time, in the viewer's time zone", () => {
+    // 7:00 PM in Chicago, where the suite runs
+    expect(formatScheduledStart('2026-10-21T00:00:00.000Z')).toBe('Tuesday, October 20, 7:00 PM');
+  });
+
+  it('is empty for no time, or one it cannot read', () => {
+    expect(formatScheduledStart(null)).toBe('');
+    expect(formatScheduledStart('soon')).toBe('');
   });
 });

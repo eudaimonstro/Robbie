@@ -82,6 +82,12 @@ describe('DisplayView', () => {
     expect(screen.getByText('Need 23 more')).toBeTruthy();
   });
 
+  it('says when the meeting starts, under the title', () => {
+    socket.state = { ...scheduled, scheduledFor: '2026-10-21T00:00:00.000Z' };
+    render(<DisplayView />);
+    expect(screen.getByText('Tuesday, October 20, 7:00 PM')).toBeTruthy();
+  });
+
   it('is always in the evening palette', () => {
     socket.state = scheduled;
     const { container } = render(<DisplayView />);
@@ -159,6 +165,34 @@ describe('DisplayView', () => {
     render(<DisplayView />);
     expect(screen.getByText('Carried')).toBeTruthy();
     expect(screen.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeTruthy();
+  });
+
+  it('keeps ELECTED up after the chair declares the winner, until the next question', () => {
+    const declared: MeetingState = {
+      ...inSession,
+      electedOfficers: [
+        { position: 'Director', name: 'Carmen Diaz', memberId: 5, electedAt: '8:30:00 PM' },
+      ],
+      meetingLog: [
+        {
+          time: '8:28:00 PM',
+          message:
+            'Voting closed for Director. Results: Carmen Diaz: 9 vote(s), Ray Castillo: 5 vote(s). Carmen Diaz elected.',
+        },
+        { time: '8:30:00 PM', message: 'Chair declares Carmen Diaz elected as Director.' },
+      ],
+    };
+    socket.state = declared;
+    const { unmount } = render(<DisplayView />);
+    expect(screen.getByText('Elected')).toBeTruthy();
+    expect(screen.getByText('Carmen Diaz, Director')).toBeTruthy();
+    expect(screen.getByText('Carmen Diaz 9, Ray Castillo 5')).toBeTruthy();
+    unmount();
+
+    socket.state = { ...declared, pendingSecond: { ...motion, secondedBy: null } };
+    render(<DisplayView />);
+    expect(screen.queryByText('Elected')).toBeNull();
+    expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
   });
 
   it('says when the meeting adjourned, how much it decided, and where the minutes will be', () => {

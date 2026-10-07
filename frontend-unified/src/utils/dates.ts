@@ -50,6 +50,23 @@ export function formatMeetingTime(value: string | null | undefined): string {
 }
 
 /**
+ * When a meeting starts, spelled out for the room's screen, in the viewer's time zone:
+ * "Tuesday, October 20, 7:00 PM"
+ */
+export function formatScheduledStart(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${day}, ${time}`;
+}
+
+/**
  * A time of day in the viewer's time zone ("7:02 PM"), for a stored instant such as a meeting
  * log entry's. Some log entries hold a clock time already ("7:02:00 PM", from the device that
  * sent the action): those lose their seconds, and anything else is shown as is.
