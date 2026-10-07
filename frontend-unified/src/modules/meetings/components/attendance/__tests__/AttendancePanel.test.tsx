@@ -119,6 +119,24 @@ describe('AttendancePanel', () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 
+  it('keeps the names closed until there are some', () => {
+    renderPanel();
+    const names = () =>
+      screen.getByText('Add names for the minutes').closest('details') as HTMLDetailsElement;
+    expect(names().open).toBe(false);
+    fireEvent.click(screen.getByText('Add names for the minutes'));
+    expect(names().open).toBe(true);
+  });
+
+  it('opens the names when the headcount already has some', () => {
+    renderPanel({ headcount: 2, headcountNames: ['Dee Park'] });
+    const names = screen.getByText('Add names for the minutes').closest('details');
+    expect(names?.open).toBe(true);
+    expect((screen.getByLabelText(/Names for the minutes/) as HTMLTextAreaElement).value).toBe(
+      'Dee Park',
+    );
+  });
+
   it('lists the guests apart', () => {
     renderPanel();
     const guests = screen.getByRole('list', { name: 'Guests' });

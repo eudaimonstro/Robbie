@@ -15,7 +15,10 @@ SRC=frontend-unified/src
 ALLOWLIST=scripts/palette-allowlist.txt
 
 PALETTE='(?<![\w-])(?:[a-z-]+:)*(?:bg|text|border|ring|divide|from|to|via|fill|stroke|outline|decoration|placeholder|shadow)(?:-[trblxy])?-(?:(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|meeting)-\d{2,3}|white|black)(?:/\d+)?(?![\w-])'
-EMOJI='[\x{1F300}-\x{1FAFF}\x{2600}-\x{26FF}\x{2705}\x{270B}\x{23F0}-\x{23FA}]'
+# Any pictograph (Unicode's Extended_Pictographic: the emoji blocks, the dingbats and the symbols
+# such as U+2B50, U+2728, U+2696 and U+23F0, and arrows like U+2195), and the emoji variation
+# selector U+FE0F. The copyright, registered and trademark signs are pictographic too, but text.
+EMOJI='(?![\x{A9}\x{AE}\x{2122}])\p{Extended_Pictographic}|\x{FE0F}'
 
 offending=$(grep -rlP "$PALETTE|$EMOJI" "$SRC" --include='*.ts' --include='*.tsx' --include='*.css' \
   --exclude-dir=__tests__ | sort || true)

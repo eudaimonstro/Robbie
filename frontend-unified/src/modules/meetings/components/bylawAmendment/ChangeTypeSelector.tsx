@@ -1,4 +1,5 @@
 import React from 'react';
+import { Hash, Minus, Pencil, Plus } from 'lucide-react';
 import type { BylawChangeType } from '../../types';
 
 interface ChangeTypeSelectorProps {
@@ -7,10 +8,10 @@ interface ChangeTypeSelectorProps {
 }
 
 const CHANGE_TYPES = [
-  { value: 'add' as const, label: 'Add', icon: '+' },
-  { value: 'modify' as const, label: 'Modify', icon: '✎' },
-  { value: 'delete' as const, label: 'Delete', icon: '−' },
-  { value: 'renumber' as const, label: 'Renumber', icon: '#' },
+  { value: 'add' as const, label: 'Add', Icon: Plus },
+  { value: 'modify' as const, label: 'Modify', Icon: Pencil },
+  { value: 'delete' as const, label: 'Delete', Icon: Minus },
+  { value: 'renumber' as const, label: 'Renumber', Icon: Hash },
 ];
 
 export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
@@ -31,7 +32,7 @@ export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
                 : 'border-rule text-ink-muted hover:border-ink-muted'
             }`}
           >
-            <span className="text-xl block">{opt.icon}</span>
+            <opt.Icon size={20} aria-hidden="true" className="mx-auto mb-1 block" />
             <span className="text-xs">{opt.label}</span>
           </button>
         ))}

@@ -54,18 +54,24 @@ export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps
           onChange={(e) => setCount(e.target.value)}
         />
       </div>
-      <div>
-        <label htmlFor={namesId} className="label">
-          Names for the minutes (optional, one per line)
-        </label>
-        <textarea
-          id={namesId}
-          className="textarea"
-          rows={3}
-          value={nameText}
-          onChange={(e) => setNameText(e.target.value)}
-        />
-      </div>
+      {/* Closed unless there are names already, so the console's agenda stays above the fold */}
+      <details open={names.length > 0} className="group">
+        <summary className="cursor-pointer text-sm font-medium text-ink hover:text-gavel">
+          Add names for the minutes
+        </summary>
+        <div className="mt-2">
+          <label htmlFor={namesId} className="label">
+            Names for the minutes (optional, one per line)
+          </label>
+          <textarea
+            id={namesId}
+            className="textarea"
+            rows={3}
+            value={nameText}
+            onChange={(e) => setNameText(e.target.value)}
+          />
+        </div>
+      </details>
       {problem && (
         <p role="alert" className="text-sm text-gavel">
           {problem}

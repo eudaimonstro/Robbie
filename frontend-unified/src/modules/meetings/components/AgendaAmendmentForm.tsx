@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArrowUpDown, Minus, Plus } from 'lucide-react';
 import { generateId } from '@robbie-bylawyer/shared/utils';
 import type { AgendaAmendmentFormProps } from '../types';
 
@@ -55,16 +56,16 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
         <label className="block text-sm font-medium text-ink mb-2">Amendment Type</label>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { value: 'add' as const, label: 'Add', icon: '+' },
-            { value: 'remove' as const, label: 'Remove', icon: '−' },
-            { value: 'reorder' as const, label: 'Reorder', icon: '↕' },
+            { value: 'add' as const, label: 'Add', Icon: Plus },
+            { value: 'remove' as const, label: 'Remove', Icon: Minus },
+            { value: 'reorder' as const, label: 'Reorder', Icon: ArrowUpDown },
           ].map((opt) => (
             <button
               key={opt.value}
               onClick={() => setAmendmentType(opt.value)}
               className={`p-3 rounded-lg border-2 text-center ${amendmentType === opt.value ? 'border-gavel bg-gavel-tint' : 'border-rule'}`}
             >
-              <span className="text-xl block">{opt.icon}</span>
+              <opt.Icon size={20} aria-hidden="true" className="mx-auto mb-1 block" />
               <span className="text-sm">{opt.label}</span>
             </button>
           ))}

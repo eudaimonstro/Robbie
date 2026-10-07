@@ -1,8 +1,29 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import {
+  Bell,
+  ChartColumn,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  Megaphone,
+  Sparkles,
+  Star,
+  type LucideIcon,
+} from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { DISPLAYABLE_STAGES, isLastActiveStage } from '@robbie-bylawyer/shared/constants';
-import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction, MeetingStage } from '@robbie-bylawyer/shared/types';
+
+/** Each stage's icon (lucide, never emoji: docs/design-brief.md) */
+const STAGE_ICONS: Partial<Record<MeetingStage, LucideIcon>> = {
+  'call-to-order': Bell,
+  'minutes-approval': FileText,
+  reports: ChartColumn,
+  'special-orders': Star,
+  'unfinished-business': ClipboardList,
+  'new-business': Sparkles,
+  announcements: Megaphone,
+};
 
 interface OrderOfBusinessPanelProps {
   state: MeetingState;
@@ -26,6 +47,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
         {DISPLAYABLE_STAGES.map((item) => {
           const isCurrent = state.meetingStage === item.stage;
           const isClickable = !isCurrent;
+          const Icon = STAGE_ICONS[item.stage];
 
           return (
             <button
@@ -54,7 +76,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
                   isCurrent ? 'font-semibold text-ink' : 'text-ink-muted'
                 }`}
               >
-                <span aria-hidden="true">{item.icon}</span>
+                {Icon && <Icon size={16} aria-hidden="true" />}
                 {item.label}
               </span>
               {isCurrent && <ChevronRight size={18} className="text-gavel" aria-hidden="true" />}
