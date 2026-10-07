@@ -15,6 +15,9 @@ export default async function globalSetup(): Promise<void> {
   await client.connect();
   try {
     await client.query('DELETE FROM meetings');
+    // The scenario signs in through the sign-in page, which asks for a code: without this, a
+    // few runs in an hour would reach the limit on codes per email
+    await client.query('DELETE FROM "SignInCode"');
   } finally {
     await client.end();
   }
