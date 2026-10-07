@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Document, Version } from '../../../../../api/client';
 
 const api = vi.hoisted(() => ({
@@ -7,17 +7,18 @@ const api = vi.hoisted(() => ({
   listVersions: vi.fn(),
   listAmendments: vi.fn(),
   getTree: vi.fn(),
+  createVersion: vi.fn(),
 }));
 
 vi.mock('../../../../../api/client', () => ({
   documents: { get: api.getDocument },
-  versions: { list: api.listVersions, getTree: api.getTree },
+  versions: { list: api.listVersions, getTree: api.getTree, create: api.createVersion },
   amendments: { list: api.listAmendments },
   sections: {},
 }));
-vi.mock('../../../../../context/ToastContext', () => ({
-  useToast: () => ({ showToast: () => {} }),
-}));
+// The same function each render, as the provider's is: a new one would reload the document
+const toast = vi.hoisted(() => ({ showToast: () => {} }));
+vi.mock('../../../../../context/ToastContext', () => ({ useToast: () => toast }));
 
 const { useDocumentData } = await import('../useDocumentData');
 
@@ -90,5 +91,31 @@ describe('useDocumentData', () => {
     const { result } = renderHook(() => useDocumentData('Q', 'q1'));
     await waitFor(() => expect(result.current.selectedVersion?.id).toBe('q1'));
     expect(api.getTree).toHaveBeenCalledWith('q1');
+  });
+
+  it('follows the version asked for without reloading the document, and a reload keeps it', async () => {
+    const versions = [version('q2', 2), version('q1', 1)];
+    api.getDocument.mockResolvedValue(doc('Q', 'q2'));
+    api.listVersions.mockResolvedValue(versions);
+    api.getTree.mockResolvedValue([]);
+
+    const { result, rerender } = renderHook(({ asked }) => useDocumentData('Q', asked), {
+      initialProps: { asked: 'q1' as string | null },
+    });
+    await waitFor(() => expect(result.current.selectedVersion?.id).toBe('q1'));
+
+    // The picker chose the current version: the link no longer names one
+    rerender({ asked: null });
+    await waitFor(() => expect(result.current.selectedVersion?.id).toBe('q2'));
+    expect(api.getDocument).toHaveBeenCalledTimes(1);
+    expect(result.current.loading).toBe(false);
+
+    // A reload (after a new version) reads the link as it is now, not as it was
+    api.createVersion.mockResolvedValue(version('q3', 3));
+    api.getDocument.mockResolvedValue(doc('Q', 'q3'));
+    api.listVersions.mockResolvedValue([version('q3', 3), ...versions]);
+    await act(() => result.current.handleCreateVersion({} as never));
+    expect(result.current.selectedVersion?.id).toBe('q3');
+    expect(api.getTree.mock.calls.map(([id]) => id)).toEqual(['q1', 'q2', 'q3', 'q3']);
   });
 });

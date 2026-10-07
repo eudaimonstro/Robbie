@@ -139,4 +139,64 @@ describe('AmendmentTabs', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
     expect(await screen.findByText("Couldn't load the preview.")).toBeTruthy();
   });
+
+  it('sums up the changes, each a link that brings its section into view', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderTabs(amendment('draft'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+
+    const summary = await screen.findByRole('navigation', { name: 'The changes' });
+    expect(summary.textContent).toBe(
+      '1 changed (Section 4.2), 1 removed (Section 4.3), 1 added (Section 4.6)',
+    );
+    const link = within(summary).getByRole('link', { name: 'Section 4.6' });
+    expect(link.getAttribute('href')).toBe('#section-new-c1');
+
+    fireEvent.click(link);
+    const added = screen.getByRole('region', { name: 'Section 4.6 Remote Attendance' });
+    expect(added.id).toBe('section-new-c1');
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.contexts[0]).toBe(added);
+    // No reduced motion asked for: a glide
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(document.activeElement).toBe(added);
+  });
+
+  it('jumps without the glide for a reader who asked for reduced motion', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const matchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes('reduce') })) as never;
+    try {
+      renderTabs(amendment('draft'));
+      fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+      const summary = await screen.findByRole('navigation', { name: 'The changes' });
+      fireEvent.click(within(summary).getByRole('link', { name: 'Section 4.2' }));
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+    } finally {
+      window.matchMedia = matchMedia;
+    }
+  });
+
+  it('marks an added section with a solid badge, not the tint it sits on', async () => {
+    renderTabs(amendment('draft'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    const added = await screen.findByRole('region', { name: 'Section 4.6 Remote Attendance' });
+    expect(added.className).toContain('bg-carried-tint');
+    const badge = within(added).getByText('Added');
+    expect(badge.className).toContain('bg-carried text-paper');
+    expect(badge.className).not.toContain('tint');
+  });
+
+  it('says when the amendment changes nothing yet', async () => {
+    api.preview.mockResolvedValueOnce({
+      ...preview,
+      sections: [section({ id: 's1', numberLabel: 'Article I', title: 'Name' })],
+    });
+    renderTabs(amendment('draft'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(await screen.findByText('No changes yet.')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'The changes' })).toBeNull();
+  });
 });
