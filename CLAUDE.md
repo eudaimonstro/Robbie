@@ -11,6 +11,8 @@ Robbie-Bylawyer is a combined monorepo containing two related applications for o
 
 Both applications now run from a **single unified backend** (backend-node) on port 3001.
 
+The product is called **Robbie** (`docs/mvp-roadmap.md`): the app says Robbie everywhere (the header, the page title, Settings' "About Robbie"), and "Bylawyer" names only the documents side in code. Packages and folders keep their names.
+
 ## Monorepo Structure
 
 ```
@@ -80,6 +82,7 @@ npm run db:generate      # Generate Prisma client
 npm run db:migrate       # Create/apply migrations in development (prisma migrate dev)
 npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
+npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces it); its people sign in with code 000000 when ENABLE_TEST_AUTH=true
 ```
 
 ### Docker
@@ -128,14 +131,14 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/meetings` - Join/create live meeting (Robbie)
 - `/meetings/:code` - Active meeting with Socket.io (Robbie)
 - `/settings` - App settings
-- `/sign-in` - Sign in by emailed code (public, as is `/share/:shareToken`)
+- `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
 
 **State Management:**
 
 - `ThemeContext` - Global dark mode
 - `ToastContext` - Global notifications
-- `OrganizationContext` - Current organization
-- `SessionContext` - signed-in user (cookie session); `RequireSession` guards every route except `/sign-in` and `/share`
+- `OrganizationContext` - the user's organizations (each with their `role`), the current one, and the user's `role` in it; `useCan(minRole)` hides actions the role can't take (the server still decides; role order in `utils/roles.ts` mirrors `backend-node/src/orgs/roles.ts`). The saved selection belongs to the user who made it; a record page (document, amendment, recorded meeting) selects the record's own organization with `useSelectRecordOrganization`
+- `SessionContext` - signed-in user (cookie session) and `termsAccepted`/`acceptTerms()`; `RequireSession` guards every route except `/sign-in`, `/share`, `/terms` and `/privacy`, and shows the terms step until the current terms (`TERMS_VERSION`) are accepted. A 403 `TERMS_NOT_ACCEPTED` from the API or the socket brings the step back, unless the refused request started before the acceptance
 - `SocketContext` - Socket.io connection (meetings module only, wraps meeting routes)
 
 ### Robbie Meetings Module (modules/meetings)
@@ -255,6 +258,8 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 9. **Root-level pins:** the root `package.json` declares `typescript`, `vite`, `react`, `react-dom` and `@types/node` as devDependencies only so that one copy is installed at the root, where ESLint, CI's `npx tsc`, Vitest and root-installed React and React Native libraries resolve them. React must be the exact version Expo pins for mobile (React Native's renderer requires it), so web, mobile and root move together. Update `@types/react` with Expo's template version, and keep `@types/node` on the runtime's major (Node 24, see `.nvmrc`).
 
 10. **Organizations and roles:** roles, lowest first: viewer (reads everything in the organization, lists members), member (drafts amendments and edits or deletes their own drafts), secretary (edits documents, decides and applies amendments, records meetings and votes, manages packets, agenda items and attachments, links live meetings), admin (name and description, share links, adds, changes and removes members up to admin), owner (manages owners, deletes the organization). An organization keeps at least one owner. Every `/api` route outside `/api/auth`, `/api/share` and `/api/health` runs `requireRole(minRole, resolver)` from `backend-node/src/orgs` (or `signedInOnly()` for the user's own organizations) after `validate(...)`; outsiders get 404, roles too low 403. `src/__integration__/routeCoverage.test.ts` fails on a route without a rule. A handler that takes a second resource checks it against `req.org.id` and answers 404 if it is elsewhere. For development data, `npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <role>`.
+
+11. **Design brief:** new UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); existing screens move onto it as they are touched.
 
 ## Feature Specifications
 
