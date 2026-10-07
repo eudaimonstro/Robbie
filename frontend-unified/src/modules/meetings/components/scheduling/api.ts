@@ -34,6 +34,7 @@ export async function createPacket(
     robbieCode: string;
     title?: string;
     description?: string;
+    location?: string;
     scheduledFor?: string;
     /** The presiding officer; the server defaults it to the creator, and null is nobody */
     chairUserId?: number | null;
@@ -61,6 +62,7 @@ export async function updatePacket(
   data: {
     title?: string;
     description?: string;
+    location?: string;
     scheduledFor?: string;
     chairUserId?: number | null;
   },

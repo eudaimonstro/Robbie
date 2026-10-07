@@ -91,6 +91,19 @@ describe('MeetingScheduler', () => {
     });
   });
 
+  it('records where the meeting is held', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Place'), {
+      target: { value: 'Maple Grove Clubhouse' },
+    });
+    next();
+    await screen.findByText('Agenda builder');
+    expect(api.createPacket).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ location: 'Maple Grove Clubhouse' }),
+    );
+  });
+
   it('offers members and above to preside, and names who does', async () => {
     await schedule();
     expect(screen.queryByRole('option', { name: 'Morgan Lee' })).toBeNull();

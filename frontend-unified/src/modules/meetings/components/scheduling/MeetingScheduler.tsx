@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2, MapPin } from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
 import { createPacket, updatePacket } from './api';
@@ -44,6 +44,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const [meetingCode, setMeetingCode] = useState(generateMeetingCode);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
   // The presiding officer: undefined until the members load, then the scheduler when they may
   // preside; null for nobody (the admins run the meeting)
@@ -91,6 +92,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const details = () => ({
     title: title || undefined,
     description: description || undefined,
+    location: location.trim() || undefined,
     scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     ...(chairUserId === undefined ? {} : { chairUserId }),
   });
@@ -212,20 +214,6 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
               </div>
 
               <div>
-                <label htmlFor="meetingDescription" className="label">
-                  Description
-                </label>
-                <textarea
-                  id="meetingDescription"
-                  className="textarea"
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Where it is, and anything members should know"
-                />
-              </div>
-
-              <div>
                 <label htmlFor="meetingDate" className="label">
                   <Calendar className="mr-1 inline h-4 w-4" aria-hidden="true" />
                   Date and time
@@ -236,6 +224,36 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                   className="input"
                   value={scheduledFor}
                   onChange={(e) => setScheduledFor(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="meetingLocation" className="label">
+                  <MapPin className="mr-1 inline h-4 w-4" aria-hidden="true" />
+                  Place
+                </label>
+                <input
+                  id="meetingLocation"
+                  type="text"
+                  className="input"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Maple Grove Clubhouse"
+                  maxLength={500}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="meetingDescription" className="label">
+                  Description
+                </label>
+                <textarea
+                  id="meetingDescription"
+                  className="textarea"
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Anything members should know"
                 />
               </div>
 
@@ -295,6 +313,12 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                     <p className="flex items-center gap-1 text-sm text-ink-muted">
                       <Clock className="h-4 w-4" aria-hidden="true" />
                       {new Date(scheduledFor).toLocaleString()}
+                    </p>
+                  )}
+                  {location.trim() && (
+                    <p className="flex items-center gap-1 text-sm text-ink-muted">
+                      <MapPin className="h-4 w-4" aria-hidden="true" />
+                      {location.trim()}
                     </p>
                   )}
                   <p className="text-sm text-ink-muted">

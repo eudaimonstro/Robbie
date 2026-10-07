@@ -5,6 +5,7 @@ import { organizations } from '../../api/client';
 import { useOrganization } from '../../context/OrganizationContext';
 import { useToast } from '../../context/ToastContext';
 import { showsOneOrganizationsRecord } from '../../utils/organizationPages';
+import { browserTimeZone } from '../../utils/timeZones';
 
 /** Create an organization with the signed-in user as its owner, and switch to it */
 export function NewOrganizationModal({
@@ -36,10 +37,12 @@ export function NewOrganizationModal({
     setCreating(true);
     setError(null);
     try {
-      // No slug: the server makes one from the name
+      // No slug: the server makes one from the name. The creator's time zone is the
+      // organization's until an admin changes it (the minutes give times in it).
       const created = await organizations.create({
         name: name.trim(),
         description: description.trim() || undefined,
+        timeZone: browserTimeZone(),
       });
       await refreshOrganizations();
       // A document, amendment or meeting page belongs to the organization being left
