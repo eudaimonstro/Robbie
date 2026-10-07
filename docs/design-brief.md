@@ -35,7 +35,7 @@ These tokens, defined in `frontend-unified/src/styles/index.css`, are the only c
 | `ink`          | `#1C1A17`           | `#F3EEE6`              | text                                                  |
 | `ink-muted`    | `#5B564E`           | `#A8A094`              | secondary text, labels                                |
 | `rule`         | `#E4DDD1`           | `#332E27`              | borders, dividers                                     |
-| `gavel`        | `#8B2E25`           | `#E0604A`              | primary actions, the current item marker, focus rings |
+| `gavel`        | `#8B2E25`           | `#E46A55`              | primary actions, the current item marker, focus rings |
 | `gavel-tint`   | `#F6E6E2`           | `#3A1F1B`              | selected and hover backgrounds                        |
 | `carried`      | `#2F6B45`           | `#5DBB7A`              | carried, elected, present, connected                  |
 | `carried-tint` | `#E3EFE5`           | `#1E3326`              |                                                       |

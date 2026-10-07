@@ -167,7 +167,7 @@ function ProxyRequestCard({
             <button
               onClick={handleDecline}
               disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-1 py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel/90 disabled:bg-rule"
+              className="flex-1 flex items-center justify-center gap-1 py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule"
             >
               <X size={14} /> Confirm Decline
             </button>
@@ -187,7 +187,7 @@ function ProxyRequestCard({
           <button
             onClick={handleAccept}
             disabled={isSubmitting || !canAccept}
-            className="flex-1 flex items-center justify-center gap-1 py-2 bg-carried text-paper rounded-sm text-sm hover:bg-carried/90 disabled:bg-rule disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-1 py-2 bg-carried text-paper rounded-sm text-sm hover:bg-carried-700 dark:hover:bg-carried-300 disabled:bg-rule disabled:cursor-not-allowed"
             title={!canAccept ? `Maximum ${maxProxies} proxies reached` : undefined}
           >
             <Check size={14} /> Accept
@@ -195,7 +195,7 @@ function ProxyRequestCard({
           <button
             onClick={() => setShowDeclineReason(true)}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-1 py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel/90 disabled:bg-rule"
+            className="flex-1 flex items-center justify-center gap-1 py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule"
           >
             <X size={14} /> Decline
           </button>

@@ -34,7 +34,9 @@
   --ink: #f3eee6;
   --ink-muted: #a8a094;
   --rule: #332e27;
-  --gavel: #e0604a;
+  /* A shade lighter than the brief's first #e0604a: gavel text on its tint and on surface-2 is
+     4.5:1 or more */
+  --gavel: #e46a55;
   --gavel-tint: #3a1f1b;
   --carried: #5dbb7a;
   --carried-tint: #1e3326;
@@ -77,7 +79,7 @@
   --color-gavel-100: #efd3cc;
   --color-gavel-200: #e2ada2;
   --color-gavel-300: #e8826f;
-  --color-gavel-400: #e0604a;
+  --color-gavel-400: #e46a55;
   --color-gavel-500: #b8432f;
   --color-gavel-600: #8b2e25;
   --color-gavel-700: #74261f;
@@ -212,8 +214,12 @@
   @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-10 rounded-lg font-body font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gavel focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
+/*
+  Hover and active move the fill away from the text, never fade it toward the page: darker under
+  the day's light text, lighter under the evening's dark text, so the label stays above 4.5:1
+*/
 @utility btn-primary {
-  @apply btn bg-gavel text-paper hover:bg-gavel/90 active:bg-gavel/80;
+  @apply btn bg-gavel text-paper hover:bg-gavel-700 active:bg-gavel-800 dark:hover:bg-gavel-300 dark:active:bg-gavel-200;
 }
 
 @utility btn-secondary {
@@ -226,11 +232,11 @@
 
 /* Destructive confirmations: the gavel's red is the only red */
 @utility btn-danger {
-  @apply btn bg-gavel text-paper hover:bg-gavel/90 active:bg-gavel/80;
+  @apply btn bg-gavel text-paper hover:bg-gavel-700 active:bg-gavel-800 dark:hover:bg-gavel-300 dark:active:bg-gavel-200;
 }
 
 @utility btn-success {
-  @apply btn bg-carried text-paper hover:bg-carried/90;
+  @apply btn bg-carried text-paper hover:bg-carried-700 dark:hover:bg-carried-300;
 }
 
 @utility btn-sm {

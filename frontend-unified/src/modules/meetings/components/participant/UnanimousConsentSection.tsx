@@ -34,7 +34,7 @@ export const UnanimousConsentSection = React.memo(function UnanimousConsentSecti
             timestamp: generateTimestamp(),
           })
         }
-        className="w-full min-h-[56px] bg-gavel text-paper py-4 rounded-xl hover:bg-gavel/90 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
+        className="w-full min-h-[56px] bg-gavel text-paper py-4 rounded-xl hover:bg-gavel-700 dark:hover:bg-gavel-300 font-semibold text-lg touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
       >
         I Object!
       </button>

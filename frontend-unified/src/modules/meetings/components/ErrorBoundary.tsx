@@ -69,7 +69,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             )}
             <button
               onClick={this.handleRetry}
-              className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
+              className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
               aria-label="Try again to recover from error"
             >
               Try Again

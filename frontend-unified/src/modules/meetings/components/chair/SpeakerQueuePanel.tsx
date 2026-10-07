@@ -66,7 +66,7 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
       </span>
       <button
         onClick={handleRecognize}
-        className="px-4 py-1 rounded text-sm text-paper bg-gavel hover:bg-gavel/90"
+        className="px-4 py-1 rounded text-sm text-paper bg-gavel hover:bg-gavel-700 dark:hover:bg-gavel-300"
         aria-label={`Recognize ${entry.member.name} to speak`}
       >
         Recognize

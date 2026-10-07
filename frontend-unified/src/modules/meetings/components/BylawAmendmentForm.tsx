@@ -215,7 +215,7 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
         <button
           onClick={handleSubmit}
           disabled={!canSubmit()}
-          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule disabled:cursor-not-allowed font-medium"
         >
           Submit Motion
         </button>

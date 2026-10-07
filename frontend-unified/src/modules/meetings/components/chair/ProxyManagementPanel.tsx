@@ -207,7 +207,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
           )}
           <button
             onClick={handleSaveSettings}
-            className="px-3 py-1.5 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel/90"
+            className="px-3 py-1.5 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel-700 dark:hover:bg-gavel-300"
           >
             Save Settings
           </button>
@@ -285,7 +285,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
             <button
               onClick={handleGrantProxy}
               disabled={selectedAbsentMember === '' || selectedProxyHolder === ''}
-              className="w-full py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel/90 disabled:bg-rule"
+              className="w-full py-2 bg-gavel text-paper rounded-sm text-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule"
             >
               Grant Proxy
             </button>

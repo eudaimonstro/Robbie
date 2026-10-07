@@ -222,7 +222,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
           <button
             onClick={handleRequestProxy}
             disabled={selectedHolder === '' || isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule disabled:cursor-not-allowed text-sm font-medium"
           >
             <Send size={14} />
             {isSubmitting ? 'Sending...' : 'Send Request'}

@@ -264,7 +264,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
           <button
             onClick={handleAddItem}
             disabled={!newItemTitle.trim() || isCreating}
-            className="flex items-center gap-2 px-4 py-3 bg-gavel text-paper rounded-lg hover:bg-gavel/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-3 bg-gavel text-paper rounded-lg hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCreating ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
             Add

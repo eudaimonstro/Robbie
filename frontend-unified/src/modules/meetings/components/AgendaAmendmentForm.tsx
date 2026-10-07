@@ -162,7 +162,7 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
         <button
           onClick={handleSubmit}
           disabled={amendmentType === 'add' && !newItemTitle.trim()}
-          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel/90 disabled:bg-rule font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule font-medium"
         >
           Submit Motion
         </button>

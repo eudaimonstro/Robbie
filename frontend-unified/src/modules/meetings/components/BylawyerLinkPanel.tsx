@@ -209,7 +209,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
                 <button
                   onClick={handleLink}
                   disabled={loading || !chosenOrgId}
-                  className="flex items-center gap-2 bg-gavel text-paper px-4 py-2 rounded-lg hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-gavel text-paper px-4 py-2 rounded-lg hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule disabled:cursor-not-allowed"
                 >
                   <Link size={16} />
                   Link

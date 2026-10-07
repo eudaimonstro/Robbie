@@ -91,7 +91,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
       </div>
       <button
         onClick={() => dispatch({ type: 'ADVANCE_MEETING_STAGE', timestamp: generateTimestamp() })}
-        className="w-full mt-3 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full mt-3 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel-700 dark:hover:bg-gavel-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={isLastActiveStage(state.meetingStage)}
       >
         Proceed to the next stage

@@ -88,7 +88,7 @@ export function ReconsiderForm({
         </button>
         <button
           onClick={handleSubmit}
-          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel/90 font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 font-medium"
         >
           Submit Motion
         </button>

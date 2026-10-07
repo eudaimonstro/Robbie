@@ -51,7 +51,7 @@ export const MinutesApprovalPanel = React.memo(function MinutesApprovalPanel({
       </p>
       <button
         onClick={() => dispatch({ type: 'APPROVE_MINUTES', timestamp: generateTimestamp() })}
-        className="w-full bg-carried text-paper py-3 rounded-lg hover:bg-carried/90 font-medium"
+        className="w-full bg-carried text-paper py-3 rounded-lg hover:bg-carried-700 dark:hover:bg-carried-300 font-medium"
       >
         Approve Minutes (No Corrections)
       </button>

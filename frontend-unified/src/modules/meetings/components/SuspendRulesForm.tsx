@@ -157,7 +157,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel/90 transition-colors font-semibold"
+            className="flex-1 px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 transition-colors font-semibold"
           >
             Submit Motion
           </button>

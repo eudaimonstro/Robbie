@@ -59,7 +59,7 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
                       timestamp: generateTimestamp(),
                     })
                   }
-                  className="w-full mt-2 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90 text-sm font-medium"
+                  className="w-full mt-2 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel-700 dark:hover:bg-gavel-300 text-sm font-medium"
                 >
                   Present Report
                 </button>
