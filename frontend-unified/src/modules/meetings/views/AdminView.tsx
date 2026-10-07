@@ -180,7 +180,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
           />
           <Link
             to="/"
-            className="flex items-center justify-center gap-2 w-full py-2 px-4 text-sm text-gavel hover:bg-gavel-tint rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-2 px-4 text-sm text-gavel hover:bg-gavel-tint hover:text-ink rounded-lg transition-colors"
           >
             <FileText size={16} />
             Open Documents Dashboard

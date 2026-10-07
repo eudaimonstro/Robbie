@@ -111,7 +111,7 @@ export const VotingPanel = React.memo(function VotingPanel({
           </div>
           <div className="bg-gavel-tint p-4 rounded-lg text-center">
             <p className="text-3xl font-bold text-gavel">{votingData.nay}</p>
-            <p className="text-gavel">Nay</p>
+            <p className="text-ink">Nay</p>
           </div>
           <div className="bg-surface-2 p-4 rounded-lg text-center">
             <p className="text-3xl font-bold text-ink">{state.votes.abstain}</p>

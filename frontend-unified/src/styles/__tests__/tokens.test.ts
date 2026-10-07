@@ -34,9 +34,10 @@ describe('design tokens', () => {
     expect(block('@theme inline')).toContain(`--color-${name}: var(--${name});`);
   });
 
-  it('keeps the old palette names working, on the new scales', () => {
-    expect(css).toContain('--color-primary-600: var(--color-gavel-600);');
-    expect(css).toContain('--color-secondary-900: var(--color-ink-900);');
+  it('defines none of the old palette names: the app uses the tokens', () => {
+    for (const name of ['primary', 'secondary', 'accent', 'success', 'danger']) {
+      expect(css).not.toContain(`--color-${name}-`);
+    }
   });
 
   it('sets the two typefaces', () => {

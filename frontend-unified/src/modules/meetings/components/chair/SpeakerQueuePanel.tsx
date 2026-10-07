@@ -60,7 +60,9 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
           {stanceIcon} {stanceLabel}
         </span>
         {isMotionMaker && (
-          <span className="ml-2 text-xs text-gavel font-medium">(Motion Maker - speaks first)</span>
+          <span className="ml-2 text-xs text-ink-muted font-medium">
+            (Motion Maker - speaks first)
+          </span>
         )}
       </span>
       <button
@@ -110,7 +112,7 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
             type="checkbox"
             checked={state.autoYieldOnTimeExpired}
             onChange={(e) => dispatch({ type: 'SET_AUTO_YIELD', enabled: e.target.checked })}
-            className="rounded-sm border-rule text-gavel focus:ring-gavel"
+            className="rounded-sm border-rule accent-gavel focus:ring-gavel"
           />
           Auto-yield on timeout
         </label>

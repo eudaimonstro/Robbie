@@ -166,7 +166,7 @@ export default function PublicDocumentPage() {
       <div className="bg-gavel-tint border-b border-gavel/30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
           <Eye className="w-4 h-4 text-gavel" />
-          <span className="text-sm text-gavel">You are viewing a shared document (read-only)</span>
+          <span className="text-sm text-ink">You are viewing a shared document (read-only)</span>
         </div>
       </div>
 

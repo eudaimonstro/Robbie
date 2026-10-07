@@ -101,7 +101,7 @@ export const SpeakerRecognitionPanel = React.memo(function SpeakerRecognitionPan
               className={`${stanceButtonClass} focus:ring-gavel ${
                 selectedStance === 'con'
                   ? 'bg-gavel text-paper ring-2 ring-gavel/30'
-                  : 'bg-surface text-gavel border-2 border-gavel/30 hover:bg-gavel-tint'
+                  : 'bg-surface text-gavel border-2 border-gavel/30 hover:bg-gavel-tint hover:text-ink'
               }`}
               role="radio"
               aria-checked={selectedStance === 'con'}

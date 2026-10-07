@@ -83,7 +83,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                   value="parliamentary"
                   checked={inquiryType === 'parliamentary'}
                   onChange={(e) => setInquiryType(e.target.value as InquiryType)}
-                  className="mt-0.5"
+                  className="mt-0.5 accent-gavel"
                 />
                 <div>
                   <div className="font-medium">Parliamentary Inquiry</div>
@@ -98,7 +98,7 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
                   value="information"
                   checked={inquiryType === 'information'}
                   onChange={(e) => setInquiryType(e.target.value as InquiryType)}
-                  className="mt-0.5"
+                  className="mt-0.5 accent-gavel"
                 />
                 <div>
                   <div className="font-medium">Request for Information</div>

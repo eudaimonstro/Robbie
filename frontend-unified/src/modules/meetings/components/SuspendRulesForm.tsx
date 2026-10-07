@@ -124,7 +124,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
                 value="single-action"
                 checked={scope === 'single-action'}
                 onChange={(e) => setScope(e.target.value as 'single-action')}
-                className="mr-2"
+                className="mr-2 accent-gavel"
               />
               <span className="text-sm">
                 Single action{' '}
@@ -137,7 +137,7 @@ export function SuspendRulesForm({ onSubmit, onCancel }: SuspendRulesFormProps) 
                 value="meeting-remainder"
                 checked={scope === 'meeting-remainder'}
                 onChange={(e) => setScope(e.target.value as 'meeting-remainder')}
-                className="mr-2"
+                className="mr-2 accent-gavel"
               />
               <span className="text-sm">
                 Remainder of meeting <span className="text-ink-muted">(until adjournment)</span>

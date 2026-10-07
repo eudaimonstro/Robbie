@@ -144,7 +144,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={state.allowProxyVoting}
               onChange={handleToggleProxyVoting}
-              className="rounded-sm border-rule text-gavel focus:ring-gavel"
+              className="rounded-sm border-rule accent-gavel focus:ring-gavel"
             />
             <span
               className={state.allowProxyVoting ? 'text-carried font-medium' : 'text-ink-muted'}
@@ -184,7 +184,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={countForQuorum}
               onChange={(e) => setCountForQuorum(e.target.checked)}
-              className="rounded-sm border-rule text-gavel focus:ring-gavel"
+              className="rounded-sm border-rule accent-gavel focus:ring-gavel"
             />
             <span className="text-sm text-ink-muted">Proxies count toward quorum</span>
           </label>
@@ -193,7 +193,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
               type="checkbox"
               checked={allowMemberGrant}
               onChange={(e) => setAllowMemberGrant(e.target.checked)}
-              className="rounded-sm border-rule text-gavel focus:ring-gavel"
+              className="rounded-sm border-rule accent-gavel focus:ring-gavel"
             />
             <span className="text-sm text-ink-muted">
               Allow members to request their own proxies
@@ -267,7 +267,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                   value="all"
                   checked={proxyScope === 'all'}
                   onChange={() => setProxyScope('all')}
-                  className="text-gavel"
+                  className="accent-gavel"
                 />
                 All votes
               </label>
@@ -277,7 +277,7 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
                   value="single-vote"
                   checked={proxyScope === 'single-vote'}
                   onChange={() => setProxyScope('single-vote')}
-                  className="text-gavel"
+                  className="accent-gavel"
                 />
                 Single vote only
               </label>

@@ -201,7 +201,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
                   value="all"
                   checked={proxyScope === 'all'}
                   onChange={() => setProxyScope('all')}
-                  className="text-gavel"
+                  className="accent-gavel"
                 />
                 All votes
               </label>
@@ -212,7 +212,7 @@ export const ProxyRequestPanel = React.memo(function ProxyRequestPanel({
                   value="single-vote"
                   checked={proxyScope === 'single-vote'}
                   onChange={() => setProxyScope('single-vote')}
-                  className="text-gavel"
+                  className="accent-gavel"
                 />
                 Single vote only
               </label>

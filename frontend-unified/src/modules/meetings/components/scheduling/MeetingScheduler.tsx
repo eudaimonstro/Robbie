@@ -159,7 +159,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
           <div className="mb-6 bg-gavel-tint border border-gavel/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gavel font-medium">Meeting Code</p>
+                <p className="text-sm text-ink-muted font-medium">Meeting Code</p>
                 <p className="text-2xl font-mono font-bold text-ink">{meetingCode}</p>
               </div>
               <button
@@ -170,7 +170,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            <p className="text-xs text-gavel mt-2">
+            <p className="text-xs text-ink-muted mt-2">
               Share this code with participants to join your meeting
             </p>
           </div>
@@ -178,7 +178,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
           {error && (
             <div
               role="alert"
-              className="mb-4 bg-gavel-tint border border-gavel/30 text-gavel px-4 py-3 rounded-lg"
+              className="mb-4 bg-gavel-tint border border-gavel/30 text-ink px-4 py-3 rounded-lg"
             >
               {error}
             </div>

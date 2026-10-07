@@ -179,7 +179,7 @@ export function AttachmentUploader({
 
       {/* Error message */}
       {error && (
-        <div className="bg-gavel-tint border border-gavel/30 text-gavel px-3 py-2 rounded-sm text-sm flex items-center justify-between">
+        <div className="bg-gavel-tint border border-gavel/30 text-ink px-3 py-2 rounded-sm text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)}>
             <X size={16} />

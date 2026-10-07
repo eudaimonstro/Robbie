@@ -55,7 +55,7 @@ export function OrganizationSwitcher() {
                       role="menuitem"
                       onClick={() => choose(org)}
                       className={`w-full text-left px-4 py-2 text-sm hover:bg-surface-2 transition-colors ${
-                        currentOrganization?.id === org.id ? 'bg-gavel-tint text-gavel' : 'text-ink'
+                        currentOrganization?.id === org.id ? 'bg-gavel-tint text-ink' : 'text-ink'
                       }`}
                     >
                       <span className="block truncate">{org.name}</span>

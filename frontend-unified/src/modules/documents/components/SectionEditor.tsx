@@ -102,7 +102,7 @@ export default function SectionEditor({
     <Modal isOpen={isOpen} onClose={onClose} title={titles[mode]} size="lg">
       <form onSubmit={handleSubmit}>
         {(error || validationError) && (
-          <div className="mb-4 p-3 bg-gavel-tint border border-gavel/30 rounded-md text-gavel text-sm">
+          <div className="mb-4 p-3 bg-gavel-tint border border-gavel/30 rounded-md text-ink text-sm">
             {error || validationError}
           </div>
         )}

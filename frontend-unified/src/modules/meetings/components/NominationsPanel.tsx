@@ -178,7 +178,7 @@ export function NominationsPanel({
                       {!nomination.declined && nomination.nomineeId === currentUser.id && (
                         <button
                           onClick={() => handleDeclineNomination(nomination.id)}
-                          className="text-xs text-gavel px-2 py-1 rounded-sm hover:bg-gavel-tint"
+                          className="text-xs text-gavel px-2 py-1 rounded-sm hover:bg-gavel-tint hover:text-ink"
                         >
                           Decline
                         </button>

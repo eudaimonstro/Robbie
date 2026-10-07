@@ -10,7 +10,7 @@ export function TermsCheckbox({
     <label className="flex items-start gap-2 text-sm text-ink">
       <input
         type="checkbox"
-        className="mt-0.5 h-4 w-4 shrink-0"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-gavel"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />

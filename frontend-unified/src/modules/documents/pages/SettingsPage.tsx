@@ -200,7 +200,7 @@ export default function SettingsPage() {
           {/* Danger Zone */}
           <div className="card border-gavel/30">
             <div className="px-6 py-4 border-b border-gavel/30 bg-gavel-tint rounded-t-lg">
-              <h3 className="font-semibold text-gavel">Danger Zone</h3>
+              <h3 className="font-semibold text-ink">Danger Zone</h3>
             </div>
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between gap-4">
