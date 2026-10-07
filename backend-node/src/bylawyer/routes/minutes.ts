@@ -66,8 +66,25 @@ const seesDrafts = (role: OrgRole) => atLeast(role, 'secretary');
 const meetingDate = (scheduledFor: Date | null, startedAt: Date | null, generatedAt: Date) =>
   (scheduledFor ?? startedAt ?? generatedAt).getTime();
 
-const readMinutes = (id: string) =>
-  prisma.minutes.findUniqueOrThrow({ where: { id }, select: MINUTES_SELECT });
+/**
+ * Whether these minutes are published and before a meeting that hasn't adjourned: the meeting
+ * has them as they are and makes any corrections, so the secretary's editor doesn't change them
+ * (PUT refuses, and every minutes response says so as `beforeMeeting`)
+ */
+const lockedBeforeMeeting = async (
+  organizationId: string,
+  minutes: { id: string; status: string },
+) => minutes.status === 'published' && (await minutesBeforeLiveMeeting(organizationId, minutes.id));
+
+/** A minutes response: the record, and whether a meeting has them before it */
+const withBeforeMeeting = async <M extends { id: string; organizationId: string; status: string }>(
+  minutes: M,
+) => ({ ...minutes, beforeMeeting: await lockedBeforeMeeting(minutes.organizationId, minutes) });
+
+const readMinutes = async (id: string) =>
+  withBeforeMeeting(
+    await prisma.minutes.findUniqueOrThrow({ where: { id }, select: MINUTES_SELECT }),
+  );
 
 /**
  * GET /api/organizations/:orgId/minutes
@@ -123,7 +140,8 @@ minutesRouter.get(
 
 /**
  * GET /api/minutes/:id
- * One meeting's minutes. A draft is not found below secretary.
+ * One meeting's minutes, with `beforeMeeting` (see lockedBeforeMeeting). A draft is not found
+ * below secretary.
  */
 minutesRouter.get(
   '/minutes/:id',
@@ -138,7 +156,7 @@ minutesRouter.get(
       if (!minutes || (minutes.status === 'draft' && !seesDrafts(req.org!.role))) {
         return res.status(404).json({ error: 'Not found' });
       }
-      res.json(minutes);
+      res.json(await withBeforeMeeting(minutes));
     } catch (error) {
       logger.error({ err: error }, 'Failed to get minutes');
       res.status(500).json({ error: 'Failed to get the minutes' });
@@ -167,7 +185,7 @@ minutesRouter.put(
         where: { id },
         select: { status: true },
       });
-      if (status === 'published' && (await minutesBeforeLiveMeeting(req.org!.id, id))) {
+      if (await lockedBeforeMeeting(req.org!.id, { id, status })) {
         return res.status(409).json({ error: MINUTES_BEFORE_MEETING });
       }
       // One statement, so minutes approved in the meantime aren't changed

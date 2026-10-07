@@ -38,6 +38,9 @@ const BEFORE_MEETING = 'These minutes are before a meeting; corrections are made
 const APPROVED = 'Approved minutes are the record and cannot be changed';
 const ONLY_DRAFTS = 'Only a draft can be written again from the meeting';
 const NO_RECORD = 'The meeting has no record to write the minutes from';
+// The page's note when a meeting has the minutes before it
+const BEFORE_MEETING_NOTE =
+  'These minutes are before a meeting for approval. Any corrections are made by the meeting when it approves them.';
 
 function record(overrides: Partial<MinutesRecord> = {}): MinutesRecord {
   return {
@@ -62,6 +65,7 @@ function record(overrides: Partial<MinutesRecord> = {}): MinutesRecord {
     updatedBy: null,
     publishedBy: null,
     approvedAtPacket: null,
+    beforeMeeting: false,
     ...overrides,
   };
 }
@@ -162,6 +166,32 @@ describe('MinutesPage', () => {
       await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
     });
     expect(api.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens published minutes read-only when a meeting is about to approve them', async () => {
+    api.get.mockResolvedValue(record({ status: 'published', beforeMeeting: true }));
+    renderAt();
+    await heading();
+    expect(screen.getByText(BEFORE_MEETING_NOTE)).toBeTruthy();
+    // Read, not edited: no editor to type in and nothing saved
+    expect(screen.queryByLabelText('Minutes text')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      screen.getByText(
+        'The pool motion carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5.',
+      ),
+    ).toBeTruthy();
+    // They can still be printed for the meeting
+    expect(screen.getByRole('link', { name: 'Print or save as PDF' })).toBeTruthy();
+    expect(api.save).not.toHaveBeenCalled();
+  });
+
+  it('tells a member reading them that a meeting is about to approve them', async () => {
+    org.isSecretary = false;
+    api.get.mockResolvedValue(record({ status: 'published', beforeMeeting: true }));
+    renderAt();
+    await heading();
+    expect(screen.getByText(BEFORE_MEETING_NOTE)).toBeTruthy();
   });
 
   it('turns to the record when the minutes were approved while they were being edited', async () => {

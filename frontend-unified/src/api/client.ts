@@ -794,6 +794,11 @@ export interface MinutesRecord {
   publishedBy: { id: number; name: string | null } | null;
   /** The meeting that approved them */
   approvedAtPacket: { id: string; title: string | null; scheduledFor: string | null } | null;
+  /**
+   * Published and before a meeting that hasn't adjourned: the meeting makes any corrections,
+   * so a save is refused (409)
+   */
+  beforeMeeting: boolean;
 }
 
 export interface Meeting {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { ArrowLeft, Download, Printer, RefreshCw, Send } from 'lucide-react';
+import { ArrowLeft, Download, Info, Printer, RefreshCw, Send } from 'lucide-react';
 import { HttpError, minutes as minutesApi, type MinutesRecord } from '../../../api/client';
 import { useCan, useSelectRecordOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
@@ -92,12 +92,22 @@ export default function MinutesPage() {
   }
   if (!record) return <LoadingPage />;
 
+  // Published minutes a meeting has before it are the meeting's to correct (the server refuses
+  // a save; see beforeMeeting)
+  const beforeMeeting = record.status === 'published' && record.beforeMeeting;
   // Approved minutes are the record: nobody edits them
-  const editable = isSecretary && record.status !== 'approved';
+  const editable = isSecretary && record.status !== 'approved' && !beforeMeeting;
   // The editor takes the width for its two columns; the reader keeps a readable measure
   return (
     <div className={`mx-auto space-y-6 ${editable ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <MinutesHeading record={record} />
+      {beforeMeeting && (
+        <p className="flex items-start gap-2 rounded-md border border-rule bg-surface-2 px-4 py-3 text-sm text-ink">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
+          These minutes are before a meeting for approval. Any corrections are made by the meeting
+          when it approves them.
+        </p>
+      )}
       {notice && (
         <p
           role="alert"

@@ -245,8 +245,14 @@ describe('minutes', () => {
   it('are not changed once they are before a meeting that has not adjourned', async () => {
     const edit = (body: string) =>
       call('put', `/api/minutes/${f.minutes}`, { cookie: as('secretary'), body: { body } });
+    // Whether they are before a meeting, as the page reads it (the editor opens read-only)
+    const beforeMeeting = async (id = f.minutes, role: OrgRole = 'secretary') =>
+      (await call('get', `/api/minutes/${id}`, { cookie: as(role) })).body.beforeMeeting;
     // Published, and not yet before any meeting: the secretary can still fix them
-    expect((await edit('Fixed before the meeting')).status).toBe(200);
+    expect(await beforeMeeting()).toBe(false);
+    const fixed = await edit('Fixed before the meeting');
+    expect(fixed.status).toBe(200);
+    expect(fixed.body.beforeMeeting).toBe(false);
 
     // ORGA01 opens and puts them before it to approve
     await getStorage().getOrCreateMeeting('ORGA01', {
@@ -259,6 +265,9 @@ describe('minutes', () => {
     const locked = await edit('Changed while the meeting has them');
     expect(locked.status).toBe(409);
     expect(locked.body).toEqual({ error: MINUTES_BEFORE_MEETING });
+    // The page learns it before a save is refused, whoever reads them
+    expect(await beforeMeeting()).toBe(true);
+    expect(await beforeMeeting(f.minutes, 'viewer')).toBe(true);
     // Called to order: still before it
     const meeting = (await getStorage().getMeeting('ORGA01'))!;
     await getStorage().updateMeetingState(
@@ -280,12 +289,14 @@ describe('minutes', () => {
         })
       ).status,
     ).toBe(200);
+    expect(await beforeMeeting(f.draftMinutes)).toBe(false);
 
     // Adjourned (the packet ended) without approving them: they can be fixed again
     await prisma.meetingPacket.update({
       where: { id: f.packet.id },
       data: { endedAt: new Date() },
     });
+    expect(await beforeMeeting()).toBe(false);
     expect((await edit('Fixed after the meeting')).status).toBe(200);
   });
 
