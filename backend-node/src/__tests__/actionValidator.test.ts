@@ -86,6 +86,18 @@ describe('actionValidator', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('allows adjourning during an agenda item (the reducer completes it)', () => {
+      const state = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [{ id: 2, title: 'Adjournment', status: 'active' as const }],
+        currentAgendaItem: { id: 2, title: 'Adjournment', status: 'active' as const },
+      };
+      const result = validateAction(state, { type: 'END_MEETING', timestamp: '' });
+      expect(result.valid).toBe(true);
+    });
+
     it('should reject ending inactive meeting', () => {
       const result = validateAction(initialState, { type: 'END_MEETING', timestamp: '' });
       expect(result.valid).toBe(false);

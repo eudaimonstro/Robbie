@@ -38,7 +38,7 @@ describe('chairActions', () => {
   });
 
   it('adopts the agenda, then calls the next item', () => {
-    expect(ids(active)).toEqual(['adopt-agenda', 'agenda-objection']);
+    expect(ids(active)).toEqual(['adopt-agenda', 'agenda-objection', 'adjourn']);
     expect(ids({ ...active, agendaObjection: true })).toEqual(['adjourn']);
     const next = chairActions(adopted, 2);
     expect(next.map((a) => a.label)).toEqual(['Call the next item: Call to order', 'Adjourn']);
@@ -51,14 +51,60 @@ describe('chairActions', () => {
       currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
     };
     const actions = chairActions(state, 2);
-    expect(actions.map((a) => a.id)).toEqual(['complete-item', 'put-item']);
+    expect(actions.map((a) => a.id)).toEqual(['complete-item', 'put-item', 'adjourn']);
+    expect(actions.map((a) => a.tone)).toEqual(['primary', 'secondary', 'secondary']);
     expect(actions[1].make()).toMatchObject({
       type: 'MAKE_MOTION',
       motionType: 'mainMotion',
       text: "Approve: Treasurer's report",
       moverId: 2,
     });
-    expect(chairActions(state, null).map((a) => a.id)).toEqual(['complete-item']);
+    expect(chairActions(state, null).map((a) => a.id)).toEqual(['complete-item', 'adjourn']);
+  });
+
+  it('adjourns from the last item without completing it first', () => {
+    const state: MeetingState = {
+      ...adopted,
+      agenda: [
+        { id: 1, title: 'Call to order', status: 'completed' },
+        { id: 2, title: 'Adjournment', status: 'active' },
+      ],
+      currentAgendaItem: { id: 2, title: 'Adjournment', status: 'active' },
+    };
+    const actions = chairActions(state, 2);
+    expect(actions.map((a) => [a.id, a.tone])).toEqual([
+      ['adjourn', 'primary'],
+      ['complete-item', 'secondary'],
+      ['put-item', 'secondary'],
+    ]);
+    expect(actions[0].make()).toMatchObject({ type: 'END_MEETING' });
+  });
+
+  it('offers no adjournment while a question is pending, a vote is open or a ballot runs', () => {
+    const during: MeetingState = {
+      ...adopted,
+      currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
+    };
+    expect(ids({ ...during, currentMotion: motion('mainMotion') })).not.toContain('adjourn');
+    expect(
+      ids({ ...during, pendingSecond: motion('mainMotion', { secondedBy: null }) }),
+    ).not.toContain('adjourn');
+    expect(ids({ ...during, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual([]);
+    expect(
+      ids({
+        ...during,
+        currentElection: {
+          id: 1,
+          position: 'Treasurer',
+          candidates: [],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: {},
+          votersWhoVoted: [],
+          elected: null,
+        },
+      }),
+    ).toEqual([]);
   });
 
   it('declares no second while a motion waits for one', () => {

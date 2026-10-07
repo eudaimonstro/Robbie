@@ -70,7 +70,8 @@ function adjourn(tone: Tone): ChairAction {
 /**
  * The chair's actions that are in order now, the expected next step first: never a wall of every
  * button (docs/design-brief.md). Closing a vote is the vote panel's, running an election the
- * election panel's, and recognizing speakers the queue's.
+ * election panel's, and recognizing speakers the queue's. Adjourn is offered whenever nothing is
+ * pending, no vote is open and no election ballot is running, during an agenda item too.
  *
  * @param presidingId - who puts an agenda item to a vote: the chair, or the admin presiding
  */
@@ -141,19 +142,23 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         tone: 'secondary',
         make: () => ({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() }),
       },
+      // Without a quorum, for one, the chair adjourns before any business
+      adjourn('secondary'),
     ];
   }
 
   const item = state.currentAgendaItem;
   if (item) {
-    const actions: ChairAction[] = [
-      {
-        id: 'complete-item',
-        label: 'Complete the item',
-        tone: 'primary',
-        make: () => ({ type: 'COMPLETE_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() }),
-      },
-    ];
+    // At the last item (often "Adjournment") the expected next step is to adjourn, which
+    // completes the item too; before it, completing the item is
+    const last = !state.agenda.some((i) => i.status === 'pending' && i.id !== item.id);
+    const actions: ChairAction[] = last ? [adjourn('primary')] : [];
+    actions.push({
+      id: 'complete-item',
+      label: 'Complete the item',
+      tone: last ? 'secondary' : 'primary',
+      make: () => ({ type: 'COMPLETE_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() }),
+    });
     if (presidingId !== null) {
       actions.push({
         id: 'put-item',
@@ -170,6 +175,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         }),
       });
     }
+    if (!last) actions.push(adjourn('secondary'));
     return actions;
   }
 

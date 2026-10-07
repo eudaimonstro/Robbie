@@ -75,6 +75,29 @@ describe('meetingReducer', () => {
       expect(state.meetingActive).toBe(false);
       expect(state.meetingStage).toBe('adjourned');
     });
+
+    it('completes the agenda item before the meeting, then adjourns', () => {
+      const atAdjournment: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'Old business', status: 'completed' },
+          { id: 2, title: 'Adjournment', status: 'active' },
+        ],
+        currentAgendaItem: { id: 2, title: 'Adjournment', status: 'active' },
+      };
+
+      const state = meetingReducer(atAdjournment, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.meetingStage).toBe('adjourned');
+      expect(state.currentAgendaItem).toBeNull();
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'completed']);
+      expect(state.meetingLog.slice(-2).map((entry) => entry.message)).toEqual([
+        'Completed: "Adjournment"',
+        'Meeting adjourned.',
+      ]);
+    });
   });
 
   describe('MAKE_MOTION', () => {

@@ -4,7 +4,11 @@ import {
   getStageLogMessage,
   isLastActiveStage,
 } from '../../constants/meetingStages.js';
-import { LOG_MEETING_CALLED_TO_ORDER, LOG_MEETING_ADJOURNED } from '../../constants/logMessages.js';
+import {
+  LOG_MEETING_CALLED_TO_ORDER,
+  LOG_MEETING_ADJOURNED,
+  logAgendaItemCompleted,
+} from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
@@ -20,17 +24,35 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ),
       };
 
-    case 'END_MEETING':
+    case 'END_MEETING': {
+      const { timestamp } = action as Extract<MeetingAction, { type: 'END_MEETING' }>;
+      // Adjourning during an agenda item (the last one is often "Adjournment") completes it, so
+      // the record doesn't leave it open
+      const item = state.currentAgendaItem;
+      if (item) {
+        return {
+          ...state,
+          meetingActive: false,
+          meetingStage: 'adjourned',
+          suspendedRules: [],
+          currentAgendaItem: null,
+          agenda: state.agenda.map((a) =>
+            a.id === item.id ? { ...a, status: 'completed' as const } : a,
+          ),
+          meetingLog: [
+            ...log(timestamp, logAgendaItemCompleted(item.title)),
+            { time: timestamp, message: LOG_MEETING_ADJOURNED },
+          ],
+        };
+      }
       return {
         ...state,
         meetingActive: false,
         meetingStage: 'adjourned',
         suspendedRules: [],
-        meetingLog: log(
-          (action as Extract<MeetingAction, { type: 'END_MEETING' }>).timestamp,
-          LOG_MEETING_ADJOURNED,
-        ),
+        meetingLog: log(timestamp, LOG_MEETING_ADJOURNED),
       };
+    }
 
     case 'SET_MEETING_INFO': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_MEETING_INFO' }>;

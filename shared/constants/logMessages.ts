@@ -182,7 +182,7 @@ export function logRoleChanged(
 }
 
 // Quorum warning
-export const LOG_QUORUM_WARNING = '⚠️ WARNING: Vote opened without quorum present';
+export const LOG_QUORUM_WARNING = 'Warning: Vote opened without quorum present';
 
 // Roll call attendance
 export const LOG_ROLL_CALL_STARTED = 'Chair: The Secretary will now call the roll.';
