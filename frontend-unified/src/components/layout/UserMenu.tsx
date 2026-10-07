@@ -27,8 +27,11 @@ export function UserMenu() {
         aria-expanded={open}
       >
         <UserCircle className="w-5 h-5 text-ink-muted" aria-hidden="true" />
-        <span className="hidden sm:inline text-ink">{user.name}</span>
-        <ChevronDown className="w-4 h-4 text-ink-muted" aria-hidden="true" />
+        {/* Below xl the menu is just the icon; the name is still read out */}
+        <span className="sr-only xl:not-sr-only">
+          <span className="block truncate max-w-40 text-ink">{user.name}</span>
+        </span>
+        <ChevronDown className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
       </button>
       {open && (
         <>

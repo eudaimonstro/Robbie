@@ -25,18 +25,21 @@ export function OrganizationSwitcher() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button
         onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm border border-rule rounded-md bg-surface hover:bg-surface-2 transition-colors"
+        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-sm border border-rule rounded-md bg-surface hover:bg-surface-2 transition-colors max-w-full"
       >
-        <Building2 className="w-4 h-4 text-ink-muted" aria-hidden="true" />
-        <span className="max-w-[200px] truncate">
-          {currentOrganization?.name ?? 'No organization'}
+        <Building2 className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
+        {/* The name is only read out on phones; it truncates on wider screens */}
+        <span className="sr-only sm:not-sr-only min-w-0">
+          <span className="block truncate max-w-32 lg:max-w-48 xl:max-w-[200px]">
+            {currentOrganization?.name ?? 'No organization'}
+          </span>
         </span>
-        <ChevronDown className="w-4 h-4 text-ink-muted" aria-hidden="true" />
+        <ChevronDown className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
       </button>
 
       {open && (
