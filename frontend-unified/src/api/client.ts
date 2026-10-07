@@ -500,14 +500,11 @@ export const votes = {
     }),
 };
 
-// Search
+// Search the current version of each of an organization's documents, from 2 characters. Not
+// cached: the results follow edits.
 export const search = {
-  query: (q: string, orgId?: string, docId?: string) => {
-    let endpoint = `/search?q=${encodeURIComponent(q)}`;
-    if (orgId) endpoint += `&org_id=${orgId}`;
-    if (docId) endpoint += `&doc_id=${docId}`;
-    return request<SearchResult>(endpoint, {}, false); // Don't cache search results
-  },
+  query: (orgId: string, q: string) =>
+    request<SearchResult>(`/organizations/${orgId}/search?q=${encodeURIComponent(q)}`, {}, false),
 };
 
 // Types
@@ -865,19 +862,18 @@ export interface DiffChange {
 
 export interface SearchResult {
   query: string;
-  total: number;
-  results: SearchResultItem[];
+  results: SearchHit[];
 }
 
-export interface SearchResultItem {
-  type: 'document' | 'section';
-  id: string;
+/** A section that matched, with the text around the first match */
+export interface SearchHit {
   documentId: string;
   documentTitle: string;
-  sectionId?: string;
-  title: string;
+  versionId: string;
+  sectionId: string;
+  numberLabel: string | null;
+  title: string | null;
   snippet: string;
-  matchType: 'title' | 'content' | 'label';
 }
 
 // Sharing types

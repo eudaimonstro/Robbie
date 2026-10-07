@@ -25,6 +25,7 @@ import {
   CreateVersionModal,
   CreateAmendmentModal,
 } from './documentPage';
+import { useSectionFromHash } from './documentPage/sectionFromHash';
 
 export default function DocumentPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -56,6 +57,8 @@ export default function DocumentPage() {
   const canShare = useCan('admin');
 
   const [selectedSection, setSelectedSection] = useState<SectionTreeType | null>(null);
+  // Opened from search at a section: select it and bring it into view
+  useSectionFromHash(sectionTree, setSelectedSection);
 
   // Editor state
   const [editorOpen, setEditorOpen] = useState(false);
