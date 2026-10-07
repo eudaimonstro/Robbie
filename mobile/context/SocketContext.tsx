@@ -88,7 +88,7 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 
 /** The meeting connection for the signed-in user. The session token authenticates the socket. */
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const { token, user, signOut } = useSession();
+  const { token, user, termsAccepted, signOut, markTermsNotAccepted } = useSession();
   const userId = user?.id ?? null;
 
   const [state, setState] = useState<MeetingState>(initialState);
@@ -118,6 +118,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     signOutRef.current = signOut;
   }, [signOut]);
+
+  const markTermsNotAcceptedRef = useRef(markTermsNotAccepted);
+  useEffect(() => {
+    markTermsNotAcceptedRef.current = markTermsNotAccepted;
+  }, [markTermsNotAccepted]);
 
   // Helper to set error with auto-clear
   const setTemporaryError = useCallback((message: string, duration = 5000) => {
@@ -169,9 +174,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     );
   }, [user, state.members]);
 
-  // Connect to the meeting once signed in with a meeting code
+  // Connect to the meeting once signed in, with the current terms accepted and a meeting code
   useEffect(() => {
-    if (!token || !meetingCode) return;
+    if (!token || !termsAccepted || !meetingCode) return;
 
     // Prevent duplicate connections
     if (isConnectingRef.current || socketRef.current?.connected) {
@@ -211,6 +216,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       // The session ended (signed out everywhere, or expired): back to sign-in
       if (err.message === 'Not signed in') {
         void signOutRef.current();
+        return;
+      }
+      // The current terms aren't accepted: the root layout shows the terms screen, and this
+      // connects again once they are
+      if (err.data?.code === 'TERMS_NOT_ACCEPTED') {
+        markTermsNotAcceptedRef.current();
         return;
       }
       setError(`Connection error: ${err.message}`);
@@ -260,7 +271,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(false);
       setConnectedMembers([]);
     };
-  }, [token, meetingCode, setTemporaryError]);
+  }, [token, termsAccepted, meetingCode, setTemporaryError]);
 
   // Dispatch action through socket with timeout
   const dispatch = useCallback(

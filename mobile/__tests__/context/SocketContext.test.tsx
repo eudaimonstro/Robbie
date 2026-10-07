@@ -30,12 +30,16 @@ jest.mock('../../lib/storage', () => ({
   storeMeetingCode: jest.fn(async () => {}),
 }));
 const mockSignOut = jest.fn();
+const mockMarkTermsNotAccepted = jest.fn();
 let mockUser = { id: 1, email: 'a@b.c', name: 'Ann' };
+let mockTermsAccepted = true;
 jest.mock('../../context/SessionContext', () => ({
   useSession: () => ({
     token: 'tok',
     user: mockUser,
+    termsAccepted: mockTermsAccepted,
     signOut: mockSignOut,
+    markTermsNotAccepted: mockMarkTermsNotAccepted,
   }),
 }));
 
@@ -50,6 +54,7 @@ describe('SocketProvider (mobile)', () => {
   beforeEach(() => {
     mockSockets.length = 0;
     mockUser = { id: 1, email: 'a@b.c', name: 'Ann' };
+    mockTermsAccepted = true;
     jest.clearAllMocks();
   });
 
@@ -140,5 +145,28 @@ describe('SocketProvider (mobile)', () => {
     expect(mockSockets[0].disconnect).toHaveBeenCalled();
     expect(storage.storeMeetingCode).toHaveBeenLastCalledWith(1, null);
     expect(result.current.meetingCode).toBeNull();
+  });
+
+  it('sends the user to the terms screen when the connection is refused for the terms', async () => {
+    const { result } = await renderHook(() => useSocket(), { wrapper });
+    await act(async () => result.current.joinMeeting('DEMO'));
+    await waitFor(() => expect(mockSockets.length).toBe(1));
+    await act(() =>
+      mockSockets[0].handlers.connect_error(
+        Object.assign(new Error('Accept the terms to continue'), {
+          data: { code: 'TERMS_NOT_ACCEPTED' },
+        }),
+      ),
+    );
+    expect(mockMarkTermsNotAccepted).toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+  });
+
+  it("doesn't connect until the current terms are accepted", async () => {
+    mockTermsAccepted = false;
+    const { result } = await renderHook(() => useSocket(), { wrapper });
+    await act(async () => result.current.joinMeeting('DEMO'));
+    expect(mockSockets).toHaveLength(0);
   });
 });

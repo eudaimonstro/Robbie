@@ -43,6 +43,8 @@ module.exports = ({ config }) => {
     extra: {
       ...config.extra,
       apiUrl: getApiUrl(),
+      // The web app, for the terms pages; in production it shares the API's origin
+      webUrl: process.env.EXPO_PUBLIC_WEB_URL || getApiUrl(),
       appVariant: process.env.APP_VARIANT || 'production',
     },
   };

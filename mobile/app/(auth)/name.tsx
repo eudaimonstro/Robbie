@@ -3,13 +3,15 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../context/SessionContext';
 import { Button, Input, Card } from '../../components/ui';
+import { TermsAgreement } from '../../components/TermsAgreement';
 import { colors, spacing, typography } from '../../theme';
 
 /** Asked once, after the first sign-in: the name other members see */
 export default function NameScreen() {
-  const { setName, signOut } = useSession();
+  const { setName, signOut, termsAccepted, acceptTerms } = useSession();
 
   const [name, setNameText] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | undefined>();
@@ -21,9 +23,14 @@ export default function NameScreen() {
       return;
     }
 
+    if (!termsAccepted && !agreed) return;
+
     setIsSaving(true);
     setError(null);
     try {
+      // Agree first: the Privacy Policy covers the name, so it is stored only once the user
+      // agreed. If naming then fails, the checkbox is gone and only the name is asked again.
+      if (!termsAccepted) await acceptTerms();
       await setName(trimmed);
       // Navigation happens automatically via root layout once the name is set
     } catch (err) {
@@ -69,6 +76,8 @@ export default function NameScreen() {
               containerStyle={styles.inputContainer}
             />
 
+            {!termsAccepted && <TermsAgreement agreed={agreed} onChange={setAgreed} />}
+
             {error && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -79,7 +88,7 @@ export default function NameScreen() {
               title={isSaving ? 'Saving...' : 'Continue'}
               onPress={handleSubmit}
               loading={isSaving}
-              disabled={isSaving}
+              disabled={isSaving || (!termsAccepted && !agreed)}
               fullWidth
               size="lg"
             />

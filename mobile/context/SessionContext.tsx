@@ -20,9 +20,15 @@ interface SessionContextValue {
   status: SessionStatus;
   user: SessionUser | null;
   token: string | null;
+  /** Whether the user accepted the current Terms of Service and Privacy Policy */
+  termsAccepted: boolean;
   requestCode: (email: string) => Promise<void>;
   verify: (email: string, code: string) => Promise<SessionUser>;
   setName: (name: string) => Promise<void>;
+  /** Accept the current terms (the version this app shows) */
+  acceptTerms: () => Promise<void>;
+  /** The socket was refused until the terms are accepted: show the terms screen */
+  markTermsNotAccepted: () => void;
   signOut: () => Promise<void>;
   /** Check the saved session again after the server was unreachable */
   retry: () => Promise<void>;
@@ -45,6 +51,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [user, setUser] = useState<SessionUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const forget = useCallback(async () => {
     try {
@@ -55,6 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     setToken(null);
     setUser(null);
+    setTermsAccepted(false);
     setStatus('signedOut');
   }, []);
 
@@ -69,7 +77,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setStatus('signedOut');
           return;
         }
-        let me: SessionUser | null;
+        let me: api.Me | null;
         try {
           me = await api.getMe(saved);
         } catch {
@@ -83,7 +91,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
         setToken(saved);
-        setUser(me);
+        setUser(me.user);
+        setTermsAccepted(me.termsAccepted);
         setStatus('signedIn');
       } finally {
         restoringRef.current = null;
@@ -110,8 +119,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const verify = useCallback(async (email: string, code: string) => {
     const result = await api.verifyCode(email.trim(), code.trim());
     await storeToken(result.token);
+    // The verify answer has only the user; whether they accepted the current terms comes from
+    // me. If that check fails, ask for the terms: accepting again is harmless.
+    const me = await api.getMe(result.token).catch(() => null);
     setToken(result.token);
-    setUser(result.user);
+    setUser(me?.user ?? result.user);
+    setTermsAccepted(me?.termsAccepted ?? false);
     setStatus('signedIn');
     return result.user;
   }, []);
@@ -127,14 +140,47 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [token, forget],
   );
 
+  const acceptTerms = useCallback(async () => {
+    if (!token) throw new Error('Not signed in');
+    // The server no longer accepts the token: back to sign-in
+    if (!(await api.acceptTerms(token))) return forget();
+    setTermsAccepted(true);
+  }, [token, forget]);
+
+  const markTermsNotAccepted = useCallback(() => setTermsAccepted(false), []);
+
   const signOut = useCallback(async () => {
     if (token) await api.signOut(token);
     await forget();
   }, [token, forget]);
 
   const value = useMemo(
-    () => ({ status, user, token, requestCode, verify, setName, signOut, retry: restore }),
-    [status, user, token, requestCode, verify, setName, signOut, restore],
+    () => ({
+      status,
+      user,
+      token,
+      termsAccepted,
+      requestCode,
+      verify,
+      setName,
+      acceptTerms,
+      markTermsNotAccepted,
+      signOut,
+      retry: restore,
+    }),
+    [
+      status,
+      user,
+      token,
+      termsAccepted,
+      requestCode,
+      verify,
+      setName,
+      acceptTerms,
+      markTermsNotAccepted,
+      signOut,
+      restore,
+    ],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

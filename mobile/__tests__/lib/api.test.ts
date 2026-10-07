@@ -1,4 +1,5 @@
-import { getMe, requestCode, signOut, updateName, verifyCode } from '../../lib/api';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
+import { acceptTerms, getMe, requestCode, signOut, updateName, verifyCode } from '../../lib/api';
 
 function respond(status: number, body: string) {
   globalThis.fetch = jest.fn(async () => new Response(body, { status })) as jest.Mock;
@@ -59,5 +60,38 @@ describe('sign-in calls', () => {
 
   it('exports requestCode, updateName and signOut', () => {
     expect([requestCode, updateName, signOut].every((f) => typeof f === 'function')).toBe(true);
+  });
+});
+
+describe('terms calls', () => {
+  it('reads whether the user accepted the current terms', async () => {
+    const user = { id: 1, email: 'a@b.c', name: 'A' };
+    globalThis.fetch = jest.fn(
+      async () => new Response(JSON.stringify({ user, termsAccepted: false })),
+    ) as jest.Mock;
+    expect(await getMe('tok')).toEqual({ user, termsAccepted: false });
+  });
+
+  it('accepts the terms version this app shows', async () => {
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ termsAccepted: true })));
+    globalThis.fetch = fetchMock as jest.Mock;
+    expect(await acceptTerms('tok')).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/\/api\/auth\/accept-terms$/);
+    expect(JSON.parse(init.body as string)).toEqual({ version: TERMS_VERSION });
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+  });
+
+  it("shows the server's message when the terms changed", async () => {
+    respond(
+      409,
+      JSON.stringify({ error: 'The terms have changed. Reload to see the current terms.' }),
+    );
+    await expect(acceptTerms('tok')).rejects.toThrow('The terms have changed');
+  });
+
+  it('reports a token that no longer works', async () => {
+    respond(401, JSON.stringify({ error: 'Not signed in' }));
+    expect(await acceptTerms('old')).toBe(false);
   });
 });
