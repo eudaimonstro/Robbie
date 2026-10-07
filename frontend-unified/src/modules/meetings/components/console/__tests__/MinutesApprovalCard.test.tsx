@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { MeetingState } from '@robbie-bylawyer/shared/types';
+import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { MinutesApprovalCard } from '../MinutesApprovalCard';
 
 const MINUTES =
@@ -19,10 +19,13 @@ const atTheMinutes: MeetingState = {
   previousMinutesId: 'm1',
 };
 
-const dispatch = vi.fn();
+const dispatch = vi.fn<(action: MeetingAction) => Promise<boolean>>();
 
 describe('MinutesApprovalCard', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dispatch.mockResolvedValue(true);
+  });
 
   it('shows the minutes and approves them as read', () => {
     render(<MinutesApprovalCard state={atTheMinutes} dispatch={dispatch} />);
@@ -56,6 +59,49 @@ describe('MinutesApprovalCard', () => {
       corrections: 'Twenty-two members were present, not 21',
       timestamp: expect.any(String),
     });
+  });
+
+  it('approves once, however often the button is pressed, until the server answers', async () => {
+    let answer: (approved: boolean) => void = () => {};
+    dispatch.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
+    render(<MinutesApprovalCard state={atTheMinutes} dispatch={dispatch} />);
+    const asRead = screen.getByRole('button', { name: 'Approve as read' });
+    fireEvent.click(asRead);
+    fireEvent.click(asRead);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(asRead).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Approve with corrections' })).toHaveProperty(
+      'disabled',
+      true,
+    );
+
+    // Refused (or unanswered): the chair can try again
+    await act(async () => answer(false));
+    expect(asRead).toHaveProperty('disabled', false);
+  });
+
+  it('keeps the buttons down once the server has the approval, until the state says so', async () => {
+    render(<MinutesApprovalCard state={atTheMinutes} dispatch={dispatch} />);
+    const asRead = screen.getByRole('button', { name: 'Approve as read' });
+    await act(async () => fireEvent.click(asRead));
+    expect(asRead).toHaveProperty('disabled', true);
+    fireEvent.click(asRead);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the corrections once', async () => {
+    render(<MinutesApprovalCard state={atTheMinutes} dispatch={dispatch} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve with corrections' }));
+    fireEvent.change(screen.getByLabelText('Corrections'), {
+      target: { value: 'Twenty-two were present' },
+    });
+    const approve = screen.getByRole('button', { name: 'Approve with these corrections' });
+    await act(async () => {
+      fireEvent.click(approve);
+      fireEvent.click(approve);
+    });
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(approve).toHaveProperty('disabled', true);
   });
 
   it('says once they are approved, and how', () => {

@@ -1,8 +1,9 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { CheckCircle } from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
+import type { MeetingState } from '@robbie-bylawyer/shared/types';
+import type { MeetingDispatch } from '../../types/socket';
 import {
   agendaNamesTheApproval,
   minutesBody,
@@ -22,10 +23,14 @@ export function MinutesApprovalCard({
   dispatch,
 }: {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
 }) {
   const [correcting, setCorrecting] = useState(false);
   const [corrections, setCorrections] = useState('');
+  // An approval sent and not refused: a second press would only be refused (approved already),
+  // so the buttons wait for the state to say approved, or for the refusal
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const correctionsId = useId();
   if (!minutesItemUnderWay(state)) return null;
 
@@ -45,15 +50,23 @@ export function MinutesApprovalCard({
   }
 
   const minutes = state.minutesFromPreviousMeeting;
-  const approve = (made?: string) =>
-    dispatch({
+  const approve = async (made?: string) => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    const approved = await dispatch({
       type: 'APPROVE_MINUTES',
       ...(made ? { corrections: made } : {}),
       timestamp: generateTimestamp(),
     });
+    if (!approved) {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (corrections.trim()) approve(corrections.trim());
+    if (corrections.trim()) void approve(corrections.trim());
   };
 
   return (
@@ -93,7 +106,7 @@ export function MinutesApprovalCard({
             onChange={(e) => setCorrections(e.target.value)}
           />
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className="btn-primary" disabled={!corrections.trim()}>
+            <button type="submit" className="btn-primary" disabled={sending || !corrections.trim()}>
               Approve with these corrections
             </button>
             <button type="button" className="btn-ghost" onClick={() => setCorrecting(false)}>
@@ -103,10 +116,20 @@ export function MinutesApprovalCard({
         </form>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-primary" onClick={() => approve()}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={sending}
+            onClick={() => void approve()}
+          >
             Approve as read
           </button>
-          <button type="button" className="btn-secondary" onClick={() => setCorrecting(true)}>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={sending}
+            onClick={() => setCorrecting(true)}
+          >
             Approve with corrections
           </button>
         </div>
