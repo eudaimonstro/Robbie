@@ -36,7 +36,7 @@ function generateMeetingCode(): string {
 }
 
 export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProps) {
-  const { currentOrganization } = useMeetingOrganization();
+  const { currentOrganization, availableOrganizations } = useMeetingOrganization();
   const [step, setStep] = useState<Step>('details');
   const [meetingCode, setMeetingCode] = useState(generateMeetingCode);
   const [title, setTitle] = useState('');
@@ -48,11 +48,14 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const [copied, setCopied] = useState(false);
 
   // Meetings are scheduled in the organization selected in the header, by its secretaries and
-  // above
-  const organization =
+  // above. Once the packet exists it belongs to that organization, whatever the header shows.
+  const headerOrganization =
     currentOrganization && atLeast(currentOrganization.role, 'secretary')
       ? currentOrganization
       : null;
+  const organization = packet
+    ? (availableOrganizations.find((org) => org.id === packet.organizationId) ?? null)
+    : headerOrganization;
 
   const details = () => ({
     title: title || undefined,

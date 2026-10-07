@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Link, Unlink, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
 import {
   bylawSync,
@@ -7,6 +7,7 @@ import {
   type OrganizationWithRole,
 } from '../../../api/client';
 import { useToast } from '../../../context/ToastContext';
+import { useMeetingOrganization } from '../context/OrganizationBridge';
 import { atLeast } from '../../../utils/roles';
 
 interface BylawyerLinkPanelProps {
@@ -20,9 +21,12 @@ interface BylawyerLinkPanelProps {
  */
 export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkPanelProps) {
   const { showToast } = useToast();
+  const navigate = useNavigate();
+  const { setCurrentOrganization } = useMeetingOrganization();
   const [organizations, setOrganizations] = useState<OrganizationWithRole[]>([]);
   const [linkedOrg, setLinkedOrg] = useState<MeetingOrganizationResponse | null>(null);
-  const [selectedOrgId, setSelectedOrgId] = useState('');
+  // The user's choice; null until they make one ('' once they choose none)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
@@ -30,7 +34,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   const linkable = organizations.filter((org) => atLeast(org.role, 'secretary'));
   // The organization selected in the header, when the user may link to it
   const suggested = linkable.find((org) => org.id === suggestedOrgId) ?? null;
-  const chosenOrgId = selectedOrgId || suggested?.id || '';
+  const chosenOrgId = selectedOrgId ?? suggested?.id ?? '';
 
   // An unlinked meeting (404) comes back from the client as not linked
   const fetchLinkedOrg = useCallback(async () => {
@@ -66,7 +70,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
       setLoading(true);
       await bylawSync.linkMeeting(meetingCode, chosenOrgId);
       await fetchLinkedOrg();
-      setSelectedOrgId('');
+      setSelectedOrgId(null);
       showToast('success', 'Meeting linked to the organization');
     } catch (err) {
       // "That meeting code is already in use": the code belongs to another organization
@@ -98,6 +102,13 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
 
   const linked = linkedOrg?.linked ? linkedOrg.organization : null;
   const canUnlink = linked !== null && linkable.some((org) => org.id === linked.id);
+
+  /** Show the linked organization's documents, not the header's */
+  const viewDocuments = () => {
+    const org = linked && organizations.find((o) => o.id === linked.id);
+    if (org) setCurrentOrganization(org);
+    navigate('/');
+  };
 
   if (unavailable) {
     return (
@@ -150,13 +161,14 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
             {linked.description && (
               <p className="text-green-700 text-sm mt-1">{linked.description}</p>
             )}
-            <RouterLink
-              to="/"
+            <button
+              type="button"
+              onClick={viewDocuments}
               className="inline-flex items-center gap-1 text-green-600 hover:text-green-700 text-sm mt-2"
             >
               View Documents
               <ExternalLink size={12} />
-            </RouterLink>
+            </button>
           </div>
 
           {canUnlink && (

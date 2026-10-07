@@ -14,12 +14,14 @@ interface MeetingOrganizationContextType {
   availableOrganizations: OrganizationWithRole[];
   /** Whether organizations are still loading */
   loading: boolean;
+  /** Select one of the user's organizations in the header */
+  setCurrentOrganization: (org: OrganizationWithRole) => void;
 }
 
 const MeetingOrganizationContext = createContext<MeetingOrganizationContextType | null>(null);
 
 export function MeetingOrganizationProvider({ children }: { children: ReactNode }) {
-  const { currentOrganization, organizations, loading } = useOrganization();
+  const { currentOrganization, organizations, loading, setCurrentOrganization } = useOrganization();
 
   return (
     <MeetingOrganizationContext.Provider
@@ -27,6 +29,7 @@ export function MeetingOrganizationProvider({ children }: { children: ReactNode 
         currentOrganization,
         availableOrganizations: organizations,
         loading,
+        setCurrentOrganization,
       }}
     >
       {children}
@@ -48,6 +51,7 @@ export function useMeetingOrganization(): MeetingOrganizationContextType {
       currentOrganization: null,
       availableOrganizations: [],
       loading: false,
+      setCurrentOrganization: () => {},
     };
   }
 

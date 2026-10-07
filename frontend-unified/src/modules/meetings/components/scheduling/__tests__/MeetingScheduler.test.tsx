@@ -5,9 +5,21 @@ import { HttpError } from '../../../../../api/client';
 const api = vi.hoisted(() => ({ createPacket: vi.fn(), updatePacket: vi.fn() }));
 vi.mock('../api', () => api);
 vi.mock('../PacketBuilder', () => ({ PacketBuilder: () => <p>Agenda builder</p> }));
-const bridge = vi.hoisted(() => ({
-  currentOrganization: null as null | { id: string; name: string; slug: string; role: string },
-}));
+const bridge = vi.hoisted(() => {
+  const maple = {
+    id: 'org-1',
+    name: 'Maple Grove HOA',
+    slug: 'maple-grove-hoa',
+    role: 'secretary',
+  };
+  const chess = { id: 'org-2', name: 'Chess Club', slug: 'chess-club', role: 'admin' };
+  return {
+    maple,
+    chess,
+    currentOrganization: null as null | typeof maple,
+    availableOrganizations: [maple, chess],
+  };
+});
 vi.mock('../../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
 
 const { MeetingScheduler } = await import('../MeetingScheduler');
@@ -22,20 +34,16 @@ const packet = (robbieCode: string) => ({
 });
 
 function schedule(title = 'Annual Meeting') {
-  render(<MeetingScheduler onBack={vi.fn()} onJoinMeeting={vi.fn()} />);
+  const view = render(<MeetingScheduler onBack={vi.fn()} onJoinMeeting={vi.fn()} />);
   fireEvent.change(screen.getByLabelText('Meeting Title'), { target: { value: title } });
   fireEvent.click(screen.getByRole('button', { name: /Next: Build Agenda/ }));
+  return view;
 }
 
 describe('MeetingScheduler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    bridge.currentOrganization = {
-      id: 'org-1',
-      name: 'Maple Grove HOA',
-      slug: 'maple-grove-hoa',
-      role: 'secretary',
-    };
+    bridge.currentOrganization = bridge.maple;
   });
 
   it('creates the meeting packet in the current organization', async () => {
@@ -63,6 +71,20 @@ describe('MeetingScheduler', () => {
     expect(api.createPacket).toHaveBeenCalledTimes(2);
     const [first, second] = api.createPacket.mock.calls.map(([, data]) => data.robbieCode);
     expect(second).not.toBe(first);
+  });
+
+  it("stays in the packet's organization after a switch in the header", async () => {
+    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) =>
+      packet(data.robbieCode),
+    );
+    const { rerender } = schedule();
+    expect(await screen.findByText('Maple Grove HOA: Step 2: Build Agenda')).toBeTruthy();
+
+    bridge.currentOrganization = bridge.chess;
+    rerender(<MeetingScheduler onBack={vi.fn()} onJoinMeeting={vi.fn()} />);
+
+    expect(screen.getByText('Maple Grove HOA: Step 2: Build Agenda')).toBeTruthy();
+    expect(screen.getByText('Agenda builder')).toBeTruthy();
   });
 
   it("shows the server's message when the packet can't be created", async () => {
