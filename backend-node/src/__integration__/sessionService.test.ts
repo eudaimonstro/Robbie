@@ -7,6 +7,7 @@ import {
   deleteSession,
   deleteUserSessions,
   findSession,
+  findSessionById,
 } from '../auth/sessionService.js';
 import { hashSecret } from '../auth/tokens.js';
 import { resetAccounts } from './db.js';
@@ -38,6 +39,24 @@ describe('sessionService', () => {
     const { token } = await createSession(userId, 'web', start);
     expect(await findSession('not-a-token')).toBeNull();
     expect(await findSession(token, new Date(start.getTime() + SESSION_LIFETIME_MS))).toBeNull();
+  });
+
+  it('finds a session by its id without extending it, until it is signed out or expires', async () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const { sessionId } = await createSession(userId, 'web', start);
+    const later = new Date(start.getTime() + 2 * HOUR);
+    expect(await findSessionById(sessionId, later)).toEqual({
+      sessionId,
+      user: { id: userId, email: 'ann@example.org', name: 'Ann' },
+      termsVersion: null,
+    });
+    const stored = await prisma.session.findUniqueOrThrow({ where: { id: sessionId } });
+    expect(stored.expiresAt.getTime()).toBe(start.getTime() + SESSION_LIFETIME_MS);
+
+    const expired = new Date(start.getTime() + SESSION_LIFETIME_MS);
+    expect(await findSessionById(sessionId, expired)).toBeNull();
+    await deleteSession(sessionId);
+    expect(await findSessionById(sessionId, later)).toBeNull();
   });
 
   it('extends a session that is used, at most once an hour', async () => {

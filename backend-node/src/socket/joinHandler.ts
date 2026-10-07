@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -22,6 +22,8 @@ import {
   type MeetingPacketInfo,
 } from './meetingPacket.js';
 import { deriveMeetingRole, roleChanges, updateSocketRoles } from './meetingRoles.js';
+import { findSessionById } from '../auth/sessionService.js';
+import { hasAcceptedTerms } from '../auth/terms.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
 
@@ -207,29 +209,67 @@ export async function handleJoinMeeting(
 
 /**
  * A socket that connection state recovery brought back (after a moment without signal):
- * socket.io restores its rooms and socket.data, and the client doesn't join again. Count it as
- * connected again, which ends its grace period; if the grace period ran out meanwhile, the
- * member is present again.
+ * socket.io restores its rooms and socket.data, and the client doesn't join again, so the
+ * connection middleware (socketAuth) and the join's checks don't run. The session may have
+ * been signed out and the organization may have changed the person's role while the socket
+ * was away: a socket without a live session is closed, and the role is derived again as on a
+ * join. Then count it as connected again, which ends its grace period; if the grace period ran
+ * out meanwhile, the member is present again.
  */
 export async function handleRecoveredSocket(socket: TypedSocket, io: TypedServer): Promise<void> {
   const meetingCode = socket.data.meetingCode;
   if (!meetingCode || socket.data.display) return;
-  const { userId, name, role } = socket.data;
-  roomManager.addMember(meetingCode, socket.id, { id: userId, name, role, present: true });
+  const { userId } = socket.data;
+
+  const session = await findSessionById(socket.data.sessionId);
+  if (!session || !hasAcceptedTerms(session.termsVersion)) {
+    socket.disconnect(true);
+    return;
+  }
+  const packet = await findMeetingPacket(meetingCode);
+  const person = packet ? await findPerson(packet.organizationId, userId) : null;
+  if (!packet || !person) {
+    // The meeting is gone (as a join would find); the disconnect handler takes it from here
+    socket.disconnect(true);
+    return;
+  }
+  const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
+  socket.data.role = role;
+  roomManager.addMember(meetingCode, socket.id, {
+    id: userId,
+    name: socket.data.name,
+    role,
+    present: true,
+  });
 
   const meeting = await getStorage().getMeeting(meetingCode);
   const member = meeting?.state.members.find((m) => m.id === userId);
-  if (!member || member.present) return;
-  const result = await applyAction(meetingCode, {
-    type: 'SET_MEMBER_PRESENCE',
-    memberId: userId,
-    present: true,
-    timestamp: new Date().toISOString(),
-  });
-  if (result.success) {
+  if (!member) return;
+  const timestamp = new Date().toISOString();
+  let latest: { state: MeetingState; stateVersion: number } | null = null;
+
+  if (member.role !== role) {
+    const refreshed = await applyAction(meetingCode, {
+      type: 'REFRESH_MEMBERS',
+      members: [{ id: userId, name: member.name, role }],
+      timestamp,
+    });
+    if (refreshed.success) latest = refreshed;
+    await updateSocketRoles(io, meetingCode, [{ id: userId, role }]);
+  }
+  if (!member.present) {
+    const present = await applyAction(meetingCode, {
+      type: 'SET_MEMBER_PRESENCE',
+      memberId: userId,
+      present: true,
+      timestamp,
+    });
+    if (present.success) latest = present;
+  }
+  if (latest) {
     emitState(io, meetingCode, {
-      state: result.state,
-      stateVersion: result.stateVersion,
+      state: latest.state,
+      stateVersion: latest.stateVersion,
       triggeredBy: { actionType: 'MEMBER_JOINED', userId },
     });
   }

@@ -391,14 +391,15 @@ export type MeetingAction =
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
   | { type: 'ADOPT_AGENDA'; timestamp: string }
-  | { type: 'AGENDA_OBJECTION'; timestamp: string }
+  // objectorId is set by the server from the signed-in user
+  | { type: 'AGENDA_OBJECTION'; objectorId?: number; timestamp: string }
   | { type: 'CALL_AGENDA_ITEM'; id: number; timestamp: string }
   | { type: 'COMPLETE_AGENDA_ITEM'; id: number; timestamp: string }
   | { type: 'REORDER_AGENDA'; fromIndex: number; toIndex: number }
   | { type: 'SET_SPEAKER_TIME_LIMIT'; seconds: number }
   | { type: 'SET_VOTE_TIME_LIMIT'; seconds: number }
   | { type: 'REQUEST_UNANIMOUS_CONSENT'; timestamp: string }
-  | { type: 'OBJECT_TO_CONSENT'; objector: string; timestamp: string }
+  | { type: 'OBJECT_TO_CONSENT'; objector: string; objectorId?: number; timestamp: string }
   | { type: 'UNANIMOUS_CONSENT_PASSED'; timestamp: string }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
   | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }

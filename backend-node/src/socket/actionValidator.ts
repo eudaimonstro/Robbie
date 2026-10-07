@@ -14,6 +14,8 @@ import {
   isSecondaryAmendmentInOrder,
   wasMotionDefeated,
 } from '@robbie-bylawyer/shared/utils';
+import { ACTOR_FIELDS } from './actionEnricher.js';
+import { checkPermission } from './permissionGuard.js';
 
 /** The most people the chair can count in the room without an account */
 export const MAX_HEADCOUNT = 100_000;
@@ -45,6 +47,22 @@ export interface ValidationResult {
  * Returns meaningful errors instead of letting the reducer silently fail
  */
 export function validateAction(state: MeetingState, action: MeetingAction): ValidationResult {
+  // The role a socket carries can be stale (a membership removed since it joined, a recovered
+  // socket), so the state's role decides: a sender the meeting has as a guest can't take part
+  const actorField = ACTOR_FIELDS[action.type]?.id;
+  const actorId = actorField ? (action as Record<string, unknown>)[actorField] : undefined;
+  if (
+    typeof actorId === 'number' &&
+    !checkPermission('guest', action.type) &&
+    isGuest(state, actorId)
+  ) {
+    return {
+      valid: false,
+      error: 'Guests can follow the meeting but not take part in this',
+      errorCode: 'PERMISSION_DENIED',
+    };
+  }
+
   switch (action.type) {
     case 'START_MEETING':
       if (state.meetingActive) {
