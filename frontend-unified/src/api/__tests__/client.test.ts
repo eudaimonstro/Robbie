@@ -12,6 +12,7 @@ import {
   setSignedOutHandler,
   setTermsHandler,
 } from '../client';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 
 function mockResponse(status: number, body: unknown) {
   vi.stubGlobal(
@@ -87,11 +88,21 @@ describe('sign-in calls', () => {
     setSignedOutHandler(null);
   });
 
-  it('returns the signed-in user, or null when signed out', async () => {
-    mockResponse(200, { user: { id: 1, email: 'ann@example.org', name: 'Ann' } });
-    expect(await auth.me()).toEqual({ id: 1, email: 'ann@example.org', name: 'Ann' });
+  it('returns the signed-in user and their terms acceptance, or null when signed out', async () => {
+    const ann = { id: 1, email: 'ann@example.org', name: 'Ann' };
+    mockResponse(200, { user: ann, termsAccepted: false });
+    expect(await auth.me()).toEqual({ user: ann, termsAccepted: false });
     mockResponse(401, { error: 'Not signed in' });
     expect(await auth.me()).toBeNull();
+  });
+
+  it('accepts the terms version this app shows', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ termsAccepted: true })));
+    vi.stubGlobal('fetch', fetchMock);
+    await auth.acceptTerms();
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/auth/accept-terms');
+    expect(JSON.parse(init.body as string)).toEqual({ version: TERMS_VERSION });
   });
 
   it('verifies a code for the web client', async () => {

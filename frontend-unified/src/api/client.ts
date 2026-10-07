@@ -1,4 +1,5 @@
 import type { OrgRole } from '../utils/roles';
+import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 
 const API_BASE = '/api';
 
@@ -827,13 +828,19 @@ export interface SessionUser {
   name: string | null;
 }
 
+/** The signed-in user, and whether they accepted the current Terms of Service and Privacy Policy */
+export interface Me {
+  user: SessionUser;
+  termsAccepted: boolean;
+}
+
 export const auth = {
-  /** The signed-in user, or null when there is no session */
-  me: async (): Promise<SessionUser | null> => {
+  /** The signed-in user and their terms acceptance, or null when there is no session */
+  me: async (): Promise<Me | null> => {
     const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'same-origin' });
     if (response.status === 401) return null;
     if (!response.ok) throw new Error(await errorMessage(response));
-    return ((await response.json()) as { user: SessionUser }).user;
+    return (await response.json()) as Me;
   },
   requestCode: (email: string) =>
     request<{ success: boolean }>(
@@ -857,6 +864,13 @@ export const auth = {
         false,
       )
     ).user,
+  /** Accept the current terms: the version this app shows, so a stale page can't accept others */
+  acceptTerms: () =>
+    request<{ termsAccepted: boolean }>(
+      '/auth/accept-terms',
+      { method: 'POST', body: JSON.stringify({ version: TERMS_VERSION }) },
+      false,
+    ),
   signOut: () => request<{ success: boolean }>('/auth/sign-out', { method: 'POST' }, false),
   signOutEverywhere: () =>
     request<{ success: boolean }>('/auth/sign-out-everywhere', { method: 'POST' }, false),
