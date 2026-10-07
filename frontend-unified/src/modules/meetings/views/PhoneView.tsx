@@ -5,6 +5,7 @@ import { useSocket } from '../context/SocketContext';
 import { useVoteResults } from '../hooks/useVoteResults';
 import { adjournedAt, currentResult, describeQuestion, stageLabel } from '../utils/question';
 import { useOwnHeader } from '../../../components/layout/appChrome';
+import { scrollBehavior } from '../../../utils/motion';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
 import { TimerLine } from '../components/TimerLine';
@@ -28,7 +29,7 @@ export function PhoneView() {
 
   // At the adjournment, back to the top, where the phone says so
   useEffect(() => {
-    if (adjourned) topRef.current?.scrollIntoView?.({ block: 'start' });
+    if (adjourned) topRef.current?.scrollIntoView?.({ behavior: scrollBehavior(), block: 'start' });
   }, [adjourned]);
 
   if (!currentUser) return null;
@@ -39,6 +40,14 @@ export function PhoneView() {
   // A decision stays at the top until the next question comes up
   const result = currentResult(state, voteResult);
   const hasFloor = state.recognizedSpeaker?.id === me.id;
+  // Said aloud to a screen reader as it happens: a vote or a ballot opening (the stamp says the
+  // result). The region stays on the page, so a change to its words is read.
+  const election = state.currentElection;
+  const opening = state.votingOpen
+    ? `The vote is open${question ? `: ${question.text}` : ''}`
+    : election?.votingInProgress
+      ? `The ballot is open for ${election.position}`
+      : '';
   const header = (
     <PhoneHeader
       title={state.title || 'Live meeting'}
@@ -72,6 +81,9 @@ export function PhoneView() {
       className="mx-auto max-w-lg space-y-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
     >
       {header}
+      <p role="status" className="sr-only" data-testid="phone-announcer">
+        {opening}
+      </p>
       {result && (
         <section aria-label="The result" className="card p-4">
           <Stamp

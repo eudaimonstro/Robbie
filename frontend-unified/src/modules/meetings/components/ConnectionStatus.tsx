@@ -19,15 +19,17 @@ export function ConnectionStatus() {
         ) : (
           <>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-caution-tint">
-              <WifiOff size={14} className="text-caution-ink" />
+              <WifiOff size={14} className="text-caution-ink" aria-hidden="true" />
               <span className="text-xs text-caution-ink font-medium">Disconnected</span>
             </div>
             <button
+              type="button"
               onClick={reconnect}
               className="p-1.5 hover:bg-surface-2 rounded-lg transition-colors"
               title="Reconnect"
+              aria-label="Reconnect"
             >
-              <RefreshCw size={14} className="text-ink-muted" />
+              <RefreshCw size={14} className="text-ink-muted" aria-hidden="true" />
             </button>
           </>
         )}

@@ -94,6 +94,38 @@ describe('PhoneView', () => {
     expect(screen.queryByLabelText('Motion text')).toBeNull();
   });
 
+  it('says aloud when a vote or a ballot opens, from a region already on the page', () => {
+    const { rerender } = renderAs(alice, {
+      ...active,
+      currentMotion: motion,
+      motionStack: [motion],
+    });
+    const announcer = screen.getByTestId('phone-announcer');
+    expect(announcer.getAttribute('role')).toBe('status');
+    expect(announcer.textContent).toBe('');
+
+    socket.state = voting;
+    rerender(<PhoneView />);
+    expect(screen.getByTestId('phone-announcer')).toBe(announcer);
+    expect(announcer.textContent).toBe('The vote is open: Resurface the pool this spring');
+
+    socket.state = {
+      ...active,
+      currentElection: {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Carmen Diaz', id: 5 }],
+        requiredVotes: 'majority',
+        votingInProgress: true,
+        ballotResults: {},
+        votersWhoVoted: [],
+        elected: null,
+      },
+    };
+    rerender(<PhoneView />);
+    expect(announcer.textContent).toBe('The ballot is open for Treasurer');
+  });
+
   it('votes, and says the vote was recorded', () => {
     renderAs(ben, voting);
     fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));

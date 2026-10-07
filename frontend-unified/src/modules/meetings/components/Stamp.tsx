@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { StampOutcome } from '../utils/question';
 
 interface StampProps {
@@ -37,12 +38,22 @@ const SIZES = {
 export function Stamp({ outcome, subject, tally, size = 'panel' }: StampProps) {
   const sizes = SIZES[size];
   const color = outcome === 'failed' ? 'border-ink text-ink' : 'border-carried text-carried';
+  const label = tally ? `${WORDS[outcome]}, ${tally}` : WORDS[outcome];
+  const spoken = [WORDS[outcome], subject, tally].filter(Boolean).join(', ');
+  const liveRef = useRef<HTMLSpanElement>(null);
+
+  // Read out by a screen reader: the live region is on the page, empty, before the result is
+  // written into it (a region that arrives with its words is often not read)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (liveRef.current) liveRef.current.textContent = spoken;
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [spoken]);
+
   return (
-    <figure
-      role="status"
-      aria-label={tally ? `${WORDS[outcome]}, ${tally}` : WORDS[outcome]}
-      className={`flex flex-col items-center text-center ${sizes.gap}`}
-    >
+    <figure aria-label={label} className={`flex flex-col items-center text-center ${sizes.gap}`}>
+      <span ref={liveRef} role="status" className="sr-only" />
       <span
         className={`animate-stamp -rotate-4 inline-block rounded-md border-[3px] font-serif-soft font-bold uppercase tracking-[0.06em] ${color} ${sizes.word}`}
       >

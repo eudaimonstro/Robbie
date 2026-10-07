@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Stamp } from '../Stamp';
 
 describe('Stamp', () => {
@@ -16,7 +16,14 @@ describe('Stamp', () => {
     expect(word.className).toContain('-rotate-4');
     expect(word.className).toContain('animate-stamp');
     expect(screen.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeTruthy();
-    expect(screen.getByRole('status', { name: /Carried/ })).toBeTruthy();
+    expect(screen.getByRole('figure', { name: /Carried/ })).toBeTruthy();
+  });
+
+  it('is read out: its live region is on the page, empty, before the result is written in', async () => {
+    render(<Stamp outcome="carried" subject="Resurface the pool" tally="11 to 2" />);
+    const region = screen.getByRole('status');
+    expect(region.textContent).toBe('');
+    await waitFor(() => expect(region.textContent).toBe('Carried, Resurface the pool, 11 to 2'));
   });
 
   it('says failed in ink, never red', () => {

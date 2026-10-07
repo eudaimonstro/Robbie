@@ -31,6 +31,7 @@ import { JoinInfoCard } from '../components/console/JoinInfoCard';
 import { MoreArea } from '../components/console/MoreArea';
 import { VoteControl } from '../components/console/VoteControl';
 import Modal from '../../../components/ui/Modal';
+import { scrollBehavior } from '../../../utils/motion';
 import type { ChairAction } from '../utils/chairActions';
 
 /**
@@ -95,7 +96,10 @@ export function ChairConsole() {
 
   // An item called from the side agenda: bring the item and its actions into view
   const showNow = () =>
-    nowRef.current?.firstElementChild?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    nowRef.current?.firstElementChild?.scrollIntoView?.({
+      behavior: scrollBehavior(),
+      block: 'start',
+    });
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">

@@ -288,7 +288,24 @@ describe('ChairConsole', () => {
     expect(socket.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'CALL_AGENDA_ITEM', id: 2 }),
     );
-    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+  });
+
+  it('jumps rather than scrolls for someone who asked for reduced motion', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)' })),
+    );
+    socket.state = {
+      ...active,
+      agenda: [{ id: 2, title: "Treasurer's report", status: 'pending' }],
+    };
+    render(<ChairConsole />);
+    fireEvent.click(screen.getByRole('button', { name: "Call Treasurer's report" }));
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }));
+    vi.unstubAllGlobals();
   });
 
   describe('business from the floor', () => {
@@ -546,7 +563,7 @@ describe('ChairConsole', () => {
       };
       render(<ChairConsole />);
       expect(
-        screen.getByRole('status', { name: 'Elected, Carmen Diaz 9, Ray Castillo 5' }),
+        screen.getByRole('figure', { name: 'Elected, Carmen Diaz 9, Ray Castillo 5' }),
       ).toBeTruthy();
     });
   });

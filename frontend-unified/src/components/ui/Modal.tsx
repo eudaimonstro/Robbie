@@ -9,8 +9,14 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
+/** Fields first, then the primary action: the close button is the last resort */
+const FIELDS =
+  'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])';
+const PRIMARY = '.btn-primary:not([disabled])';
+
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const hasInitialFocus = useRef(false);
   const titleId = useId();
 
@@ -72,19 +78,30 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     }
   }, [isOpen]);
 
+  // Focus goes back to what opened the dialog when it closes, if that is still on the page
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
 
-      // Focus the first focusable element only on initial open
+      // On opening, focus the first field, else the primary action, else whatever comes first
       if (!hasInitialFocus.current) {
         hasInitialFocus.current = true;
         setTimeout(() => {
-          const focusableElements = getFocusableElements();
-          if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-          }
+          const body = bodyRef.current;
+          const target =
+            body?.querySelector<HTMLElement>(FIELDS) ??
+            body?.querySelector<HTMLElement>(PRIMARY) ??
+            getFocusableElements()[0];
+          target?.focus();
         }, 0);
       }
     }
@@ -126,7 +143,9 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div ref={bodyRef} className="px-6 py-4">
+          {children}
+        </div>
       </div>
     </div>
   );
