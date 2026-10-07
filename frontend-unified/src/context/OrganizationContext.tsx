@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { organizations, type OrganizationWithRole } from '../api/client';
+import { useSession } from './SessionContext';
 import { atLeast, type OrgRole } from '../utils/roles';
 
 interface OrganizationContextType {
@@ -9,6 +10,7 @@ interface OrganizationContextType {
   /** The user's role in the current organization, or null without one */
   role: OrgRole | null;
   setCurrentOrganization: (org: OrganizationWithRole | null) => void;
+  /** Whether the first load is still under way; a refresh keeps the current list showing */
   loading: boolean;
   error: string | null;
   refreshOrganizations: () => Promise<void>;
@@ -16,7 +18,34 @@ interface OrganizationContextType {
 
 const OrganizationContext = createContext<OrganizationContextType | null>(null);
 
+const SELECTION_KEY = 'selectedOrganizationId';
+
+// The remembered selection belongs to the user who made it, so someone else signing in on the
+// same browser starts at their own first organization
+function savedOrganizationId(userId: number | undefined): string | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SELECTION_KEY) ?? 'null') as {
+      userId?: number;
+      id?: string;
+    } | null;
+    return saved && saved.userId === userId && saved.id ? saved.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveOrganizationId(userId: number | undefined, id: string | null) {
+  try {
+    if (id && userId) localStorage.setItem(SELECTION_KEY, JSON.stringify({ userId, id }));
+    else localStorage.removeItem(SELECTION_KEY);
+  } catch {
+    // Storage may be unavailable; the selection just isn't remembered across reloads
+  }
+}
+
 export function OrganizationProvider({ children }: { children: ReactNode }) {
+  const { user } = useSession();
+  const userId = user?.id;
   const [orgs, setOrgs] = useState<OrganizationWithRole[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<OrganizationWithRole | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +53,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const refreshOrganizations = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const data = await organizations.list();
       setOrgs(data);
@@ -34,26 +62,27 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setCurrentOrganization((current) => {
         const stillListed = current && data.find((o) => o.id === current.id);
         if (stillListed) return stillListed;
-        const savedOrgId = localStorage.getItem('selectedOrganizationId');
-        return data.find((o) => o.id === savedOrgId) ?? data[0] ?? null;
+        const savedOrgId = savedOrganizationId(userId);
+        const saved = data.find((o) => o.id === savedOrgId);
+        // The saved organization was left or deleted: forget it
+        if (savedOrgId && !saved) saveOrganizationId(userId, null);
+        return saved ?? data[0] ?? null;
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load organizations');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     refreshOrganizations();
   }, [refreshOrganizations]);
 
-  // Save selected org to localStorage
+  // Remember the selection for this user
   useEffect(() => {
-    if (currentOrganization) {
-      localStorage.setItem('selectedOrganizationId', currentOrganization.id);
-    }
-  }, [currentOrganization]);
+    if (currentOrganization) saveOrganizationId(userId, currentOrganization.id);
+  }, [currentOrganization, userId]);
 
   return (
     <OrganizationContext.Provider

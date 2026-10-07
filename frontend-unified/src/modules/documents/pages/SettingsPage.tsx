@@ -15,7 +15,7 @@ const messageOf = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
 
 export default function SettingsPage() {
-  const { currentOrganization, refreshOrganizations, setCurrentOrganization } = useOrganization();
+  const { currentOrganization, refreshOrganizations } = useOrganization();
   // The organization's name and description are the admins'; deleting it is the owners'
   const isAdmin = useCan('admin');
   const isOwner = useCan('owner');
@@ -78,7 +78,7 @@ export default function SettingsPage() {
       setLeaving(true);
       await membersApi.remove(currentOrganization.id, user.id);
       setLeaveDialogOpen(false);
-      setCurrentOrganization(null);
+      // The refresh moves the selection to another organization, or to none
       await refreshOrganizations();
       showToast('success', `You left ${name}`);
     } catch (err) {
@@ -97,7 +97,6 @@ export default function SettingsPage() {
       setDeleting(true);
       await organizationsApi.delete(currentOrganization.id);
       setDeleteDialogOpen(false);
-      setCurrentOrganization(null);
       await refreshOrganizations();
       showToast('success', 'Organization deleted');
     } catch (err) {
@@ -203,7 +202,8 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <MembersCard />
+          {/* Keyed so a switch starts the card afresh, without the previous members */}
+          <MembersCard key={currentOrganization.id} />
 
           {/* Danger Zone */}
           <div className="card border-danger-200 dark:border-danger-900">

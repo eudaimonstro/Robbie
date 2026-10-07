@@ -112,6 +112,17 @@ describe('MembersCard', () => {
     expect(await screen.findByText('Alice Brennan is now Secretary.')).toBeTruthy();
   });
 
+  it("keeps a change's outcome when the list can't be reloaded", async () => {
+    api.list.mockResolvedValueOnce(people).mockRejectedValueOnce(new Error('HTTP 500'));
+    render(<MembersCard />);
+    const select = await screen.findByLabelText('Role of Alice Brennan');
+    fireEvent.change(select, { target: { value: 'secretary' } });
+    expect((await screen.findByRole('status')).textContent).toBe(
+      "Alice Brennan is now Secretary. The list couldn't be refreshed.",
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('removes a member after confirming', async () => {
     render(<MembersCard />);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Alice Brennan' }));

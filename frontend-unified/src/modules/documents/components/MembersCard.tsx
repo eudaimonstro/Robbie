@@ -46,33 +46,37 @@ export function MembersCard() {
 
   const load = useCallback(async () => {
     if (!orgId) return;
-    try {
-      const result = await membersApi.list(orgId);
-      setList(result.members);
-      setInvites(result.invites ?? []);
-    } catch (err) {
-      setNotice({ kind: 'alert', text: messageOf(err, 'Failed to load the members') });
-    } finally {
-      setLoading(false);
-    }
+    const result = await membersApi.list(orgId);
+    setList(result.members);
+    setInvites(result.invites ?? []);
   }, [orgId]);
 
   useEffect(() => {
-    void load();
+    load()
+      .catch((err) =>
+        setNotice({ kind: 'alert', text: messageOf(err, 'Failed to load the members') }),
+      )
+      .finally(() => setLoading(false));
   }, [load]);
 
-  /** Run a change, show its outcome or the server's message, and reload the list */
+  /** Run a change, reload the list, then show the outcome or the server's message */
   const act = async (change: () => Promise<string>, fallback: string) => {
     setBusy(true);
     setNotice(null);
+    let outcome: Notice;
     try {
-      setNotice({ kind: 'status', text: await change() });
+      outcome = { kind: 'status', text: await change() };
     } catch (err) {
-      setNotice({ kind: 'alert', text: messageOf(err, fallback) });
-    } finally {
-      setBusy(false);
+      outcome = { kind: 'alert', text: messageOf(err, fallback) };
     }
-    await load();
+    try {
+      await load();
+    } catch {
+      // The change stands; say the list may be behind rather than replace its outcome
+      outcome = { ...outcome, text: `${outcome.text} The list couldn't be refreshed.` };
+    }
+    setNotice(outcome);
+    setBusy(false);
   };
 
   // Admins change members up to admin; only an owner changes an owner. Your own membership

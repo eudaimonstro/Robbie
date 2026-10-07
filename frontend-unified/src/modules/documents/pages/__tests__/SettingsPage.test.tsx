@@ -44,7 +44,18 @@ vi.mock('../../../../context/ToastContext', () => ({ useToast: () => toast }));
 vi.mock('../../../../context/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light', setTheme: vi.fn() }),
 }));
-vi.mock('../../components/MembersCard', () => ({ MembersCard: () => <p>Members list</p> }));
+const membersCard = vi.hoisted(() => ({ mounts: 0 }));
+vi.mock('../../components/MembersCard', async () => {
+  const { useEffect } = await import('react');
+  return {
+    MembersCard: () => {
+      useEffect(() => {
+        membersCard.mounts++;
+      }, []);
+      return <p>Members list</p>;
+    },
+  };
+});
 vi.mock('../../../../components/organizations/NoOrganizations', () => ({
   NoOrganizations: () => <p>No organizations yet</p>,
 }));
@@ -71,11 +82,12 @@ describe('SettingsPage', () => {
     expect(screen.queryByRole('button', { name: /Delete/ })).toBeNull();
   });
 
-  it('leaves the organization', async () => {
+  it('leaves the organization and lets the refresh pick the next one', async () => {
     leave();
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('o1', 5));
-    expect(orgState.setCurrentOrganization).toHaveBeenCalledWith(null);
     expect(orgState.refreshOrganizations).toHaveBeenCalled();
+    // Dropping the selection first flashed "No organizations yet"
+    expect(orgState.setCurrentOrganization).not.toHaveBeenCalled();
   });
 
   it("shows the server's message when the last owner tries to leave", async () => {
@@ -101,6 +113,19 @@ describe('SettingsPage', () => {
     fireEvent.change(screen.getByLabelText(/to confirm/), { target: { value: 'Maple Grove HOA' } });
     fireEvent.click(confirm);
     await waitFor(() => expect(api.deleteOrganization).toHaveBeenCalledWith('o1'));
+    expect(orgState.refreshOrganizations).toHaveBeenCalled();
+    expect(orgState.setCurrentOrganization).not.toHaveBeenCalled();
+  });
+
+  it('starts the members card afresh after a switch to another organization', () => {
+    membersCard.mounts = 0;
+    const { rerender } = render(<SettingsPage />);
+    expect(membersCard.mounts).toBe(1);
+
+    orgState.currentOrganization = { ...orgState.organization('viewer'), id: 'o2' };
+    rerender(<SettingsPage />);
+
+    expect(membersCard.mounts).toBe(2);
   });
 
   it('offers a way in to a user with no organization', () => {

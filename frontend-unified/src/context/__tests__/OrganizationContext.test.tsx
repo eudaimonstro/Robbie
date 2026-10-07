@@ -6,6 +6,8 @@ import type { OrgRole } from '../../utils/roles';
 
 const list = vi.hoisted(() => vi.fn());
 vi.mock('../../api/client', () => ({ organizations: { list } }));
+const session = vi.hoisted(() => ({ user: { id: 1, email: 'ann@example.org', name: 'Ann' } }));
+vi.mock('../SessionContext', () => ({ useSession: () => session }));
 
 const { OrganizationProvider, useOrganization, useCan, useSelectRecordOrganization } =
   await import('../OrganizationContext');
@@ -19,6 +21,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('OrganizationProvider', () => {
   beforeEach(() => {
     localStorage.clear();
+    session.user = { id: 1, email: 'ann@example.org', name: 'Ann' };
     list.mockReset();
     list.mockResolvedValueOnce([org('a', 'Alpha'), org('b', 'Beta')]);
   });
@@ -45,6 +48,60 @@ describe('OrganizationProvider', () => {
     await act(() => result.current.refreshOrganizations());
 
     expect(result.current.currentOrganization?.id).toBe('b');
+  });
+
+  it('keeps the list showing while it refreshes', async () => {
+    const { result } = await selectedAlpha();
+    expect(result.current.loading).toBe(false);
+    let finish: (orgs: OrganizationWithRole[]) => void = () => {};
+    list.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+
+    let refreshed: Promise<void> = Promise.resolve();
+    act(() => {
+      refreshed = result.current.refreshOrganizations();
+    });
+
+    // A refresh used to blank the pages behind a spinner
+    expect(result.current.loading).toBe(false);
+    expect(result.current.currentOrganization?.id).toBe('a');
+    await act(async () => {
+      finish([org('a', 'Alpha')]);
+      await refreshed;
+    });
+    expect(result.current.organizations).toHaveLength(1);
+  });
+
+  it("remembers each user's own selection", async () => {
+    const { result, unmount } = await selectedAlpha();
+    act(() => result.current.setCurrentOrganization(org('b', 'Beta')));
+    unmount();
+
+    // The same user comes back to Beta
+    list.mockResolvedValueOnce([org('a', 'Alpha'), org('b', 'Beta')]);
+    const again = renderHook(() => useOrganization(), { wrapper });
+    await waitFor(() => expect(again.result.current.currentOrganization?.id).toBe('b'));
+    again.unmount();
+
+    // Another user on the same browser starts at their first organization
+    session.user = { id: 2, email: 'bob@example.org', name: 'Bob' };
+    list.mockResolvedValueOnce([org('b', 'Beta'), org('a', 'Alpha')]);
+    const other = renderHook(() => useOrganization(), { wrapper });
+    await waitFor(() => expect(other.result.current.currentOrganization?.id).toBe('b'));
+    expect(JSON.parse(localStorage.getItem('selectedOrganizationId')!)).toEqual({
+      userId: 2,
+      id: 'b',
+    });
+  });
+
+  it('forgets the saved selection once the organization is left or deleted', async () => {
+    const { result } = await selectedAlpha();
+    expect(localStorage.getItem('selectedOrganizationId')).not.toBeNull();
+    list.mockResolvedValueOnce([]);
+
+    await act(() => result.current.refreshOrganizations());
+
+    expect(result.current.currentOrganization).toBeNull();
+    expect(localStorage.getItem('selectedOrganizationId')).toBeNull();
   });
 
   it("exposes the user's role in the current organization, and what it allows", async () => {
