@@ -519,4 +519,21 @@ describe('the record of business from the floor, set aside or left unfinished', 
     const quiet = meetingReducer(inSession, { type: 'END_MEETING', timestamp: '' });
     expect(quiet.unfinishedAtAdjournment).toEqual([]);
   });
+
+  it('keeps only what the last adjournment left unfinished', () => {
+    const adjourned = meetingReducer(
+      { ...inSession, meetingActive: true, currentMotion: motion(), motionStack: [motion()] },
+      { type: 'END_MEETING', timestamp: '9:00:00 PM' },
+    );
+    expect(adjourned.unfinishedAtAdjournment).toHaveLength(1);
+    // Called to order again and adjourned with nothing pending: nothing was left unfinished
+    const again = [
+      { type: 'START_MEETING', timestamp: '9:05:00 PM' },
+      { type: 'END_MEETING', timestamp: '9:10:00 PM' },
+    ] as const;
+    const readjourned = again.reduce((s, action) => meetingReducer(s, action), adjourned);
+    expect(readjourned.unfinishedAtAdjournment).toEqual([]);
+    // The log still says what the first adjournment left
+    expect(readjourned.meetingLog.map((l) => l.message).join('\n')).toContain('Resurface the pool');
+  });
 });

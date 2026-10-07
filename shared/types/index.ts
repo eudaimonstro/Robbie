@@ -440,7 +440,7 @@ export interface MeetingState {
   attendedIds: number[];
   /** Elections the chair set aside, in order */
   electionsSetAside: ElectionSetAsideRecord[];
-  /** Business left unfinished each time the meeting adjourned, in order */
+  /** Business left unfinished when the meeting last adjourned */
   unfinishedAtAdjournment: UnfinishedBusinessRecord[];
   suspendedRules: RuleSuspension[];
   lastChairRuling: { ruling: string; motionText: string; timestamp: string } | null;

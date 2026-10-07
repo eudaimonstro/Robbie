@@ -146,10 +146,10 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         speakerTimerEnd: null,
         lastSpeakerStance: null,
         debatePositions: {},
-        unfinishedAtAdjournment:
-          unfinishedRecords.length > 0
-            ? [...(state.unfinishedAtAdjournment ?? []), ...unfinishedRecords]
-            : state.unfinishedAtAdjournment,
+        // What this adjournment left unfinished, replacing an earlier one's: the minutes say when
+        // the meeting last adjourned, and a meeting called to order again after adjourning has
+        // only the log to show what the earlier adjournment left
+        unfinishedAtAdjournment: unfinishedRecords,
         meetingLog: [
           ...state.meetingLog,
           ...completed.map((a) => ({ time: timestamp, message: logAgendaItemCompleted(a.title) })),
