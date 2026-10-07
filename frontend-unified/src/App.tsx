@@ -20,6 +20,7 @@ const AmendmentDetailPage = lazy(() => import('./modules/documents/pages/Amendme
 const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage'));
 const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
+const MinutesListPage = lazy(() => import('./modules/documents/pages/MinutesListPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
 const PublicPrintPage = lazy(() => import('./modules/documents/pages/PublicPrintPage'));
 const PrintDocumentPage = lazy(() => import('./modules/documents/pages/PrintDocumentPage'));
@@ -103,6 +104,9 @@ function App() {
                   {/* Bylawyer meetings (document records) */}
                   <Route path="bylawyer-meetings" element={<MeetingsPage />} />
                   <Route path="bylawyer-meetings/:meetingId" element={<MeetingDetailPage />} />
+
+                  {/* Minutes of the organization's meetings */}
+                  <Route path="minutes" element={<MinutesListPage />} />
 
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />

@@ -7,6 +7,7 @@ export {
   MeetingTypeBadge,
   RoleBadge,
   PresenceBadge,
+  MinutesStatusBadge,
   type Presence,
 } from './Badge';
 export { default as EmptyState } from './EmptyState';
