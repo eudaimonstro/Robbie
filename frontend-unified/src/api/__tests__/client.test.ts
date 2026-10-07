@@ -332,6 +332,24 @@ describe('secretary calls', () => {
     expect(JSON.parse(saveInit.body as string)).toEqual({ body: '# Minutes' });
   });
 
+  it('sends a minutes save once, without retries: the next autosave is the retry', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'Bad gateway' }), { status: 502 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(minutes.save('m1', '# Minutes')).rejects.toMatchObject({ status: 502 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    // Nor after a network failure
+    fetchMock.mockImplementation(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    await expect(minutes.save('m1', '# Minutes')).rejects.toThrow('Failed to fetch');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The option stays out of the fetch itself
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init).not.toHaveProperty('retry');
+  });
+
   it("reads an amendment's preview fresh each time", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ sections: [] })));
     vi.stubGlobal('fetch', fetchMock);

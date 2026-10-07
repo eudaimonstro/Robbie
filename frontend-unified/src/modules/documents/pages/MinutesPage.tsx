@@ -233,6 +233,11 @@ function MinutesEditor({
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   // The text as typed, for a save that runs after the render that scheduled it
   const latest = useRef(record.body);
+  // The text the server last took from this editor (or sent it)
+  const lastSaved = useRef(record.body);
+  // The saves, one after another: a save waits for the one before it, so an older text never
+  // lands after a newer one
+  const chain = useRef<Promise<boolean>>(Promise.resolve(true));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set once the server refuses a save: nothing more is sent
   const stopped = useRef(false);
@@ -243,35 +248,48 @@ function MinutesEditor({
     timer.current = null;
   };
 
-  const save = useCallback(async (): Promise<boolean> => {
-    cancelTimer();
-    if (stopped.current) return false;
-    const text = latest.current;
-    setSaveState('saving');
-    try {
-      onChange(await minutesApi.save(id, text));
-      // Typing during the save left newer text, which its own timer saves
-      setSaveState(latest.current === text ? 'saved' : 'unsaved');
-      return true;
-    } catch (err) {
-      if (isRefusal(err)) {
-        stopped.current = true;
-        cancelTimer();
-        setSaveState('refused');
-        onRefused(`${sentence(err.message)} Your last changes weren't saved.`);
-      } else {
-        setSaveState('failed');
+  /** Send the text as typed until the server has it; false when it couldn't be saved */
+  const sendLatest = useCallback(async (): Promise<boolean> => {
+    // Text typed during a save is sent once it is back, whether or not a timer is waiting
+    while (!stopped.current && latest.current !== lastSaved.current) {
+      const text = latest.current;
+      setSaveState('saving');
+      try {
+        onChange(await minutesApi.save(id, text));
+        lastSaved.current = text;
+      } catch (err) {
+        if (isRefusal(err)) {
+          stopped.current = true;
+          cancelTimer();
+          setSaveState('refused');
+          onRefused(`${sentence(err.message)} Your last changes weren't saved.`);
+        } else {
+          setSaveState('failed');
+        }
+        return false;
       }
-      return false;
     }
+    if (stopped.current) return false;
+    setSaveState('saved');
+    return true;
   }, [id, onChange, onRefused]);
 
-  // Leaving the page before the autosave: save what was typed on the way out
+  /** Save the text as typed, after any save already out; false when it couldn't be saved */
+  const save = useCallback((): Promise<boolean> => {
+    cancelTimer();
+    chain.current = chain.current.then(sendLatest);
+    return chain.current;
+  }, [sendLatest]);
+
+  // Leaving the page with text the server doesn't have (typed before the autosave, or after a
+  // save failed): save it on the way out, after any save still out
   useEffect(
     () => () => {
-      if (!timer.current) return;
       cancelTimer();
-      minutesApi.save(id, latest.current).catch(() => {});
+      void chain.current.then(() => {
+        if (stopped.current || latest.current === lastSaved.current) return;
+        minutesApi.save(id, latest.current).catch(() => {});
+      });
     },
     [id],
   );

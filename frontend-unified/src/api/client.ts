@@ -168,11 +168,20 @@ function getRetryDelay(attempt: number): number {
   return delay + jitter;
 }
 
+/**
+ * A request's options: fetch's, and whether a failure (a 5xx, or no answer) is tried again.
+ * A write the server may have applied before the failure, and that would do something twice if
+ * sent again, turns retries off.
+ */
+type RequestOptions = RequestInit & { retry?: boolean };
+
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {},
+  requestOptions: RequestOptions = {},
   useCache = true,
 ): Promise<T> {
+  const { retry = true, ...options } = requestOptions;
+  const retries = retry && !endpoint.startsWith('/auth/');
   const isGet = !options.method || options.method === 'GET';
   const cacheKey = getCacheKey(endpoint);
   const startedAt = Date.now();
@@ -200,7 +209,7 @@ async function request<T>(
       if (!response.ok) {
         noteUnauthorized(endpoint, response.status);
 
-        if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt, isGet)) {
+        if (retries && shouldRetry(response.status, attempt, isGet)) {
           const delay = getRetryDelay(attempt);
           console.warn(
             `Request failed with ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
@@ -240,7 +249,7 @@ async function request<T>(
 
       // Retry on network errors
       if (
-        !endpoint.startsWith('/auth/') &&
+        retries &&
         attempt < MAX_RETRIES &&
         (err instanceof TypeError || (err as Error).message === 'Failed to fetch')
       ) {
@@ -460,8 +469,14 @@ export const bylawsImport = {
 export const minutes = {
   list: (orgId: string) => request<MinutesSummary[]>(`/organizations/${orgId}/minutes`, {}, false),
   get: (id: string) => request<MinutesRecord>(`/minutes/${id}`, {}, false),
+  // Sent once: the editor saves again after the next change, and a retry landing after a newer
+  // save would put older text back
   save: (id: string, body: string) =>
-    request<MinutesRecord>(`/minutes/${id}`, { method: 'PUT', body: JSON.stringify({ body }) }),
+    request<MinutesRecord>(`/minutes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ body }),
+      retry: false,
+    }),
   publish: (id: string) => request<MinutesRecord>(`/minutes/${id}/publish`, { method: 'POST' }),
   regenerate: (id: string) =>
     request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),

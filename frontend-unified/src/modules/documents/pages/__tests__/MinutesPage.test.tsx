@@ -86,6 +86,17 @@ const heading = () =>
 const preview = () => within(screen.getByRole('region', { name: 'Preview' }));
 const textarea = () => screen.getByLabelText('Minutes text') as HTMLTextAreaElement;
 
+/** A promise settled by the test */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 /** Type, then let the autosave run (under fake timers) */
 async function typeAndWait(text: string) {
   fireEvent.change(textarea(), { target: { value: text } });
@@ -145,7 +156,65 @@ describe('MinutesPage', () => {
     vi.useFakeTimers();
     fireEvent.change(textarea(), { target: { value: 'Left in a hurry' } });
     view.unmount();
+    await act(async () => {});
+    expect(api.save).toHaveBeenCalledTimes(1);
     expect(api.save).toHaveBeenCalledWith('m1', 'Left in a hurry');
+  });
+
+  it('sends one save at a time, so an older save never lands after a newer one', async () => {
+    // The first save is slow and fails; the text typed meanwhile is saved after it, not beside it
+    const first = deferred<MinutesRecord>();
+    api.save.mockImplementationOnce(() => first.promise);
+    api.save.mockImplementation(async (_id: string, body: string) => record({ body }));
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('First');
+    expect(api.save).toHaveBeenCalledTimes(1);
+    await typeAndWait('Second');
+    // Waiting for the first
+    expect(api.save).toHaveBeenCalledTimes(1);
+
+    await act(async () => first.reject(new HttpError('Bad gateway', 502)));
+    await act(async () => {});
+    expect(api.save).toHaveBeenCalledTimes(2);
+    expect(api.save).toHaveBeenLastCalledWith('m1', 'Second');
+    expect(screen.getByText('Saved')).toBeTruthy();
+  });
+
+  it('saves again when the text changed while a save was out', async () => {
+    const first = deferred<MinutesRecord>();
+    api.save.mockImplementationOnce(() => first.promise);
+    api.save.mockImplementation(async (_id: string, body: string) => record({ body }));
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('First');
+    // Typed while the first save is out: saved as soon as the first is back, not left unsaved
+    fireEvent.change(textarea(), { target: { value: 'Second' } });
+    await act(async () => first.resolve(record({ body: 'First' })));
+    await act(async () => {});
+    expect(api.save.mock.calls.map(([, body]) => body)).toEqual(['First', 'Second']);
+    expect(screen.getByText('Saved')).toBeTruthy();
+    // Its own timer finds nothing more to send
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    });
+    expect(api.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('saves on the way out when the last save failed', async () => {
+    api.save.mockRejectedValueOnce(new Error('Failed to fetch'));
+    api.save.mockResolvedValue(record({ body: 'Unlucky' }));
+    const view = renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('Unlucky');
+    expect(screen.getAllByText(/^Couldn't save\./).length).toBeGreaterThan(0);
+    view.unmount();
+    await act(async () => {});
+    expect(api.save).toHaveBeenCalledTimes(2);
+    expect(api.save).toHaveBeenLastCalledWith('m1', 'Unlucky');
   });
 
   it('says why a save was refused, keeps the text and stops saving', async () => {
