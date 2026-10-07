@@ -12,6 +12,8 @@ import { AttachmentUploader } from './AttachmentUploader';
 interface AgendaItemEditorProps {
   item: AgendaItem;
   robbieCode: string;
+  /** The packet's organization, for linking its documents */
+  organizationId: string;
   packetId: string;
   onUpdate: (updates: Partial<AgendaItem>) => void;
   onDelete: () => void;
@@ -24,6 +26,7 @@ interface AgendaItemEditorProps {
 export function AgendaItemEditor({
   item,
   robbieCode,
+  organizationId,
   onUpdate,
   onDelete,
   onAttachmentAdded,
@@ -187,6 +190,7 @@ export function AgendaItemEditor({
             </label>
             <AttachmentUploader
               robbieCode={robbieCode}
+              organizationId={organizationId}
               attachments={item.attachments}
               target={{ agendaItemId: item.id }}
               onAttachmentAdded={onAttachmentAdded}

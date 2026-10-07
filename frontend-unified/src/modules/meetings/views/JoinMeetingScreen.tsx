@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Calendar, Gavel, Hash } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { MeetingScheduler } from '../components/scheduling';
+import { useMeetingOrganization } from '../context/OrganizationBridge';
+import { atLeast } from '../../../utils/roles';
 
 const MEETING_CODE = /^[A-Z0-9]{4,8}$/;
 
@@ -11,6 +13,10 @@ export function JoinMeetingScreen() {
   const [code, setCode] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const { currentOrganization } = useMeetingOrganization();
+  // Meetings are scheduled in the current organization, by its secretaries and above
+  const canSchedule =
+    currentOrganization !== null && atLeast(currentOrganization.role, 'secretary');
 
   if (scheduling) {
     return (
@@ -72,12 +78,14 @@ export function JoinMeetingScreen() {
             {error}
           </p>
         )}
-        <div className="mt-6 pt-6 border-t border-secondary-200 dark:border-secondary-700">
-          <button onClick={() => setScheduling(true)} className="btn-secondary w-full">
-            <Calendar className="w-4 h-4 mr-2" aria-hidden="true" />
-            Schedule a New Meeting
-          </button>
-        </div>
+        {canSchedule && (
+          <div className="mt-6 pt-6 border-t border-secondary-200 dark:border-secondary-700">
+            <button onClick={() => setScheduling(true)} className="btn-secondary w-full">
+              <Calendar className="w-4 h-4 mr-2" aria-hidden="true" />
+              Schedule a New Meeting
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

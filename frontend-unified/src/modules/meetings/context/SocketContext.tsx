@@ -31,7 +31,7 @@ function saveMeetingCode(userId: number | undefined, code: string | null) {
 }
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const { user } = useSession();
+  const { user, markTermsNotAccepted } = useSession();
   const [meetingCode, setMeetingCode] = useState<string | null>(() => savedMeetingCode(user?.id));
 
   // The session ended (signed out elsewhere, or expired): go to sign-in and come back here
@@ -39,7 +39,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     window.location.assign('/sign-in?next=%2Fmeetings');
   }, []);
 
-  const connection = useSocketConnection(meetingCode, handleNotSignedIn);
+  // Refused for the terms: RequireSession shows the terms step in place of this module
+  const connection = useSocketConnection(meetingCode, handleNotSignedIn, markTermsNotAccepted);
 
   // useSocketConnection returns a new object each render, so depend on its stable fields
   const { disconnect, setError } = connection;

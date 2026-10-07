@@ -2,22 +2,46 @@
  * API functions for Meeting Packet and Scheduling
  */
 
-import type {
-  MeetingPacket,
-  AgendaItem,
-  Attachment,
-  Organization,
-  BylawyerDocument,
-} from './types';
-import { apiFetch } from '../../../../api/client';
+import type { MeetingPacket, AgendaItem, Attachment, BylawyerDocument } from './types';
+import { apiFetch, HttpError } from '../../../../api/client';
+
+/** The server's { error } message from a failed response, or the fallback */
+async function serverMessage(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null);
+  return typeof body?.error === 'string' ? body.error : fallback;
+}
 
 /**
- * Get or create a meeting packet for a meeting code
+ * The meeting packet for a meeting code, or null when the meeting has none (a packet is made
+ * when a meeting is scheduled or linked, never by reading)
  */
-export async function getOrCreatePacket(robbieCode: string): Promise<MeetingPacket> {
+export async function getPacket(robbieCode: string): Promise<MeetingPacket | null> {
   const response = await apiFetch(`/packets/${robbieCode}`);
+  if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error('Failed to get meeting packet');
+  }
+  return response.json();
+}
+
+/**
+ * Create the packet for a new meeting code in an organization (secretary and above). A code
+ * that already has a packet, in any organization, is an HttpError with status 409.
+ */
+export async function createPacket(
+  organizationId: string,
+  data: { robbieCode: string; title?: string; description?: string; scheduledFor?: string },
+): Promise<MeetingPacket> {
+  const response = await apiFetch(`/organizations/${organizationId}/packets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new HttpError(
+      await serverMessage(response, 'Failed to schedule the meeting'),
+      response.status,
+    );
   }
   return response.json();
 }
@@ -173,17 +197,6 @@ export async function deleteAttachment(attachmentId: string): Promise<void> {
  */
 export function getAttachmentDownloadUrl(attachmentId: string): string {
   return `/api/attachments/${attachmentId}/download`;
-}
-
-/**
- * List organizations (for linking documents)
- */
-export async function listOrganizations(): Promise<Organization[]> {
-  const response = await apiFetch('/organizations');
-  if (!response.ok) {
-    throw new Error('Failed to list organizations');
-  }
-  return response.json();
 }
 
 /**

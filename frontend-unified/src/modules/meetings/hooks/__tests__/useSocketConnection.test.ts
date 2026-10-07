@@ -134,6 +134,27 @@ describe('useSocketConnection', () => {
     expect(result.current.error).toBe('Connection error: xhr poll error');
   });
 
+  it('reports a connection refused for the terms, without an error or a lost session', () => {
+    const { handlers } = connectedSocket();
+    const onNotSignedIn = vi.fn();
+    const onTermsNotAccepted = vi.fn();
+    const { result } = renderHook(() =>
+      useSocketConnection('DEMO', onNotSignedIn, onTermsNotAccepted),
+    );
+
+    act(() =>
+      handlers.connect_error(
+        Object.assign(new Error('Accept the terms to continue'), {
+          data: { code: 'TERMS_NOT_ACCEPTED' },
+        }),
+      ),
+    );
+
+    expect(onTermsNotAccepted).toHaveBeenCalledTimes(1);
+    expect(onNotSignedIn).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+  });
+
   describe('dispatch', () => {
     beforeEach(() => {
       vi.useFakeTimers();

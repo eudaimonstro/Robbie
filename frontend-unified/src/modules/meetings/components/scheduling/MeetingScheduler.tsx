@@ -1,98 +1,108 @@
 /**
  * Meeting Scheduler Component
  *
- * Main component for scheduling a meeting with agenda and attachments
+ * Schedules a meeting in the current organization. Its details create the meeting's packet,
+ * which claims the meeting code for the organization; the agenda and attachments are then added
+ * to the packet.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, Clock, ArrowLeft, ArrowRight, Loader2, Check, Copy } from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
-import { getOrCreatePacket, updatePacket } from './api';
+import { createPacket, updatePacket } from './api';
+import { HttpError } from '../../../../api/client';
+import { useMeetingOrganization } from '../../context/OrganizationBridge';
+import { atLeast } from '../../../../utils/roles';
 
 interface MeetingSchedulerProps {
-  meetingCode?: string;
   onBack: () => void;
   onJoinMeeting: (code: string) => void;
 }
 
 type Step = 'details' | 'agenda';
 
-export function MeetingScheduler({
-  meetingCode: initialCode,
-  onBack,
-  onJoinMeeting,
-}: MeetingSchedulerProps) {
+/** How many generated codes to try when one is already taken */
+const CODE_ATTEMPTS = 3;
+
+/** A random 6-character meeting code, without characters that look alike (0 and O, 1 and I) */
+function generateMeetingCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProps) {
+  const { currentOrganization } = useMeetingOrganization();
   const [step, setStep] = useState<Step>('details');
-  const [meetingCode, setMeetingCode] = useState(initialCode || '');
+  const [meetingCode, setMeetingCode] = useState(generateMeetingCode);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
   const [packet, setPacket] = useState<MeetingPacket | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function generateMeetingCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  }
+  // Meetings are scheduled in the organization selected in the header, by its secretaries and
+  // above
+  const organization =
+    currentOrganization && atLeast(currentOrganization.role, 'secretary')
+      ? currentOrganization
+      : null;
 
-  // Generate a meeting code if not provided
-  useEffect(() => {
-    if (!meetingCode) {
-      const code = generateMeetingCode();
-      setMeetingCode(code);
-    }
-  }, []);
+  const details = () => ({
+    title: title || undefined,
+    description: description || undefined,
+    scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+  });
 
-  async function loadPacket() {
-    setIsLoading(true);
+  /** Create the packet, with a fresh code if a generated one is already taken */
+  const create = async (organizationId: string): Promise<MeetingPacket> => {
+    let code = meetingCode;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await createPacket(organizationId, { robbieCode: code, ...details() });
+      } catch (err) {
+        if (!(err instanceof HttpError && err.status === 409) || attempt >= CODE_ATTEMPTS) {
+          throw err;
+        }
+        code = generateMeetingCode();
+        setMeetingCode(code);
+      }
+    }
+  };
+
+  const handleProceedToAgenda = async () => {
+    if (!organization) return;
+    setIsSaving(true);
     setError(null);
     try {
-      const loadedPacket = await getOrCreatePacket(meetingCode);
-      setPacket(loadedPacket);
-      // Sync local state with packet
-      if (loadedPacket.title) setTitle(loadedPacket.title);
-      if (loadedPacket.description) setDescription(loadedPacket.description);
-      if (loadedPacket.scheduledFor) {
-        setScheduledFor(loadedPacket.scheduledFor.slice(0, 16)); // Format for datetime-local
-      }
+      // The first time, creating the packet claims the code; after Edit Details, save them
+      setPacket(packet ? await updatePacket(packet.id, details()) : await create(organization.id));
+      setStep('agenda');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load meeting packet');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // Load or create packet when moving to agenda step
-  useEffect(() => {
-    if (step === 'agenda' && meetingCode && !packet) {
-      loadPacket();
-    }
-  }, [step, meetingCode]);
-
-  const handleSaveDetails = async () => {
-    if (!packet) return;
-
-    setIsSaving(true);
-    try {
-      const updated = await updatePacket(packet.id, {
-        title: title || undefined,
-        description: description || undefined,
-        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
-      });
-      setPacket(updated);
-    } catch (err) {
-      console.error('Failed to save details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to schedule the meeting');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveAndJoin = async () => {
+    if (packet) {
+      setIsSaving(true);
+      try {
+        await updatePacket(packet.id, details());
+      } catch (err) {
+        console.error('Failed to save details:', err);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+    onJoinMeeting(meetingCode);
   };
 
   const handleCopyCode = () => {
@@ -101,10 +111,21 @@ export function MeetingScheduler({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleProceedToAgenda = async () => {
-    setStep('agenda');
-    // Packet will be loaded by useEffect
-  };
+  if (!organization) {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <div className="card p-6 text-center">
+          <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+            Meetings are scheduled in an organization, by its secretaries and admins. Choose an
+            organization where you have one of those roles.
+          </p>
+          <button onClick={onBack} className="btn-secondary">
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -114,6 +135,7 @@ export function MeetingScheduler({
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
+              aria-label="Back"
               className="bg-white/20 p-2 rounded-lg hover:bg-white/30 transition-colors"
             >
               <ArrowLeft size={20} />
@@ -121,6 +143,7 @@ export function MeetingScheduler({
             <div className="flex-1">
               <h1 className="text-xl font-bold">Schedule Meeting</h1>
               <p className="text-meeting-200 text-sm">
+                {organization.name}:{' '}
                 {step === 'details' ? 'Step 1: Meeting Details' : 'Step 2: Build Agenda'}
               </p>
             </div>
@@ -154,7 +177,10 @@ export function MeetingScheduler({
           </div>
 
           {error && (
-            <div className="mb-4 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg">
+            <div
+              role="alert"
+              className="mb-4 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-4 py-3 rounded-lg"
+            >
               {error}
             </div>
           )}
@@ -163,15 +189,19 @@ export function MeetingScheduler({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleProceedToAgenda();
+                void handleProceedToAgenda();
               }}
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="meetingTitle"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Meeting Title
                 </label>
                 <input
+                  id="meetingTitle"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -181,10 +211,14 @@ export function MeetingScheduler({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="meetingDescription"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   Description
                 </label>
                 <textarea
+                  id="meetingDescription"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional meeting description..."
@@ -194,11 +228,15 @@ export function MeetingScheduler({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                <label
+                  htmlFor="meetingDate"
+                  className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
+                >
                   <Calendar size={16} className="inline mr-1" />
                   Date & Time
                 </label>
                 <input
+                  id="meetingDate"
                   type="datetime-local"
                   value={scheduledFor}
                   onChange={(e) => setScheduledFor(e.target.value)}
@@ -209,75 +247,69 @@ export function MeetingScheduler({
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 flex items-center justify-center gap-2 bg-meeting-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-meeting-700 transition-colors"
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 bg-meeting-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-meeting-700 transition-colors disabled:opacity-50"
                 >
-                  Next: Build Agenda
-                  <ArrowRight size={20} />
+                  {isSaving ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                    <>
+                      Next: Build Agenda
+                      <ArrowRight size={20} />
+                    </>
+                  )}
                 </button>
               </div>
             </form>
           ) : (
-            <>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 size={32} className="animate-spin text-meeting-600" />
-                </div>
-              ) : packet ? (
-                <>
-                  {/* Editable details summary */}
-                  <div className="mb-6 p-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-secondary-800 dark:text-white">
-                        {title || 'Untitled Meeting'}
-                      </h3>
-                      <button
-                        onClick={() => setStep('details')}
-                        className="text-sm text-meeting-600 dark:text-meeting-400 hover:underline"
-                      >
-                        Edit Details
-                      </button>
-                    </div>
-                    {scheduledFor && (
-                      <p className="text-sm text-secondary-600 dark:text-secondary-400 flex items-center gap-1">
-                        <Clock size={14} />
-                        {new Date(scheduledFor).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-
-                  <PacketBuilder packet={packet} onPacketUpdate={setPacket} />
-
-                  <div className="flex gap-3 pt-6 mt-6 border-t border-secondary-200 dark:border-secondary-700">
+            packet && (
+              <>
+                {/* Editable details summary */}
+                <div className="mb-6 p-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-secondary-800 dark:text-white">
+                      {title || 'Untitled Meeting'}
+                    </h3>
                     <button
                       onClick={() => setStep('details')}
-                      className="flex-1 py-3 px-4 border border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors"
+                      className="text-sm text-meeting-600 dark:text-meeting-400 hover:underline"
                     >
-                      Back
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSaveDetails();
-                        onJoinMeeting(meetingCode);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-success-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-success-700 transition-colors"
-                    >
-                      {isSaving ? (
-                        <Loader2 size={20} className="animate-spin" />
-                      ) : (
-                        <>
-                          <Check size={20} />
-                          Save & Join Meeting
-                        </>
-                      )}
+                      Edit Details
                     </button>
                   </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-secondary-500 dark:text-secondary-400">
-                  Unable to load meeting packet.
+                  {scheduledFor && (
+                    <p className="text-sm text-secondary-600 dark:text-secondary-400 flex items-center gap-1">
+                      <Clock size={14} />
+                      {new Date(scheduledFor).toLocaleString()}
+                    </p>
+                  )}
                 </div>
-              )}
-            </>
+
+                <PacketBuilder packet={packet} onPacketUpdate={setPacket} />
+
+                <div className="flex gap-3 pt-6 mt-6 border-t border-secondary-200 dark:border-secondary-700">
+                  <button
+                    onClick={() => setStep('details')}
+                    className="flex-1 py-3 px-4 border border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300 rounded-lg font-medium hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => void handleSaveAndJoin()}
+                    className="flex-1 flex items-center justify-center gap-2 bg-success-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-success-700 transition-colors"
+                  >
+                    {isSaving ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <>
+                        <Check size={20} />
+                        Save & Join Meeting
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )
           )}
         </div>
       </div>
