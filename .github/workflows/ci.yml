@@ -29,7 +29,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/robbie
       INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
-      NODE_ENV: test
+    # NODE_ENV=test is set on the test steps only: Vite reads NODE_ENV, and with it set to test
+    # the web build bundles React's development build
 
     steps:
       - name: Checkout code
@@ -73,18 +74,28 @@ jobs:
 
       - name: Test shared
         run: npm run test:run -w shared
+        env:
+          NODE_ENV: test
 
       - name: Test backend-node
         run: npm run test:run -w backend-node
+        env:
+          NODE_ENV: test
 
       - name: Integration tests backend-node
         run: npm run test:integration -w backend-node
+        env:
+          NODE_ENV: test
 
       - name: Test frontend-unified
         run: npm run test:run -w frontend-unified
+        env:
+          NODE_ENV: test
 
       - name: Test mobile
         run: npm run test:run -w mobile
+        env:
+          NODE_ENV: test
 
       - name: Build all
         run: npm run build
@@ -110,7 +121,7 @@ jobs:
     env:
       # This job's own Postgres service; locally the harness uses the throwaway one on 55432
       E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
-      NODE_ENV: test
+    # NODE_ENV=test only on the Playwright step, not the web build (see the ci job)
 
     steps:
       - name: Checkout code
@@ -158,6 +169,8 @@ jobs:
 
       - name: Playwright
         run: npx playwright test -c e2e
+        env:
+          NODE_ENV: test
 
       - name: Upload screenshots and the report
         if: always()
