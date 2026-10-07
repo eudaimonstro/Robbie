@@ -69,7 +69,7 @@ const meetingDate = (scheduledFor: Date | null, startedAt: Date | null, generate
 /**
  * Whether these minutes are published and before a meeting that hasn't adjourned: the meeting
  * has them as they are and makes any corrections, so the secretary's editor doesn't change them
- * (PUT refuses, and every minutes response says so as `beforeMeeting`)
+ * (PUT refuses, and every answer with one meeting's minutes says so as `beforeMeeting`)
  */
 const lockedBeforeMeeting = async (
   organizationId: string,
