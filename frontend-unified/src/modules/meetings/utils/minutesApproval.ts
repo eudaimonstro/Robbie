@@ -8,11 +8,16 @@ import type { MeetingState } from '@robbie-bylawyer/shared/types';
 
 /**
  * A length of time in a title, which says nothing about the minutes of a meeting: "Homeowner
- * forum (3 minutes per speaker)", "Treasurer's report (five minutes)". Not a year: "Approval of
- * the 2025 minutes" is about them.
+ * forum (3 minutes per speaker)", "Treasurer's report (five minutes)". Not a year ("Approval of
+ * the 2025 minutes") and not a date: a day after a month's name ("the March 15 minutes", "the
+ * Oct. 3 minutes") or written with a slash or dash ("the 3/15 minutes") says which minutes.
  */
-const DURATION =
-  /\b(?:\d{1,3}|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)[\s-]*minutes?\b/gi;
+const MONTH =
+  'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const DURATION = new RegExp(
+  `(?<!\\b(?:${MONTH})\\.?\\s*)(?<!\\d[/-])\\b(?:\\d{1,3}|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)[\\s-]*minutes?\\b`,
+  'gi',
+);
 
 /** The title without its lengths of time */
 function withoutDurations(title: string): string {

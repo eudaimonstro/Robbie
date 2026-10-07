@@ -95,6 +95,12 @@ describe('titleIsTheMinutes', () => {
     expect(titleIsTheMinutes('Corrections to the minutes')).toBe(true);
     expect(titleIsTheMinutes('Minutes')).toBe(true);
     expect(titleIsTheMinutes('Approval of the 2025 minutes')).toBe(true);
+    // A date before them is a date, not a length of time
+    expect(titleIsTheMinutes('Approval of the March 15 minutes')).toBe(true);
+    expect(titleIsTheMinutes('Approve the Oct. 3 minutes')).toBe(true);
+    expect(titleIsTheMinutes('Approve the Sept 9 minutes')).toBe(true);
+    expect(titleIsTheMinutes('Approval of the 3/15 minutes')).toBe(true);
+    expect(titleIsTheMinutes('Approval of the 3-15 minutes')).toBe(true);
     expect(titleIsTheMinutes('Minutes of the March board meeting')).toBe(true);
   });
 
@@ -103,6 +109,8 @@ describe('titleIsTheMinutes', () => {
     expect(titleIsTheMinutes("Treasurer's report (5 minutes)")).toBe(false);
     expect(titleIsTheMinutes('Approve the budget, 10 minutes')).toBe(false);
     expect(titleIsTheMinutes('A few minutes for announcements')).toBe(false);
+    expect(titleIsTheMinutes('Open forum, five minutes each')).toBe(false);
+    expect(titleIsTheMinutes('Approve the May budget (5 minutes)')).toBe(false);
     expect(titleIsTheMinutes('Adjournment')).toBe(false);
   });
 });
