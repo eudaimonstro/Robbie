@@ -8,7 +8,7 @@ import {
 } from '@playwright/test';
 import { PEOPLE, PHONE, personPage } from '../helpers';
 
-test('a scheduled meeting runs a vote from the phones to the display', async ({
+test('a scheduled meeting runs from the phones to the display, and its minutes are published', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(180_000);
@@ -141,6 +141,41 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
     await expect(alice.getByText(/^The meeting was adjourned at /)).toBeVisible();
     await expect(pat.getByText(/^Adjourned at /)).toBeVisible();
+
+    // After the meeting, Pat opens the minutes the server drafted as it adjourned: the pool
+    // motion with both parts of its vote, and Carmen's motion adopted without objection.
+    // (The latest meeting is listed first, so a retry's draft is the one opened.)
+    await pat.setViewportSize({ width: 1280, height: 900 });
+    const draft = pat.getByRole('link', { name: /Special meeting on the pool/ }).first();
+    await expect(async () => {
+      await pat.goto('/minutes');
+      await expect(draft).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(draft).toContainText('Draft');
+    await draft.click();
+
+    const minutes = pat.getByRole('region', { name: 'Preview' });
+    await expect(
+      minutes.getByText(
+        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      minutes.getByText(
+        /Carmen Diaz moved: "I move that we add a lifeguard on weekends\." Seconded by a member in the room\. Adopted by unanimous consent\./,
+      ),
+    ).toBeVisible();
+
+    // Pat publishes them: the members can read them, and the next meeting is asked to approve.
+    // The status is the badge beside the heading (the toast says more, in a live region).
+    const heading = pat.getByRole('heading', {
+      name: /^Minutes of the Special meeting on the pool/,
+    });
+    await expect(heading.locator('..').getByText('Draft', { exact: true })).toBeVisible();
+    await pat.getByRole('button', { name: 'Publish' }).click();
+    await expect(heading.locator('..').getByText('Published', { exact: true })).toBeVisible();
+    await expect(pat.getByRole('link', { name: 'Print or save as PDF' })).toBeVisible();
+    await capture(pat, testInfo, 'minutes');
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
