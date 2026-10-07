@@ -83,7 +83,6 @@ Auth today is in memory only (`auth/authController.ts:125-127`). Restarting the 
 - Socket identity: the enricher must overwrite every actor field from the authenticated socket, not only when the key is present. Covers `requesterId` (withdraw, modify), `member` on `RAISE_HAND`/`LOWER_HAND`, `memberId` on `RESPOND_ROLL_CALL`, and the caller on proxy and nomination responses. `ADD_MEMBER` and `SET_MEMBER_PRESENCE` become truly server-only.
 - Persist socket participant roles (`meetingStorage.ts:213` keeps them in memory, so after restart state and socket roles disagree).
 - Don't reset rate-limit buckets on disconnect.
-- Member management UI in Settings (invite by email, change role, remove). The org switcher shows only the user's orgs.
 - **Route-test harness (prerequisite for the matrix):** split `src/index.ts` into `app.ts` (Express app, no listen) and `index.ts` (HTTP server, Socket.io, start). Add supertest, and run integration tests only when an explicit opt-in variable such as `INTEGRATION_DATABASE_URL` is set. CI sets it; local runs never write to whatever `DATABASE_URL` points at. Start with a contract test: the main GETs return no snake_case keys.
 - Done when: an integration test matrix proves 401 for unauthenticated calls and 403/404 for cross-org calls on every route, a test proves a client cannot act as another member, and a test proves every guest-forbidden action is rejected server-side and that guests are excluded from quorum and vote totals.
 
