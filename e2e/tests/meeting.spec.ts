@@ -1,6 +1,7 @@
 import {
   test,
   expect,
+  type Browser,
   type BrowserContextOptions,
   type Page,
   type TestInfo,
@@ -142,6 +143,98 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await Promise.all(opened.map((context) => context.close()));
   }
 });
+
+test('an election nobody was nominated for is set aside, and the chair goes on', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const before = new Set(browser.contexts());
+  try {
+    const code = await scheduleMeeting(browser, 'Special meeting on the board');
+    const dana = await personPage(browser, PEOPLE.dana, {
+      viewport: { width: 1440, height: 1000 },
+    });
+    const alice = await personPage(browser, PEOPLE.alice, PHONE);
+    await dana.goto(`/meetings/${code}`);
+    await alice.goto(`/meetings/${code}`);
+    await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
+    await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
+    await expect(dana.getByRole('button', { name: 'Adopt the agenda' })).toHaveCount(0);
+
+    // Nominations open and close with nobody nominated: no ballot to open
+    await dana.getByLabel('Open nominations for').fill('Treasurer');
+    await dana.getByRole('button', { name: 'Open nominations' }).click();
+    await dana.getByRole('button', { name: 'Close nominations' }).click();
+    await expect(
+      dana.getByText(/^Nobody has been nominated\. Open nominations again/),
+    ).toBeVisible();
+    await expect(dana.getByRole('button', { name: 'Open the ballot' })).toHaveCount(0);
+    await expect(alice.getByText('Waiting for the chair.')).toBeVisible();
+
+    // Dana sets it aside from the toolbar, after the confirmation, and business goes on
+    const toolbar = dana.getByRole('toolbar', { name: "The chair's actions" });
+    await toolbar.getByRole('button', { name: 'Set the election aside' }).click();
+    const dialog = dana.getByRole('dialog', { name: 'Set the election aside?' });
+    await dialog.getByRole('button', { name: 'Set it aside' }).click();
+    await expect(dana.getByRole('heading', { name: 'Nominations and elections' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'A motion from the floor' })).toBeVisible();
+    await expect(alice.getByRole('heading', { name: 'Make a motion' })).toBeVisible();
+  } finally {
+    const opened = browser.contexts().filter((context) => !before.has(context));
+    await Promise.all(opened.map((context) => context.close()));
+  }
+});
+
+test('the console is a read-only record once the meeting adjourns', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const before = new Set(browser.contexts());
+  try {
+    const code = await scheduleMeeting(browser, 'Special meeting that adjourns');
+    const dana = await personPage(browser, PEOPLE.dana, {
+      viewport: { width: 1440, height: 1000 },
+    });
+    await dana.goto(`/meetings/${code}`);
+    await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
+    await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
+    // An election is under way when the meeting adjourns
+    await dana.getByLabel('Open nominations for').fill('Director');
+    await dana.getByRole('button', { name: 'Open nominations' }).click();
+    await expect(dana.getByRole('heading', { name: 'Election for Director' })).toBeVisible();
+
+    await dana.getByRole('button', { name: 'Adjourn', exact: true }).click();
+    const adjourn = dana.getByRole('dialog', { name: 'Adjourn the meeting?' });
+    await adjourn.getByRole('button', { name: 'Adjourn', exact: true }).click();
+    await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
+
+    // Nothing live is left: no actions, no election, no attendance or agenda controls
+    await expect(dana.getByRole('toolbar', { name: "The chair's actions" })).toHaveCount(0);
+    await expect(dana.getByRole('heading', { name: 'Election for Director' })).toHaveCount(0);
+    await expect(dana.getByRole('button', { name: 'Set the election aside' })).toHaveCount(0);
+    await expect(dana.getByLabel('Open nominations for')).toHaveCount(0);
+    await expect(dana.getByLabel('Headcount')).toHaveCount(0);
+    await expect(dana.getByRole('button', { name: /^Mark / })).toHaveCount(0);
+    await expect(dana.getByRole('button', { name: /^(Call|Complete) / })).toHaveCount(0);
+  } finally {
+    const opened = browser.contexts().filter((context) => !before.has(context));
+    await Promise.all(opened.map((context) => context.close()));
+  }
+});
+
+/** Pat schedules a meeting with Dana presiding; its code */
+async function scheduleMeeting(browser: Browser, title: string): Promise<string> {
+  const pat = await personPage(browser, PEOPLE.pat, { viewport: { width: 1280, height: 900 } });
+  await pat.goto('/meetings');
+  await pat.getByRole('button', { name: 'Schedule a meeting' }).click();
+  await pat.getByLabel('Meeting title').fill(title);
+  await pat.getByLabel('Presiding officer').selectOption({ label: 'Dana Okafor' });
+  await pat.getByRole('button', { name: 'Next: build the agenda' }).click();
+  const code = (await pat.getByTestId('meeting-code').innerText()).trim();
+  expect(code).toMatch(/^[A-Z0-9]{6}$/);
+  await pat.getByRole('button', { name: 'Done' }).click();
+  await expect(pat.locator(`[href="/meetings/${code}"]`)).toBeVisible();
+  await pat.close();
+  return code;
+}
 
 /** A screenshot attached to the report (CI uploads it); never compared */
 async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
