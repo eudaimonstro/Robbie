@@ -43,13 +43,14 @@ export function md(text: string): string {
 }
 
 /**
- * What the minutes of a meeting record, from its final state: who attended (anyone present at
- * any point), and each agenda item with what was decided under it, in the order it happened
+ * What the minutes of a meeting record, from its final state: who attended (anyone present
+ * while it was in session, from the call to order to the adjournment), and each agenda item with what was decided under it, in the order it happened
  * by the server's clock. Votes and ballots are counts: who voted which way is never kept here.
  */
 export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
   const attended = new Set(state.attendedIds ?? []);
-  const there = state.members.filter((m) => m.present || attended.has(m.id));
+  // Not who is present now: someone who arrived after the adjournment didn't attend
+  const there = state.members.filter((m) => attended.has(m.id));
   const present = there
     .filter((m) => m.role !== 'guest')
     .map((m) => ({ id: m.id, name: m.name, marked: m.presentBy === 'chair' }))

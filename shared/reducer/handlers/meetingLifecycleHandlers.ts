@@ -11,7 +11,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import { NO_VOTES } from '../../utils/voteCalculator.js';
-import { decisionContext, quorumNow } from './records.js';
+import { decisionContext, quorumNow, withPresentAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
 /**
@@ -28,6 +28,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       const started = log(timestamp, LOG_MEETING_CALLED_TO_ORDER);
       // Whether a quorum is present as the meeting is called to order, for the minutes
       const quorumAtCallToOrder = quorumNow(state);
+      // Everyone here at the call to order attends; anyone who arrives later, as they arrive
+      const attendedIds = withPresentAttended(state);
       // Calling the meeting to order is the agenda's first item, when it has one: it is done
       // (only while pending, as a meeting called to order again after adjourning has done it)
       const first = state.agenda[0];
@@ -37,6 +39,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
           meetingActive: true,
           meetingStage: 'call-to-order',
           quorumAtCallToOrder,
+          attendedIds,
           agenda: state.agenda.map((a) =>
             a.id === first.id ? { ...a, status: 'completed' as const } : a,
           ),
@@ -51,6 +54,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         meetingActive: true,
         meetingStage: 'call-to-order',
         quorumAtCallToOrder,
+        attendedIds,
         meetingLog: started,
       };
     }

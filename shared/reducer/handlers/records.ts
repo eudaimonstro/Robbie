@@ -49,8 +49,20 @@ export function unvotedRecord(
   };
 }
 
-/** The members who have attended, with this one among them */
+/**
+ * The members who have attended, with this one among them while the meeting is in session
+ * (from the call to order to the adjournment): someone there only before or after it didn't
+ * attend the meeting
+ */
 export function withAttended(state: MeetingState, memberId: number): number[] {
+  if (!state.meetingActive) return state.attendedIds;
   const attended = state.attendedIds ?? [];
   return attended.includes(memberId) ? attended : [...attended, memberId];
+}
+
+/** The members who have attended, with everyone present now among them (at the call to order) */
+export function withPresentAttended(state: MeetingState): number[] {
+  const attended = new Set(state.attendedIds ?? []);
+  const arriving = state.members.filter((m) => m.present && !attended.has(m.id)).map((m) => m.id);
+  return arriving.length > 0 ? [...(state.attendedIds ?? []), ...arriving] : state.attendedIds;
 }

@@ -311,7 +311,7 @@ describe('the meeting record', () => {
   });
 
   it('remembers who attended, also once they leave', () => {
-    let state: MeetingState = initialState;
+    let state: MeetingState = { ...initialState, meetingActive: true };
     state = meetingReducer(state, {
       type: 'ADD_MEMBER',
       member: { id: 2, name: 'Bo', role: 'member', present: true },
@@ -343,6 +343,47 @@ describe('the meeting record', () => {
       timestamp: '',
     });
     expect(state.attendedIds).toEqual([2, 3, 4]);
+  });
+
+  it('counts only who was there while the meeting was in session', () => {
+    const join = (state: MeetingState, id: number, name: string) =>
+      meetingReducer(state, {
+        type: 'ADD_MEMBER',
+        member: { id, name, role: 'member', present: true },
+        timestamp: '',
+      });
+    const leave = (state: MeetingState, memberId: number) =>
+      meetingReducer(state, {
+        type: 'SET_MEMBER_PRESENCE',
+        memberId,
+        present: false,
+        timestamp: '',
+      });
+
+    // Bo came early and left before the call to order; Cy came early and stayed
+    let state = join(join(initialState, 2, 'Bo'), 3, 'Cy');
+    state = meetingReducer(state, {
+      type: 'MARK_PRESENT',
+      userId: 5,
+      member: { id: 5, name: 'Ed', role: 'member', present: false },
+      timestamp: '',
+    });
+    state = leave(leave(state, 2), 5);
+    expect(state.attendedIds).toEqual([]);
+    state = meetingReducer(state, { type: 'START_MEETING', timestamp: '' });
+    expect(state.attendedIds).toEqual([3]);
+
+    // Di arrived after the adjournment, and Bo came back after it
+    state = meetingReducer(state, { type: 'END_MEETING', timestamp: '' });
+    state = join(state, 4, 'Di');
+    state = meetingReducer(state, {
+      type: 'SET_MEMBER_PRESENCE',
+      memberId: 2,
+      present: true,
+      timestamp: '',
+    });
+    expect(state.attendedIds).toEqual([3]);
+    expect(state.members.filter((m) => m.present).map((m) => m.id)).toEqual([2, 3, 4]);
   });
 
   it('keeps records in a state saved before they existed', () => {

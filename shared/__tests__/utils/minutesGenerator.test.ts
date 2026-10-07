@@ -471,6 +471,19 @@ describe('the minutes', () => {
     );
   });
 
+  it('list who attended, not someone who arrived after the adjournment', () => {
+    const minutes = generateMeetingMinutes({
+      ...scenario,
+      members: [
+        ...scenario.members,
+        { id: 8, name: 'Late Larry', role: 'member', present: true, presentBy: 'device' },
+        { id: 9, name: 'Late Guest', role: 'guest', present: true, presentBy: 'device' },
+      ],
+    });
+    expect(minutes.present.map((p) => p.name)).not.toContain('Late Larry');
+    expect(minutes.guests).toEqual(['Sam Ortiz']);
+  });
+
   it('give times in UTC when the time zone is unknown', () => {
     const markdown = formatMinutesAsMarkdown(generateMeetingMinutes(initialState), {
       ...nothingKnown,
