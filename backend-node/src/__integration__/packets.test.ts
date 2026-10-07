@@ -285,6 +285,40 @@ describe('packets', () => {
     expect(tooLong.status).toBe(400);
   });
 
+  it('change their date, keep it when it is left out, and clear it with null', async () => {
+    const cookie = f.users.secretary.cookie;
+    const created = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+      cookie,
+      body: { robbieCode: 'NEW005', scheduledFor: '2026-11-01T00:00:00.000Z' },
+    });
+    expect(created.body.scheduledFor).toBe('2026-11-01T00:00:00.000Z');
+
+    const moved = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { scheduledFor: '2026-11-08T00:00:00.000Z' },
+    });
+    expect(moved.body.scheduledFor).toBe('2026-11-08T00:00:00.000Z');
+
+    const unchanged = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { title: 'Pool meeting' },
+    });
+    expect(unchanged.body.scheduledFor).toBe('2026-11-08T00:00:00.000Z');
+
+    const cleared = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { scheduledFor: null },
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.scheduledFor).toBeNull();
+
+    const notADate = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { scheduledFor: 'next Tuesday-ish' },
+    });
+    expect(notADate.status).toBe(400);
+  });
+
   it('clear their description with null', async () => {
     const cookie = f.users.secretary.cookie;
     const created = await call('post', `/api/organizations/${f.orgA.id}/packets`, {

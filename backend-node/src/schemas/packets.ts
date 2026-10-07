@@ -21,9 +21,9 @@ export const createPacketBody = z.object({
 
 export const updatePacketBody = z.object({
   title: z.string().max(500).optional(),
-  // null clears either
+  // null clears the description, the place or the date
   description: z.string().max(2000).nullable().optional(),
   location: location.nullable().optional(),
-  scheduledFor: z.string().optional().nullable(),
+  scheduledFor: dateString.nullable().optional(),
   chairUserId: chairUserId.optional(),
 });

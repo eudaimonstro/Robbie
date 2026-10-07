@@ -65,7 +65,8 @@ export async function updatePacket(
     description?: string | null;
     /** null clears it */
     location?: string | null;
-    scheduledFor?: string;
+    /** null clears it */
+    scheduledFor?: string | null;
     chairUserId?: number | null;
   },
 ): Promise<MeetingPacket> {

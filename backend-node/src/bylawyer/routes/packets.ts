@@ -180,7 +180,7 @@ packetsRouter.post(
 /**
  * PUT /api/packets/:id
  * Update packet metadata
- * Body: { title?, description?, location?, scheduledFor?, chairUserId? } (null clears the description or the location)
+ * Body: { title?, description?, location?, scheduledFor?, chairUserId? } (null clears the description, the location or the date)
  */
 packetsRouter.put(
   '/packets/:id',
@@ -211,7 +211,8 @@ packetsRouter.put(
           title,
           description,
           location,
-          scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+          scheduledFor:
+            scheduledFor === null ? null : scheduledFor ? new Date(scheduledFor) : undefined,
           chairUserId,
         },
         include: {

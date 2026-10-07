@@ -53,6 +53,8 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const [packet, setPacket] = useState<MeetingPacket | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Next was pressed without a title: the meeting needs one, and a saved one is kept
+  const [titleMissing, setTitleMissing] = useState(false);
 
   // Meetings are scheduled in the organization selected in the header, by its secretaries and
   // above. Once the packet exists it belongs to that organization, whatever the header shows.
@@ -90,18 +92,22 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   }, [organizationId, user?.id]);
 
   const details = () => ({
-    title: title || undefined,
-    description: description || undefined,
+    title: title.trim() || undefined,
+    description: description.trim() || undefined,
     location: location.trim() || undefined,
     scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     ...(chairUserId === undefined ? {} : { chairUserId }),
   });
 
-  /** The details for an update: a place or description emptied after Edit the details clears it */
+  /**
+   * The details for an update: a place, description or date emptied after Edit the details
+   * clears it. The title is never emptied (Next asks for one), so a missing one keeps the saved.
+   */
   const changedDetails = () => ({
     ...details(),
-    description: description || null,
+    description: description.trim() || null,
     location: location.trim() || null,
+    scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
   });
 
   /** Create the packet, with a fresh code if a generated one is already taken */
@@ -122,6 +128,10 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
 
   const handleProceedToAgenda = async () => {
     if (!organization) return;
+    if (!title.trim()) {
+      setTitleMissing(true);
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
@@ -217,9 +227,20 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                   type="text"
                   className="input"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setTitleMissing(false);
+                  }}
                   placeholder="2026 Annual Meeting"
+                  maxLength={500}
+                  aria-invalid={titleMissing || undefined}
+                  aria-describedby={titleMissing ? 'meetingTitleMissing' : undefined}
                 />
+                {titleMissing && (
+                  <p id="meetingTitleMissing" role="alert" className="mt-1 text-sm text-gavel">
+                    Give the meeting a title.
+                  </p>
+                )}
               </div>
 
               <div>
