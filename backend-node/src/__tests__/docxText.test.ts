@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { crc32 } from 'node:zlib';
 import JSZip from 'jszip';
 import {
   DOCX_MAX_DOCUMENT_XML,
@@ -79,6 +80,75 @@ describe('assertDocxUnpacksSmall', () => {
     zip.writeUInt32LE(100, zip.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 24);
     await expect(assertDocxUnpacksSmall(zip)).rejects.toBeInstanceOf(DocxTooLargeError);
   });
+
+  const END = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  const LOCAL = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+  const CENTRAL = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+  const small = () => zipOf({ 'word/document.xml': '<w:document/>' });
+
+  for (const [field, offset] of [
+    ['the disk that holds the directory', 6],
+    ['the count of parts on this disk', 8],
+  ] as const) {
+    it(`refuses a zip whose end record sends jszip to ZIP64 by ${field}`, async () => {
+      const zip = await small();
+      zip.writeUInt16LE(0xffff, zip.lastIndexOf(END) + offset);
+      await expect(assertDocxUnpacksSmall(zip)).rejects.toBeInstanceOf(DocxTooLargeError);
+    });
+  }
+
+  for (const [record, signature] of [
+    ['end of central directory', [0x50, 0x4b, 0x06, 0x06]],
+    ['end of central directory locator', [0x50, 0x4b, 0x06, 0x07]],
+  ] as const) {
+    it(`refuses a zip with a ZIP64 ${record} anywhere in it`, async () => {
+      const zip = await small();
+      // In the end record's comment: the directory stays where it was
+      const end = zip.lastIndexOf(END);
+      zip.writeUInt16LE(4, end + 20);
+      const patched = Buffer.concat([zip, Buffer.from(signature)]);
+      await expect(assertDocxUnpacksSmall(patched)).rejects.toBeInstanceOf(DocxTooLargeError);
+    });
+  }
+
+  it('refuses a part named differently in its local header and the directory', async () => {
+    // jszip unpacks the part by its local name, word/document.xml; the directory calls it
+    // word/documenT.xml, which the 20 MB limit for document.xml would not have applied to
+    const zip = await zipOf({ 'word/document.xml': 'd'.repeat(DOCX_MAX_DOCUMENT_XML + 1) });
+    zip.write('T', zip.indexOf(CENTRAL) + 46 + 'word/documen'.length);
+    expect(zip.toString('utf8', 30, 30 + 17)).toBe('word/document.xml');
+    await expect(assertDocxUnpacksSmall(zip)).rejects.toThrow();
+  }, 30_000);
+
+  it('refuses a part that an extra field names, as jszip would read it', async () => {
+    // Named word/other.xml in both headers, and word/document.xml in a Unicode path extra
+    // field in the directory, which jszip reads instead
+    const zip = await zipOf({ 'word/other.xml': 'f'.repeat(DOCX_MAX_DOCUMENT_XML + 1) });
+    const central = zip.indexOf(CENTRAL);
+    const nameEnd = central + 46 + zip.readUInt16LE(central + 28);
+    const unicodeName = Buffer.from('word/document.xml');
+    const field = Buffer.alloc(9);
+    field.writeUInt16LE(0x7075, 0);
+    field.writeUInt16LE(5 + unicodeName.length, 2);
+    field.writeUInt8(1, 4);
+    field.writeUInt32LE(crc32(Buffer.from('word/other.xml')), 5);
+    const extra = Buffer.concat([field, unicodeName]);
+    zip.writeUInt16LE(zip.readUInt16LE(central + 30) + extra.length, central + 30);
+    const end = zip.lastIndexOf(END);
+    zip.writeUInt32LE(zip.readUInt32LE(end + 12) + extra.length, end + 12);
+    const named = Buffer.concat([zip.subarray(0, nameEnd), extra, zip.subarray(nameEnd)]);
+    expect(Object.keys((await JSZip.loadAsync(named)).files)).toEqual(['word/document.xml']);
+    await expect(assertDocxUnpacksSmall(named)).rejects.toThrow();
+  }, 30_000);
+
+  it('counts a stored part by the bytes it occupies, whatever size it declares', async () => {
+    const zip = new JSZip();
+    zip.file('word/document.xml', 'e'.repeat(DOCX_MAX_DOCUMENT_XML + 1), { createFolders: false });
+    const stored = await zip.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
+    stored.writeUInt32LE(100, stored.indexOf(LOCAL) + 22);
+    stored.writeUInt32LE(100, stored.indexOf(CENTRAL) + 24);
+    await expect(assertDocxUnpacksSmall(stored)).rejects.toBeInstanceOf(DocxTooLargeError);
+  }, 30_000);
 
   it('refuses a file that is not a zip as unreadable, not as too large', async () => {
     const error = await assertDocxUnpacksSmall(Buffer.from('Not a zip')).catch((e: unknown) => e);
