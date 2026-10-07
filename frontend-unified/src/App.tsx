@@ -14,6 +14,7 @@ import AppLayout from './components/layout/AppLayout';
 const HomePage = lazy(() => import('./modules/documents/pages/HomePage'));
 const DocumentPage = lazy(() => import('./modules/documents/pages/DocumentPage'));
 const DocumentDiffPage = lazy(() => import('./modules/documents/pages/DocumentDiffPage'));
+const ImportBylawsPage = lazy(() => import('./modules/documents/pages/ImportBylawsPage'));
 const AmendmentsPage = lazy(() => import('./modules/documents/pages/AmendmentsPage'));
 const AmendmentDetailPage = lazy(() => import('./modules/documents/pages/AmendmentDetailPage'));
 const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage'));
@@ -92,6 +93,7 @@ function App() {
                   {/* Document management */}
                   <Route path="documents/:documentId" element={<DocumentPage />} />
                   <Route path="documents/:documentId/diff" element={<DocumentDiffPage />} />
+                  <Route path="documents/:documentId/import" element={<ImportBylawsPage />} />
                   <Route path="documents/:documentId/amendments" element={<AmendmentsPage />} />
 
                   {/* Amendments */}

@@ -171,6 +171,7 @@ export default function DocumentPage() {
           onReorder={handleReorderSections}
           onAddSection={handleAddSection}
           onCreateVersion={() => setVersionModalOpen(true)}
+          onImport={() => navigate(`/documents/${doc.id}/import`)}
         />
       </div>
 

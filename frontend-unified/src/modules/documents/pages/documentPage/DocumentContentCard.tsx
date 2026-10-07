@@ -1,4 +1,4 @@
-import { Plus, FileText, Clock } from 'lucide-react';
+import { Plus, FileText, Clock, FileUp } from 'lucide-react';
 import { Version, SectionTree as SectionTreeType } from '../../../../api/client';
 import SectionTree from '../../components/SectionTree';
 import { formatCalendarDate } from '../../../../utils/dates';
@@ -16,6 +16,8 @@ interface DocumentContentCardProps {
   onReorder: (updates: Array<{ id: string; position: number }>) => Promise<void>;
   onAddSection: () => void;
   onCreateVersion: () => void;
+  /** Open the import screen; without it, no import is offered */
+  onImport?: () => void;
 }
 
 export function DocumentContentCard({
@@ -30,22 +32,29 @@ export function DocumentContentCard({
   onReorder,
   onAddSection,
   onCreateVersion,
+  onImport,
 }: DocumentContentCardProps) {
   return (
     <>
       <div className="card">
-        <div className="px-4 py-3 border-b border-rule flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-rule flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-ink">Document Content</h3>
           {canEdit && (
-            <div className="flex items-center gap-2">
-              <button onClick={onCreateVersion} className="btn-ghost btn-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              {onImport && selectedVersion && (
+                <button onClick={onImport} className="btn-ghost btn-sm whitespace-nowrap">
+                  <FileUp className="w-4 h-4 mr-1" />
+                  Import a new version
+                </button>
+              )}
+              <button onClick={onCreateVersion} className="btn-ghost btn-sm whitespace-nowrap">
                 <Plus className="w-4 h-4 mr-1" />
                 New Version
               </button>
               {/* A section belongs to a version; there is none to add to until one exists */}
               <button
                 onClick={onAddSection}
-                className="btn-primary btn-sm"
+                className="btn-primary btn-sm whitespace-nowrap"
                 disabled={!selectedVersion}
                 title={selectedVersion ? undefined : 'Create a version first'}
               >
@@ -60,12 +69,23 @@ export function DocumentContentCard({
           {!selectedVersion ? (
             <EmptyState
               message={
-                canEdit
-                  ? 'Create a version to start adding content.'
-                  : 'This document has no content yet.'
+                !canEdit
+                  ? 'This document has no content yet.'
+                  : onImport
+                    ? 'Import the bylaws from text or a file, or create a version and add sections one at a time.'
+                    : 'Create a version to start adding content.'
               }
               action={
-                canEdit ? { text: 'Create First Version', onClick: onCreateVersion } : undefined
+                !canEdit
+                  ? undefined
+                  : onImport
+                    ? { text: 'Import the bylaws', onClick: onImport }
+                    : { text: 'Create First Version', onClick: onCreateVersion }
+              }
+              secondary={
+                canEdit && onImport
+                  ? { text: 'Create First Version', onClick: onCreateVersion }
+                  : undefined
               }
             />
           ) : sectionTree.length === 0 ? (
@@ -112,19 +132,28 @@ export function DocumentContentCard({
 function EmptyState({
   message,
   action,
+  secondary,
 }: {
   message: string;
   action?: { text: string; onClick: () => void };
+  secondary?: { text: string; onClick: () => void };
 }) {
   return (
     <div className="text-center py-8">
       <FileText className="w-10 h-10 text-ink-muted mx-auto mb-3" />
       <p className={`text-ink-muted ${action ? 'mb-4' : ''}`}>{message}</p>
       {action && (
-        <button onClick={action.onClick} className="btn-primary btn-sm">
-          <Plus className="w-4 h-4 mr-1" />
-          {action.text}
-        </button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={action.onClick} className="btn-primary btn-sm">
+            <Plus className="w-4 h-4 mr-1" />
+            {action.text}
+          </button>
+          {secondary && (
+            <button onClick={secondary.onClick} className="btn-secondary btn-sm">
+              {secondary.text}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
