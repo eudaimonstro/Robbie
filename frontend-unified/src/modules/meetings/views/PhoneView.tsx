@@ -3,7 +3,7 @@ import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { useSocket } from '../context/SocketContext';
 import { useVoteResults } from '../hooks/useVoteResults';
-import { adjournedAt, currentResult, describeQuestion } from '../utils/question';
+import { adjournedAt, currentResult, describeQuestion, stageLabel } from '../utils/question';
 import { useOwnHeader } from '../../../components/layout/appChrome';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
@@ -42,7 +42,7 @@ export function PhoneView() {
   const header = (
     <PhoneHeader
       title={state.title || 'Live meeting'}
-      item={adjourned ? null : (state.currentAgendaItem?.title ?? null)}
+      item={stageLabel(state)}
       guest={guest}
       onLeave={leaveMeeting}
       onMenu={openMenu ?? undefined}

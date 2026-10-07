@@ -3,7 +3,7 @@ import { RoleBadge } from '../../../../components/ui/Badge';
 
 interface PhoneHeaderProps {
   title: string;
-  /** The agenda item before the meeting */
+  /** Where the meeting is: the agenda item before it, "In session", "Adjourned" */
   item: string | null;
   guest: boolean;
   /** Leave the meeting and return to the app (a live meeting hides the app's sidebar) */

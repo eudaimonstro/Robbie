@@ -57,6 +57,30 @@ export function getChairScript(state: MeetingState): ChairScript | null {
     };
   }
 
+  // An election: nominations, the ballot, the result
+  if (state.nominationsOpen && state.currentNominationPosition) {
+    return {
+      text: `"Nominations are open for ${state.currentNominationPosition}. Are there any further nominations?"`,
+      note: 'Record nominations from the floor in the election card, then close nominations.',
+    };
+  }
+  if (state.currentNominationPosition && !state.currentElection) {
+    return {
+      text: `"Nominations for ${state.currentNominationPosition} are closed. The ballot will now be taken."`,
+      note: 'Open the ballot in the election card.',
+    };
+  }
+  const election = state.currentElection;
+  if (election?.votingInProgress) {
+    return { text: VOTE_SCRIPTS.ballot, note: 'Enter the paper ballots, then close the ballot.' };
+  }
+  if (election?.elected) {
+    return {
+      text: `"${election.elected}, having received the vote required, is elected ${election.position}."`,
+      note: 'Declare the result in the election card.',
+    };
+  }
+
   // Voting in progress: on phones and by a show of hands in the room, unless it is a voice vote
   if (state.votingOpen) {
     return { text: VOTE_SCRIPTS[state.votingMethod], note: 'Close voting when done.' };

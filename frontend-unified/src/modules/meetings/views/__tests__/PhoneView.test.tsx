@@ -251,6 +251,7 @@ describe('PhoneView', () => {
       ],
     });
     expect(screen.getByText('The meeting was adjourned at 8:42 PM')).toBeTruthy();
+    expect(screen.getByRole('banner').textContent).toContain('Adjourned');
     expect(screen.queryByText('The meeting is adjourned.')).toBeNull();
     expect(screen.queryByText('Carried')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();

@@ -189,4 +189,28 @@ describe('chairActions', () => {
       ).toEqual([]);
     });
   });
+
+  it('leaves an election to the election card, from nominations to the declaration', () => {
+    const elections: Partial<MeetingState>[] = [
+      { nominationsOpen: true, currentNominationPosition: 'Director' },
+      // Nominations closed, the ballot still to open
+      { currentNominationPosition: 'Director' },
+      {
+        currentElection: {
+          id: 1,
+          position: 'Director',
+          candidates: [{ name: 'Carmen Diaz', id: 5 }],
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { 'Carmen Diaz': 2 },
+          votersWhoVoted: [3, 4],
+          elected: 'Carmen Diaz',
+        },
+      },
+    ];
+    for (const election of elections) {
+      expect(ids({ ...adopted, ...election })).toEqual([]);
+      expect(floorActions({ ...adopted, ...election })).toEqual([]);
+    }
+  });
 });

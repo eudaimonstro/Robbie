@@ -79,10 +79,18 @@ function adjourn(tone: Tone): ChairAction {
 }
 
 /**
+ * An election from nominations to the declaration: the election card runs it, and nothing else
+ * comes up meanwhile
+ */
+function electionUnderway(state: MeetingState): boolean {
+  return state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
+}
+
+/**
  * The chair's actions that are in order now, the expected next step first: never a wall of every
  * button (docs/design-brief.md). Closing a vote is the vote panel's, running an election the
  * election panel's, and recognizing speakers the queue's. Adjourn is offered whenever nothing is
- * pending, no vote is open and no election ballot is running, during an agenda item too.
+ * pending, no vote is open and no election is underway, during an agenda item too.
  *
  * @param presidingId - who puts an agenda item to a vote: the chair, or the admin presiding
  */
@@ -98,7 +106,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
-  if (state.votingOpen || state.currentElection?.votingInProgress) return [];
+  if (state.votingOpen || electionUnderway(state)) return [];
 
   if (state.pendingSecond) {
     return [
@@ -215,10 +223,10 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
  */
 export function floorActions(state: MeetingState): FloorAction[] {
   if (!state.meetingActive || state.meetingStage === 'adjourned') return [];
-  if (state.votingOpen || state.currentElection?.votingInProgress) return [];
+  if (state.votingOpen || electionUnderway(state)) return [];
   if (state.pendingSecond) {
     return [{ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' }];
   }
-  if (state.currentMotion || state.unanimousConsentPending || state.nominationsOpen) return [];
+  if (state.currentMotion || state.unanimousConsentPending) return [];
   return [{ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' }];
 }

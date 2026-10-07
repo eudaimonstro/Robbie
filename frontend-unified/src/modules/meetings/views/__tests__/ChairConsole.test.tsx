@@ -219,6 +219,7 @@ describe('ChairConsole', () => {
       expect(screen.queryByRole('button', { name: /^Call / })).toBeNull();
       expect(screen.queryByLabelText('Open nominations for')).toBeNull();
       expect(screen.queryByTestId('meeting-code')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'The result' })).toBeNull();
     });
   });
 
@@ -338,6 +339,12 @@ describe('ChairConsole', () => {
     it("labels the chair's own ballot apart from running the election", () => {
       socket.state = { ...active, currentElection: ballot };
       render(<ChairConsole />);
+      // Nothing else comes up during the ballot, and the card leads the side column
+      expect(screen.queryByRole('toolbar')).toBeNull();
+      const headings = screen.getAllByRole('heading').map((h) => h.textContent);
+      expect(headings.indexOf('Election for Director')).toBeLessThan(
+        headings.indexOf('Attendance'),
+      );
       const card = screen
         .getByRole('heading', { name: 'Election for Director' })
         .closest('section')!;

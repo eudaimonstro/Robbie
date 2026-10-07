@@ -68,6 +68,8 @@ export function ChairConsole() {
         : 'Adjourned'
       : 'No question is pending.';
   const seconding = secondingId !== null && state.pendingSecond?.id === secondingId;
+  const electing =
+    state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
 
   // An item called from the side agenda: bring the item and its actions into view
   const showNow = () =>
@@ -115,7 +117,7 @@ export function ChairConsole() {
             )}
             <ChairScriptLine state={state} />
           </QuestionCard>
-          {result && (
+          {result && !adjourned && (
             <section aria-label="The result" className="card p-6">
               <Stamp
                 key={result.key}
@@ -132,6 +134,10 @@ export function ChairConsole() {
         </div>
 
         <div className="space-y-4 xl:col-span-4">
+          {/* An election in hand comes first, where its next step is in view */}
+          {currentUser && electing && (
+            <ElectionCard state={state} dispatch={dispatch} me={currentUser} />
+          )}
           <AttendancePanel
             state={state}
             dispatch={dispatch}
@@ -142,7 +148,9 @@ export function ChairConsole() {
             readOnly={adjourned}
           />
           <ConsoleAgenda state={state} dispatch={dispatch} onCall={showNow} />
-          {currentUser && <ElectionCard state={state} dispatch={dispatch} me={currentUser} />}
+          {currentUser && !electing && (
+            <ElectionCard state={state} dispatch={dispatch} me={currentUser} />
+          )}
           {presiding && !adjourned && (
             <InquiryPanel state={state} dispatch={dispatch} currentUser={presiding} />
           )}

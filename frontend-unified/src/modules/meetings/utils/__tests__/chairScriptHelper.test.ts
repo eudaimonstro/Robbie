@@ -95,3 +95,35 @@ describe('the script while a vote is open', () => {
     );
   });
 });
+
+describe('the script during an election', () => {
+  const during = (fields: Partial<MeetingState>) =>
+    getChairScript({ ...initialState, meetingActive: true, agendaAdopted: true, ...fields })?.text;
+
+  it('takes nominations, then opens the ballot, then declares the result', () => {
+    expect(during({ nominationsOpen: true, currentNominationPosition: 'Director' })).toBe(
+      '"Nominations are open for Director. Are there any further nominations?"',
+    );
+    expect(during({ currentNominationPosition: 'Director' })).toBe(
+      '"Nominations for Director are closed. The ballot will now be taken."',
+    );
+    const election = {
+      id: 1,
+      position: 'Director',
+      candidates: [{ name: 'Carmen Diaz', id: 5 }],
+      requiredVotes: 'majority' as const,
+      votingInProgress: true,
+      ballotResults: { 'Carmen Diaz': 0 },
+      votersWhoVoted: [],
+      elected: null,
+    };
+    expect(during({ currentElection: election })).toBe(
+      '"The ballot is open. Vote on your phone or on a paper ballot."',
+    );
+    expect(
+      during({
+        currentElection: { ...election, votingInProgress: false, elected: 'Carmen Diaz' },
+      }),
+    ).toBe('"Carmen Diaz, having received the vote required, is elected Director."');
+  });
+});
