@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useRef, useCallback } from 'react';
+import { ReactNode, RefObject, useEffect, useId, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -7,6 +7,12 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * What takes focus on opening, in place of the first field or the primary action: a
+   * confirmation of something that can't be undone puts it on the safe choice, so a key held
+   * down from the button that opened it doesn't confirm it
+   */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /** Fields first, then the primary action: the close button is the last resort */
@@ -14,7 +20,14 @@ const FIELDS =
   'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])';
 const PRIMARY = '.btn-primary:not([disabled])';
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  initialFocusRef,
+}: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const hasInitialFocus = useRef(false);
@@ -92,12 +105,14 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
 
-      // On opening, focus the first field, else the primary action, else whatever comes first
+      // On opening, focus what the dialog names, else the first field, else the primary action,
+      // else whatever comes first
       if (!hasInitialFocus.current) {
         hasInitialFocus.current = true;
         setTimeout(() => {
           const body = bodyRef.current;
           const target =
+            initialFocusRef?.current ??
             body?.querySelector<HTMLElement>(FIELDS) ??
             body?.querySelector<HTMLElement>(PRIMARY) ??
             getFocusableElements()[0];
@@ -110,7 +125,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isOpen, handleKeyDown, getFocusableElements]);
+  }, [isOpen, handleKeyDown, getFocusableElements, initialFocusRef]);
 
   if (!isOpen) return null;
 

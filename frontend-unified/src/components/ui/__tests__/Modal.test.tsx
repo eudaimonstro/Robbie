@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Modal from '../Modal';
 
@@ -51,6 +51,38 @@ describe('Modal', () => {
     open();
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Adjourn' })),
+    );
+  });
+
+  it('puts focus where the dialog names instead, as a confirmation does on the safe choice', async () => {
+    function Confirmation() {
+      const [open, setOpen] = useState(false);
+      const keepGoing = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <Modal
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            title="Adjourn?"
+            initialFocusRef={keepGoing}
+          >
+            <button ref={keepGoing} type="button">
+              Keep going
+            </button>
+            <button type="button" className="btn-primary">
+              Adjourn
+            </button>
+          </Modal>
+        </>
+      );
+    }
+    render(<Confirmation />);
+    open();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep going' })),
     );
   });
 

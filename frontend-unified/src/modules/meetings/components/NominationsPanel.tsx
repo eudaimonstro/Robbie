@@ -85,11 +85,13 @@ export function NominationsPanel({
   };
 
   const ready = nominee !== '' && (nominee !== SOMEONE_ELSE || name.trim() !== '');
-  // Nothing is opened once the meeting is adjourned
+  // Nothing is opened once the meeting is adjourned, nor while a question is pending
   const canOpen =
     isChair &&
     !state.nominationsOpen &&
     !state.currentElection &&
+    !state.currentMotion &&
+    !state.pendingSecond &&
     state.meetingStage !== 'adjourned';
   const showElected = !embedded && state.electedOfficers.length > 0;
   const showNone = !embedded && !isChair && !openPosition && state.electedOfficers.length === 0;

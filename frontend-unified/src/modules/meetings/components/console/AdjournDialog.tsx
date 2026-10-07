@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { AgendaItem } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 
@@ -20,8 +21,17 @@ export function AdjournDialog({ isOpen, agenda, onAdjourn, onKeepGoing }: Adjour
     .map((item, index) => ({ item, number: index + 1 }))
     .filter(({ item }) => item.status === 'pending' && !isAdjournment(item));
 
+  // It can't be undone: focus starts on Keep going
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <Modal isOpen={isOpen} onClose={onKeepGoing} title="Adjourn the meeting?" size="sm">
+    <Modal
+      isOpen={isOpen}
+      onClose={onKeepGoing}
+      title="Adjourn the meeting?"
+      size="sm"
+      initialFocusRef={keepGoingRef}
+    >
       <div className="space-y-4">
         {notReached.length > 0 ? (
           <div className="space-y-2">
@@ -38,7 +48,7 @@ export function AdjournDialog({ isOpen, agenda, onAdjourn, onKeepGoing }: Adjour
           <p className="text-ink-muted">Every item on the agenda has been taken up.</p>
         )}
         <div className="flex justify-end gap-3 border-t border-rule pt-4">
-          <button type="button" className="btn-secondary" onClick={onKeepGoing}>
+          <button ref={keepGoingRef} type="button" className="btn-secondary" onClick={onKeepGoing}>
             Keep going
           </button>
           <button type="button" className="btn-primary" onClick={onAdjourn}>

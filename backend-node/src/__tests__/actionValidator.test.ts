@@ -332,6 +332,59 @@ describe('actionValidator', () => {
       }
     });
 
+    it('opens no vote on a motion while an election ballot is open', () => {
+      const recess = createMotion({ text: 'Recess for ten minutes' });
+      const state: MeetingState = {
+        ...activeMeetingState(),
+        currentMotion: recess,
+        motionStack: [recess],
+        currentElection: {
+          id: 1,
+          position: 'Treasurer',
+          candidates: [{ name: 'Member 2', id: 2 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: {},
+          votersWhoVoted: [],
+          elected: null,
+        },
+      };
+      const openVoting = (s: MeetingState) =>
+        validateAction(s, { type: 'OPEN_VOTING', voteTimerEnd: null, timestamp: '' });
+      expect(openVoting(state)).toEqual({
+        valid: false,
+        error: 'A ballot is open',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+      // Once the ballot has closed, the motion comes to a vote
+      expect(
+        openVoting({
+          ...state,
+          currentElection: {
+            ...state.currentElection!,
+            votingInProgress: false,
+            elected: 'Member 2',
+          },
+        }).valid,
+      ).toBe(true);
+    });
+
+    it('opens no nominations while a question is pending', () => {
+      const motion = createMotion();
+      const openNominations = (s: MeetingState) =>
+        validateAction(s, { type: 'OPEN_NOMINATIONS', position: 'Treasurer', timestamp: '' });
+      const refused = {
+        valid: false,
+        error: 'Finish the pending question first',
+        errorCode: 'INVALID_STATE',
+      };
+      expect(
+        openNominations({ ...activeMeetingState(), currentMotion: motion, motionStack: [motion] }),
+      ).toEqual(refused);
+      expect(openNominations({ ...activeMeetingState(), pendingSecond: motion })).toEqual(refused);
+      expect(openNominations(activeMeetingState()).valid).toBe(true);
+    });
+
     it('starts no ballot while a vote is in progress', () => {
       expect(
         start({ ...closed, nominations: [nomination('Treasurer')], votingOpen: true }),

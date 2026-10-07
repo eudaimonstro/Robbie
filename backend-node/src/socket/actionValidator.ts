@@ -404,6 +404,10 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (state.votingOpen) {
         return { valid: false, error: 'Voting is already open', errorCode: 'VOTING_ALREADY_OPEN' };
       }
+      // A privileged motion made during an election waits for the election's ballot to close
+      if (state.currentElection?.votingInProgress) {
+        return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
+      }
       return { valid: true };
 
     case 'CAST_VOTE':
@@ -786,6 +790,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Nominations are already open',
           errorCode: 'NOMINATIONS_ALREADY_OPEN',
+        };
+      }
+      // An election takes the floor once the question before the meeting is settled
+      if (state.currentMotion || state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Finish the pending question first',
+          errorCode: 'INVALID_STATE',
         };
       }
       return { valid: true };

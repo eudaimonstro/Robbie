@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import Modal from '../../../../components/ui/Modal';
 
 interface SetAsideDialogProps {
@@ -13,15 +14,23 @@ interface SetAsideDialogProps {
  * made stand, and come back if nominations open again for the same office.
  */
 export function SetAsideDialog({ isOpen, position, onSetAside, onKeepGoing }: SetAsideDialogProps) {
+  // It can't be undone: focus starts on Keep going
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
   return (
-    <Modal isOpen={isOpen} onClose={onKeepGoing} title="Set the election aside?" size="sm">
+    <Modal
+      isOpen={isOpen}
+      onClose={onKeepGoing}
+      title="Set the election aside?"
+      size="sm"
+      initialFocusRef={keepGoingRef}
+    >
       <div className="space-y-4">
         <p className="text-ink">
           {position ? `The election for ${position} ends` : 'The election ends'} without a result.
           The nominations made stand if nominations open again for it.
         </p>
         <div className="flex justify-end gap-3 border-t border-rule pt-4">
-          <button type="button" className="btn-secondary" onClick={onKeepGoing}>
+          <button ref={keepGoingRef} type="button" className="btn-secondary" onClick={onKeepGoing}>
             Keep going
           </button>
           <button type="button" className="btn-primary" onClick={onSetAside}>

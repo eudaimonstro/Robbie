@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import type { MeetingState, Member, Motion } from '@robbie-bylawyer/shared/types';
 import { NominationsPanel } from '../NominationsPanel';
 
 const dana: Member = {
@@ -33,6 +34,17 @@ const sam: Member = {
   presentBy: 'device',
 };
 
+const motion: Motion = {
+  ...MOTIONS.mainMotion,
+  id: 1,
+  type: 'mainMotion',
+  text: 'Resurface the pool',
+  mover: 'Alice Brennan',
+  moverId: 3,
+  secondedBy: null,
+  status: 'active',
+};
+
 const base: MeetingState = {
   ...initialState,
   meetingActive: true,
@@ -52,7 +64,20 @@ describe('NominationsPanel', () => {
     vi.clearAllMocks();
   });
 
-  it('lets the chair open nominations for any position, at any time', () => {
+  it('offers no nominations while a question is pending', () => {
+    for (const state of [
+      { ...base, currentMotion: motion, motionStack: [motion] },
+      { ...base, pendingSecond: motion },
+    ]) {
+      const { unmount } = render(
+        <NominationsPanel state={state} dispatch={dispatch} currentUser={dana} isChair />,
+      );
+      expect(screen.queryByLabelText('Open nominations for')).toBeNull();
+      unmount();
+    }
+  });
+
+  it('lets the chair open nominations for any position, between questions', () => {
     render(<NominationsPanel state={base} dispatch={dispatch} currentUser={dana} isChair />);
     fireEvent.change(screen.getByLabelText('Open nominations for'), {
       target: { value: 'Director' },
