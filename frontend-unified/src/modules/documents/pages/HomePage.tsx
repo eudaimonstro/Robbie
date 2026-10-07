@@ -165,8 +165,8 @@ export default function HomePage() {
                     to={`/documents/${doc.id}`}
                     className="flex items-center justify-between px-6 py-4 hover:bg-surface-2 transition-colors group"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-gavel-tint flex items-center justify-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-4">
+                      <div className="w-10 h-10 shrink-0 rounded-lg bg-gavel-tint flex items-center justify-center">
                         <FileText className="w-5 h-5 text-gavel" />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -180,7 +180,7 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-ink-muted group-hover:text-gavel transition-colors" />
+                    <ChevronRight className="w-5 h-5 shrink-0 text-ink-muted group-hover:text-gavel transition-colors" />
                   </Link>
                 ))}
               </div>
@@ -205,11 +205,13 @@ export default function HomePage() {
                     to={`/amendments/${amendment.id}`}
                     className="block px-4 py-3 hover:bg-surface-2 transition-colors"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-ink truncate">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="min-w-0 font-medium text-sm text-ink truncate">
                         {amendment.title}
                       </span>
-                      <StatusBadge status={amendment.status} />
+                      <span className="shrink-0">
+                        <StatusBadge status={amendment.status} />
+                      </span>
                     </div>
                     {amendment.description && (
                       <p className="text-xs text-ink-muted line-clamp-1">{amendment.description}</p>
@@ -236,10 +238,10 @@ export default function HomePage() {
                     className="block px-4 py-3 hover:bg-surface-2 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-medium text-sm text-ink truncate">
+                      <span className="min-w-0 font-medium text-sm text-ink truncate">
                         {meeting.title || 'Untitled meeting'}
                       </span>
-                      <span className="meeting-code text-xs text-ink-muted">
+                      <span className="meeting-code shrink-0 text-xs text-ink-muted">
                         {meeting.robbieCode}
                       </span>
                     </div>

@@ -5,6 +5,7 @@ import { PEOPLE, signIn } from '../helpers';
 const WIDTHS = [
   { name: 'small-phone', width: 360, height: 740 },
   { name: 'phone', width: 390, height: 844 },
+  { name: 'tablet-portrait', width: 768, height: 1024 },
   { name: 'tablet', width: 913, height: 1024 },
   { name: 'laptop', width: 1280, height: 800 },
 ];
