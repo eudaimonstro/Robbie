@@ -83,6 +83,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   CLOSE_ELECTION: NONE,
   SET_FLOOR_BALLOTS: NONE,
   DECLARE_ELECTED: NONE,
+  SET_ASIDE_ELECTION: NONE,
   ASK_INQUIRY: { id: 'askerId', name: 'askedBy' },
   ANSWER_INQUIRY: { name: 'answeredBy' },
   SET_MEMBER_ROLE: { id: 'changedById', name: 'changedBy' },

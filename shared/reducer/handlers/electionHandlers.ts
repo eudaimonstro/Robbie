@@ -1,6 +1,10 @@
 import type { MeetingAction, Nomination, Officer } from '../../types/index.js';
 import { FROM_THE_FLOOR } from '../../constants/floor.js';
-import { logFloorNomination, logNomination } from '../../constants/logMessages.js';
+import {
+  logElectionSetAside,
+  logFloorNomination,
+  logNomination,
+} from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {
@@ -306,6 +310,21 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           typedAction.timestamp,
           `Chair declares ${typedAction.candidateName}${writeInNote} elected as ${officer.position}.`,
         ),
+      };
+    }
+
+    case 'SET_ASIDE_ELECTION': {
+      const { timestamp } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
+      const position = state.currentElection?.position ?? state.currentNominationPosition;
+      if (!position) return state;
+      // The nominations already made stand: nominations reopened for the same position bring
+      // them back
+      return {
+        ...state,
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+        meetingLog: log(timestamp, logElectionSetAside(position)),
       };
     }
 

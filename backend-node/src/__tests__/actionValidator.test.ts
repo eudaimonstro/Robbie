@@ -206,6 +206,71 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('elections', () => {
+    const nomination = (position: string, declined = false) => ({
+      id: 1,
+      position,
+      nomineeName: 'Member 2',
+      nomineeId: 2,
+      nominatedBy: 'Member 3',
+      nominatorId: 3,
+      timestamp: '',
+      declined,
+    });
+    const start = (state: MeetingState) =>
+      validateAction(state, {
+        type: 'START_ELECTION',
+        electionId: 1,
+        position: 'Treasurer',
+        requiredVotes: 'majority',
+        timestamp: '',
+      });
+    const closed = { ...activeMeetingState(), currentNominationPosition: 'Treasurer' };
+
+    it('starts a ballot only with a nominee for the position', () => {
+      expect(start({ ...closed, nominations: [nomination('Treasurer')] }).valid).toBe(true);
+      for (const nominations of [[], [nomination('Treasurer', true)], [nomination('Tresurer')]]) {
+        expect(start({ ...closed, nominations })).toEqual({
+          valid: false,
+          error: 'Nobody has been nominated',
+          errorCode: 'INVALID_STATE',
+        });
+      }
+    });
+
+    it('starts no ballot while a vote is in progress', () => {
+      expect(
+        start({ ...closed, nominations: [nomination('Treasurer')], votingOpen: true }),
+      ).toMatchObject({ valid: false, errorCode: 'VOTING_IN_PROGRESS' });
+    });
+
+    it('sets aside nominations or a ballot, and nothing when there is no election', () => {
+      const setAside = (state: MeetingState) =>
+        validateAction(state, { type: 'SET_ASIDE_ELECTION', timestamp: '' });
+      expect(setAside(closed).valid).toBe(true);
+      expect(
+        setAside({
+          ...activeMeetingState(),
+          currentElection: {
+            id: 1,
+            position: 'Treasurer',
+            candidates: [],
+            requiredVotes: 'majority',
+            votingInProgress: true,
+            ballotResults: {},
+            votersWhoVoted: [],
+            elected: null,
+          },
+        }).valid,
+      ).toBe(true);
+      expect(setAside(activeMeetingState())).toEqual({
+        valid: false,
+        error: 'No election to set aside',
+        errorCode: 'NO_ELECTION',
+      });
+    });
+  });
+
   describe('SET_MEETING_STAGE', () => {
     const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
       validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);

@@ -486,6 +486,9 @@ export type MeetingAction =
   // The tellers' count of paper ballots by candidate name: replaces the floor ballots
   | { type: 'SET_FLOOR_BALLOTS'; counts: Record<string, number>; timestamp: string }
   | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
+  // The chair sets aside an election that can't go on (no nominee, a mistyped position): its
+  // nominations close and its ballot, with any result not yet declared, is dropped
+  | { type: 'SET_ASIDE_ELECTION'; timestamp: string }
   | {
       type: 'ASK_INQUIRY';
       inquiryType: InquiryType;

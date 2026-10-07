@@ -841,6 +841,29 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ELECTION_IN_PROGRESS',
         };
       }
+      // A ballot on a motion and a ballot for an office at once would mix up the voting
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'No election can start while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      // A ballot with no candidate can't elect anyone, and nothing would end it: the chair
+      // reopens nominations or sets the election aside
+      if (!state.nominations.some((n) => n.position === action.position && !n.declined)) {
+        return {
+          valid: false,
+          error: 'Nobody has been nominated',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      return { valid: true };
+
+    case 'SET_ASIDE_ELECTION':
+      if (!state.currentElection && !state.currentNominationPosition) {
+        return { valid: false, error: 'No election to set aside', errorCode: 'NO_ELECTION' };
+      }
       return { valid: true };
 
     case 'CAST_BALLOT':

@@ -91,6 +91,7 @@ describe('enrichAction', () => {
       CLOSE_ELECTION: {},
       SET_FLOOR_BALLOTS: {},
       DECLARE_ELECTED: {},
+      SET_ASIDE_ELECTION: {},
       ASK_INQUIRY: { askerId: SPOOF_ID, askedBy: SPOOF_NAME },
       ANSWER_INQUIRY: { answeredBy: SPOOF_NAME },
       // The server finds the chair being replaced; a client can't name one

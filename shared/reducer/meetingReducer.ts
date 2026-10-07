@@ -93,6 +93,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'CLOSE_ELECTION':
     case 'SET_FLOOR_BALLOTS':
     case 'DECLARE_ELECTED':
+    case 'SET_ASIDE_ELECTION':
       return electionHandler(state, action, log);
 
     // Inquiries

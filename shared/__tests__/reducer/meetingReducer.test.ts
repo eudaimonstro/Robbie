@@ -2051,6 +2051,78 @@ describe('meetingReducer', () => {
     });
   });
 
+  describe('SET_ASIDE_ELECTION', () => {
+    const nominee = {
+      id: 1,
+      position: 'Treasurer',
+      nomineeName: 'Alice',
+      nomineeId: 1,
+      nominatedBy: 'Bob',
+      nominatorId: 2,
+      timestamp: '10:32:00',
+      declined: false,
+    };
+
+    it('closes nominations that found no nominee, keeping the record of them', () => {
+      const closedEmpty: MeetingState = {
+        ...initialState,
+        nominationsOpen: false,
+        currentNominationPosition: 'Treasurer',
+      };
+
+      const state = meetingReducer(closedEmpty, {
+        type: 'SET_ASIDE_ELECTION',
+        timestamp: '10:40:00',
+      });
+
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.currentNominationPosition).toBeNull();
+      expect(state.currentElection).toBeNull();
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Treasurer was set aside.');
+    });
+
+    it('sets aside open nominations for a mistyped position', () => {
+      const state = meetingReducer(
+        { ...initialState, nominationsOpen: true, currentNominationPosition: 'Tresurer' },
+        { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' },
+      );
+
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.currentNominationPosition).toBeNull();
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Tresurer was set aside.');
+    });
+
+    it('drops a ballot under way, and a winner not yet declared', () => {
+      const elected: MeetingState = {
+        ...initialState,
+        nominations: [nominee],
+        currentElection: {
+          id: 7,
+          position: 'Treasurer',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { Alice: 3 },
+          votersWhoVoted: [1, 2, 3],
+          elected: 'Alice',
+        },
+      };
+
+      const state = meetingReducer(elected, { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' });
+
+      expect(state.currentElection).toBeNull();
+      expect(state.electedOfficers).toEqual([]);
+      expect(state.nominations).toEqual([nominee]);
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Treasurer was set aside.');
+    });
+
+    it('does nothing with no election', () => {
+      expect(
+        meetingReducer(initialState, { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' }),
+      ).toBe(initialState);
+    });
+  });
+
   describe('DECLARE_ELECTED', () => {
     it('should add elected officer', () => {
       const stateWithElection: MeetingState = {
