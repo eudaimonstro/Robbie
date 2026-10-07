@@ -57,6 +57,40 @@ describe('meetingReducer', () => {
       expect(state.meetingLog.length).toBeGreaterThan(0);
       expect(state.meetingLog[0].message).toContain('Meeting called to order');
     });
+
+    it('completes a first agenda item that is the call to order', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          agenda: [
+            { id: 1, title: ' call to ORDER ', status: 'pending' },
+            { id: 2, title: 'Treasurer report', status: 'pending' },
+          ],
+        },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'pending']);
+      expect(state.currentAgendaItem).toBeNull();
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'Meeting called to order.',
+        'Completed: " call to ORDER "',
+      ]);
+    });
+
+    it('leaves the agenda alone when the call to order is not its first item', () => {
+      const agenda = [
+        { id: 1, title: 'Opening remarks', status: 'pending' as const },
+        { id: 2, title: 'Call to order', status: 'pending' as const },
+      ];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+
+      expect(state.agenda).toEqual(agenda);
+      expect(state.meetingLog).toHaveLength(1);
+    });
   });
 
   describe('END_MEETING', () => {
@@ -94,6 +128,53 @@ describe('meetingReducer', () => {
       expect(state.currentAgendaItem).toBeNull();
       expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'completed']);
       expect(state.meetingLog.slice(-2).map((entry) => entry.message)).toEqual([
+        'Completed: "Adjournment"',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it('completes the adjournment item when it has not been called', () => {
+      const inNewBusiness: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'New business', status: 'active' },
+          { id: 2, title: 'Pool hours', status: 'pending' },
+          { id: 3, title: 'ADJOURNMENT', status: 'pending' },
+        ],
+        currentAgendaItem: { id: 1, title: 'New business', status: 'active' },
+      };
+
+      const state = meetingReducer(inNewBusiness, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.agenda.map((item) => item.status)).toEqual([
+        'completed',
+        'pending',
+        'completed',
+      ]);
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'Completed: "New business"',
+        'Completed: "ADJOURNMENT"',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it('completes the adjournment item between agenda items', () => {
+      const betweenItems: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'New business', status: 'completed' },
+          { id: 2, title: 'Adjournment', status: 'pending' },
+        ],
+      };
+
+      const state = meetingReducer(betweenItems, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'completed']);
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
         'Completed: "Adjournment"',
         'Meeting adjourned.',
       ]);

@@ -1,4 +1,4 @@
-import type { MeetingAction } from '../../types/index.js';
+import type { AgendaItem, MeetingAction } from '../../types/index.js';
 import {
   getNextStage,
   getStageLogMessage,
@@ -11,46 +11,62 @@ import {
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
+/** The agenda items that mark the start and end of the meeting, by title */
+const CALL_TO_ORDER = /^call to order$/i;
+const ADJOURNMENT = /^adjournment$/i;
+
 export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
-    case 'START_MEETING':
-      return {
-        ...state,
-        meetingActive: true,
-        meetingStage: 'call-to-order',
-        meetingLog: log(
-          (action as Extract<MeetingAction, { type: 'START_MEETING' }>).timestamp,
-          LOG_MEETING_CALLED_TO_ORDER,
-        ),
-      };
-
-    case 'END_MEETING': {
-      const { timestamp } = action as Extract<MeetingAction, { type: 'END_MEETING' }>;
-      // Adjourning during an agenda item (the last one is often "Adjournment") completes it, so
-      // the record doesn't leave it open
-      const item = state.currentAgendaItem;
-      if (item) {
+    case 'START_MEETING': {
+      const { timestamp } = action as Extract<MeetingAction, { type: 'START_MEETING' }>;
+      const started = log(timestamp, LOG_MEETING_CALLED_TO_ORDER);
+      // Calling the meeting to order is the agenda's first item, when it has one: it is done
+      // (only while pending, as a meeting called to order again after adjourning has done it)
+      const first = state.agenda[0];
+      if (first && first.status === 'pending' && CALL_TO_ORDER.test(first.title.trim())) {
         return {
           ...state,
-          meetingActive: false,
-          meetingStage: 'adjourned',
-          suspendedRules: [],
-          currentAgendaItem: null,
+          meetingActive: true,
+          meetingStage: 'call-to-order',
           agenda: state.agenda.map((a) =>
-            a.id === item.id ? { ...a, status: 'completed' as const } : a,
+            a.id === first.id ? { ...a, status: 'completed' as const } : a,
           ),
           meetingLog: [
-            ...log(timestamp, logAgendaItemCompleted(item.title)),
-            { time: timestamp, message: LOG_MEETING_ADJOURNED },
+            ...started,
+            { time: timestamp, message: logAgendaItemCompleted(first.title) },
           ],
         };
       }
       return {
         ...state,
+        meetingActive: true,
+        meetingStage: 'call-to-order',
+        meetingLog: started,
+      };
+    }
+
+    case 'END_MEETING': {
+      const { timestamp } = action as Extract<MeetingAction, { type: 'END_MEETING' }>;
+      // Adjourning completes the agenda item under way, so the record doesn't leave it open,
+      // and the "Adjournment" item, which adjourning is
+      const item = state.currentAgendaItem;
+      const completes = (a: AgendaItem) =>
+        a.id === item?.id || (a.status === 'pending' && ADJOURNMENT.test(a.title.trim()));
+      const completed = state.agenda.filter(completes);
+      return {
+        ...state,
         meetingActive: false,
         meetingStage: 'adjourned',
         suspendedRules: [],
-        meetingLog: log(timestamp, LOG_MEETING_ADJOURNED),
+        currentAgendaItem: null,
+        agenda: state.agenda.map((a) =>
+          completes(a) ? { ...a, status: 'completed' as const } : a,
+        ),
+        meetingLog: [
+          ...state.meetingLog,
+          ...completed.map((a) => ({ time: timestamp, message: logAgendaItemCompleted(a.title) })),
+          { time: timestamp, message: LOG_MEETING_ADJOURNED },
+        ],
       };
     }
 
