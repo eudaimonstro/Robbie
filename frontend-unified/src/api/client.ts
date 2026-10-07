@@ -303,6 +303,18 @@ export const schedule = {
     request<ScheduledMeeting[]>(`/organizations/${orgId}/packets`, {}, false),
 };
 
+// A live meeting's organization and its agenda on the schedule, by meeting code
+export const meetingPackets = {
+  /**
+   * The meeting's organization's members and pending additions, for marking people present
+   * (viewer and above). Not cached: people join the organization while a meeting runs.
+   */
+  roster: (code: string) => request<MeetingRoster>(`/packets/${code}/roster`, {}, false),
+  /** Replace the live agenda with the schedule's, before the meeting is called to order */
+  reloadAgenda: (code: string) =>
+    request<{ live: boolean }>(`/packets/${code}/reload-agenda`, { method: 'POST' }),
+};
+
 // Documents
 export const documents = {
   list: (orgId: string) => request<Document[]>(`/organizations/${orgId}/documents`),
@@ -472,6 +484,11 @@ export interface Organization {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** How many voting members it has (the quorum's base); null counts the roster's members */
+  eligibleVoters?: number | null;
+  /** The quorum: a percentage of the voting members, or a number of people; one is set */
+  quorumPercent?: number | null;
+  quorumCount?: number | null;
 }
 
 export interface OrganizationCreate {
@@ -484,6 +501,11 @@ export interface OrganizationUpdate {
   name?: string;
   description?: string;
   isActive?: boolean;
+  /** null counts the roster's voting members */
+  eligibleVoters?: number | null;
+  /** Setting one of these clears the other */
+  quorumPercent?: number;
+  quorumCount?: number;
 }
 
 /** One of the signed-in user's organizations, with their role in it */
@@ -526,6 +548,20 @@ export interface ScheduledMeeting {
   startedAt: string | null;
   endedAt: string | null;
   chair: { name: string | null } | null;
+}
+
+/** A member of a live meeting's organization, as the roster lists them */
+export interface RosterMember {
+  userId: number;
+  name: string | null;
+  email: string;
+  orgRole: OrgRole;
+}
+
+/** A live meeting's organization: its members, and additions waiting for a first sign-in */
+export interface MeetingRoster {
+  members: RosterMember[];
+  invites: Array<{ email: string; role: OrgRole }>;
 }
 
 export type AddMemberResult =

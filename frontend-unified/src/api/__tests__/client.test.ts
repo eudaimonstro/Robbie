@@ -7,6 +7,7 @@ import {
   auth,
   members,
   bylawSync,
+  meetingPackets,
   schedule,
   apiFetch,
   HttpError,
@@ -240,5 +241,20 @@ describe('organization calls', () => {
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe(
       '/api/organizations/o1/packets',
     );
+  });
+  it("reads a meeting's roster fresh each time, and reloads its agenda", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ members: [], invites: [] }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await meetingPackets.roster('MAPLE1');
+    await meetingPackets.roster('MAPLE1');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('/api/packets/MAPLE1/roster');
+
+    await meetingPackets.reloadAgenda('MAPLE1');
+    const [url, init] = fetchMock.mock.calls[2] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/packets/MAPLE1/reload-agenda');
+    expect(init.method).toBe('POST');
   });
 });
