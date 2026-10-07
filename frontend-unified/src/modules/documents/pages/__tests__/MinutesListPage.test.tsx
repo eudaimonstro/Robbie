@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MinutesSummary } from '../../../../api/client';
 
@@ -9,6 +9,7 @@ const org = vi.hoisted(() => ({
   currentOrganization: { id: 'org-1', name: 'Maple Grove HOA' } as {
     id: string;
     name: string;
+    timeZone?: string;
   } | null,
   isSecretary: true,
 }));
@@ -79,6 +80,47 @@ describe('MinutesListPage', () => {
     expect(last.textContent).toContain('Approved');
     expect(last.textContent).toContain('No date');
     expect(api.list).toHaveBeenCalledWith('org-1');
+  });
+
+  it("gives each meeting's time in the organization's time zone, not the browser's", async () => {
+    org.currentOrganization = {
+      id: 'org-1',
+      name: 'Maple Grove HOA',
+      timeZone: 'America/New_York',
+    };
+    api.list.mockResolvedValue([
+      summary({
+        id: 'm2',
+        packet: {
+          id: 'p2',
+          robbieCode: 'MAPLE1',
+          title: '2026 Annual Meeting',
+          scheduledFor: '2026-10-21T00:00:00.000Z',
+        },
+      }),
+    ]);
+    renderPage();
+    const latest = await screen.findByRole('link', { name: /2026 Annual Meeting/ });
+    expect(latest.textContent).toMatch(/Tue, Oct 20, 2026, 8:00\sPM/);
+  });
+
+  it('tries again for the next organization after a list fails to load', async () => {
+    api.list.mockRejectedValueOnce(new Error('Failed to fetch'));
+    api.list.mockResolvedValueOnce([summary({ id: 'm9' })]);
+    const view = renderPage();
+    expect(await screen.findByText("Couldn't load the minutes.")).toBeTruthy();
+
+    org.currentOrganization = { id: 'org-2', name: 'Oak Hollow HOA' };
+    await act(async () => {
+      view.rerender(
+        <MemoryRouter>
+          <MinutesListPage />
+        </MemoryRouter>,
+      );
+    });
+    expect(await screen.findByRole('link', { name: /2026 Annual Meeting/ })).toBeTruthy();
+    expect(screen.queryByText("Couldn't load the minutes.")).toBeNull();
+    expect(api.list).toHaveBeenLastCalledWith('org-2');
   });
 
   it('says when there are none yet', async () => {

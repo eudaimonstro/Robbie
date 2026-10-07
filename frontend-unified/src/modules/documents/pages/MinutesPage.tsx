@@ -96,11 +96,12 @@ export default function MinutesPage() {
   if (!record) return <LoadingPage />;
 
   // Published minutes a meeting has before it are the meeting's to correct (the server refuses
-  // a save; see beforeMeeting): they open read. An editor already open when the meeting took them
-  // up stays, stopped, so the text typed isn't lost.
+  // a save; see beforeMeeting): they open read. Approved minutes are the record: nobody edits
+  // them. An editor already open when the meeting took them up, or approved them, stays,
+  // stopped, so the text typed isn't lost.
   const beforeMeeting = record.status === 'published' && record.beforeMeeting;
-  // Approved minutes are the record: nobody edits them
-  const editable = isSecretary && record.status !== 'approved' && (!beforeMeeting || stoppedEditor);
+  const editable =
+    isSecretary && (stoppedEditor || (record.status !== 'approved' && !beforeMeeting));
   // The editor takes the width for its two columns; the reader keeps a readable measure
   return (
     <div className={`mx-auto space-y-6 ${editable ? 'max-w-7xl' : 'max-w-4xl'}`}>
@@ -136,8 +137,9 @@ export default function MinutesPage() {
 }
 
 function MinutesHeading({ record }: { record: MinutesRecord }) {
+  // In the organization's time zone, as the minutes give their times
   const when = record.packet.scheduledFor
-    ? formatMeetingTimeWithYear(record.packet.scheduledFor)
+    ? formatMeetingTimeWithYear(record.packet.scheduledFor, record.organization.timeZone)
     : null;
   const approvedAt = record.approvedAtPacket?.title;
   return (
@@ -301,7 +303,11 @@ function MinutesEditor({
   const pending = saveState === 'unsaved' || saveState === 'saving' || saveState === 'failed';
   useEffect(() => {
     if (!pending) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Some browsers ask only when this is set
+      event.returnValue = '';
+    };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [pending]);
@@ -407,10 +413,15 @@ function MinutesEditor({
             </button>
           </>
         ) : (
-          <TakeAway record={record} body={body} />
+          // Published minutes being edited take away the text as typed (the preview beside it);
+          // a stopped editor's text wasn't saved, so it takes away the record, as Print does
+          <TakeAway record={record} body={refused ? record.body : body} />
         )}
-        <p role="status" className="ml-auto text-sm text-ink-muted">
-          {status}
+        {/* Read out only when a save fails (a refusal is the alert above); the rest is shown,
+            not announced on every pause in the typing */}
+        <p className="ml-auto text-sm text-ink-muted">
+          <span role="status">{saveState === 'failed' ? status : ''}</span>
+          {saveState === 'failed' ? null : status}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

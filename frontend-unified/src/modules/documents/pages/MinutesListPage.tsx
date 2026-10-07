@@ -16,7 +16,8 @@ export default function MinutesListPage() {
   const [loaded, setLoaded] = useState<{ organizationId: string; list: MinutesSummary[] } | null>(
     null,
   );
-  const [failed, setFailed] = useState(false);
+  // The organization whose list failed to load, so a switch tries the next one
+  const [failedFor, setFailedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -24,10 +25,13 @@ export default function MinutesListPage() {
     minutesApi
       .list(organizationId)
       .then((list) => {
-        if (!canceled) setLoaded({ organizationId, list });
+        if (canceled) return;
+        setLoaded({ organizationId, list });
+        // Back to an organization whose list failed before, and loaded this time
+        setFailedFor((failed) => (failed === organizationId ? null : failed));
       })
       .catch(() => {
-        if (!canceled) setFailed(true);
+        if (!canceled) setFailedFor(organizationId);
       });
     return () => {
       canceled = true;
@@ -39,7 +43,7 @@ export default function MinutesListPage() {
       <p className="py-12 text-center text-ink-muted">Choose an organization to see its minutes.</p>
     );
   }
-  if (failed)
+  if (failedFor === organizationId)
     return <p className="py-12 text-center text-ink-muted">Couldn&apos;t load the minutes.</p>;
   const list = loaded?.organizationId === organizationId ? loaded.list : null;
   if (!list) return <LoadingPage />;
@@ -70,7 +74,10 @@ export default function MinutesListPage() {
                   <span className="block truncate font-medium text-ink">{meetingName(item)}</span>
                   <span className="block text-sm text-ink-muted">
                     {item.packet.scheduledFor
-                      ? formatMeetingTimeWithYear(item.packet.scheduledFor)
+                      ? formatMeetingTimeWithYear(
+                          item.packet.scheduledFor,
+                          currentOrganization?.timeZone,
+                        )
                       : 'No date'}
                   </span>
                 </span>

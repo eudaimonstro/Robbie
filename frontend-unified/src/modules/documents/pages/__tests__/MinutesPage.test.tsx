@@ -279,7 +279,7 @@ describe('MinutesPage', () => {
     expect(textarea().value).toBe('Changed as the meeting opened');
   });
 
-  it('turns to the record when the minutes were approved while they were being edited', async () => {
+  it('keeps the text typed when the minutes were approved while they were being edited', async () => {
     api.get.mockResolvedValueOnce(record({ status: 'published' }));
     api.get.mockResolvedValueOnce(
       record({
@@ -295,8 +295,50 @@ describe('MinutesPage', () => {
     await act(async () => {});
 
     expect(screen.getByRole('alert').textContent).toContain(`${APPROVED}.`);
-    expect(screen.queryByLabelText('Minutes text')).toBeNull();
     expect(screen.getByText('Approved at the 2027 Annual Meeting, as read.')).toBeTruthy();
+    // The stopped editor stays with the text, to copy from
+    expect(textarea().readOnly).toBe(true);
+    expect(textarea().value).toBe('Too late');
+    // What is taken away is the record, as Print shows it, not the text that wasn't saved
+    fireEvent.click(screen.getByRole('button', { name: 'Download Markdown' }));
+    expect(download.downloadText).toHaveBeenCalledWith('2026-annual-meeting-minutes.md', BODY);
+  });
+
+  it("gives the meeting's time in the organization's time zone, not the browser's", async () => {
+    api.get.mockResolvedValue(
+      record({
+        organization: { id: 'org-1', name: 'Maple Grove HOA', timeZone: 'America/New_York' },
+      }),
+    );
+    renderAt();
+    await heading();
+    expect(screen.getByText(/^Tue, Oct 20, 2026, 8:00\sPM, Maple Grove Clubhouse$/)).toBeTruthy();
+  });
+
+  it('asks before the tab closes with text not saved', async () => {
+    renderAt();
+    await heading();
+    fireEvent.change(textarea(), { target: { value: 'Not yet saved' } });
+    const event = new Event('beforeunload', { cancelable: true });
+    Object.defineProperty(event, 'returnValue', { value: undefined, writable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect((event as BeforeUnloadEvent).returnValue).toBe('');
+  });
+
+  it('announces a failed save, and not every save on each pause', async () => {
+    api.save.mockResolvedValueOnce(record({ body: 'Saved fine' }));
+    api.save.mockRejectedValueOnce(new Error('Failed to fetch'));
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('Saved fine');
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('');
+    await typeAndWait('Then offline');
+    expect(screen.getByRole('status').textContent).toBe(
+      "Couldn't save. Your text is still here; keep typing to try again.",
+    );
   });
 
   it("keeps the plan's message for a save that didn't reach the server", async () => {

@@ -58,17 +58,26 @@ export function formatMeetingTime(value: string | null | undefined): string {
 
 /**
  * A meeting's day, year and time ("Thu, Mar 20, 2025, 7:00 PM"), for a record that reaches
- * back over the years, like the minutes
+ * back over the years, like the minutes. Given the organization's time zone, the time is the
+ * one in the room, as the minutes give it; without one, the viewer's.
  */
-export function formatMeetingTimeWithYear(value: string | null | undefined): string {
-  return meetingTime(value, true);
+export function formatMeetingTimeWithYear(
+  value: string | null | undefined,
+  timeZone?: string,
+): string {
+  return meetingTime(value, true, timeZone);
 }
 
-function meetingTime(value: string | null | undefined, withYear: boolean): string {
+function meetingTime(
+  value: string | null | undefined,
+  withYear: boolean,
+  timeZone?: string,
+): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString(undefined, {
+    ...(timeZone ? { timeZone } : {}),
     weekday: 'short',
     month: 'short',
     day: 'numeric',

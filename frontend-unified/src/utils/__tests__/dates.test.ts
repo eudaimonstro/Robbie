@@ -73,6 +73,12 @@ describe('formatMeetingTimeWithYear', () => {
     );
   });
 
+  it("shows it in the organization's time zone when given one", () => {
+    expect(formatMeetingTimeWithYear('2025-03-21T00:00:00.000Z', 'America/New_York')).toMatch(
+      /^Thu, Mar 20, 2025, 8:00\sPM$/,
+    );
+  });
+
   it('shows nothing for a missing or unreadable date', () => {
     expect(formatMeetingTimeWithYear(null)).toBe('');
     expect(formatMeetingTimeWithYear('not a date')).toBe('');
