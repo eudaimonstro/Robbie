@@ -283,9 +283,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
       // The chair's deciding vote was judged on the tally as it stood: a tally entered after
-      // it could leave the chair's vote cast where it no longer decides anything
+      // it could leave the chair's vote cast where it no longer decides anything (unless the
+      // chair voting restriction is suspended, and the chair votes like anyone)
       const chair = state.members.find((m) => m.role === 'chair');
-      if (chair && state.votingMethod !== 'ballot' && state.voters.includes(chair.id)) {
+      if (
+        chair &&
+        state.votingMethod !== 'ballot' &&
+        !isRuleSuspended(state, 'chair-voting-restriction') &&
+        state.voters.includes(chair.id)
+      ) {
         return {
           valid: false,
           error: 'The floor tally must be entered before the chair votes',

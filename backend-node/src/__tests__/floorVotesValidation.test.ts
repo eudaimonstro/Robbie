@@ -48,14 +48,14 @@ describe('validating floor votes', () => {
   describe('SET_FLOOR_TALLY after the chair has voted', () => {
     const tally = (state: MeetingState) =>
       validateAction(state, { type: 'SET_FLOOR_TALLY', yea: 2, nay: 0, abstain: 0, timestamp: '' });
+    const chairVoted = {
+      ...voting,
+      votes: { yea: 2, nay: 1, abstain: 0 },
+      voters: [2, 1],
+      voterChoices: { 2: 'yea' as const, 1: 'nay' as const },
+    };
 
     it("is refused, so the tally can't make the chair's deciding vote decide nothing", () => {
-      const chairVoted = {
-        ...voting,
-        votes: { yea: 2, nay: 1, abstain: 0 },
-        voters: [2, 1],
-        voterChoices: { 2: 'yea' as const, 1: 'nay' as const },
-      };
       expect(tally(chairVoted)).toEqual({
         valid: false,
         error: 'The floor tally must be entered before the chair votes',
@@ -64,6 +64,19 @@ describe('validating floor votes', () => {
       // Members voting is no bar; on a ballot the chair votes like anyone
       expect(tally({ ...chairVoted, voters: [2], voterChoices: { 2: 'yea' } }).valid).toBe(true);
       expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
+    });
+
+    it('is taken while the chair voting restriction is suspended, since the chair votes freely', () => {
+      const suspension = {
+        id: 1,
+        rule: 'chair-voting-restriction' as const,
+        purpose: '',
+        specificAction: '',
+        scope: 'meeting-remainder' as const,
+        suspendedAt: '',
+        motionId: 9,
+      };
+      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(true);
     });
   });
 

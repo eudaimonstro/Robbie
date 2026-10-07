@@ -235,29 +235,62 @@ export async function handleJoinMeeting(
  * socket.io restores its rooms and socket.data, and the client doesn't join again, so the
  * connection middleware (socketAuth) and the join's checks don't run. The session may have
  * been signed out and the organization may have changed the person's role while the socket
- * was away: a socket without a live session is closed, and the role is derived again as on a
- * join. Then count it as connected again, which ends its grace period; if the grace period ran
- * out meanwhile, the member is present again.
+ * was away: a socket without a live session is closed (a display too), and the role is derived
+ * again as on a join. Then count it as connected again, which ends its grace period; if the
+ * grace period ran out meanwhile, the member is present again.
+ *
+ * Until the checks pass the socket is in no meeting, so an action it sends meanwhile is refused
+ * ("Not in a meeting"). A socket whose check fails is closed rather than left half recovered.
  */
 export async function handleRecoveredSocket(socket: TypedSocket, io: TypedServer): Promise<void> {
   const meetingCode = socket.data.meetingCode;
-  if (!meetingCode || socket.data.display) return;
+  if (!meetingCode) return;
+  socket.data.meetingCode = null;
+
+  // The disconnect handler needs the meeting to clear the socket's place in it
+  const close = () => {
+    socket.data.meetingCode = meetingCode;
+    socket.disconnect(true);
+  };
+  try {
+    await recoverSocket(socket, io, meetingCode, close);
+  } catch (error) {
+    close();
+    throw error;
+  }
+}
+
+async function recoverSocket(
+  socket: TypedSocket,
+  io: TypedServer,
+  meetingCode: string,
+  close: () => void,
+): Promise<void> {
   const { userId } = socket.data;
 
   const session = await findSessionById(socket.data.sessionId);
   if (!session || !hasAcceptedTerms(session.termsVersion)) {
-    socket.disconnect(true);
+    close();
+    return;
+  }
+  // A display shows the meeting; it isn't a member of it
+  if (socket.data.display) {
+    socket.data.meetingCode = meetingCode;
     return;
   }
   const packet = await findMeetingPacket(meetingCode);
   const person = packet ? await findPerson(packet.organizationId, userId) : null;
   if (!packet || !person) {
     // The meeting is gone (as a join would find); the disconnect handler takes it from here
-    socket.disconnect(true);
+    close();
     return;
   }
   const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
   socket.data.role = role;
+  socket.data.meetingCode = meetingCode;
+  // Dropped again meanwhile, when the disconnect handler found it in no meeting: socket.io
+  // saved this same data, so the next recovery brings it back to its meeting and checks again
+  if (!socket.connected) return;
   roomManager.addMember(meetingCode, socket.id, {
     id: userId,
     name: socket.data.name,

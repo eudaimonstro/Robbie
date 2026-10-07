@@ -32,11 +32,11 @@ export const VotingPanel = React.memo(function VotingPanel({
 
   // Get which proxy votes have been cast
   const proxyVotesCast = useMemo(() => {
-    const cast: Record<number, 'yea' | 'nay' | 'abstain'> = {};
+    const cast: Record<number, 'yea' | 'nay' | 'abstain' | null> = {};
     for (const pv of state.proxyVotes) {
-      // The choice is kept from clients while a secret ballot is open
-      if (pv.castBy === currentUser.id && pv.vote) {
-        cast[pv.memberId] = pv.vote;
+      // The choice is kept from clients while a secret ballot is open (null): cast all the same
+      if (pv.castBy === currentUser.id) {
+        cast[pv.memberId] = pv.vote ?? null;
       }
     }
     return cast;
@@ -243,7 +243,7 @@ function ProxyVotingSection({
   votingMethod,
 }: {
   proxies: ProxyAuthorization[];
-  proxyVotesCast: Record<number, 'yea' | 'nay' | 'abstain'>;
+  proxyVotesCast: Record<number, 'yea' | 'nay' | 'abstain' | null>;
   onProxyVote: (forMemberId: number, vote: 'yea' | 'nay' | 'abstain') => void;
   votingMethod: string;
 }) {
@@ -314,7 +314,7 @@ function ProxyVotingSection({
                   ABSTAIN{castVote === 'abstain' ? ' ✓' : ''}
                 </button>
               </div>
-              {castVote && (
+              {castVote !== undefined && (
                 <p className="text-center text-green-600 mt-3 text-sm font-medium">
                   ✓ Proxy vote recorded
                 </p>

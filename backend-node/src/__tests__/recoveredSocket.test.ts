@@ -13,11 +13,16 @@ const applyAction = vi.hoisted(() =>
 vi.mock('../socket/stateManager.js', () => ({ applyAction }));
 
 // The session the socket signed in with, as the database has it now
+// (find may be swapped to hold the check open, or to fail it)
 const session = vi.hoisted(() => ({
   current: null as null | { termsVersion: string | null },
+  find: null as unknown as () => Promise<null | { termsVersion: string | null }>,
 }));
 vi.mock('../auth/sessionService.js', () => ({
-  findSessionById: async () => session.current,
+  findSessionById: () => session.find(),
+}));
+vi.mock('../bylawyer/bylawSyncService.js', () => ({
+  checkAndSyncBylawAmendment: async () => null,
 }));
 
 // The meeting's packet and the socket's user, as the organization has them now
@@ -45,6 +50,7 @@ vi.mock('../socket/meetingPacket.js', () => ({
 
 const { roomManager } = await import('../socket/roomManager.js');
 const { handleRecoveredSocket } = await import('../socket/joinHandler.js');
+const { handleDispatchAction } = await import('../socket/actionHandler.js');
 
 function recovered(data: Record<string, unknown> = {}) {
   return {
@@ -57,6 +63,7 @@ function recovered(data: Record<string, unknown> = {}) {
       sessionId: 'session-3',
       ...data,
     },
+    connected: true,
     disconnect: vi.fn(),
   };
 }
@@ -75,6 +82,7 @@ describe('handleRecoveredSocket', () => {
     sockets.length = 0;
     roomManager.removeMember('REC001', 'recovered-socket');
     session.current = { termsVersion: TERMS_VERSION };
+    session.find = async () => session.current;
     organization.chairUserId = null;
     organization.orgRole = 'member';
     stored.state = {
@@ -110,6 +118,79 @@ describe('handleRecoveredSocket', () => {
 
   it('does nothing for a display', async () => {
     await handleRecoveredSocket(recovered({ display: true }) as never, io as never);
+    expect(roomManager.isMemberConnected('REC001', 3)).toBe(false);
+  });
+
+  it('closes a display whose session was signed out while it was away', async () => {
+    session.current = null;
+    const socket = recovered({ display: true });
+
+    await handleRecoveredSocket(socket as never, io as never);
+
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+  });
+
+  it('refuses an action the socket sends while its session is being checked', async () => {
+    let release = () => {};
+    session.find = () =>
+      new Promise((resolve) => {
+        release = () => resolve(session.current);
+      });
+    const socket = recovered();
+
+    const recovering = handleRecoveredSocket(socket as never, io as never);
+    const ack = vi.fn();
+    await handleDispatchAction(
+      socket as never,
+      io as never,
+      { action: { type: 'START_MEETING', timestamp: '' }, clientSequence: 1 },
+      ack,
+    );
+    release();
+    await recovering;
+
+    expect(ack).toHaveBeenCalledWith({
+      success: false,
+      error: 'Not in a meeting',
+      errorCode: 'NOT_AUTHENTICATED',
+    });
+    expect(applyAction).not.toHaveBeenCalled();
+    // Back in its meeting once the checks pass
+    expect(socket.data.meetingCode).toBe('REC001');
+    expect(roomManager.isMemberConnected('REC001', 3)).toBe(true);
+  });
+
+  it('leaves out a socket that drops again while its session is being checked', async () => {
+    let release = () => {};
+    session.find = () =>
+      new Promise((resolve) => {
+        release = () => resolve(session.current);
+      });
+    const socket = recovered();
+
+    const recovering = handleRecoveredSocket(socket as never, io as never);
+    socket.connected = false;
+    release();
+    await recovering;
+
+    expect(roomManager.isMemberConnected('REC001', 3)).toBe(false);
+    // Kept in the state socket.io saved, for the next recovery
+    expect(socket.data.meetingCode).toBe('REC001');
+  });
+
+  it('closes a socket whose check fails, rather than leave it half recovered', async () => {
+    session.find = async () => {
+      throw new Error('database unavailable');
+    };
+    const socket = recovered();
+
+    await expect(handleRecoveredSocket(socket as never, io as never)).rejects.toThrow(
+      'database unavailable',
+    );
+
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+    // The disconnect handler finds the meeting it was in
+    expect(socket.data.meetingCode).toBe('REC001');
     expect(roomManager.isMemberConnected('REC001', 3)).toBe(false);
   });
 

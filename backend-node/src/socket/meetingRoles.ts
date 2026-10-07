@@ -118,10 +118,12 @@ export async function syncLiveRoles(meetingCode: string): Promise<void> {
 /** The same for every live meeting of an organization, after its members change */
 export async function syncOrganizationLiveRoles(organizationId: string): Promise<void> {
   if (!getIoInstance()) return;
+  // An adjourned meeting keeps the roles it ended with (a join brings them up to date if it
+  // is called to order again)
   const packets = await prisma.meetingPacket.findMany({
-    where: { organizationId },
+    where: { organizationId, endedAt: null },
     select: { robbieCode: true },
   });
-  // syncMeetingRoles finds nothing to do for a packet whose meeting isn't live
+  // syncMeetingRoles finds nothing to do for a packet with no meeting stored yet
   for (const packet of packets) await syncLiveRoles(packet.robbieCode);
 }

@@ -15,6 +15,8 @@ const stateOf = async (code: string): Promise<MeetingState> =>
 
 beforeAll(async () => {
   await initializeStorage();
+  // A meeting left called to order (by an earlier file or run) would refuse the agenda reload
+  await resetLiveMeetings();
   // Routes send live meetings their new state through the server's socket.io instance
   setIoInstance(live.io as never);
 });
@@ -206,5 +208,28 @@ describe("changing the organization's members", () => {
     );
     expect(left.status).toBe(204);
     expect(await roleOf(f.users.viewer.id)).toBe('guest');
+  });
+
+  it('leaves an adjourned meeting as it was', async () => {
+    const secretary = live.connect(f.users.secretary);
+    const member = live.connect(f.users.member);
+    await live.join(secretary, f.packet.code);
+    await live.join(member, f.packet.code);
+    expect((await live.dispatch(secretary, { type: 'START_MEETING', timestamp: '' })).success).toBe(
+      true,
+    );
+    expect((await live.dispatch(secretary, { type: 'END_MEETING', timestamp: '' })).success).toBe(
+      true,
+    );
+    const adjourned = await getStorage().getMeeting(f.packet.code);
+
+    const removed = await call(
+      'delete',
+      `/api/organizations/${f.orgA.id}/members/${f.users.member.id}`,
+      { cookie: f.users.admin.cookie },
+    );
+    expect(removed.status).toBe(204);
+    expect(await getStorage().getMeeting(f.packet.code)).toEqual(adjourned);
+    expect(member.data.role).toBe('member');
   });
 });
