@@ -80,12 +80,12 @@ One shared function decides attendance everywhere: `attendanceSummary(state)` in
 
 ### Methods
 
-| Method   | Devices             | Floor tally              | Use                                                                                                                                                      |
-| -------- | ------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| standard | yes                 | yes                      | The usual hybrid vote                                                                                                                                    |
-| voice    | no                  | yes                      | Voice vote or show of hands with nobody on a device; the chair enters the counts, or just yea or nay when it was clear                                   |
-| ballot   | yes, choices hidden | yes (the tellers' count) | Secret ballots; the server removes `voterChoices` from what it broadcasts while a ballot is open and from the completed record                           |
-| rollcall | yes, by name        | yes                      | Recorded votes: device votes are logged by name; members without a device are counted in the floor tally and the chair reads their names into the record |
+| Method   | Devices             | Floor tally              | Use                                                                                                                                                                                                                                                    |
+| -------- | ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| standard | yes                 | yes                      | The usual hybrid vote                                                                                                                                                                                                                                  |
+| voice    | no                  | yes                      | Voice vote or show of hands with nobody on a device; the chair enters the counts, or just yea or nay when it was clear                                                                                                                                 |
+| ballot   | yes, choices hidden | yes (the tellers' count) | Secret ballots; the server hides the running totals, individual choices, proxy choices and who-just-voted while a ballot is open (only `voters`, for the count of ballots received, and the tellers' count go out), and keeps no choices in the record |
+| rollcall | yes, by name        | yes                      | Recorded votes: device votes are logged by name; members without a device are counted in the floor tally and the chair reads their names into the record                                                                                               |
 
 ### Actions
 

@@ -148,7 +148,10 @@ describe('handleDispatchAction', () => {
     const { emit } = await dispatch(socketOf({}), { type: 'CAST_VOTE', vote: 'yea' });
     const [event, update] = emit.mock.calls[0];
     expect(event).toBe('STATE_UPDATE');
-    expect(update.state.votes).toEqual({ yea: 1, nay: 1, abstain: 0 });
+    // Neither the running totals, nor who just voted: only that two have
+    expect(update.state.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
     expect(update.state.voterChoices).toEqual({});
+    expect(update.state.voters).toEqual([1, 2]);
+    expect(update.triggeredBy).toEqual({ actionType: 'CAST_VOTE', userId: 0 });
   });
 });

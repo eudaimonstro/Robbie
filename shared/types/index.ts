@@ -237,7 +237,8 @@ export interface ProxyAuthorization {
 export interface ProxyVoteRecord {
   readonly memberId: number; // The member whose vote this represents
   readonly castBy: number; // The proxy holder who cast it
-  readonly vote: 'yea' | 'nay' | 'abstain';
+  /** The choice; absent in what clients receive while a secret ballot is open */
+  readonly vote?: 'yea' | 'nay' | 'abstain';
 }
 
 // Member-initiated proxy request types

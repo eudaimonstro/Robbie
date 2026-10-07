@@ -139,10 +139,15 @@ describe('the record of a vote', () => {
     const state = {
       ...voting(motion(), { yea: 2, nay: 1 }, { yea: 0, nay: 0 }, 'ballot'),
       voterChoices: { 1: 'yea' as const, 2: 'yea' as const, 3: 'nay' as const },
+      proxyVotes: [{ memberId: 3, castBy: 2, vote: 'nay' as const }],
     };
     const closed = close(state);
-    expect(closed.completedMotions.at(-1)).toMatchObject({ voterChoices: {}, method: 'ballot' });
+    const record = closed.completedMotions.at(-1)!;
+    expect(record).toMatchObject({ voterChoices: {}, method: 'ballot' });
+    expect(record).not.toHaveProperty('proxyVotes');
     expect(closed.voterChoices).toEqual({});
+    // The proxy choices would otherwise show who voted which way once the ballot closed
+    expect(closed.proxyVotes).toEqual([]);
   });
 
   it("isn't offered for reconsideration when its motion can't be reconsidered", () => {

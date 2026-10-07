@@ -186,7 +186,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       );
 
       // Record every decided motion, with both parts of its vote. A secret ballot keeps no
-      // record of who voted which way.
+      // record of who voted which way, in person or by proxy.
       const completedMotions = state.currentMotion
         ? [
             ...updatedCompletedMotions,
@@ -220,7 +220,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         ...state,
         votingOpen: false,
         voteTimerEnd: null,
-        ...(isBallot && { voterChoices: {} }),
+        ...(isBallot && { voterChoices: {}, proxyVotes: [] }),
         currentMotion: processed.finalCurrentMotion,
         motionStack: processed.finalStack,
         defeatedMotions,

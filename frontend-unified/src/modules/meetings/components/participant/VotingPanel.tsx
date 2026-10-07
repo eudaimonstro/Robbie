@@ -34,7 +34,8 @@ export const VotingPanel = React.memo(function VotingPanel({
   const proxyVotesCast = useMemo(() => {
     const cast: Record<number, 'yea' | 'nay' | 'abstain'> = {};
     for (const pv of state.proxyVotes) {
-      if (pv.castBy === currentUser.id) {
+      // The choice is kept from clients while a secret ballot is open
+      if (pv.castBy === currentUser.id && pv.vote) {
         cast[pv.memberId] = pv.vote;
       }
     }
