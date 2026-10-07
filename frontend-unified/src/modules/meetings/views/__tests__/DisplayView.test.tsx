@@ -280,4 +280,19 @@ describe('DisplayView', () => {
     render(<DisplayView />);
     expect(screen.getByText("Only the organization's members can open the display")).toBeTruthy();
   });
+
+  it('puts the minutes before the room and asks for corrections', () => {
+    socket.state = {
+      ...inSession,
+      currentAgendaItem: {
+        id: 2,
+        title: 'Approval of the minutes of the 2025 annual meeting',
+        status: 'active',
+      },
+      minutesFromPreviousMeeting: '# Maple Grove HOA\n\n## Minutes of the 2025 Annual Meeting',
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+  });
 });

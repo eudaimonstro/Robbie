@@ -8,7 +8,6 @@ vi.mock('../../../../../api/client', () => api);
 vi.mock('../../chair', () => ({
   ProxyManagementPanel: () => <p>Proxies</p>,
   OrderOfBusinessPanel: () => <p>Order of business</p>,
-  MinutesApprovalPanel: () => null,
   CommitteeReportsPanel: () => null,
   MeetingDocumentsPanel: () => <p>Documents</p>,
 }));

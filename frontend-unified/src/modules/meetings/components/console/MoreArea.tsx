@@ -13,7 +13,6 @@ import { formatClockTime } from '../../../../utils/dates';
 import {
   CommitteeReportsPanel,
   MeetingDocumentsPanel,
-  MinutesApprovalPanel,
   OrderOfBusinessPanel,
   ProxyManagementPanel,
 } from '../chair';
@@ -53,7 +52,6 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
             <ProxyManagementPanel state={state} dispatch={dispatch} />
             <div className="space-y-4">
               <OrderOfBusinessPanel state={state} dispatch={dispatch} />
-              <MinutesApprovalPanel state={state} dispatch={dispatch} />
               <CommitteeReportsPanel state={state} dispatch={dispatch} />
             </div>
             {presides && <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />}

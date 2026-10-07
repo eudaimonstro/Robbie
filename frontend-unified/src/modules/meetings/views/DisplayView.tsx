@@ -9,6 +9,7 @@ import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
 import { STANCE_LABELS } from '../utils/phoneMoment';
+import { minutesHeading, minutesItemUnderWay } from '../utils/minutesApproval';
 import { latestDecision } from '../utils/decisions';
 import { joinUrl } from '../utils/meetingLinks';
 import { formatScheduledStart } from '../../../utils/dates';
@@ -122,6 +123,8 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
   );
   const question = describeQuestion(state);
   const result = currentResult(state, voteResult);
+  // The previous minutes, while the room is asked to approve them
+  const minutes = minutesItemUnderWay(state);
   const debate = !!state.recognizedSpeaker || queue.length > 0;
   // The chair's ruling, while it is the latest decision and no new motion has been made
   const ruling =
@@ -137,7 +140,9 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
-          {result ? (
+          {minutes ? (
+            <MinutesOnDisplay state={state} />
+          ) : result ? (
             <Stamp
               key={result.key}
               outcome={result.outcome}
@@ -161,6 +166,26 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
         <VoteBand state={state} />
       </footer>
     </>
+  );
+}
+
+/** The minutes put before the room: their title, and the chair's question or the approval */
+function MinutesOnDisplay({ state }: { state: MeetingState }) {
+  const made = state.minutesApproval?.corrections;
+  return (
+    <div className="space-y-6">
+      <p className={LABEL}>Approval of the minutes</p>
+      <p className="font-serif-soft text-display-question font-semibold text-ink">
+        {minutesHeading(state.minutesFromPreviousMeeting)}
+      </p>
+      <p className="text-display-line text-ink-muted">
+        {state.minutesApproved
+          ? made
+            ? `Approved with corrections: ${made}`
+            : 'Approved as read'
+          : 'Any corrections?'}
+      </p>
+    </div>
   );
 }
 

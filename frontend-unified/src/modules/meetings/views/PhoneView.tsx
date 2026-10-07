@@ -13,6 +13,7 @@ import { ProxyAcceptancePanel, ProxyRequestPanel } from '../components/participa
 import { PhoneHeader } from '../components/phone/PhoneHeader';
 import { ActionBlock } from '../components/phone/ActionBlock';
 import { AskTheChair } from '../components/phone/AskTheChair';
+import { MinutesNotice } from '../components/phone/MinutesNotice';
 import { PhoneAgenda, SpeakerList } from '../components/phone/MeetingLists';
 
 /**
@@ -107,6 +108,7 @@ export function PhoneView() {
           }
         />
       )}
+      <MinutesNotice state={state} />
       <section aria-label="Your part" className="card p-4">
         <ActionBlock state={state} dispatch={dispatch} me={me} />
       </section>
