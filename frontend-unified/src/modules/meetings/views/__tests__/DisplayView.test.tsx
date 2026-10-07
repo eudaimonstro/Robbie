@@ -8,12 +8,14 @@ import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 const socket = vi.hoisted(() => ({
   state: null as unknown as MeetingState,
   isConnected: true,
+  hasJoined: true,
   joinError: null as { message: string; code: string | null } | null,
 }));
 vi.mock('../../context/SocketContext', () => ({
   useSocket: () => ({
     state: socket.state,
     isConnected: socket.isConnected,
+    hasJoined: socket.hasJoined,
     joinError: socket.joinError,
     meetingCode: 'MAPLE1',
     attendance: attendanceSummary(socket.state),
@@ -66,7 +68,17 @@ const inSession: MeetingState = {
 describe('DisplayView', () => {
   beforeEach(() => {
     socket.isConnected = true;
+    socket.hasJoined = true;
     socket.joinError = null;
+  });
+
+  it('keeps the meeting up while it reconnects after a dropped connection', () => {
+    socket.state = { ...inSession, currentMotion: motion, motionStack: [motion] };
+    socket.isConnected = false;
+    render(<DisplayView />);
+    expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
+    expect(screen.getByText('Reconnecting...').getAttribute('role')).toBe('status');
+    expect(screen.queryByText('Connecting to the meeting...')).toBeNull();
   });
 
   it('shows where to join before the meeting: the link, the code, the QR code and attendance', () => {

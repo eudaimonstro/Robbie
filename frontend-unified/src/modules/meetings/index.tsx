@@ -8,6 +8,7 @@
  */
 
 import { useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
@@ -18,7 +19,8 @@ import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { isConnected, error, joinError, reconnect, leaveMeeting, meetingCode } = useSocket();
+  const { isConnected, hasJoined, error, joinError, reconnect, leaveMeeting, meetingCode } =
+    useSocket();
   const { showToast } = useToast();
   // A link to a meeting that isn't scheduled (or a code typed wrong): the code box says so
   const notFound = joinError?.code === 'MEETING_NOT_FOUND';
@@ -38,9 +40,21 @@ function MeetingsContent() {
     );
   }
 
+  // Joined, then the connection dropped: the meeting stays on screen (with any dialog open and
+  // anything typed) under a banner while the socket reconnects. A rejoin that is refused falls
+  // through to the screen below.
+  if (!isConnected && hasJoined && !joinError) {
+    return (
+      <>
+        <ReconnectingBanner onReconnect={reconnect} />
+        <MeetingApp />
+      </>
+    );
+  }
+
   // Show loading while connecting to the meeting. The meeting view (with its Reconnect and Leave
-  // buttons) isn't shown until connected, so this screen needs its own way out: the socket
-  // stops retrying after a few attempts, and a failed join doesn't retry at all.
+  // buttons) isn't shown until connected, so this screen needs its own way out: a failed join
+  // doesn't retry at all.
   if (!isConnected) {
     return (
       <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
@@ -72,6 +86,26 @@ function MeetingsContent() {
 
   // Show the meeting once connected
   return <MeetingApp />;
+}
+
+/**
+ * Over the meeting while its connection is down: the socket keeps trying, or tries now on request
+ * (socket.io doesn't retry by itself once the server has ended the connection). What went wrong,
+ * if anything was said, is in a toast.
+ */
+function ReconnectingBanner({ onReconnect }: { onReconnect: () => void }) {
+  return (
+    <div
+      role="status"
+      className="sticky top-0 z-30 mx-auto mb-4 flex max-w-lg items-center justify-between gap-3 rounded-lg border border-caution bg-caution-tint px-4 py-2"
+    >
+      <p className="text-sm font-medium text-caution-ink">Connection lost. Reconnecting...</p>
+      <button type="button" onClick={onReconnect} className="btn-secondary btn-sm shrink-0">
+        <RefreshCw size={14} aria-hidden="true" />
+        Reconnect now
+      </button>
+    </div>
+  );
 }
 
 /** The meeting in the link; a link that can't be a meeting code goes to the Live Meetings page */

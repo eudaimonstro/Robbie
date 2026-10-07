@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 const socket = vi.hoisted(() => ({
   meetingCode: 'DEMO',
   isConnected: false,
+  hasJoined: false,
   error: null as string | null,
   joinError: null as { message: string; code: string | null } | null,
   reconnect: vi.fn(),
@@ -75,8 +76,30 @@ describe('MeetingsModule while not connected', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     socket.isConnected = false;
+    socket.hasJoined = false;
     socket.error = null;
     socket.joinError = null;
+  });
+
+  it('keeps the meeting on screen under a banner when a joined connection drops', () => {
+    socket.hasJoined = true;
+    renderAt('/meetings/DEMO');
+
+    expect(screen.getByText('The meeting')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('Reconnecting...');
+    expect(screen.queryByText('Connecting to meeting...')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect now' }));
+    expect(socket.reconnect).toHaveBeenCalled();
+  });
+
+  it('leaves the meeting for the connecting screen when the rejoin is refused', () => {
+    socket.hasJoined = true;
+    socket.error = 'Too many join attempts';
+    socket.joinError = { message: 'Too many join attempts', code: null };
+    renderAt('/meetings/DEMO');
+
+    expect(screen.queryByText('The meeting')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
   it('offers a way to leave while connecting', () => {

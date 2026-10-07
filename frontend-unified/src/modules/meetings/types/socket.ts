@@ -83,6 +83,11 @@ export interface SocketContextValue {
   state: MeetingState;
   dispatch: MeetingDispatch;
   isConnected: boolean;
+  /**
+   * The meeting was joined on this page: while disconnected after that, the screens keep the
+   * last state and say they are reconnecting
+   */
+  hasJoined: boolean;
   /** The signed-in user as a member of the meeting; null on a display */
   currentUser: Member | null;
   connectedMembers: Member[];
