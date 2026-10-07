@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -29,8 +30,11 @@ interface SessionContextValue {
   setName: (name: string) => Promise<void>;
   /** Accept the current terms (the version this app shows) */
   acceptTerms: () => Promise<void>;
-  /** A request or the socket was refused until the terms are accepted: show the terms step */
-  markTermsNotAccepted: () => void;
+  /**
+   * A request or the socket was refused until the terms are accepted: show the terms step.
+   * Given when the request started, a refusal from before the terms were accepted is ignored.
+   */
+  markTermsNotAccepted: (startedAt?: number) => void;
   signOut: () => Promise<void>;
   signOutEverywhere: () => Promise<void>;
   /** Check the session again after it was unreachable */
@@ -66,15 +70,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [status, setStatus] = useState<SessionStatus>('loading');
+  // When the terms were last known to be accepted. A request refused before then, whose answer
+  // arrives after, must not bring the terms step back.
+  const acceptedAt = useRef(0);
 
   const apply = useCallback((state: SessionState) => {
     setUser(state.user);
     setTermsAccepted(state.termsAccepted);
+    if (state.termsAccepted) acceptedAt.current = Date.now();
     setStatus(state.status);
   }, []);
 
   const markSignedOut = useCallback(() => apply(SIGNED_OUT), [apply]);
-  const markTermsNotAccepted = useCallback(() => setTermsAccepted(false), []);
+  const markTermsNotAccepted = useCallback((startedAt?: number) => {
+    if (startedAt !== undefined && startedAt <= acceptedAt.current) return;
+    setTermsAccepted(false);
+  }, []);
 
   /** A 401 from an auth call means the session ended: show sign-in, and say so */
   const expiredOr = useCallback(
@@ -141,6 +152,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const acceptTerms = useCallback(async () => {
     try {
       await auth.acceptTerms();
+      acceptedAt.current = Date.now();
       setTermsAccepted(true);
     } catch (err) {
       // A 409 says the terms changed since this page loaded; the message asks for a reload

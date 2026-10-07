@@ -148,14 +148,16 @@ describe('terms refusals', () => {
     setTermsHandler(null);
   });
 
-  it('reports a refusal for terms not accepted, with its code', async () => {
+  it('reports a refusal for terms not accepted, with its code and when the request started', async () => {
     const onTerms = vi.fn();
     setTermsHandler(onTerms);
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1234);
     mockResponse(403, { error: 'Accept the terms to continue', code: 'TERMS_NOT_ACCEPTED' });
     const error = await organizations.list().catch((err: unknown) => err);
     expect(error).toBeInstanceOf(HttpError);
     expect((error as HttpError).code).toBe('TERMS_NOT_ACCEPTED');
-    expect(onTerms).toHaveBeenCalledOnce();
+    expect(onTerms).toHaveBeenCalledExactlyOnceWith(1234);
+    now.mockRestore();
   });
 
   it('does not report a role refusal as terms', async () => {
@@ -171,7 +173,7 @@ describe('terms refusals', () => {
     setTermsHandler(onTerms);
     mockResponse(403, { error: 'Accept the terms to continue', code: 'TERMS_NOT_ACCEPTED' });
     const response = await apiFetch('/packets/DEMO');
-    expect(onTerms).toHaveBeenCalledOnce();
+    expect(onTerms).toHaveBeenCalledExactlyOnceWith(expect.any(Number));
     expect(await response.json()).toEqual({
       error: 'Accept the terms to continue',
       code: 'TERMS_NOT_ACCEPTED',

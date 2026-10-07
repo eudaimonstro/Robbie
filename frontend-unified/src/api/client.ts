@@ -50,15 +50,16 @@ function noteUnauthorized(endpoint: string, status: number): void {
 export const TERMS_NOT_ACCEPTED = 'TERMS_NOT_ACCEPTED';
 
 // Called when a request is refused until the user accepts the current terms, so the app can
-// show the terms step
-let termsHandler: (() => void) | null = null;
+// show the terms step. It is told when the request started, so a refusal of a request made
+// before the user accepted the terms can be ignored.
+let termsHandler: ((startedAt: number) => void) | null = null;
 
-export function setTermsHandler(handler: (() => void) | null): void {
+export function setTermsHandler(handler: ((startedAt: number) => void) | null): void {
   termsHandler = handler;
 }
 
-function noteTermsRefusal(status: number, code: string | undefined): void {
-  if (status === 403 && code === TERMS_NOT_ACCEPTED) termsHandler?.();
+function noteTermsRefusal(status: number, code: string | undefined, startedAt: number): void {
+  if (status === 403 && code === TERMS_NOT_ACCEPTED) termsHandler?.(startedAt);
 }
 
 /** An error response from the API, with its HTTP status and, for some refusals, a code */
@@ -79,6 +80,7 @@ export class HttpError extends Error {
  * the rest of the client.
  */
 export async function apiFetch(endpoint: string, init?: RequestInit): Promise<Response> {
+  const startedAt = Date.now();
   const response = await fetch(`${API_BASE}${endpoint}`, init);
   noteUnauthorized(endpoint, response.status);
   if (response.status === 403) {
@@ -87,7 +89,7 @@ export async function apiFetch(endpoint: string, init?: RequestInit): Promise<Re
       .clone()
       .json()
       .catch(() => null);
-    noteTermsRefusal(response.status, body?.code);
+    noteTermsRefusal(response.status, body?.code, startedAt);
   }
   return response;
 }
@@ -172,6 +174,7 @@ async function request<T>(
 ): Promise<T> {
   const isGet = !options.method || options.method === 'GET';
   const cacheKey = getCacheKey(endpoint);
+  const startedAt = Date.now();
 
   // Check cache for GET requests
   if (isGet && useCache) {
@@ -206,7 +209,7 @@ async function request<T>(
         }
 
         const { message, code } = await readError(response);
-        noteTermsRefusal(response.status, code);
+        noteTermsRefusal(response.status, code, startedAt);
         throw new HttpError(message, response.status, code);
       }
 

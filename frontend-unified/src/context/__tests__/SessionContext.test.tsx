@@ -20,7 +20,7 @@ const { client, HttpError } = vi.hoisted(() => {
     signOutEverywhere: vi.fn(async () => ({ success: true })),
     requestCode: vi.fn(async () => ({ success: true })),
     signedOutHandler: null as null | (() => void),
-    termsHandler: null as null | (() => void),
+    termsHandler: null as null | ((startedAt?: number) => void),
   };
   return { client, HttpError };
 });
@@ -30,7 +30,7 @@ vi.mock('../../api/client', () => ({
   setSignedOutHandler: (h: (() => void) | null) => {
     client.signedOutHandler = h;
   },
-  setTermsHandler: (h: (() => void) | null) => {
+  setTermsHandler: (h: ((startedAt?: number) => void) | null) => {
     client.termsHandler = h;
   },
 }));
@@ -136,6 +136,22 @@ describe('SessionProvider', () => {
     act(() => client.termsHandler?.());
     expect(result.current.termsAccepted).toBe(false);
     expect(result.current.status).toBe('signedIn');
+  });
+
+  it('ignores a refusal of a request made before the terms were accepted', async () => {
+    const { result } = await signedIn(me(ann, false));
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    await act(() => result.current.acceptTerms());
+    expect(result.current.termsAccepted).toBe(true);
+
+    // A request refused before the acceptance, whose answer arrived after it
+    act(() => client.termsHandler?.(999));
+    expect(result.current.termsAccepted).toBe(true);
+
+    // One made after the acceptance means the terms changed again
+    act(() => client.termsHandler?.(1001));
+    expect(result.current.termsAccepted).toBe(false);
+    now.mockRestore();
   });
 
   it('can be told the terms are not accepted, as the socket does', async () => {
