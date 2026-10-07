@@ -7,7 +7,7 @@ import {
   SectionUpdate,
   VersionCreate,
 } from '../../../api/client';
-import { useOrganization } from '../../../context/OrganizationContext';
+import { useOrganization, useCan } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import SectionEditor from '../components/SectionEditor';
@@ -26,6 +26,9 @@ export default function DocumentPage() {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
+  const canEdit = useCan('secretary');
+  const canDraft = useCan('member');
+  const canShare = useCan('admin');
   const { showToast } = useToast();
 
   const {
@@ -144,6 +147,8 @@ export default function DocumentPage() {
           versions={versions}
           selectedVersion={selectedVersion}
           organizationName={currentOrganization?.name}
+          canDraft={canDraft}
+          canShare={canShare}
           onVersionChange={handleVersionChange}
           onProposeAmendment={() => setAmendmentModalOpen(true)}
           onShare={() => setShareModalOpen(true)}
@@ -153,6 +158,7 @@ export default function DocumentPage() {
           selectedVersion={selectedVersion}
           sectionTree={sectionTree}
           selectedSection={selectedSection}
+          canEdit={canEdit}
           onSelectSection={setSelectedSection}
           onEditSection={handleEditSection}
           onDeleteSection={openDeleteDialog}

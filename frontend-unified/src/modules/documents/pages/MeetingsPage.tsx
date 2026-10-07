@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Plus, Clock, MapPin, ChevronRight } from 'lucide-react';
-import { useOrganization } from '../../../context/OrganizationContext';
+import { useOrganization, useCan } from '../../../context/OrganizationContext';
 import { meetings as meetingsApi, Meeting, MeetingCreate } from '../../../api/client';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -12,6 +12,8 @@ import { fromLocalDateTimeInput } from '../../../utils/dates';
 
 export default function MeetingsPage() {
   const { currentOrganization } = useOrganization();
+  // Meeting records are kept by secretaries and above
+  const canRecord = useCan('secretary');
   const { showToast } = useToast();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,10 +134,12 @@ export default function MeetingsPage() {
             Schedule and manage organization meetings
           </p>
         </div>
-        <button onClick={() => setCreateModalOpen(true)} className="btn-primary">
-          <Plus className="w-4 h-4 mr-2" />
-          Schedule Meeting
-        </button>
+        {canRecord && (
+          <button onClick={() => setCreateModalOpen(true)} className="btn-primary">
+            <Plus className="w-4 h-4 mr-2" />
+            Schedule Meeting
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -168,7 +172,7 @@ export default function MeetingsPage() {
                 ? 'No meetings scheduled yet'
                 : 'No meetings match the selected filter'}
             </p>
-            {meetings.length === 0 && (
+            {meetings.length === 0 && canRecord && (
               <button onClick={() => setCreateModalOpen(true)} className="btn-primary btn-sm">
                 <Plus className="w-4 h-4 mr-1" />
                 Schedule First Meeting

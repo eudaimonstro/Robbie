@@ -11,7 +11,7 @@ import {
   X,
   Users,
 } from 'lucide-react';
-import { useOrganization } from '../../context/OrganizationContext';
+import { useOrganization, useCan } from '../../context/OrganizationContext';
 import { documents as documentsApi, Document } from '../../api/client';
 
 const navItems = [
@@ -29,6 +29,8 @@ interface SidebarProps {
 export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
   const location = useLocation();
   const { currentOrganization } = useOrganization();
+  // Documents are created by secretaries and above
+  const canCreate = useCan('secretary');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [expandedDocs, setExpandedDocs] = useState(true);
 
@@ -64,17 +66,18 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
         </div>
       )}
 
-      {/* New Document Button */}
-      <div className="p-4 pt-2 md:pt-4">
-        <button
-          onClick={onNewDocument}
-          disabled={!currentOrganization}
-          className="w-full btn bg-accent-500 hover:bg-accent-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Document
-        </button>
-      </div>
+      {/* New Document Button (a role implies a current organization) */}
+      {canCreate && (
+        <div className="p-4 pt-2 md:pt-4">
+          <button
+            onClick={onNewDocument}
+            className="w-full btn bg-accent-500 hover:bg-accent-600 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Document
+          </button>
+        </div>
+      )}
 
       {/* Main Navigation */}
       <nav className="flex-1 px-2 overflow-y-auto scrollbar-thin">
