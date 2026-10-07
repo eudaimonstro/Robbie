@@ -133,6 +133,32 @@ describe('who may act', () => {
     });
   });
 
+  describe('SET_MEMBER_ROLE', () => {
+    const handTo = (target: Member) =>
+      validateAction(
+        { ...state, members: [chair, target] },
+        { type: 'SET_MEMBER_ROLE', targetMemberId: target.id, newRole: 'chair', timestamp: '' },
+      );
+
+    it('hands the chair to a member present on a device', () => {
+      expect(handTo(speaker).valid).toBe(true);
+      // States saved before presentBy existed: a present member was on a device
+      const { presentBy: _presentBy, ...older } = speaker;
+      expect(handTo(older).valid).toBe(true);
+    });
+
+    it('refuses a member in the room without a device, or not present', () => {
+      const refused = {
+        valid: false,
+        errorCode: 'NOT_PRESENT',
+        error: 'The new chair needs to be present on a device',
+      };
+      expect(handTo({ ...speaker, presentBy: 'chair' })).toMatchObject(refused);
+      const { presentBy: _presentBy, ...rest } = speaker;
+      expect(handTo({ ...rest, present: false })).toMatchObject(refused);
+    });
+  });
+
   describe('guests', () => {
     // The actor the enricher stamps from the socket is the guest (9), in every action a guest
     // may not send. The socket's role may be stale (a membership removed since it joined, a

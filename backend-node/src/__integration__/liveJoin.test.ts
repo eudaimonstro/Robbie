@@ -202,6 +202,31 @@ describe('the chair in a live meeting', () => {
     expect(res.stateVersion).toBe((await getStorage().getMeeting(f.packet.code))!.stateVersion);
   });
 
+  it('is handed only to someone present on a device', async () => {
+    const secretary = live.connect(f.users.secretary);
+    await live.join(secretary, f.packet.code);
+    // In the room without a device: marked present by the secretary
+    await live.dispatch(secretary, {
+      type: 'MARK_PRESENT',
+      userId: f.users.member.id,
+      timestamp: '',
+    });
+
+    const res = await live.dispatch(secretary, {
+      type: 'SET_MEMBER_ROLE',
+      targetMemberId: f.users.member.id,
+      newRole: 'chair',
+      timestamp: '',
+    });
+    expect(res).toMatchObject({
+      success: false,
+      errorCode: 'NOT_PRESENT',
+      error: 'The new chair needs to be present on a device',
+    });
+    const packet = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
+    expect(packet.chairUserId).toBe(f.users.secretary.id);
+  });
+
   it('is the only role handed out in the meeting', async () => {
     const secretary = live.connect(f.users.secretary);
     const member = live.connect(f.users.member);

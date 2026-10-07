@@ -812,6 +812,19 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ROLE_UNCHANGED',
         };
       }
+      // The new chair needs a screen to run the meeting: someone marked present in the room
+      // without a device can't (a present member without presentBy is from an older state, on
+      // a device)
+      if (
+        action.newRole === 'chair' &&
+        !(targetMember.present && targetMember.presentBy !== 'chair')
+      ) {
+        return {
+          valid: false,
+          error: 'The new chair needs to be present on a device',
+          errorCode: 'NOT_PRESENT',
+        };
+      }
       return { valid: true };
     }
 
