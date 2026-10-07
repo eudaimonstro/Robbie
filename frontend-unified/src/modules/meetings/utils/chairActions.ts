@@ -79,18 +79,32 @@ function adjourn(tone: Tone): ChairAction {
 }
 
 /**
- * An election from nominations to the declaration: the election card runs it, and nothing else
- * comes up meanwhile
+ * An election from nominations to the declaration: nominations open, closed with the ballot still
+ * to open, the ballot open, or a winner awaiting the declaration. The election card runs it, and
+ * the server refuses any motion meanwhile but a privileged or incidental one.
  */
-function electionUnderway(state: MeetingState): boolean {
+export function electionUnderway(state: MeetingState): boolean {
   return state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
+}
+
+/** Sets the election aside: it asks first, and the election card offers it too */
+export function setAsideElection(): ChairAction {
+  return {
+    id: 'set-aside',
+    label: 'Set the election aside',
+    tone: 'secondary',
+    make: () => ({ type: 'SET_ASIDE_ELECTION', timestamp: generateTimestamp() }),
+    confirm: true,
+  };
 }
 
 /**
  * The chair's actions that are in order now, the expected next step first: never a wall of every
  * button (docs/design-brief.md). Closing a vote is the vote panel's, running an election the
- * election panel's, and recognizing speakers the queue's. Adjourn is offered whenever nothing is
- * pending and no vote or ballot is open, during an agenda item and an election too.
+ * election card's, and recognizing speakers the queue's. Adjourn is offered whenever nothing is
+ * pending and no vote or ballot is open, during an agenda item and an election too. During an
+ * election the chair can also set it aside, ballot or not: an election with no nominee has no
+ * other way out.
  *
  * @param presidingId - who puts an agenda item to a vote: the chair, or the admin presiding
  */
@@ -106,10 +120,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
-  if (state.votingOpen || state.currentElection?.votingInProgress) return [];
-  // The election card runs the rest of an election; the chair can still adjourn (an election
-  // with no nominee has no other way out)
-  if (electionUnderway(state)) return [adjourn('secondary')];
+  if (state.votingOpen) return [];
 
   if (state.pendingSecond) {
     return [
@@ -146,6 +157,15 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         make: () => ({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() }),
       },
     ];
+  }
+
+  // The election card runs the rest of an election (a privileged or incidental motion made
+  // meanwhile is put first, above). Nothing else comes up until it is decided or set aside, and
+  // nobody adjourns while the ballot is open.
+  if (electionUnderway(state)) {
+    return state.currentElection?.votingInProgress
+      ? [setAsideElection()]
+      : [setAsideElection(), adjourn('secondary')];
   }
 
   if (!state.agendaAdopted) {

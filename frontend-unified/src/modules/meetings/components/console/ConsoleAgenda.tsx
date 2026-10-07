@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
+import { electionUnderway } from '../../utils/chairActions';
 import { DraggableAgendaList } from '../DraggableAgendaList';
 
 interface ConsoleAgendaProps {
@@ -17,12 +18,14 @@ interface ConsoleAgendaProps {
 export function ConsoleAgenda({ state, dispatch, onCall }: ConsoleAgendaProps) {
   const newItemId = useId();
   const [newItem, setNewItem] = useState('');
-  // Items are called and completed between questions, not during one, and not once the meeting
-  // is adjourned
+  // Items are called and completed between questions, not during one (a motion, a request for
+  // unanimous consent, an election), and not once the meeting is adjourned
   const busy =
     !!state.currentMotion ||
     !!state.pendingSecond ||
     state.votingOpen ||
+    state.unanimousConsentPending ||
+    electionUnderway(state) ||
     state.meetingStage === 'adjourned';
 
   const addItem = (e: FormEvent) => {

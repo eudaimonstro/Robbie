@@ -40,36 +40,24 @@ function beneathLine(motion: Motion): string {
   return `${motion.name}: ${motion.text}`;
 }
 
-/** The question before the assembly, or null when nothing is pending */
-export function describeQuestion(state: MeetingState): QuestionView | null {
-  const election = state.currentElection;
-  if (election?.votingInProgress) {
-    return {
-      kind: `Election for ${election.position}`,
-      text: election.candidates.map((c) => c.name).join(', ') || 'No candidates',
-      byline: 'Ballot in progress',
-      requirement: requirementOf(election.requiredVotes),
-      awaitingSecond: false,
-      beneath: [],
-      key: `election-${election.id}`,
-    };
-  }
+/** Who stands for the position nominations are (or were) open for, declined nominees left out */
+export function nomineesFor(state: MeetingState, position: string): string[] {
+  return [
+    ...new Set(
+      state.nominations
+        .filter((n) => n.position === position && !n.declined)
+        .map((n) => n.nomineeName),
+    ),
+  ];
+}
 
-  if (state.nominationsOpen && state.currentNominationPosition) {
-    const position = state.currentNominationPosition;
-    const nominees = state.nominations
-      .filter((n) => n.position === position && !n.declined)
-      .map((n) => n.nomineeName);
-    return {
-      kind: `Election for ${position}`,
-      text: 'Nominations are open',
-      byline: nominees.length > 0 ? `Nominated: ${nominees.join(', ')}` : 'No nominations yet',
-      requirement: null,
-      awaitingSecond: false,
-      beneath: [],
-      key: `nominations-${position}`,
-    };
-  }
+/**
+ * The question before the assembly, or null when nothing is pending (or the meeting adjourned). A
+ * motion made during an election (only a privileged or incidental one is in order then) comes
+ * before the election it interrupts.
+ */
+export function describeQuestion(state: MeetingState): QuestionView | null {
+  if (state.meetingStage === 'adjourned') return null;
 
   if (state.pendingSecond) {
     const motion = state.pendingSecond;
@@ -99,6 +87,40 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
         .reverse()
         .map(beneathLine),
       key: `motion-${motion.id}`,
+    };
+  }
+
+  const election = state.currentElection;
+  if (election?.votingInProgress) {
+    return {
+      kind: `Election for ${election.position}`,
+      text: election.candidates.map((c) => c.name).join(', ') || 'No candidates',
+      byline: 'Ballot in progress',
+      requirement: requirementOf(election.requiredVotes),
+      awaitingSecond: false,
+      beneath: [],
+      key: `election-${election.id}`,
+    };
+  }
+
+  // Nominations open, or closed with the ballot still to open
+  if (state.currentNominationPosition && !election) {
+    const position = state.currentNominationPosition;
+    const nominees = nomineesFor(state, position);
+    const open = state.nominationsOpen;
+    return {
+      kind: `Election for ${position}`,
+      text: open ? 'Nominations are open' : 'Nominations are closed',
+      byline:
+        nominees.length > 0
+          ? `Nominated: ${nominees.join(', ')}`
+          : open
+            ? 'No nominations yet'
+            : 'Nobody has been nominated',
+      requirement: null,
+      awaitingSecond: false,
+      beneath: [],
+      key: `nominations-${open ? 'open' : 'closed'}-${position}`,
     };
   }
 

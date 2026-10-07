@@ -90,7 +90,7 @@ describe('chairActions', () => {
     ).toEqual(['adjourn']);
   });
 
-  it('offers no adjournment while a question is pending, a vote is open or a ballot runs', () => {
+  it('offers no adjournment while a question is pending, a vote is open or a ballot runs (the ballot can be set aside)', () => {
     const during: MeetingState = {
       ...adopted,
       currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
@@ -114,7 +114,7 @@ describe('chairActions', () => {
           elected: null,
         },
       }),
-    ).toEqual([]);
+    ).toEqual(['set-aside']);
   });
 
   it('declares no second while a motion waits for one', () => {
@@ -190,7 +190,7 @@ describe('chairActions', () => {
     });
   });
 
-  it('leaves an election to the election card, but for adjourning, from nominations to the declaration', () => {
+  it('leaves an election to the election card, but for setting it aside and adjourning, from nominations to the declaration', () => {
     const elections: Partial<MeetingState>[] = [
       { nominationsOpen: true, currentNominationPosition: 'Director' },
       // Nominations closed, the ballot still to open
@@ -209,8 +209,37 @@ describe('chairActions', () => {
       },
     ];
     for (const election of elections) {
-      expect(ids({ ...adopted, ...election })).toEqual(['adjourn']);
+      expect(ids({ ...adopted, ...election })).toEqual(['set-aside', 'adjourn']);
       expect(floorActions({ ...adopted, ...election })).toEqual([]);
     }
+  });
+
+  it('sets the election aside after asking first', () => {
+    const [setAside] = chairActions({ ...adopted, currentNominationPosition: 'Director' }, 2);
+    expect(setAside).toMatchObject({
+      label: 'Set the election aside',
+      tone: 'secondary',
+      confirm: true,
+    });
+    expect(setAside.make()).toMatchObject({ type: 'SET_ASIDE_ELECTION' });
+  });
+
+  it('puts a privileged or incidental motion made during an election before the election', () => {
+    const nominating: MeetingState = {
+      ...adopted,
+      nominationsOpen: true,
+      currentNominationPosition: 'Director',
+    };
+    expect(ids({ ...nominating, pendingSecond: motion('recess', { secondedBy: null }) })).toEqual([
+      'no-second',
+    ]);
+    expect(ids({ ...nominating, currentMotion: motion('recess') })).toEqual([
+      'open-vote',
+      'consent',
+    ]);
+    expect(ids({ ...nominating, currentMotion: motion('pointOrder') })).toEqual([
+      'sustain',
+      'overrule',
+    ]);
   });
 });

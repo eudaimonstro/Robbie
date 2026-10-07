@@ -170,6 +170,27 @@ describe('the console agenda', () => {
   });
 });
 
+describe('the console agenda while business is under way', () => {
+  const agenda: MeetingState['agenda'] = [
+    { id: 1, title: 'Call to order', status: 'completed' },
+    { id: 2, title: "Treasurer's report", status: 'pending' },
+  ];
+
+  it.each<[string, Partial<MeetingState>]>([
+    ['during an election', { nominationsOpen: true, currentNominationPosition: 'Director' }],
+    ['while nominations are closed with no ballot yet', { currentNominationPosition: 'Director' }],
+    ['while the chair asks for unanimous consent', { unanimousConsentPending: true }],
+  ])('calls no item %s', (_when, business) => {
+    render(
+      <ConsoleAgenda
+        state={{ ...state, agendaAdopted: true, agenda, ...business }}
+        dispatch={dispatch}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Call / })).toBeNull();
+  });
+});
+
 describe('the action toolbar', () => {
   it('shows each action as a button, the first as the primary one', () => {
     render(

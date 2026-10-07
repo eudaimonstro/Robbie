@@ -1,7 +1,7 @@
-import { useId, useMemo, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { Election, MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
-import { electionTally } from '../utils/question';
+import { electionTally, nomineesFor } from '../utils/question';
 
 interface ElectionPanelProps {
   state: MeetingState;
@@ -33,16 +33,7 @@ export function ElectionPanel({
   const [required, setRequired] = useState<Required>('majority');
   const election = state.currentElection;
   const position = state.currentNominationPosition;
-  const nominees = useMemo(
-    () => [
-      ...new Set(
-        state.nominations
-          .filter((n) => n.position === position && !n.declined)
-          .map((n) => n.nomineeName),
-      ),
-    ],
-    [state.nominations, position],
-  );
+  const nominees = position ? nomineesFor(state, position) : [];
 
   /** A card with its heading, or inside the election card a part below a rule */
   const frame = (heading: string, children: React.ReactNode, space = 'space-y-3') =>
@@ -59,10 +50,19 @@ export function ElectionPanel({
 
   if (!election) {
     if (!isChair || state.nominationsOpen || !position) return null;
+    // A ballot with no candidate can't elect anyone, and the server refuses it
+    if (nominees.length === 0) {
+      return frame(
+        `Election for ${position}`,
+        <p className="text-sm text-ink">
+          Nobody has been nominated. Open nominations again, or set the election aside.
+        </p>,
+      );
+    }
     return frame(
       `Election for ${position}`,
       <>
-        <p className="text-sm text-ink">Candidates: {nominees.join(', ') || 'none'}</p>
+        <p className="text-sm text-ink">Candidates: {nominees.join(', ')}</p>
         <div>
           <label htmlFor={requiredId} className="label">
             Vote required

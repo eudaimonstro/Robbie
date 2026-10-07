@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
-import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
+import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import { phoneMoment } from '../phoneMoment';
 
 const motion = (key: string): Motion => ({
@@ -13,6 +13,18 @@ const motion = (key: string): Motion => ({
   moverId: 3,
   secondedBy: 'Ben Whitaker',
   status: 'active',
+});
+
+const election = (overrides: Partial<Election>): Election => ({
+  id: 1,
+  position: 'Director',
+  candidates: [{ name: 'Carmen Diaz', id: 5 }],
+  requiredVotes: 'majority',
+  votingInProgress: false,
+  ballotResults: { 'Carmen Diaz': 2 },
+  votersWhoVoted: [3, 4],
+  elected: null,
+  ...overrides,
 });
 
 const active: MeetingState = { ...initialState, meetingActive: true, agendaAdopted: true };
@@ -57,6 +69,26 @@ describe('phoneMoment', () => {
       'while nominations are open',
       { ...active, nominationsOpen: true, currentNominationPosition: 'Director' },
       'nominate',
+    ],
+    [
+      'while nominations are closed and the ballot is still to open',
+      { ...active, currentNominationPosition: 'Director' },
+      'election',
+    ],
+    [
+      'while the ballot is open',
+      { ...active, currentElection: election({ votingInProgress: true }) },
+      'ballot',
+    ],
+    [
+      'while a winner awaits the declaration',
+      { ...active, currentElection: election({ elected: 'Carmen Diaz' }) },
+      'election',
+    ],
+    [
+      'while the agenda awaits adoption during an election',
+      { ...active, agendaAdopted: false, currentNominationPosition: 'Director' },
+      'election',
     ],
   ])('asks for one thing %s', (_when, state, moment) => {
     expect(phoneMoment(state)).toBe(moment);

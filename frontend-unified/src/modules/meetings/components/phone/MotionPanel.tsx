@@ -8,6 +8,7 @@ import { SuspendRulesForm } from '../SuspendRulesForm';
 import { TakeFromTableForm } from '../TakeFromTableForm';
 import { ReconsiderForm } from '../ReconsiderForm';
 import { FORM_MOTIONS, motionWords } from '../../utils/motionWords';
+import { electionUnderway } from '../../utils/chairActions';
 
 interface MotionPanelProps {
   state: MeetingState;
@@ -45,7 +46,13 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
   const [mainText, setMainText] = useState('');
   const [form, setForm] = useState<FormMotion | null>(null);
 
-  const validMotions = useMemo(() => getValidMotions(state, me.id), [state, me.id]);
+  const validMotions = useMemo(() => {
+    const valid = getValidMotions(state, me.id);
+    // An election holds the floor: only a privileged or incidental motion may interrupt it (the
+    // server refuses the rest)
+    if (!electionUnderway(state)) return valid;
+    return valid.filter((m) => m.category === 'privileged' || m.category === 'incidental');
+  }, [state, me.id]);
   const mainInOrder = !othersOnly && validMotions.some((m) => m.key === 'mainMotion');
   const others = validMotions.map((m) => m.key).filter((key) => key !== 'mainMotion');
   // Every decided motion is recorded now; only some can be reconsidered (records from before the

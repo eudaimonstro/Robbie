@@ -221,6 +221,55 @@ describe('ChairConsole', () => {
       expect(screen.queryByTestId('meeting-code')).toBeNull();
       expect(screen.queryByRole('region', { name: 'The result' })).toBeNull();
     });
+
+    it('shows nothing live once adjourned, even with an election and a motion left in the state', () => {
+      socket.state = {
+        ...active,
+        meetingActive: false,
+        meetingStage: 'adjourned',
+        currentMotion: motion,
+        currentElection: {
+          id: 7,
+          position: 'Director',
+          candidates: [{ name: 'Carmen Diaz', id: 5 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: {},
+          votersWhoVoted: [],
+          elected: null,
+        },
+        electedOfficers: [
+          { position: 'Treasurer', name: 'Ray Castillo', memberId: 6, electedAt: '8:10:00 PM' },
+        ],
+        meetingLog: [{ time: '8:42:15 PM', message: 'Meeting adjourned.' }],
+      };
+      render(<ChairConsole />);
+      expect(screen.getByText('Adjourned at 8:42 PM')).toBeTruthy();
+      expect(screen.queryByText('Approve the pool contract')).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Election for Director' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Close the ballot' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Set the election aside' })).toBeNull();
+      expect(screen.queryByText('How the vote is taken')).toBeNull();
+      // Who was elected stays, as the record
+      expect(screen.getByText('Ray Castillo')).toBeTruthy();
+    });
+
+    it('closes the confirmation when the meeting moves on while it is open', () => {
+      socket.state = { ...active, agenda };
+      const { rerender } = render(<ChairConsole />);
+      fireEvent.click(screen.getByRole('button', { name: 'Adjourn' }));
+      expect(screen.getByRole('dialog', { name: 'Adjourn the meeting?' })).toBeTruthy();
+
+      // Someone moved, and the motion is pending: Adjourn is no longer in order
+      socket.state = { ...active, agenda, currentMotion: motion };
+      rerender(<ChairConsole />);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      // And it doesn't come back by itself when Adjourn is in order again
+      socket.state = { ...active, agenda };
+      rerender(<ChairConsole />);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 
   it('brings the Now column into view when an item is called from the agenda', () => {
@@ -339,8 +388,13 @@ describe('ChairConsole', () => {
     it("labels the chair's own ballot apart from running the election", () => {
       socket.state = { ...active, currentElection: ballot };
       render(<ChairConsole />);
-      // Nothing else comes up during the ballot, and the card leads the side column
-      expect(screen.queryByRole('toolbar')).toBeNull();
+      // Nothing else comes up during the ballot but setting it aside, and the card leads the
+      // side column
+      expect(
+        within(screen.getByRole('toolbar'))
+          .getAllByRole('button')
+          .map((b) => b.textContent),
+      ).toEqual(['Set the election aside']);
       const headings = screen.getAllByRole('heading').map((h) => h.textContent);
       expect(headings.indexOf('Election for Director')).toBeLessThan(
         headings.indexOf('Attendance'),
@@ -352,6 +406,66 @@ describe('ChairConsole', () => {
       expect(within(mine).getByRole('button', { name: 'Vote for Carmen Diaz' })).toBeTruthy();
       expect(within(mine).queryByRole('button', { name: 'Close the ballot' })).toBeNull();
       expect(within(card).getByRole('button', { name: 'Close the ballot' })).toBeTruthy();
+    });
+
+    it('sets an election aside from the card, after asking first', () => {
+      socket.state = { ...active, nominationsOpen: true, currentNominationPosition: 'Director' };
+      render(<ChairConsole />);
+      const card = screen
+        .getByRole('heading', { name: 'Election for Director' })
+        .closest('section')!;
+      fireEvent.click(within(card).getByRole('button', { name: 'Set the election aside' }));
+      expect(socket.dispatch).not.toHaveBeenCalled();
+      const dialog = screen.getByRole('dialog', { name: 'Set the election aside?' });
+      expect(
+        within(dialog).getByText(/The election for Director ends without a result/),
+      ).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Set it aside' }));
+      expect(socket.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SET_ASIDE_ELECTION' }),
+      );
+    });
+
+    it('offers no ballot without a nominee, and the toolbar sets the election aside or adjourns', () => {
+      socket.state = {
+        ...active,
+        currentNominationPosition: 'Director',
+        nominations: [
+          {
+            id: 1,
+            position: 'Director',
+            nomineeName: 'Carmen Diaz',
+            nomineeId: 5,
+            nominatedBy: 'Alice Brennan',
+            nominatorId: 3,
+            timestamp: '8:00:00 PM',
+            declined: true,
+          },
+        ],
+      };
+      render(<ChairConsole />);
+      expect(screen.getByText(/Nobody has been nominated\. Open nominations again/)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Open the ballot' })).toBeNull();
+      // The question card says where the election stands
+      expect(screen.getByText('Nominations are closed')).toBeTruthy();
+      const toolbar = screen.getByRole('toolbar');
+      expect(
+        within(toolbar)
+          .getAllByRole('button')
+          .map((b) => b.textContent),
+      ).toEqual(['Set the election aside', 'Adjourn']);
+      fireEvent.click(within(toolbar).getByRole('button', { name: 'Set the election aside' }));
+      expect(screen.getByRole('dialog', { name: 'Set the election aside?' })).toBeTruthy();
+    });
+
+    it('closes the set-aside confirmation once the election has ended', () => {
+      socket.state = { ...active, nominationsOpen: true, currentNominationPosition: 'Director' };
+      const { rerender } = render(<ChairConsole />);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Set the election aside' })[0]);
+      expect(screen.getByRole('dialog', { name: 'Set the election aside?' })).toBeTruthy();
+      socket.state = { ...active };
+      rerender(<ChairConsole />);
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
 
     it('keeps ELECTED up with its tally after the winner is declared', () => {

@@ -5,7 +5,12 @@ import { useEligibleVoters } from '../hooks/useEligibleVoters';
 import { usePacket } from '../hooks/usePacket';
 import { useVoteResults } from '../hooks/useVoteResults';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
-import { chairActions, floorActions } from '../utils/chairActions';
+import {
+  chairActions,
+  electionUnderway,
+  floorActions,
+  setAsideElection,
+} from '../utils/chairActions';
 import { adjournedAt, currentResult, describeQuestion } from '../utils/question';
 import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { QuestionCard } from '../components/QuestionCard';
@@ -16,6 +21,7 @@ import { SpeakerQueuePanel } from '../components/chair';
 import { ActionToolbar } from '../components/console/ActionToolbar';
 import { AdjournDialog } from '../components/console/AdjournDialog';
 import { ElectionCard } from '../components/console/ElectionCard';
+import { SetAsideDialog } from '../components/console/SetAsideDialog';
 import { FloorMotionDialog, FloorSecondForm } from '../components/console/FloorBusiness';
 import { ChairScriptLine } from '../components/console/ChairScriptLine';
 import { ConsoleAgenda } from '../components/console/ConsoleAgenda';
@@ -34,7 +40,8 @@ import type { ChairAction } from '../utils/chairActions';
 export function ChairConsole() {
   const { state, dispatch, currentUser, attendance, meetingCode } = useSocket();
   const [joinInfoOpen, setJoinInfoOpen] = useState(false);
-  const [adjourning, setAdjourning] = useState<ChairAction | null>(null);
+  // An action that asks first (Adjourn, Set the election aside), while its dialog is open
+  const [confirming, setConfirming] = useState<ChairAction | null>(null);
   const [floorMotionOpen, setFloorMotionOpen] = useState(false);
   // The motion a second from the floor is being recorded for: the form closes with it
   const [secondingId, setSecondingId] = useState<number | null>(null);
@@ -68,8 +75,23 @@ export function ChairConsole() {
         : 'Adjourned'
       : 'No question is pending.';
   const seconding = secondingId !== null && state.pendingSecond?.id === secondingId;
-  const electing =
-    state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
+  const electing = !adjourned && electionUnderway(state);
+  const actions = chairActions(state, presidingId);
+  // A dialog whose action the meeting has moved past (a vote opened, the election ended, the
+  // meeting adjourned elsewhere) closes itself
+  const stillInOrder =
+    confirming === null ||
+    (confirming.id === 'set-aside'
+      ? electing
+      : actions.some((action) => action.id === confirming.id));
+  // Dropped as the render finds it out of order, so it can't come back when it is in order again
+  if (!stillInOrder) setConfirming(null);
+  const confirm = (action: ChairAction) => {
+    dispatch(action.make());
+    setConfirming(null);
+  };
+  const keepGoing = () => setConfirming(null);
+  const setAside = () => setConfirming(setAsideElection());
 
   // An item called from the side agenda: bring the item and its actions into view
   const showNow = () =>
@@ -85,11 +107,13 @@ export function ChairConsole() {
         meetingCode={meetingCode}
         onJoinInfo={() => setJoinInfoOpen(true)}
       />
-      <ActiveSuspensionsBanner
-        state={state}
-        currentUser={presiding ?? undefined}
-        dispatch={dispatch}
-      />
+      {!adjourned && (
+        <ActiveSuspensionsBanner
+          state={state}
+          currentUser={presiding ?? undefined}
+          dispatch={dispatch}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div ref={nowRef} className="space-y-4 xl:col-span-8">
@@ -97,7 +121,7 @@ export function ChairConsole() {
           <CurrentItemLine item={state.currentAgendaItem} packet={packet} />
           <QuestionCard question={question} empty={empty}>
             <ActionToolbar
-              actions={chairActions(state, presidingId)}
+              actions={actions}
               dispatch={dispatch}
               floor={floorActions(state)}
               onFloor={(id) =>
@@ -105,7 +129,7 @@ export function ChairConsole() {
                   ? setFloorMotionOpen(true)
                   : setSecondingId(state.pendingSecond?.id ?? null)
               }
-              onConfirm={setAdjourning}
+              onConfirm={setConfirming}
             />
             {seconding && (
               <FloorSecondForm
@@ -127,7 +151,7 @@ export function ChairConsole() {
               />
             </section>
           )}
-          <VoteControl state={state} dispatch={dispatch} me={currentUser} />
+          {!adjourned && <VoteControl state={state} dispatch={dispatch} me={currentUser} />}
           {!adjourned && (
             <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
           )}
@@ -136,7 +160,12 @@ export function ChairConsole() {
         <div className="space-y-4 xl:col-span-4">
           {/* An election in hand comes first, where its next step is in view */}
           {currentUser && electing && (
-            <ElectionCard state={state} dispatch={dispatch} me={currentUser} />
+            <ElectionCard
+              state={state}
+              dispatch={dispatch}
+              me={currentUser}
+              onSetAside={setAside}
+            />
           )}
           <AttendancePanel
             state={state}
@@ -173,13 +202,16 @@ export function ChairConsole() {
         <JoinInfoCard code={meetingCode} qrSize={240} />
       </Modal>
       <AdjournDialog
-        isOpen={adjourning !== null}
+        isOpen={confirming?.id === 'adjourn' && stillInOrder}
         agenda={state.agenda}
-        onAdjourn={() => {
-          if (adjourning) dispatch(adjourning.make());
-          setAdjourning(null);
-        }}
-        onKeepGoing={() => setAdjourning(null)}
+        onAdjourn={() => confirming && confirm(confirming)}
+        onKeepGoing={keepGoing}
+      />
+      <SetAsideDialog
+        isOpen={confirming?.id === 'set-aside' && stillInOrder}
+        position={state.currentElection?.position ?? state.currentNominationPosition}
+        onSetAside={() => confirming && confirm(confirming)}
+        onKeepGoing={keepGoing}
       />
       <FloorMotionDialog
         isOpen={floorMotionOpen}

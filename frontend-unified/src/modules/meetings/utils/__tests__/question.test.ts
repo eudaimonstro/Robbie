@@ -136,6 +136,38 @@ describe('describeQuestion', () => {
       requirement: 'Majority',
     });
   });
+
+  it('shows nominations closed with the ballot still to open', () => {
+    expect(describeQuestion({ ...active, currentNominationPosition: 'Director' })).toMatchObject({
+      kind: 'Election for Director',
+      text: 'Nominations are closed',
+      byline: 'Nobody has been nominated',
+    });
+  });
+
+  it('puts a motion made during an election before the election', () => {
+    const recess = motion('recess', { text: 'Recess for ten minutes' });
+    expect(
+      describeQuestion({
+        ...active,
+        nominationsOpen: true,
+        currentNominationPosition: 'Director',
+        pendingSecond: recess,
+      }),
+    ).toMatchObject({ text: 'Recess for ten minutes', awaitingSecond: true });
+  });
+
+  it('is null once the meeting is adjourned, whatever was left in the state', () => {
+    expect(
+      describeQuestion({
+        ...active,
+        meetingActive: false,
+        meetingStage: 'adjourned',
+        currentMotion: motion('mainMotion'),
+        currentElection: election(),
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('currentResult', () => {

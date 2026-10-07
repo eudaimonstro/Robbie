@@ -163,6 +163,67 @@ describe('PhoneView', () => {
     expect(screen.getByRole('button', { name: 'Vote for Alice' })).toBeTruthy();
   });
 
+  it('waits for the chair once nominations close, with the nominees and no motion form', () => {
+    renderAs(alice, {
+      ...active,
+      currentNominationPosition: 'Treasurer',
+      nominations: [
+        {
+          id: 1,
+          position: 'Treasurer',
+          nomineeName: 'Carmen Diaz',
+          nomineeId: 5,
+          nominatedBy: 'Ben Whitaker',
+          nominatorId: 4,
+          timestamp: '8:00:00 PM',
+          declined: false,
+        },
+      ],
+    });
+    const part = screen.getByRole('region', { name: 'Your part' });
+    expect(within(part).getByText('Nominated: Carmen Diaz')).toBeTruthy();
+    expect(within(part).getByText('Waiting for the chair.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Make a motion' })).toBeNull();
+    expect(screen.queryByLabelText('Motion text')).toBeNull();
+  });
+
+  it('waits for the chair to declare the winner of an election', () => {
+    renderAs(alice, {
+      ...active,
+      currentElection: {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Carmen Diaz', id: 5 }],
+        requiredVotes: 'majority',
+        votingInProgress: false,
+        ballotResults: { 'Carmen Diaz': 9 },
+        votersWhoVoted: [3, 4],
+        elected: 'Carmen Diaz',
+      },
+    });
+    const part = screen.getByRole('region', { name: 'Your part' });
+    expect(within(part).getByText('Carmen Diaz has the vote required.')).toBeTruthy();
+    expect(within(part).getByText('Waiting for the chair.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Make a motion' })).toBeNull();
+  });
+
+  it('offers only privileged and incidental motions during an election', () => {
+    // A question debated while nominations wait for the ballot: amending it or referring it is
+    // refused by the server until the election is done or set aside
+    renderAs(alice, {
+      ...active,
+      currentNominationPosition: 'Treasurer',
+      currentMotion: motion,
+      motionStack: [motion],
+    });
+    fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));
+    const categories = within(screen.getByRole('region', { name: 'Your part' }))
+      .getAllByRole('radio')
+      .map((radio) => MOTIONS[(radio as HTMLInputElement).value].category);
+    expect(categories.length).toBeGreaterThan(0);
+    expect(categories.every((c) => c === 'privileged' || c === 'incidental')).toBe(true);
+  });
+
   it('makes another motion in plain words, each saying what it does', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));

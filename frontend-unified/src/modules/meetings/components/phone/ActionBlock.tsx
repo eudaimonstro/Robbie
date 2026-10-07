@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
+import { nomineesFor } from '../../utils/question';
 import { NominationsPanel } from '../NominationsPanel';
 import { ElectionPanel } from '../ElectionPanel';
 import { UnanimousConsentSection } from '../participant';
@@ -51,6 +52,8 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       return <ElectionPanel state={state} dispatch={dispatch} currentUser={me} />;
     case 'nominate':
       return <NominationsPanel state={state} dispatch={dispatch} currentUser={me} />;
+    case 'election':
+      return <ElectionWaiting state={state} />;
     case 'second':
       return state.pendingSecond?.moverId === me.id ? (
         <Note>
@@ -90,6 +93,29 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
     case 'motion':
       return <MotionPanel state={state} dispatch={dispatch} me={me} />;
   }
+}
+
+/**
+ * Between the steps of an election, while the chair has the next one: nominations closed with the
+ * ballot still to open, or a winner awaiting the declaration
+ */
+function ElectionWaiting({ state }: { state: MeetingState }) {
+  const election = state.currentElection;
+  const position = election?.position ?? state.currentNominationPosition ?? '';
+  const nominees = election ? election.candidates.map((c) => c.name) : nomineesFor(state, position);
+  return (
+    <div className="space-y-2">
+      <p className="label-caps">{`Election for ${position}`}</p>
+      {election?.elected ? (
+        <p className="text-ink">{election.elected} has the vote required.</p>
+      ) : nominees.length > 0 ? (
+        <p className="text-ink">Nominated: {nominees.join(', ')}</p>
+      ) : (
+        <p className="text-ink">Nobody has been nominated.</p>
+      )}
+      <p className="text-ink-muted">Waiting for the chair.</p>
+    </div>
+  );
 }
 
 /**
