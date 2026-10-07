@@ -305,8 +305,12 @@ export async function handleDispatchAction(
       await markPreviousMinutesApproved(meetingCode, latest.state);
     }
 
-    // Post-action: Sync bylaw amendments to Bylawyer after vote closes
-    if (enrichedAction.type === 'CLOSE_VOTING') {
+    // Post-action: Sync bylaw amendments to Bylawyer once decided, on a vote or by unanimous
+    // consent
+    if (
+      enrichedAction.type === 'CLOSE_VOTING' ||
+      enrichedAction.type === 'UNANIMOUS_CONSENT_PASSED'
+    ) {
       try {
         const syncResult = await checkAndSyncBylawAmendment(
           meetingCode,

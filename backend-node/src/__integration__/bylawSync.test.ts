@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
+import { initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
-import { resetDatabase } from './db.js';
+import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
+import { liveSockets, type FakeSocket } from './liveSockets.js';
 
 const closeVoting = { type: 'CLOSE_VOTING' } as unknown as MeetingAction;
 
@@ -64,6 +66,31 @@ describe('bylaw sync', () => {
     expect(result).toMatchObject({ success: true, applied: true });
   });
 
+  it('applies a motion adopted by unanimous consent, with no votes', async () => {
+    const { before } = votedStates(f.doc, f.section);
+    const after = {
+      ...initialState,
+      completedMotions: [{ id: 41, passed: true, voterChoices: {}, disposition: 'unanimous' }],
+    } as unknown as MeetingState;
+    const consent = { type: 'UNANIMOUS_CONSENT_PASSED' } as unknown as MeetingAction;
+    const result = await checkAndSyncBylawAmendment(
+      f.packet.code,
+      consent,
+      { ...before, votes: { yea: 0, nay: 0, abstain: 0 } },
+      after,
+    );
+    expect(result).toMatchObject({ success: true, applied: true });
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+    });
+    expect(amendment).toMatchObject({ status: 'passed' });
+    expect(amendment.robbieVoteData).toMatchObject({
+      yeaCount: 0,
+      nayCount: 0,
+      disposition: 'unanimous',
+    });
+  });
+
   it('records the device votes, the floor tally and their total', async () => {
     const { before } = votedStates(f.doc, f.section);
     const after = {
@@ -117,5 +144,61 @@ describe('bylaw sync', () => {
     const { before, after } = votedStates(f.doc, f.section);
     expect(await checkAndSyncBylawAmendment('NOPACK', closeVoting, before, after)).toBeNull();
     expect(await prisma.amendment.count({ where: { robbieMeetingCode: 'NOPACK' } })).toBe(0);
+  });
+});
+
+describe('bylaw sync in a live meeting', () => {
+  const live = liveSockets();
+  let f: Fixture;
+  // The live meetings table and its storage, as the server starts them
+  beforeAll(initializeStorage);
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+  });
+  afterEach(live.disconnectAll);
+
+  async function act(socket: FakeSocket, action: Record<string, unknown>) {
+    const res = await live.dispatch(socket, { timestamp: '', ...action });
+    expect(res, JSON.stringify(action)).toMatchObject({ success: true });
+  }
+
+  it('applies a bylaw amendment adopted by unanimous consent', async () => {
+    // A's October meeting, run by the secretary as an admin
+    const secretary = live.connect(f.users.secretary);
+    const member = live.connect(f.users.member);
+    const owner = live.connect(f.users.owner);
+    for (const socket of [secretary, member, owner]) {
+      expect((await live.join(socket, f.packet.code)).success).toBe(true);
+    }
+    await act(secretary, { type: 'START_MEETING' });
+    await act(secretary, { type: 'ADOPT_AGENDA' });
+    await act(member, {
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename the organization',
+      mover: '',
+      moverId: 0,
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    await act(owner, { type: 'SECOND_MOTION', seconder: '' });
+    await act(secretary, { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    await act(secretary, { type: 'UNANIMOUS_CONSENT_PASSED' });
+
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+    });
+    expect(amendment).toMatchObject({ documentId: f.doc, status: 'passed' });
+    expect(amendment.resultingVersionId).not.toBeNull();
+    const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
+    expect(doc.currentVersionId).toBe(amendment.resultingVersionId);
+    expect(doc.currentVersionId).not.toBe(f.v2);
   });
 });

@@ -2,7 +2,8 @@
  * Bylaw Sync Service
  *
  * Handles synchronization of passed bylaw amendment motions from Robbie to Bylawyer.
- * This is called after CLOSE_VOTING actions when a bylawAmendment motion is voted on.
+ * This is called after CLOSE_VOTING actions when a bylawAmendment motion is voted on, and after
+ * UNANIMOUS_CONSENT_PASSED when one is adopted by unanimous consent.
  *
  * Uses direct Prisma calls instead of HTTP since both run in the same server.
  */
@@ -22,8 +23,8 @@ interface SyncResult {
 }
 
 /**
- * Check if we should sync a bylaw amendment after a vote closes.
- * Called after CLOSE_VOTING action is processed.
+ * Check if we should sync a bylaw amendment after it is decided: on a vote (CLOSE_VOTING) or
+ * by unanimous consent (UNANIMOUS_CONSENT_PASSED). Called after the action is processed.
  */
 export async function checkAndSyncBylawAmendment(
   meetingCode: string,
@@ -31,12 +32,12 @@ export async function checkAndSyncBylawAmendment(
   previousState: MeetingState,
   newState: MeetingState,
 ): Promise<SyncResult | null> {
-  // Only process CLOSE_VOTING actions
-  if (action.type !== 'CLOSE_VOTING') {
+  // Only a vote closing or unanimous consent decides the motion on the floor
+  if (action.type !== 'CLOSE_VOTING' && action.type !== 'UNANIMOUS_CONSENT_PASSED') {
     return null;
   }
 
-  // Check if the voted-on motion was a bylawAmendment
+  // Check if the decided motion was a bylawAmendment
   const votedMotion = previousState.currentMotion;
   if (!votedMotion || votedMotion.type !== 'bylawAmendment') {
     return null;
@@ -172,7 +173,8 @@ async function syncMotionToBylawyer(
       renumber: 'renumber',
     };
 
-    // Build vote data: the device votes and the chair's floor tally, and their total
+    // Build vote data: the device votes and the chair's floor tally, and their total, and how
+    // the motion was disposed of (no votes at all when adopted by unanimous consent)
     const deviceVotes = completedMotion.deviceVotes ?? previousState.votes;
     const floorVotes = completedMotion.floorVotes ?? NO_VOTES;
     const voteData = {
@@ -184,6 +186,7 @@ async function syncMotionToBylawyer(
       method: completedMotion.method ?? previousState.votingMethod,
       voterChoices: completedMotion.voterChoices,
       voteRequirement: votedMotion.vote,
+      disposition: completedMotion.disposition ?? (completedMotion.passed ? 'carried' : 'failed'),
     };
 
     // The motion's timestamp is only a display time of day; the sync runs as the vote closes
