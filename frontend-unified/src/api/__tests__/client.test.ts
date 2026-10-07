@@ -305,6 +305,17 @@ describe('secretary calls', () => {
     expect(JSON.parse(init.body as string)).toEqual({ notes: 'Pasted', sections });
   });
 
+  it('sends an import once: a retry after a lost answer would save a second version', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'Bad gateway' }), { status: 502 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(bylawsImport.saveVersion('doc-1', { sections: [] })).rejects.toMatchObject({
+      status: 502,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('reads minutes fresh each time, and saves, publishes and regenerates them', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'm1', body: '#' })));
     vi.stubGlobal('fetch', fetchMock);

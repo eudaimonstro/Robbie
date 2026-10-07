@@ -457,11 +457,15 @@ export const bylawsImport = {
     if (!response.ok) throw new HttpError(await errorMessage(response), response.status);
     return ((await response.json()) as { text: string }).text;
   },
-  /** Parsed and reviewed sections as a new current version */
+  /**
+   * Parsed and reviewed sections as a new current version. Sent once: when the answer is lost,
+   * the version may be saved, and sending it again would save a second.
+   */
   saveVersion: (docId: string, data: ImportVersion) =>
     request<ImportedVersion>(`/documents/${docId}/versions/import`, {
       method: 'POST',
       body: JSON.stringify(data),
+      retry: false,
     }),
 };
 
