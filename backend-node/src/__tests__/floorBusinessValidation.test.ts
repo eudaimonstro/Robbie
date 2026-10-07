@@ -259,10 +259,10 @@ describe('business from the floor', () => {
   });
 
   describe('a question put by the chair', () => {
-    const put = (moverId: number) =>
+    const put = (moverId: number, motionType = 'mainMotion') =>
       validateAction(inSession, {
         type: 'MAKE_MOTION',
-        motionType: 'mainMotion',
+        motionType,
         text: 'Approve: Pool hours',
         mover: '',
         moverId,
@@ -270,6 +270,16 @@ describe('business from the floor', () => {
         putByChair: true,
         timestamp: '',
       });
+
+    it('is a main question: any other motion has a mover', () => {
+      for (const motionType of ['adjourn', 'suspendRules', 'bylawAmendment', 'adoptAgenda']) {
+        expect(put(dana.id, motionType), motionType).toEqual({
+          valid: false,
+          error: 'Only a main question is put by the chair',
+          errorCode: 'INVALID_ACTION',
+        });
+      }
+    });
 
     it('is put by the chair, not by a member', () => {
       expect(put(dana.id)).toEqual({ valid: true });
@@ -346,6 +356,59 @@ describe('business from the floor', () => {
       expect(
         recognize(question({ ...active, mover: 'Ben Whitaker', moverId: ben.id })),
       ).toMatchObject({ valid: false, errorCode: 'MOVER_SPEAKS_FIRST' });
+    });
+  });
+
+  describe('motions during an election', () => {
+    const elections: Array<[string, Partial<MeetingState>]> = [
+      ['nominations open', { nominationsOpen: true, currentNominationPosition: 'Treasurer' }],
+      ['nominations closed', { nominationsOpen: false, currentNominationPosition: 'Treasurer' }],
+      [
+        'a ballot',
+        {
+          currentElection: {
+            id: 1,
+            position: 'Treasurer',
+            candidates: [{ name: 'Alice Brennan', id: alice.id }],
+            requiredVotes: 'majority',
+            votingInProgress: true,
+            ballotResults: { 'Alice Brennan': 0 },
+            votersWhoVoted: [],
+            elected: null,
+          },
+        },
+      ],
+    ];
+    const move = (state: MeetingState, motionType: string) =>
+      validateAction(state, {
+        type: 'MAKE_MOTION',
+        motionType,
+        text: 'Resurface the pool',
+        mover: 'Alice Brennan',
+        moverId: alice.id,
+        motionId: 1,
+        timestamp: '',
+      });
+
+    it.each(elections)('waits for the election to end: %s', (_, election) => {
+      const electing = { ...inSession, ...election };
+      const refused = {
+        valid: false,
+        error: 'Finish or set aside the election first',
+        errorCode: 'ELECTION_IN_PROGRESS',
+      };
+      for (const motionType of ['mainMotion', 'bylawAmendment', 'layOnTable', 'reconsider']) {
+        expect(move(electing, motionType), motionType).toEqual(refused);
+      }
+      expect(floorMotion({}, electing)).toEqual(refused);
+    });
+
+    it.each(elections)('allows privileged and incidental motions: %s', (_, election) => {
+      const electing = { ...inSession, ...election };
+      for (const motionType of ['adjourn', 'recess', 'pointOrder', 'pointInfo']) {
+        expect(move(electing, motionType), motionType).toEqual({ valid: true });
+      }
+      expect(floorMotion({ motionType: 'adjourn' }, electing)).toEqual({ valid: true });
     });
   });
 });

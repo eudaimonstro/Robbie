@@ -101,6 +101,21 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       errorCode: 'UNKNOWN_MOTION_TYPE',
     };
   }
+  // An election holds the floor until it is finished or set aside: only a privileged motion
+  // (adjourn, recess) or an incidental one (a point of order, an inquiry) may interrupt it
+  const electionUnderway =
+    state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
+  if (
+    electionUnderway &&
+    definition.category !== 'privileged' &&
+    definition.category !== 'incidental'
+  ) {
+    return {
+      valid: false,
+      error: 'Finish or set aside the election first',
+      errorCode: 'ELECTION_IN_PROGRESS',
+    };
+  }
   // Motions whose effect depends on details: without them the motion could be adopted and
   // then do nothing
   const missingDetails =
@@ -277,6 +292,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Only the chair puts a question to the meeting',
           errorCode: 'PERMISSION_DENIED',
+        };
+      }
+      // The chair puts the agenda's question; any other motion has a mover
+      if (action.putByChair && action.motionType !== 'mainMotion') {
+        return {
+          valid: false,
+          error: 'Only a main question is put by the chair',
+          errorCode: 'INVALID_ACTION',
         };
       }
       return validateMotionInOrder(state, action);
