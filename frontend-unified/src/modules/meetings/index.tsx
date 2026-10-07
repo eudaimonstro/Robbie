@@ -4,6 +4,7 @@
  * /meetings is the Live Meetings page: the organization's schedule and the code box.
  * /meetings/:code is the live meeting with that code. The link is the meeting, so it can be
  * shared or shown as a QR code, and a reload rejoins it; each meeting gets its own socket.
+ * (/meetings/:code/display, the TV, is its own route in App.tsx, outside the app's layout.)
  */
 
 import { useEffect } from 'react';
@@ -12,19 +13,30 @@ import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
 import { LiveMeetingsPage } from './views/LiveMeetingsPage';
 import { MeetingApp } from './views/MeetingApp';
+import { JoinMeetingScreen } from './views/JoinMeetingScreen';
 import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { isConnected, error, reconnect, leaveMeeting } = useSocket();
+  const { isConnected, error, joinError, reconnect, leaveMeeting, meetingCode } = useSocket();
   const { showToast } = useToast();
+  // A link to a meeting that isn't scheduled (or a code typed wrong): the code box says so
+  const notFound = joinError?.code === 'MEETING_NOT_FOUND';
 
   // Forward socket errors to toast notifications
   useEffect(() => {
-    if (error) {
+    if (error && !notFound) {
       showToast('error', error);
     }
-  }, [error, showToast]);
+  }, [error, notFound, showToast]);
+
+  if (!isConnected && joinError?.code === 'MEETING_NOT_FOUND') {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <JoinMeetingScreen message={joinError.message} initialCode={meetingCode} />
+      </div>
+    );
+  }
 
   // Show loading while connecting to the meeting. The meeting view (with its Reconnect and Leave
   // buttons) isn't shown until connected, so this screen needs its own way out: the socket

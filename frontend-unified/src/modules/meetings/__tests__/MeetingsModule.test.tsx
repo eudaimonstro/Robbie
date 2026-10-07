@@ -7,6 +7,7 @@ const socket = vi.hoisted(() => ({
   meetingCode: 'DEMO',
   isConnected: false,
   error: null as string | null,
+  joinError: null as { message: string; code: string | null } | null,
   reconnect: vi.fn(),
   leaveMeeting: vi.fn(),
 }));
@@ -29,7 +30,8 @@ vi.mock('../context/OrganizationBridge', () => ({
 }));
 vi.mock('../views/LiveMeetingsPage', () => ({ LiveMeetingsPage: () => <p>Live meetings page</p> }));
 vi.mock('../views/MeetingApp', () => ({ MeetingApp: () => <p>The meeting</p> }));
-vi.mock('../../../context/ToastContext', () => ({ useToast: () => ({ showToast: () => {} }) }));
+const toast = vi.hoisted(() => ({ showToast: vi.fn() }));
+vi.mock('../../../context/ToastContext', () => ({ useToast: () => toast }));
 
 const { default: MeetingsModule } = await import('../index');
 
@@ -49,6 +51,7 @@ describe('MeetingsModule routes', () => {
     provider.codes = [];
     socket.isConnected = true;
     socket.error = null;
+    socket.joinError = null;
   });
 
   it('shows the Live Meetings page at /meetings', () => {
@@ -73,6 +76,7 @@ describe('MeetingsModule while not connected', () => {
     vi.clearAllMocks();
     socket.isConnected = false;
     socket.error = null;
+    socket.joinError = null;
   });
 
   it('offers a way to leave while connecting', () => {
@@ -83,10 +87,23 @@ describe('MeetingsModule while not connected', () => {
 
   it('shows why the connection failed and lets the user try again', () => {
     socket.error = 'Too many join attempts';
+    socket.joinError = { message: 'Too many join attempts', code: null };
     renderAt('/meetings/DEMO');
 
     expect(screen.queryByText('Too many join attempts')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(socket.reconnect).toHaveBeenCalled();
+  });
+
+  it('shows the code box, with the reason, for a link to a meeting that is not scheduled', () => {
+    socket.error = 'No meeting with that code';
+    socket.joinError = { message: 'No meeting with that code', code: 'MEETING_NOT_FOUND' };
+    renderAt('/meetings/DEMO');
+
+    expect(screen.getByText('No meeting with that code')).toBeTruthy();
+    expect((screen.getByLabelText('Meeting code') as HTMLInputElement).value).toBe('DEMO');
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    // The code box says it; a toast would say it twice
+    expect(toast.showToast).not.toHaveBeenCalled();
   });
 });

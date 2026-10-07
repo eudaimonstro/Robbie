@@ -34,10 +34,7 @@ export function ChairView({ state, dispatch, currentUser }: ChairViewProps) {
   );
 
   // Use custom hook for quorum status (with proxy support)
-  const { presentCount, effectiveCount, hasQuorum } = useQuorumStatus(state.members, state.quorum, {
-    proxiesCountForQuorum: state.proxiesCountForQuorum,
-    proxies: state.proxies,
-  });
+  const { presentCount, effectiveCount, hasQuorum } = useQuorumStatus(state);
 
   // The presiding officer: the member in the chair role, or the signed-in admin when the
   // meeting has no chair (the server lets admins perform every chair action)

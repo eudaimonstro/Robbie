@@ -34,7 +34,7 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
   const [renameTarget, setRenameTarget] = useState<Member | null>(null);
   const [newName, setNewName] = useState('');
 
-  const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state.members, state.quorum);
+  const { presentCount, totalMembers, hasQuorum } = useQuorumStatus(state);
   const currentChair = state.members.find((m) => m.role === 'chair');
   const eligibleForChair = state.members.filter((m) => m.present && m.role !== 'chair');
   // The signed-in admin (as a member of this meeting), not the first admin listed: with two

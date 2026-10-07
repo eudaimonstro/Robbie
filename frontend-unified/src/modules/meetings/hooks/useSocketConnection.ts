@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { TypedSocket, StateUpdatePayload } from '../types/socket';
+import type { JoinError, TypedSocket, StateUpdatePayload } from '../types/socket';
 import { TERMS_NOT_ACCEPTED } from '../../../api/client';
 
 // Unset in development: the socket connects to the page's own origin, which Vite proxies
@@ -13,6 +13,8 @@ interface UseSocketConnectionReturn {
   isConnected: boolean;
   connectedMembers: Member[];
   error: string | null;
+  /** Why the last join was refused, with the server's error code */
+  joinError: JoinError | null;
   dispatch: (action: MeetingAction) => Promise<boolean>;
   reconnect: () => void;
   disconnect: () => void;
@@ -23,8 +25,12 @@ export function useSocketConnection(
   meetingCode: string | null,
   onNotSignedIn: () => void,
   onTermsNotAccepted?: () => void,
+  // display: a TV or projector, which follows the meeting without becoming a member of it
+  options: { display?: boolean } = {},
 ): UseSocketConnectionReturn {
+  const display = options.display === true;
   const [state, setState] = useState<MeetingState>(initialState);
+  const [joinError, setJoinError] = useState<JoinError | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedMembers, setConnectedMembers] = useState<Member[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +96,9 @@ export function useSocketConnection(
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      newSocket.emit('JOIN_MEETING', { meetingCode }, (response) => {
+      // Members join with the code alone, as the mobile app does; a display says it is one
+      const payload = display ? { meetingCode, display: true } : { meetingCode };
+      newSocket.emit('JOIN_MEETING', payload, (response) => {
         isConnectingRef.current = false;
         if (response.success) {
           stateVersionRef.current = response.stateVersion ?? 0;
@@ -98,8 +106,11 @@ export function useSocketConnection(
           setConnectedMembers(response.members || []);
           setIsConnected(true);
           setError(null);
+          setJoinError(null);
         } else {
-          setError(response.error || 'Failed to join meeting');
+          const message = response.error || 'Failed to join meeting';
+          setError(message);
+          setJoinError({ message, code: response.errorCode ?? null });
         }
       });
     });
@@ -159,7 +170,7 @@ export function useSocketConnection(
       socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [meetingCode, setTemporaryError]);
+  }, [meetingCode, display, setTemporaryError]);
 
   // Dispatch action through socket with timeout
   const dispatch = useCallback(
@@ -203,6 +214,7 @@ export function useSocketConnection(
     if (!socket) return;
     if (socket.connected) socket.disconnect();
     setError(null);
+    setJoinError(null);
     socket.connect();
   }, []);
 
@@ -224,6 +236,7 @@ export function useSocketConnection(
     isConnected,
     connectedMembers,
     error,
+    joinError,
     dispatch,
     reconnect,
     disconnect,
