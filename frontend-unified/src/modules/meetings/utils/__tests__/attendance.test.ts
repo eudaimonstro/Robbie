@@ -43,6 +43,16 @@ describe('rosterRows', () => {
     ]);
   });
 
+  it('names a member with no name as "A member" when the roster has no email (not an admin)', () => {
+    const forMembers: MeetingRoster = {
+      members: [{ userId: 6, name: null, orgRole: 'member' }],
+      invites: [],
+    };
+    expect(rosterRows(forMembers, [])).toEqual([
+      { userId: 6, name: 'A member', status: 'not-joined' },
+    ]);
+  });
+
   it('counts a present member saved without a reason as on a device', () => {
     const rows = rosterRows(roster, [{ id: 2, name: 'Dana Okafor', role: 'chair', present: true }]);
     expect(rows.find((r) => r.userId === 2)?.status).toBe('connected');

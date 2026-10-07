@@ -32,7 +32,8 @@ export function rosterRows(roster: MeetingRoster, members: Member[]): RosterRow[
           : member.presentBy === 'chair'
             ? 'marked'
             : 'connected';
-      const name = member?.name ?? person.name ?? person.email.split('@')[0];
+      // Admins get each person's email, for a name to fall back on; the others don't
+      const name = member?.name ?? person.name ?? person.email?.split('@')[0] ?? 'A member';
       return { userId: person.userId, name, status };
     })
     .sort((a, b) => byName.compare(a.name, b.name));

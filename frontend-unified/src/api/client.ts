@@ -554,7 +554,8 @@ export interface ScheduledMeeting {
 export interface RosterMember {
   userId: number;
   name: string | null;
-  email: string;
+  /** Sent to admins only */
+  email?: string;
   orgRole: OrgRole;
 }
 
