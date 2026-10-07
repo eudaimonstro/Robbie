@@ -70,9 +70,15 @@ npm run build:frontend   # Build frontend-unified
 npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
-npm run lint             # ESLint
+npm run lint             # ESLint, then the palette check
+npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes or emoji icons
+npm run e2e              # Playwright: builds, starts the API (3101) and the web build (4173) on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo
 npm run format:check     # Prettier
 ```
+
+`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101 or 4173, so stop stale ones first. Screenshots land in `e2e/test-results/`.
+
+The web tokens test (`frontend-unified/src/styles/__tests__/tokens.test.ts`) imports `index.css?raw`; that works because `vitest.config.ts` sets `test.css.include` to that one stylesheet (every other CSS import stays an empty module).
 
 ### Database
 
@@ -130,8 +136,9 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/` - Dashboard/Home (documents)
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
-- `/meetings` - Join/create live meeting (Robbie)
-- `/meetings/:code` - Active meeting with Socket.io (Robbie)
+- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer) and the code box (Robbie)
+- `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in (Robbie)
+- `/style-guide` - The design language: the tokens and components in both palettes
 - `/settings` - App settings
 - `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
 
@@ -244,6 +251,8 @@ Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST cl
 VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to a different origin
 ```
 
+`vite.config.ts` proxies `/api` and `/socket.io` to `API_PROXY_TARGET` (default `http://localhost:3001`) in both `vite` and `vite preview`; the Playwright harness points it at its own API.
+
 ## Key Conventions
 
 1. **Pure Reducer (Robbie):** Never add Date.now(), Math.random(), or side effects to the reducer. Use `idGenerators` before dispatch.
@@ -268,7 +277,9 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 
 11. **Live meetings:** a meeting code is a `MeetingPacket`; `JOIN_MEETING` refuses a code without one and creates the live state from it (`backend-node/src/socket/meetingPacket.ts`). Meeting roles come from `deriveMeetingRole` (`socket/meetingRoles.ts`) at every join, never from memory. Every action goes through the reducer, `actionValidator`, `permissionGuard` and `actionEnricher`, and all four are exhaustive over the action union: a new action needs a case in the reducer and the validator, an entry in `PERMISSIONS` (empty for server-only actions) and an entry in `ACTOR_FIELDS`. Every state sent to clients goes through `publicState` (`socket/statePublisher.ts`), which strips secret ballot choices. A dropped connection gets `PRESENCE_GRACE_MS` (90 seconds) before its member is marked absent; only device presence (`presentBy: 'device'`) is cleared automatically.
 
-12. **Design brief:** new UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); existing screens move onto it as they are touched.
+12. **Design brief:** UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); the whole web app is on it.
+
+13. **Design tokens (web):** `docs/design-brief.md` is authoritative for look and feel. Use the tokens from `frontend-unified/src/styles/index.css` (`bg-paper`, `bg-surface`, `bg-surface-2`, `text-ink`, `text-ink-muted`, `border-rule`, `bg-gavel`, `text-carried`, `text-caution-ink` for caution text, and the `-tint`s) and its utilities (`btn-primary`/`btn-secondary`/`btn-ghost`, `card`, `badge-*`, `input`, `label-caps`, `page-title`, `card-title`, `meeting-code`, `animate-reveal`/`-stamp`/`-count-pulse`/`-crossfade`); they flip with `.dark` on any element, so a subtree can be forced into the evening palette. Text links are `text-gavel hover:underline`; native checkboxes and radios use `accent-gavel`. Tailwind's own palette is switched off (`--color-*: initial`) and the old `primary-`, `secondary-`, `accent-`, `success-`, `danger-` and `meeting-` scales are gone: the only colors are the tokens and the fixed numbered shades around them (`gavel-*`, `ink-*`, `carried-*`, `caution-*`, the same in both palettes, for overlays and hovers). Never raw Tailwind palette classes, `white` or `black`, or emoji icons (lucide only): `scripts/check-palette.sh` fails `npm run lint` on them. Its allowlist (`scripts/palette-allowlist.txt`) is empty and only shrinks; never add a file to it. `/style-guide` shows everything.
 
 ## Feature Specifications
 
