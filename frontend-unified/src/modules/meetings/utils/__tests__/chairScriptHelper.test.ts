@@ -100,13 +100,33 @@ describe('the script during an election', () => {
   const during = (fields: Partial<MeetingState>) =>
     getChairScript({ ...initialState, meetingActive: true, agendaAdopted: true, ...fields })?.text;
 
+  it('takes no ballot when nobody has been nominated', () => {
+    expect(during({ currentNominationPosition: 'Director' })).toBe(
+      '"Nominations for Director are closed, and nobody has been nominated."',
+    );
+  });
+
   it('takes nominations, then opens the ballot, then declares the result', () => {
     expect(during({ nominationsOpen: true, currentNominationPosition: 'Director' })).toBe(
       '"Nominations are open for Director. Are there any further nominations?"',
     );
-    expect(during({ currentNominationPosition: 'Director' })).toBe(
-      '"Nominations for Director are closed. The ballot will now be taken."',
-    );
+    expect(
+      during({
+        currentNominationPosition: 'Director',
+        nominations: [
+          {
+            id: 1,
+            position: 'Director',
+            nomineeName: 'Carmen Diaz',
+            nomineeId: 5,
+            nominatedBy: 'Alice Brennan',
+            nominatorId: 3,
+            timestamp: '8:00:00 PM',
+            declined: false,
+          },
+        ],
+      }),
+    ).toBe('"Nominations for Director are closed. The ballot will now be taken."');
     const election = {
       id: 1,
       position: 'Director',

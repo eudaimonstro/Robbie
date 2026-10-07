@@ -1,5 +1,6 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { isRuleSuspended } from '@robbie-bylawyer/shared/utils';
+import { nomineesFor } from './question';
 
 export interface ChairScript {
   text: string;
@@ -65,8 +66,16 @@ export function getChairScript(state: MeetingState): ChairScript | null {
     };
   }
   if (state.currentNominationPosition && !state.currentElection) {
+    const position = state.currentNominationPosition;
+    // Nobody to vote for: no ballot is taken
+    if (nomineesFor(state, position).length === 0) {
+      return {
+        text: `"Nominations for ${position} are closed, and nobody has been nominated."`,
+        note: 'Open nominations again, or set the election aside.',
+      };
+    }
     return {
-      text: `"Nominations for ${state.currentNominationPosition} are closed. The ballot will now be taken."`,
+      text: `"Nominations for ${position} are closed. The ballot will now be taken."`,
       note: 'Open the ballot in the election card.',
     };
   }
