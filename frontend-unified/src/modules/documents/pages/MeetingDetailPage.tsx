@@ -121,7 +121,7 @@ export default function MeetingDetailPage() {
       <div className="text-center py-12">
         <AlertCircle className="w-12 h-12 text-gavel mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-ink mb-2">{error || 'Meeting not found'}</h2>
-        <Link to="/bylawyer-meetings" className="text-gavel hover:text-gavel">
+        <Link to="/bylawyer-meetings" className="text-gavel hover:underline">
           Return to meetings
         </Link>
       </div>

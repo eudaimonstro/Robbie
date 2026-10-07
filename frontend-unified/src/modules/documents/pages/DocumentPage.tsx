@@ -136,7 +136,7 @@ export default function DocumentPage() {
       <div className="text-center py-12">
         <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-ink mb-2">Document not found</h2>
-        <Link to="/" className="text-gavel hover:text-gavel">
+        <Link to="/" className="text-gavel hover:underline">
           Return to documents
         </Link>
       </div>

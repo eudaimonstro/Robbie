@@ -43,7 +43,7 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
         <div className="px-4 py-2 border-t border-rule">
           <Link
             to={`/documents/${documentId}/amendments`}
-            className="text-sm text-gavel hover:text-gavel"
+            className="text-sm text-gavel hover:underline"
           >
             View all amendments
           </Link>

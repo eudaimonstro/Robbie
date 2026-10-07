@@ -52,6 +52,7 @@ The sidebar is `surface-2` with `ink` text and a `gavel` left bar on the active 
 
 - **Cards**: `surface` on `paper`, a 1px `rule` border, 12px radius, no drop shadow. Panels inside the console use a 2px top rule in `gavel` only for the question card.
 - **Buttons**: primary is filled `gavel` with paper text; secondary is a 1px `ink` outline; ghost is text in `gavel`. Height 40px on laptops, 56px on phones for the primary vote and second buttons. Radius 8px. No gradients.
+- **Text links**: `gavel`, underlined on hover (`hover:underline`).
 - **Badges**: label style above, in a `tint` background: role badges (Chair, Admin, Member, Guest), status badges (Draft, Proposed, Adopted), presence (Present, Marked present, Absent).
 - **The question card**: a `surface` card with a 2px `gavel` top rule, the kind of question as a label ("Main motion", "Amendment", "Election for Director"), the text in Fraunces 2.5rem (laptop) or 1.5rem (phone), then "Moved by Alice Brennan, seconded by Ben Whitaker" in Public Sans muted, then the vote required ("Majority", "Two thirds").
 - **The stamp**: a bordered box (3px `carried` or `ink`), Fraunces 700 uppercase, rotated -4 degrees, `transform: scale(1.2)` to `scale(1)` with a 180ms ease-out and a 60ms opacity fade, over the tally line ("On devices 12 to 3, in the room 9 to 2: 21 to 5"). On the display it fills a third of the screen.

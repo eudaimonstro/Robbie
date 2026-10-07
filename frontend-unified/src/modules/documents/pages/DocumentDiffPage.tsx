@@ -123,7 +123,7 @@ export default function DocumentDiffPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-ink mb-2">Document not found</h2>
-        <Link to="/" className="text-gavel hover:text-gavel">
+        <Link to="/" className="text-gavel hover:underline">
           Return to documents
         </Link>
       </div>

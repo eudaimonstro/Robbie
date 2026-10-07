@@ -15,7 +15,7 @@ interface MeetingHeaderProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-gavel-tint text-gavel',
+  scheduled: 'bg-gavel-tint text-ink',
   in_progress: 'bg-caution-tint text-caution-ink',
   completed: 'bg-carried-tint text-carried',
   cancelled: 'bg-surface-2 text-ink-muted',

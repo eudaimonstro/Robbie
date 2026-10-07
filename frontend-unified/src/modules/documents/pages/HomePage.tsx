@@ -150,7 +150,7 @@ export default function HomePage() {
           <div className="card">
             <div className="px-6 py-4 border-b border-rule flex items-center justify-between">
               <h3 className="font-semibold text-ink">Documents</h3>
-              <Link to="/" className="text-sm text-gavel hover:text-gavel">
+              <Link to="/" className="text-sm text-gavel hover:underline">
                 View all
               </Link>
             </div>
@@ -256,12 +256,12 @@ export default function HomePage() {
               </div>
             )}
             <div className="px-4 py-2 border-t border-rule flex justify-between">
-              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:text-gavel">
+              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:underline">
                 View all meetings
               </Link>
               <Link
                 to="/meetings"
-                className="text-sm text-gavel hover:text-gavel flex items-center gap-1"
+                className="text-sm text-gavel hover:underline flex items-center gap-1"
               >
                 <ExternalLink className="w-3 h-3" />
                 Live
