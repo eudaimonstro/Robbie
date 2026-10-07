@@ -13,7 +13,15 @@ import {
   type ImportVersionBody,
 } from '../../schemas/versions.js';
 import { diffSections } from '../services/versionDiff.js';
-import { DOCX_LIMIT, DOCX_TYPES, NOT_A_DOCX, NO_FILE, docxToText } from '../services/docxText.js';
+import {
+  DOCX_LIMIT,
+  DOCX_TOO_LARGE,
+  DOCX_TYPES,
+  DocxTooLargeError,
+  NOT_A_DOCX,
+  NO_FILE,
+  docxToText,
+} from '../services/docxText.js';
 import { logger } from '../../middleware/logger.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
@@ -243,7 +251,7 @@ versionsRouter.post(
  * POST /api/documents/:docId/import/docx
  * A Word document as text for the bylaws parser. The body is the raw file (at most 5 MB), read
  * from memory and never stored. It is read only after the role is checked, so nobody below a
- * secretary can make the server read it.
+ * secretary can make the server read it, and refused (400) when it would unpack too large.
  */
 versionsRouter.post(
   '/documents/:docId/import/docx',
@@ -259,6 +267,10 @@ versionsRouter.post(
     try {
       res.json({ text: await docxToText(file) });
     } catch (error) {
+      if (error instanceof DocxTooLargeError) {
+        logger.warn('A Word document would unpack too large to read');
+        return res.status(400).json({ error: DOCX_TOO_LARGE });
+      }
       logger.warn({ err: error }, 'A Word document could not be read');
       res.status(400).json({ error: NOT_A_DOCX });
     }

@@ -39,8 +39,14 @@ function paragraphXml({ text, heading }: DocxParagraph): string {
   return `<w:p>${style}<w:r><w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
 }
 
-/** A minimal .docx with these paragraphs, built in memory (no binary fixture in the repository) */
-export async function makeDocx(paragraphs: DocxParagraph[]): Promise<Buffer> {
+/**
+ * A minimal .docx with these paragraphs, built in memory (no binary fixture in the repository).
+ * Its parts are stored as they are unless `deflate` compresses them, as Word does.
+ */
+export async function makeDocx(
+  paragraphs: DocxParagraph[],
+  { deflate = false }: { deflate?: boolean } = {},
+): Promise<Buffer> {
   const zip = new JSZip();
   zip.file('[Content_Types].xml', CONTENT_TYPES);
   zip.file('_rels/.rels', ROOT_RELS);
@@ -53,7 +59,7 @@ export async function makeDocx(paragraphs: DocxParagraph[]): Promise<Buffer> {
       .map(paragraphXml)
       .join('')}</w:body></w:document>`,
   );
-  return zip.generateAsync({ type: 'nodebuffer' });
+  return zip.generateAsync({ type: 'nodebuffer', compression: deflate ? 'DEFLATE' : 'STORE' });
 }
 
 /** The header a browser sends with a .docx */

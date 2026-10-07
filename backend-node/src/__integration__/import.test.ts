@@ -3,7 +3,7 @@ import request from 'supertest';
 import { parseBylaws } from '@robbie-bylawyer/shared/utils';
 import { app } from '../app.js';
 import { prisma } from '../db/prisma.js';
-import { NOT_A_DOCX, NO_FILE } from '../bylawyer/services/docxText.js';
+import { DOCX_TOO_LARGE, NOT_A_DOCX, NO_FILE } from '../bylawyer/services/docxText.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -106,6 +106,15 @@ describe('importing a Word document', () => {
     const text = await send(Buffer.from('Article I'), { 'Content-Type': 'text/plain' });
     expect(text.body).toEqual({ error: NO_FILE });
   });
+
+  it('refuses a small file that would unpack too large to read', async () => {
+    // 25 MB of one letter compresses to a few kilobytes, under the upload limit
+    const bomb = await makeDocx([{ text: 'a'.repeat(25 * 1024 * 1024) }], { deflate: true });
+    expect(bomb.length).toBeLessThan(1024 * 1024);
+    const res = await send(bomb);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: DOCX_TOO_LARGE });
+  }, 30_000);
 
   it('refuses a file over 5 MB', async () => {
     const res = await send(Buffer.alloc(5 * 1024 * 1024 + 1));
