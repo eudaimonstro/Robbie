@@ -8,10 +8,11 @@ import type { MeetingState } from '@robbie-bylawyer/shared/types';
 
 /**
  * A length of time in a title, which says nothing about the minutes of a meeting: "Homeowner
- * forum (3 minutes per speaker)", "Treasurer's report (five minutes)"
+ * forum (3 minutes per speaker)", "Treasurer's report (five minutes)". Not a year: "Approval of
+ * the 2025 minutes" is about them.
  */
 const DURATION =
-  /\b(?:\d+|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)[\s-]*minutes?\b/gi;
+  /\b(?:\d{1,3}|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)[\s-]*minutes?\b/gi;
 
 /** The title without its lengths of time */
 function withoutDurations(title: string): string {

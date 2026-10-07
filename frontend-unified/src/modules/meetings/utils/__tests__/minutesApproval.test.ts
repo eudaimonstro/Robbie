@@ -94,6 +94,7 @@ describe('titleIsTheMinutes', () => {
     expect(titleIsTheMinutes('Reading and approval of minutes')).toBe(true);
     expect(titleIsTheMinutes('Corrections to the minutes')).toBe(true);
     expect(titleIsTheMinutes('Minutes')).toBe(true);
+    expect(titleIsTheMinutes('Approval of the 2025 minutes')).toBe(true);
     expect(titleIsTheMinutes('Minutes of the March board meeting')).toBe(true);
   });
 
