@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { GitBranch, Clock, ChevronRight, FileText } from 'lucide-react';
 import { useOrganization } from '../../../context/OrganizationContext';
+import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import {
   documents as documentsApi,
   amendments as amendmentsApi,
@@ -14,7 +15,7 @@ import { StatusBadge } from '../../../components/ui/Badge';
 
 export default function AmendmentsPage() {
   const { documentId } = useParams<{ documentId: string }>();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, organizations: orgs } = useOrganization();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,7 @@ export default function AmendmentsPage() {
   }
 
   if (!currentOrganization) {
+    if (orgs.length === 0) return <NoOrganizations />;
     return (
       <EmptyState
         icon={GitBranch}

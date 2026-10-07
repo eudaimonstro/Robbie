@@ -48,8 +48,10 @@ export function NewOrganizationModal({
       showToast('success', `Created ${created.name}`);
       close();
     } catch (err) {
-      // For example "You can own at most 3 organizations", or a name whose slug is taken
-      setError(err instanceof Error ? err.message : 'Failed to create the organization');
+      // For example "You can own at most 3 organizations". A taken name comes back as its slug
+      // ("Organization with slug 'x' already exists"), which the user never saw.
+      const message = err instanceof Error ? err.message : 'Failed to create the organization';
+      setError(/slug/i.test(message) ? 'An organization with that name already exists' : message);
     } finally {
       setCreating(false);
     }

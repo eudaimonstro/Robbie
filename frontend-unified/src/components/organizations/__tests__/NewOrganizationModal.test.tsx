@@ -53,4 +53,16 @@ describe('NewOrganizationModal', () => {
     expect(await screen.findByText('You can own at most 3 organizations')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('says in words when the name is already taken', async () => {
+    create.mockRejectedValueOnce(
+      new Error("Organization with slug 'maple-grove-hoa' already exists"),
+    );
+    renderModal();
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Maple Grove HOA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
+
+    expect(await screen.findByText('An organization with that name already exists')).toBeTruthy();
+  });
 });
