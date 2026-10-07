@@ -97,19 +97,25 @@ describe('assertDocxUnpacksSmall', () => {
     });
   }
 
-  for (const [record, signature] of [
-    ['end of central directory', [0x50, 0x4b, 0x06, 0x06]],
-    ['end of central directory locator', [0x50, 0x4b, 0x06, 0x07]],
-  ] as const) {
-    it(`refuses a zip with a ZIP64 ${record} anywhere in it`, async () => {
-      const zip = await small();
-      // In the end record's comment: the directory stays where it was
-      const end = zip.lastIndexOf(END);
-      zip.writeUInt16LE(4, end + 20);
-      const patched = Buffer.concat([zip, Buffer.from(signature)]);
-      await expect(assertDocxUnpacksSmall(patched)).rejects.toBeInstanceOf(DocxTooLargeError);
-    });
-  }
+  it('lets through a zip whose part data holds the ZIP64 signatures', async () => {
+    // Bytes that can occur by chance inside compressed data; here in a stored part, verbatim
+    const zip = new JSZip();
+    const data = Buffer.from([0x50, 0x4b, 0x06, 0x06, 0x20, 0x50, 0x4b, 0x06, 0x07]);
+    zip.file('word/document.xml', '<w:document/>', { createFolders: false });
+    zip.file('word/media/blob.bin', data, { createFolders: false });
+    const stored = await zip.generateAsync({ type: 'nodebuffer', compression: 'STORE' });
+    expect(stored.includes(data)).toBe(true);
+    await expect(assertDocxUnpacksSmall(stored)).resolves.toBeUndefined();
+  });
+
+  it('refuses a zip with a ZIP64 locator right before its end record', async () => {
+    const zip = await small();
+    const end = zip.lastIndexOf(END);
+    const locator = Buffer.alloc(20);
+    locator.writeUInt32LE(0x07064b50, 0);
+    const patched = Buffer.concat([zip.subarray(0, end), locator, zip.subarray(end)]);
+    await expect(assertDocxUnpacksSmall(patched)).rejects.toBeInstanceOf(DocxTooLargeError);
+  });
 
   it('refuses a part named differently in its local header and the directory', async () => {
     // jszip unpacks the part by its local name, word/document.xml; the directory calls it

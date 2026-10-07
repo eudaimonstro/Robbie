@@ -43,10 +43,10 @@ const inflateRawAsync = promisify(inflateRaw);
 const LOCAL_HEADER = 0x04034b50;
 const CENTRAL_HEADER = 0x02014b50;
 const END_OF_CENTRAL_DIRECTORY = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
-// The ZIP64 end of central directory record and its locator: jszip reads a second directory
-// from them, one the walk below never sees
-const ZIP64_END = Buffer.from([0x50, 0x4b, 0x06, 0x06]);
-const ZIP64_LOCATOR = Buffer.from([0x50, 0x4b, 0x06, 0x07]);
+// The ZIP64 end of central directory locator, which sits right before the end record when a
+// zip has a ZIP64 directory (one the walk below never sees)
+const ZIP64_LOCATOR = 0x07064b50;
+const ZIP64_LOCATOR_SIZE = 20;
 // An extra field naming the part in Unicode, which jszip reads in place of the header's name
 const UNICODE_PATH = 0x7075;
 const STORED = 0;
@@ -78,12 +78,17 @@ function hasExtraField(buffer: Buffer, start: number, length: number, id: number
  * zip jszip would read the same way, and DocxTooLargeError for one that needs ZIP64.
  */
 function zipEntries(buffer: Buffer): ZipEntry[] {
-  // jszip looks for a ZIP64 directory wherever these are; this walk reads only the plain one
-  if (buffer.includes(ZIP64_END) || buffer.includes(ZIP64_LOCATOR)) {
-    throw new DocxTooLargeError();
-  }
   const end = buffer.lastIndexOf(END_OF_CENTRAL_DIRECTORY);
   if (end < 0 || end + 22 > buffer.length) throw new Error('No end of central directory');
+  // A ZIP64 locator where it belongs, right before the end record. Only there: its signature
+  // can occur by chance anywhere in compressed data, and jszip takes the ZIP64 path only when
+  // the end record sends it there (the six fields below), so this is a second guard
+  if (
+    end >= ZIP64_LOCATOR_SIZE &&
+    buffer.readUInt32LE(end - ZIP64_LOCATOR_SIZE) === ZIP64_LOCATOR
+  ) {
+    throw new DocxTooLargeError();
+  }
   const directorySize = buffer.readUInt32LE(end + 12);
   const directoryOffset = buffer.readUInt32LE(end + 16);
   // Any of the six fields at its largest sends jszip to the ZIP64 record: this disk, the disk
