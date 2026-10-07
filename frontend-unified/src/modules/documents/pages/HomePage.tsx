@@ -1,28 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  FileText,
-  Clock,
-  ChevronRight,
-  Building2,
-  GitBranch,
-  Calendar,
-  Users,
-  ExternalLink,
-} from 'lucide-react';
+import { FileText, Clock, ChevronRight, Building2, GitBranch, Calendar, Users } from 'lucide-react';
 import { useOrganization, useCan } from '../../../context/OrganizationContext';
 import {
   documents as documentsApi,
   amendments as amendmentsApi,
-  meetings as meetingsApi,
+  schedule as scheduleApi,
   Document,
   Amendment,
-  Meeting,
+  ScheduledMeeting,
 } from '../../../api/client';
+import { formatMeetingTime } from '../../../utils/dates';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import EmptyState from '../../../components/ui/EmptyState';
 import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
-import { StatusBadge, DocumentTypeBadge, MeetingTypeBadge } from '../../../components/ui/Badge';
+import { StatusBadge, DocumentTypeBadge } from '../../../components/ui/Badge';
 
 export default function HomePage() {
   const { currentOrganization, organizations: orgs, loading: orgLoading } = useOrganization();
@@ -30,7 +22,7 @@ export default function HomePage() {
   const canCreate = useCan('secretary');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [recentAmendments, setRecentAmendments] = useState<Amendment[]>([]);
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
+  const [upcomingMeetings, setUpcomingMeetings] = useState<ScheduledMeeting[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,12 +37,13 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [docs, mtgs] = await Promise.all([
+        const [docs, scheduled] = await Promise.all([
           documentsApi.list(currentOrganization.id),
-          meetingsApi.list(currentOrganization.id),
+          scheduleApi.list(currentOrganization.id),
         ]);
         setDocuments(docs);
-        setUpcomingMeetings(mtgs.filter((m) => m.status === 'scheduled').slice(0, 3));
+        // The schedule lists the meetings not yet adjourned first, soonest first
+        setUpcomingMeetings(scheduled.filter((m) => !m.endedAt).slice(0, 3));
 
         // Fetch amendments from all documents
         const allAmendments: Amendment[] = [];
@@ -239,32 +232,33 @@ export default function HomePage() {
                 {upcomingMeetings.map((meeting) => (
                   <Link
                     key={meeting.id}
-                    to={`/bylawyer-meetings/${meeting.id}`}
+                    to={`/meetings/${meeting.robbieCode}`}
                     className="block px-4 py-3 hover:bg-surface-2 transition-colors"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-ink">{meeting.title}</span>
-                      <MeetingTypeBadge type={meeting.meetingType} />
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-medium text-sm text-ink truncate">
+                        {meeting.title || 'Untitled meeting'}
+                      </span>
+                      <span className="meeting-code text-xs text-ink-muted">
+                        {meeting.robbieCode}
+                      </span>
                     </div>
                     <p className="text-xs text-ink-muted flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(meeting.scheduledDate).toLocaleDateString()}
-                      {meeting.location && ` - ${meeting.location}`}
+                      <Calendar className="w-3 h-3" aria-hidden="true" />
+                      {meeting.scheduledFor
+                        ? formatMeetingTime(meeting.scheduledFor)
+                        : 'No date set'}
                     </p>
                   </Link>
                 ))}
               </div>
             )}
             <div className="px-4 py-2 border-t border-rule flex justify-between">
-              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:underline">
-                View all meetings
+              <Link to="/meetings" className="text-sm text-gavel hover:underline">
+                All scheduled meetings
               </Link>
-              <Link
-                to="/meetings"
-                className="text-sm text-gavel hover:underline flex items-center gap-1"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Live
+              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:underline">
+                Meeting records
               </Link>
             </div>
           </div>

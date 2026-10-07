@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { SocketProvider, useSocket } from '../SocketContext';
 
@@ -66,22 +67,34 @@ vi.mock('socket.io-client', () => ({
 }));
 
 function MeetingStatus() {
-  const { isConnected, meetingCode, joinMeeting, leaveMeeting } = useSocket();
+  const { isConnected, meetingCode, leaveMeeting } = useSocket();
   return (
     <div>
       <p>{isConnected ? 'connected' : 'not connected'}</p>
-      <p>Code: {meetingCode ?? 'none'}</p>
-      <button onClick={() => joinMeeting('DEMO')}>Join</button>
+      <p>Code: {meetingCode}</p>
       <button onClick={leaveMeeting}>Leave</button>
     </div>
   );
 }
 
-function renderProvider() {
-  return render(
-    <SocketProvider>
+// The meetings module's route: the provider takes the code from the link
+function MeetingRoute() {
+  const { code = '' } = useParams();
+  return (
+    <SocketProvider meetingCode={code}>
       <MeetingStatus />
-    </SocketProvider>,
+    </SocketProvider>
+  );
+}
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/meetings" element={<p>Live meetings page</p>} />
+        <Route path="/meetings/:code" element={<MeetingRoute />} />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 
@@ -90,53 +103,22 @@ describe('SocketProvider', () => {
     sockets.length = 0;
   });
 
-  afterEach(() => {
-    localStorage.clear();
-  });
-
-  it('opens no socket until a meeting is joined', async () => {
-    renderProvider();
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-
-    expect(sockets).toHaveLength(0);
-    expect(screen.getByText('Code: none')).toBeTruthy();
-  });
-
-  it('joins with only the meeting code and keeps one socket', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+  it('joins the meeting in the link with only its code, and keeps one socket', async () => {
+    renderAt('/meetings/DEMO');
 
     await screen.findByText('connected');
     // Give a reconnect loop time to show itself
     await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
+    expect(screen.getByText('Code: DEMO')).toBeTruthy();
     expect(sockets).toHaveLength(1);
     expect(sockets[0].connected).toBe(true);
     const joins = sockets[0].emitted.filter((e) => e.event === 'JOIN_MEETING');
     expect(joins).toEqual([{ event: 'JOIN_MEETING', data: { meetingCode: 'DEMO' } }]);
   });
 
-  it('rejoins the remembered meeting after a reload', async () => {
-    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 1, code: 'DEMO' }));
-    renderProvider();
-
-    await screen.findByText('connected');
-    expect(screen.getByText('Code: DEMO')).toBeTruthy();
-    expect(sockets).toHaveLength(1);
-  });
-
-  it("doesn't rejoin a meeting another user joined on this browser", async () => {
-    // Someone else signed out; this user signed in on the same browser
-    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 2, code: 'DEMO' }));
-    renderProvider();
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(sockets).toHaveLength(0);
-  });
-
   it('keeps the same socket when the server sends a state update', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+    renderAt('/meetings/DEMO');
     await screen.findByText('connected');
 
     act(() => {
@@ -151,16 +133,20 @@ describe('SocketProvider', () => {
     expect(sockets[0].connected).toBe(true);
   });
 
-  it('leaving emits LEAVE_MEETING, disconnects and forgets the meeting', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+  it('leaving emits LEAVE_MEETING, disconnects and goes back to the Live Meetings page', async () => {
+    renderAt('/meetings/DEMO');
     await screen.findByText('connected');
 
     fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
 
     expect(sockets[0].emitted.map((e) => e.event)).toContain('LEAVE_MEETING');
     expect(sockets[0].connected).toBe(false);
-    expect(screen.getByText('Code: none')).toBeTruthy();
+    expect(screen.getByText('Live meetings page')).toBeTruthy();
+  });
+
+  it('remembers no meeting in the browser: the link is the meeting', async () => {
+    renderAt('/meetings/DEMO');
+    await screen.findByText('connected');
     expect(localStorage.getItem('robbie_meeting_code')).toBeNull();
   });
 });

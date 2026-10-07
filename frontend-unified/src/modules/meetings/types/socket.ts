@@ -62,8 +62,9 @@ export interface SocketContextValue {
   currentUser: Member | null;
   connectedMembers: Member[];
   error: string | null;
-  meetingCode: string | null;
-  joinMeeting: (code: string) => void;
+  /** The meeting in the page's link (/meetings/:code) */
+  meetingCode: string;
+  /** Leave the meeting and go back to the Live Meetings page */
   leaveMeeting: () => void;
   reconnect: () => void;
 }

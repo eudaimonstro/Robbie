@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { formatCalendarDate, fromLocalDateTimeInput, toLocalDateTimeInput } from '../dates';
+import {
+  formatCalendarDate,
+  formatMeetingTime,
+  fromLocalDateTimeInput,
+  toLocalDateTimeInput,
+} from '../dates';
 
 describe('formatCalendarDate', () => {
   it('runs in a non-UTC time zone, so day shifts would show', () => {
@@ -41,5 +46,17 @@ describe('fromLocalDateTimeInput with no usable value', () => {
   it('returns an empty value instead of throwing, so the server can reject it', () => {
     // new Date('').toISOString() throws, which left the meeting form silently stuck open
     expect(fromLocalDateTimeInput('')).toBe('');
+  });
+});
+
+describe('formatMeetingTime', () => {
+  it("shows a meeting's day and time in the viewer's time zone", () => {
+    // 7 PM in Chicago, where the tests run, on Tuesday, October 20, 2026
+    expect(formatMeetingTime('2026-10-21T00:00:00.000Z')).toMatch(/^Tue, Oct 20, 7:00\sPM$/);
+  });
+
+  it('shows nothing for a missing or unreadable date', () => {
+    expect(formatMeetingTime('')).toBe('');
+    expect(formatMeetingTime('not a date')).toBe('');
   });
 });

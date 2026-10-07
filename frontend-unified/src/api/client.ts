@@ -296,6 +296,13 @@ export const members = {
     request<void>(`/organizations/${orgId}/invites/${inviteId}`, { method: 'DELETE' }),
 };
 
+// The organization's schedule: its meetings (packets), not yet adjourned first. Not cached: a
+// meeting starts and ends while the page is open.
+export const schedule = {
+  list: (orgId: string) =>
+    request<ScheduledMeeting[]>(`/organizations/${orgId}/packets`, {}, false),
+};
+
 // Documents
 export const documents = {
   list: (orgId: string) => request<Document[]>(`/organizations/${orgId}/documents`),
@@ -503,6 +510,22 @@ export interface MemberList {
   members: OrgMember[];
   /** Only for admins */
   invites?: PendingInvite[];
+}
+
+/** A scheduled meeting, as the organization's schedule lists it (its packet) */
+export interface ScheduledMeeting {
+  id: string;
+  /** The meeting code: the live meeting is /meetings/<robbieCode> */
+  robbieCode: string;
+  title: string | null;
+  description: string | null;
+  scheduledFor: string | null;
+  /** The presiding officer, who chairs the live meeting; null when the admins run it */
+  chairUserId: number | null;
+  /** When the meeting was called to order and adjourned */
+  startedAt: string | null;
+  endedAt: string | null;
+  chair: { name: string | null } | null;
 }
 
 export type AddMemberResult =

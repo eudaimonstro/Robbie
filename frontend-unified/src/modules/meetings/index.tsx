@@ -1,19 +1,22 @@
 /**
  * Meetings Module
  *
- * This module wraps the Robbie real-time meeting functionality.
- * It includes its own SocketProvider for Socket.io connections.
+ * /meetings is the Live Meetings page: the organization's schedule and the code box.
+ * /meetings/:code is the live meeting with that code. The link is the meeting, so it can be
+ * shared or shown as a QR code, and a reload rejoins it; each meeting gets its own socket.
  */
 
 import { useEffect } from 'react';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
-import { JoinMeetingScreen } from './views/JoinMeetingScreen';
+import { LiveMeetingsPage } from './views/LiveMeetingsPage';
 import { MeetingApp } from './views/MeetingApp';
+import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { meetingCode, isConnected, error, reconnect, leaveMeeting } = useSocket();
+  const { isConnected, error, reconnect, leaveMeeting } = useSocket();
   const { showToast } = useToast();
 
   // Forward socket errors to toast notifications
@@ -22,11 +25,6 @@ function MeetingsContent() {
       showToast('error', error);
     }
   }, [error, showToast]);
-
-  // No meeting yet: ask for its code
-  if (!meetingCode) {
-    return <JoinMeetingScreen />;
-  }
 
   // Show loading while connecting to the meeting. The meeting view (with its Reconnect and Leave
   // buttons) isn't shown until connected, so this screen needs its own way out: the socket
@@ -64,12 +62,27 @@ function MeetingsContent() {
   return <MeetingApp />;
 }
 
+/** The meeting in the link; a link that can't be a meeting code goes to the Live Meetings page */
+function LiveMeetingRoute() {
+  const { code = '' } = useParams();
+  const meetingCode = normalizeMeetingCode(code);
+  if (!MEETING_CODE.test(meetingCode)) return <Navigate to="/meetings" replace />;
+  // A new code is a new meeting: a fresh provider, so nothing of the last one shows
+  return (
+    <SocketProvider key={meetingCode} meetingCode={meetingCode}>
+      <MeetingsContent />
+    </SocketProvider>
+  );
+}
+
 export default function MeetingsModule() {
   return (
     <MeetingOrganizationProvider>
-      <SocketProvider>
-        <MeetingsContent />
-      </SocketProvider>
+      <Routes>
+        <Route index element={<LiveMeetingsPage />} />
+        <Route path=":code" element={<LiveMeetingRoute />} />
+        <Route path="*" element={<Navigate to="/meetings" replace />} />
+      </Routes>
     </MeetingOrganizationProvider>
   );
 }

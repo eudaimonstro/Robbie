@@ -7,6 +7,7 @@ import {
   auth,
   members,
   bylawSync,
+  schedule,
   apiFetch,
   HttpError,
   setSignedOutHandler,
@@ -228,5 +229,16 @@ describe('organization calls', () => {
   it('treats the sync status of an unlinked meeting as not synced', async () => {
     mockResponse(404, { error: 'Not found' });
     expect(await bylawSync.getSyncStatus('ABCD', 41)).toEqual({ synced: false });
+  });
+
+  it('reads the schedule fresh each time, since meetings start and end', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await schedule.list('o1');
+    await schedule.list('o1');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe(
+      '/api/organizations/o1/packets',
+    );
   });
 });

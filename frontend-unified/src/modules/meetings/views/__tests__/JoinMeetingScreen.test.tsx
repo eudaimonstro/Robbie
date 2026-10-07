@@ -1,47 +1,46 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
-const socket = vi.hoisted(() => ({ joinMeeting: vi.fn(), error: null as string | null }));
-vi.mock('../../context/SocketContext', () => ({ useSocket: () => socket }));
-vi.mock('../../components/scheduling', () => ({ MeetingScheduler: () => <p>Scheduler</p> }));
-const bridge = vi.hoisted(() => ({
-  currentOrganization: null as null | { id: string; name: string; role: string },
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => navigate,
 }));
-vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
 
 const { JoinMeetingScreen } = await import('../JoinMeetingScreen');
 
+function renderBox(props: { message?: string; initialCode?: string } = {}) {
+  render(
+    <MemoryRouter>
+      <JoinMeetingScreen {...props} />
+    </MemoryRouter>,
+  );
+}
+
 describe('JoinMeetingScreen', () => {
   beforeEach(() => {
-    socket.joinMeeting.mockClear();
-    bridge.currentOrganization = null;
+    vi.clearAllMocks();
   });
 
-  it('joins by meeting code', () => {
-    render(<JoinMeetingScreen />);
+  it("goes to the meeting's link", () => {
+    renderBox();
     fireEvent.change(screen.getByLabelText('Meeting code'), { target: { value: ' sync02 ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Join meeting' }));
-    expect(socket.joinMeeting).toHaveBeenCalledWith('SYNC02');
+    expect(navigate).toHaveBeenCalledWith('/meetings/SYNC02');
   });
 
   it('rejects a code that is not 4 to 8 letters or digits', () => {
-    render(<JoinMeetingScreen />);
+    renderBox();
     fireEvent.change(screen.getByLabelText('Meeting code'), { target: { value: 'ab!' } });
     fireEvent.click(screen.getByRole('button', { name: 'Join meeting' }));
-    expect(socket.joinMeeting).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByText('Meeting codes are 4 to 8 letters or digits')).toBeTruthy();
   });
 
-  it('offers scheduling to a secretary of the current organization', () => {
-    bridge.currentOrganization = { id: 'o1', name: 'Maple Grove HOA', role: 'secretary' };
-    render(<JoinMeetingScreen />);
-    fireEvent.click(screen.getByRole('button', { name: /Schedule a New Meeting/ }));
-    expect(screen.getByText('Scheduler')).toBeTruthy();
-  });
-
-  it('does not offer scheduling to a member', () => {
-    bridge.currentOrganization = { id: 'o1', name: 'Maple Grove HOA', role: 'member' };
-    render(<JoinMeetingScreen />);
-    expect(screen.queryByRole('button', { name: /Schedule a New Meeting/ })).toBeNull();
+  it('says why the visitor is here, with the code ready to correct', () => {
+    renderBox({ message: 'No meeting with that code', initialCode: 'NOPE01' });
+    expect(screen.getByText('No meeting with that code')).toBeTruthy();
+    expect((screen.getByLabelText('Meeting code') as HTMLInputElement).value).toBe('NOPE01');
   });
 });

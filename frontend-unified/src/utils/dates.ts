@@ -31,3 +31,20 @@ export function fromLocalDateTimeInput(value: string): string {
   // An empty or unparseable value is passed on as '', for the server to reject with a message
   return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
+
+/**
+ * A meeting's day and time for display, in the viewer's time zone ("Tue, Oct 20, 7:00 PM"):
+ * unlike a calendar date, a meeting is an instant
+ */
+export function formatMeetingTime(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
