@@ -21,10 +21,11 @@ import {
 } from '../../../api/client';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import EmptyState from '../../../components/ui/EmptyState';
+import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import { StatusBadge, DocumentTypeBadge, MeetingTypeBadge } from '../../../components/ui/Badge';
 
 export default function HomePage() {
-  const { currentOrganization, loading: orgLoading } = useOrganization();
+  const { currentOrganization, organizations: orgs, loading: orgLoading } = useOrganization();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [recentAmendments, setRecentAmendments] = useState<Amendment[]>([]);
   const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([]);
@@ -80,6 +81,7 @@ export default function HomePage() {
   }
 
   if (!currentOrganization) {
+    if (orgs.length === 0) return <NoOrganizations />;
     return (
       <EmptyState
         icon={Building2}
