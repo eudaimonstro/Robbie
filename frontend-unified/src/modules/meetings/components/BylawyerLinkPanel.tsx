@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Link, Unlink, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
+import { Link, Unlink, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
 import {
   bylawSync,
   type MeetingOrganizationResponse,
@@ -113,10 +113,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   if (unavailable) {
     return (
       <div className="bg-surface rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-ink">
-          <Building2 size={18} />
-          Organization
-        </h3>
+        <h3 className="label-caps mb-3">Organization</h3>
         <div className="bg-surface-2 rounded-lg p-4 text-center">
           <AlertCircle className="mx-auto text-ink-muted mb-2" size={24} />
           <p className="text-ink-muted text-sm">Couldn't load your organizations</p>
@@ -135,10 +132,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   return (
     <div className="bg-surface rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold flex items-center gap-2 text-ink">
-          <Building2 size={18} />
-          Organization
-        </h3>
+        <h3 className="label-caps">Organization</h3>
         <button
           onClick={handleRefresh}
           disabled={loading}

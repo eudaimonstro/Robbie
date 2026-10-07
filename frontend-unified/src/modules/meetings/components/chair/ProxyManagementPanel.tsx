@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Users, UserPlus, UserMinus, Settings, Clock, X } from 'lucide-react';
+import { UserPlus, UserMinus, Settings, Clock, X } from 'lucide-react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 
@@ -128,8 +128,8 @@ export const ProxyManagementPanel = React.memo(function ProxyManagementPanel({
   return (
     <section className="bg-surface rounded-lg p-4 shadow-sm" aria-labelledby="proxy-heading">
       <div className="flex items-center justify-between mb-3">
-        <h3 id="proxy-heading" className="font-semibold flex items-center gap-2 text-ink">
-          <Users size={18} aria-hidden="true" /> Proxy Voting
+        <h3 id="proxy-heading" className="label-caps">
+          Proxy voting
         </h3>
         <div className="flex items-center gap-2">
           <button

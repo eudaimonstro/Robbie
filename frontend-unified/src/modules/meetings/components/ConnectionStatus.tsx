@@ -1,19 +1,19 @@
-import { Wifi, WifiOff, RefreshCw, LogOut, Users } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, LogOut } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
 export function ConnectionStatus() {
-  const { isConnected, connectedMembers, currentUser, leaveMeeting, reconnect, error } =
-    useSocket();
+  const { isConnected, leaveMeeting, reconnect, error } = useSocket();
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2">
       {/* Connection indicator */}
       <div className="flex items-center gap-2">
         {isConnected ? (
           <>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-carried-tint">
-              <Wifi size={14} className="text-carried" />
-              <span className="text-xs text-carried font-medium">Connected</span>
+            {/* Quiet while all is well: the word shows only when the connection is lost */}
+            <div className="flex items-center rounded-full bg-carried-tint p-1.5" title="Connected">
+              <Wifi size={14} className="text-carried" aria-hidden="true" />
+              <span className="sr-only">Connected</span>
             </div>
           </>
         ) : (
@@ -33,25 +33,18 @@ export function ConnectionStatus() {
         )}
       </div>
 
-      {/* Connected members count */}
-      {isConnected && (
-        <div className="flex items-center gap-1.5 text-sm text-ink-muted">
-          <Users size={14} />
-          <span>{connectedMembers.length}</span>
-        </div>
-      )}
-
       {/* Current user & leave meeting */}
       <div className="flex items-center gap-2">
-        {currentUser && (
-          <span className="text-sm text-ink-muted hidden sm:inline">{currentUser.name}</span>
-        )}
+        {/* The way back to the app: a live meeting hides the sidebar */}
         <button
+          type="button"
           onClick={leaveMeeting}
-          className="p-1.5 hover:bg-surface-2 rounded-lg text-ink-muted hover:text-gavel transition-colors"
-          title="Leave meeting"
+          className="btn-ghost btn-sm"
+          aria-label="Leave meeting"
+          title="Leave the meeting and return to the app"
         >
-          <LogOut size={16} />
+          <LogOut size={16} aria-hidden="true" />
+          Leave
         </button>
       </div>
 

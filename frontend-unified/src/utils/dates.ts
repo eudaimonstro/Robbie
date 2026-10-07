@@ -48,3 +48,18 @@ export function formatMeetingTime(value: string | null | undefined): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * A time of day in the viewer's time zone ("7:02 PM"), for a stored instant such as a meeting
+ * log entry's. Some log entries hold a clock time already ("7:02:00 PM", from the device that
+ * sent the action): those lose their seconds, and anything else is shown as is.
+ */
+export function formatClockTime(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    const clock = /^(\d{1,2}:\d{2}):\d{2}(\s*[AP]M)$/i.exec(value.trim());
+    return clock ? `${clock[1]}${clock[2]}` : value;
+  }
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}

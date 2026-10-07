@@ -68,8 +68,8 @@ export function InquiryPanel({ state, dispatch, currentUser, isChair = false }: 
   );
 
   return (
-    <div className="bg-surface rounded-lg p-4 shadow-sm">
-      <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">Ask a Question</h3>
+    <div className="card p-4">
+      <h3 className="label-caps mb-3">Ask a question</h3>
 
       {/* Submit Question Form */}
       {!isChair && (

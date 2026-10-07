@@ -8,9 +8,11 @@ import { OrganizationSwitcher } from './OrganizationSwitcher';
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  /** The menu button at every width, not only on phones: a live meeting hides the sidebar */
+  menuAlways?: boolean;
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, menuAlways = false }: HeaderProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
 
@@ -100,7 +102,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {onMenuClick && (
           <button
             onClick={onMenuClick}
-            className="p-2 -ml-2 text-ink-muted hover:text-ink hover:bg-surface-2 rounded-md md:hidden"
+            className={`p-2 -ml-2 text-ink-muted hover:text-ink hover:bg-surface-2 rounded-md ${menuAlways ? '' : 'md:hidden'}`}
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />

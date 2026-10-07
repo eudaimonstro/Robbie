@@ -24,8 +24,8 @@ export const MinutesApprovalPanel = React.memo(function MinutesApprovalPanel({
       >
         <div className="flex items-center gap-2 text-carried mb-2">
           <CheckCircle size={20} aria-hidden="true" />
-          <h3 id="minutes-approved-heading" className="font-semibold">
-            Minutes Approved
+          <h3 id="minutes-approved-heading" className="label-caps text-carried">
+            Minutes approved
           </h3>
         </div>
         <p className="text-sm text-ink-muted">
@@ -38,8 +38,8 @@ export const MinutesApprovalPanel = React.memo(function MinutesApprovalPanel({
 
   return (
     <section className="bg-surface rounded-lg p-4 shadow-sm" aria-labelledby="minutes-heading">
-      <h3 id="minutes-heading" className="font-semibold mb-3 text-ink">
-        Minutes from Previous Meeting
+      <h3 id="minutes-heading" className="label-caps mb-3">
+        Minutes from the previous meeting
       </h3>
       <div className="bg-surface-2 rounded-lg p-4 mb-3 max-h-64 overflow-y-auto">
         <pre className="text-sm text-ink whitespace-pre-wrap font-sans">

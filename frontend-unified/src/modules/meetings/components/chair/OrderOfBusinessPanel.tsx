@@ -19,8 +19,8 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
 
   return (
     <section className="card p-4" aria-labelledby="order-of-business-heading">
-      <h3 id="order-of-business-heading" className="font-semibold mb-3 text-ink">
-        Order of Business
+      <h3 id="order-of-business-heading" className="label-caps mb-3">
+        Order of business
       </h3>
       <div className="space-y-2" role="list" aria-label="Meeting stages">
         {DISPLAYABLE_STAGES.map((item) => {

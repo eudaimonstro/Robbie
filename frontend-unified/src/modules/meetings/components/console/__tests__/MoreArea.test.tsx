@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
@@ -83,5 +83,19 @@ describe('MoreArea', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reload the agenda' }));
     expect(await screen.findByText('The agenda now matches the schedule.')).toBeTruthy();
     expect(api.meetingPackets.reloadAgenda).toHaveBeenCalledWith('MAPLE1');
+  });
+
+  it('shows the log with times of day, newest first', () => {
+    renderMore(dana, {
+      meetingLog: [
+        { time: '2026-10-07T14:16:10.646Z', message: 'Meeting called to order' },
+        { time: '7:41:00 PM', message: 'Alice Brennan has joined the meeting.' },
+      ],
+    });
+    const entries = within(screen.getByRole('region', { name: 'Log' })).getAllByRole('listitem');
+    expect(entries.map((li) => li.textContent)).toEqual([
+      '7:41 PM Alice Brennan has joined the meeting.',
+      expect.stringMatching(/^9:16\sAM Meeting called to order$/),
+    ]);
   });
 });

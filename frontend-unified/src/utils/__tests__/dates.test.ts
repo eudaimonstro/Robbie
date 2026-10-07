@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatCalendarDate,
+  formatClockTime,
   formatMeetingTime,
   fromLocalDateTimeInput,
   toLocalDateTimeInput,
@@ -58,5 +59,19 @@ describe('formatMeetingTime', () => {
   it('shows nothing for a missing or unreadable date', () => {
     expect(formatMeetingTime('')).toBe('');
     expect(formatMeetingTime('not a date')).toBe('');
+  });
+});
+
+describe('formatClockTime', () => {
+  it("shows a log entry's instant as a time of day in the viewer's time zone", () => {
+    // 9:16 AM in Chicago, where the tests run
+    expect(formatClockTime('2026-10-07T14:16:10.646Z')).toMatch(/^9:16\sAM$/);
+  });
+
+  it('drops the seconds of a clock time, shows anything else as it is, and nothing for none', () => {
+    expect(formatClockTime('7:41:00 PM')).toBe('7:41 PM');
+    expect(formatClockTime('19:41')).toBe('19:41');
+    expect(formatClockTime('')).toBe('');
+    expect(formatClockTime(undefined)).toBe('');
   });
 });

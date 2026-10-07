@@ -36,9 +36,11 @@ function entryClass(current: boolean, nested = false): string {
 interface SidebarProps {
   onNewDocument: () => void;
   onClose?: () => void;
+  /** A drawer at every width (a live meeting), so the close button shows on laptops too */
+  drawer?: boolean;
 }
 
-export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
+export default function Sidebar({ onNewDocument, onClose, drawer = false }: SidebarProps) {
   const location = useLocation();
   const { currentOrganization } = useOrganization();
   // Documents are created by secretaries and above
@@ -68,7 +70,7 @@ export default function Sidebar({ onNewDocument, onClose }: SidebarProps) {
     <aside className="w-64 bg-surface-2 text-ink border-r border-rule flex flex-col h-full">
       {/* Mobile close button */}
       {onClose && (
-        <div className="flex justify-end p-2 md:hidden">
+        <div className={`flex justify-end p-2 ${drawer ? '' : 'md:hidden'}`}>
           <button
             onClick={onClose}
             className="p-2 rounded-md text-ink-muted hover:text-ink hover:bg-surface"

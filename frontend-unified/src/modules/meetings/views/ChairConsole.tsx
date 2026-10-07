@@ -76,7 +76,7 @@ export function ChairConsole() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="space-y-4 xl:col-span-8">
-          {beforeMeeting && <JoinInfoCard code={meetingCode} />}
+          <JoinInfoCard code={meetingCode} compact={!beforeMeeting} />
           <CurrentItemLine item={state.currentAgendaItem} packet={packet} />
           <QuestionCard question={question} empty={empty}>
             <ActionToolbar

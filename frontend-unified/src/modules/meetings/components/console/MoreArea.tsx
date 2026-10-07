@@ -9,6 +9,7 @@ import type {
 } from '@robbie-bylawyer/shared/types';
 import { meetingPackets } from '../../../../api/client';
 import { RoleBadge } from '../../../../components/ui/Badge';
+import { formatClockTime } from '../../../../utils/dates';
 import {
   CommitteeReportsPanel,
   MeetingDocumentsPanel,
@@ -113,12 +114,12 @@ function MeetingSettings({
         <div className="flex gap-2">
           <input
             id={quorumId}
-            className="input tabular-nums"
+            className="input min-w-0 flex-1 tabular-nums"
             inputMode="numeric"
             value={quorum}
             onChange={(e) => setQuorum(e.target.value)}
           />
-          <button type="submit" className="btn-secondary btn-sm">
+          <button type="submit" className="btn-secondary btn-sm shrink-0 whitespace-nowrap">
             Set the quorum
           </button>
         </div>
@@ -306,7 +307,8 @@ function MeetingLog({ log }: { log: MeetingLogEntry[] }) {
         <ol className="max-h-64 space-y-1 overflow-y-auto text-sm scrollbar-thin">
           {[...log].reverse().map((entry, index) => (
             <li key={log.length - index} className="text-ink">
-              <span className="tabular-nums text-ink-muted">{entry.time}</span> {entry.message}
+              <span className="tabular-nums text-ink-muted">{formatClockTime(entry.time)}</span>{' '}
+              {entry.message}
             </li>
           ))}
         </ol>

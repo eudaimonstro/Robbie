@@ -92,12 +92,16 @@ export function NominationsPanel({
           <div className="flex gap-2">
             <input
               id={positionId}
-              className="input"
+              className="input min-w-0 flex-1"
               placeholder="Director, Treasurer..."
               value={position}
               onChange={(e) => setPosition(e.target.value)}
             />
-            <button type="submit" className="btn-secondary btn-sm" disabled={!position.trim()}>
+            <button
+              type="submit"
+              className="btn-secondary btn-sm shrink-0 whitespace-nowrap"
+              disabled={!position.trim()}
+            >
               Open nominations
             </button>
           </div>

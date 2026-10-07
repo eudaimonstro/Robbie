@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Hand } from 'lucide-react';
 import { generateTimestamp, calculateTimerEnd } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction, SpeakerQueueEntry } from '@robbie-bylawyer/shared/types';
 import { CountdownTimer } from '../CountdownTimer';
@@ -101,9 +100,9 @@ export const SpeakerQueuePanel = React.memo(function SpeakerQueuePanel({
   return (
     <section className="card p-4" aria-labelledby="speaker-queue-heading">
       <div className="flex items-center justify-between mb-3">
-        <h3 id="speaker-queue-heading" className="font-semibold flex items-center gap-2 text-ink">
-          <Hand size={18} aria-hidden="true" /> Speaker Queue{' '}
-          <span className="bg-rule text-ink text-sm px-2 py-0.5 rounded-full">
+        <h3 id="speaker-queue-heading" className="label-caps flex items-center gap-2">
+          Speaker queue
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 tabular-nums text-ink">
             {state.speakerQueue.length}
           </span>
         </h3>

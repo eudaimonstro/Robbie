@@ -18,8 +18,8 @@ export const CommitteeReportsPanel = React.memo(function CommitteeReportsPanel({
 
   return (
     <section className="bg-surface rounded-lg p-4 shadow-sm" aria-labelledby="reports-heading">
-      <h3 id="reports-heading" className="font-semibold mb-3 text-ink">
-        Committee Reports
+      <h3 id="reports-heading" className="label-caps mb-3">
+        Committee reports
       </h3>
 
       {state.committeeReports.length === 0 ? (

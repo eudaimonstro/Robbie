@@ -63,6 +63,8 @@ describe('the console top bar', () => {
     expect(display.getAttribute('target')).toBe('_blank');
     fireEvent.click(screen.getByRole('button', { name: 'Join info' }));
     expect(onJoinInfo).toHaveBeenCalled();
+    // The way back to the app, now that a live meeting hides the sidebar
+    expect(screen.getByRole('button', { name: 'Leave meeting' }).textContent).toBe('Leave');
   });
 });
 
@@ -73,6 +75,22 @@ describe('the join card', () => {
     expect(screen.getByTestId('meeting-code').textContent).toBe('MAPLE1');
     expect(screen.getByText(link)).toBeTruthy();
     expect(screen.getByRole('img', { name: `QR code for ${link}` })).toBeTruthy();
+  });
+
+  it('folds into one line with the code, Copy the link and Show QR', () => {
+    render(<JoinInfoCard code="MAPLE1" compact />);
+    const link = `${window.location.origin}/meetings/MAPLE1`;
+    expect(screen.getByTestId('meeting-code').textContent).toBe('MAPLE1');
+    expect(screen.getByRole('button', { name: 'Copy the link' })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: `QR code for ${link}` })).toBeNull();
+
+    const show = screen.getByRole('button', { name: 'Show QR' });
+    expect(show.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(show);
+    expect(screen.getByRole('img', { name: `QR code for ${link}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hide QR' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
   });
 });
 

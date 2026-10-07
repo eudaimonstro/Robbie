@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { isFocusPath } from './focusMode';
 import Header from './Header';
 import Modal from '../ui/Modal';
 import { useOrganization } from '../../context/OrganizationContext';
@@ -19,6 +20,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
+  const focus = isFocusPath(location.pathname);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -65,19 +67,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-ink-900/50 z-40 md:hidden"
+          className={`fixed inset-0 bg-ink-900/50 z-40 ${focus ? '' : 'md:hidden'}`}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar - hidden on mobile by default, shown when sidebarOpen */}
+      {/* Sidebar - a drawer on mobile (and in a live meeting), shown when sidebarOpen */}
       <div
+        data-testid="sidebar-frame"
+        inert={focus && !sidebarOpen}
         className={`
-        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out ${focus ? '' : 'md:relative md:translate-x-0'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
       >
         <Sidebar
+          drawer={focus}
           onNewDocument={() => {
             modalTriggerRef.current = document.activeElement as HTMLElement;
             setIsNewDocModalOpen(true);
@@ -87,7 +92,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <Header onMenuClick={() => setSidebarOpen(true)} menuAlways={focus} />
         <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 bg-paper" tabIndex={-1}>
           {children}
         </main>

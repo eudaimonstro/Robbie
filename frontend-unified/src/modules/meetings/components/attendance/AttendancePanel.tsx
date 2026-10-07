@@ -88,7 +88,7 @@ export function AttendancePanel({
         ) : (
           <ul
             aria-label="Voting members"
-            className="max-h-96 divide-y divide-rule overflow-y-auto scrollbar-thin"
+            className="max-h-64 divide-y divide-rule overflow-y-auto scrollbar-thin"
           >
             {shown.map((row) => (
               <li key={row.userId} className="flex items-center justify-between gap-3 py-2">

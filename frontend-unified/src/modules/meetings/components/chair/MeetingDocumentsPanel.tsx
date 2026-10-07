@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Folder,
 } from 'lucide-react';
 import type { MeetingPacket, Attachment, AgendaItem } from '../scheduling/types';
 import { getPacket, getAttachmentDownloadUrl } from '../scheduling/api';
@@ -66,10 +65,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   if (isLoading) {
     return (
       <section className="bg-surface rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
+        <h3 className="label-caps mb-3">Meeting documents</h3>
         <div className="flex items-center justify-center py-4">
           <Loader2 size={24} className="animate-spin text-ink-muted" />
         </div>
@@ -80,10 +76,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   if (error) {
     return (
       <section className="bg-surface rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
+        <h3 className="label-caps mb-3">Meeting documents</h3>
         <p className="text-sm text-ink-muted">{error}</p>
       </section>
     );
@@ -92,10 +85,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
   if (!packet || totalDocs === 0) {
     return (
       <section className="bg-surface rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
+        <h3 className="label-caps mb-3">Meeting documents</h3>
         <p className="text-sm text-ink-muted">No meeting documents.</p>
       </section>
     );
@@ -103,10 +93,11 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   return (
     <section className="bg-surface rounded-lg p-4 shadow-sm">
-      <h3 className="font-semibold mb-3 text-ink flex items-center gap-2">
-        <Folder size={18} />
-        Meeting Documents
-        <span className="text-xs bg-rule px-2 py-0.5 rounded-full text-ink-muted">{totalDocs}</span>
+      <h3 className="label-caps mb-3 flex items-center gap-2">
+        Meeting documents
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 tabular-nums text-ink">
+          {totalDocs}
+        </span>
       </h3>
 
       {/* Meeting-level documents */}
