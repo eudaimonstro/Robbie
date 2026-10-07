@@ -140,7 +140,10 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
 - `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
 - `/style-guide` - The design language: the tokens and components in both palettes
-- `/settings` - App settings
+- `/documents/:id/import` - Import the bylaws from pasted text or a `.txt`, `.md` or `.docx` file into a new version (secretary)
+- `/minutes`, `/minutes/:id` - The organization's minutes; the editor for secretaries, read-only for members
+- `/documents/:id/print`, `/minutes/:id/print` (signed in) and `/share/:token/print` (public) - Print pages outside the app's chrome; `?print=1` opens the print dialog, which saves a PDF
+- `/settings` - App settings: the Time zone card (`TimeZoneCard`) sits beside Attendance; a new organization takes the browser's time zone
 - `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
 
 **State Management:**
@@ -196,6 +199,8 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 3. Propose the amendment (status: proposed)
 4. Record vote at a meeting
 5. If passed, apply to create new version
+
+**Import, search and minutes (web):** the import screen parses with `parseBylaws` from shared (the same rules for pasted text, `.txt`, `.md` and the server's text of a `.docx`), lets the secretary rename and merge sections, and saves through `POST /api/documents/:id/versions/import`. The header search calls the organization search and opens `/documents/:id#section-<sectionId>`, where `useSectionFromHash` selects and scrolls to the section. An amendment's Preview tab shows the document as it would read. Minutes are Markdown (`/minutes/:id`), drafted by the server at adjournment, autosaved two seconds after typing stops; the approval at the next meeting is `MinutesApprovalCard` in the chair console while `minutesItemUnderWay(state)` (`modules/meetings/utils/minutesApproval.ts`). The scheduler's Place is the packet's `location`, which heads the minutes.
 
 **API Endpoints (all on port 3001):**
 
