@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, FileUp, ListTree, Merge } from 'lucide-react';
 import {
@@ -39,7 +39,12 @@ export default function ImportBylawsPage() {
   const [problem, setProblem] = useState<string | null>(null);
   // The review: the text, which can be edited and parsed again, and the sections found in it
   const [text, setText] = useState('');
+  // The text the sections were parsed from: Save waits while the text differs
+  const [parsedText, setParsedText] = useState('');
   const [sections, setSections] = useState<ParsedSection[]>([]);
+  // Whether a section was renamed or merged since the text was parsed, which parsing again loses
+  const [treeEdited, setTreeEdited] = useState(false);
+  const [confirmParse, setConfirmParse] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -60,11 +65,39 @@ export default function ImportBylawsPage() {
     };
   }, [documentId]);
 
+  /** Read the text into sections, starting over */
+  const parse = (value: string) => {
+    setParsedText(value);
+    setSections(parseBylaws(value));
+    setTreeEdited(false);
+    setConfirmParse(false);
+  };
+
   const review = (value: string) => {
     setText(value);
-    setSections(parseBylaws(value));
+    parse(value);
     setStep('review');
   };
+
+  const parseAgain = () => {
+    if (treeEdited) setConfirmParse(true);
+    else parse(text);
+  };
+
+  // The same two for every row, so a row redraws only when its own section changes
+  const rename = useCallback(
+    (path: TreePath, changes: { numberLabel?: string; title?: string }) => {
+      setSections((current) => renameSection(current, path, changes));
+      setTreeEdited(true);
+    },
+    [],
+  );
+  const merge = useCallback((path: TreePath) => {
+    setSections((current) => mergeIntoPrevious(current, path));
+    setTreeEdited(true);
+  }, []);
+
+  const textChanged = text !== parsedText;
 
   const read = async (e: FormEvent) => {
     e.preventDefault();
@@ -101,6 +134,7 @@ export default function ImportBylawsPage() {
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
+    if (textChanged) return;
     setSaving(true);
     try {
       const version = await bylawsImport.saveVersion(documentId, {
@@ -230,8 +264,8 @@ export default function ImportBylawsPage() {
                       key={index}
                       section={section}
                       path={[index]}
-                      tree={sections}
-                      onChange={setSections}
+                      onRename={rename}
+                      onMerge={merge}
                     />
                   ))}
                 </ol>
@@ -254,22 +288,25 @@ export default function ImportBylawsPage() {
                 To split a section, add its heading line here and parse again. Parsing again starts
                 over from the text.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  onClick={() => setSections(parseBylaws(text))}
-                >
-                  Parse again
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => setStep('source')}
-                >
-                  Choose another source
-                </button>
-              </div>
+              {confirmParse ? (
+                <ConfirmParse
+                  onConfirm={() => parse(text)}
+                  onCancel={() => setConfirmParse(false)}
+                />
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="btn-secondary btn-sm" onClick={parseAgain}>
+                    Parse again
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={() => setStep('source')}
+                  >
+                    Choose another source
+                  </button>
+                </div>
+              )}
             </section>
           </div>
           <form
@@ -304,10 +341,16 @@ export default function ImportBylawsPage() {
             <button
               type="submit"
               className="btn-primary"
-              disabled={saving || sections.length === 0}
+              disabled={saving || sections.length === 0 || textChanged}
+              aria-describedby={textChanged ? 'importTextChanged' : undefined}
             >
               {saving ? 'Saving...' : 'Save as a new version'}
             </button>
+            {textChanged && (
+              <p id="importTextChanged" className="text-sm text-caution-ink sm:col-span-3">
+                The text has changed. Parse it again to save it.
+              </p>
+            )}
           </form>
         </>
       )}
@@ -315,15 +358,53 @@ export default function ImportBylawsPage() {
   );
 }
 
+/** Parsing again would lose the changes made to the sections: asked here, beside the button */
+function ConfirmParse({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => keep.current?.focus(), []);
+  return (
+    <div
+      role="group"
+      aria-labelledby="confirmParseHeading"
+      className="mt-3 rounded-md border border-caution/40 bg-caution-tint p-3"
+    >
+      <p id="confirmParseHeading" className="sr-only">
+        Parse the text again?
+      </p>
+      <p className="text-sm text-caution-ink">
+        Parsing again starts over from the text, and loses the changes made to the sections.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" className="btn-danger btn-sm" onClick={onConfirm}>
+          Parse again and lose them
+        </button>
+        <button ref={keep} type="button" className="btn-ghost btn-sm" onClick={onCancel}>
+          Keep my changes
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface ParsedNodeProps {
   section: ParsedSection;
   path: TreePath;
-  tree: ParsedSection[];
-  onChange: (next: ParsedSection[]) => void;
+  onRename: (path: TreePath, changes: { numberLabel?: string; title?: string }) => void;
+  onMerge: (path: TreePath) => void;
 }
 
-/** One section found: its label and title to correct, and Merge up */
-function ParsedNode({ section, path, tree, onChange }: ParsedNodeProps) {
+/** A row redraws when its section changes: an edit elsewhere leaves it as it was */
+const sameRow = (before: ParsedNodeProps, after: ParsedNodeProps) =>
+  before.section === after.section &&
+  before.onRename === after.onRename &&
+  before.onMerge === after.onMerge &&
+  before.path.join('.') === after.path.join('.');
+
+/**
+ * One section found: its label and title to correct, and Merge up. (The function has its own
+ * name: inside it, ParsedNode is the memoized row, for the rows under it.)
+ */
+const ParsedNode = memo(function ParsedRow({ section, path, onRename, onMerge }: ParsedNodeProps) {
   const name = [section.numberLabel, section.title].filter(Boolean).join(' ') || 'the preamble';
   return (
     <li className="rounded-lg border border-rule bg-surface p-2 sm:p-3">
@@ -336,7 +417,7 @@ function ParsedNode({ section, path, tree, onChange }: ParsedNodeProps) {
             placeholder="Label"
             maxLength={100}
             value={section.numberLabel ?? ''}
-            onChange={(e) => onChange(renameSection(tree, path, { numberLabel: e.target.value }))}
+            onChange={(e) => onRename(path, { numberLabel: e.target.value })}
           />
           <input
             className="input py-1 text-sm"
@@ -344,7 +425,7 @@ function ParsedNode({ section, path, tree, onChange }: ParsedNodeProps) {
             placeholder="Title"
             maxLength={500}
             value={section.title ?? ''}
-            onChange={(e) => onChange(renameSection(tree, path, { title: e.target.value }))}
+            onChange={(e) => onRename(path, { title: e.target.value })}
           />
         </div>
         {/* Its words from sm up; on a phone the icon alone, to leave the inputs their width */}
@@ -354,7 +435,7 @@ function ParsedNode({ section, path, tree, onChange }: ParsedNodeProps) {
           disabled={!canMerge(path)}
           aria-label={`Merge ${name} into the section above`}
           title="Merge up"
-          onClick={() => onChange(mergeIntoPrevious(tree, path))}
+          onClick={() => onMerge(path)}
         >
           <Merge className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Merge up</span>
@@ -372,12 +453,12 @@ function ParsedNode({ section, path, tree, onChange }: ParsedNodeProps) {
               key={index}
               section={child}
               path={[...path, index]}
-              tree={tree}
-              onChange={onChange}
+              onRename={onRename}
+              onMerge={onMerge}
             />
           ))}
         </ol>
       )}
     </li>
   );
-}
+}, sameRow);

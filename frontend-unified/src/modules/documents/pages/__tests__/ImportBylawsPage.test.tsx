@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const api = vi.hoisted(() => ({
@@ -18,6 +18,13 @@ vi.mock('../../../../context/OrganizationContext', () => ({
 }));
 const toast = vi.hoisted(() => ({ showToast: vi.fn() }));
 vi.mock('../../../../context/ToastContext', () => ({ useToast: () => toast }));
+// Each row asks canMerge once as it renders: the count says which rows rendered
+const tree = vi.hoisted(() => ({ canMerge: vi.fn() }));
+vi.mock('../../utils/parsedTree', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/parsedTree')>();
+  tree.canMerge.mockImplementation(actual.canMerge);
+  return { ...actual, canMerge: tree.canMerge };
+});
 
 const { default: ImportBylawsPage } = await import('../ImportBylawsPage');
 
@@ -115,7 +122,7 @@ describe('ImportBylawsPage', () => {
     expect(toast.showToast).toHaveBeenCalledWith('success', 'Saved version 2, with 5 sections');
   });
 
-  it('merges a section into the one above, and parses edited text again', async () => {
+  it('merges a section into the one above, and asks before parsing again over it', async () => {
     await readPasted(TEXT);
     fireEvent.click(
       screen.getByRole('button', { name: 'Merge Section 1.2 Purpos into the section above' }),
@@ -126,7 +133,58 @@ describe('ImportBylawsPage', () => {
       target: { value: `${TEXT}\nSection 2.2 Dues\nDues are $20.` },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Parse again' }));
+    // Not yet: the merge would be lost
+    expect(screen.getByText('2 articles, 2 sections')).toBeTruthy();
+    const confirm = screen.getByRole('group', { name: 'Parse the text again?' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep my changes' }));
+    expect(screen.queryByRole('group', { name: 'Parse the text again?' })).toBeNull();
+    expect(screen.getByText('2 articles, 2 sections')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Parse again' }));
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Parse the text again?' })).getByRole('button', {
+        name: 'Parse again and lose them',
+      }),
+    );
     expect(screen.getByText('2 articles, 4 sections')).toBeTruthy();
+    // Nothing to lose now: parsing again goes straight ahead
+    fireEvent.click(screen.getByRole('button', { name: 'Parse again' }));
+    expect(screen.queryByRole('group', { name: 'Parse the text again?' })).toBeNull();
+  });
+
+  it("won't save sections from text that has changed since it was parsed", async () => {
+    await readPasted(TEXT);
+    const save = () =>
+      screen.getByRole('button', { name: 'Save as a new version' }) as HTMLButtonElement;
+    expect(save().disabled).toBe(false);
+
+    fireEvent.change(screen.getByLabelText('Bylaws text'), {
+      target: { value: `${TEXT}\nSection 2.2 Dues\nDues are $20.` },
+    });
+    expect(screen.getByText('The text has changed. Parse it again to save it.')).toBeTruthy();
+    expect(save().disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Parse again' }));
+    expect(screen.queryByText('The text has changed. Parse it again to save it.')).toBeNull();
+    fireEvent.click(save());
+    await screen.findByText('Document page');
+    const [, data] = api.saveVersion.mock.calls[0];
+    expect(data.sections[1].children).toHaveLength(2);
+  });
+
+  it("doesn't draw the sections again for a keystroke in the text", async () => {
+    await readPasted(TEXT);
+    const rendered = tree.canMerge.mock.calls.length;
+    expect(rendered).toBeGreaterThanOrEqual(5);
+    fireEvent.change(screen.getByLabelText('Bylaws text'), { target: { value: `${TEXT} ` } });
+    expect(tree.canMerge.mock.calls.length).toBe(rendered);
+
+    // A fix to one title draws that row and the ones holding it, not its neighbors
+    tree.canMerge.mockClear();
+    fireEvent.change(screen.getByLabelText('Title of Section 1.2 Purpos'), {
+      target: { value: 'Purpose' },
+    });
+    expect(tree.canMerge.mock.calls.length).toBe(2);
   });
 
   it('reads a Word document on the server', async () => {
