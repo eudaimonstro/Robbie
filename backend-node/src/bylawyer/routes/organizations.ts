@@ -67,7 +67,7 @@ organizationsRouter.post(
   signedInOnly(),
   async (req, res) => {
     try {
-      const { name, slug: providedSlug, description } = req.body;
+      const { name, slug: providedSlug, description, timeZone } = req.body;
       const slug = providedSlug || generateSlug(name);
 
       // Check for existing slug
@@ -76,7 +76,12 @@ organizationsRouter.post(
         return res.status(400).json({ error: slugTaken(slug) });
       }
 
-      const org = await createOwnedOrganization(req.user!.id, { name, slug, description });
+      const org = await createOwnedOrganization(req.user!.id, {
+        name,
+        slug,
+        description,
+        timeZone,
+      });
       res.status(201).json(org);
     } catch (error) {
       if (error instanceof OrgError) {
@@ -133,7 +138,7 @@ organizationsRouter.get(
   },
 );
 
-// Update the organization's name, description and attendance settings. The quorum is a
+// Update the organization's name, description, attendance settings and time zone. The quorum is a
 // percentage or a count: setting one clears the other.
 organizationsRouter.put(
   '/organizations/:id',
@@ -141,8 +146,13 @@ organizationsRouter.put(
   requireRole('admin', byOrganization),
   async (req, res) => {
     try {
-      const { name, description, eligibleVoters, quorumPercent, quorumCount } = req.body;
-      const data: Prisma.OrganizationUpdateInput = { name, description, eligibleVoters };
+      const { name, description, eligibleVoters, quorumPercent, quorumCount, timeZone } = req.body;
+      const data: Prisma.OrganizationUpdateInput = {
+        name,
+        description,
+        eligibleVoters,
+        timeZone,
+      };
       if (quorumPercent !== undefined) {
         data.quorumPercent = quorumPercent;
         data.quorumCount = null;

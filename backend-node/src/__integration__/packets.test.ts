@@ -242,12 +242,47 @@ describe('packets', () => {
       robbieCode: 'SOON01',
       title: null,
       description: null,
+      location: null,
       scheduledFor: '2026-11-01T00:00:00.000Z',
       chairUserId: null,
       startedAt: null,
       endedAt: null,
       chair: null,
     });
+  });
+
+  it('record where the meeting is held', async () => {
+    const cookie = f.users.secretary.cookie;
+    const created = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+      cookie,
+      body: { robbieCode: 'NEW001', location: 'Maple Grove Clubhouse' },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.location).toBe('Maple Grove Clubhouse');
+
+    const moved = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { location: 'The pool deck' },
+    });
+    expect(moved.body.location).toBe('The pool deck');
+
+    const unchanged = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { title: 'Pool meeting' },
+    });
+    expect(unchanged.body.location).toBe('The pool deck');
+
+    const cleared = await call('put', `/api/packets/${created.body.id}`, {
+      cookie,
+      body: { location: null },
+    });
+    expect(cleared.body.location).toBeNull();
+
+    const tooLong = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+      cookie,
+      body: { robbieCode: 'NEW002', location: 'x'.repeat(501) },
+    });
+    expect(tooLong.status).toBe(400);
   });
 
   it('are no longer created without an organization', async () => {

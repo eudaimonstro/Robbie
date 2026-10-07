@@ -43,7 +43,7 @@ export function slugTaken(slug: string): string {
  */
 export async function createOwnedOrganization(
   userId: number,
-  data: { name: string; slug: string; description?: string },
+  data: { name: string; slug: string; description?: string; timeZone?: string },
 ): Promise<OrganizationWithRole> {
   return prisma.$transaction(async (tx) => {
     // Hold the user's row so two creations at once can't both pass the limit
