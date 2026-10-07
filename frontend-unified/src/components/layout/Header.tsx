@@ -52,23 +52,29 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
     if (!organizationId || query.length < 2) {
       setSearchResults([]);
       setShowSearchResults(false);
+      setIsSearching(false);
       return;
     }
 
+    // Set when the query or the organization changes (or the search is cleared): an answer
+    // already on its way is for a search nobody is looking at any more, and is dropped
+    let stale = false;
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const result = await searchApi.query(organizationId, query);
+        if (stale) return;
         setSearchResults(result.results);
         setShowSearchResults(true);
       } catch {
-        setSearchResults([]);
+        if (!stale) setSearchResults([]);
       } finally {
-        setIsSearching(false);
+        if (!stale) setIsSearching(false);
       }
     }, 300);
 
     return () => {
+      stale = true;
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
