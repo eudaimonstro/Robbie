@@ -7,6 +7,7 @@ import type {
   ActionResponse,
 } from '@robbie-bylawyer/shared/types/socket';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
+import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import { checkPermission } from './permissionGuard.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { actionRateLimiter } from './rateLimiter.js';
@@ -14,6 +15,7 @@ import { validateAction } from './actionValidator.js';
 import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 import { applyAction } from './stateManager.js';
+import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import { logger } from '../middleware/logger.js';
 
@@ -48,6 +50,16 @@ export async function handleDispatchAction(
     // Store validated values to avoid non-null assertions later
     const meetingCode = socket.data.meetingCode;
     const userId = socket.data.userId;
+
+    // A display shows the meeting; it doesn't take part
+    if (socket.data.display) {
+      callback({
+        success: false,
+        error: 'A display cannot take part in the meeting',
+        errorCode: 'PERMISSION_DENIED',
+      });
+      return;
+    }
 
     // Rate limit actions per user
     if (!actionRateLimiter.consume(userId)) {
@@ -99,17 +111,15 @@ export async function handleDispatchAction(
       return;
     }
 
-    // Quorum warning for voting actions (allow but log warning)
+    // Quorum warning for voting actions (allow but log warning). Attendance counts members on
+    // a device or marked present, the headcount, and proxies when they count; never guests.
     let votingWithoutQuorum = false;
     if (data.action.type === 'OPEN_VOTING') {
-      const presentCount = meeting.state.members.reduce(
-        (count, m) => count + (m.present ? 1 : 0),
-        0,
-      );
-      if (presentCount < meeting.state.quorum) {
+      const attendance = attendanceSummary(meeting.state);
+      if (!attendance.hasQuorum) {
         votingWithoutQuorum = true;
         logger.warn(
-          { meetingCode, presentCount, quorumRequired: meeting.state.quorum },
+          { meetingCode, present: attendance.present, quorumRequired: attendance.quorum },
           'Vote opened without quorum',
         );
       }
@@ -183,20 +193,15 @@ export async function handleDispatchAction(
       enrichedAction = { ...enrichedAction, withoutQuorum: true } as MeetingAction;
     }
 
-    // Special enrichment for SET_MEMBER_ROLE - add audit info and find current chair if needed
+    // Special enrichment for SET_MEMBER_ROLE: find the current chair (the enricher records who
+    // made the change)
     if (data.action.type === 'SET_MEMBER_ROLE') {
       const roleAction = enrichedAction as {
         type: 'SET_MEMBER_ROLE';
         targetMemberId: number;
         newRole: string;
         previousChairId?: number;
-        changedBy: string;
-        changedById: number;
       };
-
-      // Add audit fields
-      roleAction.changedBy = socket.data.name;
-      roleAction.changedById = socket.data.userId;
 
       // Find current chair if assigning new chair
       if (roleAction.newRole === 'chair') {
@@ -255,8 +260,7 @@ export async function handleDispatchAction(
     // Broadcast new state to all clients in the room, after the role change (so a new chair's
     // socket already has its permissions) and before the bylaw sync (so the vote result isn't
     // held up by database work). Clients ignore a state older than the one they have.
-    const roomName = `meeting:${meetingCode}`;
-    io.to(roomName).emit('STATE_UPDATE', {
+    emitState(io, meetingCode, {
       state: result.state,
       stateVersion: result.stateVersion,
       triggeredBy: {

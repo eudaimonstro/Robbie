@@ -12,6 +12,7 @@ import { joinRateLimiter } from './rateLimiter.js';
 import { applyAction } from './stateManager.js';
 import { markDisconnectedMembersAbsent } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
+import { emitState, publicState } from './statePublisher.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
 
@@ -149,7 +150,7 @@ export async function handleJoinMeeting(
     });
 
     // Broadcast updated state to all (including the joiner via callback)
-    io.to(roomName).emit('STATE_UPDATE', {
+    emitState(io, data.meetingCode, {
       state: currentState,
       stateVersion: currentVersion,
       triggeredBy: { actionType: 'MEMBER_JOINED', userId: decoded.userId },
@@ -157,7 +158,7 @@ export async function handleJoinMeeting(
 
     callback({
       success: true,
-      state: currentState,
+      state: publicState(currentState),
       stateVersion: currentVersion,
       members: roomManager.getMembers(data.meetingCode),
     });

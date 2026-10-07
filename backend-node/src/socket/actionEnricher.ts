@@ -11,6 +11,98 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   ASK_INQUIRY: 'inquiryId',
 };
 
+/** The fields of an action that say who is acting, which the server sets from the socket */
+export interface ActorFields {
+  /** Set to the sender's user id */
+  id?: string;
+  /** Set to the sender's current name */
+  name?: string;
+  /** Set to the sender as a meeting member */
+  member?: true;
+}
+
+const NONE: ActorFields = {};
+
+/**
+ * Who is acting, for every action type. A client can never act as someone else: each of these
+ * fields is overwritten with the signed-in user. Fields that name someone else (the speaker
+ * the chair recognizes, a nominee, the absent member a proxy is granted for, the member marked
+ * absent) are left alone; the permission guard and the validator decide who may name them.
+ */
+export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
+  START_MEETING: NONE,
+  END_MEETING: NONE,
+  MAKE_MOTION: { id: 'moverId', name: 'mover' },
+  SECOND_MOTION: { id: 'seconderId', name: 'seconder' },
+  DECLINE_SECOND: NONE,
+  OPEN_VOTING: NONE,
+  CAST_VOTE: { id: 'voterId' },
+  CLOSE_VOTING: NONE,
+  SET_FLOOR_TALLY: NONE,
+  RAISE_HAND: { member: true },
+  LOWER_HAND: { member: true },
+  RECOGNIZE_SPEAKER: NONE,
+  YIELD_FLOOR: { id: 'yieldedBy' },
+  ADD_AGENDA_ITEM: NONE,
+  REMOVE_AGENDA_ITEM: NONE,
+  ADOPT_AGENDA: NONE,
+  AGENDA_OBJECTION: NONE,
+  CALL_AGENDA_ITEM: NONE,
+  COMPLETE_AGENDA_ITEM: NONE,
+  REORDER_AGENDA: NONE,
+  RELOAD_AGENDA: NONE,
+  SET_SPEAKER_TIME_LIMIT: NONE,
+  SET_VOTE_TIME_LIMIT: NONE,
+  REQUEST_UNANIMOUS_CONSENT: NONE,
+  OBJECT_TO_CONSENT: { name: 'objector' },
+  UNANIMOUS_CONSENT_PASSED: NONE,
+  SET_VOTING_METHOD: NONE,
+  ADVANCE_MEETING_STAGE: NONE,
+  SET_MEETING_STAGE: NONE,
+  SET_QUORUM: NONE,
+  APPROVE_MINUTES: NONE,
+  SET_PREVIOUS_MINUTES: NONE,
+  ADD_COMMITTEE_REPORT: NONE,
+  PRESENT_COMMITTEE_REPORT: NONE,
+  SUSPEND_RULE_APPROVED: NONE,
+  RESTORE_RULE: NONE,
+  CHAIR_RULING: NONE,
+  OPEN_NOMINATIONS: NONE,
+  NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },
+  DECLINE_NOMINATION: NONE,
+  CLOSE_NOMINATIONS: NONE,
+  START_ELECTION: NONE,
+  CAST_BALLOT: { id: 'voterId' },
+  CLOSE_ELECTION: NONE,
+  SET_FLOOR_BALLOTS: NONE,
+  DECLARE_ELECTED: NONE,
+  ASK_INQUIRY: { id: 'askerId', name: 'askedBy' },
+  ANSWER_INQUIRY: { name: 'answeredBy' },
+  SET_MEMBER_ROLE: { id: 'changedById', name: 'changedBy' },
+  ADD_MEMBER: NONE,
+  SET_MEMBER_PRESENCE: NONE,
+  REFRESH_MEMBERS: NONE,
+  MARK_PRESENT: NONE,
+  SET_HEADCOUNT: NONE,
+  WITHDRAW_MOTION: { id: 'requesterId' },
+  MODIFY_MOTION: { id: 'requesterId' },
+  START_ROLL_CALL: NONE,
+  RESPOND_ROLL_CALL: { id: 'memberId' },
+  COMPLETE_ROLL_CALL: NONE,
+  MARK_ABSENT: NONE,
+  SET_AUTO_YIELD: NONE,
+  SET_PROXY_SETTINGS: NONE,
+  // grantedBy names the absent member a chair or admin grants for (see permissionGuard)
+  GRANT_PROXY: NONE,
+  REVOKE_PROXY: NONE,
+  CAST_PROXY_VOTE: { id: 'castById' },
+  REQUEST_PROXY: { id: 'requestedBy', name: 'requestedByName' },
+  ACCEPT_PROXY: { id: 'acceptedBy' },
+  DECLINE_PROXY: { id: 'declinedBy' },
+  CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
+  RENAME_MEMBER: { id: 'renamedBy' },
+};
+
 /**
  * Enrich action with server-authoritative values
  * This prevents clients from spoofing their identity
@@ -21,70 +113,19 @@ export function enrichAction(
   members: readonly Member[] = [],
 ): MeetingAction {
   const enriched = { ...action } as MeetingAction & Record<string, unknown>;
-  // The member's current name: the login token keeps the name given at sign-in, so a member
-  // renamed since would otherwise be stamped with the old one
-  const name = members.find((m) => m.id === socketData.userId)?.name ?? socketData.name;
+  // The member's current name and role: the session keeps the name given at sign-in, so a
+  // member renamed since would otherwise be stamped with the old one
+  const self = members.find((m) => m.id === socketData.userId) ?? {
+    id: socketData.userId,
+    name: socketData.name,
+    role: socketData.role,
+    present: true,
+  };
 
-  // Override any user-related IDs with authenticated values
-  if ('voterId' in enriched) {
-    enriched.voterId = socketData.userId;
-  }
-  if ('moverId' in enriched) {
-    enriched.moverId = socketData.userId;
-  }
-  if ('askerId' in enriched) {
-    enriched.askerId = socketData.userId;
-  }
-  if ('nominatorId' in enriched) {
-    enriched.nominatorId = socketData.userId;
-  }
-
-  // Who seconded, so the validator can stop a mover seconding their own motion
-  if (enriched.type === 'SECOND_MOTION') {
-    enriched.seconderId = socketData.userId;
-  }
-
-  // Proxy-related IDs - CRITICAL: prevents impersonation attacks
-  if ('castById' in enriched) {
-    enriched.castById = socketData.userId;
-  }
-  // GRANT_PROXY.grantedBy is not overwritten: only a chair or admin may send it (see
-  // permissionGuard), granting on behalf of the absent member it names
-  if ('requestedBy' in enriched) {
-    enriched.requestedBy = socketData.userId;
-  }
-  if ('revokedBy' in enriched) {
-    enriched.revokedBy = socketData.userId;
-  }
-  if ('acceptedBy' in enriched) {
-    enriched.acceptedBy = socketData.userId;
-  }
-  if ('declinedBy' in enriched) {
-    enriched.declinedBy = socketData.userId;
-  }
-  if ('cancelledBy' in enriched) {
-    enriched.cancelledBy = socketData.userId;
-  }
-
-  // Override names with authenticated values
-  if ('mover' in enriched) {
-    enriched.mover = name;
-  }
-  if ('seconder' in enriched) {
-    enriched.seconder = name;
-  }
-  if ('objector' in enriched) {
-    enriched.objector = name;
-  }
-  if ('askedBy' in enriched) {
-    enriched.askedBy = name;
-  }
-  if ('nominatedBy' in enriched) {
-    enriched.nominatedBy = name;
-  }
-  if ('answeredBy' in enriched) {
-    enriched.answeredBy = name;
-  }
+  const actor = ACTOR_FIELDS[enriched.type] ?? NONE;
+  if (actor.id) enriched[actor.id] = socketData.userId;
+  if (actor.name) enriched[actor.name] = self.name;
+  if (actor.member) enriched.member = self;
 
   // The person marked present comes from the organization's roster, never from a client
   if (enriched.type === 'MARK_PRESENT') {

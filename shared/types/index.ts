@@ -385,7 +385,8 @@ export type MeetingAction =
       speakerTimerEnd: number | null;
       timestamp: string;
     }
-  | { type: 'YIELD_FLOOR'; timestamp: string }
+  // yieldedBy is set by the server: the speaker, or the chair ending the speaker's turn
+  | { type: 'YIELD_FLOOR'; yieldedBy?: number; timestamp: string }
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
   | { type: 'ADOPT_AGENDA'; timestamp: string }
@@ -532,9 +533,22 @@ export type MeetingAction =
       scope: 'all' | 'single-vote';
       timestamp: string;
     }
-  | { type: 'ACCEPT_PROXY'; requestId: number; proxyId: number; timestamp: string }
-  | { type: 'DECLINE_PROXY'; requestId: number; reason?: string; timestamp: string }
-  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; timestamp: string }
+  // acceptedBy, declinedBy and canceledBy are set by the server from the signed-in user
+  | {
+      type: 'ACCEPT_PROXY';
+      requestId: number;
+      proxyId: number;
+      acceptedBy?: number;
+      timestamp: string;
+    }
+  | {
+      type: 'DECLINE_PROXY';
+      requestId: number;
+      reason?: string;
+      declinedBy?: number;
+      timestamp: string;
+    }
+  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string }
   // Member management
   | {
       type: 'RENAME_MEMBER';

@@ -24,6 +24,11 @@ export const MAX_FLOOR_COUNT = 1_000_000;
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
+/** Whether the member with this id is in the meeting as a guest */
+function isGuest(state: MeetingState, memberId: number): boolean {
+  return state.members.some((m) => m.id === memberId && m.role === 'guest');
+}
+
 /** A count the chair enters: a whole number from 0 */
 function isCount(value: unknown): boolean {
   return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_FLOOR_COUNT;
@@ -406,11 +411,26 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
-    case 'YIELD_FLOOR':
+    case 'YIELD_FLOOR': {
       if (!state.recognizedSpeaker) {
         return { valid: false, error: 'No speaker has the floor', errorCode: 'NO_SPEAKER' };
       }
+      // The speaker yields, or the chair ends the speaker's turn
+      const yielder = state.members.find((m) => m.id === action.yieldedBy);
+      if (
+        action.yieldedBy !== undefined &&
+        action.yieldedBy !== state.recognizedSpeaker.id &&
+        yielder?.role !== 'chair' &&
+        yielder?.role !== 'admin'
+      ) {
+        return {
+          valid: false,
+          error: 'Only the speaker or the chair can yield the floor',
+          errorCode: 'PERMISSION_DENIED',
+        };
+      }
       return { valid: true };
+    }
 
     case 'ADOPT_AGENDA':
       if (state.agendaAdopted) {
@@ -560,6 +580,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ALREADY_NOMINATED',
         };
       }
+      if (action.nomineeId && isGuest(state, action.nomineeId)) {
+        return {
+          valid: false,
+          error: 'Guests cannot be nominated',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       return { valid: true };
     }
 
@@ -706,6 +733,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!targetMember) {
         return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
       }
+      if (targetMember.role === 'guest') {
+        return {
+          valid: false,
+          error: 'A guest cannot take the chair',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       if (targetMember.role === action.newRole) {
         return {
           valid: false,
@@ -812,6 +846,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       const receivingMember = state.members.find((m) => m.id === action.grantedTo);
       if (!receivingMember) {
         return { valid: false, error: 'Receiving member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      if (grantingMember.role === 'guest' || receivingMember.role === 'guest') {
+        return {
+          valid: false,
+          error: 'Guests cannot hold or grant proxies',
+          errorCode: 'INVALID_ACTION',
+        };
       }
       if (!receivingMember.present) {
         return {
@@ -949,6 +990,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'MEMBER_NOT_FOUND',
         };
       }
+      if (designatedHolder.role === 'guest') {
+        return {
+          valid: false,
+          error: 'Guests cannot hold proxies',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       // Check for existing pending request
       const existingRequest = state.pendingProxyRequests.find(
         (r) => r.requestedBy === action.requestedBy && r.status === 'pending',
@@ -991,6 +1039,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'REQUEST_NOT_PENDING',
         };
       }
+      if (action.acceptedBy !== undefined && action.acceptedBy !== request.requestedFor) {
+        return {
+          valid: false,
+          error: 'Only the member asked can accept this request',
+          errorCode: 'PERMISSION_DENIED',
+        };
+      }
       // Check max proxies limit
       if (state.maxProxiesPerMember > 0) {
         const currentCount = state.proxies.filter(
@@ -1026,6 +1081,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'REQUEST_NOT_PENDING',
         };
       }
+      if (action.declinedBy !== undefined && action.declinedBy !== request.requestedFor) {
+        return {
+          valid: false,
+          error: 'Only the member asked can decline this request',
+          errorCode: 'PERMISSION_DENIED',
+        };
+      }
       return { valid: true };
     }
 
@@ -1046,6 +1108,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Request is no longer pending',
           errorCode: 'REQUEST_NOT_PENDING',
+        };
+      }
+      if (action.canceledBy !== undefined && action.canceledBy !== request.requestedBy) {
+        return {
+          valid: false,
+          error: 'Only the member who asked can cancel this request',
+          errorCode: 'PERMISSION_DENIED',
         };
       }
       return { valid: true };

@@ -6,6 +6,7 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
 import { applyAction } from './stateManager.js';
+import { emitState } from './statePublisher.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -49,7 +50,7 @@ export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Pr
 
       // Broadcast state update if presence changed
       if (presenceResult.success && presenceResult.state) {
-        io.to(roomName).emit('STATE_UPDATE', {
+        emitState(io, meetingCode, {
           state: presenceResult.state,
           stateVersion: presenceResult.stateVersion!,
           triggeredBy: { actionType: 'MEMBER_LEFT', userId: socket.data.userId },
