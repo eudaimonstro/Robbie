@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Scale } from 'lucide-react';
 import { useSession } from '../context/SessionContext';
+import { TermsCheckbox } from '../components/auth/TermsCheckbox';
 
 /** Where to go after signing in: a path inside the app, never another site */
 function safeNext(next: string | null): string {
@@ -20,13 +21,15 @@ const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Try again.';
 
 export default function SignInPage() {
-  const { status, user, requestCode, verify, setName, signOut } = useSession();
+  const { status, user, termsAccepted, requestCode, verify, setName, acceptTerms, signOut } =
+    useSession();
   const [searchParams] = useSearchParams();
   const next = safeNext(searchParams.get('next'));
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [name, setNameInput] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,13 +67,20 @@ export default function SignInPage() {
   };
   const onName = (e: FormEvent) => {
     e.preventDefault();
-    run(() => setName(name.trim()));
+    if (!termsAccepted && !agreed) return;
+    run(async () => {
+      // Agree first: the Privacy Policy covers the name, so it is stored only once the user
+      // agreed. If naming then fails, the checkbox is gone and only the name is asked again.
+      if (!termsAccepted) await acceptTerms();
+      await setName(name.trim());
+    });
   };
   const onDifferentEmail = () => {
     run(async () => {
       await signOut();
       setEmail('');
       setNameInput('');
+      setAgreed(false);
     });
   };
 
@@ -164,7 +174,12 @@ export default function SignInPage() {
                 onChange={(e) => setNameInput(e.target.value)}
               />
             </div>
-            <button type="submit" className="btn-primary w-full" disabled={busy}>
+            {!termsAccepted && <TermsCheckbox checked={agreed} onChange={setAgreed} />}
+            <button
+              type="submit"
+              className="btn-primary w-full"
+              disabled={busy || (!termsAccepted && !agreed)}
+            >
               Continue
             </button>
             <button

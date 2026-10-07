@@ -2,10 +2,16 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSession } from '../../context/SessionContext';
 import { LoadingPage } from '../ui/LoadingSpinner';
+import { TermsStep } from './TermsStep';
 
-/** Show the children only to a signed-in user with a name; send anyone else to sign in */
+/**
+ * Show the children only to a signed-in user with a name who accepted the current terms. Anyone
+ * signed out or without a name goes to sign in (the name step asks for the terms too); a user
+ * who hasn't accepted the current terms gets the terms step, before the children make any
+ * request the server would refuse.
+ */
 export function RequireSession({ children }: { children: ReactNode }) {
-  const { status, user, retry } = useSession();
+  const { status, user, termsAccepted, retry } = useSession();
   const location = useLocation();
 
   if (status === 'loading') return <LoadingPage />;
@@ -31,5 +37,6 @@ export function RequireSession({ children }: { children: ReactNode }) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/sign-in?next=${next}`} replace />;
   }
+  if (!termsAccepted) return <TermsStep />;
   return <>{children}</>;
 }
