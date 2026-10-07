@@ -22,6 +22,11 @@ test('the header fits at phone, tablet and laptop widths', async ({ page }, test
     await expect(header.getByRole('button', { name: /Maple Grove HOA/ })).toBeVisible();
     await expectInside(header, width);
 
+    // The dashboard's join button stays on one line (on phones it goes under the title)
+    const join = await page.getByRole('link', { name: 'Join Live Meeting' }).boundingBox();
+    expect(join?.height, `the join button's height at ${width}px`).toBeLessThanOrEqual(44);
+    expect(join!.x + join!.width, `the join button at ${width}px`).toBeLessThanOrEqual(width);
+
     const file = testInfo.outputPath(`header-${name}.png`);
     await page.screenshot({ path: file });
     await testInfo.attach(`header-${name}`, { path: file, contentType: 'image/png' });

@@ -89,12 +89,16 @@ export default function HomePage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
+      {/* Below sm the button goes under the title at full width, on one line */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="page-title">Dashboard</h2>
           <p className="text-ink-muted mt-1">Welcome to {currentOrganization.name}</p>
         </div>
-        <Link to="/meetings" className="btn-primary flex items-center gap-2">
+        <Link
+          to="/meetings"
+          className="btn-primary flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap sm:w-auto"
+        >
           <Users className="w-4 h-4" />
           Join Live Meeting
         </Link>
