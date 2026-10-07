@@ -34,6 +34,8 @@ export default function MinutesPage() {
   const [loadError, setLoadError] = useState<'missing' | 'failed' | null>(null);
   // Why the last change was refused, kept above the editor or the reader it turns into
   const [notice, setNotice] = useState<string | null>(null);
+  // Whether the editor was open when a save was refused: it stays, read-only, with the text
+  const [stoppedEditor, setStoppedEditor] = useState(false);
   useSelectRecordOrganization(record?.organizationId);
   const isSecretary = useCan('secretary');
 
@@ -66,6 +68,7 @@ export default function MinutesPage() {
   const refused = useCallback(
     (message: string) => {
       setNotice(message);
+      setStoppedEditor(true);
       reload();
     },
     [reload],
@@ -93,10 +96,11 @@ export default function MinutesPage() {
   if (!record) return <LoadingPage />;
 
   // Published minutes a meeting has before it are the meeting's to correct (the server refuses
-  // a save; see beforeMeeting)
+  // a save; see beforeMeeting): they open read. An editor already open when the meeting took them
+  // up stays, stopped, so the text typed isn't lost.
   const beforeMeeting = record.status === 'published' && record.beforeMeeting;
   // Approved minutes are the record: nobody edits them
-  const editable = isSecretary && record.status !== 'approved' && !beforeMeeting;
+  const editable = isSecretary && record.status !== 'approved' && (!beforeMeeting || stoppedEditor);
   // The editor takes the width for its two columns; the reader keeps a readable measure
   return (
     <div className={`mx-auto space-y-6 ${editable ? 'max-w-7xl' : 'max-w-4xl'}`}>

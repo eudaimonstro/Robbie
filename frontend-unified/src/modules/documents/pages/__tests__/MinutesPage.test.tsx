@@ -194,6 +194,22 @@ describe('MinutesPage', () => {
     expect(screen.getByText(BEFORE_MEETING_NOTE)).toBeTruthy();
   });
 
+  it('keeps the text typed when a meeting takes the minutes up during the edit', async () => {
+    api.get.mockResolvedValueOnce(record({ status: 'published' }));
+    api.get.mockResolvedValueOnce(record({ status: 'published', beforeMeeting: true }));
+    api.save.mockRejectedValue(new HttpError(BEFORE_MEETING, 409));
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('Changed as the meeting opened');
+    await act(async () => {});
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(BEFORE_MEETING_NOTE)).toBeTruthy();
+    expect(textarea().readOnly).toBe(true);
+    expect(textarea().value).toBe('Changed as the meeting opened');
+  });
+
   it('turns to the record when the minutes were approved while they were being edited', async () => {
     api.get.mockResolvedValueOnce(record({ status: 'published' }));
     api.get.mockResolvedValueOnce(
