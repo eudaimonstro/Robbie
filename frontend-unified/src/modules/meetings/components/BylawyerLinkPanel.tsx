@@ -112,17 +112,17 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
 
   if (unavailable) {
     return (
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-gray-800">
+      <div className="bg-surface rounded-lg p-4 shadow-sm">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-ink">
           <Building2 size={18} />
           Organization
         </h3>
-        <div className="bg-gray-50 rounded-lg p-4 text-center">
-          <AlertCircle className="mx-auto text-gray-400 mb-2" size={24} />
-          <p className="text-gray-500 text-sm">Couldn't load your organizations</p>
+        <div className="bg-surface-2 rounded-lg p-4 text-center">
+          <AlertCircle className="mx-auto text-ink-muted mb-2" size={24} />
+          <p className="text-ink-muted text-sm">Couldn't load your organizations</p>
           <button
             onClick={handleRefresh}
-            className="mt-2 text-indigo-600 hover:text-indigo-700 text-sm flex items-center gap-1 mx-auto"
+            className="mt-2 text-gavel hover:underline text-sm flex items-center gap-1 mx-auto"
           >
             <RefreshCw size={14} />
             Retry
@@ -133,16 +133,16 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   }
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm">
+    <div className="bg-surface rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold flex items-center gap-2 text-gray-800">
+        <h3 className="font-semibold flex items-center gap-2 text-ink">
           <Building2 size={18} />
           Organization
         </h3>
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="text-gray-400 hover:text-gray-600 p-1"
+          className="text-ink-muted hover:text-ink p-1"
           title="Refresh"
           aria-label="Refresh"
         >
@@ -152,19 +152,19 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
 
       {linked ? (
         <div className="space-y-3">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="bg-carried-tint border border-carried/40 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Link className="text-green-600" size={16} />
-              <span className="font-medium text-green-800">Linked to</span>
+              <Link className="text-carried" size={16} />
+              <span className="font-medium text-ink">Linked to</span>
             </div>
-            <p className="text-green-900 font-semibold">{linked.name}</p>
+            <p className="text-ink font-semibold">{linked.name}</p>
             {linked.description && (
-              <p className="text-green-700 text-sm mt-1">{linked.description}</p>
+              <p className="text-carried text-sm mt-1">{linked.description}</p>
             )}
             <button
               type="button"
               onClick={viewDocuments}
-              className="inline-flex items-center gap-1 text-green-600 hover:text-green-700 text-sm mt-2"
+              className="inline-flex items-center gap-1 text-carried hover:underline text-sm mt-2"
             >
               View Documents
               <ExternalLink size={12} />
@@ -175,7 +175,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
             <button
               onClick={handleUnlink}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-surface-2 text-ink py-2 px-4 rounded-lg hover:bg-rule disabled:opacity-50"
             >
               <Unlink size={16} />
               Unlink Organization
@@ -184,13 +184,13 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-gray-600 text-sm">
+          <p className="text-ink-muted text-sm">
             Link this meeting to one of your organizations to amend its bylaws from the meeting.
           </p>
 
           {linkedOrg?.warning && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-amber-700 text-sm">{linkedOrg.warning}</p>
+            <div className="bg-caution-tint border border-caution/40 rounded-lg p-3">
+              <p className="text-caution-ink text-sm">{linkedOrg.warning}</p>
             </div>
           )}
 
@@ -202,7 +202,7 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
                   value={chosenOrgId}
                   onChange={(e) => setSelectedOrgId(e.target.value)}
                   disabled={loading}
-                  className="flex-1 p-2 border border-gray-300 rounded-lg bg-white disabled:bg-gray-100"
+                  className="flex-1 p-2 border border-rule rounded-lg bg-surface disabled:bg-surface-2"
                 >
                   <option value="">Select an organization...</option>
                   {linkable.map((org) => (
@@ -215,21 +215,21 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
                 <button
                   onClick={handleLink}
                   disabled={loading || !chosenOrgId}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-gavel text-paper px-4 py-2 rounded-lg hover:bg-gavel/90 disabled:bg-rule disabled:cursor-not-allowed"
                 >
                   <Link size={16} />
                   Link
                 </button>
               </div>
               {suggested && (
-                <p className="text-indigo-600 text-xs">
+                <p className="text-gavel text-xs">
                   Suggested: {suggested.name} (your current organization)
                 </p>
               )}
             </>
           ) : (
             !loading && (
-              <p className="text-gray-500 text-sm italic">
+              <p className="text-ink-muted text-sm italic">
                 You need the secretary role in an organization to link this meeting.
               </p>
             )

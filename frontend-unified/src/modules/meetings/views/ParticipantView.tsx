@@ -207,14 +207,12 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
 
       {/* Floor control when recognized */}
       {hasFloor && (
-        <div className="bg-success-100 dark:bg-success-900/30 border-2 border-success-300 dark:border-success-700 rounded-xl p-4">
+        <div className="bg-carried-tint border-2 border-carried/40 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-success-800 dark:text-success-300 font-semibold text-lg">
-              You have the floor
-            </span>
+            <span className="text-ink font-semibold text-lg">You have the floor</span>
             <button
               onClick={() => dispatch({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() })}
-              className="min-h-[40px] px-4 py-2 bg-success-600 text-white rounded-lg font-medium hover:bg-success-700 touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-success-400 focus:ring-offset-2"
+              className="min-h-[40px] px-4 py-2 bg-carried text-paper rounded-lg font-medium hover:bg-carried/90 touch-manipulation active:scale-[0.98] transition-transform focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
             >
               Yield Floor
             </button>
@@ -254,7 +252,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
       {/* Agenda Display */}
       {state.agendaAdopted && (
         <section className="card p-4" aria-labelledby="agenda-heading">
-          <h3 id="agenda-heading" className="font-semibold mb-3 text-secondary-800 dark:text-white">
+          <h3 id="agenda-heading" className="font-semibold mb-3 text-ink">
             Agenda
           </h3>
           <ul className="space-y-2" role="list">
@@ -263,25 +261,17 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
                 key={item.id}
                 className={`flex items-center gap-2 p-2 rounded ${
                   item.status === 'completed'
-                    ? 'bg-success-50 dark:bg-success-900/20 text-secondary-500 dark:text-secondary-400'
+                    ? 'bg-carried-tint text-ink-muted'
                     : item.status === 'active'
-                      ? 'bg-meeting-100 dark:bg-meeting-900/30 font-medium'
+                      ? 'bg-gavel-tint font-medium'
                       : ''
                 }`}
               >
                 {item.status === 'completed' && (
-                  <CheckCircle
-                    size={16}
-                    className="text-success-600 dark:text-success-400"
-                    aria-hidden="true"
-                  />
+                  <CheckCircle size={16} className="text-carried" aria-hidden="true" />
                 )}
                 {item.status === 'active' && (
-                  <ChevronRight
-                    size={16}
-                    className="text-meeting-600 dark:text-meeting-400"
-                    aria-hidden="true"
-                  />
+                  <ChevronRight size={16} className="text-gavel" aria-hidden="true" />
                 )}
                 <span className={item.status === 'completed' ? 'line-through' : ''}>
                   {i + 1}. {item.title}
@@ -297,10 +287,7 @@ export function ParticipantView({ state, dispatch, currentUser }: ParticipantVie
         !state.pendingSecond &&
         (state.agendaAdopted || state.agendaObjection) && (
           <section className="card p-4" aria-labelledby="motion-heading">
-            <h3
-              id="motion-heading"
-              className="font-semibold mb-3 text-secondary-800 dark:text-white"
-            >
+            <h3 id="motion-heading" className="font-semibold mb-3 text-ink">
               Make a Motion
             </h3>
             {showAgendaAmendForm ? (

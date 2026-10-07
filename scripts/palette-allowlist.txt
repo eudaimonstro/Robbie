@@ -2,32 +2,12 @@
 # meeting- palette, or emoji icons (see scripts/check-palette.sh). Remove a file once it is on
 # the design tokens; never add one.
 frontend-unified/src/modules/meetings/components/ActiveSuspensionsBanner.tsx
-frontend-unified/src/modules/meetings/components/admin/MeetingSettingsPanel.tsx
-frontend-unified/src/modules/meetings/components/admin/MembersPanel.tsx
-frontend-unified/src/modules/meetings/components/admin/RenameModal.tsx
-frontend-unified/src/modules/meetings/components/admin/RoleChangeModal.tsx
-frontend-unified/src/modules/meetings/components/admin/TimeLimitsPanel.tsx
 frontend-unified/src/modules/meetings/components/AgendaAmendmentForm.tsx
 frontend-unified/src/modules/meetings/components/bylawAmendment/ChangeTypeSelector.tsx
 frontend-unified/src/modules/meetings/components/bylawAmendment/ContentFields.tsx
 frontend-unified/src/modules/meetings/components/bylawAmendment/FormStatusDisplays.tsx
 frontend-unified/src/modules/meetings/components/BylawAmendmentForm.tsx
 frontend-unified/src/modules/meetings/components/bylawAmendment/SectionSelector.tsx
-frontend-unified/src/modules/meetings/components/BylawyerLinkPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/AgendaPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/ChairScriptPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/CommitteeReportsPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/MeetingControlPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/MeetingDocumentsPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/MinutesApprovalPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/MotionStackPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/OrderOfBusinessPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/PendingMotionPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/PendingSecondPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/ProxyManagementPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/SpeakerQueuePanel.tsx
-frontend-unified/src/modules/meetings/components/chair/UnanimousConsentPanel.tsx
-frontend-unified/src/modules/meetings/components/chair/VotingPanel.tsx
 frontend-unified/src/modules/meetings/components/CountdownTimer.tsx
 frontend-unified/src/modules/meetings/components/DraggableAgendaList.tsx
 frontend-unified/src/modules/meetings/components/ElectionPanel.tsx
@@ -50,14 +30,5 @@ frontend-unified/src/modules/meetings/components/participant/UnanimousConsentSec
 frontend-unified/src/modules/meetings/components/participant/VoteResultsPanel.tsx
 frontend-unified/src/modules/meetings/components/participant/VotingPanel.tsx
 frontend-unified/src/modules/meetings/components/ReconsiderForm.tsx
-frontend-unified/src/modules/meetings/components/scheduling/AgendaItemEditor.tsx
-frontend-unified/src/modules/meetings/components/scheduling/AttachmentUploader.tsx
-frontend-unified/src/modules/meetings/components/scheduling/MeetingScheduler.tsx
-frontend-unified/src/modules/meetings/components/scheduling/PacketBuilder.tsx
 frontend-unified/src/modules/meetings/components/SuspendRulesForm.tsx
 frontend-unified/src/modules/meetings/components/TakeFromTableForm.tsx
-frontend-unified/src/modules/meetings/index.tsx
-frontend-unified/src/modules/meetings/views/AdminView.tsx
-frontend-unified/src/modules/meetings/views/JoinMeetingScreen.tsx
-frontend-unified/src/modules/meetings/views/MeetingApp.tsx
-frontend-unified/src/modules/meetings/views/ParticipantView.tsx

@@ -41,13 +41,13 @@ export const AgendaPanel = React.memo(function AgendaPanel({
   if (state.meetingActive && !state.agendaAdopted && !state.currentMotion && !state.pendingSecond) {
     return (
       <section
-        className="bg-white rounded-lg p-4 shadow-sm"
+        className="bg-surface rounded-lg p-4 shadow-sm"
         aria-labelledby="agenda-adoption-heading"
       >
-        <h3 id="agenda-adoption-heading" className="font-semibold mb-3 text-gray-800">
+        <h3 id="agenda-adoption-heading" className="font-semibold mb-3 text-ink">
           {state.agendaObjection ? 'Agenda (Objection)' : 'Adopt Agenda'}
         </h3>
-        <p className="text-sm text-gray-600 mb-3">Drag items to reorder before adoption.</p>
+        <p className="text-sm text-ink-muted mb-3">Drag items to reorder before adoption.</p>
 
         <DraggableAgendaList agenda={state.agenda} dispatch={dispatch} disabled={false} />
 
@@ -63,7 +63,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({
           <button
             onClick={handleAddAgendaItem}
             disabled={!newAgendaItem.trim()}
-            className="bg-gray-200 text-gray-700 px-4 rounded-lg disabled:opacity-50 text-sm"
+            className="bg-rule text-ink px-4 rounded-lg disabled:opacity-50 text-sm"
           >
             Add
           </button>
@@ -73,20 +73,20 @@ export const AgendaPanel = React.memo(function AgendaPanel({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => dispatch({ type: 'ADOPT_AGENDA', timestamp: generateTimestamp() })}
-              className="bg-green-500 text-white py-3 rounded-lg font-medium"
+              className="bg-carried text-paper py-3 rounded-lg font-medium"
             >
               No Objection
             </button>
             <button
               onClick={() => dispatch({ type: 'AGENDA_OBJECTION', timestamp: generateTimestamp() })}
-              className="bg-amber-500 text-white py-3 rounded-lg font-medium"
+              className="bg-gavel text-paper py-3 rounded-lg font-medium"
             >
               Objection Raised
             </button>
           </div>
         ) : (
           <div
-            className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm"
+            className="bg-caution-tint border border-caution/40 rounded-lg p-3 text-ink text-sm"
             role="alert"
           >
             <strong>Objection noted.</strong> A member must move to adopt or amend the agenda.
@@ -104,17 +104,20 @@ export const AgendaPanel = React.memo(function AgendaPanel({
     !state.pendingSecond
   ) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="current-item-heading">
-        <h3 id="current-item-heading" className="font-semibold mb-2 text-gray-800">
+      <section
+        className="bg-surface rounded-lg p-4 shadow-sm"
+        aria-labelledby="current-item-heading"
+      >
+        <h3 id="current-item-heading" className="font-semibold mb-2 text-ink">
           Current Item
         </h3>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-3 font-medium text-indigo-900">
+        <div className="bg-gavel-tint border border-rule rounded-lg p-3 mb-3 font-medium text-ink">
           {state.currentAgendaItem.title}
         </div>
         <div className="space-y-2">
           <button
             onClick={handlePutToVote}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
+            className="w-full bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90"
           >
             Put to Vote
           </button>
@@ -126,7 +129,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({
                 timestamp: generateTimestamp(),
               })
             }
-            className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+            className="w-full bg-carried text-paper py-2 rounded-lg hover:bg-carried/90"
           >
             Mark Complete (No Vote)
           </button>
@@ -143,8 +146,11 @@ export const AgendaPanel = React.memo(function AgendaPanel({
     !state.pendingSecond
   ) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="agenda-list-heading">
-        <h3 id="agenda-list-heading" className="font-semibold mb-3 text-gray-800">
+      <section
+        className="bg-surface rounded-lg p-4 shadow-sm"
+        aria-labelledby="agenda-list-heading"
+      >
+        <h3 id="agenda-list-heading" className="font-semibold mb-3 text-ink">
           Agenda
         </h3>
         <ul className="space-y-2" role="list">
@@ -152,14 +158,14 @@ export const AgendaPanel = React.memo(function AgendaPanel({
             <li
               key={item.id}
               className={`flex items-center justify-between p-3 rounded-lg ${
-                item.status === 'completed' ? 'bg-green-50' : 'bg-gray-50'
+                item.status === 'completed' ? 'bg-carried-tint' : 'bg-surface-2'
               }`}
             >
               <div className="flex items-center gap-2">
                 {item.status === 'completed' && (
-                  <CheckCircle size={16} className="text-green-600" aria-hidden="true" />
+                  <CheckCircle size={16} className="text-carried" aria-hidden="true" />
                 )}
-                <span className={item.status === 'completed' ? 'line-through text-gray-400' : ''}>
+                <span className={item.status === 'completed' ? 'line-through text-ink-muted' : ''}>
                   {i + 1}. {item.title}
                 </span>
               </div>
@@ -172,7 +178,7 @@ export const AgendaPanel = React.memo(function AgendaPanel({
                       timestamp: generateTimestamp(),
                     })
                   }
-                  className="bg-indigo-500 text-white px-3 py-1 rounded-sm text-sm"
+                  className="bg-gavel text-paper px-3 py-1 rounded-sm text-sm"
                 >
                   Call
                 </button>

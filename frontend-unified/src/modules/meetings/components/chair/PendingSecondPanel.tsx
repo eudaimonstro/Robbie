@@ -17,14 +17,17 @@ export const PendingSecondPanel = React.memo(function PendingSecondPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="pending-second-heading">
-      <h3 id="pending-second-heading" className="font-semibold mb-2 text-amber-700">
+    <section
+      className="bg-surface rounded-lg p-4 shadow-sm"
+      aria-labelledby="pending-second-heading"
+    >
+      <h3 id="pending-second-heading" className="font-semibold mb-2 text-caution-ink">
         Awaiting Second
       </h3>
       <MotionCard motion={state.pendingSecond} />
       <button
         onClick={() => dispatch({ type: 'DECLINE_SECOND', timestamp: generateTimestamp() })}
-        className="mt-3 w-full bg-gray-200 text-gray-700 py-2 rounded-lg"
+        className="mt-3 w-full bg-rule text-ink py-2 rounded-lg"
       >
         Declare "No Second"
       </button>

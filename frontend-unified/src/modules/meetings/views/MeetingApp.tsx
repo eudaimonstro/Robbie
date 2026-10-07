@@ -82,16 +82,12 @@ export function MeetingApp() {
       {/* Meeting info bar */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-meeting-100 dark:bg-meeting-900/30 flex items-center justify-center">
-            <Gavel className="w-5 h-5 text-meeting-600" />
+          <div className="w-10 h-10 rounded-lg bg-gavel-tint flex items-center justify-center">
+            <Gavel className="w-5 h-5 text-gavel" />
           </div>
           <div>
-            <h2 className="text-lg font-heading font-semibold text-secondary-900 dark:text-white">
-              Live Meeting
-            </h2>
-            <p className="text-sm text-secondary-500 dark:text-secondary-400">
-              Code: {state.meetingCode || 'Not Connected'}
-            </p>
+            <h2 className="text-lg font-heading font-semibold text-ink">Live Meeting</h2>
+            <p className="text-sm text-ink-muted">Code: {state.meetingCode || 'Not Connected'}</p>
           </div>
         </div>
         <ConnectionStatus />
@@ -101,7 +97,7 @@ export function MeetingApp() {
         {/* View switcher - only visible to admins */}
         {canSwitchViews && (
           <nav
-            className="flex gap-1 bg-white dark:bg-secondary-800 rounded-xl p-1 shadow-xs border border-secondary-200 dark:border-secondary-700"
+            className="flex gap-1 bg-surface rounded-xl p-1 shadow-xs border border-rule"
             role="tablist"
             aria-label="Meeting view selection"
           >
@@ -115,8 +111,8 @@ export function MeetingApp() {
                 id={`${tab.id}-tab`}
                 className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 touch-manipulation active:scale-[0.98] transition-all ${
                   view === tab.id
-                    ? 'bg-meeting-600 text-white shadow-xs'
-                    : 'text-secondary-600 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-700'
+                    ? 'bg-gavel text-paper shadow-xs'
+                    : 'text-ink-muted hover:bg-surface-2'
                 }`}
               >
                 <tab.icon size={18} aria-hidden="true" />
@@ -130,8 +126,8 @@ export function MeetingApp() {
         {!canSwitchViews && (
           <div className="card p-3">
             <div className="flex items-center gap-3">
-              <span className="text-secondary-600 dark:text-secondary-400">View:</span>
-              <span className="font-medium text-meeting-700 dark:text-meeting-400 capitalize flex items-center gap-2">
+              <span className="text-ink-muted">View:</span>
+              <span className="font-medium text-gavel capitalize flex items-center gap-2">
                 {allowedView === 'chair' ? (
                   <>
                     <Gavel size={16} /> Chair Dashboard
@@ -149,13 +145,11 @@ export function MeetingApp() {
         {allowedView === 'participant' && (
           <div className="card p-3">
             <div className="flex items-center gap-3">
-              <span className="text-secondary-600 dark:text-secondary-400">Logged in as:</span>
-              <span className="font-medium text-meeting-700 dark:text-meeting-400">
-                {activeUser.name}
-              </span>
+              <span className="text-ink-muted">Logged in as:</span>
+              <span className="font-medium text-gavel">{activeUser.name}</span>
               {activeUser.selfRenameUsed ? (
                 <span
-                  className="p-1 text-secondary-300 dark:text-secondary-600 cursor-not-allowed"
+                  className="p-1 text-ink-muted/50 cursor-not-allowed"
                   title="You've already changed your name once. Ask the chair if you need another change."
                 >
                   <Pencil size={14} />
@@ -163,14 +157,14 @@ export function MeetingApp() {
               ) : (
                 <button
                   onClick={openRenameModal}
-                  className="p-1 text-secondary-400 hover:text-meeting-600 hover:bg-meeting-50 dark:hover:bg-meeting-900/30 rounded-sm transition-colors"
+                  className="p-1 text-ink-muted hover:text-gavel hover:bg-gavel-tint rounded-sm transition-colors"
                   title="Change your name (one-time only)"
                   aria-label="Change your display name"
                 >
                   <Pencil size={14} />
                 </button>
               )}
-              <span className="text-xs bg-secondary-100 dark:bg-secondary-700 text-secondary-600 dark:text-secondary-300 px-2 py-1 rounded-sm capitalize">
+              <span className="text-xs bg-surface-2 text-ink-muted px-2 py-1 rounded-sm capitalize">
                 {activeUser.role}
               </span>
             </div>
@@ -181,39 +175,31 @@ export function MeetingApp() {
         {!state.meetingActive && allowedView !== 'chair' && (
           <div className="card p-6" role="status" aria-live="polite">
             <div className="text-center mb-6">
-              <Clock size={32} className="mx-auto mb-3 text-meeting-500" aria-hidden="true" />
-              <h2 className="text-xl font-semibold text-secondary-800 dark:text-white">
-                Pre-Meeting Lobby
-              </h2>
-              <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-                The meeting has not started yet
-              </p>
+              <Clock size={32} className="mx-auto mb-3 text-gavel" aria-hidden="true" />
+              <h2 className="text-xl font-semibold text-ink">Pre-Meeting Lobby</h2>
+              <p className="text-ink-muted mt-1">The meeting has not started yet</p>
             </div>
 
             {/* Chair status */}
             {(() => {
               const chair = state.members.find((m) => m.role === 'chair');
               return chair ? (
-                <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4 mb-4">
+                <div className="bg-carried-tint border border-carried/40 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-center gap-2">
-                    <Crown className="text-success-600 dark:text-success-400" size={18} />
-                    <span className="font-medium text-success-800 dark:text-success-300">
-                      Chair: {chair.name}
-                    </span>
+                    <Crown className="text-carried" size={18} />
+                    <span className="font-medium text-ink">Chair: {chair.name}</span>
                   </div>
-                  <p className="text-center text-success-700 dark:text-success-400 text-sm mt-2">
+                  <p className="text-center text-carried text-sm mt-2">
                     Waiting for the chair to call the meeting to order
                   </p>
                 </div>
               ) : (
-                <div className="bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800 rounded-lg p-4 mb-4">
+                <div className="bg-caution-tint border border-caution/40 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-center gap-2">
-                    <AlertCircle className="text-accent-600 dark:text-accent-400" size={18} />
-                    <span className="font-medium text-accent-800 dark:text-accent-300">
-                      No Chair Appointed
-                    </span>
+                    <AlertCircle className="text-caution-ink" size={18} />
+                    <span className="font-medium text-ink">No Chair Appointed</span>
                   </div>
-                  <p className="text-center text-accent-700 dark:text-accent-400 text-sm mt-2">
+                  <p className="text-center text-caution-ink text-sm mt-2">
                     Waiting for an admin to appoint a chair
                   </p>
                 </div>
@@ -222,7 +208,7 @@ export function MeetingApp() {
 
             {/* Members list */}
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-ink mb-2 flex items-center gap-2">
                 <Users size={16} />
                 Members Joined ({state.members.filter((m) => m.present).length})
               </h3>
@@ -235,10 +221,10 @@ export function MeetingApp() {
                         key={m.id}
                         className={`px-3 py-1 rounded-full text-sm ${
                           m.role === 'chair'
-                            ? 'bg-meeting-100 dark:bg-meeting-900/30 text-meeting-800 dark:text-meeting-300'
+                            ? 'bg-gavel-tint text-ink'
                             : m.role === 'admin'
-                              ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300'
-                              : 'bg-secondary-100 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-300'
+                              ? 'bg-gavel-tint text-ink'
+                              : 'bg-surface-2 text-ink'
                         }`}
                       >
                         {m.name}
@@ -249,9 +235,7 @@ export function MeetingApp() {
                     ))}
                 </div>
               ) : (
-                <p className="text-secondary-500 dark:text-secondary-400 text-sm italic">
-                  No members have joined yet
-                </p>
+                <p className="text-ink-muted text-sm italic">No members have joined yet</p>
               )}
             </div>
           </div>
@@ -271,41 +255,35 @@ export function MeetingApp() {
       {/* Rename Modal */}
       {isRenamingName && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50"
           onClick={() => setIsRenamingName(false)}
           role="dialog"
           aria-modal="true"
           aria-labelledby="rename-modal-title"
         >
           <div
-            className="bg-white dark:bg-secondary-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-secondary-200 dark:border-secondary-700"
+            className="bg-surface rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-rule"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3
-                id="rename-modal-title"
-                className="text-lg font-semibold text-secondary-900 dark:text-white"
-              >
+              <h3 id="rename-modal-title" className="text-lg font-semibold text-ink">
                 Change Your Name
               </h3>
               <button
                 onClick={() => setIsRenamingName(false)}
-                className="text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300"
+                className="text-ink-muted hover:text-ink"
                 aria-label="Close"
               >
                 <X size={20} />
               </button>
             </div>
             {/* Warning banner */}
-            <div className="mb-4 p-3 bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800 rounded-lg">
+            <div className="mb-4 p-3 bg-caution-tint border border-caution/40 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertCircle
-                  size={16}
-                  className="text-accent-600 dark:text-accent-400 mt-0.5 shrink-0"
-                />
-                <div className="text-sm text-accent-800 dark:text-accent-300">
+                <AlertCircle size={16} className="text-caution-ink mt-0.5 shrink-0" />
+                <div className="text-sm text-ink">
                   <p className="font-medium">Use a name others will recognize</p>
-                  <p className="mt-1 text-accent-700 dark:text-accent-400">
+                  <p className="mt-1 text-caution-ink">
                     You can only change your name once. If others can't identify you, you may not be
                     recognized to speak or vote.
                   </p>
@@ -314,10 +292,7 @@ export function MeetingApp() {
             </div>
 
             <div className="mb-4">
-              <label
-                htmlFor="new-name"
-                className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1"
-              >
+              <label htmlFor="new-name" className="block text-sm font-medium text-ink mb-1">
                 New Name
               </label>
               <input
@@ -329,27 +304,25 @@ export function MeetingApp() {
                   if (e.key === 'Enter') handleSelfRename();
                   if (e.key === 'Escape') setIsRenamingName(false);
                 }}
-                className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white focus:ring-2 focus:ring-meeting-500 focus:border-meeting-500"
+                className="w-full px-3 py-2 border border-rule rounded-lg bg-surface text-ink focus:ring-2 focus:ring-gavel focus:border-gavel"
                 placeholder="Enter your new name"
                 minLength={2}
                 maxLength={100}
                 autoFocus
               />
-              <p className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-                Name must be 2-100 characters
-              </p>
+              <p className="mt-1 text-xs text-ink-muted">Name must be 2-100 characters</p>
             </div>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setIsRenamingName(false)}
-                className="px-4 py-2 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-ink hover:bg-surface-2 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSelfRename}
                 disabled={newName.trim().length < 2 || newName.trim() === activeUser?.name}
-                className="px-4 py-2 bg-meeting-600 text-white rounded-lg hover:bg-meeting-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 bg-gavel text-paper rounded-lg hover:bg-gavel/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Save
               </button>

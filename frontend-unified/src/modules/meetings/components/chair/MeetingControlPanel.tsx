@@ -36,7 +36,7 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
     <section className="card p-4" aria-labelledby="meeting-control-heading">
       <h3
         id="meeting-control-heading"
-        className="font-semibold mb-3 flex items-center gap-2 text-secondary-800 dark:text-white"
+        className="font-semibold mb-3 flex items-center gap-2 text-ink"
       >
         <Gavel size={18} aria-hidden="true" /> Meeting Control
       </h3>
@@ -49,31 +49,27 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
               timestamp: generateTimestamp(),
             })
           }
-          className="w-full bg-success-500 text-white py-3 rounded-lg hover:bg-success-600 font-medium"
+          className="w-full bg-carried text-paper py-3 rounded-lg hover:bg-carried/90 font-medium"
         >
           Call Meeting to Order
         </button>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-success-50 dark:bg-success-900/20 rounded-lg">
-            <span className="text-success-700 dark:text-success-300 font-medium">
-              Meeting in Progress
-            </span>
-            <span className="text-success-600 dark:text-success-400 font-mono">
-              {state.meetingCode}
-            </span>
+          <div className="flex items-center justify-between p-3 bg-carried-tint rounded-lg">
+            <span className="text-carried font-medium">Meeting in Progress</span>
+            <span className="text-carried font-mono">{state.meetingCode}</span>
           </div>
           <button
             onClick={() => dispatch({ type: 'END_MEETING', timestamp: generateTimestamp() })}
-            className="w-full bg-danger-500 text-white py-2 rounded-lg hover:bg-danger-600"
+            className="w-full bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90"
           >
             Adjourn
           </button>
 
           {/* Chair Transfer */}
           {transferableMembers.length > 0 && (
-            <div className="border-t border-secondary-200 dark:border-secondary-700 pt-3 mt-3">
-              <h4 className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2 flex items-center gap-2">
+            <div className="border-t border-rule pt-3 mt-3">
+              <h4 className="text-sm font-medium text-ink mb-2 flex items-center gap-2">
                 <UserCheck size={16} aria-hidden="true" />
                 Transfer Chair Role
               </h4>
@@ -81,22 +77,20 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
                 {transferableMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center justify-between p-2 bg-secondary-50 dark:bg-secondary-800 rounded-lg"
+                    className="flex items-center justify-between p-2 bg-surface-2 rounded-lg"
                   >
-                    <span className="text-sm text-secondary-900 dark:text-white">
-                      {member.name}
-                    </span>
+                    <span className="text-sm text-ink">{member.name}</span>
                     {showTransferConfirm === member.id ? (
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleTransferChair(member.id)}
-                          className="bg-meeting-600 text-white px-3 py-1 rounded-sm text-xs font-medium hover:bg-meeting-700"
+                          className="bg-gavel text-paper px-3 py-1 rounded-sm text-xs font-medium hover:bg-gavel/90"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setShowTransferConfirm(null)}
-                          className="bg-secondary-300 dark:bg-secondary-600 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-sm text-xs font-medium hover:bg-secondary-400 dark:hover:bg-secondary-500"
+                          className="bg-rule text-ink px-3 py-1 rounded-sm text-xs font-medium hover:bg-ink-muted/25"
                         >
                           Cancel
                         </button>
@@ -104,7 +98,7 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
                     ) : (
                       <button
                         onClick={() => setShowTransferConfirm(member.id)}
-                        className="text-meeting-600 dark:text-meeting-400 hover:text-meeting-800 dark:hover:text-meeting-300 text-sm font-medium"
+                        className="text-gavel hover:underline text-sm font-medium"
                       >
                         Transfer
                       </button>
@@ -112,7 +106,7 @@ export const MeetingControlPanel = React.memo(function MeetingControlPanel({
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-2">
+              <p className="text-xs text-ink-muted mt-2">
                 You will become a regular member after transferring.
               </p>
             </div>

@@ -39,10 +39,8 @@ export function JoinMeetingScreen() {
     <div className="max-w-md mx-auto py-12">
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Gavel className="w-6 h-6 text-meeting-600" aria-hidden="true" />
-          <h2 className="text-xl font-heading font-bold text-secondary-900 dark:text-white">
-            Join a Meeting
-          </h2>
+          <Gavel className="w-6 h-6 text-gavel" aria-hidden="true" />
+          <h2 className="text-xl font-heading font-bold text-ink">Join a Meeting</h2>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
@@ -50,10 +48,7 @@ export function JoinMeetingScreen() {
               Meeting code
             </label>
             <div className="relative">
-              <Hash
-                className="w-4 h-4 absolute left-3 top-3 text-secondary-400"
-                aria-hidden="true"
-              />
+              <Hash className="w-4 h-4 absolute left-3 top-3 text-ink-muted" aria-hidden="true" />
               <input
                 id="meetingCode"
                 className="input pl-9 uppercase tracking-widest"
@@ -64,7 +59,7 @@ export function JoinMeetingScreen() {
               />
             </div>
             {invalid && (
-              <p role="alert" className="mt-1 text-sm text-danger-600">
+              <p role="alert" className="mt-1 text-sm text-gavel">
                 Meeting codes are 4 to 8 letters or digits
               </p>
             )}
@@ -74,12 +69,12 @@ export function JoinMeetingScreen() {
           </button>
         </form>
         {error && (
-          <p role="alert" className="mt-4 text-sm text-danger-600">
+          <p role="alert" className="mt-4 text-sm text-gavel">
             {error}
           </p>
         )}
         {canSchedule && (
-          <div className="mt-6 pt-6 border-t border-secondary-200 dark:border-secondary-700">
+          <div className="mt-6 pt-6 border-t border-rule">
             <button onClick={() => setScheduling(true)} className="btn-secondary w-full">
               <Calendar className="w-4 h-4 mr-2" aria-hidden="true" />
               Schedule a New Meeting

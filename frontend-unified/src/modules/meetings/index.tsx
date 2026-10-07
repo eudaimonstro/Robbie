@@ -36,15 +36,13 @@ function MeetingsContent() {
       <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
         <div className="card p-8 text-center max-w-md">
           {error ? (
-            <p className="text-danger-600 dark:text-danger-400 mb-4" role="alert">
+            <p className="text-gavel mb-4" role="alert">
               {error}
             </p>
           ) : (
             <>
-              <div className="animate-spin w-12 h-12 border-4 border-meeting-600 border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-secondary-600 dark:text-secondary-400 mb-4">
-                Connecting to meeting...
-              </p>
+              <div className="animate-spin w-12 h-12 border-4 border-gavel border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-ink-muted mb-4">Connecting to meeting...</p>
             </>
           )}
           <div className="flex justify-center gap-3">

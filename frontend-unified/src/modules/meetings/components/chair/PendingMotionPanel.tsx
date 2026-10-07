@@ -31,17 +31,25 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="pending-motion-heading">
-      <h3 id="pending-motion-heading" className="font-semibold mb-3 text-gray-800">
+    <section
+      className="bg-surface rounded-lg p-4 shadow-sm"
+      aria-labelledby="pending-motion-heading"
+    >
+      <h3 id="pending-motion-heading" className="font-semibold mb-3 text-ink">
         Pending Motion
       </h3>
 
       {/* Show objection alert if recent log entry indicates objection */}
       {recentObjection && (
-        <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-lg" role="alert">
-          <p className="text-amber-800 font-semibold mb-1">⚠️ Objection Raised</p>
-          <p className="text-amber-700 text-sm">{recentObjection.message}</p>
-          <p className="text-amber-600 text-xs mt-2">Motion requires debate and/or formal vote.</p>
+        <div
+          className="mb-3 p-3 bg-caution-tint border-2 border-caution/40 rounded-lg"
+          role="alert"
+        >
+          <p className="text-ink font-semibold mb-1">Objection Raised</p>
+          <p className="text-caution-ink text-sm">{recentObjection.message}</p>
+          <p className="text-caution-ink text-xs mt-2">
+            Motion requires debate and/or formal vote.
+          </p>
         </div>
       )}
 
@@ -49,12 +57,12 @@ export const PendingMotionPanel = React.memo(function PendingMotionPanel({
 
       {/* Special notice for Appeal */}
       {state.currentMotion.type === 'appeal' && state.lastChairRuling && (
-        <div className="mt-3 p-4 bg-purple-50 border-2 border-purple-300 rounded-lg">
-          <p className="text-purple-800 font-semibold mb-2">⚖️ Appeal of Chair's Ruling</p>
-          <p className="text-purple-700 text-sm mb-1">
+        <div className="mt-3 p-4 bg-gavel-tint border-2 border-rule rounded-lg">
+          <p className="text-ink font-semibold mb-2">Appeal of Chair's Ruling</p>
+          <p className="text-ink text-sm mb-1">
             <strong>Ruling being appealed:</strong> "{state.lastChairRuling.ruling}"
           </p>
-          <p className="text-purple-600 text-xs">
+          <p className="text-ink-muted text-xs">
             Vote YEA to sustain the chair's decision, NAY to overturn it. A majority or a tie
             sustains.
           </p>
@@ -83,9 +91,9 @@ function ChairRulingControls({
 
   return (
     <div className="mt-4">
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-3">
-        <p className="text-blue-800 font-medium mb-2">⚖️ Chair Ruling Required</p>
-        <p className="text-blue-700 text-sm">
+      <div className="p-4 bg-gavel-tint border border-rule rounded-lg mb-3">
+        <p className="text-ink font-medium mb-2">Chair Ruling Required</p>
+        <p className="text-ink text-sm">
           {state.currentMotion.type === 'pointOrder' &&
             'Rule on whether the point of order is valid.'}
           {state.currentMotion.type === 'questionPrivilege' &&
@@ -104,7 +112,7 @@ function ChairRulingControls({
             onClick={() =>
               dispatch({ type: 'CHAIR_RULING', ruling: 'sustain', timestamp: generateTimestamp() })
             }
-            className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
+            className="bg-carried text-paper py-3 rounded-lg font-medium hover:bg-carried/90"
           >
             Sustain Point
           </button>
@@ -112,7 +120,7 @@ function ChairRulingControls({
             onClick={() =>
               dispatch({ type: 'CHAIR_RULING', ruling: 'overrule', timestamp: generateTimestamp() })
             }
-            className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
+            className="bg-gavel text-paper py-3 rounded-lg font-medium hover:bg-gavel/90"
           >
             Overrule Point
           </button>
@@ -126,7 +134,7 @@ function ChairRulingControls({
             onClick={() =>
               dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
             }
-            className="bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
+            className="bg-carried text-paper py-3 rounded-lg font-medium hover:bg-carried/90"
           >
             Allow Request
           </button>
@@ -134,7 +142,7 @@ function ChairRulingControls({
             onClick={() =>
               dispatch({ type: 'CHAIR_RULING', ruling: 'deny', timestamp: generateTimestamp() })
             }
-            className="bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
+            className="bg-gavel text-paper py-3 rounded-lg font-medium hover:bg-gavel/90"
           >
             Deny Request
           </button>
@@ -146,7 +154,7 @@ function ChairRulingControls({
           onClick={() =>
             dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
           }
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
+          className="w-full bg-gavel text-paper py-3 rounded-lg font-medium hover:bg-gavel/90"
         >
           Proceed to the Orders of the Day
         </button>
@@ -157,7 +165,7 @@ function ChairRulingControls({
           onClick={() =>
             dispatch({ type: 'CHAIR_RULING', ruling: 'allow', timestamp: generateTimestamp() })
           }
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
+          className="w-full bg-gavel text-paper py-3 rounded-lg font-medium hover:bg-gavel/90"
         >
           Acknowledge & Respond
         </button>
@@ -177,13 +185,13 @@ function VotingMethodControls({
   return (
     <>
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Voting Method</label>
+        <label className="block text-sm font-medium text-ink mb-2">Voting Method</label>
         <select
           value={state.votingMethod}
           onChange={(e) =>
             dispatch({ type: 'SET_VOTING_METHOD', method: e.target.value as VotingMethod })
           }
-          className="w-full p-2 border rounded-lg mb-3 bg-white"
+          className="w-full p-2 border rounded-lg mb-3 bg-surface"
         >
           <option value="standard">Standard Vote (Yea/Nay/Abstain)</option>
           <option value="ballot">Secret Ballot (anonymous)</option>
@@ -195,7 +203,7 @@ function VotingMethodControls({
           onClick={() =>
             dispatch({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() })
           }
-          className="bg-green-500 text-white py-3 rounded-lg font-medium"
+          className="bg-carried text-paper py-3 rounded-lg font-medium"
         >
           Ask for Consent
         </button>
@@ -207,7 +215,7 @@ function VotingMethodControls({
               timestamp: generateTimestamp(),
             })
           }
-          className="bg-indigo-600 text-white py-3 rounded-lg font-medium"
+          className="bg-gavel text-paper py-3 rounded-lg font-medium"
         >
           Call the Question
         </button>

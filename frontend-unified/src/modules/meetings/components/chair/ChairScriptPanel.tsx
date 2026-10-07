@@ -20,23 +20,23 @@ export const ChairScriptPanel = React.memo(function ChairScriptPanel({
 
   if (!showScript) {
     return (
-      <button onClick={() => setShowScript(true)} className="text-indigo-600 text-sm">
+      <button onClick={() => setShowScript(true)} className="text-gavel text-sm">
         Show script
       </button>
     );
   }
 
   return (
-    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4" role="note">
+    <div className="bg-gavel-tint border border-rule rounded-lg p-4" role="note">
       <div className="flex justify-between">
         <div>
-          <p className="text-indigo-800 font-medium mb-1">Say:</p>
-          <p className="text-indigo-900 text-lg">{script.text}</p>
-          <p className="text-indigo-600 text-sm mt-2 italic">{script.note}</p>
+          <p className="text-ink font-medium mb-1">Say:</p>
+          <p className="text-ink text-lg">{script.text}</p>
+          <p className="text-ink-muted text-sm mt-2 italic">{script.note}</p>
         </div>
         <button
           onClick={() => setShowScript(false)}
-          className="text-indigo-400"
+          className="text-gavel"
           aria-label="Hide script"
         >
           <X size={18} />

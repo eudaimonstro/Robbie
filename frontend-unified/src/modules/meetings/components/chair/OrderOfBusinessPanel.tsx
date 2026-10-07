@@ -19,10 +19,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
 
   return (
     <section className="card p-4" aria-labelledby="order-of-business-heading">
-      <h3
-        id="order-of-business-heading"
-        className="font-semibold mb-3 text-secondary-800 dark:text-white"
-      >
+      <h3 id="order-of-business-heading" className="font-semibold mb-3 text-ink">
         Order of Business
       </h3>
       <div className="space-y-2" role="list" aria-label="Meeting stages">
@@ -47,35 +44,27 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
               disabled={isCurrent}
               className={`w-full flex items-center justify-between p-2 rounded text-left transition-colors ${
                 isCurrent
-                  ? 'bg-meeting-100 dark:bg-meeting-900/30 border-2 border-meeting-300 dark:border-meeting-700 cursor-default'
-                  : 'bg-secondary-50 dark:bg-secondary-800 hover:bg-meeting-50 dark:hover:bg-meeting-900/20 hover:border-meeting-200 dark:hover:border-meeting-800 border-2 border-transparent cursor-pointer'
+                  ? 'bg-gavel-tint border-2 border-gavel/30 cursor-default'
+                  : 'bg-surface-2 hover:bg-gavel-tint hover:border-gavel/30 border-2 border-transparent cursor-pointer'
               }`}
               aria-current={isCurrent ? 'step' : undefined}
             >
               <span
                 className={`flex items-center gap-2 ${
-                  isCurrent
-                    ? 'font-semibold text-meeting-900 dark:text-meeting-200'
-                    : 'text-secondary-600 dark:text-secondary-400'
+                  isCurrent ? 'font-semibold text-ink' : 'text-ink-muted'
                 }`}
               >
                 <span aria-hidden="true">{item.icon}</span>
                 {item.label}
               </span>
-              {isCurrent && (
-                <ChevronRight
-                  size={18}
-                  className="text-meeting-600 dark:text-meeting-400"
-                  aria-hidden="true"
-                />
-              )}
+              {isCurrent && <ChevronRight size={18} className="text-gavel" aria-hidden="true" />}
             </button>
           );
         })}
       </div>
       <button
         onClick={() => dispatch({ type: 'ADVANCE_MEETING_STAGE', timestamp: generateTimestamp() })}
-        className="w-full mt-3 bg-meeting-600 text-white py-2 rounded-lg hover:bg-meeting-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full mt-3 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={isLastActiveStage(state.meetingStage)}
       >
         Proceed to Next Stage
