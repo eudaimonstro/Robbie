@@ -271,8 +271,9 @@ describe('floor ballots in elections', () => {
         name: 'Carmen',
         memberId: 0,
         electedAt: '20:31',
-        // The ballot that elected them, for the minutes
+        // The ballot that elected them, and the vote it took, for the minutes
         ballots: [{ Carmen: 18, Ann: 9, Bo: 0 }],
+        requiredVotes: 'majority',
       },
     ]);
     expect(declared.currentElection).toBeNull();

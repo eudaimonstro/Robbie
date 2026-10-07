@@ -314,6 +314,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         memberId,
         electedAt: typedAction.timestamp,
         ...(ballots.length > 0 ? { ballots } : {}),
+        requiredVotes: state.currentElection.requiredVotes,
         ...decisionContext(state, typedAction.at),
       };
 

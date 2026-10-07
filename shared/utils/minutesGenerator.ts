@@ -13,6 +13,8 @@ import type {
 } from '../types/index.js';
 import { PUT_BY_CHAIR } from '../constants/floor.js';
 import { logElectionSetAside } from '../constants/logMessages.js';
+import { MOTIONS } from '../constants/motions.js';
+import { plainMotionName } from '../constants/motionWords.js';
 import { NO_VOTES, addVotes, completedMotionVotes } from './voteCalculator.js';
 
 /** An entry with where and when it happened, for grouping and ordering */
@@ -129,7 +131,19 @@ function sentence(text: string): string {
 
 const counted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
 
-/** "Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5." and the like */
+/**
+ * ", two thirds required" when the motion needed more than a majority. An appeal's result says
+ * what became of the chair's decision instead.
+ */
+function requiredText(motion: CompletedMotion): string {
+  if (motion.type === 'appeal') return '';
+  return MOTIONS[motion.type]?.vote === '2/3' ? ', two thirds required' : '';
+}
+
+/**
+ * "Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5." and the like, with the vote
+ * required when it is more than a majority
+ */
 function voteText(motion: CompletedMotion): string {
   const result =
     motion.type === 'appeal'
@@ -144,9 +158,10 @@ function voteText(motion: CompletedMotion): string {
   const floor = motion.floorVotes ?? NO_VOTES;
   const total = addVotes(device, floor);
   const abstaining = total.abstain > 0 ? `, ${total.abstain} abstaining` : '';
+  const required = requiredText(motion);
   if (motion.method === 'voice') {
     const count = counted(floor) ? `, ${floor.yea} to ${floor.nay}` : '';
-    return `${result} on a voice vote${count}${abstaining}.`;
+    return `${result} on a voice vote${required}${count}${abstaining}.`;
   }
   const how =
     motion.method === 'ballot'
@@ -155,10 +170,12 @@ function voteText(motion: CompletedMotion): string {
         ? ' on a roll call'
         : '';
   if (counted(device) && counted(floor)) {
-    return `${result}${how}, on devices ${device.yea} to ${device.nay} and in the room ${floor.yea} to ${floor.nay}: ${total.yea} to ${total.nay}${abstaining}.`;
+    return `${result}${how}${required}, on devices ${device.yea} to ${device.nay} and in the room ${floor.yea} to ${floor.nay}: ${total.yea} to ${total.nay}${abstaining}.`;
   }
-  if (counted(total)) return `${result}${how}, ${total.yea} to ${total.nay}${abstaining}.`;
-  return `${result}${how}.`;
+  if (counted(total)) {
+    return `${result}${how}${required}, ${total.yea} to ${total.nay}${abstaining}.`;
+  }
+  return `${result}${how}${required}.`;
 }
 
 function quorumNote(motion: CompletedMotion): string {
@@ -188,7 +205,7 @@ function motionText(motion: CompletedMotion): string {
         ? `${motion.mover} moved: ${text}`
         : `Moved: ${text}`;
   const seconded = motion.seconder ? ` Seconded by ${motion.seconder}.` : '';
-  return `**${motion.name}.** ${moved}${seconded} ${outcomeText(motion)}`;
+  return `**${plainMotionName(motion.name, motion.type)}.** ${moved}${seconded} ${outcomeText(motion)}`;
 }
 
 function rulingText(ruling: ChairRulingRecord): string {
@@ -209,11 +226,21 @@ function ballotTallies(ballots: Ballots): string[] {
   });
 }
 
+/** "Carmen Diaz was elected.", with the vote required when it was not a majority */
+function electedText(officer: Officer): string {
+  switch (officer.requiredVotes) {
+    case '2/3':
+      return `${officer.name} was elected, two thirds required.`;
+    case 'plurality':
+      return `${officer.name} was elected by a plurality.`;
+    default:
+      return `${officer.name} was elected.`;
+  }
+}
+
 function electionText(officer: Officer): string {
   const ballots = ballotTallies(officer.ballots).map((tally) => `${tally}.`);
-  return [`**Election for ${officer.position}.**`, ...ballots, `${officer.name} was elected.`].join(
-    ' ',
-  );
+  return [`**Election for ${officer.position}.**`, ...ballots, electedText(officer)].join(' ');
 }
 
 function setAsideText(setAside: ElectionSetAsideRecord): string {
@@ -221,7 +248,7 @@ function setAsideText(setAside: ElectionSetAsideRecord): string {
   return [logElectionSetAside(setAside.position), ...ballots].join(' ');
 }
 
-/** 'the motion "Repave the lot" (Main Motion, moved by Pat and seconded by Carmen)' and the like */
+/** 'the motion "Repave the lot" (Main motion, moved by Pat and seconded by Carmen)' and the like */
 function unfinishedText(record: UnfinishedBusinessRecord): string {
   if (record.kind === 'election') {
     const ballots = ballotTallies(record.ballots);
@@ -233,7 +260,7 @@ function unfinishedText(record: UnfinishedBusinessRecord): string {
     : record.awaitingSecond
       ? ' and awaiting a second'
       : '';
-  return `the motion "${record.text.trim()}" (${record.name}, ${moved}${seconded})`;
+  return `the motion "${record.text.trim()}" (${plainMotionName(record.name)}, ${moved}${seconded})`;
 }
 
 /** "The meeting adjourned at 8:42 PM with the following unfinished: ..." */

@@ -189,6 +189,7 @@ const scenario: MeetingState = {
       memberId: 4,
       electedAt: '',
       ballots: [{ 'Carmen Diaz': 18, 'Ray Castillo': 9 }],
+      requiredVotes: 'majority',
       agendaItemId: 5,
       decidedAt: at('01:05'),
     },
@@ -201,6 +202,7 @@ const scenario: MeetingState = {
         { 'Frank Osei': 12, 'Hector Ramos': 12 },
         { 'Frank Osei': 15, 'Hector Ramos': 11 },
       ],
+      requiredVotes: 'plurality',
       agendaItemId: 5,
       decidedAt: at('01:15'),
     },
@@ -312,27 +314,27 @@ describe('the minutes', () => {
         '',
         '**Amend.** Ben Whitaker moved: "Strike spring and insert summer." Withdrawn by the mover.',
         '',
-        '**Main Motion.** Alice Brennan moved: "I move that we resurface the pool this spring." Seconded by Ben Whitaker. Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5. A quorum was present.',
+        '**Main motion.** Alice Brennan moved: "I move that we resurface the pool this spring." Seconded by Ben Whitaker. Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5. A quorum was present.',
         '',
         '**Ruling of the chair.** On "Point of order: the speaker is off the subject." the chair ruled: The point is well taken. Debate must be on the motion.',
         '',
-        '**Appeal the Chair\'s Decision.** Ben Whitaker moved: "Appeal the ruling on the point of order." Seconded by Alice Brennan. The chair\'s decision was sustained, 15 to 5. A quorum was present.',
+        '**Appeal the chair\'s ruling.** Ben Whitaker moved: "Appeal the ruling on the point of order." Seconded by Alice Brennan. The chair\'s decision was sustained, 15 to 5. A quorum was present.',
         '',
-        '**Main Motion.** Grace Kim moved: "Paint the clubhouse red." Died for lack of a second.',
+        '**Main motion.** Grace Kim moved: "Paint the clubhouse red." Died for lack of a second.',
         '',
         '### 4. New business: amend Section 4.2 to lower the quorum to 15%',
         '',
-        '**Bylaw Amendment.** Pat Lindqvist moved: "Amend Section 4.2 to lower the quorum to 15%." Seconded by Alice Brennan. Carried by ballot, on devices 14 to 4 and in the room 8 to 2: 22 to 6, 1 abstaining. A quorum was present.',
+        '**Amend the bylaws.** Pat Lindqvist moved: "Amend Section 4.2 to lower the quorum to 15%." Seconded by Alice Brennan. Carried by ballot, two thirds required, on devices 14 to 4 and in the room 8 to 2: 22 to 6, 1 abstaining. A quorum was present.',
         '',
-        '**Main Motion.** Carmen Diaz moved: "Thank the outgoing directors." Seconded by a member in the room. Adopted by unanimous consent. A quorum was present.',
+        '**Main motion.** Carmen Diaz moved: "Thank the outgoing directors." Seconded by a member in the room. Adopted by unanimous consent. A quorum was present.',
         '',
-        '**Main Motion.** The chair put the question: "Adopt the 2027 budget." Seconded by Carmen Diaz. Carried, 20 to 1. A quorum was present.',
+        '**Main motion.** The chair put the question: "Adopt the 2027 budget." Seconded by Carmen Diaz. Carried, 20 to 1. A quorum was present.',
         '',
         '### 5. Election of two directors',
         '',
         '**Election for Director.** Ballot 1: Carmen Diaz 18, Ray Castillo 9. Carmen Diaz was elected.',
         '',
-        '**Election for Director.** Ballot 1: Frank Osei 12, Hector Ramos 12. Ballot 2: Frank Osei 15, Hector Ramos 11. Frank Osei was elected.',
+        '**Election for Director.** Ballot 1: Frank Osei 12, Hector Ramos 12. Ballot 2: Frank Osei 15, Hector Ramos 11. Frank Osei was elected by a plurality.',
         '',
         'The election for Treasurer was set aside. Ballot 1: Ann Lee 10, Bo Chen 10.',
         '',
@@ -344,11 +346,11 @@ describe('the minutes', () => {
         '',
         '### Other business',
         '',
-        '**Main Motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed on a voice vote, 4 to 20. No quorum was present.',
+        '**Main motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed on a voice vote, 4 to 20. No quorum was present.',
         '',
         '## Adjournment',
         '',
-        'The meeting adjourned at 8:42 PM with the following unfinished: the election for Secretary (Ballot 1: Ivy Moss 7, June Park 7; Ballot 2: June Park 8, Ivy Moss 6), the motion "Repave the parking lot" (Main Motion, moved by Pat Lindqvist and seconded by Carmen Diaz) and the motion "Refer the question to the grounds committee" (Refer to a Committee, moved by Ben Whitaker and awaiting a second).',
+        'The meeting adjourned at 8:42 PM with the following unfinished: the election for Secretary (Ballot 1: Ivy Moss 7, June Park 7; Ballot 2: June Park 8, Ivy Moss 6), the motion "Repave the parking lot" (Main motion, moved by Pat Lindqvist and seconded by Carmen Diaz) and the motion "Refer the question to the grounds committee" (Refer to a committee, moved by Ben Whitaker and awaiting a second).',
         '',
       ].join('\n'),
     );
@@ -395,7 +397,7 @@ describe('the minutes', () => {
     const markdown = formatMinutesAsMarkdown(minutes, nothingKnown);
     expect(markdown).toContain('\nThe election was set aside.\n');
     expect(markdown).toContain(
-      '## Adjournment\n\nThe meeting adjourned with the following unfinished: the election for Treasurer and the motion "Adopt the budget" (Main Motion, put by the chair).\n',
+      '## Adjournment\n\nThe meeting adjourned with the following unfinished: the election for Treasurer and the motion "Adopt the budget" (Main motion, put by the chair).\n',
     );
   });
 
@@ -413,7 +415,58 @@ describe('the minutes', () => {
     });
     expect(minutes.otherEntries).toHaveLength(1);
     expect(formatMinutesAsMarkdown(minutes, nothingKnown)).toContain(
-      '**Main Motion.** Alice moved: "Approve the budget." Carried, 2 to 1.\n',
+      '**Main motion.** Alice moved: "Approve the budget." Carried, 2 to 1.\n',
+    );
+  });
+
+  it('say when a vote needed more than a majority', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      completedMotions: [
+        record({
+          id: 1,
+          type: 'previousQuestion',
+          name: 'Previous Question (Close Debate)',
+          text: 'Close debate',
+          mover: 'Alice',
+          passed: false,
+          deviceVotes: NO_VOTES,
+          floorVotes: { yea: 12, nay: 8, abstain: 0 },
+          method: 'voice',
+          disposition: 'failed',
+        }),
+        record({
+          id: 2,
+          type: 'suspendRules',
+          name: 'Suspend the Rules',
+          text: 'Suspend the rules to hear the guest',
+          mover: 'Ben',
+          deviceVotes: { yea: 9, nay: 1, abstain: 0 },
+          floorVotes: NO_VOTES,
+          method: 'standard',
+          disposition: 'carried',
+        }),
+      ],
+      electedOfficers: [
+        {
+          position: 'Treasurer',
+          name: 'Ann Lee',
+          memberId: 0,
+          electedAt: '',
+          ballots: [{ 'Ann Lee': 14, 'Bo Chen': 6 }],
+          requiredVotes: '2/3',
+        },
+      ],
+    });
+    const markdown = formatMinutesAsMarkdown(minutes, nothingKnown);
+    expect(markdown).toContain(
+      '**Close debate.** Alice moved: "Close debate." Failed on a voice vote, two thirds required, 12 to 8.\n',
+    );
+    expect(markdown).toContain(
+      '**Suspend the rules.** Ben moved: "Suspend the rules to hear the guest." Carried, two thirds required, 9 to 1.\n',
+    );
+    expect(markdown).toContain(
+      '**Election for Treasurer.** Ballot 1: Ann Lee 14, Bo Chen 6. Ann Lee was elected, two thirds required.\n',
     );
   });
 

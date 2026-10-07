@@ -249,6 +249,7 @@ describe('the meeting record', () => {
           { Carmen: 5, Ray: 5 },
           { Carmen: 6, Ray: 3 },
         ],
+        requiredVotes: 'majority',
         agendaItemId: 3,
         decidedAt: AT,
       },

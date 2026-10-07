@@ -306,6 +306,8 @@ export interface Officer {
   readonly electedAt: string;
   /** Each ballot's count in the election that chose them */
   readonly ballots?: ReadonlyArray<Record<string, number>>;
+  /** The vote the election required; records made before it was kept have none */
+  readonly requiredVotes?: Election['requiredVotes'];
   readonly agendaItemId?: number;
   readonly decidedAt?: string;
 }
