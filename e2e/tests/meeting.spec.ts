@@ -102,11 +102,14 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await expect(pat.getByText('In the room: 9 to 2')).toBeVisible();
     await dana.getByRole('button', { name: 'Close the vote' }).click();
 
-    // The display announces the result in both parts, with the quorum
-    await expect(pat.getByText('Carried', { exact: true })).toBeVisible();
-    await expect(pat.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeVisible();
+    // The display announces the result in both parts, with the quorum. The stamp also writes
+    // the result into its own hidden live region, so its words are read from the visible stamp.
+    const tally = 'On devices 2 to 0, in the room 9 to 2: 11 to 2';
+    const displayStamp = visibleStamp(pat, 'Carried');
+    await expect(displayStamp.word).toBeVisible();
+    await expect(displayStamp.caption.getByText(tally, { exact: true })).toBeVisible();
     await expect(pat.getByText('Need 22 more')).toBeVisible();
-    await expect(alice.getByText('Carried', { exact: true })).toBeVisible();
+    await expect(visibleStamp(alice, 'Carried').word).toBeVisible();
 
     await capture(dana, testInfo, 'console');
     await capture(alice, testInfo, 'phone');
@@ -241,4 +244,17 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   const file = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path: file, fullPage: true });
   await testInfo.attach(name, { path: file, contentType: 'image/png' });
+}
+
+/**
+ * The visible parts of a result stamp: its word and its caption (the subject and the tally).
+ * The stamp also writes the result into a hidden live region inside the same figure for screen
+ * readers, so a bare getByText would match it as well.
+ */
+function visibleStamp(page: Page, word: string) {
+  const figure = page.getByRole('figure', { name: new RegExp(`^${word}\\b`) });
+  return {
+    word: figure.getByText(word, { exact: true }).and(figure.locator(':not([role="status"])')),
+    caption: figure.locator('figcaption'),
+  };
 }
