@@ -127,7 +127,7 @@ describe('useVoteResults', () => {
     expect(result.current).not.toBeNull();
     expect(result.current?.yea).toBe(6);
     expect(result.current?.nay).toBe(4);
-    // Empty string rather than null, so VoteResultsPanel's motionText stays a string
+    // Empty string rather than null, so a result's motionText stays a string
     expect(result.current?.motionText).toBe('');
   });
 

@@ -2,9 +2,7 @@
 // These types depend on React and are not suitable for the shared package
 
 import type {
-  MeetingState,
   MeetingAction,
-  Member,
   Motion,
   AgendaItem,
   AgendaAmendment,
@@ -13,17 +11,6 @@ import type {
 } from '@robbie-bylawyer/shared/types';
 
 // Component prop types
-export interface ParticipantViewProps {
-  readonly state: MeetingState;
-  readonly dispatch: React.Dispatch<MeetingAction>;
-  readonly currentUser: Member;
-}
-
-export interface MotionCardProps {
-  readonly motion: Motion;
-  readonly showHelp?: boolean;
-}
-
 export interface HelpTooltipProps {
   readonly motion: MotionDefinition | Motion;
 }
