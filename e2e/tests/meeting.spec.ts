@@ -71,7 +71,7 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
 
     // Alice moves from her phone, and Ben seconds
     await alice.getByLabel('Motion text').fill('I move that we resurface the pool this spring');
-    await alice.getByRole('button', { name: 'Submit Motion' }).click();
+    await alice.getByRole('button', { name: 'Move', exact: true }).click();
     await ben.getByRole('button', { name: 'Second', exact: true }).click();
     await expect(dana.getByText('Moved by Alice Brennan, seconded by Ben Whitaker')).toBeVisible();
     await expect(pat.getByText('I move that we resurface the pool this spring')).toBeVisible();
@@ -81,7 +81,7 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     const sam = await open(PEOPLE.sam, PHONE);
     await sam.goto(`/meetings/${code}`);
     await expect(sam.getByText('Guest', { exact: true })).toBeVisible();
-    await expect(sam.getByRole('button', { name: 'Request the floor' })).toBeVisible();
+    await expect(sam.getByRole('button', { name: 'Ask to speak' })).toBeVisible();
     await expect(sam.getByRole('button', { name: /^Vote / })).toHaveCount(0);
 
     // The phones vote; Dana enters the show of hands and closes the vote
@@ -106,6 +106,33 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await capture(dana, testInfo, 'console');
     await capture(alice, testInfo, 'phone');
     await capture(pat, testInfo, 'display');
+
+    // Carmen, with no phone, moves from the floor; Dana records it, and a second from the room
+    await dana.getByRole('button', { name: 'A motion from the floor' }).click();
+    const floor = dana.getByRole('dialog', { name: 'A motion from the floor' });
+    await floor.getByLabel('The motion').fill('I move that we add a lifeguard on weekends');
+    await floor.getByLabel('Who moved it').fill('Carm');
+    await floor.getByRole('button', { name: /Carmen Diaz/ }).click();
+    await floor.getByRole('button', { name: 'Record the motion' }).click();
+    await expect(
+      pat.getByText('Moved from the floor by Carmen Diaz, awaiting a second'),
+    ).toBeVisible();
+    await dana.getByRole('button', { name: 'Seconded from the floor' }).click();
+    await dana.getByRole('button', { name: 'Record the second' }).click();
+    await expect(
+      pat.getByText('Moved from the floor by Carmen Diaz, seconded by a member in the room'),
+    ).toBeVisible();
+    await expect(alice.getByText('I move that we add a lifeguard on weekends')).toBeVisible();
+
+    // Adopted without objection, and the meeting adjourns once Dana confirms it
+    await dana.getByRole('button', { name: 'Ask for unanimous consent' }).click();
+    await dana.getByRole('button', { name: 'No objection: adopted' }).click();
+    await dana.getByRole('button', { name: 'Adjourn', exact: true }).click();
+    const adjourn = dana.getByRole('dialog', { name: 'Adjourn the meeting?' });
+    await adjourn.getByRole('button', { name: 'Adjourn', exact: true }).click();
+    await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
+    await expect(alice.getByText(/^The meeting was adjourned at /)).toBeVisible();
+    await expect(pat.getByText(/^Adjourned at /)).toBeVisible();
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
