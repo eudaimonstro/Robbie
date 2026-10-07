@@ -241,6 +241,9 @@ function MinutesEditor({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set once the server refuses a save: nothing more is sent
   const stopped = useRef(false);
+  // Set while the minutes are written again: the text typed before is dropped, not sent
+  const discarding = useRef(false);
+  const [regenerating, setRegenerating] = useState(false);
   const id = record.id;
 
   const cancelTimer = () => {
@@ -251,7 +254,7 @@ function MinutesEditor({
   /** Send the text as typed until the server has it; false when it couldn't be saved */
   const sendLatest = useCallback(async (): Promise<boolean> => {
     // Text typed during a save is sent once it is back, whether or not a timer is waiting
-    while (!stopped.current && latest.current !== lastSaved.current) {
+    while (!stopped.current && !discarding.current && latest.current !== lastSaved.current) {
       const text = latest.current;
       setSaveState('saving');
       try {
@@ -270,7 +273,7 @@ function MinutesEditor({
       }
     }
     if (stopped.current) return false;
-    setSaveState('saved');
+    if (!discarding.current) setSaveState('saved');
     return true;
   }, [id, onChange, onRefused]);
 
@@ -287,7 +290,7 @@ function MinutesEditor({
     () => () => {
       cancelTimer();
       void chain.current.then(() => {
-        if (stopped.current || latest.current === lastSaved.current) return;
+        if (stopped.current || discarding.current || latest.current === lastSaved.current) return;
         minutesApi.save(id, latest.current).catch(() => {});
       });
     },
@@ -315,7 +318,8 @@ function MinutesEditor({
   const publish = async () => {
     setBusy(true);
     try {
-      if (saveState !== 'saved' && !(await save())) {
+      // The text as typed goes first, after any save still out, so what is published is it
+      if (!(await save())) {
         // A refusal is explained on the page; anything else, here
         if (!stopped.current) {
           showToast('error', "Couldn't publish: the last changes weren't saved");
@@ -335,14 +339,21 @@ function MinutesEditor({
     }
   };
 
+  // Confirmed: the edits not yet saved are dropped, since the text is replaced. A save already
+  // out lands first, so it can't put the old text back over the new.
   const regenerate = async () => {
     setConfirmRegenerate(false);
     setBusy(true);
+    setRegenerating(true);
     cancelTimer();
+    discarding.current = true;
+    let written: MinutesRecord | null = null;
     try {
-      const written = await minutesApi.regenerate(id);
+      await chain.current;
+      written = await minutesApi.regenerate(id);
       setBody(written.body);
       latest.current = written.body;
+      lastSaved.current = written.body;
       setSaveState('saved');
       onChange(written);
       showToast('success', 'The minutes were written again from the meeting');
@@ -354,8 +365,12 @@ function MinutesEditor({
       // Published in the meantime, or no record: show the minutes as they are
       if (isRefusal(err)) onReload();
     } finally {
+      discarding.current = false;
+      setRegenerating(false);
       setBusy(false);
     }
+    // Not written again: the text typed stays, and is saved
+    if (!written && latest.current !== lastSaved.current) void save();
   };
 
   const status = {
@@ -410,7 +425,7 @@ function MinutesEditor({
             id="minutesText"
             className="textarea min-h-[60vh] flex-1 text-sm read-only:bg-surface-2 read-only:text-ink-muted"
             value={body}
-            readOnly={refused}
+            readOnly={refused || regenerating}
             onChange={(e) => edit(e.target.value)}
           />
         </section>

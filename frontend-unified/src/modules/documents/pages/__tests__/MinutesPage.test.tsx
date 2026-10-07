@@ -334,6 +334,72 @@ describe('MinutesPage', () => {
     expect(download.downloadText).toHaveBeenCalledWith('2026-annual-meeting-minutes.md', 'Edited');
   });
 
+  it('publishes after the save that is out, with the text typed since', async () => {
+    const first = deferred<MinutesRecord>();
+    api.save.mockImplementationOnce(() => first.promise);
+    api.save.mockImplementation(async (_id: string, body: string) => record({ body }));
+    api.publish.mockImplementation(async () =>
+      record({ body: 'Second', status: 'published', publishedBy: { id: 1, name: 'Pat' } }),
+    );
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('First');
+    // Typed, and Publish pressed before its autosave
+    fireEvent.change(textarea(), { target: { value: 'Second' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+    await act(async () => {});
+    expect(api.publish).not.toHaveBeenCalled();
+    expect(api.save).toHaveBeenCalledTimes(1);
+
+    await act(async () => first.resolve(record({ body: 'First' })));
+    await act(async () => {});
+    expect(api.save.mock.calls.map(([, body]) => body)).toEqual(['First', 'Second']);
+    expect(api.publish).toHaveBeenCalledTimes(1);
+    expect(api.save.mock.invocationCallOrder[1]).toBeLessThan(
+      api.publish.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('writes the minutes again only after the save that is out, dropping the edits pending', async () => {
+    const first = deferred<MinutesRecord>();
+    api.save.mockImplementationOnce(() => first.promise);
+    api.regenerate.mockResolvedValue(record({ body: '# Maple Grove HOA\n\nWritten again.' }));
+    renderAt();
+    await heading();
+    vi.useFakeTimers();
+    await typeAndWait('First');
+    fireEvent.change(textarea(), { target: { value: 'Second, to be dropped' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate from the meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Write them again' }));
+    await act(async () => {});
+    expect(api.regenerate).not.toHaveBeenCalled();
+
+    await act(async () => first.resolve(record({ body: 'First' })));
+    await act(async () => {});
+    expect(api.regenerate).toHaveBeenCalledTimes(1);
+    expect(textarea().value).toBe('# Maple Grove HOA\n\nWritten again.');
+    // The edit pending when it was confirmed is never sent, then or later
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
+    });
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Saved')).toBeTruthy();
+  });
+
+  it('keeps the edits, and saves them, when the minutes could not be written again', async () => {
+    api.save.mockImplementation(async (_id: string, body: string) => record({ body }));
+    api.regenerate.mockRejectedValue(new Error('Failed to fetch'));
+    renderAt();
+    await heading();
+    fireEvent.change(textarea(), { target: { value: 'Kept' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate from the meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Write them again' }));
+
+    await vi.waitFor(() => expect(api.save).toHaveBeenCalledWith('m1', 'Kept'));
+    expect(textarea().value).toBe('Kept');
+  });
+
   it("doesn't publish when the last changes couldn't be saved, and says so", async () => {
     api.save.mockRejectedValue(new Error('Failed to fetch'));
     renderAt();
