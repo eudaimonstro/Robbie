@@ -153,7 +153,7 @@ A live run of the full scenario (chair console, two phones, a guest, the display
   - `SECOND_FROM_FLOOR { seconderName? }` (presiding): seconds the motion awaiting a second, recorded as seconded by the named person or "a member in the room". The mover-can't-second rule applies when a member is named.
   - `NOMINATE` sent by the chair with `fromFloor: true` records "Nominated from the floor" instead of the chair's name.
   - "Put the item to a vote" records the motion as "Put by the chair" (no mover), since the question comes from the agenda.
-- **The agenda's first and last items.** At `START_MEETING`, an agenda item titled "Call to order" (case-insensitive, first item) is marked completed. The "Adjournment" item is completed by `END_MEETING`, as Adjourn already does with any active item.
+- **The agenda's first and last items.** At `START_MEETING`, a first agenda item titled "Call to order" is marked completed. The "Adjournment" item is completed by `END_MEETING`, as Adjourn already does with any active item. Titles match loosely (trimmed, any case, a final period): "Call to order", "Calling the meeting to order.", "Adjourn", "Adjournment.".
 - **Handing over the chair** is offered only to members present on a device: the new chair needs a screen to run the meeting.
 
 ### The chair console

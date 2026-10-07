@@ -12,9 +12,12 @@ import {
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
-/** The agenda items that mark the start and end of the meeting, by title */
-const CALL_TO_ORDER = /^call to order$/i;
-const ADJOURNMENT = /^adjournment$/i;
+/**
+ * The agenda items that mark the start and end of the meeting, by title (trimmed): "Call to
+ * order", "Calling the meeting to order.", "Adjourn", "Adjournment."
+ */
+const CALL_TO_ORDER = /^call(ing)? (the meeting )?to order\.?$/i;
+const ADJOURNMENT = /^adjourn(ment)?\.?$/i;
 
 export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {

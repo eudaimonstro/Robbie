@@ -78,6 +78,32 @@ describe('meetingReducer', () => {
       ]);
     });
 
+    it.each(['Call to order.', 'Calling the meeting to order', 'call the meeting to order.'])(
+      'recognizes a first item titled %s',
+      (title) => {
+        const state = meetingReducer(
+          {
+            ...initialState,
+            agenda: [
+              { id: 1, title, status: 'pending' },
+              { id: 2, title: 'Treasurer report', status: 'pending' },
+            ],
+          },
+          { type: 'START_MEETING', timestamp: '10:00:00' },
+        );
+        expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'pending']);
+      },
+    );
+
+    it('leaves a first item that only mentions the call to order', () => {
+      const agenda = [{ id: 1, title: 'Call to order and welcome', status: 'pending' as const }];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+      expect(state.agenda).toEqual(agenda);
+    });
+
     it('leaves the agenda alone when the call to order is not its first item', () => {
       const agenda = [
         { id: 1, title: 'Opening remarks', status: 'pending' as const },
@@ -157,6 +183,26 @@ describe('meetingReducer', () => {
         'Completed: "New business"',
         'Completed: "ADJOURNMENT"',
         'Meeting adjourned.',
+      ]);
+    });
+
+    it.each(['Adjourn', 'Adjournment.', ' adjourn. '])('completes an item titled %s', (title) => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          agenda: [
+            { id: 1, title: 'New business', status: 'completed' },
+            { id: 2, title, status: 'pending' },
+            { id: 3, title: 'Adjourned business', status: 'pending' },
+          ],
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+      expect(state.agenda.map((item) => item.status)).toEqual([
+        'completed',
+        'completed',
+        'pending',
       ]);
     });
 
