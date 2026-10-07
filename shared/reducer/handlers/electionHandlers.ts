@@ -104,9 +104,11 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         elected: null,
       };
 
+      // Opening the ballot closes nominations
       return {
         ...state,
         currentElection: election,
+        nominationsOpen: false,
         currentNominationPosition: null,
         meetingLog: log(
           typedAction.timestamp,
@@ -315,8 +317,10 @@ export const electionHandler: ActionHandler = (state, action, log) => {
 
     case 'SET_ASIDE_ELECTION': {
       const { timestamp } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
+      if (!state.nominationsOpen && !state.currentNominationPosition && !state.currentElection) {
+        return state;
+      }
       const position = state.currentElection?.position ?? state.currentNominationPosition;
-      if (!position) return state;
       // The nominations already made stand: nominations reopened for the same position bring
       // them back
       return {

@@ -314,6 +314,8 @@ describe('actionValidator', () => {
           },
         }).valid,
       ).toBe(true);
+      // Nominations left open with no position (a state saved before a ballot closed them)
+      expect(setAside({ ...activeMeetingState(), nominationsOpen: true }).valid).toBe(true);
       expect(setAside(activeMeetingState())).toEqual({
         valid: false,
         error: 'No election to set aside',

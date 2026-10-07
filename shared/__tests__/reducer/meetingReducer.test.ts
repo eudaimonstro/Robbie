@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
-import type { MeetingState, Motion, Member } from '../../types/index.js';
+import type { MeetingAction, MeetingState, Motion, Member } from '../../types/index.js';
 import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
 
 // Mock members for testing (initialState now starts with empty members array)
@@ -1894,6 +1894,45 @@ describe('meetingReducer', () => {
   });
 
   describe('START_ELECTION', () => {
+    it('closes nominations still open, so nothing is left open once the officer is declared', () => {
+      let state: MeetingState = { ...initialState, meetingActive: true, members: mockMembers };
+      const steps: MeetingAction[] = [
+        { type: 'OPEN_NOMINATIONS', position: 'Treasurer', timestamp: '10:30:00' },
+        {
+          type: 'NOMINATE',
+          position: 'Treasurer',
+          nomineeName: 'Alice',
+          nomineeId: 1,
+          nominatedBy: 'Bob',
+          nominatorId: 2,
+          nominationId: 1,
+          timestamp: '10:31:00',
+        },
+        {
+          type: 'START_ELECTION',
+          electionId: 1,
+          position: 'Treasurer',
+          requiredVotes: 'majority',
+          timestamp: '10:32:00',
+        },
+      ];
+      for (const step of steps) state = meetingReducer(state, step);
+      expect(state.nominationsOpen).toBe(false);
+
+      state = meetingReducer(state, { type: 'CAST_BALLOT', candidateName: 'Alice', voterId: 2 });
+      state = meetingReducer(state, { type: 'CLOSE_ELECTION', timestamp: '10:35:00' });
+      state = meetingReducer(state, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'Alice',
+        timestamp: '10:36:00',
+      });
+      expect(state).toMatchObject({
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+      });
+    });
+
     it('should start election with candidates', () => {
       const stateWithNominations: MeetingState = {
         ...initialState,
@@ -2237,6 +2276,15 @@ describe('meetingReducer', () => {
       expect(
         meetingReducer(initialState, { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' }),
       ).toBe(initialState);
+    });
+
+    it('closes nominations left open with no position', () => {
+      const state = meetingReducer(
+        { ...initialState, nominationsOpen: true },
+        { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' },
+      );
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.meetingLog.at(-1)?.message).toBe('The election was set aside.');
     });
   });
 

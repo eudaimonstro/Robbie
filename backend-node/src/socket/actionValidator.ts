@@ -43,6 +43,11 @@ function isPresiding(state: MeetingState, memberId: number | undefined): boolean
   return role === 'chair' || role === 'admin';
 }
 
+/** Whether an election is under way: nominations open or closed, or a ballot */
+function isElectionUnderway(state: MeetingState): boolean {
+  return state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
+}
+
 /** A count the chair enters: a whole number from 0 */
 function isCount(value: unknown): boolean {
   return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_FLOOR_COUNT;
@@ -103,10 +108,8 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
   }
   // An election holds the floor until it is finished or set aside: only a privileged motion
   // (adjourn, recess) or an incidental one (a point of order, an inquiry) may interrupt it
-  const electionUnderway =
-    state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
   if (
-    electionUnderway &&
+    isElectionUnderway(state) &&
     definition.category !== 'privileged' &&
     definition.category !== 'incidental'
   ) {
@@ -894,7 +897,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'SET_ASIDE_ELECTION':
-      if (!state.currentElection && !state.currentNominationPosition) {
+      if (!isElectionUnderway(state)) {
         return { valid: false, error: 'No election to set aside', errorCode: 'NO_ELECTION' };
       }
       return { valid: true };

@@ -178,8 +178,8 @@ export function logElected(candidateName: string, position: string): string {
   return `Chair declares ${candidateName} elected as ${position}.`;
 }
 
-export function logElectionSetAside(position: string): string {
-  return `The election for ${position} was set aside.`;
+export function logElectionSetAside(position: string | null): string {
+  return position ? `The election for ${position} was set aside.` : 'The election was set aside.';
 }
 
 // Inquiries
