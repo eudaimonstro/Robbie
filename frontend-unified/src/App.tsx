@@ -21,6 +21,8 @@ const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage')
 const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
 const MinutesListPage = lazy(() => import('./modules/documents/pages/MinutesListPage'));
+const MinutesPage = lazy(() => import('./modules/documents/pages/MinutesPage'));
+const MinutesPrintPage = lazy(() => import('./modules/documents/pages/MinutesPrintPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
 const PublicPrintPage = lazy(() => import('./modules/documents/pages/PublicPrintPage'));
 const PrintDocumentPage = lazy(() => import('./modules/documents/pages/PrintDocumentPage'));
@@ -77,6 +79,16 @@ function App() {
                   }
                 />
 
+                {/* A meeting's minutes to print: signed in, without the app's chrome */}
+                <Route
+                  path="/minutes/:minutesId/print"
+                  element={
+                    <RequireSession>
+                      <MinutesPrintPage />
+                    </RequireSession>
+                  }
+                />
+
                 {/* Everything else needs a signed-in user */}
                 <Route
                   element={
@@ -107,6 +119,7 @@ function App() {
 
                   {/* Minutes of the organization's meetings */}
                   <Route path="minutes" element={<MinutesListPage />} />
+                  <Route path="minutes/:minutesId" element={<MinutesPage />} />
 
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />
