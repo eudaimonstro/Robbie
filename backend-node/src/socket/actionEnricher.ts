@@ -5,6 +5,7 @@ import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 /** The ID field each item-creating action assigns to its new item */
 const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   MAKE_MOTION: 'motionId',
+  MAKE_FLOOR_MOTION: 'motionId',
   ADD_AGENDA_ITEM: 'itemId',
   NOMINATE: 'nominationId',
   START_ELECTION: 'electionId',
@@ -33,7 +34,12 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   START_MEETING: NONE,
   END_MEETING: NONE,
   MAKE_MOTION: { id: 'moverId', name: 'mover' },
+  // The chair records the motion; the mover it names (moverMemberId, moverName) is someone
+  // else, never the sender, and the validator checks them
+  MAKE_FLOOR_MOTION: { id: 'recordedBy' },
   SECOND_MOTION: { id: 'seconderId', name: 'seconder' },
+  // Likewise the seconder it names (seconderMemberId, seconderName)
+  SECOND_FROM_FLOOR: { id: 'recordedBy' },
   DECLINE_SECOND: NONE,
   OPEN_VOTING: NONE,
   CAST_VOTE: { id: 'voterId' },

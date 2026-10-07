@@ -175,6 +175,17 @@ describe('who may act', () => {
         timestamp: '',
       },
       SECOND_MOTION: { type: 'SECOND_MOTION', seconder: 'Member 9', seconderId: 9, timestamp: '' },
+      // A presiding socket whose member the meeting now has as a guest, recording the floor
+      MAKE_FLOOR_MOTION: {
+        type: 'MAKE_FLOOR_MOTION',
+        motionType: 'mainMotion',
+        text: 'Resurface the pool',
+        moverName: 'Frank Ruiz',
+        motionId: 1,
+        recordedBy: 9,
+        timestamp: '',
+      },
+      SECOND_FROM_FLOOR: { type: 'SECOND_FROM_FLOOR', recordedBy: 9, timestamp: '' },
       CAST_BALLOT: { type: 'CAST_BALLOT', candidateName: 'Ann', voterId: 9 },
       DECLINE_NOMINATION: {
         type: 'DECLINE_NOMINATION',

@@ -32,6 +32,7 @@ export {
   wasMotionDefeated,
   type ValidMotion,
   isSecondaryAmendmentInOrder,
+  moverCanClaimFloor,
 } from './motionHelpers.js';
 
 export {

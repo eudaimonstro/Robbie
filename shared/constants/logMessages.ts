@@ -16,6 +16,25 @@ export function logMotionSeconded(seconder: string): string {
   return `${seconder} seconds the motion.`;
 }
 
+// Business from the floor, recorded by the chair
+export function logFloorMotionMade(mover: string, text: string, motionName: string): string {
+  return `${mover} moves from the floor: "${text}" (${motionName}). Awaiting second.`;
+}
+
+export function logQuestionPut(text: string, motionName: string): string {
+  return `The chair puts the question: "${text}" (${motionName}). Awaiting second.`;
+}
+
+export const LOG_SECONDED_FROM_FLOOR = 'Seconded from the floor.';
+
+export function logSecondedFromFloor(seconder: string | null): string {
+  return seconder ? `${seconder} seconds the motion from the floor.` : LOG_SECONDED_FROM_FLOOR;
+}
+
+export function logFloorNomination(nomineeName: string, position: string): string {
+  return `Nominated from the floor: ${nomineeName} for ${position}.`;
+}
+
 export const LOG_MOTION_FAILED_NO_SECOND = 'Motion fails for lack of a second.';
 
 export function logMotionWithdrawn(mover: string): string {

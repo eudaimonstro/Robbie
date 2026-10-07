@@ -34,7 +34,9 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
 
     // Motions
     case 'MAKE_MOTION':
+    case 'MAKE_FLOOR_MOTION':
     case 'SECOND_MOTION':
+    case 'SECOND_FROM_FLOOR':
     case 'DECLINE_SECOND':
     case 'WITHDRAW_MOTION':
     case 'MODIFY_MOTION':

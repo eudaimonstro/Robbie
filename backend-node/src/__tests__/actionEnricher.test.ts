@@ -45,7 +45,10 @@ describe('enrichAction', () => {
       START_MEETING: {},
       END_MEETING: {},
       MAKE_MOTION: { moverId: SPOOF_ID, mover: SPOOF_NAME },
+      // The mover and seconder from the floor name someone else; the sender only records them
+      MAKE_FLOOR_MOTION: { recordedBy: SPOOF_ID },
       SECOND_MOTION: { seconderId: SPOOF_ID, seconder: SPOOF_NAME },
+      SECOND_FROM_FLOOR: { recordedBy: SPOOF_ID },
       DECLINE_SECOND: {},
       OPEN_VOTING: {},
       CAST_VOTE: { voterId: SPOOF_ID },
@@ -150,7 +153,9 @@ describe('enrichAction', () => {
     it('covers the fields that name who acts', () => {
       expect(ACTOR_FIELDS).toMatchObject({
         MAKE_MOTION: { id: 'moverId', name: 'mover' },
+        MAKE_FLOOR_MOTION: { id: 'recordedBy' },
         SECOND_MOTION: { id: 'seconderId', name: 'seconder' },
+        SECOND_FROM_FLOOR: { id: 'recordedBy' },
         CAST_VOTE: { id: 'voterId' },
         CAST_BALLOT: { id: 'voterId' },
         ASK_INQUIRY: { id: 'askerId', name: 'askedBy' },
@@ -189,6 +194,24 @@ describe('enrichAction', () => {
       expect(nomination).toMatchObject({ nomineeId: 30, nomineeName: 'Speaker' });
       expect(enrich({ type: 'MARK_ABSENT', memberId: 30 }, chair).memberId).toBe(30);
       expect(enrich({ type: 'RENAME_MEMBER', memberId: 30 }, chair).memberId).toBe(30);
+      // The chair records business from the floor for the people it names, never as the mover
+      const floor = enrich(
+        { type: 'MAKE_FLOOR_MOTION', moverMemberId: 30, moverName: 'Speaker', motionId: 1 },
+        chair,
+      );
+      expect(floor).toMatchObject({ moverMemberId: 30, moverName: 'Speaker', recordedBy: 10 });
+      expect(floor).not.toHaveProperty('moverId');
+      expect(floor).not.toHaveProperty('mover');
+      const seconded = enrich(
+        { type: 'SECOND_FROM_FLOOR', seconderMemberId: 30, seconderName: 'Speaker' },
+        chair,
+      );
+      expect(seconded).toMatchObject({ seconderMemberId: 30, seconderName: 'Speaker' });
+      expect(seconded).not.toHaveProperty('seconderId');
+      expect(enrich({ type: 'NOMINATE', fromFloor: true }, chair)).toMatchObject({
+        fromFloor: true,
+        nominatorId: 10,
+      });
       // A chair or admin grants a proxy for the absent member it names
       const grant = enrich({ type: 'GRANT_PROXY', grantedBy: 30, grantedTo: 40 }, chair);
       expect(grant).toMatchObject({ grantedBy: 30, grantedTo: 40 });
@@ -250,6 +273,7 @@ describe('enrichAction', () => {
   describe('IDs for new items', () => {
     it.each([
       ['MAKE_MOTION', 'motionId'],
+      ['MAKE_FLOOR_MOTION', 'motionId'],
       ['ADD_AGENDA_ITEM', 'itemId'],
       ['NOMINATE', 'nominationId'],
       ['START_ELECTION', 'electionId'],

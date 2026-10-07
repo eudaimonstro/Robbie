@@ -1,6 +1,7 @@
 import type { MeetingAction } from '../../types/index.js';
 import { logSpeakerRecognized, logSpeakerYields } from '../../constants/logMessages.js';
 import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
+import { moverCanClaimFloor } from '../../utils/motionHelpers.js';
 import type { ActionHandler } from './types.js';
 
 export const speakerHandler: ActionHandler = (state, action, log) => {
@@ -47,7 +48,8 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
       if (
         state.currentMotion &&
         state.currentMotion.debatable &&
-        !state.currentMotion.moverHasSpoken
+        !state.currentMotion.moverHasSpoken &&
+        moverCanClaimFloor(state.currentMotion, state.members)
       ) {
         const isMover = state.currentMotion.moverId === typedAction.member.id;
         const prioritySuspended = isRuleSuspended(state, 'motion-maker-priority');

@@ -39,6 +39,9 @@ describe('permissionGuard', () => {
         'SET_AUTO_YIELD',
         'MARK_PRESENT',
         'SET_HEADCOUNT',
+        // Business from the floor, recorded by the chair
+        'MAKE_FLOOR_MOTION',
+        'SECOND_FROM_FLOOR',
       ] as const;
 
       it.each(chairOnlyActions)('should allow chair to perform %s', (action) => {

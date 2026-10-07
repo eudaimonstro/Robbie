@@ -4,15 +4,20 @@
  * Returns meaningful error codes instead of silent failures
  */
 
-import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, MeetingAction, MotionDetails } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
-import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
+import {
+  DISPLAYABLE_STAGES,
+  MAX_FLOOR_NAME_LENGTH,
+  MOTIONS,
+} from '@robbie-bylawyer/shared/constants';
 import {
   NO_VOTES,
   addVotes,
   canChairVoteDecide,
   isRuleSuspended,
   isSecondaryAmendmentInOrder,
+  moverCanClaimFloor,
   wasMotionDefeated,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
@@ -48,6 +53,173 @@ export interface ValidationResult {
   error?: string;
   errorCode?: ActionErrorCode;
 }
+
+/** A motion being made, by a member on a device or from the floor */
+type NewMotion = Pick<
+  Extract<MeetingAction, { type: 'MAKE_MOTION' }>,
+  'motionType' | 'text' | keyof MotionDetails
+>;
+
+/**
+ * Whether a motion is in order now: the meeting in session, nothing waiting for a second or
+ * being voted on, the motion known, with the details it needs, ranking above the pending
+ * question, and not renewing a defeated one. The same for every way a motion is made.
+ */
+function validateMotionInOrder(state: MeetingState, action: NewMotion): ValidationResult {
+  if (!state.meetingActive) {
+    return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+  }
+  // A motion made during a vote would become the pending question and take over the votes
+  // already cast, and one made while another awaits a second would replace it
+  if (state.votingOpen) {
+    return {
+      valid: false,
+      error: 'No motion can be made while a vote is in progress',
+      errorCode: 'VOTING_IN_PROGRESS',
+    };
+  }
+  if (state.pendingSecond) {
+    return {
+      valid: false,
+      error: 'Another motion is waiting for a second',
+      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+    };
+  }
+  // Validate motion text length
+  if (action.text && action.text.length > 500) {
+    return {
+      valid: false,
+      error: 'Motion text exceeds 500 character limit',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  const definition = MOTIONS[action.motionType];
+  if (!definition) {
+    return {
+      valid: false,
+      error: `Unknown motion type: ${action.motionType}`,
+      errorCode: 'UNKNOWN_MOTION_TYPE',
+    };
+  }
+  // Motions whose effect depends on details: without them the motion could be adopted and
+  // then do nothing
+  const missingDetails =
+    (action.motionType === 'takeFromTable' &&
+      !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
+    (action.motionType === 'reconsider' &&
+      !state.completedMotions.some(
+        (m) => m.id === action.reconsideredMotionId && m.reconsiderable !== false,
+      )) ||
+    (action.motionType === 'suspendRules' &&
+      !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
+    (action.motionType === 'bylawAmendment' &&
+      !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
+    (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
+  if (missingDetails) {
+    return {
+      valid: false,
+      error: `${definition.name} needs details this request did not include`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  // A secondary amendment is in order only on a pending primary amendment; its numeric
+  // precedence can't express that, so it is checked by type instead
+  if (action.motionType === 'amendAmendment') {
+    if (!isSecondaryAmendmentInOrder(state)) {
+      return {
+        valid: false,
+        error: 'Amend the Amendment is only in order while an amendment is pending',
+        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+      };
+    }
+  } else if (state.currentMotion) {
+    // Check precedence if there's a current motion
+    const currentDef = MOTIONS[state.currentMotion.type];
+    if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
+      return {
+        valid: false,
+        error: `Cannot make ${definition.name} while ${currentDef.name} is pending`,
+        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+      };
+    }
+  }
+  // Block renewal of substantially similar defeated motions (by subject matter for main motions)
+  if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
+    return {
+      valid: false,
+      error: 'A substantially similar motion was already defeated this meeting',
+      errorCode: 'MOTION_RENEWAL_BLOCKED',
+    };
+  }
+  return { valid: true };
+}
+
+/** A person the chair names from the floor as mover or seconder: a member present, not a guest */
+function checkFloorMember(
+  state: MeetingState,
+  memberId: number,
+  recordedBy: number | undefined,
+  as: 'mover' | 'seconder',
+): ValidationResult {
+  const named = state.members.find((m) => m.id === memberId);
+  if (!named) {
+    return {
+      valid: false,
+      error: `The ${as} is not in this meeting`,
+      errorCode: 'MEMBER_NOT_FOUND',
+    };
+  }
+  if (named.role === 'guest') {
+    return {
+      valid: false,
+      error: as === 'mover' ? 'Guests cannot make motions' : 'Guests cannot second motions',
+      errorCode: 'PERMISSION_DENIED',
+    };
+  }
+  // The presiding officer doesn't move or second (RONR): the chair, or the admin presiding
+  if (named.role === 'chair' || named.id === recordedBy) {
+    return {
+      valid: false,
+      error:
+        as === 'mover' ? 'The chair does not move motions' : 'The chair does not second motions',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  if (!named.present) {
+    return { valid: false, error: `The ${as} is not present`, errorCode: 'NOT_PRESENT' };
+  }
+  return { valid: true };
+}
+
+/** A name the chair types for someone in the room; empty when none is required */
+function checkFloorName(name: unknown, required: boolean): ValidationResult {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (required && !trimmed) {
+    return {
+      valid: false,
+      error: 'Enter the name of the person who made the motion',
+      errorCode: 'NAME_REQUIRED',
+    };
+  }
+  if (name !== undefined && typeof name !== 'string') {
+    return { valid: false, error: 'A name must be text', errorCode: 'INVALID_ACTION' };
+  }
+  if (trimmed.length > MAX_FLOOR_NAME_LENGTH) {
+    return {
+      valid: false,
+      error: `A name can be at most ${MAX_FLOOR_NAME_LENGTH} characters`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  return { valid: true };
+}
+
+/** Business from the floor is recorded by the chair or an admin presiding */
+const NOT_PRESIDING: ValidationResult = {
+  valid: false,
+  error: 'Only the chair records business from the floor',
+  errorCode: 'PERMISSION_DENIED',
+};
 
 /**
  * Validate an action before applying it to the reducer
@@ -87,93 +259,29 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'MAKE_MOTION': {
-      if (!state.meetingActive) {
-        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
-      }
-      // A motion made during a vote would become the pending question and take over the votes
-      // already cast, and one made while another awaits a second would replace it
-      if (state.votingOpen) {
+    case 'MAKE_MOTION':
+      // A question the chair puts from the agenda is recorded with no mover: only the chair
+      // puts one
+      if (action.putByChair && !isPresiding(state, action.moverId)) {
         return {
           valid: false,
-          error: 'No motion can be made while a vote is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
+          error: 'Only the chair puts a question to the meeting',
+          errorCode: 'PERMISSION_DENIED',
         };
       }
-      if (state.pendingSecond) {
-        return {
-          valid: false,
-          error: 'Another motion is waiting for a second',
-          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-        };
+      return validateMotionInOrder(state, action);
+
+    case 'MAKE_FLOOR_MOTION': {
+      if (action.recordedBy !== undefined && !isPresiding(state, action.recordedBy)) {
+        return NOT_PRESIDING;
       }
-      // Validate motion text length
-      if (action.text && action.text.length > 500) {
-        return {
-          valid: false,
-          error: 'Motion text exceeds 500 character limit',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      const definition = MOTIONS[action.motionType];
-      if (!definition) {
-        return {
-          valid: false,
-          error: `Unknown motion type: ${action.motionType}`,
-          errorCode: 'UNKNOWN_MOTION_TYPE',
-        };
-      }
-      // Motions whose effect depends on details: without them the motion could be adopted and
-      // then do nothing
-      const missingDetails =
-        (action.motionType === 'takeFromTable' &&
-          !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
-        (action.motionType === 'reconsider' &&
-          !state.completedMotions.some(
-            (m) => m.id === action.reconsideredMotionId && m.reconsiderable !== false,
-          )) ||
-        (action.motionType === 'suspendRules' &&
-          !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
-        (action.motionType === 'bylawAmendment' &&
-          !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
-        (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
-      if (missingDetails) {
-        return {
-          valid: false,
-          error: `${definition.name} needs details this request did not include`,
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      // A secondary amendment is in order only on a pending primary amendment; its numeric
-      // precedence can't express that, so it is checked by type instead
-      if (action.motionType === 'amendAmendment') {
-        if (!isSecondaryAmendmentInOrder(state)) {
-          return {
-            valid: false,
-            error: 'Amend the Amendment is only in order while an amendment is pending',
-            errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-          };
-        }
-      } else if (state.currentMotion) {
-        // Check precedence if there's a current motion
-        const currentDef = MOTIONS[state.currentMotion.type];
-        if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
-          return {
-            valid: false,
-            error: `Cannot make ${definition.name} while ${currentDef.name} is pending`,
-            errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-          };
-        }
-      }
-      // Block renewal of substantially similar defeated motions (by subject matter for main motions)
-      if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
-        return {
-          valid: false,
-          error: 'A substantially similar motion was already defeated this meeting',
-          errorCode: 'MOTION_RENEWAL_BLOCKED',
-        };
-      }
-      return { valid: true };
+      // The mover is the member named, or else the name typed
+      const mover =
+        action.moverMemberId !== undefined
+          ? checkFloorMember(state, action.moverMemberId, action.recordedBy, 'mover')
+          : checkFloorName(action.moverName, true);
+      if (!mover.valid) return mover;
+      return validateMotionInOrder(state, action);
     }
 
     case 'SECOND_MOTION':
@@ -197,6 +305,42 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+
+    case 'SECOND_FROM_FLOOR': {
+      if (action.recordedBy !== undefined && !isPresiding(state, action.recordedBy)) {
+        return NOT_PRESIDING;
+      }
+      if (!state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'No motion pending a second',
+          errorCode: 'NO_PENDING_SECOND',
+        };
+      }
+      if (action.seconderMemberId !== undefined) {
+        const seconder = checkFloorMember(
+          state,
+          action.seconderMemberId,
+          action.recordedBy,
+          'seconder',
+        );
+        if (!seconder.valid) return seconder;
+        // RONR: the mover can't second their own motion (unless that rule is suspended)
+        if (
+          action.seconderMemberId === state.pendingSecond.moverId &&
+          !isRuleSuspended(state, 'mover-cannot-second')
+        ) {
+          return {
+            valid: false,
+            error: 'The mover cannot second their own motion',
+            errorCode: 'INVALID_ACTION',
+          };
+        }
+        return { valid: true };
+      }
+      // A typed name, or none: "a member in the room"
+      return checkFloorName(action.seconderName, false);
+    }
 
     case 'DECLINE_SECOND':
       if (!state.pendingSecond) {
@@ -446,7 +590,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (
         state.currentMotion &&
         state.currentMotion.debatable &&
-        !state.currentMotion.moverHasSpoken
+        !state.currentMotion.moverHasSpoken &&
+        moverCanClaimFloor(state.currentMotion, state.members)
       ) {
         const isMover = state.currentMotion.moverId === action.member.id;
         const prioritySuspended = state.suspendedRules.some(
@@ -601,6 +746,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'NOMINATE': {
+      // A nomination from the floor is recorded by the chair, not sent by a member
+      if (action.fromFloor && !isPresiding(state, action.nominatorId)) {
+        return {
+          valid: false,
+          error: 'Only the chair records a nomination from the floor',
+          errorCode: 'PERMISSION_DENIED',
+        };
+      }
       if (!state.nominationsOpen) {
         return {
           valid: false,

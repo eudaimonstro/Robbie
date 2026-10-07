@@ -54,6 +54,11 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   MARK_PRESENT: PRESIDING,
   SET_HEADCOUNT: PRESIDING,
 
+  // Business from the floor: the chair or secretary records what people in the room do
+  // (a nomination from the floor is NOMINATE with fromFloor, which the validator checks)
+  MAKE_FLOOR_MOTION: PRESIDING,
+  SECOND_FROM_FLOOR: PRESIDING,
+
   // Admin-only actions
   SET_SPEAKER_TIME_LIMIT: ['admin'],
   SET_VOTE_TIME_LIMIT: ['admin'],

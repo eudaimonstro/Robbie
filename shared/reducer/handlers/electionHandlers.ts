@@ -1,4 +1,6 @@
-import type { MeetingAction, Officer } from '../../types/index.js';
+import type { MeetingAction, Nomination, Officer } from '../../types/index.js';
+import { FROM_THE_FLOOR } from '../../constants/floor.js';
+import { logFloorNomination, logNomination } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {
@@ -18,22 +20,27 @@ export const electionHandler: ActionHandler = (state, action, log) => {
 
     case 'NOMINATE': {
       const typedAction = action as Extract<MeetingAction, { type: 'NOMINATE' }>;
-      const nomination = {
+      // A nomination from the floor is recorded as that, not as the chair's who entered it
+      const fromFloor = !!typedAction.fromFloor;
+      const nomination: Nomination = {
         id: typedAction.nominationId,
         position: typedAction.position,
         nomineeName: typedAction.nomineeName,
         nomineeId: typedAction.nomineeId,
-        nominatedBy: typedAction.nominatedBy,
+        nominatedBy: fromFloor ? FROM_THE_FLOOR : typedAction.nominatedBy,
         nominatorId: typedAction.nominatorId,
         timestamp: typedAction.timestamp,
         declined: false,
+        ...(fromFloor && { fromFloor }),
       };
       return {
         ...state,
         nominations: [...state.nominations, nomination],
         meetingLog: log(
           typedAction.timestamp,
-          `${typedAction.nominatedBy} nominates ${typedAction.nomineeName} for ${typedAction.position}.`,
+          fromFloor
+            ? logFloorNomination(typedAction.nomineeName, typedAction.position)
+            : logNomination(typedAction.nominatedBy, typedAction.nomineeName, typedAction.position),
         ),
       };
     }
