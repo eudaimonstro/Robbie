@@ -249,6 +249,9 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         ...state,
         currentElection: {
           ...state.currentElection,
+          // The tally the result rests on, device and paper ballots together, for the result,
+          // the declaration and the minutes
+          ballotResults: results,
           votingInProgress: false,
           elected: winner,
         },

@@ -190,7 +190,10 @@ export interface Election {
   candidates: Array<{ name: string; id: number }>;
   requiredVotes: 'majority' | 'plurality' | '2/3';
   votingInProgress: boolean;
-  /** Ballots cast on devices, by candidate name */
+  /**
+   * Ballots cast on devices, by candidate name; once someone is elected, the device and floor
+   * ballots together
+   */
   ballotResults: Record<string, number>;
   votersWhoVoted: number[];
   /** The tellers' count of paper ballots, by candidate name, entered by the chair */

@@ -238,6 +238,35 @@ describe('floor ballots in elections', () => {
     );
   });
 
+  it('stay in the tally when someone is elected, so the result can be declared', () => {
+    // Every ballot is on paper, and the winner is a write-in the devices never saw
+    const closed = meetingReducer(
+      inElection(
+        election({
+          ballotResults: { Ann: 0, Bo: 0 },
+          votersWhoVoted: [],
+          floorBallots: { Carmen: 18, Ann: 9 },
+        }),
+      ),
+      { type: 'CLOSE_ELECTION', timestamp: '20:30' },
+    );
+    expect(closed.currentElection).toMatchObject({
+      elected: 'Carmen',
+      votingInProgress: false,
+      ballotResults: { Carmen: 18, Ann: 9, Bo: 0 },
+    });
+
+    const declared = meetingReducer(closed, {
+      type: 'DECLARE_ELECTED',
+      candidateName: 'Carmen',
+      timestamp: '20:31',
+    });
+    expect(declared.electedOfficers).toEqual([
+      { position: 'Director', name: 'Carmen', memberId: 0, electedAt: '20:31' },
+    ]);
+    expect(declared.currentElection).toBeNull();
+  });
+
   it('start again empty on a runoff', () => {
     const tied = election({ floorBallots: { Ann: 1 } });
     const closed = meetingReducer(inElection(tied), { type: 'CLOSE_ELECTION', timestamp: '20:30' });
