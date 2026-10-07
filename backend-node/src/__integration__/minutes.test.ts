@@ -101,6 +101,38 @@ describe('minutes', () => {
     expect(member.body.map((m: { id: string }) => m.id)).toEqual([f.minutes]);
   });
 
+  it('put a meeting without a date where it was held, the newest first', async () => {
+    await prisma.meetingPacket.update({
+      where: { id: f.emptyPacket.id },
+      data: { scheduledFor: new Date('2026-09-01T00:00:00Z') },
+    });
+    // No date, but called to order after the dated meeting: it comes first
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { scheduledFor: null, startedAt: new Date('2026-10-20T19:00:00Z') },
+    });
+    const path = `/api/organizations/${f.orgA.id}/minutes`;
+    const ids = async () =>
+      (await call('get', path, { cookie: as('secretary') })).body.map((m: { id: string }) => m.id);
+    expect(await ids()).toEqual([f.draftMinutes, f.minutes]);
+
+    // Never called to order: when its minutes were written stands in for the date
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: null },
+    });
+    await prisma.minutes.update({
+      where: { id: f.draftMinutes },
+      data: { generatedAt: new Date('2026-08-01T00:00:00Z') },
+    });
+    expect(await ids()).toEqual([f.minutes, f.draftMinutes]);
+    await prisma.minutes.update({
+      where: { id: f.draftMinutes },
+      data: { generatedAt: new Date('2026-09-02T00:00:00Z') },
+    });
+    expect(await ids()).toEqual([f.draftMinutes, f.minutes]);
+  });
+
   it('are read by members once published; a draft is not there for them', async () => {
     const published = await call('get', `/api/minutes/${f.minutes}`, { cookie: as('viewer') });
     expect(published.status).toBe(200);

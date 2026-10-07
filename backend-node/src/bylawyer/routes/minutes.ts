@@ -59,12 +59,19 @@ const MINUTES_SELECT = {
 /** Drafts are for secretaries and above; to everyone else they don't exist */
 const seesDrafts = (role: OrgRole) => atLeast(role, 'secretary');
 
+/**
+ * When a meeting was held, for ordering its minutes: its date when it has one, else when it was
+ * called to order, else when its minutes were written
+ */
+const meetingDate = (scheduledFor: Date | null, startedAt: Date | null, generatedAt: Date) =>
+  (scheduledFor ?? startedAt ?? generatedAt).getTime();
+
 const readMinutes = (id: string) =>
   prisma.minutes.findUniqueOrThrow({ where: { id }, select: MINUTES_SELECT });
 
 /**
  * GET /api/organizations/:orgId/minutes
- * The organization's minutes, the latest meeting first (meetings without a date last)
+ * The organization's minutes, the latest meeting first (see meetingDate)
  */
 minutesRouter.get(
   '/organizations/:orgId/minutes',
@@ -84,14 +91,29 @@ minutesRouter.get(
           updatedAt: true,
           publishedAt: true,
           approvedAt: true,
-          packet: { select: { id: true, robbieCode: true, title: true, scheduledFor: true } },
+          packet: {
+            select: {
+              id: true,
+              robbieCode: true,
+              title: true,
+              scheduledFor: true,
+              startedAt: true,
+            },
+          },
         },
-        orderBy: [
-          { packet: { scheduledFor: { sort: 'desc', nulls: 'last' } } },
-          { generatedAt: 'desc' },
-        ],
+        // Ties keep this order (the sort below is stable)
+        orderBy: { generatedAt: 'desc' },
       });
-      res.json(minutes);
+      // Sorted here: the date may come from the packet or the minutes. One organization's
+      // minutes are a short list.
+      const latestFirst = minutes
+        .map(({ packet: { startedAt, ...packet }, ...rest }) => ({
+          summary: { ...rest, packet },
+          date: meetingDate(packet.scheduledFor, startedAt, rest.generatedAt),
+        }))
+        .sort((a, b) => b.date - a.date)
+        .map(({ summary }) => summary);
+      res.json(latestFirst);
     } catch (error) {
       logger.error({ err: error }, 'Failed to list minutes');
       res.status(500).json({ error: 'Failed to list minutes' });

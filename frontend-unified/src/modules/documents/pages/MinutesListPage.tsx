@@ -4,7 +4,7 @@ import { minutes as minutesApi, type MinutesSummary } from '../../../api/client'
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { MinutesStatusBadge } from '../../../components/ui/Badge';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
-import { formatMeetingTime } from '../../../utils/dates';
+import { formatMeetingTimeWithYear } from '../../../utils/dates';
 import { meetingName } from '../utils/minutes';
 
 /** The current organization's minutes, the latest meeting first (/minutes) */
@@ -70,7 +70,7 @@ export default function MinutesListPage() {
                   <span className="block truncate font-medium text-ink">{meetingName(item)}</span>
                   <span className="block text-sm text-ink-muted">
                     {item.packet.scheduledFor
-                      ? formatMeetingTime(item.packet.scheduledFor)
+                      ? formatMeetingTimeWithYear(item.packet.scheduledFor)
                       : 'No date'}
                   </span>
                 </span>

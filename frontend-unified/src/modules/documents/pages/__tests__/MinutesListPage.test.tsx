@@ -73,7 +73,7 @@ describe('MinutesListPage', () => {
     expect(latest.getAttribute('href')).toBe('/minutes/m2');
     expect(latest.textContent).toContain('Draft');
     // ICU may put a narrow no-break space before PM
-    expect(latest.textContent).toMatch(/Tue, Oct 20, 7:00\sPM/);
+    expect(latest.textContent).toMatch(/Tue, Oct 20, 2026, 7:00\sPM/);
     const last = screen.getByRole('link', { name: /2025 Annual Meeting/ });
     expect(last.getAttribute('href')).toBe('/minutes/m1');
     expect(last.textContent).toContain('Approved');

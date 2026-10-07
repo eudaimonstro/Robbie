@@ -53,6 +53,18 @@ export function fromLocalDateTimeInput(value: string): string {
  * unlike a calendar date, a meeting is an instant
  */
 export function formatMeetingTime(value: string | null | undefined): string {
+  return meetingTime(value, false);
+}
+
+/**
+ * A meeting's day, year and time ("Thu, Mar 20, 2025, 7:00 PM"), for a record that reaches
+ * back over the years, like the minutes
+ */
+export function formatMeetingTimeWithYear(value: string | null | undefined): string {
+  return meetingTime(value, true);
+}
+
+function meetingTime(value: string | null | undefined, withYear: boolean): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -60,6 +72,7 @@ export function formatMeetingTime(value: string | null | undefined): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    ...(withYear ? { year: 'numeric' } : {}),
     hour: 'numeric',
     minute: '2-digit',
   });

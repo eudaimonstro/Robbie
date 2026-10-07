@@ -4,6 +4,7 @@ import {
   formatClockTime,
   formatLongDate,
   formatMeetingTime,
+  formatMeetingTimeWithYear,
   formatScheduledStart,
   fromLocalDateTimeInput,
   toLocalDateTimeInput,
@@ -61,6 +62,20 @@ describe('formatMeetingTime', () => {
   it('shows nothing for a missing or unreadable date', () => {
     expect(formatMeetingTime('')).toBe('');
     expect(formatMeetingTime('not a date')).toBe('');
+  });
+});
+
+describe('formatMeetingTimeWithYear', () => {
+  it("shows a past meeting's day, year and time in the viewer's time zone", () => {
+    // 7 PM in Chicago, where the tests run, on Thursday, March 20, 2025
+    expect(formatMeetingTimeWithYear('2025-03-21T00:00:00.000Z')).toMatch(
+      /^Thu, Mar 20, 2025, 7:00\sPM$/,
+    );
+  });
+
+  it('shows nothing for a missing or unreadable date', () => {
+    expect(formatMeetingTimeWithYear(null)).toBe('');
+    expect(formatMeetingTimeWithYear('not a date')).toBe('');
   });
 });
 
