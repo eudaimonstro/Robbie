@@ -65,7 +65,8 @@ export function JoinInfoCard({ code, qrSize = 200, compact = false }: JoinInfoCa
         Join
       </h3>
       <div className="flex flex-wrap items-center gap-6">
-        <div className="min-w-0 flex-1 space-y-4">
+        {/* The text keeps room for the link: on a narrow screen the QR code goes below it */}
+        <div className="min-w-48 flex-1 space-y-4">
           <div>
             <p className="text-sm text-ink-muted">Meeting code</p>
             <p data-testid="meeting-code" className="meeting-code text-page text-ink">
