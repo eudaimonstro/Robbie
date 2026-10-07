@@ -12,6 +12,22 @@ export function formatCalendarDate(value: string | null | undefined): string {
 }
 
 /**
+ * A calendar date written out ("March 15, 2026"), in UTC for the same reason as
+ * formatCalendarDate: "Version 2, effective March 15, 2026" on a print page
+ */
+export function formatLongDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
  * The value for a `datetime-local` input ("2026-10-06T19:00") showing a stored instant in the
  * viewer's time zone. (Slicing the ISO string would show the UTC time instead.)
  */

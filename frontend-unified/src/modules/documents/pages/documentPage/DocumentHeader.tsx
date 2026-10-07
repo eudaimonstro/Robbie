@@ -61,7 +61,7 @@ export function DocumentHeader({
           ))}
         </select>
 
-        <ExportDropdown selectedVersion={selectedVersion} />
+        <ExportDropdown documentId={doc.id} selectedVersion={selectedVersion} />
 
         <Link to={`/documents/${doc.id}/diff`} className="btn-secondary btn-sm">
           <GitCompare className="w-4 h-4 mr-2" />

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatCalendarDate,
   formatClockTime,
+  formatLongDate,
   formatMeetingTime,
   formatScheduledStart,
   fromLocalDateTimeInput,
@@ -86,5 +87,13 @@ describe('formatScheduledStart', () => {
   it('is empty for no time, or one it cannot read', () => {
     expect(formatScheduledStart(null)).toBe('');
     expect(formatScheduledStart('soon')).toBe('');
+  });
+});
+
+describe('formatLongDate', () => {
+  it('writes a calendar date out, on the day it was stored', () => {
+    expect(formatLongDate('2026-03-15T00:00:00.000Z')).toBe('March 15, 2026');
+    expect(formatLongDate(null)).toBe('');
+    expect(formatLongDate('not a date')).toBe('');
   });
 });

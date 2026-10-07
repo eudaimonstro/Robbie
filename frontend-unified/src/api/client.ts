@@ -363,8 +363,6 @@ export const versions = {
   getText: (id: string) => request<{ text: string }>(`/versions/${id}/text`),
   diff: (id: string, otherId: string) => request<DiffResult>(`/versions/${id}/diff/${otherId}`),
   exportMarkdown: (id: string) => downloadFile(`/versions/${id}/export/markdown`),
-  exportHtml: (id: string) => downloadFile(`/versions/${id}/export/html`),
-  exportPdf: (id: string) => downloadFile(`/versions/${id}/export/pdf`),
 };
 
 // Sections

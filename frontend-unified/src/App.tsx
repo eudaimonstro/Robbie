@@ -20,6 +20,8 @@ const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage')
 const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
+const PublicPrintPage = lazy(() => import('./modules/documents/pages/PublicPrintPage'));
+const PrintDocumentPage = lazy(() => import('./modules/documents/pages/PrintDocumentPage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
@@ -41,6 +43,7 @@ function App() {
               <Routes>
                 {/* Public routes (no layout, no session) */}
                 <Route path="/share/:shareToken" element={<PublicDocumentPage />} />
+                <Route path="/share/:shareToken/print" element={<PublicPrintPage />} />
                 <Route path="/sign-in" element={<SignInPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
@@ -55,6 +58,18 @@ function App() {
                     <RequireSession>
                       <OrganizationProvider>
                         <MeetingDisplay />
+                      </OrganizationProvider>
+                    </RequireSession>
+                  }
+                />
+
+                {/* A document's version to print: signed in, without the app's chrome */}
+                <Route
+                  path="/documents/:documentId/print"
+                  element={
+                    <RequireSession>
+                      <OrganizationProvider>
+                        <PrintDocumentPage />
                       </OrganizationProvider>
                     </RequireSession>
                   }
