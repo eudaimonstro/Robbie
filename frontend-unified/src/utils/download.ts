@@ -17,5 +17,6 @@ export function downloadText(name: string, text: string, type = 'text/markdown')
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Not at once: some browsers start reading the file after click() returns
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
