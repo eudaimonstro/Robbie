@@ -19,6 +19,10 @@ import { recordMeetingTimes } from './meetingPacket.js';
 import { afterAttendanceAction, prepareAttendanceAction } from './attendanceActions.js';
 import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
+import {
+  draftMinutesOnAdjournment,
+  markPreviousMinutesApproved,
+} from '../bylawyer/services/meetingMinutes.js';
 import { logger } from '../middleware/logger.js';
 
 type TypedSocket = Socket<
@@ -292,6 +296,14 @@ export async function handleDispatchAction(
 
     // Post-action: the schedule records when the meeting was called to order and adjourned
     await recordMeetingTimes(meetingCode, enrichedAction);
+
+    // Post-action: the minutes. Adjourning drafts them (after the times they give are
+    // recorded); approving the previous minutes marks them approved. Both best effort.
+    if (enrichedAction.type === 'END_MEETING') {
+      await draftMinutesOnAdjournment(meetingCode, latest.state);
+    } else if (enrichedAction.type === 'APPROVE_MINUTES') {
+      await markPreviousMinutesApproved(meetingCode, latest.state);
+    }
 
     // Post-action: Sync bylaw amendments to Bylawyer after vote closes
     if (enrichedAction.type === 'CLOSE_VOTING') {

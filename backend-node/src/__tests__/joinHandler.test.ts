@@ -13,6 +13,7 @@ vi.mock('../db/meetingStorage.js', () => ({
     getOrCreateMeeting: async () => ({ code: 'NEW1', state: initialState, stateVersion: 1 }),
   }),
 }));
+vi.mock('../bylawyer/services/meetingMinutes.js', () => ({ previousMinutesFor: async () => null }));
 vi.mock('../socket/meetingPacket.js', () => ({
   findMeetingPacket: async (code: string) =>
     code === 'NEW1'

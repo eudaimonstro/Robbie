@@ -5,6 +5,8 @@
 import type { MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
 import { formatMinutesAsMarkdown, generateMeetingMinutes } from '@robbie-bylawyer/shared/utils';
 import { prisma } from '../../db/prisma.js';
+import { Prisma } from '../../generated/prisma/client.js';
+import { logger } from '../../middleware/logger.js';
 
 /**
  * What the minutes need from outside the meeting state: the organization's name and time zone,
@@ -48,4 +50,88 @@ export async function minutesContext(packetId: string): Promise<MinutesContext |
 /** A meeting's minutes as Markdown, from its live state */
 export function writeMinutes(state: MeetingState, context: MinutesContext): string {
   return formatMinutesAsMarkdown(generateMeetingMinutes(state), context);
+}
+
+/**
+ * The draft minutes of a meeting that has just adjourned, written from its final state, unless
+ * the meeting has minutes already: a meeting adjourned again keeps the secretary's text (the
+ * secretary can write the draft again). Best effort: the meeting has adjourned regardless.
+ */
+export async function draftMinutesOnAdjournment(
+  meetingCode: string,
+  state: MeetingState,
+): Promise<void> {
+  try {
+    const packet = await prisma.meetingPacket.findUnique({
+      where: { robbieCode: meetingCode },
+      select: { id: true, organizationId: true, minutes: { select: { id: true } } },
+    });
+    if (!packet || packet.minutes) return;
+    const context = await minutesContext(packet.id);
+    if (!context) return;
+    await prisma.minutes.create({
+      data: {
+        organizationId: packet.organizationId,
+        packetId: packet.id,
+        body: writeMinutes(state, context),
+      },
+    });
+  } catch (error) {
+    // Adjourned twice at once: the other adjournment wrote the draft
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
+    logger.error({ err: error, meetingCode }, 'Failed to draft the minutes');
+  }
+}
+
+/**
+ * The minutes to put before a meeting: the organization's most recent published minutes, not
+ * yet approved and not the meeting's own (the latest meeting first, then the latest published)
+ */
+export function previousMinutesFor(
+  organizationId: string,
+  packetId: string,
+): Promise<{ id: string; body: string } | null> {
+  return prisma.minutes.findFirst({
+    where: { organizationId, status: 'published', packetId: { not: packetId } },
+    orderBy: [
+      { packet: { scheduledFor: { sort: 'desc', nulls: 'last' } } },
+      { publishedAt: 'desc' },
+    ],
+    select: { id: true, body: true },
+  });
+}
+
+/**
+ * The previous minutes a meeting approved, marked approved with the meeting and its
+ * corrections: only minutes of the meeting's organization that are still published. Best
+ * effort, like the bylaw sync: the approval stands in the meeting regardless.
+ */
+export async function markPreviousMinutesApproved(
+  meetingCode: string,
+  state: MeetingState,
+  now: Date = new Date(),
+): Promise<void> {
+  try {
+    if (!state.previousMinutesId) return;
+    const packet = await prisma.meetingPacket.findUnique({
+      where: { robbieCode: meetingCode },
+      select: { id: true, organizationId: true },
+    });
+    if (!packet) return;
+    await prisma.minutes.updateMany({
+      where: {
+        id: state.previousMinutesId,
+        organizationId: packet.organizationId,
+        status: 'published',
+      },
+      data: {
+        status: 'approved',
+        approvedAt: now,
+        approvedAtPacketId: packet.id,
+        corrections: state.minutesApproval?.corrections ?? null,
+      },
+    });
+  } catch (error) {
+    logger.error({ err: error, meetingCode }, 'Failed to mark the previous minutes approved');
+  }
 }
