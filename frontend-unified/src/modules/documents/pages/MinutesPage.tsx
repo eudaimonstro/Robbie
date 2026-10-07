@@ -94,8 +94,9 @@ export default function MinutesPage() {
 
   // Approved minutes are the record: nobody edits them
   const editable = isSecretary && record.status !== 'approved';
+  // The editor takes the width for its two columns; the reader keeps a readable measure
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className={`mx-auto space-y-6 ${editable ? 'max-w-7xl' : 'max-w-4xl'}`}>
       <MinutesHeading record={record} />
       {notice && (
         <p
@@ -184,7 +185,7 @@ function MinutesReader({ record }: { record: MinutesRecord }) {
       <div className="flex flex-wrap gap-2">
         <TakeAway record={record} body={record.body} />
       </div>
-      <article className="card p-6 sm:p-10">
+      <article className="card p-5 sm:p-10">
         <div className="document-content">
           <ReactMarkdown>{record.body}</ReactMarkdown>
         </div>
@@ -366,8 +367,8 @@ function MinutesEditor({
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="minutes-text-heading" className="card flex flex-col p-4">
-          <h3 id="minutes-text-heading" className="label-caps mb-2">
+        <section aria-labelledby="minutes-text-heading" className="card flex flex-col p-4 sm:p-6">
+          <h3 id="minutes-text-heading" className="label-caps mb-3">
             Markdown
           </h3>
           <label htmlFor="minutesText" className="sr-only">
@@ -375,14 +376,14 @@ function MinutesEditor({
           </label>
           <textarea
             id="minutesText"
-            className="textarea min-h-[60vh] flex-1 text-sm"
+            className="textarea min-h-[60vh] flex-1 text-sm read-only:bg-surface-2 read-only:text-ink-muted"
             value={body}
             readOnly={refused}
             onChange={(e) => edit(e.target.value)}
           />
         </section>
-        <section aria-labelledby="minutes-preview-heading" className="card p-6">
-          <h3 id="minutes-preview-heading" className="label-caps mb-4">
+        <section aria-labelledby="minutes-preview-heading" className="card p-4 sm:p-6">
+          <h3 id="minutes-preview-heading" className="label-caps mb-3">
             Preview
           </h3>
           <div className="document-content">
