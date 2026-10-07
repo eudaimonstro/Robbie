@@ -17,9 +17,11 @@ const WORDS: Record<StampOutcome, string> = {
 };
 
 const SIZES = {
-  panel: { word: 'text-5xl px-6 py-2', subject: 'text-lg', tally: 'text-base' },
-  phone: { word: 'text-4xl px-5 py-1.5', subject: 'text-base', tally: 'text-sm' },
+  panel: { gap: 'gap-4', word: 'text-5xl px-6 py-2', subject: 'text-lg', tally: 'text-base' },
+  phone: { gap: 'gap-4', word: 'text-4xl px-5 py-1.5', subject: 'text-base', tally: 'text-sm' },
   display: {
+    // The tilt drops the wide box's corners about 30px, so the caption sits further below
+    gap: 'gap-14',
     word: 'text-[10rem] leading-none px-12 py-6',
     subject: 'text-display-line',
     tally: 'text-display-line',
@@ -38,7 +40,7 @@ export function Stamp({ outcome, subject, tally, size = 'panel' }: StampProps) {
     <figure
       role="status"
       aria-label={tally ? `${WORDS[outcome]}, ${tally}` : WORDS[outcome]}
-      className="flex flex-col items-center gap-4 text-center"
+      className={`flex flex-col items-center text-center ${sizes.gap}`}
     >
       <span
         className={`animate-stamp -rotate-4 inline-block rounded-md border-[3px] font-serif-soft font-bold uppercase tracking-[0.06em] ${color} ${sizes.word}`}

@@ -28,6 +28,7 @@ const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'));
 
 // Lazy load meetings module
 const MeetingsModule = lazy(() => import('./modules/meetings'));
+const MeetingDisplay = lazy(() => import('./modules/meetings/display'));
 
 function App() {
   return (
@@ -43,6 +44,21 @@ function App() {
                 <Route path="/sign-in" element={<SignInPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
+
+                {/*
+                  The meeting on a TV or projector: signed in, but outside the app's layout.
+                  It outranks meetings/* below, so the meetings module never sees it.
+                */}
+                <Route
+                  path="/meetings/:code/display"
+                  element={
+                    <RequireSession>
+                      <OrganizationProvider>
+                        <MeetingDisplay />
+                      </OrganizationProvider>
+                    </RequireSession>
+                  }
+                />
 
                 {/* Everything else needs a signed-in user */}
                 <Route
