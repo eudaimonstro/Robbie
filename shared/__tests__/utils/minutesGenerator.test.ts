@@ -305,8 +305,6 @@ describe('the minutes', () => {
         '',
         '## Proceedings',
         '',
-        '### 1. Call to order',
-        '',
         '### 2. Approval of the minutes of the 2025 annual meeting',
         '',
         'The minutes of the previous meeting were approved with corrections: The 2025 meeting adjourned at 8:15 PM, not 8:50 PM.',
@@ -343,8 +341,6 @@ describe('the minutes', () => {
         '',
         'Not taken up.',
         '',
-        '### 7. Adjournment',
-        '',
         '### Other business',
         '',
         '**Main motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed on a voice vote, 4 to 20. No quorum was present.',
@@ -355,6 +351,67 @@ describe('the minutes', () => {
         '',
       ].join('\n'),
     );
+  });
+
+  it('mark an item taken up with nothing recorded, so the secretary sees where to add to it', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      title: 'Board meeting',
+      agenda: [
+        { id: 1, title: 'Call to order', status: 'completed' },
+        { id: 2, title: "Treasurer's report", status: 'completed' },
+        { id: 3, title: 'Landscaping', status: 'active' },
+        { id: 4, title: 'Adjournment', status: 'completed' },
+      ],
+    });
+    const markdown = formatMinutesAsMarkdown(minutes, context);
+    expect(markdown).toContain(
+      "## Proceedings\n\n### 2. Treasurer's report\n\nNo action was taken.\n\n### 3. Landscaping\n\nNo action was taken.\n\n## Adjournment\n",
+    );
+  });
+
+  it('keep the call to order and the adjournment as items when something is recorded there, or they are elsewhere on the agenda', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      title: 'Board meeting',
+      agenda: [
+        { id: 1, title: 'Call to order', status: 'completed' },
+        { id: 2, title: 'Adjournment of the March meeting: report', status: 'completed' },
+        { id: 3, title: 'Call to order of the budget hearing', status: 'completed' },
+        { id: 4, title: 'Adjourn', status: 'completed' },
+      ],
+      chairRulings: [
+        {
+          ruling: 'The meeting is properly called.',
+          motionText: 'Point of order: the notice was late',
+          timestamp: '',
+          agendaItemId: 1,
+        },
+      ],
+    } as MeetingState);
+    const markdown = formatMinutesAsMarkdown(minutes, context);
+    expect(markdown).toContain('### 1. Call to order\n\n**Ruling of the chair.**');
+    expect(markdown).toContain(
+      '### 2. Adjournment of the March meeting: report\n\nNo action was taken.\n',
+    );
+    expect(markdown).toContain(
+      '### 3. Call to order of the budget hearing\n\nNo action was taken.\n',
+    );
+    expect(markdown).not.toContain('### 4. Adjourn');
+  });
+
+  it('keep an empty call to order or adjournment when nothing else says it happened', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      title: 'Board meeting',
+      agenda: [
+        { id: 1, title: 'Call to order', status: 'completed' },
+        { id: 2, title: 'Adjournment', status: 'pending' },
+      ],
+    });
+    const markdown = formatMinutesAsMarkdown(minutes, nothingKnown);
+    expect(markdown).toContain('### 1. Call to order\n\nNo action was taken.\n');
+    expect(markdown).toContain('### 2. Adjournment\n\nNot taken up.\n');
   });
 
   it('leave out what they do not know', () => {

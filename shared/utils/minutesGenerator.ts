@@ -316,9 +316,19 @@ function entryText(entry: MinutesEntry): string {
 }
 
 /**
+ * An agenda item that is the call to order and nothing else ("Call to order", "1. Call the
+ * meeting to order", "Meeting called to order")
+ */
+const CALL_TO_ORDER = /^\W*(?:\d+\W*)?(?:(?:the\s+)?meeting\s+)?call(?:ed)?\b[^.]*\bto order\W*$/i;
+/** An agenda item that is the adjournment and nothing else ("Adjournment", "Adjourn the meeting") */
+const ADJOURNMENT = /^\W*(?:\d+\W*)?adjourn(?:ment)?(?:\s+(?:of\s+)?the\s+meeting)?\W*$/i;
+
+/**
  * The minutes as Markdown, the secretary's draft: a heading with the organization, the meeting,
  * its date and place and who presided; attendance; each agenda item with what was decided under
- * it; and the adjournment, with any business left unfinished. Dates and times are the organization's.
+ * it (an item taken up with nothing recorded says so; the call to order and the adjournment are
+ * said where the minutes open and close); and the adjournment, with any business left unfinished.
+ * Dates and times are the organization's.
  */
 export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: MinutesContext): string {
   const zone = knownZone(context.timeZone);
@@ -376,10 +386,23 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
     );
   }
 
+  // Business is only left unfinished by adjourning, so it says the meeting adjourned
+  const adjourned = !!context.adjournedAt || minutes.unfinished.length > 0;
+  const last = minutes.items.length - 1;
   paragraph('## Proceedings');
   minutes.items.forEach((item, index) => {
+    if (item.entries.length === 0) {
+      // The call to order and the adjournment, with nothing under them: the opening paragraph
+      // and the Adjournment section say they happened
+      const opening = index === 0 && CALL_TO_ORDER.test(item.title) && !!context.calledToOrderAt;
+      const closing = index === last && ADJOURNMENT.test(item.title) && adjourned;
+      if (opening || closing) return;
+    }
+    // The agenda's own number, whichever items are left out
     paragraph(`### ${index + 1}. ${md(item.title)}`);
-    if (item.status === 'pending' && item.entries.length === 0) paragraph('Not taken up.');
+    if (item.entries.length === 0) {
+      paragraph(item.status === 'pending' ? 'Not taken up.' : 'No action was taken.');
+    }
     for (const entry of item.entries) paragraph(entryText(entry));
   });
   if (minutes.otherEntries.length > 0) {
@@ -390,8 +413,7 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
     paragraph('No business was recorded.');
   }
 
-  // Business is only left unfinished by adjourning, so it says the meeting adjourned
-  if (context.adjournedAt || minutes.unfinished.length > 0) {
+  if (adjourned) {
     paragraph('## Adjournment');
     paragraph(adjournmentText(minutes, context.adjournedAt, zone));
   }
