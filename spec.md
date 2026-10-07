@@ -24,7 +24,7 @@ Robbie-Bylawyer is a governance platform for organizations that run on Robert's 
 
 CI as written would fail on format, lint, and frontend tests. All 510 items in `features/*.json` are marked `passes: true`, so that checklist no longer reflects reality.
 
-The integration loop exists only partially. A passed `bylawAmendment` motion creates an Amendment and a Version. It does not create a Bylawyer `Vote`, it does not carry amended text, and `minutesService.ts` (the minutes-to-document path) is never imported.
+The integration loop exists only partially. A passed `bylawAmendment` motion creates an Amendment and a Version. It does not create a Bylawyer `Vote`, it does not carry amended text, and `minutesService.ts` (the minutes-to-document path) is never imported. (2026-10-07: `minutesService.ts` is deleted; minutes are their own record, see M8.)
 
 ## 2. Goals and non-goals
 
@@ -171,9 +171,9 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 - Record every disposition: motions adopted by unanimous consent, procedural motions (recess, suspend rules, take from table, objection, divide), withdrawn motions, motions that died for lack of a second, chair rulings and appeals, points of order, rule suspensions.
 - Correct mover and seconder (currently hard-coded empty), timestamps (currently Invalid Date from parsing `toLocaleTimeString`), roll-call vote listings, election candidates and ballot results, adjournment time, members who left early.
 - **Done 2026-10-06 (server):** every decided motion is recorded with its mover, both parts of its vote and its method; the minutes show the headcount (and names), guests apart from members, and both parts of each vote.
-- Quorum at each vote, not only when minutes are generated.
-- Flow: generate draft, secretary edits, approve at the next meeting (`MinutesApprovalPanel`), then publish to Bylawyer as a versioned document linked to the meeting. Wire up `minutesService.ts` (currently dead code) for the publish step.
-- Export as Markdown and PDF.
+- **Done 2026-10-07 (server, the secretary's desk):** the meeting record holds every disposition: motions on a vote, by unanimous consent, withdrawn, or dead for want of a second (`completedMotions`, each with its `disposition`, mover, seconder, agenda item, the quorum at the time and the server's clock: the enricher stamps `at` on the eight deciding actions in `CLOCKED_ACTIONS`, `SET_ASIDE_ELECTION` among them); the chair's rulings (`chairRulings`); each ballot of an election and the vote it required (`Officer.ballots`, `Officer.requiredVotes`); elections the chair set aside, with the count of each closed ballot (`electionsSetAside`); the motions and election left pending when the meeting last adjourned (`unfinishedAtAdjournment`, the last adjournment's only); who attended (also those who left early); the quorum at the call to order; and the approval of the previous minutes with any corrections. `generateMeetingMinutes` and `formatMinutesAsMarkdown(minutes, context)` write the minutes from that record, never from log strings, in the organization's time zone (`Organization.timeZone`), grouped under the agenda items, with ballots as counts only. Motions are named in the plain words the meeting screens use (`shared/constants/motionWords.ts`), and a vote that needed more than a majority says so ("Carried, two thirds required, ...", "elected by a plurality"). Minutes are a `Minutes` row per packet (draft, published, approved): drafted when the meeting adjourns, edited and published by a secretary (`/api/minutes/...`), put before the next meeting until it is called to order (`SET_PREVIOUS_MINUTES`, now server-only), and marked approved, with the corrections, when that meeting approves them. `minutesService.ts` is gone: minutes are their own record, not a versioned document. A bylaw amendment adopted by unanimous consent is now applied to the bylaws too (the sync used to run only when a vote closed). The demo has last year's annual meeting (`MAPLE25`) with published minutes for this year's meeting to approve.
+- Quorum at each vote: **done 2026-10-07** (`quorumPresent` on each decided motion).
+- Export: Markdown and print to PDF in the browser (the client plan).
 
 ### M9. Web client completion
 
@@ -186,7 +186,7 @@ Done when: a table-driven test suite covers every motion in `constants/motions.t
 API mismatches (the client calls endpoints that don't exist):
 
 - **Fixed 2026-10-06:** the public share page loads from `/share/:token` and switches versions.
-- Header search calls `/search`, which doesn't exist, and the error is swallowed.
+- Header search calls `/search`, which doesn't exist, and the error is swallowed. **Server done 2026-10-07:** `GET /api/organizations/:orgId/search` searches the current version of each of the organization's documents (`%` and `_` in the query match only themselves); the header moves to it in the client plan.
 - HTML and PDF export call routes that don't exist (only Markdown exists).
 - **Fixed 2026-10-06:** agenda item and attachment reordering (the `reorder` routes are now registered before `/:id`).
 - **Fixed 2026-10-06:** the meetings module no longer falls back to `http://localhost:3001`. From the dev app that origin is a different origin, and fetch sends cookies only to its own origin by default, so the session cookie wasn't sent and every packet, agenda item and attachment call got 401. The scheduling API now calls same-origin `/api` through the client's `apiFetch`, which reports a 401 as a lost session like the rest of the client, and the meeting socket connects to the page's origin (Vite proxies `/socket.io`) unless `VITE_SERVER_URL` is set.
@@ -195,7 +195,7 @@ API mismatches (the client calls endpoints that don't exist):
 Other work:
 
 - Dashboard after sign-in: upcoming meetings, open amendments awaiting action, recent versions.
-- Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI).
+- Draft amendment editor: create, move, renumber, delete sections, with a rendered preview of the resulting version. Expose `amendments/:id/preview` (backend exists, no UI; since 2026-10-07 it gives each modified section its text from before, as `previous`).
 - Loading, empty, and error states on every page.
 - **Fixed 2026-10-06:** the document page header overflowed under the Pending Amendments panel. At 1280px "Propose Amendment" was unclickable, at 1024px four controls were, and on phones all six were, with the 320px panel covering the content. The header now wraps, and below 1280px the panel stacks under the content. The M9 Playwright smoke tests should assert at 390px and 1280px that no control in `main` is covered or off-screen (`document.elementFromPoint` at each control's center).
 - **Fixed 2026-10-06:** the meeting code no longer changes when the chair starts the meeting. `START_MEETING` used to carry a new random code into the state, which broke org linking (bylaw sync), meeting documents, minutes and the DEMO test switcher.

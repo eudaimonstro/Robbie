@@ -1,18 +1,18 @@
 # The secretary's desk (MVP Phase C)
 
-Status: design, 2026-10-07. Phase C of `docs/mvp-roadmap.md`.
+Status: design, 2026-10-07. Phase C of `docs/mvp-roadmap.md`. The server and shared half is built (`docs/superpowers/plans/2026-10-07-secretarys-desk-server.md`); the details below say where building it decided what this design left open. The client half follows (`docs/superpowers/plans/2026-10-07-secretarys-desk-clients.md`).
 
 ## Why
 
-After Phase B a meeting can be run in the room, but the paperwork around it is still missing. The bylaws can only be typed in one section at a time, so the first thing a new organization does is the most tedious. Nothing produces minutes: the meeting log exists, the minutes generator in `shared/utils/minutesGenerator.ts` is never called, and `backend-node/src/bylawyer/services/minutesService.ts` is dead code. The minutes from the last meeting can't be approved, because nothing puts them in front of the meeting. Export offers HTML and PDF items that call routes that don't exist, the header search calls an endpoint that doesn't exist, and an amendment's effect can't be previewed although the server can compute it.
+After Phase B a meeting can be run in the room, but the paperwork around it is still missing. The bylaws can only be typed in one section at a time, so the first thing a new organization does is the most tedious. Nothing produces minutes: the meeting log exists, the minutes generator in `shared/utils/minutesGenerator.ts` is never called, and `backend-node/src/bylawyer/services/minutesService.ts` is dead code (deleted since; see Decisions). The minutes from the last meeting can't be approved, because nothing puts them in front of the meeting. Export offers HTML and PDF items that call routes that don't exist, the header search calls an endpoint that doesn't exist, and an amendment's effect can't be previewed although the server can compute it.
 
 This phase covers steps 2 and 14 of the roadmap's acceptance scenario: pasting the bylaws in, and the secretary publishing the minutes afterward.
 
 ## Decisions
 
-- **Minutes are their own record, not a bylaws-style document.** A `Minutes` row per scheduled meeting holds Markdown text, a status (draft, published, approved) and who did what when. Markdown is what a secretary edits, what prints well and what exports cleanly; the section tree suits bylaws, not minutes. `minutesService.ts` and its tests are deleted.
+- **Minutes are their own record, not a bylaws-style document.** A `Minutes` row per scheduled meeting holds Markdown text, a status (draft, published, approved) and who did what when. Markdown is what a secretary edits, what prints well and what exports cleanly; the section tree suits bylaws, not minutes. `minutesService.ts` is deleted (it had no tests).
 - **The draft is written by the app at adjournment**, from the final meeting state, and is only ever a starting point: the secretary edits freely.
-- **Published minutes are what the next meeting approves.** When a meeting's live state is created, the organization's most recent published, not yet approved minutes are loaded into it. Approving them in the meeting (with or without corrections) marks them approved.
+- **Published minutes are what the next meeting approves.** When a meeting's live state is created, or when someone joins one not yet called to order that has none, the organization's most recent published, not yet approved minutes are loaded into it. Approving them in the meeting (with or without corrections) marks them approved.
 - **PDF comes from the browser.** "Print or save as PDF" opens a print-ready page; the browser's print dialog saves a PDF. No server-side PDF engine.
 - **Import parses text the same way whatever the source.** Pasted text, `.txt`, `.md` and `.docx` all become plain text with heading markers, and one parser turns that into the section tree.
 
@@ -32,7 +32,7 @@ Text between headings is the content of the nearest heading, with paragraphs kep
 
 - **Paste**: a textarea.
 - **`.txt` and `.md`**: read in the browser.
-- **`.docx`**: `POST /api/documents/:id/import/docx` (secretary, 5 MB limit, raw body like uploads) converts with `mammoth` to text, keeping heading paragraphs as lines, and returns `{ text }`. The client then parses as for paste. The server never stores the file.
+- **`.docx`**: `POST /api/documents/:id/import/docx` (secretary, 5 MB limit, raw body like uploads) converts with `mammoth` to text, keeping heading paragraphs as `#` lines (one `#` per heading level), and returns `{ text }`. The client then parses as for paste. The server never stores the file. A `.docx` is a zip that mammoth unpacks whole in memory, so before mammoth reads it the server reads the zip's central directory and refuses (400, "That Word document is too large to read") more than 2,000 parts, more than 50 MB unpacked in all, or a `word/document.xml` over 20 MB; since a declared size can lie, each part is then unpacked with a cap at its declared size. A file mammoth can't read is 400 "not a Word document", and one over 5 MB is 413.
 
 ### Flow
 
@@ -40,7 +40,7 @@ On a document with no versions, and from the document's menu as "Import a new ve
 
 1. Choose a source (paste, or a file).
 2. **Review**: the parsed tree on the left with counts ("6 articles, 29 sections"), the source text on the right. The secretary can fix it before saving: rename a label or title, merge a section into the one above, split nothing (they fix the text and parse again). A "Parse again" button re-runs the parser on edited text.
-3. **Save** as a new version (effective date and notes fields, as the New Version form has) through `POST /api/documents/:id/versions/import` (secretary) with `{ effectiveDate?, notes?, sections: ParsedSection[] }`, which creates the version and its sections in one transaction and makes it current.
+3. **Save** as a new version (effective date and notes fields, as the New Version form has) through `POST /api/documents/:id/versions/import` (secretary) with `{ effectiveDate?, notes?, sections: ParsedSection[] }`, which creates the version and its sections in one transaction and makes it current. It takes at most 2,000 sections, 6 levels deep (JSON bodies up to 2 MB on this path, read after sign-in).
 
 ## Export and print
 
@@ -54,7 +54,7 @@ The amendment page gets a **Preview** tab beside the changes list, from `GET /ap
 
 ## Search
 
-`GET /api/organizations/:orgId/search?q=` (viewer, at least 2 characters, at most 20 results) searches the current version of each of the organization's documents: section number labels, titles and content, case-insensitively, returning `{ documentId, documentTitle, versionId, sectionId, numberLabel, title, snippet }` with the snippet around the first match. The header search uses it for the current organization and opens the document at the section (`/documents/:id#section-<sectionId>`; the document page scrolls to and highlights the section). The public share page's search stays as it is.
+`GET /api/organizations/:orgId/search?q=` (viewer, at least 2 characters, at most 20 results) searches the current version of each of the organization's documents: section number labels, titles and content, case-insensitively (the query is at most 200 characters, and `%` and `_` in it match only themselves), returning `{ documentId, documentTitle, versionId, sectionId, numberLabel, title, snippet }` with the snippet around the first match. The header search uses it for the current organization and opens the document at the section (`/documents/:id#section-<sectionId>`; the document page scrolls to and highlights the section). The public share page's search stays as it is.
 
 ## Minutes
 
@@ -87,32 +87,35 @@ model Minutes {
 }
 ```
 
+As built, `updatedById`, `publishedById` and `approvedAtPacketId` are relations too (to users, and to the approving packet, each set to null when that is deleted), so the minutes page can name who saved and published them last and the meeting that approved them. The place comes from a new `MeetingPacket.location` (at most 500 characters), which the scheduler sets.
+
 ### The draft
 
-When `END_MEETING` is applied (in the action handler, after the broadcast, like the bylaw sync), the server builds the draft with `generateMeetingMinutes(state)` and a new `formatMinutesAsMarkdown(minutes, context)` and saves it, unless minutes for that packet already exist (a restarted meeting adds nothing; the secretary can regenerate). The generator is fixed and extended first:
+When `END_MEETING` is applied (in the action handler, after the broadcast and after the packet's start and end times are recorded, like the bylaw sync), the server builds the draft with `generateMeetingMinutes(state)` and a new `formatMinutesAsMarkdown(minutes, context)` and saves it, unless minutes for that packet already exist (a restarted meeting adds nothing; the secretary can regenerate). The generator is fixed and extended first:
 
-- Header: organization name, "Minutes of the <title>", date and place (from the packet), the presiding officer, called to order at and adjourned at (from the log's timestamps, formatted in the organization's time zone; today it produces "Invalid Date").
+- Header: organization name, "Minutes of the <title>", date and place (from the packet), the presiding officer, called to order at and adjourned at, formatted in the organization's time zone (today it produces "Invalid Date"). As built, these two come from the packet's `startedAt` and `endedAt`, not the log: the log's timestamps are clock times with no date in the server's zone, and the web app parses that format, so they stay as they are. Each disposition's time is its `decidedAt`, from an ISO `at` the server stamps on the eight deciding actions (`CLOCKED_ACTIONS`: closing a vote, unanimous consent, declining to second, withdrawing, a ruling, declaring someone elected, setting an election aside, approving the minutes).
 - The organization's time zone is a new `Organization.timeZone String` (an IANA name). The web app sends the creator's browser time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) when an organization is created, existing organizations get `America/Chicago` from the migration, and admins can change it in Settings next to the quorum settings.
-- Attendance: members present by name (device or marked), the headcount with its names, guests by name, absent members, and whether a quorum was present at the call to order and at each vote.
-- Each agenda item in order, and under it every disposition in the order it happened: motions with their text, mover and seconder (today hard-coded empty), the vote with both parts ("Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5") or "Adopted by unanimous consent", motions withdrawn or that died for lack of a second, amendments and how they changed the motion, chair rulings and appeals, elections with each ballot's results and who was elected, approval of the previous minutes with any corrections.
-- Adjournment time.
+- Attendance: members present by name (device or marked, and anyone present at any point, so those who left early are listed), the headcount with its names, guests by name, absent members, and whether a quorum was present at the call to order and at each vote.
+- Each agenda item in order, and under it every disposition in the order it happened: motions with their text, mover and seconder (today hard-coded empty), the vote with both parts ("Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5") or "Adopted by unanimous consent", motions withdrawn or that died for lack of a second, amendments and how they changed the motion, chair rulings and appeals, elections with each ballot's results and who was elected, approval of the previous minutes with any corrections. As built: the reducer doesn't rewrite a main motion when an amendment carries, so the minutes give the amendment's own text and result before the vote on the main motion, and the secretary can write the amended wording in. Motions are named in the plain words the meeting screens use (`shared/constants/motionWords.ts`, "Refer to a committee"), and a vote that needed more than a majority says so ("Carried, two thirds required, ...", "elected by a plurality"). Elections the chair set aside and the business left pending at the adjournment are listed too. Dispositions made outside any agenda item go under "Other business".
+- Adjournment time, and the business left unfinished then (only the last adjournment's, when a meeting resumed after adjourning).
 
 Ballot votes record totals only, never names.
 
-The meeting record also needs the facts the generator can't infer from the log alone: who moved and seconded each motion, and when each disposition happened. Each `CompletedMotion` gains `seconder` and `decidedAt`, and the reducer records motions that never reached a vote (withdrawn, died for lack of a second, adopted by unanimous consent) in `completedMotions` with a `disposition` field (`'carried' | 'failed' | 'unanimous' | 'withdrawn' | 'no-second'`). The generator reads those, not log strings.
+The meeting record also needs the facts the generator can't infer from the log alone: who moved and seconded each motion, and when each disposition happened. Each `CompletedMotion` gains `seconder` and `decidedAt`, and the reducer records motions that never reached a vote (withdrawn, died for lack of a second, adopted by unanimous consent) in `completedMotions` with a `disposition` field (`'carried' | 'failed' | 'unanimous' | 'withdrawn' | 'no-second'`). The generator reads those, not log strings. As built, the record needed more than these three fields: each record's `agendaItemId` and `quorumPresent`, the chair's rulings as a list (`chairRulings`), each ballot of an election and the vote it required (`Officer.ballots`, `Officer.requiredVotes`), elections set aside (`electionsSetAside`), business pending at the last adjournment (`unfinishedAtAdjournment`), everyone who attended (`attendedIds`), the quorum at the call to order (`quorumAtCallToOrder`) and the approval (`minutesApproval`).
 
 ### The secretary's flow
 
 - A **Minutes** page for the organization (`/minutes`, sidebar item) lists minutes by meeting date with their status.
 - The **minutes editor** (`/minutes/:id`, secretary to edit, viewer to read when published): a Markdown editor with a live preview side by side (stacked on phones), autosave every few seconds of idle typing, "Regenerate from the meeting" (with a confirmation, since it replaces the text), **Publish** (secretary; makes them readable by every member and puts them in front of the next meeting), and once published, **Print or save as PDF** and **Download Markdown**.
 - Members see published and approved minutes read-only. Drafts are visible to secretaries and above only.
-- `GET/PUT /api/minutes/:id`, `POST /api/minutes/:id/publish`, `POST /api/minutes/:id/regenerate`, `GET /api/organizations/:orgId/minutes`, all with `requireRole` rules and covered by the route coverage test.
+- `GET/PUT /api/minutes/:id`, `POST /api/minutes/:id/publish`, `POST /api/minutes/:id/regenerate`, `GET /api/organizations/:orgId/minutes`, all with `requireRole` rules and covered by the route coverage test. As built: publishing published minutes changes nothing; only a draft can be regenerated (published minutes are what members have read), and not when the meeting has no live record (409 for both); approved minutes are the record and can't be edited or republished (409).
 
 ### Approval at the next meeting
 
 - When a meeting's live state is created from its packet, the organization's most recent published minutes (not yet approved, and not this meeting's own) are loaded: `minutesFromPreviousMeeting` gets the Markdown and a new `previousMinutesId` records which.
 - The chair console's "Approval of the minutes" item (the minutes-approval stage or the agenda item the chair calls) shows the minutes and two actions: **Approve as read** (`APPROVE_MINUTES`) and **Approve with corrections** (`APPROVE_MINUTES { corrections }`, a text the chair types). The phone view and the display show the minutes' heading and "Any corrections?".
-- After the action, the server marks the minutes approved with `approvedAtPacketId` and the corrections, best effort like the bylaw sync. The minutes page shows "Approved at the <meeting> with corrections: ..." under the heading.
+- Only the server puts minutes before a meeting: `SET_PREVIOUS_MINUTES` (an admin action before) is server-only and names the minutes it loads, since `previousMinutesId` is what approval marks, and typed text would have no minutes to mark. Minutes published after a meeting is called to order are not put before it.
+- After the action, the server marks the minutes approved with `approvedAtPacketId` and the corrections (at most 2,000 characters), best effort like the bylaw sync. The minutes page shows "Approved at the <meeting> with corrections: ..." under the heading.
 
 ## Testing
 
