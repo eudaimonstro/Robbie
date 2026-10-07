@@ -26,10 +26,8 @@ export function AmendmentChangesList({
 }: AmendmentChangesListProps) {
   return (
     <div className="card">
-      <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700 flex items-center justify-between">
-        <h3 className="font-semibold text-secondary-900 dark:text-white">
-          Proposed Changes ({changes.length})
-        </h3>
+      <div className="px-4 py-3 border-b border-rule flex items-center justify-between">
+        <h3 className="font-semibold text-ink">Proposed Changes ({changes.length})</h3>
         {canEdit && (
           <button onClick={onAddChange} className="btn-primary btn-sm">
             <Plus className="w-4 h-4 mr-1" />
@@ -40,8 +38,8 @@ export function AmendmentChangesList({
 
       {changes.length === 0 ? (
         <div className="p-8 text-center">
-          <AlertTriangle className="w-10 h-10 text-accent-500 mx-auto mb-3" />
-          <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+          <AlertTriangle className="w-10 h-10 text-caution mx-auto mb-3" />
+          <p className="text-ink-muted mb-4">
             No changes defined yet. Add changes to specify what this amendment will modify.
           </p>
           {canEdit && (
@@ -52,15 +50,13 @@ export function AmendmentChangesList({
           )}
         </div>
       ) : (
-        <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+        <div className="divide-y divide-rule">
           {changes.map((change, index) => (
             <div key={change.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-medium text-secondary-500">
-                      Change {index + 1}:
-                    </span>
+                    <span className="text-sm font-medium text-ink-muted">Change {index + 1}:</span>
                     <span
                       className={`badge ${
                         change.changeType === 'add'
@@ -75,7 +71,7 @@ export function AmendmentChangesList({
                   </div>
 
                   {change.targetSectionId && (
-                    <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-2">
+                    <p className="text-sm text-ink-muted mb-2">
                       Target: {getSectionLabel(sectionTree, change.targetSectionId)}
                     </p>
                   )}
@@ -83,16 +79,14 @@ export function AmendmentChangesList({
                   {(change.newNumberLabel || change.newTitle) && (
                     <p className="text-sm mb-2">
                       {change.newNumberLabel && (
-                        <span className="font-medium text-primary-600">
-                          {change.newNumberLabel}
-                        </span>
+                        <span className="font-medium text-gavel">{change.newNumberLabel}</span>
                       )}
                       {change.newTitle && <span className="ml-2">{change.newTitle}</span>}
                     </p>
                   )}
 
                   {change.newContent && (
-                    <div className="bg-secondary-50 dark:bg-secondary-800/50 p-3 rounded-sm text-sm text-secondary-700 dark:text-secondary-300">
+                    <div className="bg-surface-2 p-3 rounded-sm text-sm text-ink">
                       {change.newContent}
                     </div>
                   )}
@@ -101,7 +95,7 @@ export function AmendmentChangesList({
                 {canEdit && (
                   <button
                     onClick={() => onDeleteChange(change)}
-                    className="p-1 text-secondary-400 hover:text-danger-600 rounded-sm"
+                    className="p-1 text-ink-muted hover:text-gavel rounded-sm"
                     title="Delete change"
                   >
                     <Trash2 className="w-4 h-4" />

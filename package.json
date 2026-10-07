@@ -18,7 +18,8 @@
     "build:shared": "npm run build -w shared",
     "build:backend": "npm run build -w backend-node",
     "build:frontend": "npm run build -w frontend-unified",
-    "lint": "eslint .",
+    "lint": "eslint . && npm run lint:palette",
+    "lint:palette": "bash scripts/check-palette.sh",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
     "test": "npm run test:shared && npm run test:backend && npm run test:frontend && npm run test:mobile",
@@ -30,10 +31,12 @@
     "db:generate": "npm run db:generate -w backend-node",
     "db:push": "npm run db:push -w backend-node",
     "db:migrate": "npm run db:migrate -w backend-node",
-    "db:studio": "npm run db:studio -w backend-node"
+    "db:studio": "npm run db:studio -w backend-node",
+    "e2e": "npm run build:shared && npm run build -w frontend-unified && playwright test -c e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.19.1",
     "concurrently": "^10.0.5",
     "eslint": "^10.0.1",

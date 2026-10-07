@@ -133,28 +133,28 @@ export function AttachmentUploader({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-          isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-gray-400'
+          isDragging ? 'border-gavel bg-gavel-tint' : 'border-rule hover:border-ink-muted'
         }`}
       >
         {isUploading ? (
-          <div className="flex items-center justify-center gap-2 text-gray-600">
+          <div className="flex items-center justify-center gap-2 text-ink-muted">
             <Loader2 size={20} className="animate-spin" />
             <span>Uploading...</span>
           </div>
         ) : (
           <>
-            <Upload size={24} className="mx-auto text-gray-400 mb-2" />
-            <p className="text-sm text-gray-600">
+            <Upload size={24} className="mx-auto text-ink-muted mb-2" />
+            <p className="text-sm text-ink-muted">
               Drag files here or{' '}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-indigo-600 hover:underline"
+                className="text-gavel hover:underline"
               >
                 browse
               </button>
             </p>
-            <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, TXT, RTF (max 10MB)</p>
+            <p className="text-xs text-ink-muted mt-1">PDF, DOC, DOCX, TXT, RTF (max 10MB)</p>
           </>
         )}
         <input
@@ -171,7 +171,7 @@ export function AttachmentUploader({
       <button
         type="button"
         onClick={() => setShowDocPicker(true)}
-        className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+        className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-rule rounded-lg text-sm text-ink hover:bg-surface-2"
       >
         <Link size={16} />
         Link Bylawyer Document
@@ -179,7 +179,7 @@ export function AttachmentUploader({
 
       {/* Error message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-sm text-sm flex items-center justify-between">
+        <div className="bg-gavel-tint border border-gavel/30 text-ink px-3 py-2 rounded-sm text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)}>
             <X size={16} />
@@ -230,17 +230,17 @@ function AttachmentItem({
   const isFile = attachment.type === 'uploaded_file';
 
   return (
-    <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-      <div className="bg-white p-2 rounded-sm">
+    <div className="flex items-center gap-3 p-2 bg-surface-2 rounded-lg">
+      <div className="bg-surface p-2 rounded-sm">
         {isFile ? (
-          <File size={20} className="text-gray-500" />
+          <File size={20} className="text-ink-muted" />
         ) : (
-          <FileText size={20} className="text-indigo-500" />
+          <FileText size={20} className="text-gavel" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{attachment.displayName}</p>
-        <p className="text-xs text-gray-500">
+        <p className="text-sm font-medium text-ink truncate">{attachment.displayName}</p>
+        <p className="text-xs text-ink-muted">
           {isFile ? (
             <>
               {TYPE_LABELS[attachment.mimeType || ''] || 'File'}
@@ -255,7 +255,7 @@ function AttachmentItem({
         {isFile && (
           <a
             href={getAttachmentDownloadUrl(attachment.id)}
-            className="p-1 text-gray-400 hover:text-gray-600"
+            className="p-1 text-ink-muted hover:text-ink"
             title="Download"
           >
             <Download size={16} />
@@ -264,7 +264,7 @@ function AttachmentItem({
         <button
           type="button"
           onClick={onDelete}
-          className="p-1 text-gray-400 hover:text-red-600"
+          className="p-1 text-ink-muted hover:text-gavel"
           title="Remove"
         >
           <Trash2 size={16} />
@@ -309,11 +309,11 @@ function DocumentPicker({
   }, [organizationId]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50">
+      <div className="bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold text-gray-800">Link Document</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <h3 className="font-semibold text-ink">Link Document</h3>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink">
             <X size={20} />
           </button>
         </div>
@@ -321,21 +321,23 @@ function DocumentPicker({
         <div className="p-4 flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-gray-400" />
+              <Loader2 size={24} className="animate-spin text-ink-muted" />
             </div>
           ) : (
             <div className="space-y-2">
               {documents.length === 0 ? (
-                <p className="text-center text-gray-500 py-4">No documents in this organization.</p>
+                <p className="text-center text-ink-muted py-4">
+                  No documents in this organization.
+                </p>
               ) : (
                 documents.map((doc) => (
                   <button
                     key={doc.id}
                     onClick={() => onSelect(doc)}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 border border-transparent transition-colors"
+                    className="w-full text-left p-3 bg-surface-2 rounded-lg hover:bg-gavel-tint hover:border-rule border border-transparent transition-colors"
                   >
-                    <p className="font-medium text-gray-800">{doc.title}</p>
-                    <p className="text-xs text-gray-500 capitalize">
+                    <p className="font-medium text-ink">{doc.title}</p>
+                    <p className="text-xs text-ink-muted capitalize">
                       {doc.docType.replace('_', ' ')}
                     </p>
                   </button>

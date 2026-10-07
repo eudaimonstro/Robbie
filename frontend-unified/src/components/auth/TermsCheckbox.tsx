@@ -7,20 +7,20 @@ export function TermsCheckbox({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-2 text-sm text-secondary-700 dark:text-secondary-300">
+    <label className="flex items-start gap-2 text-sm text-ink">
       <input
         type="checkbox"
-        className="mt-0.5 h-4 w-4 shrink-0"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-gavel"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
         I'm 13 or older and I agree to the{' '}
-        <a href="/terms" target="_blank" rel="noreferrer" className="text-primary-600 underline">
+        <a href="/terms" target="_blank" rel="noreferrer" className="text-gavel underline">
           Terms of Service
         </a>{' '}
         and{' '}
-        <a href="/privacy" target="_blank" rel="noreferrer" className="text-primary-600 underline">
+        <a href="/privacy" target="_blank" rel="noreferrer" className="text-gavel underline">
           Privacy Policy
         </a>
       </span>

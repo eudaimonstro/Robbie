@@ -9,6 +9,7 @@ import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { useToast } from '../../../context/ToastContext';
 import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import { MembersCard } from '../components/MembersCard';
+import { AttendanceSettingsCard } from '../components/AttendanceSettingsCard';
 import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
 
 const messageOf = (err: unknown, fallback: string) =>
@@ -118,18 +119,14 @@ export default function SettingsPage() {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-          Settings
-        </h2>
-        <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-          Your name, your organization and its members
-        </p>
+        <h2 className="page-title">Settings</h2>
+        <p className="text-ink-muted mt-1">Your name, your organization and its members</p>
       </div>
 
       {/* Your name */}
       <div className="card mb-6">
-        <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-          <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-rule">
+          <h3 className="font-semibold text-ink flex items-center gap-2">
             <UserCircle className="w-5 h-5" />
             Your name
           </h3>
@@ -148,7 +145,7 @@ export default function SettingsPage() {
             maxLength={100}
             required
           />
-          <p className="text-sm text-secondary-500 mt-1">Shown to others in meetings.</p>
+          <p className="text-sm text-ink-muted mt-1">Shown to others in meetings.</p>
           <div className="flex justify-end mt-4">
             <button
               type="submit"
@@ -165,8 +162,8 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Organization */}
           <div className="card">
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-rule">
+              <h3 className="font-semibold text-ink flex items-center gap-2">
                 <Building2 className="w-5 h-5" />
                 Organization
               </h3>
@@ -174,10 +171,8 @@ export default function SettingsPage() {
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-secondary-500">Organization Name</p>
-                  <p className="font-medium text-secondary-900 dark:text-white">
-                    {currentOrganization.name}
-                  </p>
+                  <p className="text-sm text-ink-muted">Organization Name</p>
+                  <p className="font-medium text-ink">{currentOrganization.name}</p>
                 </div>
                 {isAdmin && (
                   <button onClick={openEditModal} className="btn-secondary btn-sm">
@@ -187,36 +182,35 @@ export default function SettingsPage() {
               </div>
               {currentOrganization.description && (
                 <div>
-                  <p className="text-sm text-secondary-500">Description</p>
-                  <p className="text-secondary-700 dark:text-secondary-300">
-                    {currentOrganization.description}
-                  </p>
+                  <p className="text-sm text-ink-muted">Description</p>
+                  <p className="text-ink">{currentOrganization.description}</p>
                 </div>
               )}
               <div>
-                <p className="text-sm text-secondary-500">Created</p>
-                <p className="text-secondary-700 dark:text-secondary-300">
+                <p className="text-sm text-ink-muted">Created</p>
+                <p className="text-ink">
                   {new Date(currentOrganization.createdAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
           </div>
 
+          {/* Voting members and the quorum every meeting starts from; keyed like MembersCard */}
+          <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
+
           {/* Keyed so a switch starts the card afresh, without the previous members */}
           <MembersCard key={currentOrganization.id} />
 
           {/* Danger Zone */}
-          <div className="card border-danger-200 dark:border-danger-900">
-            <div className="px-6 py-4 border-b border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-900/20 rounded-t-lg">
-              <h3 className="font-semibold text-danger-700 dark:text-danger-400">Danger Zone</h3>
+          <div className="card border-gavel/30">
+            <div className="px-6 py-4 border-b border-gavel/30 bg-gavel-tint rounded-t-lg">
+              <h3 className="font-semibold text-ink">Danger Zone</h3>
             </div>
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium text-secondary-900 dark:text-white">
-                    Leave Organization
-                  </p>
-                  <p className="text-sm text-secondary-500">
+                  <p className="font-medium text-ink">Leave Organization</p>
+                  <p className="text-sm text-ink-muted">
                     You lose access to its documents and meetings. Its last owner can't leave.
                   </p>
                 </div>
@@ -228,10 +222,8 @@ export default function SettingsPage() {
               {isOwner && (
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium text-secondary-900 dark:text-white">
-                      Delete Organization
-                    </p>
-                    <p className="text-sm text-secondary-500">
+                    <p className="font-medium text-ink">Delete Organization</p>
+                    <p className="text-sm text-ink-muted">
                       Permanently delete this organization and all its data
                     </p>
                   </div>
@@ -248,25 +240,23 @@ export default function SettingsPage() {
 
           {/* App Info */}
           <div className="card">
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-rule">
+              <h3 className="font-semibold text-ink flex items-center gap-2">
                 <Settings className="w-5 h-5" />
                 About Robbie
               </h3>
             </div>
             <div className="p-6 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-secondary-500">Version</span>
-                <span className="text-sm text-secondary-700 dark:text-secondary-300">1.0.0</span>
+                <span className="text-sm text-ink-muted">Version</span>
+                <span className="text-sm text-ink">1.0.0</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-secondary-500">Environment</span>
-                <span className="text-sm text-secondary-700 dark:text-secondary-300">
-                  Development
-                </span>
+                <span className="text-sm text-ink-muted">Environment</span>
+                <span className="text-sm text-ink">Development</span>
               </div>
-              <div className="pt-3 border-t border-secondary-200 dark:border-secondary-700">
-                <p className="text-sm text-secondary-500">
+              <div className="pt-3 border-t border-rule">
+                <p className="text-sm text-ink-muted">
                   Robbie runs meetings by Robert's Rules of Order and keeps your organization's
                   bylaws, with every version and amendment.
                 </p>
@@ -361,8 +351,8 @@ function AppearanceCard() {
   const { theme, setTheme } = useTheme();
   return (
     <div className="card">
-      <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-        <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+      <div className="px-6 py-4 border-b border-rule">
+        <h3 className="font-semibold text-ink flex items-center gap-2">
           <Sun className="w-5 h-5" />
           Appearance
         </h3>
@@ -370,18 +360,18 @@ function AppearanceCard() {
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-secondary-900 dark:text-white">Theme</p>
-            <p className="text-sm text-secondary-500">Choose your preferred color scheme</p>
+            <p className="font-medium text-ink">Theme</p>
+            <p className="text-sm text-ink-muted">Choose your preferred color scheme</p>
           </div>
-          <div className="flex gap-1 p-1 bg-secondary-100 dark:bg-secondary-800 rounded-lg">
+          <div className="flex gap-1 p-1 bg-surface-2 rounded-lg">
             {THEMES.map(({ value, label, Icon }) => (
               <button
                 key={value}
                 onClick={() => setTheme(value)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                   theme === value
-                    ? 'bg-white dark:bg-secondary-700 text-secondary-900 dark:text-white shadow-xs'
-                    : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'
+                    ? 'bg-surface text-ink shadow-xs'
+                    : 'text-ink-muted hover:text-ink'
                 }`}
                 aria-label={`${label} theme`}
               >

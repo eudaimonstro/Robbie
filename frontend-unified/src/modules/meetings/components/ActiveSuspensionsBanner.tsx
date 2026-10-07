@@ -32,50 +32,48 @@ export function ActiveSuspensionsBanner({
   };
 
   return (
-    <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4 shadow-md">
+    <div className="bg-caution-tint border-2 border-caution rounded-lg p-4 mb-4 shadow-md">
       <div className="flex items-start gap-2">
-        <span className="text-2xl animate-pulse">⚠️</span>
         <div className="flex-1">
-          <h3 className="font-bold text-amber-900 mb-1 text-lg">
-            ⚠️ Active Rule Suspensions ({activeSuspensions.length})
+          <h3 className="font-bold text-ink mb-1 text-lg">
+            Active Rule Suspensions ({activeSuspensions.length})
           </h3>
-          <p className="text-xs text-amber-800 mb-3 italic">
+          <p className="text-xs text-ink mb-3 italic">
             Parliamentary rules currently suspended - proceed with caution
           </p>
           <div className="space-y-2">
             {activeSuspensions.map((suspension) => (
               <div
                 key={suspension.id}
-                className="bg-white border-2 border-amber-400 rounded-sm p-3 text-sm shadow-xs"
+                className="bg-surface border-2 border-caution rounded-sm p-3 text-sm shadow-xs"
               >
-                <div className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
-                  <span className="text-amber-600">🔓</span>
+                <div className="font-semibold text-ink mb-1 flex items-center gap-2">
                   {getRuleName(suspension.rule)}
                   {suspension.scope === 'single-action' && (
-                    <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                    <span className="ml-auto text-xs bg-gavel-tint text-ink px-2 py-1 rounded-full font-medium">
                       Single Action
                     </span>
                   )}
                   {suspension.scope === 'meeting-remainder' && (
-                    <span className="ml-auto text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full font-medium">
+                    <span className="ml-auto text-xs bg-caution-tint text-ink px-2 py-1 rounded-full font-medium">
                       Until Adjournment
                     </span>
                   )}
                 </div>
-                <div className="text-gray-700 mb-1">
+                <div className="text-ink mb-1">
                   <span className="font-medium">Purpose:</span> {suspension.purpose}
                 </div>
-                <div className="text-gray-700 mb-2">
+                <div className="text-ink mb-2">
                   <span className="font-medium">Allowed:</span> {suspension.specificAction}
                 </div>
-                <div className="bg-amber-50 border-l-4 border-amber-500 p-2 text-xs">
-                  <span className="font-semibold text-amber-900">⚠️ Effect:</span>{' '}
-                  <span className="text-amber-800">{getRuleWarning(suspension.rule)}</span>
+                <div className="bg-caution-tint border-l-4 border-caution p-2 text-xs">
+                  <span className="font-semibold text-ink">Effect:</span>{' '}
+                  <span className="text-ink">{getRuleWarning(suspension.rule)}</span>
                 </div>
                 {canRestore && dispatch && (
                   <button
                     onClick={() => handleRestore(suspension.id)}
-                    className="mt-2 text-xs bg-gray-600 text-white px-3 py-1 rounded-sm hover:bg-gray-700 transition-colors"
+                    className="mt-2 text-xs bg-ink text-paper px-3 py-1 rounded-sm hover:bg-ink/90 transition-colors"
                   >
                     Restore Rule
                   </button>

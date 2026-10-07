@@ -18,14 +18,10 @@ export function RequireSession({ children }: { children: ReactNode }) {
   // The session couldn't be checked: offer a retry rather than sending a signed-in user to sign in
   if (status === 'unreachable') {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-secondary-50 dark:bg-secondary-900 p-4">
+      <main className="min-h-screen flex items-center justify-center bg-paper p-4">
         <div className="card w-full max-w-sm p-6 text-center">
-          <h1 className="text-xl font-heading font-bold text-secondary-900 dark:text-white mb-2">
-            Can't reach the server
-          </h1>
-          <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
-            Check your connection and try again.
-          </p>
+          <h1 className="text-xl font-heading font-bold text-ink mb-2">Can't reach the server</h1>
+          <p className="text-sm text-ink-muted mb-4">Check your connection and try again.</p>
           <button type="button" className="btn-primary w-full" onClick={() => void retry()}>
             Try again
           </button>

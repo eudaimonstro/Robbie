@@ -4,8 +4,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { validateAction } from '../socket/actionValidator.js';
+import { ACTION_TYPES, isServerOnly } from '../socket/permissionGuard.js';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { MeetingState, Member, DebateStance } from '@robbie-bylawyer/shared/types';
+import type {
+  MeetingAction,
+  MeetingState,
+  Member,
+  DebateStance,
+} from '@robbie-bylawyer/shared/types';
 
 // Helper to create a member
 function createMember(
@@ -86,10 +92,110 @@ describe('actionValidator', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('allows adjourning during an agenda item (the reducer completes it)', () => {
+      const state = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [{ id: 2, title: 'Adjournment', status: 'active' as const }],
+        currentAgendaItem: { id: 2, title: 'Adjournment', status: 'active' as const },
+      };
+      const result = validateAction(state, { type: 'END_MEETING', timestamp: '' });
+      expect(result.valid).toBe(true);
+    });
+
     it('should reject ending inactive meeting', () => {
       const result = validateAction(initialState, { type: 'END_MEETING', timestamp: '' });
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('MEETING_NOT_ACTIVE');
+    });
+
+    it('refuses to adjourn while a vote is open', () => {
+      const state = { ...activeMeetingState(), votingOpen: true, votingMethod: 'ballot' as const };
+      expect(validateAction(state, { type: 'END_MEETING', timestamp: '' })).toEqual({
+        valid: false,
+        error: 'Close the vote before adjourning',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+    });
+
+    it("refuses to adjourn while an election's ballot is open, but not before it", () => {
+      const election = {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Member 2', id: 2 }],
+        requiredVotes: 'majority' as const,
+        votingInProgress: true,
+        ballotResults: { 'Member 2': 1 },
+        votersWhoVoted: [3],
+        elected: null,
+      };
+      const end = (state: MeetingState) =>
+        validateAction(state, { type: 'END_MEETING', timestamp: '' });
+      expect(end({ ...activeMeetingState(), currentElection: election })).toEqual({
+        valid: false,
+        error: 'Close the vote before adjourning',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+      // Nominations open, or a winner awaiting the declaration: the election is left unfinished
+      expect(
+        end({
+          ...activeMeetingState(),
+          nominationsOpen: true,
+          currentNominationPosition: 'Director',
+        }).valid,
+      ).toBe(true);
+      expect(
+        end({
+          ...activeMeetingState(),
+          currentElection: { ...election, votingInProgress: false, elected: 'Member 2' },
+        }).valid,
+      ).toBe(true);
+    });
+  });
+
+  describe('after adjournment', () => {
+    const adjourned: MeetingState = {
+      ...activeMeetingState(),
+      meetingActive: false,
+      meetingStage: 'adjourned',
+    };
+    const clientActions = ACTION_TYPES.filter(
+      (type) => type !== 'START_MEETING' && !isServerOnly(type),
+    );
+
+    it.each(clientActions)('refuses %s', (type) => {
+      expect(validateAction(adjourned, { type } as MeetingAction)).toEqual({
+        valid: false,
+        error: 'The meeting has adjourned',
+        errorCode: 'MEETING_NOT_ACTIVE',
+      });
+    });
+
+    it('can be called to order again', () => {
+      expect(validateAction(adjourned, { type: 'START_MEETING', timestamp: '' }).valid).toBe(true);
+    });
+
+    it('still records who comes and goes', () => {
+      const actions: MeetingAction[] = [
+        { type: 'SET_MEMBER_PRESENCE', memberId: 2, present: false, timestamp: '' },
+        { type: 'ADD_MEMBER', member: createMember(4), timestamp: '' },
+        {
+          type: 'REFRESH_MEMBERS',
+          members: [{ id: 2, name: 'Member 2', role: 'admin' }],
+          timestamp: '',
+        },
+        {
+          type: 'SET_MEETING_INFO',
+          organizationId: 'org',
+          title: 'October meeting',
+          scheduledFor: null,
+          timestamp: '',
+        },
+      ];
+      for (const action of actions) {
+        expect(validateAction(adjourned, action), action.type).toEqual({ valid: true });
+      }
     });
   });
 
@@ -191,6 +297,126 @@ describe('actionValidator', () => {
 
     it('rejects the same nominee twice', () => {
       expect(nominate('pat outsider', 0).errorCode).toBe('ALREADY_NOMINATED');
+    });
+  });
+
+  describe('elections', () => {
+    const nomination = (position: string, declined = false) => ({
+      id: 1,
+      position,
+      nomineeName: 'Member 2',
+      nomineeId: 2,
+      nominatedBy: 'Member 3',
+      nominatorId: 3,
+      timestamp: '',
+      declined,
+    });
+    const start = (state: MeetingState) =>
+      validateAction(state, {
+        type: 'START_ELECTION',
+        electionId: 1,
+        position: 'Treasurer',
+        requiredVotes: 'majority',
+        timestamp: '',
+      });
+    const closed = { ...activeMeetingState(), currentNominationPosition: 'Treasurer' };
+
+    it('starts a ballot only with a nominee for the position', () => {
+      expect(start({ ...closed, nominations: [nomination('Treasurer')] }).valid).toBe(true);
+      for (const nominations of [[], [nomination('Treasurer', true)], [nomination('Tresurer')]]) {
+        expect(start({ ...closed, nominations })).toEqual({
+          valid: false,
+          error: 'Nobody has been nominated',
+          errorCode: 'INVALID_STATE',
+        });
+      }
+    });
+
+    it('opens no vote on a motion while an election ballot is open', () => {
+      const recess = createMotion({ text: 'Recess for ten minutes' });
+      const state: MeetingState = {
+        ...activeMeetingState(),
+        currentMotion: recess,
+        motionStack: [recess],
+        currentElection: {
+          id: 1,
+          position: 'Treasurer',
+          candidates: [{ name: 'Member 2', id: 2 }],
+          requiredVotes: 'majority',
+          votingInProgress: true,
+          ballotResults: {},
+          votersWhoVoted: [],
+          elected: null,
+        },
+      };
+      const openVoting = (s: MeetingState) =>
+        validateAction(s, { type: 'OPEN_VOTING', voteTimerEnd: null, timestamp: '' });
+      expect(openVoting(state)).toEqual({
+        valid: false,
+        error: 'A ballot is open',
+        errorCode: 'VOTING_IN_PROGRESS',
+      });
+      // Once the ballot has closed, the motion comes to a vote
+      expect(
+        openVoting({
+          ...state,
+          currentElection: {
+            ...state.currentElection!,
+            votingInProgress: false,
+            elected: 'Member 2',
+          },
+        }).valid,
+      ).toBe(true);
+    });
+
+    it('opens no nominations while a question is pending', () => {
+      const motion = createMotion();
+      const openNominations = (s: MeetingState) =>
+        validateAction(s, { type: 'OPEN_NOMINATIONS', position: 'Treasurer', timestamp: '' });
+      const refused = {
+        valid: false,
+        error: 'Finish the pending question first',
+        errorCode: 'INVALID_STATE',
+      };
+      expect(
+        openNominations({ ...activeMeetingState(), currentMotion: motion, motionStack: [motion] }),
+      ).toEqual(refused);
+      expect(openNominations({ ...activeMeetingState(), pendingSecond: motion })).toEqual(refused);
+      expect(openNominations(activeMeetingState()).valid).toBe(true);
+    });
+
+    it('starts no ballot while a vote is in progress', () => {
+      expect(
+        start({ ...closed, nominations: [nomination('Treasurer')], votingOpen: true }),
+      ).toMatchObject({ valid: false, errorCode: 'VOTING_IN_PROGRESS' });
+    });
+
+    it('sets aside nominations or a ballot, and nothing when there is no election', () => {
+      const setAside = (state: MeetingState) =>
+        validateAction(state, { type: 'SET_ASIDE_ELECTION', timestamp: '' });
+      expect(setAside(closed).valid).toBe(true);
+      expect(
+        setAside({
+          ...activeMeetingState(),
+          currentElection: {
+            id: 1,
+            position: 'Treasurer',
+            candidates: [],
+            requiredVotes: 'majority',
+            votingInProgress: true,
+            ballotResults: {},
+            votersWhoVoted: [],
+            elected: null,
+          },
+        }).valid,
+      ).toBe(true);
+      // Nominations left open with no position (a state saved before a ballot closed them)
+      expect(setAside({ ...activeMeetingState(), nominationsOpen: true }).valid).toBe(true);
+      expect(setAside(activeMeetingState())).toEqual({
+        valid: false,
+        error: 'No election to set aside',
+        errorCode: 'NO_ELECTION',
+      });
     });
   });
 

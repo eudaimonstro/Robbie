@@ -1,4 +1,10 @@
-import type { MeetingAction, Officer } from '../../types/index.js';
+import type { MeetingAction, Nomination, Officer } from '../../types/index.js';
+import { FROM_THE_FLOOR } from '../../constants/floor.js';
+import {
+  logElectionSetAside,
+  logFloorNomination,
+  logNomination,
+} from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {
@@ -18,22 +24,27 @@ export const electionHandler: ActionHandler = (state, action, log) => {
 
     case 'NOMINATE': {
       const typedAction = action as Extract<MeetingAction, { type: 'NOMINATE' }>;
-      const nomination = {
+      // A nomination from the floor is recorded as that, not as the chair's who entered it
+      const fromFloor = !!typedAction.fromFloor;
+      const nomination: Nomination = {
         id: typedAction.nominationId,
         position: typedAction.position,
         nomineeName: typedAction.nomineeName,
         nomineeId: typedAction.nomineeId,
-        nominatedBy: typedAction.nominatedBy,
+        nominatedBy: fromFloor ? FROM_THE_FLOOR : typedAction.nominatedBy,
         nominatorId: typedAction.nominatorId,
         timestamp: typedAction.timestamp,
         declined: false,
+        ...(fromFloor && { fromFloor }),
       };
       return {
         ...state,
         nominations: [...state.nominations, nomination],
         meetingLog: log(
           typedAction.timestamp,
-          `${typedAction.nominatedBy} nominates ${typedAction.nomineeName} for ${typedAction.position}.`,
+          fromFloor
+            ? logFloorNomination(typedAction.nomineeName, typedAction.position)
+            : logNomination(typedAction.nominatedBy, typedAction.nomineeName, typedAction.position),
         ),
       };
     }
@@ -89,12 +100,15 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           {} as Record<string, number>,
         ),
         votersWhoVoted: [],
+        floorBallots: {},
         elected: null,
       };
 
+      // Opening the ballot closes nominations
       return {
         ...state,
         currentElection: election,
+        nominationsOpen: false,
         currentNominationPosition: null,
         meetingLog: log(
           typedAction.timestamp,
@@ -124,12 +138,28 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'SET_FLOOR_BALLOTS': {
+      const typedAction = action as Extract<MeetingAction, { type: 'SET_FLOOR_BALLOTS' }>;
+      if (!state.currentElection) return state;
+      return {
+        ...state,
+        currentElection: { ...state.currentElection, floorBallots: typedAction.counts },
+      };
+    }
+
     case 'CLOSE_ELECTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_ELECTION' }>;
       if (!state.currentElection) return state;
 
-      const results = state.currentElection.ballotResults;
-      const totalVotes = state.currentElection.votersWhoVoted.length;
+      // Ballots on devices and the tellers' count of paper ballots together
+      const floorBallots = state.currentElection.floorBallots ?? {};
+      const results = { ...state.currentElection.ballotResults };
+      for (const [name, count] of Object.entries(floorBallots)) {
+        results[name] = (results[name] ?? 0) + count;
+      }
+      const totalVotes =
+        state.currentElection.votersWhoVoted.length +
+        Object.values(floorBallots).reduce((sum, count) => sum + count, 0);
       const requiredVotes = state.currentElection.requiredVotes;
 
       // Calculate winner based on vote requirement
@@ -188,6 +218,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             candidates: tiedCandidateInfo,
             ballotResults: {},
             votersWhoVoted: [],
+            floorBallots: {},
             votingInProgress: true,
             elected: null,
             isRunoff: true,
@@ -214,6 +245,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
               {} as Record<string, number>,
             ),
             votersWhoVoted: [],
+            floorBallots: {},
             votingInProgress: true,
             elected: null,
             // Counts the repeated ballots (the first ballot is round 0)
@@ -230,6 +262,9 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         ...state,
         currentElection: {
           ...state.currentElection,
+          // The tally the result rests on, device and paper ballots together, for the result,
+          // the declaration and the minutes
+          ballotResults: results,
           votingInProgress: false,
           elected: winner,
         },
@@ -277,6 +312,23 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           typedAction.timestamp,
           `Chair declares ${typedAction.candidateName}${writeInNote} elected as ${officer.position}.`,
         ),
+      };
+    }
+
+    case 'SET_ASIDE_ELECTION': {
+      const { timestamp } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
+      if (!state.nominationsOpen && !state.currentNominationPosition && !state.currentElection) {
+        return state;
+      }
+      const position = state.currentElection?.position ?? state.currentNominationPosition;
+      // The nominations already made stand: nominations reopened for the same position bring
+      // them back
+      return {
+        ...state,
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+        meetingLog: log(timestamp, logElectionSetAside(position)),
       };
     }
 

@@ -1,6 +1,16 @@
 import { ReactNode } from 'react';
+import type { MeetingRole } from '@robbie-bylawyer/shared/types';
 
-type BadgeVariant = 'draft' | 'proposed' | 'passed' | 'failed' | 'tabled' | 'withdrawn' | 'default';
+type BadgeVariant =
+  | 'draft'
+  | 'proposed'
+  | 'passed'
+  | 'failed'
+  | 'tabled'
+  | 'withdrawn'
+  | MeetingRole
+  | Presence
+  | 'default';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -8,6 +18,7 @@ interface BadgeProps {
   className?: string;
 }
 
+// The badge utilities in styles/index.css: the label style in a tint
 const variantClasses: Record<BadgeVariant, string> = {
   draft: 'badge-draft',
   proposed: 'badge-proposed',
@@ -15,8 +26,14 @@ const variantClasses: Record<BadgeVariant, string> = {
   failed: 'badge-failed',
   tabled: 'badge-tabled',
   withdrawn: 'badge-withdrawn',
-  default:
-    'badge bg-secondary-100 text-secondary-700 dark:bg-secondary-700 dark:text-secondary-200',
+  chair: 'badge-chair',
+  admin: 'badge-admin',
+  member: 'badge-member',
+  guest: 'badge-guest',
+  present: 'badge-present',
+  marked: 'badge-marked',
+  absent: 'badge-absent',
+  default: 'badge',
 };
 
 export default function Badge({ variant = 'default', children, className = '' }: BadgeProps) {
@@ -48,13 +65,37 @@ export function MeetingTypeBadge({ type }: { type: string }) {
     annual: 'Annual',
     emergency: 'Emergency',
   };
-
-  const colors: Record<string, string> = {
-    regular: 'bg-secondary-100 text-secondary-700',
-    special: 'bg-accent-100 text-accent-700',
-    annual: 'bg-primary-100 text-primary-700',
-    emergency: 'bg-danger-100 text-danger-700',
+  const variants: Record<string, BadgeVariant> = {
+    regular: 'default',
+    special: 'proposed',
+    annual: 'tabled',
+    emergency: 'chair',
   };
 
-  return <span className={`badge ${colors[type] || colors.regular}`}>{labels[type] || type}</span>;
+  return <Badge variant={variants[type] ?? 'default'}>{labels[type] || type}</Badge>;
+}
+
+const ROLE_LABELS: Record<MeetingRole, string> = {
+  chair: 'Chair',
+  admin: 'Admin',
+  member: 'Member',
+  guest: 'Guest',
+};
+
+/** A person's role in a live meeting */
+export function RoleBadge({ role }: { role: MeetingRole }) {
+  return <Badge variant={role}>{ROLE_LABELS[role]}</Badge>;
+}
+
+/** How someone is in the room: on a device, marked present by the chair, or absent */
+export type Presence = 'present' | 'marked' | 'absent';
+
+const PRESENCE_LABELS: Record<Presence, string> = {
+  present: 'Present',
+  marked: 'Marked present',
+  absent: 'Absent',
+};
+
+export function PresenceBadge({ presence }: { presence: Presence }) {
+  return <Badge variant={presence}>{PRESENCE_LABELS[presence]}</Badge>;
 }

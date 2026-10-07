@@ -87,7 +87,7 @@ export function NewOrganizationModal({
           />
         </div>
         {error && (
-          <p role="alert" className="mb-4 text-sm text-danger-600 dark:text-danger-400">
+          <p role="alert" className="mb-4 text-sm text-gavel">
             {error}
           </p>
         )}

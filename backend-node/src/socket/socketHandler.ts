@@ -7,7 +7,7 @@ import type {
   SocketData,
   StateResponse,
 } from '@robbie-bylawyer/shared/types/socket';
-import { handleJoinMeeting } from './joinHandler.js';
+import { handleJoinMeeting, handleRecoveredSocket } from './joinHandler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { handleDispatchAction } from './actionHandler.js';
 import { handleRequestState } from './stateRequestHandler.js';
@@ -49,6 +49,11 @@ export function setupSocketHandlers(io: TypedServer) {
   // Every listener goes through socketEvents: a bad payload, a missing callback or a failed
   // handler must never become an unhandled rejection, which would stop the server
   io.on('connection', (socket: TypedSocket) => {
+    // Back after a moment without signal, with its meeting (see connectionStateRecovery)
+    if (socket.recovered) {
+      runEvent('recover', handleRecoveredSocket(socket, io));
+    }
+
     socket.on(
       'JOIN_MEETING',
       guardedEvent('JOIN_MEETING', isJoinPayload, (data, ack: (r: JoinMeetingResponse) => void) =>
@@ -57,7 +62,7 @@ export function setupSocketHandlers(io: TypedServer) {
     );
 
     socket.on('LEAVE_MEETING', () => {
-      runEvent('LEAVE_MEETING', handleDisconnect(socket, io));
+      runEvent('LEAVE_MEETING', handleDisconnect(socket, io, 'leave'));
     });
 
     socket.on(
@@ -72,7 +77,7 @@ export function setupSocketHandlers(io: TypedServer) {
     });
 
     socket.on('disconnect', () => {
-      runEvent('disconnect', handleDisconnect(socket, io));
+      runEvent('disconnect', handleDisconnect(socket, io, 'disconnect'));
     });
   });
 }

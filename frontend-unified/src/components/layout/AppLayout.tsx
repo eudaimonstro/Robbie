@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { isFocusPath } from './focusMode';
 import Header from './Header';
+import { AppChromeContext } from './appChrome';
 import Modal from '../ui/Modal';
 import { useOrganization } from '../../context/OrganizationContext';
 import { documents, DocumentCreate } from '../../api/client';
@@ -18,7 +20,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { showToast } = useToast();
   const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // A page with a header of its own on phones (a live meeting's phone view)
+  const [ownHeader, setOwnHeader] = useState(false);
+  const chrome = useMemo(() => ({ openMenu: () => setSidebarOpen(true), setOwnHeader }), []);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
+  const focus = isFocusPath(location.pathname);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -57,7 +63,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Skip to main content link for accessibility */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-100 focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-md focus:outline-hidden"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-100 focus:px-4 focus:py-2 focus:bg-gavel focus:text-paper focus:rounded-md focus:outline-hidden"
       >
         Skip to main content
       </a>
@@ -65,19 +71,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className={`fixed inset-0 bg-ink-900/50 z-40 ${focus ? '' : 'md:hidden'}`}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar - hidden on mobile by default, shown when sidebarOpen */}
+      {/* Sidebar - a drawer on mobile (and in a live meeting), shown when sidebarOpen */}
       <div
+        data-testid="sidebar-frame"
+        inert={focus && !sidebarOpen}
         className={`
-        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out ${focus ? '' : 'md:relative md:translate-x-0'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
       >
         <Sidebar
+          drawer={focus}
           onNewDocument={() => {
             modalTriggerRef.current = document.activeElement as HTMLElement;
             setIsNewDocModalOpen(true);
@@ -87,13 +96,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main
-          id="main-content"
-          className="flex-1 overflow-auto p-4 md:p-6 bg-secondary-50 dark:bg-secondary-900"
-          tabIndex={-1}
-        >
-          {children}
+        {/* On a phone, a page with its own header carries the title and the menu button */}
+        <div data-testid="app-header" className={ownHeader ? 'hidden md:block' : undefined}>
+          <Header onMenuClick={() => setSidebarOpen(true)} menuAlways={focus} />
+        </div>
+        <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 bg-paper" tabIndex={-1}>
+          <AppChromeContext.Provider value={chrome}>{children}</AppChromeContext.Provider>
         </main>
       </div>
 

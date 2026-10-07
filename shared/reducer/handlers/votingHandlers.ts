@@ -5,7 +5,7 @@ import {
   processOutcomeResult,
   restoreReconsideredMotion,
 } from '../../utils/motionOutcomeHelper.js';
-import { calculateVoteResult } from '../../utils/voteCalculator.js';
+import { NO_VOTES, addVotes, calculateVoteResult } from '../../utils/voteCalculator.js';
 import type { ActionHandler } from './types.js';
 
 export const votingHandler: ActionHandler = (state, action, log) => {
@@ -26,6 +26,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
         voterChoices: {},
+        floorVotes: { yea: 0, nay: 0, abstain: 0 },
         proxyVotes: [], // Reset proxy votes for new vote
         meetingLog: logEntries,
       };
@@ -33,6 +34,9 @@ export const votingHandler: ActionHandler = (state, action, log) => {
 
     case 'CAST_VOTE': {
       const typedAction = action as Extract<MeetingAction, { type: 'CAST_VOTE' }>;
+      // A voice vote is counted in the room, not on devices
+      if (state.votingMethod === 'voice') return state;
+
       // Check if voter is chair
       const voter = state.members.find((m) => m.id === typedAction.voterId);
       const isChair = voter?.role === 'chair';
@@ -75,10 +79,24 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'SET_FLOOR_TALLY': {
+      const typedAction = action as Extract<MeetingAction, { type: 'SET_FLOOR_TALLY' }>;
+      return {
+        ...state,
+        floorVotes: { yea: typedAction.yea, nay: typedAction.nay, abstain: typedAction.abstain },
+      };
+    }
+
     case 'CLOSE_VOTING': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_VOTING' }>;
-      const voteCalc = calculateVoteResult(state.votes, state.currentMotion?.vote || 'majority');
+      // The result counts the device votes and the chair's floor tally together
+      const floorVotes = state.floorVotes ?? NO_VOTES;
+      const voteCalc = calculateVoteResult(
+        addVotes(state.votes, floorVotes),
+        state.currentMotion?.vote || 'majority',
+      );
       const { yea, nay } = voteCalc;
+      const isBallot = state.votingMethod === 'ballot';
       const newStack = state.motionStack.slice(0, -1);
 
       // Special handling for Appeal. The question is "Shall the decision of the chair be
@@ -167,30 +185,42 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         reconsideredMotion,
       );
 
-      // Save completed motion for potential reconsideration
-      const completedMotions =
-        state.currentMotion && state.currentMotion.reconsidered
-          ? [
-              ...updatedCompletedMotions,
-              {
-                id: state.currentMotion.id,
-                type: state.currentMotion.type,
-                name: state.currentMotion.name,
-                text: state.currentMotion.text,
-                mover: state.currentMotion.mover,
-                moverId: state.currentMotion.moverId,
-                passed,
-                voterChoices: state.voterChoices,
-                timestamp: typedAction.timestamp,
-                reconsidered: false,
-              },
-            ]
-          : updatedCompletedMotions;
+      // Record every decided motion, with both parts of its vote. A secret ballot keeps no
+      // record of who voted which way, in person or by proxy.
+      const completedMotions = state.currentMotion
+        ? [
+            ...updatedCompletedMotions,
+            {
+              id: state.currentMotion.id,
+              type: state.currentMotion.type,
+              name: state.currentMotion.name,
+              text: state.currentMotion.text,
+              mover: state.currentMotion.mover,
+              moverId: state.currentMotion.moverId,
+              passed,
+              voterChoices: isBallot ? {} : state.voterChoices,
+              timestamp: typedAction.timestamp,
+              reconsidered: false,
+              reconsiderable: state.currentMotion.reconsidered,
+              deviceVotes: state.votes,
+              floorVotes,
+              method: state.votingMethod,
+            },
+          ]
+        : updatedCompletedMotions;
+
+      // Both parts, so the room can check the chair's count
+      const floorCounted = floorVotes.yea + floorVotes.nay + floorVotes.abstain > 0;
+      const partsLog =
+        floorCounted && state.votingMethod !== 'voice'
+          ? ` On devices ${state.votes.yea} to ${state.votes.nay}, in the room ${floorVotes.yea} to ${floorVotes.nay}.`
+          : '';
 
       return {
         ...state,
         votingOpen: false,
         voteTimerEnd: null,
+        ...(isBallot && { voterChoices: {}, proxyVotes: [] }),
         currentMotion: processed.finalCurrentMotion,
         motionStack: processed.finalStack,
         defeatedMotions,
@@ -210,7 +240,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
+          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${partsLog}${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
         ),
       };
     }

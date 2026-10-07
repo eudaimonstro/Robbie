@@ -1,4 +1,5 @@
 import type { MeetingAction } from '../../types/index.js';
+import { logAdoptedByConsent } from '../../constants/logMessages.js';
 import {
   applyMotionOutcome,
   processOutcomeResult,
@@ -90,7 +91,9 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         dividedQuestionParts,
         meetingLog: log(
           typedAction.timestamp,
-          `Motion CARRIED by unanimous consent.${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
+          logAdoptedByConsent(
+            `${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
+          ),
         ),
       };
     }

@@ -1,9 +1,28 @@
 import { MOTIONS } from '../constants/motions.js';
 import { isRuleSuspended } from './ruleSuspensionHelper.js';
-import type { BylawAmendment, MeetingState, MotionDefinition } from '../types/index.js';
+import type {
+  BylawAmendment,
+  MeetingState,
+  Member,
+  Motion,
+  MotionDefinition,
+} from '../types/index.js';
 
 export interface ValidMotion extends MotionDefinition {
   key: string;
+}
+
+/**
+ * Whether the mover of a motion can claim the first chance to speak on it (RONR), which the
+ * chair keeps for them until they have spoken. Only someone on a device can ask for the floor,
+ * so a question put by the chair, a motion moved from the floor by a typed name or by a member
+ * in the room without a device, gives no one that claim.
+ */
+export function moverCanClaimFloor(motion: Motion, members: readonly Member[]): boolean {
+  if (!motion.moverId) return false;
+  if (!motion.fromFloor) return true;
+  const mover = members.find((m) => m.id === motion.moverId);
+  return !!mover && mover.present && mover.presentBy !== 'chair';
 }
 
 /**
@@ -175,6 +194,7 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       if (!currentUserId) return; // Need user ID to check eligibility
       const hasReconsiderableMotions = state.completedMotions.some((cm) => {
         if (cm.reconsidered) return false; // Already reconsidered
+        if (cm.reconsiderable === false) return false; // Its motion can't be reconsidered
         const userVote = cm.voterChoices[currentUserId];
         if (!userVote || userVote === 'abstain') return false; // Didn't vote or abstained
         // Prevailing side: if motion passed, yea voters can reconsider; if failed, nay voters can

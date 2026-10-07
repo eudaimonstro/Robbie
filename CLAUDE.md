@@ -36,9 +36,9 @@ robbie-bylawyer/
 │       └── modules/
 │           ├── documents/  # Bylawyer functionality (document management)
 │           └── meetings/   # Robbie functionality (real-time meetings)
-│               ├── views/      # AuthScreen, MeetingApp, ChairView, ParticipantView
-│               ├── components/ # chair/, participant/, mobile/, scheduling/
-│               ├── hooks/      # useQuorumStatus, useSortedSpeakerQueue, useVoteResults
+│               ├── views/      # LiveMeetingsPage, MeetingApp, ChairConsole, PhoneView, DisplayView
+│               ├── components/ # console/, phone/, attendance/, chair/, participant/, scheduling/
+│               ├── hooks/      # useQuorumStatus, useRoster, usePacket, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
 ├── mobile/              # @robbie-bylawyer/mobile - React Native + Expo
 └── features/            # Feature specifications for Bylawyer
@@ -70,9 +70,15 @@ npm run build:frontend   # Build frontend-unified
 npm run test             # Run shared, backend-node and frontend-unified tests
 npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
-npm run lint             # ESLint
+npm run lint             # ESLint, then the palette check
+npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes, and no emoji in frontend-unified/src or shared's constants, reducer and utils
+npm run e2e              # Playwright: builds, starts the API (3101) and the web build (4173) on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke and header tests, screenshots in both palettes and a four-browser meeting scenario
 npm run format:check     # Prettier
 ```
+
+`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101 or 4173, so stop stale ones first. Screenshots land in `e2e/test-results/`. The meeting scenario (`e2e/tests/meeting.spec.ts`) schedules a meeting and runs a vote with Dana chairing, Alice and Ben on phones, Pat's display and Sam as a guest, each in a browser context of their own (`personPage` in `e2e/helpers.ts`), all closed in a `finally`.
+
+The web tokens test (`frontend-unified/src/styles/__tests__/tokens.test.ts`) imports `index.css?raw`; that works because `vitest.config.ts` sets `test.css.include` to that one stylesheet (every other CSS import stays an empty module).
 
 ### Database
 
@@ -103,7 +109,9 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 - Socket.io for real-time meeting state synchronization
 - Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
 - Organization membership with roles (viewer, member, secretary, admin, owner); acceptance of the current Terms of Service (`TERMS_VERSION` in shared) before using the API or socket
-- Meeting storage (PostgreSQL or in-memory fallback)
+- Meeting storage in PostgreSQL. A live meeting is created from its packet (its scheduled meeting), so meetings need the database; the in-memory storage mode can't run one.
+- Meeting roles from the organization at every join: the packet's presiding officer is the chair, secretaries and above are admins, members are members, everyone else is a non-voting guest
+- Attendance as members on a device, members marked present by the chair, and a headcount of people without an account (`attendanceSummary` in shared); votes as device votes plus the chair's floor tally
 - Parliamentary procedure state management
 
 **Bylawyer Features:**
@@ -128,8 +136,10 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/` - Dashboard/Home (documents)
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
-- `/meetings` - Join/create live meeting (Robbie)
-- `/meetings/:code` - Active meeting with Socket.io (Robbie)
+- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer) and the code box (Robbie)
+- `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
+- `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
+- `/style-guide` - The design language: the tokens and components in both palettes
 - `/settings` - App settings
 - `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
 
@@ -152,8 +162,10 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 
 **Socket.io Events:**
 
-- Client → Server: `JOIN_MEETING`, `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
+- Client → Server: `JOIN_MEETING` (`{ meetingCode, display? }`; a display receives the state without becoming a member), `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
 - Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR`
+
+**Screens** (`docs/design-brief.md`): `MeetingApp` shows the chair console (`views/ChairConsole.tsx`) to the chair and admins and the phone view (`views/PhoneView.tsx`) to members and guests, by `myRole` from `SocketContext` (the role the server derived and put in the state; never assume one). `/meetings/:code/display` (`display.tsx`, `views/DisplayView.tsx`) joins with `display: true`. The question card, the stamp and the attendance block are shared by all three, fed by `describeQuestion`, `currentResult` and `parseVoteResult` (`utils/question.ts`, `hooks/useVoteResults.ts`) and `attendanceSummary` (shared); the console's toolbar shows only `chairActions(state)`, and the phone's one action block follows `phoneMoment(state)`. Counts the chair enters (`SET_HEADCOUNT`, `SET_FLOOR_TALLY`, `SET_FLOOR_BALLOTS`) replace the last entry, so their forms reset with a `key` on the meeting's value. Names come from accounts: there is no Rename in the console (a rejoin restores the account name), only Hand over the chair. The console's join card folds to one line after the call to order. Adjourn is the primary action at the last agenda item, and `END_MEETING` completes the item in progress. The floor tally goes in before the chair's deciding vote, a voice vote can't close without one, and an election's totals stay hidden until the ballot closes.
 
 **Shared Package Exports:**
 
@@ -197,7 +209,10 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `GET/POST /api/documents/{id}/amendments` - Amendments for document
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
-- `POST /api/organizations/{id}/packets` - Create a meeting packet (claims a meeting code); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `PUT /api/organizations/{id}` - Name, description, and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
+- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `GET /api/packets/{code}/roster` - The meeting's organization's members, for marking people present (emails and pending additions for admins only)
+- `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
 - `POST /api/auth/accept-terms` - Accept the current terms
 - `GET /api/robbie/sync-status/:meetingCode/:motionId` - Check sync status
@@ -229,6 +244,8 @@ APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
+No variable sets meeting roles: the chair, admins, members and guests of a live meeting come from the organization at every join (see Key Conventions, Live meetings).
+
 ### Frontend Unified
 
 Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST client always calls same-origin `/api`, so production must serve the API on the app's origin (or behind a reverse proxy).
@@ -236,6 +253,8 @@ Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST cl
 ```
 VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to a different origin
 ```
+
+`vite.config.ts` proxies `/api` and `/socket.io` to `API_PROXY_TARGET` (default `http://localhost:3001`) in both `vite` and `vite preview`; the Playwright harness points it at its own API.
 
 ## Key Conventions
 
@@ -259,7 +278,11 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 
 10. **Organizations and roles:** roles, lowest first: viewer (reads everything in the organization, lists members), member (drafts amendments and edits or deletes their own drafts), secretary (edits documents, decides and applies amendments, records meetings and votes, manages packets, agenda items and attachments, links live meetings), admin (name and description, share links, adds, changes and removes members up to admin), owner (manages owners, deletes the organization). An organization keeps at least one owner. Every `/api` route outside `/api/auth`, `/api/share` and `/api/health` runs `requireRole(minRole, resolver)` from `backend-node/src/orgs` (or `signedInOnly()` for the user's own organizations) after `validate(...)`; outsiders get 404, roles too low 403. `src/__integration__/routeCoverage.test.ts` fails on a route without a rule. A handler that takes a second resource checks it against `req.org.id` and answers 404 if it is elsewhere. For development data, `npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <role>`.
 
-11. **Design brief:** new UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); existing screens move onto it as they are touched.
+11. **Live meetings:** a meeting code is a `MeetingPacket`; `JOIN_MEETING` refuses a code without one and creates the live state from it (`backend-node/src/socket/meetingPacket.ts`). Meeting roles come from `deriveMeetingRole` (`socket/meetingRoles.ts`) at every join, never from memory. Every action goes through the reducer, `actionValidator`, `permissionGuard` and `actionEnricher`, and all four are exhaustive over the action union: a new action needs a case in the reducer and the validator, an entry in `PERMISSIONS` (empty for server-only actions) and an entry in `ACTOR_FIELDS`. Every state sent to clients goes through `publicState` (`socket/statePublisher.ts`), which strips secret ballot choices. A dropped connection gets `PRESENCE_GRACE_MS` (90 seconds) before its member is marked absent; only device presence (`presentBy: 'device'`) is cleared automatically.
+
+12. **Design brief:** UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); the whole web app is on it.
+
+13. **Design tokens (web):** `docs/design-brief.md` is authoritative for look and feel. Use the tokens from `frontend-unified/src/styles/index.css` (`bg-paper`, `bg-surface`, `bg-surface-2`, `text-ink`, `text-ink-muted`, `border-rule`, `bg-gavel`, `text-carried`, `text-caution-ink` for caution text, and the `-tint`s) and its utilities (`btn-primary`/`btn-secondary`/`btn-ghost`, `card`, `badge-*`, `input`, `label-caps`, `page-title`, `card-title`, `meeting-code`, `animate-reveal`/`-stamp`/`-count-pulse`/`-crossfade`); they flip with `.dark` on any element, so a subtree can be forced into the evening palette. Text links are `text-gavel hover:underline`; native checkboxes and radios use `accent-gavel`. Tailwind's own palette is switched off (`--color-*: initial`) and the old `primary-`, `secondary-`, `accent-`, `success-`, `danger-` and `meeting-` scales are gone: the only colors are the tokens and the fixed numbered shades around them (`gavel-*`, `ink-*`, `carried-*`, `caution-*`, the same in both palettes, for overlays and hovers). Never raw Tailwind palette classes, `white` or `black`, or emoji icons (lucide only): `scripts/check-palette.sh` fails `npm run lint` on them. Its allowlist (`scripts/palette-allowlist.txt`) is empty and only shrinks; never add a file to it. `/style-guide` shows everything.
 
 ## Feature Specifications
 

@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
+import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { SocketProvider, useSocket } from '../SocketContext';
 
 vi.mock('../../../../context/SessionContext', () => ({
@@ -23,6 +25,8 @@ interface FakeSocket {
 }
 
 const sockets: FakeSocket[] = [];
+// The state the fake server answers a join with
+let joinState: MeetingState = { ...initialState, meetingCode: 'DEMO' };
 
 // Minimal stand-in for a socket.io client: connects on the next tick and answers
 // JOIN_MEETING successfully, the way the server does for a signed-in user.
@@ -39,13 +43,7 @@ function createFakeSocket(): FakeSocket {
       socket.emitted.push({ event, data: args[0] });
       if (event === 'JOIN_MEETING') {
         const callback = args[1] as Handler;
-        setTimeout(() =>
-          callback({
-            success: true,
-            state: { ...initialState, meetingCode: 'DEMO' },
-            members: [],
-          }),
-        );
+        setTimeout(() => callback({ success: true, state: joinState, members: [] }));
       }
     },
     connect() {},
@@ -66,77 +64,65 @@ vi.mock('socket.io-client', () => ({
 }));
 
 function MeetingStatus() {
-  const { isConnected, meetingCode, joinMeeting, leaveMeeting } = useSocket();
+  const { isConnected, meetingCode, leaveMeeting, myRole, attendance, isDisplay, currentUser } =
+    useSocket();
   return (
     <div>
       <p>{isConnected ? 'connected' : 'not connected'}</p>
-      <p>Code: {meetingCode ?? 'none'}</p>
-      <button onClick={() => joinMeeting('DEMO')}>Join</button>
+      <p>Code: {meetingCode}</p>
+      <p>Role: {myRole ?? 'none'}</p>
+      <p>Present: {attendance.present}</p>
+      <p>Display: {isDisplay ? 'yes' : 'no'}</p>
+      <p>Member: {currentUser?.name ?? 'none'}</p>
       <button onClick={leaveMeeting}>Leave</button>
     </div>
   );
 }
 
-function renderProvider() {
-  return render(
-    <SocketProvider>
+// The meetings module's route: the provider takes the code from the link
+function MeetingRoute({ display = false }: { display?: boolean }) {
+  const { code = '' } = useParams();
+  return (
+    <SocketProvider meetingCode={code} display={display}>
       <MeetingStatus />
-    </SocketProvider>,
+    </SocketProvider>
+  );
+}
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/meetings" element={<p>Live meetings page</p>} />
+        <Route path="/meetings/:code" element={<MeetingRoute />} />
+        <Route path="/meetings/:code/display" element={<MeetingRoute display />} />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 
 describe('SocketProvider', () => {
   beforeEach(() => {
     sockets.length = 0;
+    joinState = { ...initialState, meetingCode: 'DEMO' };
   });
 
-  afterEach(() => {
-    localStorage.clear();
-  });
-
-  it('opens no socket until a meeting is joined', async () => {
-    renderProvider();
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-
-    expect(sockets).toHaveLength(0);
-    expect(screen.getByText('Code: none')).toBeTruthy();
-  });
-
-  it('joins with only the meeting code and keeps one socket', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+  it('joins the meeting in the link with only its code, and keeps one socket', async () => {
+    renderAt('/meetings/DEMO');
 
     await screen.findByText('connected');
     // Give a reconnect loop time to show itself
     await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
+    expect(screen.getByText('Code: DEMO')).toBeTruthy();
     expect(sockets).toHaveLength(1);
     expect(sockets[0].connected).toBe(true);
     const joins = sockets[0].emitted.filter((e) => e.event === 'JOIN_MEETING');
     expect(joins).toEqual([{ event: 'JOIN_MEETING', data: { meetingCode: 'DEMO' } }]);
   });
 
-  it('rejoins the remembered meeting after a reload', async () => {
-    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 1, code: 'DEMO' }));
-    renderProvider();
-
-    await screen.findByText('connected');
-    expect(screen.getByText('Code: DEMO')).toBeTruthy();
-    expect(sockets).toHaveLength(1);
-  });
-
-  it("doesn't rejoin a meeting another user joined on this browser", async () => {
-    // Someone else signed out; this user signed in on the same browser
-    localStorage.setItem('robbie_meeting_code', JSON.stringify({ userId: 2, code: 'DEMO' }));
-    renderProvider();
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(sockets).toHaveLength(0);
-  });
-
   it('keeps the same socket when the server sends a state update', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+    renderAt('/meetings/DEMO');
     await screen.findByText('connected');
 
     act(() => {
@@ -151,16 +137,66 @@ describe('SocketProvider', () => {
     expect(sockets[0].connected).toBe(true);
   });
 
-  it('leaving emits LEAVE_MEETING, disconnects and forgets the meeting', async () => {
-    renderProvider();
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+  it('leaving emits LEAVE_MEETING, disconnects and goes back to the Live Meetings page', async () => {
+    renderAt('/meetings/DEMO');
     await screen.findByText('connected');
 
     fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
 
     expect(sockets[0].emitted.map((e) => e.event)).toContain('LEAVE_MEETING');
     expect(sockets[0].connected).toBe(false);
-    expect(screen.getByText('Code: none')).toBeTruthy();
+    expect(screen.getByText('Live meetings page')).toBeTruthy();
+  });
+
+  it('remembers no meeting in the browser: the link is the meeting', async () => {
+    renderAt('/meetings/DEMO');
+    await screen.findByText('connected');
     expect(localStorage.getItem('robbie_meeting_code')).toBeNull();
+  });
+
+  it("takes the user's role from the state the server sent, and counts attendance as it does", async () => {
+    joinState = {
+      ...initialState,
+      meetingCode: 'DEMO',
+      quorum: 3,
+      headcount: 2,
+      members: [
+        { id: 1, name: 'Test Chair', role: 'chair', present: true, presentBy: 'device' },
+        { id: 2, name: 'Guest', role: 'guest', present: true, presentBy: 'device' },
+      ],
+    };
+    renderAt('/meetings/DEMO');
+    await screen.findByText('connected');
+
+    expect(screen.getByText('Role: chair')).toBeTruthy();
+    // The chair on a device and two people counted in the room; never the guest
+    expect(screen.getByText('Present: 3')).toBeTruthy();
+    expect(screen.getByText('Display: no')).toBeTruthy();
+  });
+
+  it('has no role until the state the server sent has the user', async () => {
+    renderAt('/meetings/DEMO');
+    // Before the join answers, the user is not in the state
+    expect(screen.getByText('Role: none')).toBeTruthy();
+    await screen.findByText('connected');
+    expect(screen.getByText('Role: none')).toBeTruthy();
+  });
+
+  it('joins a display without a role or a member', async () => {
+    joinState = {
+      ...initialState,
+      meetingCode: 'DEMO',
+      members: [{ id: 1, name: 'Test Chair', role: 'chair', present: true }],
+    };
+    renderAt('/meetings/DEMO/display');
+    await screen.findByText('connected');
+
+    const joins = sockets[0].emitted.filter((e) => e.event === 'JOIN_MEETING');
+    expect(joins).toEqual([
+      { event: 'JOIN_MEETING', data: { meetingCode: 'DEMO', display: true } },
+    ]);
+    expect(screen.getByText('Role: none')).toBeTruthy();
+    expect(screen.getByText('Member: none')).toBeTruthy();
+    expect(screen.getByText('Display: yes')).toBeTruthy();
   });
 });

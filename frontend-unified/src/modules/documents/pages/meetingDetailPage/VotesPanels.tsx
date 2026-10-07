@@ -15,36 +15,30 @@ export function RecordedVotesPanel({
 }: RecordedVotesPanelProps) {
   return (
     <div className="card">
-      <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
-        <h3 className="font-semibold text-secondary-900 dark:text-white">
-          Recorded Votes ({votes.length})
-        </h3>
+      <div className="px-4 py-3 border-b border-rule">
+        <h3 className="font-semibold text-ink">Recorded Votes ({votes.length})</h3>
       </div>
       {votes.length === 0 ? (
-        <div className="p-6 text-center text-sm text-secondary-500">No votes recorded yet</div>
+        <div className="p-6 text-center text-sm text-ink-muted">No votes recorded yet</div>
       ) : (
-        <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+        <div className="divide-y divide-rule">
           {votes.map((vote) => (
             <div key={vote.id} className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-secondary-900 dark:text-white">
-                  {getAmendmentTitle(vote.amendmentId)}
-                </span>
+                <span className="font-medium text-ink">{getAmendmentTitle(vote.amendmentId)}</span>
                 <span
                   className={`badge ${vote.result === 'passed' ? 'badge-passed' : 'badge-failed'}`}
                 >
                   {vote.result === 'passed' ? 'Passed' : 'Failed'}
                 </span>
               </div>
-              <p className="text-xs text-secondary-500 mb-2">
-                {getDocumentTitle(vote.amendmentId)}
-              </p>
+              <p className="text-xs text-ink-muted mb-2">{getDocumentTitle(vote.amendmentId)}</p>
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-success-600">Yea: {vote.yeaCount}</span>
-                <span className="text-danger-600">Nay: {vote.nayCount}</span>
-                <span className="text-secondary-500">Abstain: {vote.abstainCount}</span>
+                <span className="text-carried">Yea: {vote.yeaCount}</span>
+                <span className="text-gavel">Nay: {vote.nayCount}</span>
+                <span className="text-ink-muted">Abstain: {vote.abstainCount}</span>
               </div>
-              <p className="text-xs text-secondary-400 mt-2">
+              <p className="text-xs text-ink-muted mt-2">
                 Recorded: {new Date(vote.recordedAt).toLocaleString()}
               </p>
             </div>
@@ -70,10 +64,8 @@ export function PendingAmendmentsPanel({
 }: PendingAmendmentsPanelProps) {
   return (
     <div className="card">
-      <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700 flex items-center justify-between">
-        <h3 className="font-semibold text-secondary-900 dark:text-white">
-          Pending Amendments ({amendments.length})
-        </h3>
+      <div className="px-4 py-3 border-b border-rule flex items-center justify-between">
+        <h3 className="font-semibold text-ink">Pending Amendments ({amendments.length})</h3>
         {isInProgress && amendments.length > 0 && (
           <button onClick={() => onRecordVote(amendments[0])} className="btn-primary btn-sm">
             <Plus className="w-4 h-4 mr-1" />
@@ -82,30 +74,28 @@ export function PendingAmendmentsPanel({
         )}
       </div>
       {amendments.length === 0 ? (
-        <div className="p-6 text-center text-sm text-secondary-500">
+        <div className="p-6 text-center text-sm text-ink-muted">
           All proposed amendments have been voted on
         </div>
       ) : (
-        <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+        <div className="divide-y divide-rule">
           {amendments.map((amendment) => (
             <div
               key={amendment.id}
-              className={`p-4 ${isInProgress ? 'hover:bg-secondary-50 dark:hover:bg-secondary-800/50 cursor-pointer' : ''}`}
+              className={`p-4 ${isInProgress ? 'hover:bg-surface-2 cursor-pointer' : ''}`}
               onClick={() => isInProgress && onRecordVote(amendment)}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-secondary-900 dark:text-white">
-                  {amendment.title}
-                </span>
+                <span className="font-medium text-ink">{amendment.title}</span>
                 <StatusBadge status={amendment.status} />
               </div>
-              <p className="text-xs text-secondary-500 mb-1">
+              <p className="text-xs text-ink-muted mb-1">
                 {documents.find((d) => d.id === amendment.documentId)?.title}
               </p>
               {amendment.description && (
-                <p className="text-xs text-secondary-400 line-clamp-2">{amendment.description}</p>
+                <p className="text-xs text-ink-muted line-clamp-2">{amendment.description}</p>
               )}
-              <p className="text-xs text-secondary-400 mt-1">
+              <p className="text-xs text-ink-muted mt-1">
                 {amendment.changes?.length || 0} change(s)
               </p>
             </div>
@@ -114,7 +104,7 @@ export function PendingAmendmentsPanel({
       )}
 
       {!isInProgress && amendments.length > 0 && (
-        <div className="px-4 py-3 bg-secondary-50 dark:bg-secondary-800/50 text-sm text-secondary-600 dark:text-secondary-400">
+        <div className="px-4 py-3 bg-surface-2 text-sm text-ink-muted">
           Start the meeting to record votes on amendments.
         </div>
       )}

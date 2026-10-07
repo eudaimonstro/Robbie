@@ -39,6 +39,7 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+.vitest/
 
 # Mobile
 mobile/.expo/
@@ -59,3 +60,8 @@ frontend-unified/vite.config.d.ts
 
 # Generated Prisma client (prisma generate)
 backend-node/src/generated/
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+.playwright-mcp/

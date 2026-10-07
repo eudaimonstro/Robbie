@@ -103,6 +103,66 @@ describe('useSocketConnection', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('never stops trying to reconnect', () => {
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    renderHook(() => useSocketConnection('DEMO', () => {}, undefined, { display: true }));
+
+    for (const [options] of io.mock.calls as unknown as [Record<string, unknown>][]) {
+      expect(options).toMatchObject({ reconnection: true, reconnectionAttempts: Infinity });
+    }
+  });
+
+  it('connects at once when the device is back online or the page is shown again', () => {
+    const { handlers, socket } = connectedSocket();
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    // Still connected: nothing to do
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(socket.connect).not.toHaveBeenCalled();
+
+    socket.connected = false;
+    act(() => handlers.disconnect('transport close'));
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(socket.connect).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops listening for the network once the meeting is left', () => {
+    const { handlers, socket } = connectedSocket();
+    const { unmount } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    socket.connected = false;
+    unmount();
+
+    window.dispatchEvent(new Event('online'));
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+
+  it('remembers the meeting was joined through a dropped connection, until it is left', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    expect(result.current.hasJoined).toBe(false);
+    act(() => handlers.connect());
+    expect(result.current.hasJoined).toBe(true);
+
+    act(() => handlers.disconnect('transport close'));
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.hasJoined).toBe(true);
+
+    act(() => result.current.disconnect());
+    expect(result.current.hasJoined).toBe(false);
+  });
+
   it('joins with only the meeting code', () => {
     const { handlers, socket } = connectedSocket();
     renderHook(() => useSocketConnection('DEMO', () => {}));
@@ -193,5 +253,82 @@ describe('useSocketConnection', () => {
       expect(succeeded).toBe(true);
       expect(result.current.error).toBeNull();
     });
+  });
+});
+
+describe('useSocketConnection joins', () => {
+  beforeEach(() => {
+    io.mockClear();
+  });
+
+  // A socket that answers JOIN_MEETING with the given response
+  function socketAnswering(response: Record<string, unknown>) {
+    const handlers: Record<string, Handler> = {};
+    const socket = {
+      connected: true,
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers[event] = handler;
+      }),
+      emit: vi.fn((event: string, _data: unknown, callback?: Handler) => {
+        if (event === 'JOIN_MEETING') callback?.(response);
+      }),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    io.mockReturnValueOnce(socket as never);
+    return { handlers, socket };
+  }
+
+  const joined = { success: true, state: initialState, stateVersion: 1 };
+
+  it('joins with the code alone, as the mobile app does', () => {
+    const { handlers, socket } = socketAnswering(joined);
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    expect(socket.emit).toHaveBeenCalledWith(
+      'JOIN_MEETING',
+      { meetingCode: 'DEMO' },
+      expect.any(Function),
+    );
+  });
+
+  it('joins a display without making it a member', () => {
+    const { handlers, socket } = socketAnswering(joined);
+    renderHook(() => useSocketConnection('DEMO', () => {}, undefined, { display: true }));
+    act(() => handlers.connect());
+    expect(socket.emit).toHaveBeenCalledWith(
+      'JOIN_MEETING',
+      { meetingCode: 'DEMO', display: true },
+      expect.any(Function),
+    );
+  });
+
+  it('says why a join was refused, with the code the server sent', () => {
+    const { handlers } = socketAnswering({
+      success: false,
+      error: 'No meeting with that code',
+      errorCode: 'MEETING_NOT_FOUND',
+    });
+    const { result } = renderHook(() => useSocketConnection('NOPE01', () => {}));
+    act(() => handlers.connect());
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.joinError).toEqual({
+      message: 'No meeting with that code',
+      code: 'MEETING_NOT_FOUND',
+    });
+  });
+
+  it('forgets the refusal when trying again', () => {
+    const { handlers, socket } = socketAnswering({
+      success: false,
+      error: 'Too many join attempts',
+    });
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    expect(result.current.joinError).toEqual({ message: 'Too many join attempts', code: null });
+
+    act(() => result.current.reconnect());
+    expect(result.current.joinError).toBeNull();
+    expect(socket.connect).toHaveBeenCalled();
   });
 });

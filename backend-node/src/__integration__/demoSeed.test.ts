@@ -23,6 +23,8 @@ describe('demo seed', () => {
     expect(byRole).toEqual({ owner: 1, admin: 1, secretary: 1, member: 12, viewer: 2 });
     expect(members.every((m) => m.user.name && m.user.termsVersion === TERMS_VERSION)).toBe(true);
     expect(members.find((m) => m.role === 'admin')?.user.name).toBe('Dana Okafor');
+    // 142 lots, one vote each; the bylaws' Section 4.2 sets the quorum at 20%
+    expect(org).toMatchObject({ eligibleVoters: 142, quorumPercent: 20, quorumCount: null });
 
     const document = await prisma.document.findFirstOrThrow({
       where: { organizationId: org.id },
@@ -57,6 +59,9 @@ describe('demo seed', () => {
     });
     expect(packet).toMatchObject({ organizationId: org.id, title: '2026 Annual Meeting' });
     expect(packet.agendaItems).toHaveLength(7);
+    // The president presides
+    const dana = members.find((m) => m.user.email === 'dana@maplegrove.example');
+    expect(packet.chairUserId).toBe(dana?.userId);
   });
 
   it('refuses to run again without reset', async () => {

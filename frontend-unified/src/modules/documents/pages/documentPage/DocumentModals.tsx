@@ -43,7 +43,7 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create New Version">
       <form onSubmit={handleSubmit}>
-        <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
+        <p className="text-sm text-ink-muted mb-4">
           Create a new version to make changes to the document. The current version will be
           preserved.
         </p>

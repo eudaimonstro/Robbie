@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { TypedSocket, StateUpdatePayload } from '../types/socket';
+import type { JoinError, TypedSocket, StateUpdatePayload } from '../types/socket';
 import { TERMS_NOT_ACCEPTED } from '../../../api/client';
 
 // Unset in development: the socket connects to the page's own origin, which Vite proxies
@@ -11,8 +11,12 @@ const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL;
 interface UseSocketConnectionReturn {
   state: MeetingState;
   isConnected: boolean;
+  /** The meeting was joined on this page: a later disconnect is a dropped connection */
+  hasJoined: boolean;
   connectedMembers: Member[];
   error: string | null;
+  /** Why the last join was refused, with the server's error code */
+  joinError: JoinError | null;
   dispatch: (action: MeetingAction) => Promise<boolean>;
   reconnect: () => void;
   disconnect: () => void;
@@ -23,9 +27,14 @@ export function useSocketConnection(
   meetingCode: string | null,
   onNotSignedIn: () => void,
   onTermsNotAccepted?: () => void,
+  // display: a TV or projector, which follows the meeting without becoming a member of it
+  options: { display?: boolean } = {},
 ): UseSocketConnectionReturn {
+  const display = options.display === true;
   const [state, setState] = useState<MeetingState>(initialState);
+  const [joinError, setJoinError] = useState<JoinError | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
   const [connectedMembers, setConnectedMembers] = useState<Member[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [clientSequence, setClientSequence] = useState(0);
@@ -78,10 +87,12 @@ export function useSocketConnection(
 
     isConnectingRef.current = true;
 
+    // A display on the wall and a phone in a pocket are left alone for hours: they keep trying
+    // (socket.io backs off to one attempt every five seconds)
     const options = {
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       withCredentials: true,
     };
@@ -90,16 +101,22 @@ export function useSocketConnection(
     socketRef.current = newSocket;
 
     newSocket.on('connect', () => {
-      newSocket.emit('JOIN_MEETING', { meetingCode }, (response) => {
+      // Members join with the code alone, as the mobile app does; a display says it is one
+      const payload = display ? { meetingCode, display: true } : { meetingCode };
+      newSocket.emit('JOIN_MEETING', payload, (response) => {
         isConnectingRef.current = false;
         if (response.success) {
           stateVersionRef.current = response.stateVersion ?? 0;
           setState(response.state!);
           setConnectedMembers(response.members || []);
           setIsConnected(true);
+          setHasJoined(true);
           setError(null);
+          setJoinError(null);
         } else {
-          setError(response.error || 'Failed to join meeting');
+          const message = response.error || 'Failed to join meeting';
+          setError(message);
+          setJoinError({ message, code: response.errorCode ?? null });
         }
       });
     });
@@ -154,12 +171,26 @@ export function useSocketConnection(
       setError(message);
     });
 
+    // Back online, or the page shown again (a phone woken, a tab brought forward): connect now
+    // rather than wait for the next attempt, or at all once socket.io has stopped (the server
+    // ended the connection)
+    const connectNow = () => {
+      if (!newSocket.connected) newSocket.connect();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') connectNow();
+    };
+    window.addEventListener('online', connectNow);
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
+      window.removeEventListener('online', connectNow);
+      document.removeEventListener('visibilitychange', onVisible);
       isConnectingRef.current = false;
       socketRef.current = null;
       newSocket.disconnect();
     };
-  }, [meetingCode, setTemporaryError]);
+  }, [meetingCode, display, setTemporaryError]);
 
   // Dispatch action through socket with timeout
   const dispatch = useCallback(
@@ -203,6 +234,7 @@ export function useSocketConnection(
     if (!socket) return;
     if (socket.connected) socket.disconnect();
     setError(null);
+    setJoinError(null);
     socket.connect();
   }, []);
 
@@ -216,14 +248,17 @@ export function useSocketConnection(
     isConnectingRef.current = false;
     setState(initialState);
     setIsConnected(false);
+    setHasJoined(false);
     setConnectedMembers([]);
   }, []);
 
   return {
     state,
     isConnected,
+    hasJoined,
     connectedMembers,
     error,
+    joinError,
     dispatch,
     reconnect,
     disconnect,

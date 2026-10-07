@@ -7,6 +7,7 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import { getStorage } from '../db/meetingStorage.js';
 import { logger } from '../middleware/logger.js';
+import { publicState } from './statePublisher.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -37,7 +38,7 @@ export async function handleRequestState(
 
     callback({
       success: true,
-      state: meeting.state,
+      state: publicState(meeting.state),
       stateVersion: meeting.stateVersion,
     });
   } catch (error) {

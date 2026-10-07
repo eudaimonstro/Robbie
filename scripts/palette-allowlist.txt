@@ -1,0 +1,3 @@
+# Web source files that still use raw Tailwind palette classes, white or black, the old
+# meeting- palette, or emoji icons (see scripts/check-palette.sh). Remove a file once it is on
+# the design tokens; never add one.

@@ -147,18 +147,14 @@ const SectionTree = memo(function SectionTree({
 
       <DragOverlay>
         {activeSection ? (
-          <div className="bg-white dark:bg-secondary-800 shadow-xl ring-2 ring-primary-500 rounded-lg p-3 opacity-90">
+          <div className="bg-surface shadow-xl ring-2 ring-gavel rounded-lg p-3 opacity-90">
             <div className="flex items-center gap-2">
-              <GripVertical className="w-4 h-4 text-secondary-400" />
+              <GripVertical className="w-4 h-4 text-ink-muted" />
               {activeSection.numberLabel && (
-                <span className="font-bold text-primary-600 dark:text-primary-400">
-                  {activeSection.numberLabel}
-                </span>
+                <span className="font-bold text-gavel">{activeSection.numberLabel}</span>
               )}
               {activeSection.title && (
-                <span className="font-document text-secondary-900 dark:text-white">
-                  {activeSection.title}
-                </span>
+                <span className="font-document text-ink">{activeSection.title}</span>
               )}
             </div>
           </div>
@@ -246,9 +242,9 @@ const SortableSectionNode = memo(function SortableSectionNode({
       <div
         className={`group flex items-start gap-2 p-3 rounded-lg transition-colors cursor-pointer ${
           isSelected
-            ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500'
-            : 'hover:bg-secondary-50 dark:hover:bg-secondary-800/50 border-l-4 border-transparent'
-        } ${isDragging ? 'ring-2 ring-primary-500' : ''}`}
+            ? 'bg-gavel-tint border-l-4 border-gavel'
+            : 'hover:bg-surface-2 border-l-4 border-transparent'
+        } ${isDragging ? 'ring-2 ring-gavel' : ''}`}
         onClick={handleClick}
       >
         {/* Drag handle */}
@@ -257,7 +253,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
             type="button"
             {...attributes}
             {...listeners}
-            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-secondary-400 hover:text-secondary-600 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-ink-muted hover:text-ink rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
             title="Drag to reorder"
           >
             <GripVertical className="w-4 h-4" />
@@ -268,14 +264,14 @@ const SortableSectionNode = memo(function SortableSectionNode({
         <button
           type="button"
           onClick={handleToggle}
-          className={`mt-1 p-0.5 rounded hover:bg-secondary-200 dark:hover:bg-secondary-700 transition-colors ${
+          className={`mt-1 p-0.5 rounded hover:bg-rule transition-colors ${
             !hasChildren && 'invisible'
           }`}
         >
           {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-secondary-500" />
+            <ChevronDown className="w-4 h-4 text-ink-muted" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-secondary-500" />
+            <ChevronRight className="w-4 h-4 text-ink-muted" />
           )}
         </button>
 
@@ -284,13 +280,11 @@ const SortableSectionNode = memo(function SortableSectionNode({
           <div className="flex items-start justify-between gap-2">
             <div>
               {section.numberLabel && (
-                <span className="font-bold text-primary-600 dark:text-primary-400">
-                  {section.numberLabel}
-                </span>
+                <span className="font-bold text-gavel">{section.numberLabel}</span>
               )}
               {section.title && (
                 <span
-                  className={`ml-2 font-document ${depth === 0 ? 'text-lg font-semibold' : ''} text-secondary-900 dark:text-white`}
+                  className={`ml-2 font-document ${depth === 0 ? 'text-lg font-semibold' : ''} text-ink`}
                 >
                   {section.title}
                 </span>
@@ -306,7 +300,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleAddChild}
-                  className="p-1 text-secondary-400 hover:text-primary-600 rounded-sm"
+                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
                   title="Add child section"
                 >
                   <Plus className="w-4 h-4" />
@@ -314,7 +308,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleEdit}
-                  className="p-1 text-secondary-400 hover:text-primary-600 rounded-sm"
+                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
                   title="Edit section"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -322,7 +316,7 @@ const SortableSectionNode = memo(function SortableSectionNode({
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="p-1 text-secondary-400 hover:text-danger-600 rounded-sm"
+                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
                   title="Delete section"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -332,13 +326,13 @@ const SortableSectionNode = memo(function SortableSectionNode({
           </div>
 
           {section.content && (
-            <div className="mt-2 text-secondary-700 dark:text-secondary-300 document-content prose prose-sm max-w-none">
+            <div className="mt-2 text-ink document-content prose prose-sm max-w-none">
               <ReactMarkdown>{section.content}</ReactMarkdown>
             </div>
           )}
 
           {section.annotation && (
-            <div className="mt-2 text-sm text-secondary-500 italic border-l-2 border-secondary-200 dark:border-secondary-700 pl-3">
+            <div className="mt-2 text-sm text-ink-muted italic border-l-2 border-rule pl-3">
               {section.annotation}
             </div>
           )}

@@ -65,3 +65,85 @@ describe('getChairScript', () => {
     expect(getChairScript(afterVote(1, 3))?.text).toBe('"The motion has failed."');
   });
 });
+
+describe('the script while a vote is open', () => {
+  const voting = (votingMethod: MeetingState['votingMethod']) =>
+    getChairScript({
+      ...initialState,
+      meetingActive: true,
+      agendaAdopted: true,
+      currentMotion: pendingMotion,
+      motionStack: [pendingMotion],
+      votingOpen: true,
+      votingMethod,
+    })?.text;
+
+  it('asks the room to vote on their phones or raise their hands', () => {
+    expect(voting('standard')).toBe(
+      '"Those in favor, vote on your phone or raise your hand. Those opposed, vote on your phone or raise your hand."',
+    );
+  });
+
+  it('keeps Aye and No for a voice vote', () => {
+    expect(voting('voice')).toBe('"Those in favor say Aye. Those opposed say No."');
+  });
+
+  it('opens a secret ballot and a roll call in their own words', () => {
+    expect(voting('ballot')).toBe('"The ballot is open. Vote on your phone or on a paper ballot."');
+    expect(voting('rollcall')).toBe(
+      '"The secretary will call the roll. Answer Aye or No when your name is called, or vote on your phone."',
+    );
+  });
+});
+
+describe('the script during an election', () => {
+  const during = (fields: Partial<MeetingState>) =>
+    getChairScript({ ...initialState, meetingActive: true, agendaAdopted: true, ...fields })?.text;
+
+  it('takes no ballot when nobody has been nominated', () => {
+    expect(during({ currentNominationPosition: 'Director' })).toBe(
+      '"Nominations for Director are closed, and nobody has been nominated."',
+    );
+  });
+
+  it('takes nominations, then opens the ballot, then declares the result', () => {
+    expect(during({ nominationsOpen: true, currentNominationPosition: 'Director' })).toBe(
+      '"Nominations are open for Director. Are there any further nominations?"',
+    );
+    expect(
+      during({
+        currentNominationPosition: 'Director',
+        nominations: [
+          {
+            id: 1,
+            position: 'Director',
+            nomineeName: 'Carmen Diaz',
+            nomineeId: 5,
+            nominatedBy: 'Alice Brennan',
+            nominatorId: 3,
+            timestamp: '8:00:00 PM',
+            declined: false,
+          },
+        ],
+      }),
+    ).toBe('"Nominations for Director are closed. The ballot will now be taken."');
+    const election = {
+      id: 1,
+      position: 'Director',
+      candidates: [{ name: 'Carmen Diaz', id: 5 }],
+      requiredVotes: 'majority' as const,
+      votingInProgress: true,
+      ballotResults: { 'Carmen Diaz': 0 },
+      votersWhoVoted: [],
+      elected: null,
+    };
+    expect(during({ currentElection: election })).toBe(
+      '"The ballot is open. Vote on your phone or on a paper ballot."',
+    );
+    expect(
+      during({
+        currentElection: { ...election, votingInProgress: false, elected: 'Carmen Diaz' },
+      }),
+    ).toBe('"Carmen Diaz, having received the vote required, is elected Director."');
+  });
+});

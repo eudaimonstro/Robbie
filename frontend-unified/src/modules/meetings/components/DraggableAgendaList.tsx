@@ -112,12 +112,12 @@ export function DraggableAgendaList({
           onKeyDown={(e) => handleKeyDown(e, i)}
           onFocus={() => setFocusedIndex(i)}
           aria-label={`${item.title}${showStatus ? `, ${item.status}` : ''}. Position ${i + 1} of ${agenda.length}`}
-          className={`flex items-center justify-between p-3 rounded-lg transition-all focus:outline-hidden focus:ring-2 focus:ring-indigo-500 ${
-            draggedIndex === i ? 'opacity-50 bg-gray-200' : 'bg-gray-50'
-          } ${dragOverIndex === i && draggedIndex !== i ? 'border-t-2 border-indigo-500' : ''} ${
+          className={`flex items-center justify-between p-3 rounded-lg transition-all focus:outline-hidden focus:ring-2 focus:ring-gavel ${
+            draggedIndex === i ? 'opacity-50 bg-rule' : 'bg-surface-2'
+          } ${dragOverIndex === i && draggedIndex !== i ? 'border-t-2 border-gavel' : ''} ${
             !disabled ? 'cursor-grab' : ''
-          } ${showStatus && item.status === 'completed' ? 'bg-green-50' : ''} ${
-            showStatus && item.status === 'active' ? 'bg-indigo-50' : ''
+          } ${showStatus && item.status === 'completed' ? 'bg-carried-tint' : ''} ${
+            showStatus && item.status === 'active' ? 'bg-gavel-tint' : ''
           }`}
         >
           <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ export function DraggableAgendaList({
                   type="button"
                   onClick={() => moveItem(i, 'up')}
                   disabled={i === 0}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed p-0.5"
+                  className="text-ink-muted hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed p-0.5"
                   aria-label={`Move ${item.title} up`}
                   tabIndex={-1}
                 >
@@ -137,7 +137,7 @@ export function DraggableAgendaList({
                   type="button"
                   onClick={() => moveItem(i, 'down')}
                   disabled={i === agenda.length - 1}
-                  className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed p-0.5"
+                  className="text-ink-muted hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed p-0.5"
                   aria-label={`Move ${item.title} down`}
                   tabIndex={-1}
                 >
@@ -146,14 +146,14 @@ export function DraggableAgendaList({
               </div>
             )}
             {showStatus && item.status === 'completed' && (
-              <CheckCircle size={16} className="text-green-600" aria-hidden="true" />
+              <CheckCircle size={16} className="text-carried" aria-hidden="true" />
             )}
             {showStatus && item.status === 'active' && (
-              <ChevronRight size={16} className="text-indigo-600" aria-hidden="true" />
+              <ChevronRight size={16} className="text-gavel" aria-hidden="true" />
             )}
             <span
               className={
-                showStatus && item.status === 'completed' ? 'line-through text-gray-400' : ''
+                showStatus && item.status === 'completed' ? 'line-through text-ink-muted' : ''
               }
             >
               {i + 1}. {item.title}
@@ -163,7 +163,7 @@ export function DraggableAgendaList({
             <button
               type="button"
               onClick={() => dispatch({ type: 'REMOVE_AGENDA_ITEM', id: item.id })}
-              className="text-red-400 hover:text-red-600 p-1"
+              className="text-gavel hover:bg-gavel-tint rounded-sm p-1"
               aria-label={`Remove ${item.title} from agenda`}
             >
               <X size={18} aria-hidden="true" />
@@ -172,7 +172,7 @@ export function DraggableAgendaList({
         </li>
       ))}
       {!disabled && agenda.length > 0 && (
-        <li className="text-xs text-gray-500 mt-2 px-3" aria-hidden="true">
+        <li className="text-xs text-ink-muted mt-2 px-3" aria-hidden="true">
           Tip: Use Alt+↑/↓ to reorder, or click the arrows
         </li>
       )}

@@ -25,18 +25,21 @@ export function OrganizationSwitcher() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button
         onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm border border-secondary-300 dark:border-secondary-600 rounded-md bg-white dark:bg-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors"
+        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-sm border border-rule rounded-md bg-surface hover:bg-surface-2 transition-colors max-w-full"
       >
-        <Building2 className="w-4 h-4 text-secondary-500" aria-hidden="true" />
-        <span className="max-w-[200px] truncate">
-          {currentOrganization?.name ?? 'No organization'}
+        <Building2 className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
+        {/* The name is only read out on phones; it truncates on wider screens */}
+        <span className="sr-only sm:not-sr-only min-w-0">
+          <span className="block truncate max-w-32 lg:max-w-48 xl:max-w-[200px]">
+            {currentOrganization?.name ?? 'No organization'}
+          </span>
         </span>
-        <ChevronDown className="w-4 h-4 text-secondary-400" aria-hidden="true" />
+        <ChevronDown className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
       </button>
 
       {open && (
@@ -44,7 +47,7 @@ export function OrganizationSwitcher() {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="absolute right-0 mt-1 w-64 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg shadow-lg z-20 py-1"
+            className="absolute right-0 mt-1 w-64 bg-surface border border-rule rounded-lg shadow-lg z-20 py-1"
           >
             {orgs.length > 0 ? (
               <>
@@ -54,23 +57,19 @@ export function OrganizationSwitcher() {
                       key={org.id}
                       role="menuitem"
                       onClick={() => choose(org)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-colors ${
-                        currentOrganization?.id === org.id
-                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
-                          : 'text-secondary-700 dark:text-secondary-300'
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-surface-2 transition-colors ${
+                        currentOrganization?.id === org.id ? 'bg-gavel-tint text-ink' : 'text-ink'
                       }`}
                     >
                       <span className="block truncate">{org.name}</span>
-                      <span className="block text-xs text-secondary-500">
-                        {ROLE_LABELS[org.role]}
-                      </span>
+                      <span className="block text-xs text-ink-muted">{ROLE_LABELS[org.role]}</span>
                     </button>
                   ))}
                 </div>
-                <div className="border-t border-secondary-200 dark:border-secondary-700 my-1" />
+                <div className="border-t border-rule my-1" />
               </>
             ) : (
-              <p className="px-4 py-2 text-sm text-secondary-500">No organizations yet</p>
+              <p className="px-4 py-2 text-sm text-ink-muted">No organizations yet</p>
             )}
             <button
               role="menuitem"
@@ -78,7 +77,7 @@ export function OrganizationSwitcher() {
                 setOpen(false);
                 setCreating(true);
               }}
-              className="w-full text-left px-4 py-2 text-sm text-primary-600 hover:bg-secondary-50 dark:hover:bg-secondary-700 transition-colors flex items-center gap-2"
+              className="w-full text-left px-4 py-2 text-sm text-gavel hover:bg-surface-2 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               New organization

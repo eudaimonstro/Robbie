@@ -5,6 +5,8 @@ import type {
   MinutesMotionRecord,
   MinutesElectionRecord,
 } from '../types/index.js';
+import { attendanceSummary } from './attendance.js';
+import { completedMotionVotes } from './voteCalculator.js';
 
 /**
  * Generate structured meeting minutes from the current meeting state
@@ -29,7 +31,8 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     const joinedLog = state.meetingLog.find(
       (log) =>
         log.message.includes(`${member.name} has joined`) ||
-        log.message.includes(`${member.name} is now present`),
+        log.message.includes(`${member.name} is now present`) ||
+        log.message.includes(`${member.name} marked present`),
     );
     const leftLog = state.meetingLog.find((log) => log.message.includes(`${member.name} has left`));
 
@@ -55,9 +58,9 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     };
   });
 
-  // Check quorum
-  const presentCount = state.members.filter((m) => m.present).length;
-  const quorumPresent = presentCount >= state.quorum;
+  // Quorum as the meeting counts it: members on a device or marked present, the headcount,
+  // and proxies when they count
+  const quorumPresent = attendanceSummary(state).hasQuorum;
 
   // Build agenda items
   const agendaItems = state.agenda.map((item) => ({
@@ -71,11 +74,14 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     type: motion.type,
     name: motion.name,
     text: motion.text,
-    mover: '', // Not stored in completedMotions, would need to track this
-    moverId: 0,
+    mover: motion.mover ?? '',
+    moverId: motion.moverId ?? 0,
     outcome: motion.passed ? 'passed' : 'failed',
-    voteCount: calculateVoteCount(motion.voterChoices),
+    voteCount: completedMotionVotes(motion),
     voterChoices: motion.voterChoices,
+    deviceVotes: motion.deviceVotes,
+    floorVotes: motion.floorVotes,
+    method: motion.method,
     timestamp: motion.timestamp,
   }));
 
@@ -122,6 +128,8 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     endTime,
     chairName,
     attendance,
+    headcount: state.headcount ?? 0,
+    headcountNames: state.headcountNames ?? [],
     quorumPresent,
     agendaItems,
     motions,
@@ -130,21 +138,6 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     announcements,
     generatedAt: new Date().toISOString(),
   };
-}
-
-/**
- * Calculate vote counts from voter choices
- */
-function calculateVoteCount(voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>): {
-  yea: number;
-  nay: number;
-  abstain: number;
-} {
-  const counts = { yea: 0, nay: 0, abstain: 0 };
-  for (const vote of Object.values(voterChoices)) {
-    counts[vote]++;
-  }
-  return counts;
 }
 
 /**
@@ -168,8 +161,10 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   lines.push(`**Quorum:** ${minutes.quorumPresent ? 'Present' : 'Not Present'}`);
   lines.push('');
 
-  const present = minutes.attendance.filter((a) => a.status === 'present' || a.status === 'late');
-  const absent = minutes.attendance.filter((a) => a.status === 'absent' || a.status === 'excused');
+  const voting = minutes.attendance.filter((a) => a.role !== 'guest');
+  const present = voting.filter((a) => a.status === 'present' || a.status === 'late');
+  const absent = voting.filter((a) => a.status === 'absent' || a.status === 'excused');
+  const guests = minutes.attendance.filter((a) => a.role === 'guest');
 
   if (present.length > 0) {
     lines.push('**Present:**');
@@ -180,12 +175,24 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
     lines.push('');
   }
 
+  if (minutes.headcount > 0) {
+    const names = minutes.headcountNames.length > 0 ? `: ${minutes.headcountNames.join(', ')}` : '';
+    lines.push(`**Also present without an account:** ${minutes.headcount}${names}`);
+    lines.push('');
+  }
+
   if (absent.length > 0) {
     lines.push('**Absent:**');
     absent.forEach((a) => {
       const note = a.status === 'excused' ? ' (excused)' : '';
       lines.push(`- ${a.name}${note}`);
     });
+    lines.push('');
+  }
+
+  if (guests.length > 0) {
+    lines.push('**Guests:**');
+    guests.forEach((a) => lines.push(`- ${a.name}`));
     lines.push('');
   }
 
@@ -212,6 +219,12 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
       if (motion.voteCount) {
         lines.push(
           `**Vote:** Yea: ${motion.voteCount.yea}, Nay: ${motion.voteCount.nay}, Abstain: ${motion.voteCount.abstain}`,
+        );
+      }
+      const floor = motion.floorVotes;
+      if (motion.deviceVotes && floor && floor.yea + floor.nay + floor.abstain > 0) {
+        lines.push(
+          `(On devices ${motion.deviceVotes.yea} to ${motion.deviceVotes.nay}, in the room ${floor.yea} to ${floor.nay})`,
         );
       }
       lines.push('');

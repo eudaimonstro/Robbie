@@ -4,6 +4,7 @@ import {
   speakerHandler,
   agendaHandler,
   memberHandler,
+  attendanceHandler,
   rollCallHandler,
   settingsHandler,
   motionHandler,
@@ -26,13 +27,16 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     // Meeting lifecycle
     case 'START_MEETING':
     case 'END_MEETING':
+    case 'SET_MEETING_INFO':
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_MEETING_STAGE':
       return meetingLifecycleHandler(state, action, log);
 
     // Motions
     case 'MAKE_MOTION':
+    case 'MAKE_FLOOR_MOTION':
     case 'SECOND_MOTION':
+    case 'SECOND_FROM_FLOOR':
     case 'DECLINE_SECOND':
     case 'WITHDRAW_MOTION':
     case 'MODIFY_MOTION':
@@ -42,6 +46,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'OPEN_VOTING':
     case 'CAST_VOTE':
     case 'CLOSE_VOTING':
+    case 'SET_FLOOR_TALLY':
       return votingHandler(state, action, log);
 
     // Unanimous consent
@@ -65,6 +70,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'AGENDA_OBJECTION':
     case 'CALL_AGENDA_ITEM':
     case 'COMPLETE_AGENDA_ITEM':
+    case 'RELOAD_AGENDA':
       return agendaHandler(state, action, log);
 
     // Settings
@@ -85,7 +91,9 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'START_ELECTION':
     case 'CAST_BALLOT':
     case 'CLOSE_ELECTION':
+    case 'SET_FLOOR_BALLOTS':
     case 'DECLARE_ELECTED':
+    case 'SET_ASIDE_ELECTION':
       return electionHandler(state, action, log);
 
     // Inquiries
@@ -97,8 +105,14 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'ADD_MEMBER':
     case 'SET_MEMBER_ROLE':
     case 'SET_MEMBER_PRESENCE':
+    case 'REFRESH_MEMBERS':
     case 'RENAME_MEMBER':
       return memberHandler(state, action, log);
+
+    // Attendance
+    case 'MARK_PRESENT':
+    case 'SET_HEADCOUNT':
+      return attendanceHandler(state, action, log);
 
     // Roll call
     case 'START_ROLL_CALL':

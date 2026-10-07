@@ -9,6 +9,9 @@ export {
   calculateVoteResult,
   getChairVotingOptions,
   canChairVoteDecide,
+  addVotes,
+  completedMotionVotes,
+  NO_VOTES,
 } from './voteCalculator.js';
 
 export {
@@ -29,7 +32,15 @@ export {
   wasMotionDefeated,
   type ValidMotion,
   isSecondaryAmendmentInOrder,
+  moverCanClaimFloor,
 } from './motionHelpers.js';
+
+export {
+  attendanceSummary,
+  quorumFromSettings,
+  type AttendanceSummary,
+  type QuorumSettings,
+} from './attendance.js';
 
 export {
   generateMeetingMinutes,

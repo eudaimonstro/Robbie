@@ -1,4 +1,5 @@
 import type { MeetingState } from '../types/index.js';
+import { completedMotionVotes } from './voteCalculator.js';
 
 export type MotionOutcome = 'passed' | 'failed' | 'tabled' | 'pending';
 
@@ -28,13 +29,13 @@ export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
 
   // Add completed motions (passed/failed)
   state.completedMotions.forEach((motion) => {
-    const voteCount = calculateVoteCount(motion.voterChoices);
+    const voteCount = completedMotionVotes(motion);
     history.push({
       id: motion.id,
       type: motion.type,
       name: motion.name,
       text: motion.text,
-      mover: '', // Not stored in completedMotions
+      mover: motion.mover ?? '',
       outcome: motion.passed ? 'passed' : 'failed',
       timestamp: motion.timestamp,
       voteCount,
@@ -137,19 +138,4 @@ export function getMotionHistoryStats(history: HistoricalMotion[]): {
     tabled: history.filter((m) => m.outcome === 'tabled').length,
     pending: history.filter((m) => m.outcome === 'pending').length,
   };
-}
-
-/**
- * Calculate vote counts from voter choices
- */
-function calculateVoteCount(voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>): {
-  yea: number;
-  nay: number;
-  abstain: number;
-} {
-  const counts = { yea: 0, nay: 0, abstain: 0 };
-  for (const vote of Object.values(voterChoices)) {
-    counts[vote]++;
-  }
-  return counts;
 }

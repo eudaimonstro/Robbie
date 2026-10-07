@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import Modal from './Modal';
 
 interface ConfirmDialogProps {
@@ -23,11 +24,19 @@ export default function ConfirmDialog({
   variant = 'primary',
   loading = false,
 }: ConfirmDialogProps) {
+  // A dangerous action can't be undone: focus starts on Cancel
+  const cancelRef = useRef<HTMLButtonElement>(null);
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <p className="text-secondary-600 dark:text-secondary-400 mb-6">{message}</p>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      initialFocusRef={variant === 'danger' ? cancelRef : undefined}
+    >
+      <p className="text-ink-muted mb-6">{message}</p>
       <div className="flex justify-end gap-3">
-        <button onClick={onClose} className="btn-ghost btn-sm" disabled={loading}>
+        <button ref={cancelRef} onClick={onClose} className="btn-ghost btn-sm" disabled={loading}>
           {cancelText}
         </button>
         <button

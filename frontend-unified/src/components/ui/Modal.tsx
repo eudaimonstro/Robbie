@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useCallback } from 'react';
+import { ReactNode, RefObject, useEffect, useId, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -7,11 +7,31 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * What takes focus on opening, in place of the first field or the primary action: a
+   * confirmation of something that can't be undone puts it on the safe choice, so a key held
+   * down from the button that opened it doesn't confirm it
+   */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+/** Fields first, then the primary action: the close button is the last resort */
+const FIELDS =
+  'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])';
+const PRIMARY = '.btn-primary:not([disabled])';
+
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  initialFocusRef,
+}: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const hasInitialFocus = useRef(false);
+  const titleId = useId();
 
   // Focus trap: get all focusable elements in modal (excluding disabled)
   const getFocusableElements = useCallback(() => {
@@ -71,19 +91,32 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     }
   }, [isOpen]);
 
+  // Focus goes back to what opened the dialog when it closes, if that is still on the page
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
 
-      // Focus the first focusable element only on initial open
+      // On opening, focus what the dialog names, else the first field, else the primary action,
+      // else whatever comes first
       if (!hasInitialFocus.current) {
         hasInitialFocus.current = true;
         setTimeout(() => {
-          const focusableElements = getFocusableElements();
-          if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-          }
+          const body = bodyRef.current;
+          const target =
+            initialFocusRef?.current ??
+            body?.querySelector<HTMLElement>(FIELDS) ??
+            body?.querySelector<HTMLElement>(PRIMARY) ??
+            getFocusableElements()[0];
+          target?.focus();
         }, 0);
       }
     }
@@ -92,7 +125,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isOpen, handleKeyDown, getFocusableElements]);
+  }, [isOpen, handleKeyDown, getFocusableElements, initialFocusRef]);
 
   if (!isOpen) return null;
 
@@ -107,20 +140,27 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     <div className="modal-backdrop" onClick={onClose}>
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`modal-content ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-          <h3 className="text-lg font-semibold text-secondary-900 dark:text-white">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
+          <h3 id={titleId} className="text-lg font-semibold text-ink">
+            {title}
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-300 rounded-sm transition-colors"
+            className="p-1 text-ink-muted hover:text-ink rounded-sm transition-colors"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div ref={bodyRef} className="px-6 py-4">
+          {children}
+        </div>
       </div>
     </div>
   );

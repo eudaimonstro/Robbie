@@ -2,195 +2,341 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #1e40af;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e3a8a;
-  --color-primary-900: #1e3a5f;
+/*
+  Robbie's design tokens (docs/design-brief.md): the clerk's ledger. Each token is a CSS variable
+  set on :root for the day session and on .dark for the evening session. ThemeContext puts .dark on
+  <html>; the display view puts it on its own root, since it is always dark. The @theme inline
+  block below makes Tailwind write var(--paper) into each utility (bg-paper, text-ink...) instead
+  of resolving it once at :root, so a .dark subtree flips them too.
+*/
+:root {
+  --paper: #f7f3ec;
+  --surface: #fffdf9;
+  --surface-2: #f1ebe1;
+  --ink: #1c1a17;
+  --ink-muted: #5b564e;
+  --rule: #e4ddd1;
+  --gavel: #8b2e25;
+  --gavel-tint: #f6e6e2;
+  --carried: #2f6b45;
+  --carried-tint: #e3efe5;
+  --caution: #b7791f;
+  --caution-tint: #fbf0dc;
+  /* Caution as text: the caution color is 3.2:1 on its tint in the day palette, too faint for text */
+  --caution-ink: #7f5410;
+  color-scheme: light;
+}
 
-  --color-secondary-50: #f8fafc;
-  --color-secondary-100: #f1f5f9;
-  --color-secondary-200: #e2e8f0;
-  --color-secondary-300: #cbd5e1;
-  --color-secondary-400: #94a3b8;
-  --color-secondary-500: #475569;
-  --color-secondary-600: #334155;
-  --color-secondary-700: #1e293b;
-  --color-secondary-800: #1f2937;
-  --color-secondary-900: #111827;
-
-  --color-accent-50: #fffbeb;
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f59e0b;
-  --color-accent-600: #d97706;
-  --color-accent-700: #b45309;
-  --color-accent-800: #92400e;
-  --color-accent-900: #78350f;
-
-  --color-success-50: #ecfdf5;
-  --color-success-100: #d1fae5;
-  --color-success-200: #a7f3d0;
-  --color-success-300: #6ee7b7;
-  --color-success-400: #34d399;
-  --color-success-500: #10b981;
-  --color-success-600: #059669;
-  --color-success-700: #047857;
-  --color-success-800: #065f46;
-  --color-success-900: #064e3b;
-
-  --color-danger-50: #fef2f2;
-  --color-danger-100: #fee2e2;
-  --color-danger-200: #fecaca;
-  --color-danger-300: #fca5a5;
-  --color-danger-400: #f87171;
-  --color-danger-500: #ef4444;
-  --color-danger-600: #dc2626;
-  --color-danger-700: #b91c1c;
-  --color-danger-800: #991b1b;
-  --color-danger-900: #7f1d1d;
-
-  --color-meeting-50: #eef2ff;
-  --color-meeting-100: #e0e7ff;
-  --color-meeting-200: #c7d2fe;
-  --color-meeting-300: #a5b4fc;
-  --color-meeting-400: #818cf8;
-  --color-meeting-500: #6366f1;
-  --color-meeting-600: #4f46e5;
-  --color-meeting-700: #4338ca;
-  --color-meeting-800: #3730a3;
-  --color-meeting-900: #312e81;
-
-  --font-heading: Inter, system-ui, sans-serif;
-  --font-body: system-ui, -apple-system, sans-serif;
-  --font-document: Georgia, Charter, serif;
-  --font-mono: JetBrains Mono, ui-monospace, monospace;
+.dark {
+  --paper: #15130f;
+  --surface: #1f1c17;
+  --surface-2: #282420;
+  --ink: #f3eee6;
+  --ink-muted: #a8a094;
+  --rule: #332e27;
+  /* A shade lighter than the brief's first #e0604a: gavel text on its tint and on surface-2 is
+     4.5:1 or more */
+  --gavel: #e46a55;
+  --gavel-tint: #3a1f1b;
+  --carried: #5dbb7a;
+  --carried-tint: #1e3326;
+  --caution: #e0a530;
+  --caution-tint: #3a2e14;
+  --caution-ink: #e0a530;
+  color-scheme: dark;
 }
 
 /*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
+  Only the colors defined here exist: Tailwind's own palette (gray, blue, white...) is off. This
+  block comes first: a reset after the @theme inline block would clear the tokens too.
 */
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-gavel: var(--gavel);
+  --color-gavel-tint: var(--gavel-tint);
+  --color-carried: var(--carried);
+  --color-carried-tint: var(--carried-tint);
+  --color-caution: var(--caution);
+  --color-caution-tint: var(--caution-tint);
+  --color-caution-ink: var(--caution-ink);
+}
+
+@theme {
+  /*
+    Fixed scales around the tokens, the same in both palettes, for the places that need a shade
+    rather than a token (an overlay, a hover). 600 is the day token and 400 the evening one.
+  */
+  --color-gavel-50: #f6e6e2;
+  --color-gavel-100: #efd3cc;
+  --color-gavel-200: #e2ada2;
+  --color-gavel-300: #e8826f;
+  --color-gavel-400: #e46a55;
+  --color-gavel-500: #b8432f;
+  --color-gavel-600: #8b2e25;
+  --color-gavel-700: #74261f;
+  --color-gavel-800: #5a1e18;
+  --color-gavel-900: #3a1f1b;
+
+  --color-ink-50: #f7f3ec;
+  --color-ink-100: #f1ebe1;
+  --color-ink-200: #e4ddd1;
+  --color-ink-300: #cfc6b8;
+  --color-ink-400: #a8a094;
+  --color-ink-500: #6e675d;
+  --color-ink-600: #5b564e;
+  --color-ink-700: #332e27;
+  --color-ink-800: #1f1c17;
+  --color-ink-900: #15130f;
+
+  --color-carried-50: #e3efe5;
+  --color-carried-100: #cfe5d4;
+  --color-carried-200: #a9d3b4;
+  --color-carried-300: #7fc596;
+  --color-carried-400: #5dbb7a;
+  --color-carried-500: #3f8a5a;
+  --color-carried-600: #2f6b45;
+  --color-carried-700: #275a3a;
+  --color-carried-800: #1f472e;
+  --color-carried-900: #1e3326;
+
+  --color-caution-50: #fbf0dc;
+  --color-caution-100: #f7e3bd;
+  --color-caution-200: #f0cd85;
+  --color-caution-300: #e8b955;
+  --color-caution-400: #e0a530;
+  --color-caution-500: #c98a22;
+  --color-caution-600: #b7791f;
+  --color-caution-700: #7f5410;
+  --color-caution-800: #5e3e0c;
+  --color-caution-900: #3a2e14;
+
+  /* Fraunces for headings, questions, results and the display; Public Sans for everything else */
+  --font-heading: 'Fraunces Variable', Georgia, serif;
+  --font-body: 'Public Sans', system-ui, sans-serif;
+  --font-document: 'Fraunces Variable', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* The brief's scale beyond Tailwind's xs (0.75), sm (0.875), base (1) and lg (1.125) */
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.3;
+  --text-page: 1.75rem;
+  --text-page--line-height: 1.2;
+  --text-question: 2.5rem;
+  --text-question--line-height: 1.2;
+  --text-question-phone: 1.5rem;
+  --text-question-phone--line-height: 1.25;
+  /* The display view at 1080p: 72px, 40px, 96px and 28px */
+  --text-display-question: 4.5rem;
+  --text-display-question--line-height: 1.15;
+  --text-display-line: 2.5rem;
+  --text-display-line--line-height: 1.25;
+  --text-display-number: 6rem;
+  --text-display-number--line-height: 1;
+  --text-display-label: 1.75rem;
+  --text-display-label--line-height: 1.2;
+
+  --ease-out-quiet: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
 @layer base {
+  /* Borders default to the rule, not currentcolor (Tailwind 4) */
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--rule);
   }
 
-  /* Tailwind v4 placeholders default to the text color at 50% opacity; keep v3's gray-400 */
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-gray-400);
+    color: var(--ink-muted);
   }
+
+  body {
+    @apply font-body text-ink bg-paper leading-normal;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading font-semibold leading-tight;
+    font-optical-sizing: auto;
+    font-variation-settings: 'SOFT' 50;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--gavel);
+    outline-offset: 2px;
+  }
+}
+
+/* The serif with the brief's warmth, for anything that isn't a heading element */
+@utility font-serif-soft {
+  font-family: var(--font-heading);
+  font-optical-sizing: auto;
+  font-variation-settings: 'SOFT' 50;
+}
+
+/* Page titles (1.75rem) and card titles (1.375rem), in Fraunces */
+@utility page-title {
+  @apply font-serif-soft text-page font-semibold text-ink;
+}
+
+@utility card-title {
+  @apply font-serif-soft text-title font-semibold text-ink;
+}
+
+/* Labels and section headers ("Attendance"): Public Sans 600, 0.75rem, uppercase, tracked, muted */
+@utility label-caps {
+  @apply font-body text-xs font-semibold uppercase tracking-[0.08em] text-ink-muted;
+}
+
+/* The meeting code: Public Sans 600 with 0.12em tracking, tabular, not a monospace */
+@utility meeting-code {
+  @apply font-body font-semibold tracking-[0.12em] tabular-nums;
 }
 
 @utility btn {
-  /* Buttons - min-h-11 ensures 44px minimum touch target for accessibility */
-  @apply inline-flex items-center justify-center px-4 py-2 min-h-11 rounded-md font-medium transition-all duration-150 focus:outline-hidden focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  /* 40px on laptops; btn-lg is the 56px phone size. The focus ring is 2px gavel, offset on paper. */
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-10 rounded-lg font-body font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gavel focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
+/*
+  Hover and active move the fill away from the text, never fade it toward the page: darker under
+  the day's light text, lighter under the evening's dark text, so the label stays above 4.5:1
+*/
 @utility btn-primary {
-  @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 active:bg-primary-800;
+  @apply btn bg-gavel text-paper hover:bg-gavel-700 active:bg-gavel-800 dark:hover:bg-gavel-300 dark:active:bg-gavel-200;
 }
 
 @utility btn-secondary {
-  @apply btn border border-primary-600 text-primary-600 hover:bg-primary-50 focus:ring-primary-500 dark:hover:bg-primary-900/20;
-}
-
-@utility btn-danger {
-  @apply btn bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500 active:bg-danger-700;
+  @apply btn border border-ink text-ink bg-transparent hover:bg-surface-2;
 }
 
 @utility btn-ghost {
-  @apply btn bg-transparent text-secondary-600 hover:bg-secondary-100 focus:ring-secondary-400 dark:text-secondary-300 dark:hover:bg-secondary-800;
+  @apply btn bg-transparent text-gavel hover:bg-gavel-tint;
+}
+
+/* Destructive confirmations: the gavel's red is the only red */
+@utility btn-danger {
+  @apply btn bg-gavel text-paper hover:bg-gavel-700 active:bg-gavel-800 dark:hover:bg-gavel-300 dark:active:bg-gavel-200;
 }
 
 @utility btn-success {
-  @apply btn bg-success-500 text-white hover:bg-success-600 focus:ring-success-500;
+  @apply btn bg-carried text-paper hover:bg-carried-700 dark:hover:bg-carried-300;
 }
 
 @utility btn-sm {
-  @apply px-3 py-1.5 text-sm;
+  @apply px-3 py-1.5 min-h-8 text-sm;
 }
 
 @utility btn-lg {
-  @apply px-6 py-3 text-lg;
+  @apply px-6 py-3 min-h-14 text-lg;
 }
 
 @utility card {
-  /* Cards */
-  @apply bg-white dark:bg-secondary-800 rounded-lg shadow-xs border border-secondary-200 dark:border-secondary-700;
+  /* Surface on paper, a 1px rule, 12px radius, no shadow */
+  @apply bg-surface rounded-xl border border-rule;
 }
 
 @utility card-hover {
-  @apply card hover:shadow-md transition-shadow duration-150;
+  @apply card hover:border-ink-muted transition-colors duration-150;
 }
 
 @utility section-card {
   /* Section cards for document view */
-  @apply p-4 border-l-4 border-primary-200 hover:border-primary-400 transition-colors duration-150 bg-white dark:bg-secondary-800;
+  @apply p-4 border-l-4 border-rule hover:border-gavel transition-colors duration-150 bg-surface;
 }
 
 @utility badge {
-  /* Badges */
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  /* The label style in a tint */
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-body text-xs font-semibold uppercase tracking-[0.08em] bg-surface-2 text-ink-muted;
 }
 
 @utility badge-draft {
-  @apply badge bg-secondary-100 text-secondary-700 dark:bg-secondary-700 dark:text-secondary-200;
+  @apply badge bg-surface-2 text-ink-muted;
 }
 
 @utility badge-proposed {
-  @apply badge bg-accent-100 text-accent-800 dark:bg-accent-900/50 dark:text-accent-200;
+  @apply badge bg-caution-tint text-caution-ink;
 }
 
 @utility badge-passed {
-  @apply badge bg-success-100 text-success-700 dark:bg-success-900/50 dark:text-success-200;
+  @apply badge bg-carried-tint text-carried;
 }
 
+/* Failed is ink on paper: the word carries the meaning, not red */
 @utility badge-failed {
-  @apply badge bg-danger-100 text-danger-700 dark:bg-danger-900/50 dark:text-danger-200;
+  @apply badge bg-surface-2 text-ink;
 }
 
 @utility badge-tabled {
-  @apply badge bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-200;
+  @apply badge bg-gavel-tint text-ink;
 }
 
 @utility badge-withdrawn {
-  @apply badge bg-secondary-200 text-secondary-600 dark:bg-secondary-600 dark:text-secondary-300;
+  @apply badge bg-surface-2 text-ink-muted;
+}
+
+/* Meeting roles */
+@utility badge-chair {
+  @apply badge bg-gavel-tint text-ink;
+}
+
+@utility badge-admin {
+  @apply badge bg-surface-2 text-ink;
+}
+
+@utility badge-member {
+  @apply badge bg-surface-2 text-ink-muted;
+}
+
+@utility badge-guest {
+  @apply badge bg-caution-tint text-caution-ink;
+}
+
+/* Presence */
+@utility badge-present {
+  @apply badge bg-carried-tint text-carried;
+}
+
+@utility badge-marked {
+  @apply badge bg-carried-tint text-ink;
+}
+
+@utility badge-absent {
+  @apply badge bg-surface-2 text-ink-muted;
 }
 
 @utility input {
   /* Form inputs */
-  @apply w-full px-3 py-2 border border-secondary-300 rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-secondary-700 dark:border-secondary-600 dark:text-white dark:placeholder-secondary-400;
+  @apply w-full px-3 py-2 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:outline-hidden focus:border-gavel focus:ring-2 focus:ring-gavel/30;
 }
 
 @utility input-error {
-  @apply input border-danger-500 focus:ring-danger-500 focus:border-danger-500;
+  @apply input border-gavel focus:ring-gavel/30;
 }
 
 @utility label {
-  @apply block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1;
+  @apply block text-sm font-medium text-ink mb-1;
 }
 
 @utility select {
   @apply input appearance-none bg-no-repeat bg-right pr-10;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23857c70' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   background-position: right 0.5rem center;
   background-size: 1.5em 1.5em;
 }
@@ -201,24 +347,24 @@
 
 @utility diff-add {
   /* Diff highlighting - includes visual indicators beyond color for accessibility */
-  @apply bg-success-100 text-success-800 border-l-4 border-success-500 pl-2 dark:bg-success-900/30 dark:text-success-200;
+  @apply bg-carried-tint text-ink border-l-4 border-carried pl-2;
 }
 
 @utility diff-delete {
-  @apply bg-danger-100 text-danger-800 line-through dark:bg-danger-900/30 dark:text-danger-200;
+  @apply bg-gavel-tint text-ink line-through;
 }
 
 @utility diff-modify {
-  @apply bg-accent-100 text-accent-800 underline decoration-accent-500 decoration-2 dark:bg-accent-900/30 dark:text-accent-200;
+  @apply bg-caution-tint text-ink underline decoration-caution decoration-2;
 }
 
 @utility modal-backdrop {
-  /* Modal backdrop */
-  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in;
+  /* Modal backdrop: the darkest ink at half strength, in both palettes */
+  @apply fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50 animate-fade-in;
 }
 
 @utility modal-content {
-  @apply bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-lg w-full mx-4 animate-slide-up;
+  @apply bg-surface border border-rule rounded-xl max-w-lg w-full mx-4 animate-slide-up;
 }
 
 @utility spinner {
@@ -228,12 +374,12 @@
 
 @utility skeleton {
   /* Skeleton loader */
-  @apply animate-pulse bg-secondary-200 dark:bg-secondary-700 rounded-sm;
+  @apply animate-pulse bg-surface-2 rounded-sm;
 }
 
 @utility tree-node {
   /* Tree node */
-  @apply relative pl-4 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-px before:bg-secondary-200 dark:before:bg-secondary-700;
+  @apply relative pl-4 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-px before:bg-rule;
 }
 
 @utility tree-node-last {
@@ -242,32 +388,32 @@
 
 @utility tab {
   /* Tabs */
-  @apply px-4 py-2 text-sm font-medium text-secondary-500 hover:text-secondary-700 border-b-2 border-transparent hover:border-secondary-300 transition-colors dark:text-secondary-400 dark:hover:text-secondary-200;
+  @apply px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink border-b-2 border-transparent hover:border-rule transition-colors;
 }
 
 @utility tab-active {
-  @apply tab text-primary-600 border-primary-600 dark:text-primary-400 dark:border-primary-400;
+  @apply tab text-ink border-gavel;
 }
 
 @utility tooltip {
   /* Tooltip */
-  @apply absolute z-50 px-2 py-1 text-xs font-medium text-white bg-secondary-900 rounded-sm shadow-lg;
+  @apply absolute z-50 px-2 py-1 text-xs font-medium text-paper bg-ink rounded-sm;
 }
 
 @utility document-content {
   /* Document content styling */
-  @apply font-document leading-relaxed text-secondary-700 dark:text-secondary-300;
+  @apply font-document leading-relaxed text-ink;
 
   & h1 {
-    @apply text-2xl font-bold mb-4 text-secondary-900 dark:text-white;
+    @apply text-2xl font-bold mb-4 text-ink;
   }
 
   & h2 {
-    @apply text-xl font-bold mb-3 text-secondary-900 dark:text-white;
+    @apply text-xl font-bold mb-3 text-ink;
   }
 
   & h3 {
-    @apply text-lg font-semibold mb-2 text-secondary-900 dark:text-white;
+    @apply text-lg font-semibold mb-2 text-ink;
   }
 
   & p {
@@ -295,15 +441,15 @@
   }
 
   & blockquote {
-    @apply border-l-4 border-secondary-300 dark:border-secondary-600 pl-4 py-2 my-4 italic text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-800/50;
+    @apply border-l-4 border-rule pl-4 py-2 my-4 italic text-ink-muted bg-surface-2;
   }
 
   & code {
-    @apply font-mono text-sm bg-secondary-100 dark:bg-secondary-700 px-1.5 py-0.5 rounded-sm;
+    @apply font-mono text-sm bg-surface-2 px-1.5 py-0.5 rounded-sm;
   }
 
   & pre {
-    @apply font-mono text-sm bg-secondary-100 dark:bg-secondary-800 p-4 rounded-lg overflow-x-auto my-4;
+    @apply font-mono text-sm bg-surface-2 p-4 rounded-lg overflow-x-auto my-4;
   }
 
   & pre code {
@@ -323,10 +469,35 @@
   animation: slide-in-right 0.2s ease-out;
 }
 
+/*
+  Motion (docs/design-brief.md): one reveal when a screen mounts, the stamp, the pulse on counts
+  while a vote is open, and the crossfade of the question card. Reduced motion keeps only the
+  crossfade.
+*/
+@utility animate-reveal {
+  /* Panels fade and rise 8px; stagger them with style={{ animationDelay }} in 40ms steps */
+  animation: reveal 240ms var(--ease-out-quiet) both;
+}
+
+@utility animate-stamp {
+  /* Scale and fade only: the stamp element carries its own tilt (-rotate-4) */
+  animation:
+    stamp-scale 180ms ease-out both,
+    stamp-fade 60ms linear both;
+}
+
+@utility animate-count-pulse {
+  animation: count-pulse 1.6s ease-in-out infinite;
+}
+
+@utility animate-crossfade {
+  animation: crossfade 200ms ease-out both;
+}
+
 @utility scrollbar-thin {
   /* Scrollbar styling */
   scrollbar-width: thin;
-  scrollbar-color: var(--color-secondary-300) transparent;
+  scrollbar-color: var(--rule) transparent;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -338,37 +509,19 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: var(--color-secondary-300);
+    background-color: var(--rule);
     border-radius: 3px;
-  }
-
-  .dark & {
-    scrollbar-color: var(--color-secondary-600) transparent;
-  }
-
-  .dark &::-webkit-scrollbar-thumb {
-    background-color: var(--color-secondary-600);
-  }
-}
-
-@utility dark {
-  & .scrollbar-thin {
-    scrollbar-color: var(--color-secondary-600) transparent;
-  }
-
-  & .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: var(--color-secondary-600);
   }
 }
 
 @utility table-striped {
   /* Table striped rows */
   & tr:nth-child(even) {
-    @apply bg-secondary-50 dark:bg-secondary-800/50;
+    @apply bg-surface-2;
   }
 
   & tr:hover {
-    @apply bg-secondary-100 dark:bg-secondary-700/50;
+    @apply bg-gavel-tint;
   }
 }
 
@@ -376,33 +529,18 @@
   /* Required field indicator */
   &::after {
     content: '*';
-    @apply text-danger-500 ml-0.5;
+    @apply text-gavel ml-0.5;
   }
 }
 
 @utility error-message {
   /* Error message */
-  @apply text-sm text-danger-500 mt-1;
+  @apply text-sm text-gavel mt-1;
 }
 
 @utility content-readable {
   /* Content max-width for readability */
   @apply max-w-4xl;
-}
-
-@layer base {
-  body {
-    @apply font-body text-secondary-900 bg-secondary-50 dark:bg-secondary-900 dark:text-secondary-100;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-heading font-semibold;
-  }
 }
 
 @layer utilities {
@@ -436,11 +574,60 @@
       transform: translateX(0);
     }
   }
+
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* The stamp's -4 degree tilt is its own (the -rotate-4 class), so it stays with reduced motion */
+  @keyframes stamp-scale {
+    from {
+      transform: scale(1.2);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes stamp-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes count-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  @keyframes crossfade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
-/* Reduced motion for accessibility */
+/* Reduced motion: everything stops except the question card's crossfade */
 @media (prefers-reduced-motion: reduce) {
-  *,
+  *:not(.animate-crossfade),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
@@ -452,6 +639,9 @@
   .animate-fade-in,
   .animate-slide-up,
   .animate-slide-in-right,
+  .animate-reveal,
+  .animate-stamp,
+  .animate-count-pulse,
   .animate-spin,
   .animate-pulse {
     animation: none !important;
@@ -497,7 +687,7 @@
 
   /* Section content */
   .section-card {
-    border-left: 2px solid #1e40af !important;
+    border-left: 2px solid #8b2e25 !important;
     page-break-inside: avoid;
   }
 

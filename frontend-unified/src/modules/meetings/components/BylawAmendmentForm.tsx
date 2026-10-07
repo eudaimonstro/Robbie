@@ -135,21 +135,19 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
   return (
     <div className="space-y-4">
       {/* Organization Info Banner */}
-      <div className="bg-meeting-50 dark:bg-meeting-900/20 border border-meeting-200 dark:border-meeting-800 rounded-lg p-3">
-        <p className="text-sm text-meeting-700 dark:text-meeting-300">
+      <div className="bg-gavel-tint border border-gavel/30 rounded-lg p-3">
+        <p className="text-sm text-ink">
           Proposing amendment for <span className="font-medium">{linkedOrg.organization.name}</span>
         </p>
       </div>
 
       {/* Document Selection */}
       <div>
-        <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-          Document
-        </label>
+        <label className="block text-sm font-medium text-ink mb-1">Document</label>
         <select
           value={selectedDocumentId}
           onChange={(e) => setSelectedDocumentId(e.target.value)}
-          className="w-full p-3 border border-secondary-300 dark:border-secondary-600 rounded-lg bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white"
+          className="w-full p-3 border border-rule rounded-lg bg-surface text-ink"
         >
           {documents.map((doc) => (
             <option key={doc.id} value={doc.id}>
@@ -210,14 +208,14 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
       <div className="flex gap-2 pt-2">
         <button
           onClick={onCancel}
-          className="flex-1 py-3 rounded-lg border border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-800"
+          className="flex-1 py-3 rounded-lg border border-rule text-ink hover:bg-surface-2"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={!canSubmit()}
-          className="flex-1 py-3 rounded-lg bg-meeting-600 text-white hover:bg-meeting-700 disabled:bg-secondary-300 dark:disabled:bg-secondary-600 disabled:cursor-not-allowed font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule disabled:cursor-not-allowed font-medium"
         >
           Submit Motion
         </button>

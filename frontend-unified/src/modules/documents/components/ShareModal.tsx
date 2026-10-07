@@ -106,22 +106,20 @@ export default function ShareModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Share Document" size="md">
       <div className="space-y-4">
-        <p className="text-sm text-secondary-600 dark:text-secondary-400">
+        <p className="text-sm text-ink-muted">
           Share "{documentTitle}" with a read-only link. Anyone with this link can view the
           document.
         </p>
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gavel" />
           </div>
         ) : !shareStatus || !shareStatus.shareToken ? (
           // No sharing set up yet
           <div className="text-center py-6">
-            <Link className="w-12 h-12 text-secondary-300 mx-auto mb-4" />
-            <p className="text-secondary-600 dark:text-secondary-400 mb-4">
-              Sharing is not enabled for this document.
-            </p>
+            <Link className="w-12 h-12 text-ink-muted mx-auto mb-4" />
+            <p className="text-ink-muted mb-4">Sharing is not enabled for this document.</p>
             <button onClick={handleEnableSharing} className="btn-primary">
               Enable Sharing
             </button>
@@ -137,7 +135,7 @@ export default function ShareModal({
                   type="text"
                   readOnly
                   value={getFullShareUrl()}
-                  className="input flex-1 bg-secondary-50 dark:bg-secondary-800"
+                  className="input flex-1 bg-surface-2"
                 />
                 <button
                   onClick={handleCopyLink}
@@ -146,7 +144,7 @@ export default function ShareModal({
                   title={copied ? 'Copied!' : 'Copy to clipboard'}
                 >
                   {copied ? (
-                    <Check className="w-4 h-4 text-success-600" />
+                    <Check className="w-4 h-4 text-carried" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -155,12 +153,12 @@ export default function ShareModal({
             </div>
 
             {/* Enable/Disable toggle */}
-            <div className="flex items-center justify-between py-3 border-t border-secondary-200 dark:border-secondary-700">
+            <div className="flex items-center justify-between py-3 border-t border-rule">
               <div>
-                <p className="font-medium text-secondary-900 dark:text-white">
+                <p className="font-medium text-ink">
                   Sharing {shareStatus.shareEnabled ? 'Enabled' : 'Disabled'}
                 </p>
-                <p className="text-sm text-secondary-500">
+                <p className="text-sm text-ink-muted">
                   {shareStatus.shareEnabled
                     ? 'Anyone with the link can view this document'
                     : 'The share link is currently inactive'}
@@ -168,7 +166,7 @@ export default function ShareModal({
               </div>
               <button
                 onClick={shareStatus.shareEnabled ? handleDisableSharing : handleEnableSharing}
-                className={shareStatus.shareEnabled ? 'btn-ghost text-danger-600' : 'btn-primary'}
+                className={shareStatus.shareEnabled ? 'btn-ghost text-gavel' : 'btn-primary'}
               >
                 {shareStatus.shareEnabled ? 'Disable' : 'Enable'}
               </button>
@@ -176,16 +174,14 @@ export default function ShareModal({
 
             {/* Regenerate link */}
             {shareStatus.shareEnabled && (
-              <div className="border-t border-secondary-200 dark:border-secondary-700 pt-4">
+              <div className="border-t border-rule pt-4">
                 {showRegenerateConfirm ? (
-                  <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-4">
+                  <div className="bg-caution-tint border border-caution/40 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-caution-ink shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-medium text-warning-800 dark:text-warning-200">
-                          Regenerate share link?
-                        </p>
-                        <p className="text-sm text-warning-700 dark:text-warning-300 mt-1">
+                        <p className="font-medium text-ink">Regenerate share link?</p>
+                        <p className="text-sm text-ink mt-1">
                           This will create a new link. Anyone using the old link will no longer be
                           able to access this document.
                         </p>
@@ -193,7 +189,7 @@ export default function ShareModal({
                           <button
                             onClick={handleRegenerateToken}
                             disabled={regenerating}
-                            className="btn-primary bg-warning-600 hover:bg-warning-700 text-white"
+                            className="btn-primary"
                           >
                             {regenerating ? 'Regenerating...' : 'Yes, Regenerate'}
                           </button>
@@ -210,7 +206,7 @@ export default function ShareModal({
                 ) : (
                   <button
                     onClick={() => setShowRegenerateConfirm(true)}
-                    className="btn-ghost text-secondary-600 flex items-center gap-2"
+                    className="btn-ghost text-ink-muted flex items-center gap-2"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Regenerate Link

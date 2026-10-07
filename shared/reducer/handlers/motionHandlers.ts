@@ -1,95 +1,189 @@
-import type { MeetingAction } from '../../types/index.js';
+import type {
+  MeetingAction,
+  MeetingLogEntry,
+  MeetingState,
+  MotionDetails,
+} from '../../types/index.js';
 import { MOTIONS } from '../../constants/motions.js';
+import { A_MEMBER_IN_THE_ROOM, PUT_BY_CHAIR } from '../../constants/floor.js';
 import {
   LOG_MOTION_FAILED_NO_SECOND,
+  logFloorMotionMade,
   logMotionMade,
   logMotionSeconded,
   logMotionWithdrawn,
   logMotionModified,
+  logQuestionPut,
+  logSecondedFromFloor,
 } from '../../constants/logMessages.js';
 import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
 import type { ActionHandler } from './types.js';
 
+type Log = (timestamp: string, msg: string) => MeetingLogEntry[];
+
+/** A motion being made: by a member on a device, from the floor, or put by the chair */
+interface NewMotion extends MotionDetails {
+  motionType: string;
+  text: string;
+  mover: string;
+  moverId: number;
+  motionId: number;
+  timestamp: string;
+  fromFloor?: boolean;
+  putByChair?: boolean;
+}
+
+/** The motion is made: it awaits a second, or is the pending question at once */
+function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingState {
+  const motionDef = MOTIONS[made.motionType];
+  const motion = {
+    ...motionDef,
+    id: made.motionId,
+    type: made.motionType,
+    text: made.text,
+    mover: made.mover,
+    moverId: made.moverId,
+    secondedBy: null,
+    status: 'pending' as const,
+    isAgendaAdoption: made.motionType === 'adoptAgenda',
+    agendaAmendment: made.agendaAmendment || null,
+    ruleSuspension: made.ruleSuspension || null,
+    bylawAmendment: made.bylawAmendment || null,
+    moverHasSpoken: false,
+    tabledMotionId: made.tabledMotionId,
+    reconsideredMotionId: made.reconsideredMotionId,
+    dividedParts: made.dividedParts,
+    ...(made.fromFloor && { fromFloor: true }),
+    ...(made.putByChair && { putByChair: true }),
+  };
+  // Clear lastChairRuling for non-Appeal motions
+  const lastChairRuling = made.motionType === 'appeal' ? state.lastChairRuling : null;
+
+  // A question the chair puts from the agenda needs no second: the agenda is the assembly's
+  // business already (and it leaves a suspended second requirement for the next motion)
+  const needsSecond = motion.needsSecond && !made.putByChair;
+  // Check if second requirement is suspended
+  const secondSuspended = isRuleSuspended(state, 'second-requirement');
+
+  if (needsSecond && !secondSuspended) {
+    const message = made.fromFloor
+      ? logFloorMotionMade(made.mover, made.text, motion.name)
+      : logMotionMade(made.mover, made.text, motion.name);
+    return {
+      ...state,
+      pendingSecond: motion,
+      lastChairRuling,
+      meetingLog: log(made.timestamp, message),
+    };
+  }
+
+  // If second was bypassed due to suspension, note it in the log
+  const bypassedSecond = needsSecond && secondSuspended;
+  const logMessage = made.putByChair
+    ? logQuestionPut(made.text, motion.name)
+    : bypassedSecond
+      ? `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}: "${made.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
+      : `${made.mover} raises ${motion.name}${made.fromFloor ? ' from the floor' : ''}.`;
+
+  // Auto-complete single-action suspension when used
+  const updatedSuspensions = bypassedSecond
+    ? markSingleActionComplete(state, 'second-requirement')
+    : state.suspendedRules;
+
+  // With no second to wait for, the motion is the pending question at once, as a seconded
+  // motion is (objection to consideration, for one, requires an active motion)
+  const activeMotion = { ...motion, status: 'active' as const };
+  return {
+    ...state,
+    currentMotion: activeMotion,
+    motionStack: [...state.motionStack, activeMotion],
+    suspendedRules: updatedSuspensions,
+    lastChairRuling,
+    meetingLog: log(made.timestamp, logMessage),
+  };
+}
+
+/** The motion awaiting a second is seconded, and becomes the pending question */
+function second(
+  state: MeetingState,
+  secondedBy: string,
+  timestamp: string,
+  message: string,
+  log: Log,
+) {
+  if (!state.pendingSecond) return state;
+  const seconded = { ...state.pendingSecond, secondedBy, status: 'active' as const };
+  return {
+    ...state,
+    pendingSecond: null,
+    currentMotion: seconded,
+    motionStack: [...state.motionStack, seconded],
+    meetingLog: log(timestamp, message),
+  };
+}
+
 export const motionHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'MAKE_MOTION': {
-      const typedAction = action as Extract<MeetingAction, { type: 'MAKE_MOTION' }>;
-      const motionDef = MOTIONS[typedAction.motionType];
-      const motion = {
-        ...motionDef,
-        id: typedAction.motionId,
-        type: typedAction.motionType,
-        text: typedAction.text,
-        mover: typedAction.mover,
-        moverId: typedAction.moverId,
-        secondedBy: null,
-        status: 'pending' as const,
-        isAgendaAdoption: typedAction.motionType === 'adoptAgenda',
-        agendaAmendment: typedAction.agendaAmendment || null,
-        ruleSuspension: typedAction.ruleSuspension || null,
-        bylawAmendment: typedAction.bylawAmendment || null,
-        moverHasSpoken: false,
-        tabledMotionId: typedAction.tabledMotionId,
-        reconsideredMotionId: typedAction.reconsideredMotionId,
-        dividedParts: typedAction.dividedParts,
-      };
+      const {
+        type: _type,
+        putByChair,
+        ...made
+      } = action as Extract<MeetingAction, { type: 'MAKE_MOTION' }>;
+      // A question the chair puts from the agenda has no mover
+      return putByChair
+        ? makeMotion(state, { ...made, mover: PUT_BY_CHAIR, moverId: 0, putByChair }, log)
+        : makeMotion(state, made, log);
+    }
 
-      // Check if second requirement is suspended
-      const secondSuspended = isRuleSuspended(state, 'second-requirement');
-
-      if (motion.needsSecond && !secondSuspended) {
-        return {
-          ...state,
-          pendingSecond: motion,
-          // Clear lastChairRuling for non-Appeal motions
-          lastChairRuling: typedAction.motionType === 'appeal' ? state.lastChairRuling : null,
-          meetingLog: log(
-            typedAction.timestamp,
-            logMotionMade(typedAction.mover, typedAction.text, motion.name),
-          ),
-        };
-      }
-
-      // If second was bypassed due to suspension, note it in the log
-      const bypassedSecond = motion.needsSecond && secondSuspended;
-      const logMessage = bypassedSecond
-        ? `${typedAction.mover} moves: "${typedAction.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
-        : `${typedAction.mover} raises ${motion.name}.`;
-
-      // Auto-complete single-action suspension when used
-      const updatedSuspensions = bypassedSecond
-        ? markSingleActionComplete(state, 'second-requirement')
-        : state.suspendedRules;
-
-      // With no second to wait for, the motion is the pending question at once, as a seconded
-      // motion is (objection to consideration, for one, requires an active motion)
-      const activeMotion = { ...motion, status: 'active' as const };
-      return {
-        ...state,
-        currentMotion: activeMotion,
-        motionStack: [...state.motionStack, activeMotion],
-        suspendedRules: updatedSuspensions,
-        lastChairRuling: typedAction.motionType === 'appeal' ? state.lastChairRuling : null,
-        meetingLog: log(typedAction.timestamp, logMessage),
-      };
+    case 'MAKE_FLOOR_MOTION': {
+      const {
+        type: _type,
+        moverName,
+        moverMemberId,
+        recordedBy: _recordedBy,
+        ...made
+      } = action as Extract<MeetingAction, { type: 'MAKE_FLOOR_MOTION' }>;
+      // The member named, as the meeting has them, or else the name the chair typed
+      const named =
+        moverMemberId !== undefined ? state.members.find((m) => m.id === moverMemberId) : undefined;
+      return makeMotion(
+        state,
+        {
+          ...made,
+          mover: named?.name ?? moverName.trim(),
+          moverId: named?.id ?? 0,
+          fromFloor: true,
+        },
+        log,
+      );
     }
 
     case 'SECOND_MOTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'SECOND_MOTION' }>;
-      if (!state.pendingSecond) return state;
+      return second(
+        state,
+        typedAction.seconder,
+        typedAction.timestamp,
+        logMotionSeconded(typedAction.seconder),
+        log,
+      );
+    }
 
-      const seconded = {
-        ...state.pendingSecond,
-        secondedBy: typedAction.seconder,
-        status: 'active' as const,
-      };
-      return {
-        ...state,
-        pendingSecond: null,
-        currentMotion: seconded,
-        motionStack: [...state.motionStack, seconded],
-        meetingLog: log(typedAction.timestamp, logMotionSeconded(typedAction.seconder)),
-      };
+    case 'SECOND_FROM_FLOOR': {
+      const typedAction = action as Extract<MeetingAction, { type: 'SECOND_FROM_FLOOR' }>;
+      const named =
+        typedAction.seconderMemberId !== undefined
+          ? state.members.find((m) => m.id === typedAction.seconderMemberId)
+          : undefined;
+      const seconder = named?.name ?? (typedAction.seconderName?.trim() || null);
+      return second(
+        state,
+        seconder ?? A_MEMBER_IN_THE_ROOM,
+        typedAction.timestamp,
+        logSecondedFromFloor(seconder),
+        log,
+      );
     }
 
     case 'DECLINE_SECOND': {

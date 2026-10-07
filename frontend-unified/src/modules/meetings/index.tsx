@@ -1,50 +1,72 @@
 /**
  * Meetings Module
  *
- * This module wraps the Robbie real-time meeting functionality.
- * It includes its own SocketProvider for Socket.io connections.
+ * /meetings is the Live Meetings page: the organization's schedule and the code box.
+ * /meetings/:code is the live meeting with that code. The link is the meeting, so it can be
+ * shared or shown as a QR code, and a reload rejoins it; each meeting gets its own socket.
+ * (/meetings/:code/display, the TV, is its own route in App.tsx, outside the app's layout.)
  */
 
 import { useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
-import { JoinMeetingScreen } from './views/JoinMeetingScreen';
+import { LiveMeetingsPage } from './views/LiveMeetingsPage';
 import { MeetingApp } from './views/MeetingApp';
+import { JoinMeetingScreen } from './views/JoinMeetingScreen';
+import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { meetingCode, isConnected, error, reconnect, leaveMeeting } = useSocket();
+  const { isConnected, hasJoined, error, joinError, reconnect, leaveMeeting, meetingCode } =
+    useSocket();
   const { showToast } = useToast();
+  // A link to a meeting that isn't scheduled (or a code typed wrong): the code box says so
+  const notFound = joinError?.code === 'MEETING_NOT_FOUND';
 
   // Forward socket errors to toast notifications
   useEffect(() => {
-    if (error) {
+    if (error && !notFound) {
       showToast('error', error);
     }
-  }, [error, showToast]);
+  }, [error, notFound, showToast]);
 
-  // No meeting yet: ask for its code
-  if (!meetingCode) {
-    return <JoinMeetingScreen />;
+  if (!isConnected && joinError?.code === 'MEETING_NOT_FOUND') {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <JoinMeetingScreen message={joinError.message} initialCode={meetingCode} />
+      </div>
+    );
+  }
+
+  // Joined, then the connection dropped: the meeting stays on screen (with any dialog open and
+  // anything typed) under a banner while the socket reconnects. A rejoin that is refused falls
+  // through to the screen below.
+  if (!isConnected && hasJoined && !joinError) {
+    return (
+      <>
+        <ReconnectingBanner onReconnect={reconnect} />
+        <MeetingApp />
+      </>
+    );
   }
 
   // Show loading while connecting to the meeting. The meeting view (with its Reconnect and Leave
-  // buttons) isn't shown until connected, so this screen needs its own way out: the socket
-  // stops retrying after a few attempts, and a failed join doesn't retry at all.
+  // buttons) isn't shown until connected, so this screen needs its own way out: a failed join
+  // doesn't retry at all.
   if (!isConnected) {
     return (
       <div className="max-w-7xl mx-auto flex items-center justify-center min-h-[60vh]">
         <div className="card p-8 text-center max-w-md">
           {error ? (
-            <p className="text-danger-600 dark:text-danger-400 mb-4" role="alert">
+            <p className="text-gavel mb-4" role="alert">
               {error}
             </p>
           ) : (
             <>
-              <div className="animate-spin w-12 h-12 border-4 border-meeting-600 border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-secondary-600 dark:text-secondary-400 mb-4">
-                Connecting to meeting...
-              </p>
+              <div className="animate-spin w-12 h-12 border-4 border-gavel border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-ink-muted mb-4">Connecting to meeting...</p>
             </>
           )}
           <div className="flex justify-center gap-3">
@@ -66,12 +88,47 @@ function MeetingsContent() {
   return <MeetingApp />;
 }
 
+/**
+ * Over the meeting while its connection is down: the socket keeps trying, or tries now on request
+ * (socket.io doesn't retry by itself once the server has ended the connection). What went wrong,
+ * if anything was said, is in a toast.
+ */
+function ReconnectingBanner({ onReconnect }: { onReconnect: () => void }) {
+  return (
+    <div
+      role="status"
+      className="sticky top-0 z-30 mx-auto mb-4 flex max-w-lg items-center justify-between gap-3 rounded-lg border border-caution bg-caution-tint px-4 py-2"
+    >
+      <p className="text-sm font-medium text-caution-ink">Connection lost. Reconnecting...</p>
+      <button type="button" onClick={onReconnect} className="btn-secondary btn-sm shrink-0">
+        <RefreshCw size={14} aria-hidden="true" />
+        Reconnect now
+      </button>
+    </div>
+  );
+}
+
+/** The meeting in the link; a link that can't be a meeting code goes to the Live Meetings page */
+function LiveMeetingRoute() {
+  const { code = '' } = useParams();
+  const meetingCode = normalizeMeetingCode(code);
+  if (!MEETING_CODE.test(meetingCode)) return <Navigate to="/meetings" replace />;
+  // A new code is a new meeting: a fresh provider, so nothing of the last one shows
+  return (
+    <SocketProvider key={meetingCode} meetingCode={meetingCode}>
+      <MeetingsContent />
+    </SocketProvider>
+  );
+}
+
 export default function MeetingsModule() {
   return (
     <MeetingOrganizationProvider>
-      <SocketProvider>
-        <MeetingsContent />
-      </SocketProvider>
+      <Routes>
+        <Route index element={<LiveMeetingsPage />} />
+        <Route path=":code" element={<LiveMeetingRoute />} />
+        <Route path="*" element={<Navigate to="/meetings" replace />} />
+      </Routes>
     </MeetingOrganizationProvider>
   );
 }

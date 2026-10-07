@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useVoteResults } from '../useVoteResults';
+import { parseVoteResult, useVoteResults } from '../useVoteResults';
 import type { MeetingLogEntry, MeetingState } from '@robbie-bylawyer/shared/types';
 import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MOTION_FAILED_NO_SECOND,
+  MOTIONS,
+  logAdoptedByConsent,
+  logChairRuled,
+  logElectionSetAside,
+  logMotionWithdrawn,
+} from '@robbie-bylawyer/shared/constants';
 
 describe('useVoteResults', () => {
   // Runs a vote through the reducer so the log has the messages the app really writes
@@ -127,7 +134,7 @@ describe('useVoteResults', () => {
     expect(result.current).not.toBeNull();
     expect(result.current?.yea).toBe(6);
     expect(result.current?.nay).toBe(4);
-    // Empty string rather than null, so VoteResultsPanel's motionText stays a string
+    // Empty string rather than null, so a result's motionText stays a string
     expect(result.current?.motionText).toBe('');
   });
 
@@ -140,5 +147,52 @@ describe('useVoteResults', () => {
     const secondResult = result.current;
 
     expect(firstResult).toBe(secondResult);
+  });
+});
+
+describe('parseVoteResult with a floor tally', () => {
+  const log = (message: string): MeetingLogEntry[] => [
+    { time: '19:41:00', message: 'Chair puts the question: "Approve the pool contract"' },
+    { time: '19:45:00', message },
+  ];
+
+  it('reads both parts and writes the tally the room reads', () => {
+    const result = parseVoteResult(
+      log('Vote: Yea 21, Nay 5. CARRIED. On devices 12 to 3, in the room 9 to 2.'),
+    );
+    expect(result).toMatchObject({
+      yea: 21,
+      nay: 5,
+      outcome: 'CARRIED',
+      parts: { device: { yea: 12, nay: 3 }, floor: { yea: 9, nay: 2 } },
+      tally: 'On devices 12 to 3, in the room 9 to 2: 21 to 5',
+    });
+  });
+
+  it('gives the total alone without a floor tally', () => {
+    const result = parseVoteResult(log('Vote: Yea 6, Nay 4. FAILED.'));
+    expect(result).toMatchObject({ parts: null, tally: '6 to 4', passed: false });
+  });
+
+  it('treats the vote as old news once something else is decided', () => {
+    const decided = (message: string) => [
+      ...log('Vote: Yea 6, Nay 4. CARRIED.'),
+      { time: '19:50:00', message },
+    ];
+    expect(parseVoteResult(decided(logAdoptedByConsent()))).toBeNull();
+    expect(
+      parseVoteResult(decided(logChairRuled('The request is granted.', undefined, 'x'))),
+    ).toBeNull();
+    expect(parseVoteResult(decided(LOG_MOTION_FAILED_NO_SECOND))).toBeNull();
+    expect(parseVoteResult(decided(logMotionWithdrawn('Alice Brennan')))).toBeNull();
+    expect(parseVoteResult(decided(logElectionSetAside('Director')))).toBeNull();
+    // A line that decides nothing leaves the vote up
+    expect(parseVoteResult(decided('Frank Ruiz has joined the meeting.'))).not.toBeNull();
+    expect(
+      parseVoteResult(
+        decided('Voting closed for Director. Results: Carmen Diaz: 9. Carmen Diaz elected.'),
+      ),
+    ).toBeNull();
+    expect(parseVoteResult(decided('Chair declares Carmen Diaz elected as Director.'))).toBeNull();
   });
 });

@@ -40,6 +40,15 @@ describe('socketAuth', () => {
     });
   });
 
+  it("keeps no name for a user who hasn't set one, rather than the email", async () => {
+    const socket = fakeSocket({ cookie: 'session=abc123' });
+    await run(
+      socket,
+      vi.fn(async () => ({ ...session, user: { ...session.user, name: null } })),
+    );
+    expect(socket.data.name).toBe('');
+  });
+
   it('accepts a mobile token from the handshake', async () => {
     const { find, next } = await run(fakeSocket({ auth: { token: 'tok' } }));
     expect(find).toHaveBeenCalledWith('tok');

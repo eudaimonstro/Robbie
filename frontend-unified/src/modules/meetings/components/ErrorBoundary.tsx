@@ -1,4 +1,5 @@
 import { Component, ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
@@ -50,27 +51,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           role="alert"
           aria-live="assertive"
         >
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md text-center">
-            <div className="text-red-600 text-4xl mb-4" aria-hidden="true">
-              ⚠️
-            </div>
-            <h2 className="text-lg font-semibold text-red-800 mb-2">Something went wrong</h2>
-            <p className="text-sm text-red-700 mb-4">
+          <div className="bg-gavel-tint border border-gavel/30 rounded-lg p-6 max-w-md text-center">
+            <AlertTriangle size={32} className="text-gavel mx-auto mb-4" aria-hidden="true" />
+            <h2 className="text-lg font-semibold text-ink mb-2">Something went wrong</h2>
+            <p className="text-sm text-ink mb-4">
               An unexpected error occurred. The meeting data is preserved.
             </p>
             {this.state.error && (
               <details className="text-left mb-4">
-                <summary className="text-xs text-red-600 cursor-pointer hover:underline">
+                <summary className="text-xs text-ink-muted cursor-pointer hover:underline">
                   Technical details
                 </summary>
-                <pre className="mt-2 text-xs bg-red-100 p-2 rounded-sm overflow-auto max-h-32">
+                <pre className="mt-2 text-xs bg-surface p-2 rounded-sm overflow-auto max-h-32">
                   {this.state.error.message}
                 </pre>
               </details>
             )}
             <button
               onClick={this.handleRetry}
-              className="px-4 py-2 bg-red-600 text-white rounded-sm hover:bg-red-700 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              className="px-4 py-2 bg-gavel text-paper rounded-sm hover:bg-gavel-700 dark:hover:bg-gavel-300 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-gavel focus:ring-offset-2"
               aria-label="Try again to recover from error"
             >
               Try Again

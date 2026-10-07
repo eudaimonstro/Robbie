@@ -6,6 +6,8 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
 import { applyAction } from './stateManager.js';
+import { emitState } from './statePublisher.js';
+import { runEvent } from './socketEvents.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -21,60 +23,85 @@ type TypedServer = Server<
 >;
 
 /**
- * Handle socket disconnect and LEAVE_MEETING events
+ * Mark a member absent who is present because of a device that is gone. Writes to a meeting
+ * are queued, so this checks again when it is applied: a member who has reconnected, or whom
+ * the chair has marked present, stays present.
  */
-export async function handleDisconnect(socket: TypedSocket, io: TypedServer): Promise<void> {
-  if (socket.data.meetingCode && socket.data.userId) {
-    const meetingCode = socket.data.meetingCode;
-    const roomName = `meeting:${meetingCode}`;
-    const timestamp = new Date().toISOString();
+export async function markDeviceAbsent(
+  io: TypedServer,
+  meetingCode: string,
+  member: { id: number; name: string; role: SocketData['role'] },
+): Promise<void> {
+  const timestamp = new Date().toISOString();
+  const result = await applyAction(
+    meetingCode,
+    { type: 'SET_MEMBER_PRESENCE', memberId: member.id, present: false, timestamp },
+    (state) => {
+      if (roomManager.isMemberConnected(meetingCode, member.id)) {
+        return { valid: false, error: 'Member reconnected' };
+      }
+      const current = state.members.find((m) => m.id === member.id);
+      if (!current?.present || current.presentBy === 'chair') {
+        return { valid: false, error: 'Not present on a device' };
+      }
+      return { valid: true };
+    },
+  );
+  if (!result.success) return;
 
-    roomManager.removeMember(meetingCode, socket.id);
+  emitState(io, meetingCode, {
+    state: result.state,
+    stateVersion: result.stateVersion,
+    triggeredBy: { actionType: 'MEMBER_LEFT', userId: member.id },
+  });
+  io.to(`meeting:${meetingCode}`).emit('MEMBER_LEFT', {
+    member: { id: member.id, name: member.name, role: member.role, present: false },
+    timestamp,
+  });
+}
 
-    // Check if user still has other connections in this meeting
-    const stillConnected = roomManager.isMemberConnected(meetingCode, socket.data.userId);
+/**
+ * Handle a socket leaving its meeting. A dropped connection ('disconnect') starts the member's
+ * grace period (see PRESENCE_GRACE_MS) and leaves socket.data alone, since connection state
+ * recovery may bring the socket back with it; leaving on purpose ('leave': LEAVE_MEETING, or
+ * joining another meeting) marks the member absent at once.
+ */
+export async function handleDisconnect(
+  socket: TypedSocket,
+  io: TypedServer,
+  reason: 'disconnect' | 'leave' = 'leave',
+): Promise<void> {
+  const meetingCode = socket.data.meetingCode;
+  if (!meetingCode || !socket.data.userId) return;
+  const roomName = `meeting:${meetingCode}`;
 
-    if (!stillConnected) {
-      // Update member presence in state. Writes to a meeting are queued, and a page refresh can
-      // reconnect the member before this one runs, so check again when it is applied.
-      const userId = socket.data.userId;
-      const presenceResult = await applyAction(
-        meetingCode,
-        { type: 'SET_MEMBER_PRESENCE', memberId: userId, present: false, timestamp },
-        () =>
-          roomManager.isMemberConnected(meetingCode, userId)
-            ? { valid: false, error: 'Member reconnected' }
-            : { valid: true },
-      );
+  // The socket's room entry goes whatever the socket is now (a display may have been a
+  // member's device); a display was never a member, so only a member's presence follows
+  roomManager.removeMember(meetingCode, socket.id);
+  if (!socket.data.display) {
+    const member = { id: socket.data.userId, name: socket.data.name, role: socket.data.role };
 
-      // Broadcast state update if presence changed
-      if (presenceResult.success && presenceResult.state) {
-        io.to(roomName).emit('STATE_UPDATE', {
-          state: presenceResult.state,
-          stateVersion: presenceResult.stateVersion!,
-          triggeredBy: { actionType: 'MEMBER_LEFT', userId: socket.data.userId },
-        });
+    // Another connection of the same member keeps them present
+    if (!roomManager.isMemberConnected(meetingCode, member.id)) {
+      if (reason === 'disconnect') {
+        roomManager.startGrace(meetingCode, member.id, () =>
+          runEvent('presence grace', markDeviceAbsent(io, meetingCode, member)),
+        );
+      } else {
+        roomManager.cancelGrace(meetingCode, member.id);
+        await markDeviceAbsent(io, meetingCode, member);
       }
     }
+  }
 
-    // Notify others of member left
-    socket.to(roomName).emit('MEMBER_LEFT', {
-      member: {
-        id: socket.data.userId,
-        name: socket.data.name,
-        role: socket.data.role,
-        present: stillConnected,
-      },
-      timestamp,
-    });
+  // The user's rate limit buckets stay: removing them here gave anyone who left and joined
+  // again a fresh allowance. The limiters' periodic cleanup frees idle buckets.
 
+  if (reason === 'leave') {
     socket.leave(roomName);
-
-    // The user's rate limit buckets stay: removing them here gave anyone who left and joined
-    // again a fresh allowance. The limiters' periodic cleanup frees idle buckets.
-
     // The socket leaves the meeting but stays signed in (its identity came from its session)
     socket.data.meetingCode = null;
-    socket.data.role = null as unknown as 'member' | 'chair' | 'admin';
+    socket.data.role = null as unknown as SocketData['role'];
+    socket.data.display = false;
   }
 }

@@ -32,6 +32,13 @@ const io = new Server<
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  // A phone that loses signal for a moment resumes the same session: its meeting, and the
+  // state updates it missed. Recovered sockets skip the session check (socketAuth), which they
+  // passed when they connected; a socket closed by signing out is not recovered.
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
 });
 
 // Store io instance for access from other modules (e.g., sessionSockets)

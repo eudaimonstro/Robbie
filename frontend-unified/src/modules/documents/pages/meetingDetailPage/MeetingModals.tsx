@@ -195,14 +195,14 @@ export function VoteRecordingModal({
         </div>
 
         {selectedAmendment && (
-          <div className="mb-4 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-            <p className="text-xs text-secondary-500 mb-1">
+          <div className="mb-4 p-3 bg-surface-2 rounded-lg">
+            <p className="text-xs text-ink-muted mb-1">
               {documents.find((d) => d.id === selectedAmendment.documentId)?.title}
             </p>
-            <p className="text-sm text-secondary-600 dark:text-secondary-400">
+            <p className="text-sm text-ink-muted">
               {selectedAmendment.description || 'No description'}
             </p>
-            <p className="text-xs text-secondary-400 mt-2">
+            <p className="text-xs text-ink-muted mt-2">
               {selectedAmendment.changes?.length || 0} proposed change(s)
             </p>
           </div>
@@ -210,7 +210,7 @@ export function VoteRecordingModal({
 
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="label text-success-600">Yea</label>
+            <label className="label text-carried">Yea</label>
             <input
               type="number"
               min="0"
@@ -220,7 +220,7 @@ export function VoteRecordingModal({
             />
           </div>
           <div>
-            <label className="label text-danger-600">Nay</label>
+            <label className="label text-gavel">Nay</label>
             <input
               type="number"
               min="0"
@@ -230,7 +230,7 @@ export function VoteRecordingModal({
             />
           </div>
           <div>
-            <label className="label text-secondary-500">Abstain</label>
+            <label className="label text-ink-muted">Abstain</label>
             <input
               type="number"
               min="0"
@@ -241,17 +241,17 @@ export function VoteRecordingModal({
           </div>
         </div>
 
-        <div className="mb-6 p-4 bg-secondary-100 dark:bg-secondary-700 rounded-lg text-center">
-          <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-1">
+        <div className="mb-6 p-4 bg-surface-2 rounded-lg text-center">
+          <p className="text-sm text-ink-muted mb-1">
             Total votes: {yeaCount + nayCount + abstainCount}
           </p>
           <p
-            className={`text-2xl font-bold ${yeaCount > nayCount ? 'text-success-600' : yeaCount < nayCount ? 'text-danger-600' : 'text-secondary-600'}`}
+            className={`text-2xl font-bold ${yeaCount > nayCount ? 'text-carried' : yeaCount < nayCount ? 'text-gavel' : 'text-ink-muted'}`}
           >
             {yeaCount > nayCount ? 'PASSING' : yeaCount < nayCount ? 'FAILING' : 'TIE'}
           </p>
           {yeaCount === nayCount && yeaCount > 0 && (
-            <p className="text-xs text-secondary-500 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               Ties typically fail (simple majority required)
             </p>
           )}

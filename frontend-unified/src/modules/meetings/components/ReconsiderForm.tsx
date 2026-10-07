@@ -38,13 +38,13 @@ export function ReconsiderForm({
   if (reconsiderableMotions.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-          <p className="text-gray-600">No motions available to reconsider</p>
-          <p className="text-xs text-gray-500 mt-2">You must have voted on the prevailing side</p>
+        <div className="p-4 bg-surface-2 border border-rule rounded-lg text-center">
+          <p className="text-ink-muted">No motions available to reconsider</p>
+          <p className="text-xs text-ink-muted mt-2">You must have voted on the prevailing side</p>
         </div>
         <button
           onClick={onCancel}
-          className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="w-full py-3 rounded-lg border border-rule text-ink hover:bg-surface-2"
         >
           Cancel
         </button>
@@ -54,24 +54,22 @@ export function ReconsiderForm({
 
   return (
     <div className="space-y-4">
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm font-semibold text-blue-900 mb-1">🔄 Reconsider Motion</p>
-        <p className="text-xs text-blue-800">
-          Select a completed motion to bring back for a new vote.
-        </p>
-        <p className="text-xs text-blue-700 mt-1">
+      <div className="p-3 bg-gavel-tint border border-rule rounded-lg">
+        <p className="text-sm font-semibold text-ink mb-1">Reconsider Motion</p>
+        <p className="text-xs text-ink">Select a completed motion to bring back for a new vote.</p>
+        <p className="text-xs text-ink mt-1">
           Per RONR, only voters on the prevailing side may move to reconsider.
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-ink mb-2">
           Select Motion to Reconsider
         </label>
         <select
           value={selectedMotionId}
           onChange={(e) => setSelectedMotionId(Number(e.target.value))}
-          className="w-full p-3 border rounded-lg bg-white"
+          className="w-full p-3 border rounded-lg bg-surface"
         >
           {reconsiderableMotions.map((motion) => (
             <option key={motion.id} value={motion.id}>
@@ -84,13 +82,13 @@ export function ReconsiderForm({
       <div className="flex gap-2 pt-2">
         <button
           onClick={onCancel}
-          className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="flex-1 py-3 rounded-lg border border-rule text-ink hover:bg-surface-2"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
-          className="flex-1 py-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 font-medium"
         >
           Submit Motion
         </button>

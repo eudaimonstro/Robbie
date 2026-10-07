@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
-import { packetsRouter } from '../bylawyer/routes/packets.js';
+import { CHAIR_NOT_MEMBER, packetsRouter } from '../bylawyer/routes/packets.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -9,6 +9,13 @@ import { call, runHandler } from './helpers.js';
 import { describeRules } from './rules.js';
 
 describeRules('packet rules', [
+  {
+    method: 'get',
+    route: '/organizations/:orgId/packets',
+    path: (f) => `/api/organizations/${f.orgA.id}/packets`,
+    min: 'viewer',
+    ok: 200,
+  },
   {
     method: 'post',
     route: '/organizations/:orgId/packets',
@@ -140,6 +147,107 @@ describe('packets', () => {
       org: { id: f.orgA.id, role: 'viewer' },
     });
     expect(res).toEqual({ status: 404, body: { error: 'Not found' } });
+  });
+
+  it('are presided over by their creator unless another member is named', async () => {
+    const path = `/api/organizations/${f.orgA.id}/packets`;
+    const cookie = f.users.secretary.cookie;
+    const byCreator = await call('post', path, { cookie, body: { robbieCode: 'NEW001' } });
+    expect(byCreator.body.chairUserId).toBe(f.users.secretary.id);
+
+    const named = await call('post', path, {
+      cookie,
+      body: { robbieCode: 'NEW002', chairUserId: f.users.member.id },
+    });
+    expect(named.status).toBe(201);
+    expect(named.body.chairUserId).toBe(f.users.member.id);
+
+    const none = await call('post', path, {
+      cookie,
+      body: { robbieCode: 'NEW003', chairUserId: null },
+    });
+    expect(none.body.chairUserId).toBeNull();
+  });
+
+  it('refuse a presiding officer who is a viewer or outside the organization', async () => {
+    for (const chairUserId of [f.users.viewer.id, f.outsider.id, 99999]) {
+      const created = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+        cookie: f.users.secretary.cookie,
+        body: { robbieCode: 'NEW001', chairUserId },
+      });
+      expect(created.status, `create with ${chairUserId}`).toBe(400);
+      expect(created.body).toEqual({ error: CHAIR_NOT_MEMBER });
+
+      const updated = await call('put', `/api/packets/${f.packet.id}`, {
+        cookie: f.users.secretary.cookie,
+        body: { chairUserId },
+      });
+      expect(updated.status, `update to ${chairUserId}`).toBe(400);
+    }
+    expect(await prisma.meetingPacket.count({ where: { robbieCode: 'NEW001' } })).toBe(0);
+  });
+
+  it('change their presiding officer, or have none', async () => {
+    const put = (chairUserId: number | null) =>
+      call('put', `/api/packets/${f.packet.id}`, {
+        cookie: f.users.secretary.cookie,
+        body: { chairUserId },
+      });
+    expect((await put(f.users.admin.id)).body.chairUserId).toBe(f.users.admin.id);
+    expect((await put(null)).body.chairUserId).toBeNull();
+  });
+
+  it('lose their presiding officer when the user is deleted', async () => {
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { chairUserId: f.users.member.id },
+    });
+    await prisma.user.delete({ where: { id: f.users.member.id } });
+    const packet = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
+    expect(packet.chairUserId).toBeNull();
+  });
+
+  it('are listed for the organization, meetings not yet adjourned first', async () => {
+    const org = f.orgA.id;
+    const create = (robbieCode: string, data: object) =>
+      prisma.meetingPacket.create({ data: { organizationId: org, robbieCode, ...data } });
+    await create('SOON01', { scheduledFor: new Date('2026-11-01') });
+    await create('LATER1', { scheduledFor: new Date('2026-12-01') });
+    await create('DONE01', {
+      scheduledFor: new Date('2026-09-01'),
+      startedAt: new Date('2026-09-01T19:00:00Z'),
+      endedAt: new Date('2026-09-01T20:00:00Z'),
+    });
+    await create('DONE02', {
+      scheduledFor: new Date('2026-10-01'),
+      startedAt: new Date('2026-10-01T19:00:00Z'),
+      endedAt: new Date('2026-10-01T20:00:00Z'),
+    });
+
+    const res = await call('get', `/api/organizations/${org}/packets`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(res.status).toBe(200);
+    // The fixture's two packets have no date, so they follow the dated upcoming ones
+    expect(res.body.map((p: { robbieCode: string }) => p.robbieCode)).toEqual([
+      'SOON01',
+      'LATER1',
+      'ORGA01',
+      'ORGA02',
+      'DONE02',
+      'DONE01',
+    ]);
+    expect(res.body[0]).toEqual({
+      id: expect.any(String),
+      robbieCode: 'SOON01',
+      title: null,
+      description: null,
+      scheduledFor: '2026-11-01T00:00:00.000Z',
+      chairUserId: null,
+      startedAt: null,
+      endedAt: null,
+      chair: null,
+    });
   });
 
   it('are no longer created without an organization', async () => {

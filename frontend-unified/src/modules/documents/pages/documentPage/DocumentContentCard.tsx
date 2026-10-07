@@ -34,8 +34,8 @@ export function DocumentContentCard({
   return (
     <>
       <div className="card">
-        <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700 flex items-center justify-between">
-          <h3 className="font-semibold text-secondary-900 dark:text-white">Document Content</h3>
+        <div className="px-4 py-3 border-b border-rule flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Document Content</h3>
           {canEdit && (
             <div className="flex items-center gap-2">
               <button onClick={onCreateVersion} className="btn-ghost btn-sm">
@@ -91,7 +91,7 @@ export function DocumentContentCard({
       {/* Version info */}
       {selectedVersion && (
         <div className="mt-4 card p-4">
-          <div className="flex items-center gap-4 text-sm text-secondary-600 dark:text-secondary-400">
+          <div className="flex items-center gap-4 text-sm text-ink-muted">
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
               Created: {new Date(selectedVersion.createdAt).toLocaleString()}
@@ -118,10 +118,8 @@ function EmptyState({
 }) {
   return (
     <div className="text-center py-8">
-      <FileText className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
-      <p className={`text-secondary-600 dark:text-secondary-400 ${action ? 'mb-4' : ''}`}>
-        {message}
-      </p>
+      <FileText className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+      <p className={`text-ink-muted ${action ? 'mb-4' : ''}`}>{message}</p>
       {action && (
         <button onClick={action.onClick} className="btn-primary btn-sm">
           <Plus className="w-4 h-4 mr-1" />

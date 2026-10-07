@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
-import type { MeetingState, Motion, Member } from '../../types/index.js';
+import type { MeetingAction, MeetingState, Motion, Member } from '../../types/index.js';
 import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
 
 // Mock members for testing (initialState now starts with empty members array)
@@ -57,6 +57,66 @@ describe('meetingReducer', () => {
       expect(state.meetingLog.length).toBeGreaterThan(0);
       expect(state.meetingLog[0].message).toContain('Meeting called to order');
     });
+
+    it('completes a first agenda item that is the call to order', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          agenda: [
+            { id: 1, title: ' call to ORDER ', status: 'pending' },
+            { id: 2, title: 'Treasurer report', status: 'pending' },
+          ],
+        },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'pending']);
+      expect(state.currentAgendaItem).toBeNull();
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'Meeting called to order.',
+        'Completed: " call to ORDER "',
+      ]);
+    });
+
+    it.each(['Call to order.', 'Calling the meeting to order', 'call the meeting to order.'])(
+      'recognizes a first item titled %s',
+      (title) => {
+        const state = meetingReducer(
+          {
+            ...initialState,
+            agenda: [
+              { id: 1, title, status: 'pending' },
+              { id: 2, title: 'Treasurer report', status: 'pending' },
+            ],
+          },
+          { type: 'START_MEETING', timestamp: '10:00:00' },
+        );
+        expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'pending']);
+      },
+    );
+
+    it('leaves a first item that only mentions the call to order', () => {
+      const agenda = [{ id: 1, title: 'Call to order and welcome', status: 'pending' as const }];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+      expect(state.agenda).toEqual(agenda);
+    });
+
+    it('leaves the agenda alone when the call to order is not its first item', () => {
+      const agenda = [
+        { id: 1, title: 'Opening remarks', status: 'pending' as const },
+        { id: 2, title: 'Call to order', status: 'pending' as const },
+      ];
+      const state = meetingReducer(
+        { ...initialState, agenda },
+        { type: 'START_MEETING', timestamp: '10:00:00' },
+      );
+
+      expect(state.agenda).toEqual(agenda);
+      expect(state.meetingLog).toHaveLength(1);
+    });
   });
 
   describe('END_MEETING', () => {
@@ -74,6 +134,210 @@ describe('meetingReducer', () => {
 
       expect(state.meetingActive).toBe(false);
       expect(state.meetingStage).toBe('adjourned');
+    });
+
+    it('completes the agenda item before the meeting, then adjourns', () => {
+      const atAdjournment: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'Old business', status: 'completed' },
+          { id: 2, title: 'Adjournment', status: 'active' },
+        ],
+        currentAgendaItem: { id: 2, title: 'Adjournment', status: 'active' },
+      };
+
+      const state = meetingReducer(atAdjournment, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.meetingStage).toBe('adjourned');
+      expect(state.currentAgendaItem).toBeNull();
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'completed']);
+      expect(state.meetingLog.slice(-2).map((entry) => entry.message)).toEqual([
+        'Completed: "Adjournment"',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it('completes the adjournment item when it has not been called', () => {
+      const inNewBusiness: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'New business', status: 'active' },
+          { id: 2, title: 'Pool hours', status: 'pending' },
+          { id: 3, title: 'ADJOURNMENT', status: 'pending' },
+        ],
+        currentAgendaItem: { id: 1, title: 'New business', status: 'active' },
+      };
+
+      const state = meetingReducer(inNewBusiness, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.agenda.map((item) => item.status)).toEqual([
+        'completed',
+        'pending',
+        'completed',
+      ]);
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'Completed: "New business"',
+        'Completed: "ADJOURNMENT"',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it.each(['Adjourn', 'Adjournment.', ' adjourn. '])('completes an item titled %s', (title) => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          agenda: [
+            { id: 1, title: 'New business', status: 'completed' },
+            { id: 2, title, status: 'pending' },
+            { id: 3, title: 'Adjourned business', status: 'pending' },
+          ],
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+      expect(state.agenda.map((item) => item.status)).toEqual([
+        'completed',
+        'completed',
+        'pending',
+      ]);
+    });
+
+    it('completes the adjournment item between agenda items', () => {
+      const betweenItems: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        agendaAdopted: true,
+        agenda: [
+          { id: 1, title: 'New business', status: 'completed' },
+          { id: 2, title: 'Adjournment', status: 'pending' },
+        ],
+      };
+
+      const state = meetingReducer(betweenItems, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state.agenda.map((item) => item.status)).toEqual(['completed', 'completed']);
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'Completed: "Adjournment"',
+        'Meeting adjourned.',
+      ]);
+    });
+    it('ends the business under way, and records what was left unfinished', () => {
+      const main = createMockMotion({ id: 1, text: 'Resurface the pool' });
+      const amendment = createMockMotion({ id: 2, type: 'amend', text: 'add "by June"' });
+      const awaiting = createMockMotion({ id: 3, type: 'previousQuestion', text: 'Vote now' });
+      const busy: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        members: mockMembers,
+        nominationsOpen: true,
+        currentNominationPosition: 'Treasurer',
+        motionStack: [main, amendment],
+        currentMotion: amendment,
+        pendingSecond: awaiting,
+        votingOpen: true,
+        voteTimerEnd: 1000,
+        unanimousConsentPending: true,
+        speakerQueue: [{ member: mockMembers[0], stance: 'pro' }],
+        recognizedSpeaker: mockMembers[1],
+        speakerTimerEnd: 2000,
+        debatePositions: { 2: 'pro' },
+      };
+
+      const state = meetingReducer(busy, { type: 'END_MEETING', timestamp: '11:00:00' });
+
+      expect(state).toMatchObject({
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+        pendingSecond: null,
+        currentMotion: null,
+        motionStack: [],
+        votingOpen: false,
+        voteTimerEnd: null,
+        unanimousConsentPending: false,
+        speakerQueue: [],
+        recognizedSpeaker: null,
+        speakerTimerEnd: null,
+        debatePositions: {},
+      });
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'The meeting adjourned with the election for Treasurer, the motion "Resurface the pool", ' +
+          'the motion "add "by June"" and the motion "Vote now" unfinished.',
+        'Meeting adjourned.',
+      ]);
+    });
+
+    it('takes the choices of a secret ballot it interrupts with it', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          members: mockMembers,
+          currentMotion: createMockMotion({ id: 1, text: 'Resurface the pool' }),
+          motionStack: [createMockMotion({ id: 1, text: 'Resurface the pool' })],
+          votingOpen: true,
+          votingMethod: 'ballot',
+          votes: { yea: 2, nay: 1, abstain: 0 },
+          voters: [2, 3, 4],
+          voterChoices: { 2: 'yea', 3: 'nay', 4: 'yea' },
+          proxyVotes: [{ memberId: 4, castBy: 2, vote: 'yea' }],
+          floorVotes: { yea: 4, nay: 2, abstain: 0 },
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+
+      expect(state).toMatchObject({
+        votingOpen: false,
+        votes: { yea: 0, nay: 0, abstain: 0 },
+        voters: [],
+        voterChoices: {},
+        proxyVotes: [],
+        floorVotes: { yea: 0, nay: 0, abstain: 0 },
+      });
+      // It was never decided, so it leaves no record
+      expect(state.completedMotions).toEqual([]);
+    });
+
+    it('keeps the count of a vote already decided', () => {
+      const decided: MeetingState = {
+        ...initialState,
+        meetingActive: true,
+        votes: { yea: 3, nay: 1, abstain: 0 },
+        voters: [2, 3, 4, 5],
+      };
+      const state = meetingReducer(decided, { type: 'END_MEETING', timestamp: '11:00:00' });
+      expect(state.votes).toEqual(decided.votes);
+      expect(state.voters).toEqual(decided.voters);
+    });
+
+    it('records an election under way as unfinished', () => {
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          currentElection: {
+            id: 1,
+            position: 'Secretary',
+            candidates: [{ name: 'Alice', id: 1 }],
+            requiredVotes: 'majority',
+            votingInProgress: true,
+            ballotResults: { Alice: 0 },
+            votersWhoVoted: [],
+            elected: null,
+          },
+        },
+        { type: 'END_MEETING', timestamp: '11:00:00' },
+      );
+
+      expect(state.currentElection).toBeNull();
+      expect(state.meetingLog.map((entry) => entry.message)).toEqual([
+        'The meeting adjourned with the election for Secretary unfinished.',
+        'Meeting adjourned.',
+      ]);
     });
   });
 
@@ -1673,6 +1937,45 @@ describe('meetingReducer', () => {
   });
 
   describe('START_ELECTION', () => {
+    it('closes nominations still open, so nothing is left open once the officer is declared', () => {
+      let state: MeetingState = { ...initialState, meetingActive: true, members: mockMembers };
+      const steps: MeetingAction[] = [
+        { type: 'OPEN_NOMINATIONS', position: 'Treasurer', timestamp: '10:30:00' },
+        {
+          type: 'NOMINATE',
+          position: 'Treasurer',
+          nomineeName: 'Alice',
+          nomineeId: 1,
+          nominatedBy: 'Bob',
+          nominatorId: 2,
+          nominationId: 1,
+          timestamp: '10:31:00',
+        },
+        {
+          type: 'START_ELECTION',
+          electionId: 1,
+          position: 'Treasurer',
+          requiredVotes: 'majority',
+          timestamp: '10:32:00',
+        },
+      ];
+      for (const step of steps) state = meetingReducer(state, step);
+      expect(state.nominationsOpen).toBe(false);
+
+      state = meetingReducer(state, { type: 'CAST_BALLOT', candidateName: 'Alice', voterId: 2 });
+      state = meetingReducer(state, { type: 'CLOSE_ELECTION', timestamp: '10:35:00' });
+      state = meetingReducer(state, {
+        type: 'DECLARE_ELECTED',
+        candidateName: 'Alice',
+        timestamp: '10:36:00',
+      });
+      expect(state).toMatchObject({
+        nominationsOpen: false,
+        currentNominationPosition: null,
+        currentElection: null,
+      });
+    });
+
     it('should start election with candidates', () => {
       const stateWithNominations: MeetingState = {
         ...initialState,
@@ -1944,6 +2247,87 @@ describe('meetingReducer', () => {
       });
 
       expect(state).toBe(initialState);
+    });
+  });
+
+  describe('SET_ASIDE_ELECTION', () => {
+    const nominee = {
+      id: 1,
+      position: 'Treasurer',
+      nomineeName: 'Alice',
+      nomineeId: 1,
+      nominatedBy: 'Bob',
+      nominatorId: 2,
+      timestamp: '10:32:00',
+      declined: false,
+    };
+
+    it('closes nominations that found no nominee, keeping the record of them', () => {
+      const closedEmpty: MeetingState = {
+        ...initialState,
+        nominationsOpen: false,
+        currentNominationPosition: 'Treasurer',
+      };
+
+      const state = meetingReducer(closedEmpty, {
+        type: 'SET_ASIDE_ELECTION',
+        timestamp: '10:40:00',
+      });
+
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.currentNominationPosition).toBeNull();
+      expect(state.currentElection).toBeNull();
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Treasurer was set aside.');
+    });
+
+    it('sets aside open nominations for a mistyped position', () => {
+      const state = meetingReducer(
+        { ...initialState, nominationsOpen: true, currentNominationPosition: 'Tresurer' },
+        { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' },
+      );
+
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.currentNominationPosition).toBeNull();
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Tresurer was set aside.');
+    });
+
+    it('drops a ballot under way, and a winner not yet declared', () => {
+      const elected: MeetingState = {
+        ...initialState,
+        nominations: [nominee],
+        currentElection: {
+          id: 7,
+          position: 'Treasurer',
+          candidates: [{ name: 'Alice', id: 1 }],
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { Alice: 3 },
+          votersWhoVoted: [1, 2, 3],
+          elected: 'Alice',
+        },
+      };
+
+      const state = meetingReducer(elected, { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' });
+
+      expect(state.currentElection).toBeNull();
+      expect(state.electedOfficers).toEqual([]);
+      expect(state.nominations).toEqual([nominee]);
+      expect(state.meetingLog.at(-1)?.message).toBe('The election for Treasurer was set aside.');
+    });
+
+    it('does nothing with no election', () => {
+      expect(
+        meetingReducer(initialState, { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' }),
+      ).toBe(initialState);
+    });
+
+    it('closes nominations left open with no position', () => {
+      const state = meetingReducer(
+        { ...initialState, nominationsOpen: true },
+        { type: 'SET_ASIDE_ELECTION', timestamp: '10:40:00' },
+      );
+      expect(state.nominationsOpen).toBe(false);
+      expect(state.meetingLog.at(-1)?.message).toBe('The election was set aside.');
     });
   });
 

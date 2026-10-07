@@ -1,4 +1,27 @@
-import type { Votes, VoteRequirement, VoteCalculationResult } from '../types/index.js';
+import type {
+  CompletedMotion,
+  Votes,
+  VoteRequirement,
+  VoteCalculationResult,
+} from '../types/index.js';
+
+export const NO_VOTES: Votes = { yea: 0, nay: 0, abstain: 0 };
+
+/** Two counts added together: device votes and the floor tally, say */
+export function addVotes(a: Votes, b: Votes = NO_VOTES): Votes {
+  return { yea: a.yea + b.yea, nay: a.nay + b.nay, abstain: a.abstain + b.abstain };
+}
+
+/**
+ * A decided motion's vote, device and floor votes together. Records made before the parts
+ * were kept are counted from their device votes.
+ */
+export function completedMotionVotes(motion: CompletedMotion): Votes {
+  if (motion.deviceVotes) return addVotes(motion.deviceVotes, motion.floorVotes);
+  const counts = { ...NO_VOTES };
+  for (const vote of Object.values(motion.voterChoices)) counts[vote]++;
+  return counts;
+}
 
 /**
  * Calculate whether a vote passes based on the vote requirement
@@ -35,7 +58,8 @@ export function calculateVoteResult(
  * RONR: the chair votes (outside a ballot) only when the chair's vote would change the result,
  * for example to break or make a tie, or to reach or block two-thirds. That is judged on the
  * votes already cast, so it is never true before anyone has voted.
- * @param votes - Current vote counts, without the chair's vote
+ * @param votes - Current vote counts (device votes and the floor tally together), without the
+ *   chair's vote
  * @param requirement - The vote requirement of the pending question
  */
 export function canChairVoteDecide(votes: Votes, requirement: VoteRequirement): boolean {

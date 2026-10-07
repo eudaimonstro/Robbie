@@ -1,24 +1,54 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
 interface NominationsPanelProps {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
+  /** The signed-in user, who nominates and may decline their own nomination */
   currentUser: Member;
+  /**
+   * The chair, or an admin presiding: opens and closes nominations, and records nominations made
+   * from the floor (the chair doesn't nominate in their own name)
+   */
   isChair?: boolean;
+  /** Inside the console's election card: no card or heading of its own, and no Elected list */
+  embedded?: boolean;
 }
 
+/** The nominee select's value for someone typed in by name */
+const SOMEONE_ELSE = 'someone-else';
+
+/**
+ * Nominations (docs/superpowers/specs/2026-10-06-in-the-room-design.md, "Elections from the
+ * chair's screen"): the chair opens them for any position at any time no election is running.
+ * Nominees are anyone present who isn't a guest (members marked present included), or someone
+ * not in the meeting, by name. Nominations need no second.
+ */
 export function NominationsPanel({
   state,
   dispatch,
   currentUser,
   isChair = false,
+  embedded = false,
 }: NominationsPanelProps) {
+  const positionId = useId();
+  const nomineeId = useId();
+  const nameId = useId();
   const [position, setPosition] = useState('');
-  const [nomineeName, setNomineeName] = useState('');
+  const [nominee, setNominee] = useState('');
+  const [name, setName] = useState('');
 
-  const handleOpenNominations = useCallback(() => {
+  const openPosition = state.nominationsOpen ? state.currentNominationPosition : null;
+  const candidates = useMemo(
+    () => state.members.filter((m) => m.present && m.role !== 'guest'),
+    [state.members],
+  );
+  const nominations = state.nominations.filter((n) => n.position === openPosition);
+  const canNominate = currentUser.role !== 'guest';
+
+  const openNominations = (e: FormEvent) => {
+    e.preventDefault();
     if (!position.trim()) return;
     dispatch({
       type: 'OPEN_NOMINATIONS',
@@ -26,205 +56,210 @@ export function NominationsPanel({
       timestamp: generateTimestamp(),
     });
     setPosition('');
-  }, [dispatch, position]);
+  };
 
-  const handleNominate = useCallback(() => {
-    if (!nomineeName.trim() || !state.currentNominationPosition) return;
-
-    // Check if nominee is a member
-    const nominee = state.members.find(
-      (m) => m.name.toLowerCase() === nomineeName.trim().toLowerCase(),
-    );
-
+  const nominate = (e: FormEvent) => {
+    e.preventDefault();
+    if (!openPosition) return;
+    const member =
+      nominee && nominee !== SOMEONE_ELSE
+        ? candidates.find((m) => String(m.id) === nominee)
+        : undefined;
+    const nomineeName = member ? member.name : name.trim();
+    if (!nomineeName) return;
     dispatch({
       type: 'NOMINATE',
-      position: state.currentNominationPosition,
-      nomineeName: nomineeName.trim(),
-      nomineeId: nominee?.id ?? 0,
+      position: openPosition,
+      nomineeName,
+      // Someone not in the meeting has no member ID: the server tells them apart by name
+      nomineeId: member?.id ?? 0,
       nominatedBy: currentUser.name,
       nominatorId: currentUser.id,
       nominationId: generateId(),
+      // The chair records a nomination someone made in the room
+      ...(isChair ? { fromFloor: true } : {}),
       timestamp: generateTimestamp(),
     });
-    setNomineeName('');
-  }, [
-    dispatch,
-    nomineeName,
-    state.currentNominationPosition,
-    state.members,
-    currentUser.name,
-    currentUser.id,
-  ]);
+    setNominee('');
+    setName('');
+  };
 
-  const handleDeclineNomination = useCallback(
-    (nominationId: number) => {
-      dispatch({
-        type: 'DECLINE_NOMINATION',
-        nominationId,
-        timestamp: generateTimestamp(),
-      });
-    },
-    [dispatch],
-  );
+  const ready = nominee !== '' && (nominee !== SOMEONE_ELSE || name.trim() !== '');
+  // Nothing is opened once the meeting is adjourned, nor while a question is pending
+  const canOpen =
+    isChair &&
+    !state.nominationsOpen &&
+    !state.currentElection &&
+    !state.currentMotion &&
+    !state.pendingSecond &&
+    state.meetingStage !== 'adjourned';
+  const showElected = !embedded && state.electedOfficers.length > 0;
+  const showNone = !embedded && !isChair && !openPosition && state.electedOfficers.length === 0;
+  if (embedded && !canOpen && !openPosition) return null;
 
-  const handleCloseNominations = useCallback(() => {
-    dispatch({
-      type: 'CLOSE_NOMINATIONS',
-      timestamp: generateTimestamp(),
-    });
-  }, [dispatch]);
-
-  const currentPositionNominations = useMemo(
-    () => state.nominations.filter((n) => n.position === state.currentNominationPosition),
-    [state.nominations, state.currentNominationPosition],
-  );
-
-  return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="nominations-heading">
-      <h3
-        id="nominations-heading"
-        className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
-      >
-        <span aria-hidden="true">🗳️</span> Nominations and Elections
-      </h3>
-
-      {/* Chair Controls - Open Nominations */}
-      {isChair && !state.nominationsOpen && !state.currentElection && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Open Nominations for Position
+  const body = (
+    <>
+      {canOpen && (
+        <form onSubmit={openNominations} className="space-y-2">
+          <label htmlFor={positionId} className="label">
+            Open nominations for
           </label>
           <div className="flex gap-2">
             <input
-              type="text"
-              placeholder="e.g., President, Secretary, Treasurer"
+              id={positionId}
+              className="input min-w-0 flex-1"
+              placeholder="Director, Treasurer..."
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="flex-1 p-2 border rounded-sm text-sm"
             />
             <button
-              onClick={handleOpenNominations}
+              type="submit"
+              className="btn-secondary btn-sm shrink-0 whitespace-nowrap"
               disabled={!position.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
             >
-              Open Nominations
+              Open nominations
             </button>
           </div>
-        </div>
+        </form>
       )}
 
-      {/* Active Nominations */}
-      {state.nominationsOpen && state.currentNominationPosition && (
-        <div className="mb-4">
-          <div
-            className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="font-semibold text-green-900">
-              <span aria-hidden="true">✅</span> Nominations are open for:{' '}
-              {state.currentNominationPosition}
-            </p>
-            <p className="text-xs text-green-700 mt-1">
-              Per RONR, nominations do not require a second. Members may nominate themselves.
-            </p>
-          </div>
+      {openPosition && (
+        <div className="space-y-3">
+          <p role="status" className="text-sm text-ink">
+            Nominations are open for <span className="font-semibold">{openPosition}</span>. They
+            need no second, and members may nominate themselves.
+          </p>
 
-          {/* Nominate Form */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nominate a Candidate
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Name of nominee"
-                value={nomineeName}
-                onChange={(e) => setNomineeName(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleNominate()}
-                className="flex-1 p-2 border rounded-sm text-sm"
-              />
-              <button
-                onClick={handleNominate}
-                disabled={!nomineeName.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 disabled:bg-gray-300 text-sm font-medium"
+          {canNominate && (
+            <form
+              onSubmit={nominate}
+              aria-label={isChair ? 'Nominate from the floor' : 'Nominate'}
+              className="space-y-2"
+            >
+              <label htmlFor={nomineeId} className="label">
+                Nominee
+              </label>
+              <select
+                id={nomineeId}
+                className="select"
+                value={nominee}
+                onChange={(e) => setNominee(e.target.value)}
               >
-                Nominate
-              </button>
-            </div>
-          </div>
-
-          {/* Current Nominations List */}
-          {currentPositionNominations.length > 0 && (
-            <div className="mb-3">
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Nominations Received ({currentPositionNominations.filter((n) => !n.declined).length}
-                ):
-              </p>
-              <div className="space-y-2">
-                {currentPositionNominations.map((nomination) => (
-                  <div
-                    key={nomination.id}
-                    className={`p-2 rounded border text-sm ${
-                      nomination.declined
-                        ? 'bg-gray-50 border-gray-300 opacity-60'
-                        : 'bg-white border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium">{nomination.nomineeName}</span>
-                        {nomination.declined && (
-                          <span className="ml-2 text-xs text-red-600">(Declined)</span>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          Nominated by {nomination.nominatedBy}
-                        </p>
-                      </div>
-                      {!nomination.declined && nomination.nomineeId === currentUser.id && (
-                        <button
-                          onClick={() => handleDeclineNomination(nomination.id)}
-                          className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-sm hover:bg-red-200"
-                        >
-                          Decline
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <option value="">Choose someone present</option>
+                {candidates.map((member) => (
+                  <option key={member.id} value={String(member.id)}>
+                    {member.name}
+                  </option>
                 ))}
-              </div>
-            </div>
+                <option value={SOMEONE_ELSE}>Someone not in the meeting</option>
+              </select>
+              {nominee === SOMEONE_ELSE && (
+                <div>
+                  <label htmlFor={nameId} className="label">
+                    Nominee&apos;s name
+                  </label>
+                  <input
+                    id={nameId}
+                    className="input"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              )}
+              <button
+                type="submit"
+                className={isChair ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'}
+                disabled={!ready}
+              >
+                {isChair ? 'Nominate from the floor' : 'Nominate'}
+              </button>
+            </form>
           )}
 
-          {/* Chair Controls - Close Nominations */}
+          {nominations.length > 0 && (
+            <ul aria-label="Nominations" className="divide-y divide-rule">
+              {nominations.map((nomination) => (
+                <li key={nomination.id} className="flex items-center justify-between gap-2 py-2">
+                  <div>
+                    <p
+                      className={`text-sm font-medium ${nomination.declined ? 'text-ink-muted line-through' : 'text-ink'}`}
+                    >
+                      {nomination.nomineeName}
+                      {nomination.declined && ' (declined)'}
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {nomination.fromFloor
+                        ? 'Nominated from the floor'
+                        : `Nominated by ${nomination.nominatedBy}`}
+                    </p>
+                  </div>
+                  {!nomination.declined && nomination.nomineeId === currentUser.id && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={() =>
+                        dispatch({
+                          type: 'DECLINE_NOMINATION',
+                          nominationId: nomination.id,
+                          timestamp: generateTimestamp(),
+                        })
+                      }
+                    >
+                      Decline
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
           {isChair && (
             <button
-              onClick={handleCloseNominations}
-              className="w-full py-2 bg-gray-600 text-white rounded-sm hover:bg-gray-700 text-sm font-medium"
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() =>
+                dispatch({ type: 'CLOSE_NOMINATIONS', timestamp: generateTimestamp() })
+              }
             >
-              Close Nominations
+              Close nominations
             </button>
           )}
         </div>
       )}
 
-      {/* Elected Officers */}
-      {state.electedOfficers.length > 0 && (
-        <div className="mt-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">Elected Officers:</p>
-          <div className="space-y-2">
-            {state.electedOfficers.map((officer, index) => (
-              <div
-                key={index}
-                className="p-2 bg-green-50 border border-green-200 rounded-sm text-sm"
-              >
-                <span className="font-medium">{officer.position}:</span>{' '}
-                <span className="text-green-800">{officer.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {showElected && <ElectedOfficers state={state} />}
+
+      {showNone && <p className="text-sm text-ink-muted">No nominations are open.</p>}
+    </>
+  );
+
+  if (embedded) return <div className="space-y-4">{body}</div>;
+  return (
+    <section className="card space-y-4 p-5" aria-labelledby="nominations-heading">
+      <h3 id="nominations-heading" className="label-caps">
+        Nominations and elections
+      </h3>
+      {body}
     </section>
+  );
+}
+
+/** Who the meeting has elected, to what */
+export function ElectedOfficers({ state }: { state: MeetingState }) {
+  if (state.electedOfficers.length === 0) return null;
+  return (
+    <div>
+      <p className="label-caps mb-2">Elected</p>
+      <ul className="space-y-1">
+        {state.electedOfficers.map((officer) => (
+          <li
+            key={`${officer.position}-${officer.memberId}-${officer.name}`}
+            className="text-sm text-ink"
+          >
+            <span className="font-medium">{officer.position}:</span> {officer.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

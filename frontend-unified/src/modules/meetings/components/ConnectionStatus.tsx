@@ -1,69 +1,58 @@
-import { Wifi, WifiOff, RefreshCw, LogOut, Users } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, LogOut } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 
 export function ConnectionStatus() {
-  const { isConnected, connectedMembers, currentUser, leaveMeeting, reconnect, error } =
-    useSocket();
+  const { isConnected, leaveMeeting, reconnect, error } = useSocket();
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-2">
       {/* Connection indicator */}
       <div className="flex items-center gap-2">
         {isConnected ? (
           <>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success-100 dark:bg-success-900/30">
-              <Wifi size={14} className="text-success-600 dark:text-success-400" />
-              <span className="text-xs text-success-700 dark:text-success-400 font-medium">
-                Connected
-              </span>
+            {/* Quiet while all is well: the word shows only when the connection is lost */}
+            <div className="flex items-center rounded-full bg-carried-tint p-1.5" title="Connected">
+              <Wifi size={14} className="text-carried" aria-hidden="true" />
+              <span className="sr-only">Connected</span>
             </div>
           </>
         ) : (
           <>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-danger-100 dark:bg-danger-900/30">
-              <WifiOff size={14} className="text-danger-600 dark:text-danger-400" />
-              <span className="text-xs text-danger-700 dark:text-danger-400 font-medium">
-                Disconnected
-              </span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-caution-tint">
+              <WifiOff size={14} className="text-caution-ink" aria-hidden="true" />
+              <span className="text-xs text-caution-ink font-medium">Disconnected</span>
             </div>
             <button
+              type="button"
               onClick={reconnect}
-              className="p-1.5 hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-surface-2 rounded-lg transition-colors"
               title="Reconnect"
+              aria-label="Reconnect"
             >
-              <RefreshCw size={14} className="text-secondary-500 dark:text-secondary-400" />
+              <RefreshCw size={14} className="text-ink-muted" aria-hidden="true" />
             </button>
           </>
         )}
       </div>
 
-      {/* Connected members count */}
-      {isConnected && (
-        <div className="flex items-center gap-1.5 text-sm text-secondary-500 dark:text-secondary-400">
-          <Users size={14} />
-          <span>{connectedMembers.length}</span>
-        </div>
-      )}
-
       {/* Current user & leave meeting */}
       <div className="flex items-center gap-2">
-        {currentUser && (
-          <span className="text-sm text-secondary-600 dark:text-secondary-400 hidden sm:inline">
-            {currentUser.name}
-          </span>
-        )}
+        {/* The way back to the app: a live meeting hides the sidebar */}
         <button
+          type="button"
           onClick={leaveMeeting}
-          className="p-1.5 hover:bg-secondary-100 dark:hover:bg-secondary-700 rounded-lg text-secondary-500 dark:text-secondary-400 hover:text-danger-600 dark:hover:text-danger-400 transition-colors"
-          title="Leave meeting"
+          className="btn-ghost btn-sm"
+          aria-label="Leave meeting"
+          title="Leave the meeting and return to the app"
         >
-          <LogOut size={16} />
+          <LogOut size={16} aria-hidden="true" />
+          Leave
         </button>
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="absolute top-full left-0 right-0 bg-danger-50 dark:bg-danger-900/30 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 px-3 py-2 rounded-lg mt-2 text-sm">
+        <div className="absolute top-full left-0 right-0 bg-gavel-tint border border-gavel/30 text-ink px-3 py-2 rounded-lg mt-2 text-sm">
           {error}
         </div>
       )}

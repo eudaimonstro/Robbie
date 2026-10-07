@@ -1,4 +1,5 @@
 import React from 'react';
+import { Hash, Minus, Pencil, Plus } from 'lucide-react';
 import type { BylawChangeType } from '../../types';
 
 interface ChangeTypeSelectorProps {
@@ -7,10 +8,10 @@ interface ChangeTypeSelectorProps {
 }
 
 const CHANGE_TYPES = [
-  { value: 'add' as const, label: 'Add', icon: '+' },
-  { value: 'modify' as const, label: 'Modify', icon: '✎' },
-  { value: 'delete' as const, label: 'Delete', icon: '−' },
-  { value: 'renumber' as const, label: 'Renumber', icon: '#' },
+  { value: 'add' as const, label: 'Add', Icon: Plus },
+  { value: 'modify' as const, label: 'Modify', Icon: Pencil },
+  { value: 'delete' as const, label: 'Delete', Icon: Minus },
+  { value: 'renumber' as const, label: 'Renumber', Icon: Hash },
 ];
 
 export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
@@ -19,9 +20,7 @@ export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
 }: ChangeTypeSelectorProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-        Amendment Type
-      </label>
+      <label className="block text-sm font-medium text-ink mb-2">Amendment Type</label>
       <div className="grid grid-cols-4 gap-2">
         {CHANGE_TYPES.map((opt) => (
           <button
@@ -29,11 +28,11 @@ export const ChangeTypeSelector = React.memo(function ChangeTypeSelector({
             onClick={() => onChange(opt.value)}
             className={`p-3 rounded-lg border-2 text-center transition-colors ${
               value === opt.value
-                ? 'border-meeting-500 bg-meeting-50 dark:bg-meeting-900/30 text-meeting-700 dark:text-meeting-300'
-                : 'border-secondary-200 dark:border-secondary-600 text-secondary-600 dark:text-secondary-400 hover:border-secondary-300 dark:hover:border-secondary-500'
+                ? 'border-gavel bg-gavel-tint text-ink'
+                : 'border-rule text-ink-muted hover:border-ink-muted'
             }`}
           >
-            <span className="text-xl block">{opt.icon}</span>
+            <opt.Icon size={20} aria-hidden="true" className="mx-auto mb-1 block" />
             <span className="text-xs">{opt.label}</span>
           </button>
         ))}

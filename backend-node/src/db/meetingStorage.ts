@@ -32,7 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_meetings_bylawyer_org ON meetings(bylawyer_org_id
 -- Index for faster meeting code lookups
 CREATE INDEX IF NOT EXISTS idx_meetings_code ON meetings(code);
 
--- Participants (role per meeting)
+-- Participants (role per meeting). Unused: meeting roles come from the organization at every
+-- join. Dropped with the other legacy tables in M5.
 CREATE TABLE IF NOT EXISTS meeting_participants (
   id SERIAL PRIMARY KEY,
   meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
@@ -86,6 +87,14 @@ export interface MeetingRecord {
   stateVersion: number;
 }
 
+/**
+ * A stored state with every field the current MeetingState has: a meeting saved before a
+ * field existed gets its initial value
+ */
+export function withDefaults(state: MeetingState): MeetingState {
+  return { ...initialState, ...state };
+}
+
 /** Result of state update with optimistic locking */
 export type UpdateResult =
   { success: true } | { success: false; error: 'VERSION_CONFLICT' | 'NOT_FOUND' };
@@ -94,7 +103,8 @@ export interface StorageProvider {
   mode: 'in-memory' | 'postgresql';
   initialize(): Promise<void>;
   shutdown(): Promise<void>;
-  getOrCreateMeeting(code: string): Promise<MeetingRecord>;
+  /** The meeting with this code, created with the `initial` state if there is none */
+  getOrCreateMeeting(code: string, initial: MeetingState): Promise<MeetingRecord>;
   /**
    * Update meeting state with optimistic locking
    * @param code - Meeting code
@@ -110,15 +120,6 @@ export interface StorageProvider {
     newVersion: number,
   ): Promise<UpdateResult>;
   getMeeting(code: string): Promise<MeetingRecord | null>;
-  getParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-  ): Promise<'member' | 'chair' | 'admin' | null>;
-  setParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-    role: 'member' | 'chair' | 'admin',
-  ): Promise<void>;
   /**
    * Log an action for audit trail (optional - implemented in PostgreSQL mode)
    */
@@ -134,7 +135,6 @@ export interface StorageProvider {
 class InMemoryStorage implements StorageProvider {
   mode = 'in-memory' as const;
   private meetings = new Map<string, MeetingRecord>();
-  private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
   private nextMeetingId = 1;
 
   async initialize(): Promise<void> {
@@ -144,16 +144,15 @@ class InMemoryStorage implements StorageProvider {
   async shutdown(): Promise<void> {
     logger.info('In-memory storage shutdown (data cleared)');
     this.meetings.clear();
-    this.participantRoles.clear();
   }
 
-  async getOrCreateMeeting(code: string): Promise<MeetingRecord> {
+  async getOrCreateMeeting(code: string, initial: MeetingState): Promise<MeetingRecord> {
     let meeting = this.meetings.get(code);
     if (!meeting) {
       meeting = {
         id: this.nextMeetingId++,
         code,
-        state: { ...initialState, meetingCode: code },
+        state: { ...initial, meetingCode: code },
         stateVersion: 1,
       };
       this.meetings.set(code, meeting);
@@ -184,30 +183,11 @@ class InMemoryStorage implements StorageProvider {
   async getMeeting(code: string): Promise<MeetingRecord | null> {
     return this.meetings.get(code) || null;
   }
-
-  async getParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-  ): Promise<'member' | 'chair' | 'admin' | null> {
-    const key = `${meetingCode}:${odUserId}`;
-    return this.participantRoles.get(key) || null;
-  }
-
-  async setParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-    role: 'member' | 'chair' | 'admin',
-  ): Promise<void> {
-    const key = `${meetingCode}:${odUserId}`;
-    this.participantRoles.set(key, role);
-  }
 }
 
 // PostgreSQL implementation
 class PostgresStorage implements StorageProvider {
   mode = 'postgresql' as const;
-  // Use in-memory for participant roles since users table isn't populated yet
-  private participantRoles = new Map<string, 'member' | 'chair' | 'admin'>();
 
   async initialize(): Promise<void> {
     logger.info('Initializing PostgreSQL storage');
@@ -221,7 +201,7 @@ class PostgresStorage implements StorageProvider {
     }
   }
 
-  async getOrCreateMeeting(code: string): Promise<MeetingRecord> {
+  async getOrCreateMeeting(code: string, initial: MeetingState): Promise<MeetingRecord> {
     // Try to get existing meeting
     const existing = await this.getMeeting(code);
     if (existing) {
@@ -229,7 +209,7 @@ class PostgresStorage implements StorageProvider {
     }
 
     // Create new meeting
-    const newState = { ...initialState, meetingCode: code };
+    const newState = { ...initial, meetingCode: code };
     const result = await pool.query(
       `INSERT INTO meetings (code, current_state, state_version)
        VALUES ($1, $2, 1)
@@ -242,7 +222,7 @@ class PostgresStorage implements StorageProvider {
     return {
       id: result.rows[0].id,
       code: result.rows[0].code,
-      state: result.rows[0].current_state,
+      state: withDefaults(result.rows[0].current_state),
       stateVersion: result.rows[0].state_version,
     };
   }
@@ -284,28 +264,9 @@ class PostgresStorage implements StorageProvider {
     return {
       id: result.rows[0].id,
       code: result.rows[0].code,
-      state: result.rows[0].current_state,
+      state: withDefaults(result.rows[0].current_state),
       stateVersion: result.rows[0].state_version,
     };
-  }
-
-  async getParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-  ): Promise<'member' | 'chair' | 'admin' | null> {
-    // Use in-memory storage for roles (users table not populated yet)
-    const key = `${meetingCode}:${odUserId}`;
-    return this.participantRoles.get(key) || null;
-  }
-
-  async setParticipantRole(
-    meetingCode: string,
-    odUserId: string,
-    role: 'member' | 'chair' | 'admin',
-  ): Promise<void> {
-    // Use in-memory storage for roles (users table not populated yet)
-    const key = `${meetingCode}:${odUserId}`;
-    this.participantRoles.set(key, role);
   }
 
   async shutdown(): Promise<void> {

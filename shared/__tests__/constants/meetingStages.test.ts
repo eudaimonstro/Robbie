@@ -23,7 +23,6 @@ describe('meetingStages', () => {
       MEETING_STAGES.forEach((stage) => {
         expect(stage).toHaveProperty('stage');
         expect(stage).toHaveProperty('label');
-        expect(stage).toHaveProperty('icon');
         expect(stage).toHaveProperty('logMessage');
       });
     });

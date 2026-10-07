@@ -5,9 +5,10 @@ import type {
   SocketData,
   ActionErrorCode,
 } from '@robbie-bylawyer/shared/types/socket';
-import type { MeetingAction } from '@robbie-bylawyer/shared/types';
-import { getStorage } from '../db/meetingStorage.js';
-import { roomManager } from './roomManager.js';
+import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
+import { logger } from '../middleware/logger.js';
+import { savePresidingOfficer } from './meetingPacket.js';
+import { syncMeetingRoles, updateSocketRoles } from './meetingRoles.js';
 
 type TypedServer = Server<
   ClientToServerEvents,
@@ -16,17 +17,9 @@ type TypedServer = Server<
   SocketData
 >;
 
-interface SetMemberRoleAction {
-  type: 'SET_MEMBER_ROLE';
-  targetMemberId: number;
-  newRole: 'member' | 'chair' | 'admin';
-  previousChairId?: number;
-  changedBy?: string;
-  changedById?: number;
-}
-
 /**
- * Validate SET_MEMBER_ROLE action before processing
+ * Validate SET_MEMBER_ROLE action before processing. Meeting roles come from the organization,
+ * so the only role handed out in a meeting is the chair (by the chair or an admin).
  * Returns null if valid, error message if invalid
  */
 export function validateRoleChange(
@@ -37,30 +30,18 @@ export function validateRoleChange(
     return null;
   }
 
-  const roleAction = action as SetMemberRoleAction;
-
-  // Chair can only transfer chair role (not assign admin or demote others)
-  if (socketData.role === 'chair') {
-    if (roleAction.newRole !== 'chair') {
-      return {
-        error: 'Chair can only transfer the chair role, not assign other roles',
-        errorCode: 'PERMISSION_DENIED',
-      };
-    }
-    // Chair cannot assign chair to themselves
-    if (roleAction.targetMemberId === socketData.userId) {
-      return {
-        error: 'You are already the chair',
-        errorCode: 'INVALID_ACTION',
-      };
-    }
+  if (action.newRole !== 'chair') {
+    return {
+      error: 'Meeting roles come from the organization; only the chair can be handed over here',
+      errorCode: 'PERMISSION_DENIED',
+    };
   }
 
-  // Only admins can assign admin role
-  if (socketData.role !== 'admin' && roleAction.newRole === 'admin') {
+  // Chair cannot assign chair to themselves
+  if (socketData.role === 'chair' && action.targetMemberId === socketData.userId) {
     return {
-      error: 'Only admins can assign the admin role',
-      errorCode: 'PERMISSION_DENIED',
+      error: 'You are already the chair',
+      errorCode: 'INVALID_ACTION',
     };
   }
 
@@ -68,48 +49,30 @@ export function validateRoleChange(
 }
 
 /**
- * Handle post-action updates for role changes
- * Updates storage, roomManager, and socket data for affected members
+ * After the chair is handed over: record the new presiding officer on the packet, so the chair
+ * outlasts a restart, give the sockets their new roles, and bring the previous chair's role
+ * back to what the organization gives them (admin for a secretary, say).
+ * @returns the state after that, or null when the action wasn't a role change or nothing more
+ *   changed
  */
 export async function handleRoleChangePostAction(
   io: TypedServer,
   meetingCode: string,
   action: MeetingAction,
-): Promise<void> {
+): Promise<{ state: MeetingState; stateVersion: number } | null> {
   if (action.type !== 'SET_MEMBER_ROLE') {
-    return;
+    return null;
   }
 
-  const roleAction = action as SetMemberRoleAction;
-  const storage = getStorage();
-
-  // Update target member's role in storage
-  await storage.setParticipantRole(
-    meetingCode,
-    String(roleAction.targetMemberId),
-    roleAction.newRole,
-  );
-
-  // If there was a previous chair being demoted, update their role too
-  if (roleAction.previousChairId) {
-    await storage.setParticipantRole(meetingCode, String(roleAction.previousChairId), 'member');
-  }
-
-  // Update roomManager for connected members
-  roomManager.updateMemberRole(meetingCode, roleAction.targetMemberId, roleAction.newRole);
-  if (roleAction.previousChairId) {
-    roomManager.updateMemberRole(meetingCode, roleAction.previousChairId, 'member');
-  }
-
-  // Update socket.data.role for affected sockets
-  const roomName = `meeting:${meetingCode}`;
-  const socketsInRoom = await io.in(roomName).fetchSockets();
-  for (const s of socketsInRoom) {
-    if (s.data.userId === roleAction.targetMemberId) {
-      s.data.role = roleAction.newRole;
-    }
-    if (roleAction.previousChairId && s.data.userId === roleAction.previousChairId) {
-      s.data.role = 'member';
-    }
+  try {
+    await savePresidingOfficer(meetingCode, action.targetMemberId);
+    await updateSocketRoles(io, meetingCode, [
+      { id: action.targetMemberId, role: 'chair' },
+      ...(action.previousChairId ? [{ id: action.previousChairId, role: 'member' as const }] : []),
+    ]);
+    return await syncMeetingRoles(io, meetingCode);
+  } catch (error) {
+    logger.error({ err: error, meetingCode }, 'Failed to record the new chair');
+    return null;
   }
 }

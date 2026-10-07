@@ -1,246 +1,255 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
+import type { Election, MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import { electionTally, nomineesFor } from '../utils/question';
 
 interface ElectionPanelProps {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
+  /** The signed-in user, who casts a ballot unless a guest */
   currentUser: Member;
+  /** The chair, or an admin presiding: opens and closes the ballot and counts the room */
   isChair?: boolean;
+  /** Inside the console's election card, which carries the heading */
+  embedded?: boolean;
 }
 
+type Required = Election['requiredVotes'];
+
+/**
+ * The election once nominations close: the chair opens the ballot with the vote required,
+ * members cast ballots on their devices, the chair enters the tellers' count of paper ballots
+ * by candidate, closes the ballot and declares the winner
+ */
 export function ElectionPanel({
   state,
   dispatch,
   currentUser,
   isChair = false,
+  embedded = false,
 }: ElectionPanelProps) {
-  const [requiredVotes, setRequiredVotes] = useState<'majority' | 'plurality' | '2/3'>('majority');
+  const requiredId = useId();
+  const headingId = useId();
+  const [required, setRequired] = useState<Required>('majority');
+  const election = state.currentElection;
+  const position = state.currentNominationPosition;
+  const nominees = position ? nomineesFor(state, position) : [];
 
-  const handleStartElection = useCallback(() => {
-    if (!state.currentNominationPosition) return;
-
-    dispatch({
-      type: 'START_ELECTION',
-      electionId: generateId(),
-      position: state.currentNominationPosition,
-      requiredVotes,
-      timestamp: generateTimestamp(),
-    });
-  }, [dispatch, state.currentNominationPosition, requiredVotes]);
-
-  const handleCastBallot = useCallback(
-    (candidateName: string) => {
-      if (!state.currentElection) return;
-
-      dispatch({
-        type: 'CAST_BALLOT',
-        candidateName,
-        voterId: currentUser.id,
-      });
-    },
-    [dispatch, state.currentElection, currentUser.id],
-  );
-
-  const handleCloseElection = useCallback(() => {
-    dispatch({
-      type: 'CLOSE_ELECTION',
-      timestamp: generateTimestamp(),
-    });
-  }, [dispatch]);
-
-  const handleDeclareElected = useCallback(
-    (candidateName: string) => {
-      dispatch({
-        type: 'DECLARE_ELECTED',
-        candidateName,
-        timestamp: generateTimestamp(),
-      });
-    },
-    [dispatch],
-  );
-
-  const hasVoted = useMemo(
-    () => state.currentElection?.votersWhoVoted.includes(currentUser.id),
-    [state.currentElection?.votersWhoVoted, currentUser.id],
-  );
-
-  // Memoize sorted ballot results to avoid sorting on every render
-  const sortedBallotResults = useMemo(() => {
-    if (!state.currentElection?.ballotResults) return [];
-    return Object.entries(state.currentElection.ballotResults)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, votes]) => ({
-        name,
-        votes,
-        percentage:
-          state.currentElection!.votersWhoVoted.length > 0
-            ? Math.round((votes / state.currentElection!.votersWhoVoted.length) * 100)
-            : 0,
-      }));
-  }, [state.currentElection?.ballotResults, state.currentElection?.votersWhoVoted.length]);
-
-  // Memoize candidate list for election start
-  const eligibleCandidates = useMemo(() => {
-    if (!state.currentNominationPosition) return '';
-    return (
-      state.nominations
-        .filter((n) => n.position === state.currentNominationPosition && !n.declined)
-        .map((n) => n.nomineeName)
-        .filter((name, index, self) => self.indexOf(name) === index)
-        .join(', ') || 'None'
+  /** A card with its heading, or inside the election card a part below a rule */
+  const frame = (heading: string, children: React.ReactNode, space = 'space-y-3') =>
+    embedded ? (
+      <div className={`${space} border-t border-rule pt-4`}>{children}</div>
+    ) : (
+      <section className={`card ${space} p-5`} aria-labelledby={headingId}>
+        <h3 id={headingId} className="label-caps">
+          {heading}
+        </h3>
+        {children}
+      </section>
     );
-  }, [state.nominations, state.currentNominationPosition]);
 
-  return (
-    <section className="bg-white rounded-lg p-4 shadow-sm" aria-labelledby="election-heading">
-      <h3
-        id="election-heading"
-        className="font-semibold mb-3 text-gray-800 flex items-center gap-2"
-      >
-        <span aria-hidden="true">🗳️</span> Election
-      </h3>
-
-      {/* Chair - Start Election */}
-      {isChair &&
-        !state.nominationsOpen &&
-        !state.currentElection &&
-        state.currentNominationPosition && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="font-medium text-gray-900 mb-2">
-              Ready to conduct election for: {state.currentNominationPosition}
-            </p>
-            <p className="text-sm text-gray-700 mb-3">Candidates: {eligibleCandidates}</p>
-
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Vote Requirement
-              </label>
-              <select
-                value={requiredVotes}
-                onChange={(e) =>
-                  setRequiredVotes(e.target.value as 'majority' | 'plurality' | '2/3')
-                }
-                className="w-full p-2 border rounded-sm text-sm"
-              >
-                <option value="majority">Majority (more than half)</option>
-                <option value="plurality">Plurality (most votes wins)</option>
-                <option value="2/3">Two-Thirds (2/3 required)</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleStartElection}
-              className="w-full py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 font-medium"
-            >
-              Start Election
-            </button>
-          </div>
-        )}
-
-      {/* Active Election - Voting */}
-      {state.currentElection && state.currentElection.votingInProgress && (
+  if (!election) {
+    if (!isChair || state.nominationsOpen || !position) return null;
+    // A ballot with no candidate can't elect anyone, and the server refuses it
+    if (nominees.length === 0) {
+      return frame(
+        `Election for ${position}`,
+        <p className="text-sm text-ink">
+          Nobody has been nominated. Open nominations again, or set the election aside.
+        </p>,
+      );
+    }
+    return frame(
+      `Election for ${position}`,
+      <>
+        <p className="text-sm text-ink">Candidates: {nominees.join(', ')}</p>
         <div>
-          <div className="p-3 bg-blue-50 border border-blue-300 rounded-lg mb-3">
-            <p className="font-semibold text-blue-900">
-              Voting for: {state.currentElection.position}
-            </p>
-            <p className="text-xs text-blue-700 mt-1">
-              Requirement:{' '}
-              {state.currentElection.requiredVotes === 'majority'
-                ? 'Majority (>50%)'
-                : state.currentElection.requiredVotes === '2/3'
-                  ? 'Two-Thirds (≥66.7%)'
-                  : 'Plurality (most votes)'}
-            </p>
-            <p className="text-xs text-blue-700 mt-1">
-              {state.currentElection.votersWhoVoted.length} vote(s) cast
-            </p>
-          </div>
+          <label htmlFor={requiredId} className="label">
+            Vote required
+          </label>
+          <select
+            id={requiredId}
+            className="select"
+            value={required}
+            onChange={(e) => setRequired(e.target.value as Required)}
+          >
+            <option value="majority">A majority of the ballots</option>
+            <option value="plurality">A plurality (the most ballots)</option>
+            <option value="2/3">Two thirds of the ballots</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() =>
+            dispatch({
+              type: 'START_ELECTION',
+              electionId: generateId(),
+              position,
+              requiredVotes: required,
+              timestamp: generateTimestamp(),
+            })
+          }
+        >
+          Open the ballot
+        </button>
+      </>,
+    );
+  }
 
-          {!hasVoted ? (
-            <div className="space-y-2 mb-3" role="group" aria-labelledby="ballot-label">
-              <p id="ballot-label" className="text-sm font-medium text-gray-700">
-                Cast Your Ballot:
-              </p>
-              {state.currentElection.candidates.map((candidate) => (
-                <button
-                  key={candidate.name}
-                  onClick={() => handleCastBallot(candidate.name)}
-                  className="w-full py-3 px-4 bg-white border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 text-left font-medium transition-colors"
-                  aria-label={`Vote for ${candidate.name}`}
-                >
-                  {candidate.name}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="p-3 bg-green-50 border border-green-300 rounded-lg mb-3">
-              <p className="text-green-800 font-medium">✓ You have voted</p>
-              <p className="text-xs text-green-700 mt-1">Waiting for other members to vote...</p>
-            </div>
-          )}
+  const voted = election.votersWhoVoted.includes(currentUser.id);
+  const canVote = currentUser.role !== 'guest';
 
+  if (election.votingInProgress) {
+    const ballot =
+      canVote &&
+      (voted ? (
+        <p role="status" className="text-sm font-medium text-carried">
+          Ballot recorded
+        </p>
+      ) : (
+        <div role="group" aria-label="Your ballot" className="space-y-2">
+          {isChair && <p className="label-caps">Your ballot</p>}
+          {election.candidates.map((candidate) => (
+            <button
+              key={candidate.name}
+              type="button"
+              // A phone's ballot is its one action; the chair's own ballot is a small part of
+              // running the election
+              className={isChair ? 'btn-secondary btn-sm w-full' : 'btn-secondary btn-lg w-full'}
+              onClick={() =>
+                dispatch({
+                  type: 'CAST_BALLOT',
+                  candidateName: candidate.name,
+                  voterId: currentUser.id,
+                })
+              }
+            >
+              {`Vote for ${candidate.name}`}
+            </button>
+          ))}
+        </div>
+      ));
+    return frame(
+      `Election for ${election.position}`,
+      <>
+        <p className="text-sm tabular-nums text-ink-muted">
+          <span className="animate-count-pulse">{election.votersWhoVoted.length}</span> ballots
+          received on devices
+        </p>
+        {isChair ? (
+          <>
+            {ballot && <div className="rounded-lg bg-surface-2 p-3">{ballot}</div>}
+            <FloorBallotsForm
+              key={JSON.stringify(election.floorBallots ?? {})}
+              election={election}
+              dispatch={dispatch}
+            />
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => dispatch({ type: 'CLOSE_ELECTION', timestamp: generateTimestamp() })}
+            >
+              Close the ballot
+            </button>
+          </>
+        ) : (
+          ballot
+        )}
+      </>,
+      'space-y-4',
+    );
+  }
+
+  return frame(
+    `Election for ${election.position}`,
+    <>
+      <p className="text-sm tabular-nums text-ink">{electionTally(election)}</p>
+      {election.elected ? (
+        <>
+          <p className="text-sm font-medium text-carried">
+            {election.elected} has the vote required.
+          </p>
           {isChair && (
             <button
-              onClick={handleCloseElection}
-              className="w-full py-2 bg-gray-600 text-white rounded-sm hover:bg-gray-700 font-medium"
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                dispatch({
+                  type: 'DECLARE_ELECTED',
+                  candidateName: election.elected!,
+                  timestamp: generateTimestamp(),
+                })
+              }
             >
-              Close Election
+              {`Declare ${election.elected} elected`}
             </button>
           )}
-        </div>
+        </>
+      ) : (
+        <p className="text-sm text-caution-ink">
+          Nobody has the vote required.
+          {isChair && ' Open nominations again or hold another ballot.'}
+        </p>
       )}
+    </>,
+  );
+}
 
-      {/* Election Results */}
-      {state.currentElection && !state.currentElection.votingInProgress && (
-        <div>
-          <div className="p-3 bg-gray-50 border border-gray-300 rounded-lg mb-3">
-            <p className="font-semibold text-gray-900 mb-2">
-              Election Results: {state.currentElection.position}
-            </p>
+/** The tellers' count of paper ballots by candidate: replaces the last entry */
+function FloorBallotsForm({
+  election,
+  dispatch,
+}: {
+  election: Election;
+  dispatch: React.Dispatch<MeetingAction>;
+}) {
+  const id = useId();
+  const [counts, setCounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      election.candidates.map((c) => [c.name, String(election.floorBallots?.[c.name] ?? 0)]),
+    ),
+  );
+  const [problem, setProblem] = useState<string | null>(null);
 
-            <div className="space-y-2 mb-3">
-              {sortedBallotResults.map(({ name, votes, percentage }) => (
-                <div
-                  key={name}
-                  className="flex items-center justify-between p-2 bg-white rounded-sm border"
-                >
-                  <span className="font-medium">{name}</span>
-                  <span className="text-gray-600">
-                    {votes} vote{votes !== 1 ? 's' : ''} ({percentage}%)
-                  </span>
-                </div>
-              ))}
-            </div>
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const parsed = Object.fromEntries(
+      Object.entries(counts).map(([name, value]) => [name, Number(value.trim() || '0')]),
+    );
+    if (Object.values(parsed).some((n) => !Number.isInteger(n) || n < 0)) {
+      setProblem('Counts are whole numbers, 0 or more');
+      return;
+    }
+    setProblem(null);
+    dispatch({ type: 'SET_FLOOR_BALLOTS', counts: parsed, timestamp: generateTimestamp() });
+  };
 
-            {state.currentElection.elected ? (
-              <div className="p-3 bg-green-50 border border-green-300 rounded-sm mb-3">
-                <p className="font-semibold text-green-900">
-                  🎉 {state.currentElection.elected} has been elected!
-                </p>
-              </div>
-            ) : (
-              <div className="p-3 bg-amber-50 border border-amber-300 rounded-sm mb-3">
-                <p className="font-semibold text-amber-900">⚠️ No candidate elected</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  The required {state.currentElection.requiredVotes} vote was not achieved.
-                  {isChair && ' Chair may re-open nominations or hold a new ballot.'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {isChair && state.currentElection.elected && (
-            <button
-              onClick={() => handleDeclareElected(state.currentElection!.elected!)}
-              className="w-full py-2 bg-indigo-600 text-white rounded-sm hover:bg-indigo-700 font-medium"
-            >
-              Officially Declare Elected
-            </button>
-          )}
+  return (
+    <form onSubmit={onSubmit} className="space-y-2">
+      <p className="label-caps">Paper ballots in the room</p>
+      {election.candidates.map((candidate, index) => (
+        <div key={candidate.name}>
+          <label htmlFor={`${id}-${index}`} className="label">
+            {`${candidate.name} in the room`}
+          </label>
+          <input
+            id={`${id}-${index}`}
+            className="input tabular-nums"
+            inputMode="numeric"
+            value={counts[candidate.name] ?? '0'}
+            onChange={(e) => setCounts({ ...counts, [candidate.name]: e.target.value })}
+          />
         </div>
+      ))}
+      {problem && (
+        <p role="alert" className="text-sm text-gavel">
+          {problem}
+        </p>
       )}
-    </section>
+      <button type="submit" className="btn-secondary btn-sm">
+        Enter the paper ballots
+      </button>
+    </form>
   );
 }

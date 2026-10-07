@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Folder,
 } from 'lucide-react';
 import type { MeetingPacket, Attachment, AgendaItem } from '../scheduling/types';
 import { getPacket, getAttachmentDownloadUrl } from '../scheduling/api';
@@ -65,13 +64,10 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   if (isLoading) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
+      <section className="bg-surface rounded-lg p-4 shadow-sm">
+        <h3 className="label-caps mb-3">Meeting documents</h3>
         <div className="flex items-center justify-center py-4">
-          <Loader2 size={24} className="animate-spin text-gray-400" />
+          <Loader2 size={24} className="animate-spin text-ink-muted" />
         </div>
       </section>
     );
@@ -79,34 +75,27 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
 
   if (error) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
-        <p className="text-sm text-gray-500">{error}</p>
+      <section className="bg-surface rounded-lg p-4 shadow-sm">
+        <h3 className="label-caps mb-3">Meeting documents</h3>
+        <p className="text-sm text-ink-muted">{error}</p>
       </section>
     );
   }
 
   if (!packet || totalDocs === 0) {
     return (
-      <section className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-          <Folder size={18} />
-          Meeting Documents
-        </h3>
-        <p className="text-sm text-gray-500">No meeting documents.</p>
+      <section className="bg-surface rounded-lg p-4 shadow-sm">
+        <h3 className="label-caps mb-3">Meeting documents</h3>
+        <p className="text-sm text-ink-muted">No meeting documents.</p>
       </section>
     );
   }
 
   return (
-    <section className="bg-white rounded-lg p-4 shadow-sm">
-      <h3 className="font-semibold mb-3 text-gray-800 flex items-center gap-2">
-        <Folder size={18} />
-        Meeting Documents
-        <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-600">
+    <section className="bg-surface rounded-lg p-4 shadow-sm">
+      <h3 className="label-caps mb-3 flex items-center gap-2">
+        Meeting documents
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 tabular-nums text-ink">
           {totalDocs}
         </span>
       </h3>
@@ -114,7 +103,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
       {/* Meeting-level documents */}
       {packet.attachments.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-600 mb-2">General Documents</h4>
+          <h4 className="text-sm font-medium text-ink-muted mb-2">General Documents</h4>
           <div className="space-y-1">
             {packet.attachments.map((attachment) => (
               <AttachmentRow key={attachment.id} attachment={attachment} />
@@ -126,7 +115,7 @@ export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProp
       {/* Agenda item documents */}
       {packet.agendaItems.filter((item) => item.attachments.length > 0).length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-2">Agenda Item Documents</h4>
+          <h4 className="text-sm font-medium text-ink-muted mb-2">Agenda Item Documents</h4>
           <div className="space-y-2">
             {packet.agendaItems
               .filter((item) => item.attachments.length > 0)
@@ -150,11 +139,11 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
   const isFile = attachment.type === 'uploaded_file';
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-sm text-sm">
+    <div className="flex items-center gap-2 p-2 bg-surface-2 rounded-sm text-sm">
       {isFile ? (
-        <FileText size={16} className="text-gray-500 shrink-0" />
+        <FileText size={16} className="text-ink-muted shrink-0" />
       ) : (
-        <Paperclip size={16} className="text-indigo-500 shrink-0" />
+        <Paperclip size={16} className="text-gavel shrink-0" />
       )}
       <span className="flex-1 truncate">{attachment.displayName}</span>
       {isFile ? (
@@ -162,7 +151,7 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
           href={getAttachmentDownloadUrl(attachment.id)}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-1 text-indigo-600 hover:text-indigo-800"
+          className="p-1 text-gavel hover:text-ink"
           title="Download"
         >
           <Download size={16} />
@@ -172,7 +161,7 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
           href={`/documents/${attachment.documentId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-1 text-indigo-600 hover:text-indigo-800"
+          className="p-1 text-gavel hover:text-ink"
           title="View in Bylawyer"
         >
           <ExternalLink size={16} />
@@ -197,13 +186,13 @@ function AgendaItemDocuments({
     <div className="border rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-2 p-2 bg-gray-50 hover:bg-gray-100 text-left"
+        className="w-full flex items-center gap-2 p-2 bg-surface-2 hover:bg-rule text-left"
       >
         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         <span className="flex-1 text-sm font-medium truncate">
           {index + 1}. {item.title}
         </span>
-        <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full text-gray-600">
+        <span className="text-xs bg-rule px-2 py-0.5 rounded-full text-ink-muted">
           {item.attachments.length}
         </span>
       </button>

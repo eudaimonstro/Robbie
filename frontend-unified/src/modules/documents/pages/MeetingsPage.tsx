@@ -96,15 +96,15 @@ export default function MeetingsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
-        return 'text-primary-600';
+        return 'text-gavel';
       case 'in_progress':
-        return 'text-accent-600';
+        return 'text-caution-ink';
       case 'completed':
-        return 'text-success-600';
+        return 'text-carried';
       case 'cancelled':
-        return 'text-secondary-500';
+        return 'text-ink-muted';
       default:
-        return 'text-secondary-600';
+        return 'text-ink-muted';
     }
   };
 
@@ -127,12 +127,8 @@ export default function MeetingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            Meeting Records
-          </h2>
-          <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-            Schedule and manage organization meetings
-          </p>
+          <h2 className="page-title">Meeting Records</h2>
+          <p className="text-ink-muted mt-1">Schedule and manage organization meetings</p>
         </div>
         {canRecord && (
           <button onClick={() => setCreateModalOpen(true)} className="btn-primary">
@@ -166,8 +162,8 @@ export default function MeetingsPage() {
       <div className="card">
         {filteredMeetings.length === 0 ? (
           <div className="p-8 text-center">
-            <Calendar className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
-            <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+            <Calendar className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+            <p className="text-ink-muted mb-4">
               {meetings.length === 0
                 ? 'No meetings scheduled yet'
                 : 'No meetings match the selected filter'}
@@ -180,24 +176,22 @@ export default function MeetingsPage() {
             )}
           </div>
         ) : (
-          <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+          <div className="divide-y divide-rule">
             {filteredMeetings.map((meeting) => (
               <Link
                 key={meeting.id}
                 to={`/bylawyer-meetings/${meeting.id}`}
-                className="flex items-center justify-between px-6 py-4 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors group"
+                className="flex items-center justify-between px-6 py-4 hover:bg-surface-2 transition-colors group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <h4 className="font-medium text-secondary-900 dark:text-white">
-                      {meeting.title}
-                    </h4>
+                    <h4 className="font-medium text-ink">{meeting.title}</h4>
                     <MeetingTypeBadge type={meeting.meetingType} />
                     <span className={`text-sm font-medium ${getStatusColor(meeting.status)}`}>
                       {statusLabels[meeting.status]}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-secondary-500">
+                  <div className="flex items-center gap-4 text-sm text-ink-muted">
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
                       {new Date(meeting.scheduledDate).toLocaleString()}
@@ -210,7 +204,7 @@ export default function MeetingsPage() {
                     )}
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-secondary-400 group-hover:text-primary-600 transition-colors" />
+                <ChevronRight className="w-5 h-5 text-ink-muted group-hover:text-gavel transition-colors" />
               </Link>
             ))}
           </div>

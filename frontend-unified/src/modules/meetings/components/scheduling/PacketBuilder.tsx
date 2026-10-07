@@ -176,7 +176,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
   return (
     <div className="space-y-6">
       {/* Summary stats */}
-      <div className="flex items-center gap-6 text-sm text-gray-600">
+      <div className="flex items-center gap-6 text-sm text-ink-muted">
         <div className="flex items-center gap-2">
           <Clock size={16} />
           <span>
@@ -191,9 +191,9 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
       </div>
 
       {/* Meeting-level attachments */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="font-medium text-gray-800 mb-3">Meeting Documents</h3>
-        <p className="text-sm text-gray-600 mb-3">
+      <div className="bg-surface-2 rounded-lg p-4">
+        <h3 className="font-medium text-ink mb-3">Meeting Documents</h3>
+        <p className="text-sm text-ink-muted mb-3">
           Documents available for the entire meeting (e.g., previous minutes, bylaws)
         </p>
         <AttachmentUploader
@@ -208,7 +208,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
 
       {/* Agenda items */}
       <div>
-        <h3 className="font-medium text-gray-800 mb-3">Agenda Items</h3>
+        <h3 className="font-medium text-ink mb-3">Agenda Items</h3>
 
         {/* Existing items */}
         <div className="space-y-2 mb-4">
@@ -223,7 +223,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
               style={{ opacity: draggedItemId === item.id ? 0.5 : 1 }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-400 w-6">{index + 1}.</span>
+                <span className="text-sm font-medium text-ink-muted w-6">{index + 1}.</span>
                 <div className="flex-1">
                   <AgendaItemEditor
                     item={item}
@@ -264,7 +264,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
           <button
             onClick={handleAddItem}
             disabled={!newItemTitle.trim() || isCreating}
-            className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-3 bg-gavel text-paper rounded-lg hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCreating ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
             Add
@@ -274,7 +274,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
 
       {/* Empty state */}
       {packet.agendaItems.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-ink-muted">
           <p className="mb-2">No agenda items yet.</p>
           <p className="text-sm">Add items above to build your meeting agenda.</p>
         </div>

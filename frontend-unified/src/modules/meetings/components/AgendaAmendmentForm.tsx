@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArrowUpDown, Minus, Plus } from 'lucide-react';
 import { generateId } from '@robbie-bylawyer/shared/utils';
 import type { AgendaAmendmentFormProps } from '../types';
 
@@ -52,19 +53,19 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Amendment Type</label>
+        <label className="block text-sm font-medium text-ink mb-2">Amendment Type</label>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { value: 'add' as const, label: 'Add', icon: '+' },
-            { value: 'remove' as const, label: 'Remove', icon: '−' },
-            { value: 'reorder' as const, label: 'Reorder', icon: '↕' },
+            { value: 'add' as const, label: 'Add', Icon: Plus },
+            { value: 'remove' as const, label: 'Remove', Icon: Minus },
+            { value: 'reorder' as const, label: 'Reorder', Icon: ArrowUpDown },
           ].map((opt) => (
             <button
               key={opt.value}
               onClick={() => setAmendmentType(opt.value)}
-              className={`p-3 rounded-lg border-2 text-center ${amendmentType === opt.value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}
+              className={`p-3 rounded-lg border-2 text-center ${amendmentType === opt.value ? 'border-gavel bg-gavel-tint' : 'border-rule'}`}
             >
-              <span className="text-xl block">{opt.icon}</span>
+              <opt.Icon size={20} aria-hidden="true" className="mx-auto mb-1 block" />
               <span className="text-sm">{opt.label}</span>
             </button>
           ))}
@@ -73,7 +74,7 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
       {amendmentType === 'add' && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Item Title</label>
+            <label className="block text-sm font-medium text-ink mb-1">New Item Title</label>
             <input
               type="text"
               value={newItemTitle}
@@ -83,14 +84,14 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+            <label className="block text-sm font-medium text-ink mb-1">Position</label>
             <select
               value={newItemPosition}
               onChange={(e) => {
                 const val = e.target.value;
                 setNewItemPosition(val === 'beginning' || val === 'end' ? val : parseInt(val));
               }}
-              className="w-full p-3 border rounded-lg bg-white"
+              className="w-full p-3 border rounded-lg bg-surface"
             >
               <option value="beginning">At the beginning</option>
               {agenda.map((item, i) => (
@@ -105,13 +106,11 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
       )}
       {amendmentType === 'remove' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Select Item to Remove
-          </label>
+          <label className="block text-sm font-medium text-ink mb-1">Select Item to Remove</label>
           <select
             value={selectedItemId || ''}
             onChange={(e) => setSelectedItemId(parseInt(e.target.value))}
-            className="w-full p-3 border rounded-lg bg-white"
+            className="w-full p-3 border rounded-lg bg-surface"
           >
             {agenda.map((item, i) => (
               <option key={item.id} value={item.id}>
@@ -124,13 +123,11 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
       {amendmentType === 'reorder' && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Item to Move
-            </label>
+            <label className="block text-sm font-medium text-ink mb-1">Select Item to Move</label>
             <select
               value={selectedItemId || ''}
               onChange={(e) => setSelectedItemId(parseInt(e.target.value))}
-              className="w-full p-3 border rounded-lg bg-white"
+              className="w-full p-3 border rounded-lg bg-surface"
             >
               {agenda.map((item, i) => (
                 <option key={item.id} value={item.id}>
@@ -142,13 +139,13 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setMoveDirection('up')}
-              className={`p-3 rounded-lg border-2 ${moveDirection === 'up' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}
+              className={`p-3 rounded-lg border-2 ${moveDirection === 'up' ? 'border-gavel bg-gavel-tint' : 'border-rule'}`}
             >
               ↑ Move Up
             </button>
             <button
               onClick={() => setMoveDirection('down')}
-              className={`p-3 rounded-lg border-2 ${moveDirection === 'down' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`}
+              className={`p-3 rounded-lg border-2 ${moveDirection === 'down' ? 'border-gavel bg-gavel-tint' : 'border-rule'}`}
             >
               ↓ Move Down
             </button>
@@ -158,14 +155,14 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
       <div className="flex gap-2 pt-2">
         <button
           onClick={onCancel}
-          className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="flex-1 py-3 rounded-lg border border-rule text-ink hover:bg-surface-2"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={amendmentType === 'add' && !newItemTitle.trim()}
-          className="flex-1 py-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 font-medium"
+          className="flex-1 py-3 rounded-lg bg-gavel text-paper hover:bg-gavel-700 dark:hover:bg-gavel-300 disabled:bg-rule font-medium"
         >
           Submit Motion
         </button>

@@ -44,8 +44,9 @@ export function socketAuth(find: typeof findSession = findSession) {
       }
       socket.data.userId = session.user.id;
       socket.data.email = session.user.email;
-      // Clients ask for a name after the first sign-in; until then show the email
-      socket.data.name = session.user.name ?? session.user.email;
+      // Clients ask for a name after the first sign-in; a meeting refuses a user without one
+      // (see the join handler), so the email never stands in for it
+      socket.data.name = session.user.name ?? '';
       socket.data.sessionId = session.sessionId;
       socket.data.meetingCode = null;
       next();

@@ -5,17 +5,21 @@ import {
   logRollCallComplete,
   logMemberMarkedAbsent,
 } from '../../constants/logMessages.js';
+import { withPresence } from './memberHandlers.js';
 import type { ActionHandler } from './types.js';
 
 export const rollCallHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'START_ROLL_CALL': {
       const typedAction = action as Extract<MeetingAction, { type: 'START_ROLL_CALL' }>;
-      const responses: RollCallRecord[] = state.members.map((member) => ({
-        memberId: member.id,
-        memberName: member.name,
-        status: 'not-responded' as const,
-      }));
+      // Guests don't answer the roll
+      const responses: RollCallRecord[] = state.members
+        .filter((member) => member.role !== 'guest')
+        .map((member) => ({
+          memberId: member.id,
+          memberName: member.name,
+          status: 'not-responded' as const,
+        }));
       return {
         ...state,
         rollCall: {
@@ -44,7 +48,7 @@ export const rollCallHandler: ActionHandler = (state, action, log) => {
       // Also update member presence based on roll call response
       const isPresent = typedAction.status === 'present';
       const updatedMembers = state.members.map((m) =>
-        m.id === typedAction.memberId ? { ...m, present: isPresent } : m,
+        m.id === typedAction.memberId ? withPresence(m, isPresent, m.presentBy) : m,
       );
 
       return {
@@ -85,7 +89,7 @@ export const rollCallHandler: ActionHandler = (state, action, log) => {
 
       // Update member presence
       const updatedMembers = state.members.map((m) =>
-        m.id === typedAction.memberId ? { ...m, present: false } : m,
+        m.id === typedAction.memberId ? withPresence(m, false) : m,
       );
 
       // If roll call is in progress, also update the roll call response

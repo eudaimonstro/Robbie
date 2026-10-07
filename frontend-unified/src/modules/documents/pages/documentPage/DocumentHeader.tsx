@@ -33,17 +33,15 @@ export function DocumentHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
-          <Link to="/" className="hover:text-primary-600">
+        <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+          <Link to="/" className="hover:text-gavel">
             {organizationName}
           </Link>
           <ChevronRight className="w-4 h-4" />
           <span>{doc.title}</span>
         </div>
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            {doc.title}
-          </h2>
+          <h2 className="page-title">{doc.title}</h2>
           <DocumentTypeBadge type={doc.docType} />
         </div>
       </div>

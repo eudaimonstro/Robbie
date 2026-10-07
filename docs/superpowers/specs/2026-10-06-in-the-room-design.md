@@ -50,7 +50,7 @@ Admins edit these in Settings ("Voting members" and "Quorum").
 
 - `Member` gains `presentBy?: 'device' | 'chair'`. A member is present because their device is connected (`'device'`) or because the chair or secretary marked them (`'chair'`). The disconnect handler and the presence reconciler only ever clear `'device'` presence; a marked member stays present until the chair marks them absent.
 - `MeetingState` gains `headcount: number` and `headcountNames: string[]`: people in the room with no account, entered by the chair or an admin. Names are optional and go into the minutes.
-- `MeetingState.quorum` is set from the organization's settings when the live state is created, and can still be changed in the meeting by an admin (`SET_QUORUM`), for example when a bylaw says otherwise for a special meeting.
+- `MeetingState.quorum` is set from the organization's settings when the live state is created, and can still be changed in the meeting by the chair or an admin (`SET_QUORUM`), for example when a bylaw says otherwise for a special meeting.
 - `MeetingState` gains `organizationId`, `title` and `scheduledFor` copied from the packet, for the display and the minutes.
 
 New actions (chair and admin):
@@ -63,7 +63,7 @@ One shared function decides attendance everywhere: `attendanceSummary(state)` in
 
 ### The roster
 
-`GET /api/packets/:code/roster` (viewer) returns the organization's members `{ userId, name, email, orgRole }` and pending invites `{ email, role }`. The chair console's attendance panel merges it with `state.members` to show, for every person: connected, marked present, absent, or not joined, with "Mark present" and "Mark absent" buttons, plus the headcount field. Guests show in their own list.
+`GET /api/packets/:code/roster` (viewer) returns the organization's members `{ userId, name, email, orgRole }` and pending invites `{ email, role }` to admins; everyone else gets the members as `{ userId, name, orgRole }` and no invites, so emails stay with admins. The chair console's attendance panel merges it with `state.members` to show, for every person: connected, marked present, absent, or not joined, with "Mark present" and "Mark absent" buttons, plus the headcount field. Guests show in their own list.
 
 ### Phones that lock
 
@@ -80,12 +80,12 @@ One shared function decides attendance everywhere: `attendanceSummary(state)` in
 
 ### Methods
 
-| Method   | Devices             | Floor tally              | Use                                                                                                                                                      |
-| -------- | ------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| standard | yes                 | yes                      | The usual hybrid vote                                                                                                                                    |
-| voice    | no                  | yes                      | Voice vote or show of hands with nobody on a device; the chair enters the counts, or just yea or nay when it was clear                                   |
-| ballot   | yes, choices hidden | yes (the tellers' count) | Secret ballots; the server removes `voterChoices` from what it broadcasts while a ballot is open and from the completed record                           |
-| rollcall | yes, by name        | yes                      | Recorded votes: device votes are logged by name; members without a device are counted in the floor tally and the chair reads their names into the record |
+| Method   | Devices             | Floor tally              | Use                                                                                                                                                                                                                                                    |
+| -------- | ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| standard | yes                 | yes                      | The usual hybrid vote                                                                                                                                                                                                                                  |
+| voice    | no                  | yes                      | Voice vote or show of hands with nobody on a device; the chair enters the counts, or just yea or nay when it was clear                                                                                                                                 |
+| ballot   | yes, choices hidden | yes (the tellers' count) | Secret ballots; the server hides the running totals, individual choices, proxy choices and who-just-voted while a ballot is open (only `voters`, for the count of ballots received, and the tellers' count go out), and keeps no choices in the record |
+| rollcall | yes, by name        | yes                      | Recorded votes: device votes are logged by name; members without a device are counted in the floor tally and the chair reads their names into the record                                                                                               |
 
 ### Actions
 
@@ -141,6 +141,43 @@ Three screens are designed with the frontend-design skill and built on the exist
 
 **Display**: described above.
 
+## Polish after the live check (2026-10-07)
+
+A live run of the full scenario (chair console, two phones, a guest, the display) turned up one bug and a set of things a chair or a homeowner would trip over. They are fixed before Phase B merges.
+
+### The meeting record
+
+- **Election tallies.** `CLOSE_ELECTION` writes the merged device and floor ballots back to `ballotResults` when it elects someone, as it already does on a runoff; today the winner's branch drops them, so the stamp, `DECLARE_ELECTED`'s check and the minutes see zeros.
+- **Business from the floor.** Many people in the room have no phone. The chair records what they do:
+  - `MAKE_FLOOR_MOTION { motionType, text, moverName, moverMemberId? }` (presiding): a motion made by someone in the room. The mover is the named member when `moverMemberId` is a member of the meeting, otherwise the typed name; it is never the chair. It goes through the same validation as `MAKE_MOTION` (in order, renewal) except the mover check.
+  - `SECOND_FROM_FLOOR { seconderName? }` (presiding): seconds the motion awaiting a second, recorded as seconded by the named person or "a member in the room". The mover-can't-second rule applies when a member is named.
+  - `NOMINATE` sent by the chair with `fromFloor: true` records "Nominated from the floor" instead of the chair's name.
+  - "Put the item to a vote" records the motion as "Put by the chair" (no mover), since the question comes from the agenda.
+- **The agenda's first and last items.** At `START_MEETING`, a first agenda item titled "Call to order" is marked completed. The "Adjournment" item is completed by `END_MEETING`, as Adjourn already does with any active item. Titles match loosely (trimmed, any case, a final period): "Call to order", "Calling the meeting to order.", "Adjourn", "Adjournment.".
+- **Handing over the chair** is offered only to members present on a device: the new chair needs a screen to run the meeting.
+
+### The chair console
+
+- **Adjourn asks first.** Adjourn opens a short confirmation ("Adjourn the meeting? Items not reached: 4 to 7.") with Adjourn and Keep going. At the last item it stays the primary action.
+- **After adjournment** the console is read-only: no headcount form, no Mark present or absent, no Call on agenda items; it shows "Adjourned at 8:42 PM" and a link to the minutes once they exist (Phase C).
+- **The stage label** in the top bar follows the meeting, not the old stage machine: "Not yet called to order", the current agenda item's title while one is active, "In session" between items, "Adjourned". The order-of-business panel in More keeps its controls, in sentence case.
+- **Results stay up.** The last result (a vote's stamp, or an election's ELECTED with its tally) stays on the console and the display until the next question is stated, including after the chair declares the winner.
+- **One election card.** Nominations, the ballot and the result live in one card in the side column, in that order. The chair's own ballot buttons read "Vote for Carmen Diaz" and sit apart from "Declare elected".
+- **Calling an item** from the side agenda scrolls the Now column to the top so the item and its actions are in view.
+- **Floor actions** sit in the question card's toolbar: "A motion from the floor" when nothing is pending (a short form: kind of motion, text, who moved it from the roster or a typed name), "Seconded from the floor" next to "No second", and "Nominate from the floor" in the election card.
+- **Small things.** Saving the headcount shows a toast. The script line during a vote with devices says "Those in favor, vote on your phone or raise your hand", not "say Aye".
+
+### The phone
+
+- **One header.** On a live meeting route on a phone, the app header is hidden; the meeting header carries the title, the current item and Leave, and a menu button opens the app drawer.
+- **The result first.** After a vote closes, the top of the phone shows the result card (stamp and tally) until the next question is stated, above any form.
+- **Plain words.** The member's motion block is "Make a motion" with a text box for a main motion; other motions sit under "Other motions" in sentence case with a one-line explanation each ("Refer to a committee: send the question to a committee to study"), and the button says "Move". "Ask a question" becomes "Ask the chair" with two plain choices ("About the rules", "For information") and no RONR footnote. Members and guests both see "Ask to speak" (with For, Against, Neutral for members).
+- **After adjournment** the phone scrolls to the top and shows one card: "The meeting was adjourned at 8:42 PM", with every form gone.
+
+### The display
+
+- Before the meeting it shows the scheduled start ("Tuesday, October 20, 7:00 PM") under the title.
+
 ## Testing
 
 - Shared: reducer tests for `MARK_PRESENT` effects, `SET_HEADCOUNT`, `SET_FLOOR_TALLY`, `CLOSE_VOTING` with combined totals (including exactly two thirds across both parts), `voice` votes, elections with floor ballots, every decided motion recorded, `attendanceSummary`.
@@ -160,4 +197,4 @@ Three screens are designed with the frontend-design skill and built on the exist
 - The headcount is the chair's word. The display shows it, and the minutes record it, but nothing verifies it.
 - A floor tally for a ballot vote is a tellers' count entered by the chair; the paper ballots themselves are outside the app.
 - Members marked present by the chair cannot vote on a device unless they sign in; their votes are part of the floor tally.
-- A device-present member who leaves the room with their phone connected stays present until they disconnect or the chair marks them absent.
+- A device-present member who leaves the room with their phone connected stays present until they disconnect; the chair can mark them absent only once the device is gone.

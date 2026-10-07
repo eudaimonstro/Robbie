@@ -1,63 +1,75 @@
 import { useMemo } from 'react';
 import type { MeetingLogEntry } from '@robbie-bylawyer/shared/types';
+import { latestDecision, VOTE_LINE } from '../utils/decisions';
+
+/** The last vote, as its log line recorded it */
+export interface VoteResult {
+  /** Device and floor votes together */
+  yea: number;
+  nay: number;
+  outcome: 'CARRIED' | 'FAILED';
+  passed: boolean;
+  /** The question put, from the chair's "puts the question" line before the vote */
+  motionText: string;
+  timestamp: string;
+  /** The two parts, when the chair entered a floor tally */
+  parts: { device: { yea: number; nay: number }; floor: { yea: number; nay: number } } | null;
+  /** The tally as the room reads it: "On devices 12 to 3, in the room 9 to 2: 21 to 5" */
+  tally: string;
+}
+
+// The parts of a closed vote's line when the chair entered a floor tally:
+// " On devices 12 to 3, in the room 9 to 2."
+const PARTS = /On devices (\d+) to (\d+), in the room (\d+) to (\d+)\./;
 
 /**
- * Custom hook to extract and parse the most recent vote result from meeting log
- *
- * Searches the meeting log in reverse order to find the most recent CARRIED or FAILED
- * vote result, then parses the vote counts and looks up the associated motion text.
- *
- * @param meetingLog - Array of meeting log entries
- * @returns Vote result object or null if no recent vote found:
- *   - `yea`: Number of yes votes
- *   - `nay`: Number of no votes
- *   - `outcome`: 'CARRIED' | 'FAILED'
- *   - `passed`: Boolean shorthand for outcome === 'CARRIED'
- *   - `motionText`: Text of the motion that was voted on (if found)
- *   - `timestamp`: Time when the vote was recorded
- *
- * @example
- * ```tsx
- * const voteResult = useVoteResults(state.meetingLog);
- * if (voteResult) {
- *   console.log(`Motion ${voteResult.passed ? 'passed' : 'failed'}: ${voteResult.yea}-${voteResult.nay}`);
- * }
- * ```
+ * The most recent vote result in the meeting log, or null when there is none or the floor has
+ * moved on since (another decision, a ruling, a motion that died or was withdrawn, an election
+ * set aside)
  */
+export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | null {
+  const decision = latestDecision(meetingLog);
+  if (decision?.kind !== 'vote') return null;
+  const index = decision.index;
+  const entry = meetingLog[index];
+  const match = entry.message.match(VOTE_LINE);
+  if (!match) return null;
+
+  const yea = parseInt(match[1], 10);
+  const nay = parseInt(match[2], 10);
+  const outcome = match[3] as 'CARRIED' | 'FAILED';
+
+  const partsMatch = entry.message.match(PARTS);
+  const parts = partsMatch
+    ? {
+        device: { yea: parseInt(partsMatch[1], 10), nay: parseInt(partsMatch[2], 10) },
+        floor: { yea: parseInt(partsMatch[3], 10), nay: parseInt(partsMatch[4], 10) },
+      }
+    : null;
+  const total = `${yea} to ${nay}`;
+  const tally = parts
+    ? `On devices ${parts.device.yea} to ${parts.device.nay}, in the room ${parts.floor.yea} to ${parts.floor.nay}: ${total}`
+    : total;
+
+  // The question put before the vote (other entries, such as a quorum warning, may come between)
+  const question = meetingLog
+    .slice(0, index)
+    .findLast((log) => log.message.startsWith('Chair puts the question: '));
+  const motionText = question?.message.match(/Chair puts the question: "(.+)"/)?.[1] ?? '';
+
+  return {
+    yea,
+    nay,
+    outcome,
+    passed: outcome === 'CARRIED',
+    motionText,
+    timestamp: entry.time,
+    parts,
+    tally,
+  };
+}
+
+/** parseVoteResult, kept while the log is unchanged */
 export function useVoteResults(meetingLog: MeetingLogEntry[]) {
-  return useMemo(() => {
-    // Find the most recent vote result in the meeting log (search backwards)
-    const voteResult = meetingLog.findLast(
-      (log: MeetingLogEntry) => log.message.includes('CARRIED') || log.message.includes('FAILED'),
-    );
-
-    if (!voteResult) return null;
-
-    // Parse the vote result the reducer logs: "Vote: Yea X, Nay Y. CARRIED." (or FAILED)
-    const match = voteResult.message.match(/Vote: Yea (\d+), Nay (\d+)\. (CARRIED|FAILED)/);
-    if (!match) return null;
-
-    const yea = parseInt(match[1]);
-    const nay = parseInt(match[2]);
-    const outcome = match[3];
-    const passed = outcome === 'CARRIED';
-
-    // Find the motion text from the question put before the vote (other entries, such as a
-    // quorum warning, may come between them)
-    const voteIndex = meetingLog.indexOf(voteResult);
-    const questionLog = meetingLog
-      .slice(0, voteIndex)
-      .findLast((log) => log.message.startsWith('Chair puts the question: '));
-    const motionTextMatch = questionLog?.message.match(/Chair puts the question: "(.+)"/);
-    const motionText = motionTextMatch ? motionTextMatch[1] : '';
-
-    return {
-      yea,
-      nay,
-      outcome,
-      passed,
-      motionText,
-      timestamp: voteResult.time,
-    };
-  }, [meetingLog]);
+  return useMemo(() => parseVoteResult(meetingLog), [meetingLog]);
 }

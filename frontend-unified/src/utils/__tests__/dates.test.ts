@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { formatCalendarDate, fromLocalDateTimeInput, toLocalDateTimeInput } from '../dates';
+import {
+  formatCalendarDate,
+  formatClockTime,
+  formatMeetingTime,
+  formatScheduledStart,
+  fromLocalDateTimeInput,
+  toLocalDateTimeInput,
+} from '../dates';
 
 describe('formatCalendarDate', () => {
   it('runs in a non-UTC time zone, so day shifts would show', () => {
@@ -41,5 +48,43 @@ describe('fromLocalDateTimeInput with no usable value', () => {
   it('returns an empty value instead of throwing, so the server can reject it', () => {
     // new Date('').toISOString() throws, which left the meeting form silently stuck open
     expect(fromLocalDateTimeInput('')).toBe('');
+  });
+});
+
+describe('formatMeetingTime', () => {
+  it("shows a meeting's day and time in the viewer's time zone", () => {
+    // 7 PM in Chicago, where the tests run, on Tuesday, October 20, 2026
+    expect(formatMeetingTime('2026-10-21T00:00:00.000Z')).toMatch(/^Tue, Oct 20, 7:00\sPM$/);
+  });
+
+  it('shows nothing for a missing or unreadable date', () => {
+    expect(formatMeetingTime('')).toBe('');
+    expect(formatMeetingTime('not a date')).toBe('');
+  });
+});
+
+describe('formatClockTime', () => {
+  it("shows a log entry's instant as a time of day in the viewer's time zone", () => {
+    // 9:16 AM in Chicago, where the tests run
+    expect(formatClockTime('2026-10-07T14:16:10.646Z')).toMatch(/^9:16\sAM$/);
+  });
+
+  it('drops the seconds of a clock time, shows anything else as it is, and nothing for none', () => {
+    expect(formatClockTime('7:41:00 PM')).toBe('7:41 PM');
+    expect(formatClockTime('19:41')).toBe('19:41');
+    expect(formatClockTime('')).toBe('');
+    expect(formatClockTime(undefined)).toBe('');
+  });
+});
+
+describe('formatScheduledStart', () => {
+  it("spells out the day and gives the time, in the viewer's time zone", () => {
+    // 7:00 PM in Chicago, where the suite runs
+    expect(formatScheduledStart('2026-10-21T00:00:00.000Z')).toBe('Tuesday, October 20, 7:00 PM');
+  });
+
+  it('is empty for no time, or one it cannot read', () => {
+    expect(formatScheduledStart(null)).toBe('');
+    expect(formatScheduledStart('soon')).toBe('');
   });
 });

@@ -1,4 +1,5 @@
 import { Router, type Router as RouterType } from 'express';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../db/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam } from '../../schemas/common.js';
@@ -132,17 +133,24 @@ organizationsRouter.get(
   },
 );
 
-// Update the organization's name and description
+// Update the organization's name, description and attendance settings. The quorum is a
+// percentage or a count: setting one clears the other.
 organizationsRouter.put(
   '/organizations/:id',
   validate({ params: uuidParam, body: updateOrganizationBody }),
   requireRole('admin', byOrganization),
   async (req, res) => {
     try {
-      const updated = await prisma.organization.update({
-        where: { id: req.params.id },
-        data: { name: req.body.name, description: req.body.description },
-      });
+      const { name, description, eligibleVoters, quorumPercent, quorumCount } = req.body;
+      const data: Prisma.OrganizationUpdateInput = { name, description, eligibleVoters };
+      if (quorumPercent !== undefined) {
+        data.quorumPercent = quorumPercent;
+        data.quorumCount = null;
+      } else if (quorumCount !== undefined) {
+        data.quorumCount = quorumCount;
+        data.quorumPercent = null;
+      }
+      const updated = await prisma.organization.update({ where: { id: req.params.id }, data });
 
       res.json(updated);
     } catch (error) {

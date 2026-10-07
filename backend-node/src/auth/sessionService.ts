@@ -70,6 +70,23 @@ export async function findSession(
   return { sessionId: session.id, user: { id, email, name }, termsVersion, extended };
 }
 
+/**
+ * The session with this id and its user, or null if it was signed out or has expired. Checks a
+ * session already known to be signed in (a recovered socket's, say); use doesn't extend it.
+ */
+export async function findSessionById(
+  sessionId: string,
+  now: Date = new Date(),
+): Promise<Omit<ActiveSession, 'extended'> | null> {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { user: true },
+  });
+  if (!session || session.expiresAt <= now) return null;
+  const { id, email, name, termsVersion } = session.user;
+  return { sessionId: session.id, user: { id, email, name }, termsVersion };
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
   await prisma.session.deleteMany({ where: { id: sessionId } });
 }

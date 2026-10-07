@@ -12,6 +12,8 @@ export default defineConfig(
       '**/build/**',
       '**/node_modules/**',
       '**/coverage/**',
+      '**/test-results/**',
+      '**/playwright-report/**',
       '**/*.config.*',
       'backend-node/src/generated/**',
       'mobile/**',
@@ -55,6 +57,13 @@ export default defineConfig(
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+  {
+    // Node scripts and the Playwright harness
+    files: ['scripts/**/*.mjs', 'e2e/**/*.ts'],
+    languageOptions: {
+      globals: globals.node,
     },
   },
 );

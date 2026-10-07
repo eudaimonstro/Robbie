@@ -66,20 +66,17 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
   };
 
   const colors = {
-    success:
-      'bg-success-50 border-success-500 text-success-800 dark:bg-success-900/20 dark:text-success-200',
-    error:
-      'bg-danger-50 border-danger-500 text-danger-800 dark:bg-danger-900/20 dark:text-danger-200',
-    warning:
-      'bg-accent-50 border-accent-500 text-accent-800 dark:bg-accent-900/20 dark:text-accent-200',
-    info: 'bg-primary-50 border-primary-500 text-primary-800 dark:bg-primary-900/20 dark:text-primary-200',
+    success: 'bg-carried-tint border-carried text-ink',
+    error: 'bg-gavel-tint border-gavel text-ink',
+    warning: 'bg-caution-tint border-caution text-ink',
+    info: 'bg-surface border-rule text-ink',
   };
 
   const iconColors = {
-    success: 'text-success-500',
-    error: 'text-danger-500',
-    warning: 'text-accent-500',
-    info: 'text-primary-500',
+    success: 'text-carried',
+    error: 'text-gavel',
+    warning: 'text-caution-ink',
+    info: 'text-ink-muted',
   };
 
   const Icon = icons[toast.type];

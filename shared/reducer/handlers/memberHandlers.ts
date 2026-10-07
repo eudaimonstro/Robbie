@@ -1,10 +1,20 @@
-import type { MeetingAction } from '../../types/index.js';
+import type { MeetingAction, Member } from '../../types/index.js';
 import {
   logMemberJoined,
   logMemberPresenceChanged,
   logMemberRenamed,
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
+
+/** A member with a new presence; presentBy only on a present member */
+export function withPresence(
+  member: Member,
+  present: boolean,
+  presentBy?: 'device' | 'chair',
+): Member {
+  const { presentBy: _previous, ...rest } = member;
+  return present ? { ...rest, present, presentBy: presentBy ?? 'device' } : { ...rest, present };
+}
 
 export const memberHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -68,15 +78,47 @@ export const memberHandler: ActionHandler = (state, action, log) => {
       const member = state.members.find((m) => m.id === typedAction.memberId);
       if (!member) return state;
 
+      // A member the chair marked present stays marked when their device connects
+      const current = member.present ? (member.presentBy ?? 'device') : undefined;
+      const presentBy = typedAction.present
+        ? current === 'chair'
+          ? 'chair'
+          : (typedAction.presentBy ?? 'device')
+        : undefined;
+      // Nothing changes (a device reconnecting, say): no state change and no log line
+      if (member.present === typedAction.present && current === presentBy) return state;
+
       return {
         ...state,
         members: state.members.map((m) =>
-          m.id === typedAction.memberId ? { ...m, present: typedAction.present } : m,
+          m.id === typedAction.memberId ? withPresence(m, typedAction.present, presentBy) : m,
         ),
         meetingLog: log(
           typedAction.timestamp,
           logMemberPresenceChanged(member.name, typedAction.present),
         ),
+      };
+    }
+
+    case 'REFRESH_MEMBERS': {
+      const typedAction = action as Extract<MeetingAction, { type: 'REFRESH_MEMBERS' }>;
+      const updates = new Map(typedAction.members.map((m) => [m.id, m]));
+      const newChair = typedAction.members.some((m) => m.role === 'chair');
+      const members = state.members.map((m) => {
+        const update = updates.get(m.id);
+        if (update) return { ...m, name: update.name, role: update.role };
+        // There is one chair
+        return newChair && m.role === 'chair' ? { ...m, role: 'member' as const } : m;
+      });
+      // A guest can neither hold nor grant a proxy: a member who became one loses theirs
+      const guests = new Set(members.filter((m) => m.role === 'guest').map((m) => m.id));
+      const proxies = state.proxies.filter(
+        (p) => !guests.has(p.grantedBy) && !guests.has(p.grantedTo),
+      );
+      return {
+        ...state,
+        members,
+        proxies: proxies.length === state.proxies.length ? state.proxies : proxies,
       };
     }
 
