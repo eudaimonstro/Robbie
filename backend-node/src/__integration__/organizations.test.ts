@@ -169,6 +169,57 @@ describe('organizations', () => {
     expect(files.map((file) => fs.existsSync(file))).toEqual([false, false, true]);
   });
 
+  it('start with a quorum of 3', async () => {
+    const res = await call('get', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(res.body).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 });
+  });
+
+  it('set the voting members and the quorum, as a percentage or a count', async () => {
+    const put = (body: object) =>
+      call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
+
+    const percent = await put({ eligibleVoters: 142, quorumPercent: 20 });
+    expect(percent.status).toBe(200);
+    expect(percent.body).toMatchObject({
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
+    });
+
+    const count = await put({ quorumCount: 25 });
+    expect(count.body).toMatchObject({ eligibleVoters: 142, quorumPercent: null, quorumCount: 25 });
+
+    const roster = await put({ eligibleVoters: null });
+    expect(roster.body).toMatchObject({ eligibleVoters: null, quorumCount: 25 });
+
+    const read = await call('get', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(read.body).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 25 });
+  });
+
+  it('refuse attendance settings out of range, or the quorum set both ways', async () => {
+    for (const body of [
+      { quorumPercent: 0 },
+      { quorumPercent: 101 },
+      { quorumPercent: 12.5 },
+      { quorumCount: 0 },
+      { quorumCount: null },
+      { eligibleVoters: 0 },
+      { quorumPercent: 20, quorumCount: 5 },
+    ]) {
+      const res = await call('put', `/api/organizations/${f.orgA.id}`, {
+        cookie: f.users.admin.cookie,
+        body,
+      });
+      expect(res.status, JSON.stringify(body)).toBe(400);
+    }
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: f.orgA.id } });
+    expect(org).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 });
+  });
+
   it('changes only the name and description', async () => {
     const res = await call('put', `/api/organizations/${f.orgA.id}`, {
       cookie: f.users.admin.cookie,

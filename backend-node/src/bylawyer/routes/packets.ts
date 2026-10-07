@@ -14,11 +14,25 @@ import { logger } from '../../middleware/logger.js';
 import { deleteFiles } from '../services/fileStorage.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
+import { atLeast } from '../../orgs/roles.js';
 
 export const packetsRouter: RouterType = Router();
 
 /** The answer when a meeting code already has a packet, in any organization */
 export const CODE_IN_USE = 'That meeting code is already in use';
+
+/** The answer when the presiding officer named isn't a voting member of the organization */
+export const CHAIR_NOT_MEMBER =
+  'The presiding officer must be a member of the organization with the member role or above';
+
+/** Whether a user may preside over the organization's meetings: member role or above */
+async function canPreside(organizationId: string, userId: number): Promise<boolean> {
+  const membership = await prisma.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId, userId } },
+    select: { role: true },
+  });
+  return !!membership && atLeast(membership.role, 'member');
+}
 
 const byPacket = fromParam('id', orgOfPacket);
 
@@ -69,10 +83,53 @@ packetsRouter.get(
 );
 
 /**
+ * GET /api/organizations/:orgId/packets
+ * The organization's scheduled meetings: those not yet adjourned first, soonest first (those
+ * without a date after them), then the adjourned ones, most recent first
+ */
+packetsRouter.get(
+  '/organizations/:orgId/packets',
+  validate({ params: orgIdParam }),
+  requireRole('viewer', fromParam('orgId', orgOfOrganization)),
+  async (req, res) => {
+    try {
+      const organizationId = req.org!.id;
+      const select = {
+        id: true,
+        robbieCode: true,
+        title: true,
+        description: true,
+        scheduledFor: true,
+        chairUserId: true,
+        startedAt: true,
+        endedAt: true,
+        chair: { select: { name: true } },
+      } as const;
+      const [upcoming, past] = await Promise.all([
+        prisma.meetingPacket.findMany({
+          where: { organizationId, endedAt: null },
+          select,
+          orderBy: [{ scheduledFor: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+        }),
+        prisma.meetingPacket.findMany({
+          where: { organizationId, endedAt: { not: null } },
+          select,
+          orderBy: { endedAt: 'desc' },
+        }),
+      ]);
+      res.json([...upcoming, ...past]);
+    } catch (error) {
+      logger.error({ err: error }, 'Error listing packets');
+      res.status(500).json({ error: 'Failed to list meeting packets' });
+    }
+  },
+);
+
+/**
  * POST /api/organizations/:orgId/packets
  * Create the packet for a meeting code in an organization. Codes are unique across all
- * organizations.
- * Body: { robbieCode, title?, description?, scheduledFor? }
+ * organizations. The presiding officer defaults to the person creating it.
+ * Body: { robbieCode, title?, description?, scheduledFor?, chairUserId? }
  */
 packetsRouter.post(
   '/organizations/:orgId/packets',
@@ -81,6 +138,11 @@ packetsRouter.post(
   async (req, res) => {
     try {
       const { robbieCode, title, description, scheduledFor } = req.body;
+      const chairUserId: number | null =
+        req.body.chairUserId === undefined ? req.user!.id : req.body.chairUserId;
+      if (chairUserId !== null && !(await canPreside(req.org!.id, chairUserId))) {
+        return res.status(400).json({ error: CHAIR_NOT_MEMBER });
+      }
 
       const packet = await prisma.meetingPacket.create({
         data: {
@@ -89,6 +151,7 @@ packetsRouter.post(
           title,
           description,
           scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+          chairUserId,
         },
         include: packetInclude,
       });
@@ -107,7 +170,7 @@ packetsRouter.post(
 /**
  * PUT /api/packets/:id
  * Update packet metadata
- * Body: { title?, description?, scheduledFor? }
+ * Body: { title?, description?, scheduledFor?, chairUserId? }
  */
 packetsRouter.put(
   '/packets/:id',
@@ -116,7 +179,7 @@ packetsRouter.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, scheduledFor } = req.body;
+      const { title, description, scheduledFor, chairUserId } = req.body;
 
       const packet = await prisma.meetingPacket.findUnique({
         where: { id },
@@ -125,6 +188,12 @@ packetsRouter.put(
       if (!packet) {
         return res.status(404).json({ error: 'Packet not found' });
       }
+      if (
+        typeof chairUserId === 'number' &&
+        !(await canPreside(packet.organizationId, chairUserId))
+      ) {
+        return res.status(400).json({ error: CHAIR_NOT_MEMBER });
+      }
 
       const updated = await prisma.meetingPacket.update({
         where: { id },
@@ -132,6 +201,7 @@ packetsRouter.put(
           title,
           description,
           scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+          chairUserId,
         },
         include: {
           attachments: {

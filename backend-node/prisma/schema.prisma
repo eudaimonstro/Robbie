@@ -21,6 +21,13 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // How many voting members the organization has (for an HOA, lots or units): the quorum
+  // denominator. Null means the roster's members with the member role or above.
+  eligibleVoters Int?
+  // Quorum: a percentage of eligibleVoters, or a fixed count. One of the two is set.
+  quorumPercent  Int?
+  quorumCount    Int? @default(3)
+
   documents Document[]
   meetings  Meeting[]
   members   OrganizationMember[]
@@ -229,10 +236,16 @@ model MeetingPacket {
   title          String?
   description    String?
   scheduledFor   DateTime?
+  // The presiding officer: chairs the live meeting
+  chairUserId    Int?
+  // When the live meeting was called to order and adjourned
+  startedAt      DateTime?
+  endedAt        DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chair        User?               @relation(fields: [chairUserId], references: [id], onDelete: SetNull)
   attachments  Attachment[]
   agendaItems  MeetingAgendaItem[]
 
@@ -307,6 +320,7 @@ model User {
   memberships OrganizationMember[]
   invitesSent OrganizationInvite[]
   amendments  Amendment[]
+  chairing    MeetingPacket[]
 }
 
 // A signed-in device. Only the SHA-256 hash of the session token is stored.
