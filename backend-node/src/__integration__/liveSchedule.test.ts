@@ -45,9 +45,9 @@ describe('the roster of a meeting', () => {
     f = await seedFixture();
   });
 
-  it("lists the organization's members and pending additions", async () => {
+  it("lists the organization's members with their emails, and pending additions, for an admin", async () => {
     const res = await call('get', `/api/packets/${f.packet.code}/roster`, {
-      cookie: f.users.viewer.cookie,
+      cookie: f.users.admin.cookie,
     });
     expect(res.status).toBe(200);
     expect(res.body.members).toHaveLength(5);
@@ -58,6 +58,24 @@ describe('the roster of a meeting', () => {
       orgRole: 'viewer',
     });
     expect(res.body.invites).toEqual([{ email: 'pending@example.org', role: 'member' }]);
+  });
+
+  it('keeps emails and pending additions to admins', async () => {
+    // A secretary chairing the meeting, a member, a viewer
+    for (const user of [f.users.secretary, f.users.member, f.users.viewer]) {
+      const res = await call('get', `/api/packets/${f.packet.code}/roster`, {
+        cookie: user.cookie,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.members).toHaveLength(5);
+      expect(res.body.members[0]).toEqual({
+        userId: f.users.viewer.id,
+        name: 'A viewer',
+        orgRole: 'viewer',
+      });
+      expect(JSON.stringify(res.body)).not.toContain('@example.org');
+      expect(res.body.invites).toEqual([]);
+    }
   });
 });
 

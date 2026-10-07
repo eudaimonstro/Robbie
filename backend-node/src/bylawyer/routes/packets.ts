@@ -333,7 +333,8 @@ packetsRouter.get(
 
 /**
  * GET /api/packets/:robbieCode/roster
- * The meeting's organization's members and pending additions, for marking people present
+ * The meeting's organization's members, for marking people present. Admins also get their
+ * emails and the pending additions; everyone else gets names and roles only.
  */
 packetsRouter.get(
   '/packets/:robbieCode/roster',
@@ -341,15 +342,16 @@ packetsRouter.get(
   requireRole('viewer', fromParam('robbieCode', orgOfPacketCode)),
   async (req, res) => {
     try {
-      const { members, invites = [] } = await listMembers(req.org!.id, true);
+      const admin = atLeast(req.org!.role, 'admin');
+      const { members, invites = [] } = await listMembers(req.org!.id, admin);
       res.json({
         members: members.map((m) => ({
           userId: m.userId,
           name: m.name,
-          email: m.email,
+          ...(admin && { email: m.email }),
           orgRole: m.role,
         })),
-        invites: invites.map((i) => ({ email: i.email, role: i.role })),
+        invites: admin ? invites.map((i) => ({ email: i.email, role: i.role })) : [],
       });
     } catch (error) {
       logger.error({ err: error }, 'Error getting roster');

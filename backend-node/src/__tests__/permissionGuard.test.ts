@@ -90,6 +90,7 @@ describe('permissionGuard', () => {
         'ADD_COMMITTEE_REPORT',
         'SET_VOTING_METHOD',
         'SET_MEMBER_ROLE',
+        'SET_QUORUM',
       ] as const;
 
       it.each(adminOrChairActions)('should allow admin to perform %s', (action) => {

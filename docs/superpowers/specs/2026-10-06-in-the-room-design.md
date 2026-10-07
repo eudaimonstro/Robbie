@@ -50,7 +50,7 @@ Admins edit these in Settings ("Voting members" and "Quorum").
 
 - `Member` gains `presentBy?: 'device' | 'chair'`. A member is present because their device is connected (`'device'`) or because the chair or secretary marked them (`'chair'`). The disconnect handler and the presence reconciler only ever clear `'device'` presence; a marked member stays present until the chair marks them absent.
 - `MeetingState` gains `headcount: number` and `headcountNames: string[]`: people in the room with no account, entered by the chair or an admin. Names are optional and go into the minutes.
-- `MeetingState.quorum` is set from the organization's settings when the live state is created, and can still be changed in the meeting by an admin (`SET_QUORUM`), for example when a bylaw says otherwise for a special meeting.
+- `MeetingState.quorum` is set from the organization's settings when the live state is created, and can still be changed in the meeting by the chair or an admin (`SET_QUORUM`), for example when a bylaw says otherwise for a special meeting.
 - `MeetingState` gains `organizationId`, `title` and `scheduledFor` copied from the packet, for the display and the minutes.
 
 New actions (chair and admin):
@@ -63,7 +63,7 @@ One shared function decides attendance everywhere: `attendanceSummary(state)` in
 
 ### The roster
 
-`GET /api/packets/:code/roster` (viewer) returns the organization's members `{ userId, name, email, orgRole }` and pending invites `{ email, role }`. The chair console's attendance panel merges it with `state.members` to show, for every person: connected, marked present, absent, or not joined, with "Mark present" and "Mark absent" buttons, plus the headcount field. Guests show in their own list.
+`GET /api/packets/:code/roster` (viewer) returns the organization's members `{ userId, name, email, orgRole }` and pending invites `{ email, role }` to admins; everyone else gets the members as `{ userId, name, orgRole }` and no invites, so emails stay with admins. The chair console's attendance panel merges it with `state.members` to show, for every person: connected, marked present, absent, or not joined, with "Mark present" and "Mark absent" buttons, plus the headcount field. Guests show in their own list.
 
 ### Phones that lock
 

@@ -33,7 +33,8 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   UNANIMOUS_CONSENT_PASSED: PRESIDING,
   ADVANCE_MEETING_STAGE: PRESIDING,
   SET_MEETING_STAGE: PRESIDING,
-  SET_QUORUM: ['admin'],
+  // The chair or secretary, when a bylaw sets a different quorum for this meeting
+  SET_QUORUM: PRESIDING,
   APPROVE_MINUTES: PRESIDING,
   OPEN_NOMINATIONS: PRESIDING,
   CLOSE_NOMINATIONS: PRESIDING,
