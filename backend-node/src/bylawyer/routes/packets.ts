@@ -14,7 +14,15 @@ import { logger } from '../../middleware/logger.js';
 import { deleteFiles } from '../services/fileStorage.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
-import { atLeast } from '../../orgs/roles.js';
+import { atLeast, roleNeeded } from '../../orgs/roles.js';
+import { listMembers } from '../../orgs/membershipService.js';
+import { getStorage } from '../../db/meetingStorage.js';
+import { agendaFromPacket, findMeetingPacket } from '../../socket/meetingPacket.js';
+import { syncMeetingRoles } from '../../socket/meetingRoles.js';
+import { getIoInstance } from '../../socket/ioInstance.js';
+import { applyAction } from '../../socket/stateManager.js';
+import { emitState } from '../../socket/statePublisher.js';
+import { validateAction } from '../../socket/actionValidator.js';
 
 export const packetsRouter: RouterType = Router();
 
@@ -24,6 +32,17 @@ export const CODE_IN_USE = 'That meeting code is already in use';
 /** The answer when the presiding officer named isn't a voting member of the organization */
 export const CHAIR_NOT_MEMBER =
   'The presiding officer must be a member of the organization with the member role or above';
+
+/**
+ * After the presiding officer changes on the schedule: a live meeting's roles follow at once,
+ * for the people in it and their sockets
+ */
+async function syncLiveRoles(meetingCode: string): Promise<void> {
+  const io = getIoInstance();
+  if (!io) return;
+  const synced = await syncMeetingRoles(io, meetingCode);
+  if (synced) emitState(io, meetingCode, synced);
+}
 
 /** Whether a user may preside over the organization's meetings: member role or above */
 async function canPreside(organizationId: string, userId: number): Promise<boolean> {
@@ -214,6 +233,10 @@ packetsRouter.put(
         },
       });
 
+      if (chairUserId !== undefined && chairUserId !== packet.chairUserId) {
+        await syncLiveRoles(packet.robbieCode);
+      }
+
       res.json(updated);
     } catch (error) {
       logger.error({ err: error }, 'Error updating packet');
@@ -315,6 +338,81 @@ packetsRouter.get(
     } catch (error) {
       logger.error({ err: error }, 'Error getting packet summary');
       res.status(500).json({ error: 'Failed to get packet summary' });
+    }
+  },
+);
+
+/**
+ * GET /api/packets/:robbieCode/roster
+ * The meeting's organization's members and pending additions, for marking people present
+ */
+packetsRouter.get(
+  '/packets/:robbieCode/roster',
+  validate({ params: robbieCodeParam }),
+  requireRole('viewer', fromParam('robbieCode', orgOfPacketCode)),
+  async (req, res) => {
+    try {
+      const { members, invites = [] } = await listMembers(req.org!.id, true);
+      res.json({
+        members: members.map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          orgRole: m.role,
+        })),
+        invites: invites.map((i) => ({ email: i.email, role: i.role })),
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Error getting roster');
+      res.status(500).json({ error: 'Failed to get the roster' });
+    }
+  },
+);
+
+/**
+ * POST /api/packets/:robbieCode/reload-agenda
+ * Replace a live meeting's agenda with the packet's, before the meeting starts: for a
+ * secretary or above, or the meeting's presiding officer. Without a live meeting yet there is
+ * nothing to replace; the first person to join brings the packet's agenda.
+ */
+packetsRouter.post(
+  '/packets/:robbieCode/reload-agenda',
+  validate({ params: robbieCodeParam }),
+  requireRole('member', fromParam('robbieCode', orgOfPacketCode)),
+  async (req, res) => {
+    try {
+      const meetingCode = req.params.robbieCode;
+      const packet = await findMeetingPacket(meetingCode);
+      if (!packet || packet.organizationId !== req.org!.id) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      if (!atLeast(req.org!.role, 'secretary') && packet.chairUserId !== req.user!.id) {
+        return res.status(403).json({ error: roleNeeded('secretary') });
+      }
+
+      const agenda = agendaFromPacket(packet.agendaItems);
+      const meeting = await getStorage().getMeeting(meetingCode);
+      if (!meeting) {
+        return res.json({ live: false, agenda });
+      }
+
+      const result = await applyAction(
+        meetingCode,
+        { type: 'RELOAD_AGENDA', agenda, timestamp: new Date().toISOString() },
+        validateAction,
+      );
+      // Refused once the meeting has started (see the validator)
+      if (!result.success) {
+        return res.status(409).json({ error: result.error });
+      }
+      const io = getIoInstance();
+      if (io) {
+        emitState(io, meetingCode, { state: result.state, stateVersion: result.stateVersion });
+      }
+      res.json({ live: true, agenda: result.state.agenda });
+    } catch (error) {
+      logger.error({ err: error }, 'Error reloading the agenda');
+      res.status(500).json({ error: 'Failed to reload the agenda' });
     }
   },
 );
