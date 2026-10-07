@@ -16,7 +16,7 @@ describe('ParticipantView elections', () => {
   it('lets a member nominate while nominations are open', () => {
     const state = { ...base, nominationsOpen: true, currentNominationPosition: 'Treasurer' };
     render(<ParticipantView state={state} dispatch={vi.fn()} currentUser={member} />);
-    expect(screen.queryByPlaceholderText('Name of nominee')).not.toBeNull();
+    expect(screen.queryByLabelText('Nominee')).not.toBeNull();
   });
 
   it('lets a member cast a ballot in an election', () => {
