@@ -41,6 +41,29 @@ describe('MinutesNotice', () => {
     expect(screen.getByRole('region', { name: 'Approval of the minutes' })).toBeTruthy();
   });
 
+  it('links a member to the published minutes, in a tab of their own', () => {
+    render(<MinutesNotice state={{ ...atTheMinutes, previousMinutesId: 'm1' }} />);
+    const link = screen.getByRole('link', { name: 'Read the minutes' });
+    expect(link.getAttribute('href')).toBe('/minutes/m1');
+    // The phone stays in the meeting
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('links no guest (sent no text) and no minutes typed in (no published copy)', () => {
+    const { unmount } = render(
+      <MinutesNotice
+        state={{ ...atTheMinutes, minutesFromPreviousMeeting: '', previousMinutesId: 'm1' }}
+      />,
+    );
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+    expect(screen.queryByRole('link')).toBeNull();
+    unmount();
+
+    render(<MinutesNotice state={atTheMinutes} />);
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it('says once they are approved', () => {
     render(
       <MinutesNotice
