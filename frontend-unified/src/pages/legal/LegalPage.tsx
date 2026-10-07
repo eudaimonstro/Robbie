@@ -22,7 +22,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
         <p className="text-sm text-ink-muted mt-1">Version {TERMS_VERSION}</p>
         <p
           role="note"
-          className="mt-4 rounded-md border border-accent-200 bg-accent-50 px-4 py-3 text-sm text-caution-ink dark:border-accent-800 dark:bg-accent-900/20 dark:text-accent-400"
+          className="mt-4 rounded-md border border-caution/40 bg-caution-tint px-4 py-3 text-sm text-caution-ink"
         >
           Draft, not yet reviewed by a lawyer.
         </p>

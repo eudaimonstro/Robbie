@@ -85,7 +85,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {onMenuClick && (
           <button
             onClick={onMenuClick}
-            className="p-2 -ml-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 dark:text-secondary-400 dark:hover:text-ink dark:hover:bg-secondary-700 rounded-md md:hidden"
+            className="p-2 -ml-2 text-ink-muted hover:text-ink hover:bg-surface-2 rounded-md md:hidden"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
@@ -106,7 +106,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
               placeholder="Search documents..."
-              className="w-64 pl-9 pr-8 py-1.5 text-sm border border-rule rounded-md bg-surface focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-primary-400 dark:focus:border-primary-400"
+              className="w-64 pl-9 pr-8 py-1.5 text-sm border border-rule rounded-md bg-surface focus:ring-2 focus:ring-gavel/30 focus:border-gavel"
             />
             {searchQuery && (
               <button
