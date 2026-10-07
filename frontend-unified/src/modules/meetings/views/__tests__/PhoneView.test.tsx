@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Member, Motion } from '@robbie-bylawyer/shared/types';
@@ -13,6 +13,7 @@ const socket = vi.hoisted(() => ({
 vi.mock('../../context/SocketContext', () => ({ useSocket: () => socket }));
 
 const { PhoneView } = await import('../PhoneView');
+const { AppChromeContext } = await import('../../../../components/layout/appChrome');
 
 const dana: Member = {
   id: 2,
@@ -85,7 +86,7 @@ describe('PhoneView', () => {
     for (const name of ['Vote yea', 'Vote nay', 'Vote abstain']) {
       expect(screen.getByRole('button', { name }).className).toContain('btn-lg');
     }
-    expect(screen.queryByRole('button', { name: 'Raise hand' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
     expect(screen.queryByLabelText('Motion text')).toBeNull();
   });
 
@@ -114,10 +115,10 @@ describe('PhoneView', () => {
     expect(screen.getByText('You moved this. Another member must second it.')).toBeTruthy();
   });
 
-  it('raises a hand with a position during debate', () => {
+  it('asks to speak with a position during debate', () => {
     renderAs(ben, { ...active, currentMotion: motion, motionStack: [motion] });
     fireEvent.click(screen.getByRole('button', { name: 'Against' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Raise hand' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'RAISE_HAND', stance: 'con' }),
     );
@@ -125,10 +126,11 @@ describe('PhoneView', () => {
 
   it('makes a motion when nothing is pending', () => {
     renderAs(alice, active);
+    expect(screen.getByRole('heading', { name: 'Make a motion' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Motion text'), {
       target: { value: 'I move that we resurface the pool' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit Motion' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'MAKE_MOTION',
@@ -161,19 +163,50 @@ describe('PhoneView', () => {
     expect(screen.getByRole('button', { name: 'Vote for Alice' })).toBeTruthy();
   });
 
-  it('gives a guest a Guest badge, Request the floor and Ask the chair, and no vote', () => {
+  it('makes another motion in plain words, each saying what it does', () => {
+    renderAs(alice, active);
+    fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));
+    expect(screen.getByText('Take a short break')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/^Recess/));
+    const recess = screen.getByLabelText(/^Recess/).closest('div')!;
+    fireEvent.click(within(recess).getByRole('button', { name: 'Move' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'MAKE_MOTION', motionType: 'recess', moverId: 3 }),
+    );
+  });
+
+  it('asks the chair a question in plain words, with no footnote', () => {
+    renderAs(alice, active);
+    expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
+    expect(screen.queryByText(/RONR/)).toBeNull();
+    fireEvent.click(screen.getByLabelText(/^For information/));
+    fireEvent.change(screen.getByLabelText('Your question'), {
+      target: { value: 'What does resurfacing cost?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ASK_INQUIRY',
+        inquiryType: 'information',
+        question: 'What does resurfacing cost?',
+      }),
+    );
+    expect(screen.getByLabelText(/^About the rules/)).toBeTruthy();
+  });
+
+  it('gives a guest a Guest badge, Ask to speak and Ask the chair, and no vote', () => {
     renderAs(sam, voting);
     expect(screen.getByText('Guest')).toBeTruthy();
     expect(screen.queryAllByRole('button', { name: /^Vote / })).toHaveLength(0);
-    expect(screen.getByText('Ask the chair')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Request the floor' }));
+    expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'RAISE_HAND', stance: 'neutral' }),
     );
   });
 
-  it('shows the last result with both parts', () => {
-    renderAs(ben, {
+  describe('the result', () => {
+    const decided: MeetingState = {
       ...active,
       meetingLog: [
         {
@@ -185,9 +218,59 @@ describe('PhoneView', () => {
           message: 'Vote: Yea 11, Nay 2. CARRIED. On devices 2 to 0, in the room 9 to 2.',
         },
       ],
+    };
+
+    it('sits at the top, above any form, with both parts', () => {
+      renderAs(ben, decided);
+      expect(screen.getByText('Carried')).toBeTruthy();
+      expect(screen.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeTruthy();
+      const result = screen.getByRole('region', { name: 'The result' });
+      const part = screen.getByRole('region', { name: 'Your part' });
+      expect(result.compareDocumentPosition(part) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
-    expect(screen.getByText('Carried')).toBeTruthy();
-    expect(screen.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeTruthy();
+
+    it('goes when the next question is stated', () => {
+      renderAs(ben, { ...decided, pendingSecond: { ...motion, id: 2, secondedBy: null } });
+      expect(screen.queryByText('Carried')).toBeNull();
+    });
+  });
+
+  it('shows only the adjournment once the meeting is adjourned, at the top', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderAs(alice, {
+      ...active,
+      meetingActive: false,
+      meetingStage: 'adjourned',
+      meetingLog: [
+        {
+          time: '7:45:00 PM',
+          message: 'Vote: Yea 11, Nay 2. CARRIED.',
+        },
+        { time: '8:42:15 PM', message: 'Meeting adjourned.' },
+      ],
+    });
+    expect(screen.getByText('The meeting was adjourned at 8:42 PM')).toBeTruthy();
+    expect(screen.queryByText('The meeting is adjourned.')).toBeNull();
+    expect(screen.queryByText('Carried')).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Ask the chair' })).toBeNull();
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("opens the app's menu from the meeting's header, which stands in for the app's", () => {
+    const openMenu = vi.fn();
+    const setOwnHeader = vi.fn();
+    socket.currentUser = alice;
+    socket.state = active;
+    render(
+      <AppChromeContext.Provider value={{ openMenu, setOwnHeader }}>
+        <PhoneView />
+      </AppChromeContext.Provider>,
+    );
+    expect(setOwnHeader).toHaveBeenCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(openMenu).toHaveBeenCalled();
   });
 
   it('leaves the meeting from the header', () => {

@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { isFocusPath } from './focusMode';
 import Header from './Header';
+import { AppChromeContext } from './appChrome';
 import Modal from '../ui/Modal';
 import { useOrganization } from '../../context/OrganizationContext';
 import { documents, DocumentCreate } from '../../api/client';
@@ -19,6 +20,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { showToast } = useToast();
   const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // A page with a header of its own on phones (a live meeting's phone view)
+  const [ownHeader, setOwnHeader] = useState(false);
+  const chrome = useMemo(() => ({ openMenu: () => setSidebarOpen(true), setOwnHeader }), []);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
   const focus = isFocusPath(location.pathname);
 
@@ -92,9 +96,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(true)} menuAlways={focus} />
+        {/* On a phone, a page with its own header carries the title and the menu button */}
+        <div data-testid="app-header" className={ownHeader ? 'hidden md:block' : undefined}>
+          <Header onMenuClick={() => setSidebarOpen(true)} menuAlways={focus} />
+        </div>
         <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 bg-paper" tabIndex={-1}>
-          {children}
+          <AppChromeContext.Provider value={chrome}>{children}</AppChromeContext.Provider>
         </main>
       </div>
 

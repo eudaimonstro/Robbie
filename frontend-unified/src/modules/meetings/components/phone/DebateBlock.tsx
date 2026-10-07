@@ -16,7 +16,7 @@ interface DebateBlockProps {
 
 const STANCES: DebateStance[] = ['pro', 'con', 'neutral'];
 
-/** Debate on a phone: raise a hand with a position, or lower it; other motions are folded away */
+/** Debate on a phone: ask to speak with a position, or withdraw; other motions are folded away */
 export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
   const [stance, setStance] = useState<DebateStance>('neutral');
   const queued = state.speakerQueue.find((entry) => entry.member.id === me.id);
@@ -27,7 +27,7 @@ export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
       {queued ? (
         <>
           <p role="status" className="text-ink">
-            Hand raised: {place} of {state.speakerQueue.length} waiting,{' '}
+            You asked to speak: {place} of {state.speakerQueue.length} waiting,{' '}
             {STANCE_LABELS[queued.stance].toLowerCase()}.
           </p>
           <button
@@ -35,7 +35,7 @@ export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
             className="btn-secondary btn-lg w-full"
             onClick={() => dispatch({ type: 'LOWER_HAND', member: me })}
           >
-            Lower your hand
+            Withdraw the request
           </button>
         </>
       ) : (
@@ -61,7 +61,7 @@ export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
             className="btn-primary btn-lg w-full"
             onClick={() => dispatch({ type: 'RAISE_HAND', member: me, stance })}
           >
-            Raise hand
+            Ask to speak
           </button>
         </>
       )}
@@ -70,7 +70,7 @@ export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
           Other motions
         </summary>
         <div className="border-t border-rule p-4">
-          <MotionPanel state={state} dispatch={dispatch} me={me} />
+          <MotionPanel state={state} dispatch={dispatch} me={me} othersOnly />
         </div>
       </details>
     </div>

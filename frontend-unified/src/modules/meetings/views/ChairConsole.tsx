@@ -144,7 +144,7 @@ export function ChairConsole() {
           <ConsoleAgenda state={state} dispatch={dispatch} onCall={showNow} />
           {currentUser && <ElectionCard state={state} dispatch={dispatch} me={currentUser} />}
           {presiding && !adjourned && (
-            <InquiryPanel state={state} dispatch={dispatch} currentUser={presiding} isChair />
+            <InquiryPanel state={state} dispatch={dispatch} currentUser={presiding} />
           )}
           <MoreArea
             state={state}

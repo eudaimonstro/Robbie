@@ -3,18 +3,12 @@
 
 import type {
   MeetingAction,
-  Motion,
   AgendaItem,
   AgendaAmendment,
-  MotionDefinition,
   BylawAmendment,
 } from '@robbie-bylawyer/shared/types';
 
 // Component prop types
-export interface HelpTooltipProps {
-  readonly motion: MotionDefinition | Motion;
-}
-
 export interface CountdownTimerProps {
   readonly endTime: number | null;
   readonly label: string;

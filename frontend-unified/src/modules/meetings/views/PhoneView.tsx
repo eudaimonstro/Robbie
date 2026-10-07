@@ -1,59 +1,79 @@
+import { useEffect, useRef } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { useSocket } from '../context/SocketContext';
 import { useVoteResults } from '../hooks/useVoteResults';
-import { currentResult, describeQuestion, voteResultView } from '../utils/question';
+import { adjournedAt, currentResult, describeQuestion } from '../utils/question';
+import { useOwnHeader } from '../../../components/layout/appChrome';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
 import { TimerLine } from '../components/TimerLine';
-import { InquiryPanel } from '../components/InquiryPanel';
 import { ProxyAcceptancePanel, ProxyRequestPanel } from '../components/participant';
 import { PhoneHeader } from '../components/phone/PhoneHeader';
 import { ActionBlock } from '../components/phone/ActionBlock';
+import { AskTheChair } from '../components/phone/AskTheChair';
 import { PhoneAgenda, SpeakerList } from '../components/phone/MeetingLists';
 
 /**
- * The phone view (docs/design-brief.md, "The three screens"), for members and guests: what is
- * happening now, the one thing to do about it, then the queue, the agenda and the last result
+ * The phone view (docs/design-brief.md, "The three screens"), for members and guests: the last
+ * result until the next question, what is happening now, the one thing to do about it, then the
+ * queue, the agenda and a question for the chair. Its header stands in for the app's on a phone.
  */
 export function PhoneView() {
   const { state, dispatch, currentUser, leaveMeeting } = useSocket();
   const voteResult = useVoteResults(state.meetingLog);
+  const openMenu = useOwnHeader();
+  const topRef = useRef<HTMLDivElement>(null);
+  const adjourned = state.meetingStage === 'adjourned';
+
+  // At the adjournment, back to the top, where the phone says so
+  useEffect(() => {
+    if (adjourned) topRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [adjourned]);
+
   if (!currentUser) return null;
 
   const me = currentUser;
   const guest = me.role === 'guest';
   const question = describeQuestion(state);
-  // The latest decision stays below the action block until the next vote opens
-  const result =
-    currentResult(state, voteResult) ??
-    (voteResult && !state.votingOpen ? voteResultView(voteResult) : null);
+  // A decision stays at the top until the next question comes up
+  const result = currentResult(state, voteResult);
   const hasFloor = state.recognizedSpeaker?.id === me.id;
-  const empty =
-    state.meetingStage === 'adjourned'
-      ? 'The meeting is adjourned.'
-      : !state.meetingActive
-        ? 'Nothing is before the meeting yet.'
-        : 'No question is pending.';
+  const header = (
+    <PhoneHeader
+      title={state.title || 'Live meeting'}
+      item={adjourned ? null : (state.currentAgendaItem?.title ?? null)}
+      guest={guest}
+      onLeave={leaveMeeting}
+      onMenu={openMenu ?? undefined}
+    />
+  );
+
+  if (adjourned) {
+    const time = adjournedAt(state);
+    return (
+      <div
+        ref={topRef}
+        className="mx-auto max-w-lg space-y-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+      >
+        {header}
+        <section aria-label="Adjourned" className="card p-6 text-center">
+          <p className="font-serif-soft text-title font-semibold text-ink">
+            {time ? `The meeting was adjourned at ${time}` : 'The meeting was adjourned'}
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-      <PhoneHeader
-        title={state.title || 'Live meeting'}
-        item={state.currentAgendaItem?.title ?? null}
-        guest={guest}
-        onLeave={leaveMeeting}
-      />
-      {!guest && <ProxyAcceptancePanel state={state} dispatch={dispatch} currentUser={me} />}
-      {hasFloor && <FloorBanner state={state} dispatch={dispatch} />}
-      <QuestionCard question={question} size="phone" empty={empty} />
-      <section aria-label="Your part" className="card p-4">
-        <ActionBlock state={state} dispatch={dispatch} me={me} />
-      </section>
-      <SpeakerList state={state} />
-      <PhoneAgenda state={state} />
+    <div
+      ref={topRef}
+      className="mx-auto max-w-lg space-y-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+    >
+      {header}
       {result && (
-        <section aria-label="Last result" className="card p-4">
+        <section aria-label="The result" className="card p-4">
           <Stamp
             key={result.key}
             outcome={result.outcome}
@@ -63,10 +83,25 @@ export function PhoneView() {
           />
         </section>
       )}
-      {!guest && <ProxyRequestPanel state={state} dispatch={dispatch} currentUser={me} />}
-      {!guest && (
-        <InquiryPanel state={state} dispatch={dispatch} currentUser={me} isChair={false} />
+      {!guest && <ProxyAcceptancePanel state={state} dispatch={dispatch} currentUser={me} />}
+      {hasFloor && <FloorBanner state={state} dispatch={dispatch} />}
+      {/* With the result up, nothing is pending: the card would only say so */}
+      {!(result && !question) && (
+        <QuestionCard
+          question={question}
+          size="phone"
+          empty={
+            state.meetingActive ? 'No question is pending.' : 'Nothing is before the meeting yet.'
+          }
+        />
       )}
+      <section aria-label="Your part" className="card p-4">
+        <ActionBlock state={state} dispatch={dispatch} me={me} />
+      </section>
+      <SpeakerList state={state} />
+      <PhoneAgenda state={state} />
+      {!guest && <ProxyRequestPanel state={state} dispatch={dispatch} currentUser={me} />}
+      {state.meetingActive && <AskTheChair state={state} dispatch={dispatch} me={me} />}
     </div>
   );
 }

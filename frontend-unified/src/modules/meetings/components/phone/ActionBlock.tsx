@@ -4,7 +4,6 @@ import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/share
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
 import { NominationsPanel } from '../NominationsPanel';
 import { ElectionPanel } from '../ElectionPanel';
-import { InquiryPanel } from '../InquiryPanel';
 import { UnanimousConsentSection } from '../participant';
 import { VoteBlock } from './VoteBlock';
 import { DebateBlock } from './DebateBlock';
@@ -38,11 +37,8 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       );
     }
     case 'adjourned':
-      return (
-        <Note>
-          <p>The meeting is adjourned.</p>
-        </Note>
-      );
+      // The phone shows only the adjournment then (PhoneView)
+      return null;
     case 'voice-vote':
       return (
         <Note>
@@ -97,18 +93,15 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
 }
 
 /**
- * A guest follows the meeting, asks for the floor and asks the chair a question: the only things
- * the server lets a guest do
+ * A guest follows the meeting, asks to speak and asks the chair a question (below, as members
+ * do): the only things the server lets a guest do
  */
 function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment: PhoneMoment }) {
-  if (moment === 'lobby' || moment === 'adjourned') {
+  if (moment === 'adjourned') return null;
+  if (moment === 'lobby') {
     return (
       <Note>
-        <p>
-          {moment === 'lobby'
-            ? 'The meeting has not been called to order yet.'
-            : 'The meeting is adjourned.'}
-        </p>
+        <p>The meeting has not been called to order yet.</p>
       </Note>
     );
   }
@@ -133,17 +126,9 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
           className="btn-primary btn-lg w-full"
           onClick={() => dispatch({ type: 'RAISE_HAND', member: me, stance: 'neutral' })}
         >
-          Request the floor
+          Ask to speak
         </button>
       )}
-      <details className="rounded-lg border border-rule">
-        <summary className="cursor-pointer list-none px-4 py-3 text-center font-medium text-ink">
-          Ask the chair
-        </summary>
-        <div className="border-t border-rule p-4">
-          <InquiryPanel state={state} dispatch={dispatch} currentUser={me} isChair={false} />
-        </div>
-      </details>
     </div>
   );
 }

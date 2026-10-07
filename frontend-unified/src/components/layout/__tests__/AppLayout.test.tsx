@@ -29,6 +29,17 @@ vi.mock('../Header', () => ({
 
 const { default: AppLayout } = await import('../AppLayout');
 const { isFocusPath } = await import('../focusMode');
+const { useOwnHeader } = await import('../appChrome');
+
+/** A page with a header of its own on phones, as a live meeting's phone view has */
+function PhonePage() {
+  const openMenu = useOwnHeader();
+  return (
+    <button type="button" onClick={() => openMenu?.()}>
+      The page's menu
+    </button>
+  );
+}
 
 function renderAt(path: string) {
   return render(
@@ -80,5 +91,23 @@ describe('focus mode', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close sidebar' }));
     expect(frame.className).toContain('-translate-x-full');
+  });
+
+  it("hides the app's header on phones for a page with its own, whose menu opens the drawer", () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/meetings/MAPLE1']}>
+        <AppLayout>
+          <PhonePage />
+        </AppLayout>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('app-header').className).toBe('hidden md:block');
+    const frame = screen.getByTestId('sidebar-frame');
+    fireEvent.click(screen.getByRole('button', { name: "The page's menu" }));
+    expect(frame.className).not.toContain('-translate-x-full');
+    unmount();
+
+    renderAt('/meetings/MAPLE1');
+    expect(screen.getByTestId('app-header').className).toBe('');
   });
 });
