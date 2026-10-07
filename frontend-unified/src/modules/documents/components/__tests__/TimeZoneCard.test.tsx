@@ -27,6 +27,8 @@ describe('TimeZoneCard', () => {
     render(<TimeZoneCard />);
     const select = screen.getByLabelText('Meetings are held in') as HTMLSelectElement;
     expect(select.value).toBe('America/Chicago');
+    expect(select.selectedOptions[0].textContent).toBe('Central Time (Chicago)');
+    expect(screen.getByRole('group', { name: 'United States' })).toBeTruthy();
     fireEvent.change(select, { target: { value: 'Europe/Paris' } });
     await waitFor(() =>
       expect(api.update).toHaveBeenCalledWith('org-1', { timeZone: 'Europe/Paris' }),
@@ -39,6 +41,17 @@ describe('TimeZoneCard', () => {
     org.isAdmin = false;
     render(<TimeZoneCard />);
     expect(screen.queryByLabelText('Meetings are held in')).toBeNull();
-    expect(screen.getByText('America/Chicago')).toBeTruthy();
+    expect(screen.getByText('Central Time (Chicago)')).toBeTruthy();
+  });
+
+  it('keeps a time zone the list does not know', () => {
+    org.currentOrganization.timeZone = 'Etc/Unknown';
+    try {
+      render(<TimeZoneCard />);
+      const select = screen.getByLabelText('Meetings are held in') as HTMLSelectElement;
+      expect(select.value).toBe('Etc/Unknown');
+    } finally {
+      org.currentOrganization.timeZone = 'America/Chicago';
+    }
   });
 });

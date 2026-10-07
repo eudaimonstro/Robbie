@@ -3,10 +3,7 @@ import { Globe } from 'lucide-react';
 import { organizations as organizationsApi } from '../../../api/client';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
-import { timeZoneNames } from '../../../utils/timeZones';
-
-/** A time zone's name as people read it: America/New_York is America/New York */
-const readable = (zone: string) => zone.replace(/_/g, ' ');
+import { timeZoneGroups, timeZoneLabel } from '../../../utils/timeZones';
 
 /** Where the organization's meetings are held, which the minutes give their times in */
 export function TimeZoneCard() {
@@ -52,15 +49,19 @@ export function TimeZoneCard() {
               disabled={saving}
               onChange={(e) => void change(e.target.value)}
             >
-              {timeZoneNames(current).map((zone) => (
-                <option key={zone} value={zone}>
-                  {readable(zone)}
-                </option>
+              {timeZoneGroups(current).map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.zones.map((zone) => (
+                    <option key={zone.value} value={zone.value}>
+                      {zone.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </>
         ) : (
-          <p className="font-medium text-ink">{readable(current)}</p>
+          <p className="font-medium text-ink">{timeZoneLabel(current)}</p>
         )}
         <p className="text-xs text-ink-muted">
           The minutes give the times of meetings in this time zone.
