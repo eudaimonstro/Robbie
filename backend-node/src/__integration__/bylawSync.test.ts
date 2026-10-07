@@ -51,6 +51,19 @@ describe('bylaw sync', () => {
     expect(amendment).toMatchObject({ documentId: f.doc, status: 'passed' });
   });
 
+  it('reads the latest record of a motion voted on again after reconsideration', async () => {
+    const { before } = votedStates(f.doc, f.section);
+    const after = {
+      ...initialState,
+      completedMotions: [
+        { id: 41, passed: false, voterChoices: {} },
+        { id: 41, passed: true, voterChoices: {} },
+      ],
+    } as unknown as MeetingState;
+    const result = await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after);
+    expect(result).toMatchObject({ success: true, applied: true });
+  });
+
   it('records the device votes, the floor tally and their total', async () => {
     const { before } = votedStates(f.doc, f.section);
     const after = {

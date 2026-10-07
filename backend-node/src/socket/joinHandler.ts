@@ -45,13 +45,28 @@ export const NO_MEETING = 'No meeting with that code';
 export const NAME_FIRST = 'Set your name first';
 export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the display";
 
-/** The live meeting for a packet, created from it when the first person arrives */
+/**
+ * The live meeting for a packet, created from it when the first person arrives. A live state
+ * saved before it recorded its organization, title and date gets them from the packet.
+ */
 async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
   const storage = getStorage();
   const existing = await storage.getMeeting(packet.robbieCode);
-  if (existing) return existing;
-  const rosterVoters = await countRosterVoters(packet.organizationId);
-  return storage.getOrCreateMeeting(packet.robbieCode, stateFromPacket(packet, rosterVoters));
+  if (!existing) {
+    const rosterVoters = await countRosterVoters(packet.organizationId);
+    return storage.getOrCreateMeeting(packet.robbieCode, stateFromPacket(packet, rosterVoters));
+  }
+  if (existing.state.organizationId) return existing;
+  const result = await applyAction(packet.robbieCode, {
+    type: 'SET_MEETING_INFO',
+    organizationId: packet.organizationId,
+    title: packet.title ?? '',
+    scheduledFor: packet.scheduledFor?.toISOString() ?? null,
+    timestamp: new Date().toISOString(),
+  });
+  return result.success
+    ? { ...existing, state: result.state, stateVersion: result.stateVersion }
+    : existing;
 }
 
 /**
@@ -166,8 +181,9 @@ export async function handleJoinMeeting(
       ),
     );
 
-    // Names and roles as the organization has them now: this member's, and those of others
-    // that changed since they joined (a new presiding officer, a changed role, a restart)
+    // This member's name and role as the organization has them now, and the roles of others
+    // that changed since they joined (a new presiding officer, a changed role, a restart);
+    // other members keep their names (one taken in the meeting stays)
     const others = await roleChanges(
       packet,
       currentState.members.filter((m) => m.id !== userId),
@@ -179,8 +195,9 @@ export async function handleJoinMeeting(
       track(
         await applyAction(meetingCode, { type: 'REFRESH_MEMBERS', members: changes, timestamp }),
       );
-      await updateSocketRoles(io, meetingCode, others);
     }
+    // The joiner's other sockets (another tab) take the role too
+    await updateSocketRoles(io, meetingCode, [{ id: userId, role }, ...others]);
 
     // Members still shown as present on a device with no connection (left over from a server
     // restart) are marked absent once the grace period has passed, so quorum counts only who

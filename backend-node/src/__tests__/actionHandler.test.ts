@@ -24,6 +24,7 @@ vi.mock('../bylawyer/bylawSyncService.js', () => ({
 }));
 
 const { handleDispatchAction } = await import('../socket/actionHandler.js');
+const { roomManager } = await import('../socket/roomManager.js');
 
 const question = {
   id: 1,
@@ -134,6 +135,36 @@ describe('handleDispatchAction', () => {
       timestamp: '',
     });
     expect(applyAction.mock.calls[0][1]).toMatchObject({ withoutQuorum: true });
+  });
+
+  it("ends a member's grace period on MARK_ABSENT only once the action is applied", async () => {
+    const markAbsent = () =>
+      dispatch(socketOf({ userId: 1, role: 'chair' }), {
+        type: 'MARK_ABSENT',
+        memberId: 2,
+        excused: false,
+        timestamp: '',
+      });
+    roomManager.startGrace('TEST01', 2, () => {});
+
+    applyAction.mockImplementationOnce(
+      async () =>
+        ({
+          success: false,
+          error: 'State was modified by another user. Please try again.',
+          errorCode: 'CONCURRENCY_CONFLICT',
+        }) as never,
+    );
+    expect((await markAbsent()).callback).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false }),
+    );
+    // Not applied: the member would otherwise stay present with no grace period to end it
+    expect(roomManager.inGrace('TEST01', 2)).toBe(true);
+
+    expect((await markAbsent()).callback).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true }),
+    );
+    expect(roomManager.inGrace('TEST01', 2)).toBe(false);
   });
 
   it("doesn't broadcast who voted which way on a secret ballot", async () => {

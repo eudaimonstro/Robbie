@@ -51,18 +51,25 @@ describe('roleChanges', () => {
     present: true,
   });
 
-  it('lists the members whose name or role the organization now has otherwise', async () => {
+  it('lists the members whose role the organization now has otherwise, with their names as the meeting has them', async () => {
     const changes = await roleChanges({ organizationId: 'org', chairUserId: 2 }, [
       member(1, 'Olive', 'admin'), // unchanged
       member(2, 'Pat', 'admin'), // now presides
-      member(3, 'Dana', 'chair'), // renamed, and no longer presides
+      member(3, 'Dana', 'chair'), // no longer presides; renamed in the meeting, which stays
       member(4, 'Vic', 'member'), // a viewer is a guest
       member(9, 'Walk-in', 'guest'), // not in the organization: unchanged
     ]);
     expect(changes).toEqual([
       { id: 2, name: 'Pat', role: 'chair' },
-      { id: 3, name: 'Dana Smith', role: 'member' },
+      { id: 3, name: 'Dana', role: 'member' },
       { id: 4, name: 'Vic', role: 'guest' },
     ]);
+  });
+
+  it("leaves a member's name alone: a name changed in the meeting (RENAME_MEMBER) stays", async () => {
+    const changes = await roleChanges({ organizationId: 'org', chairUserId: null }, [
+      member(3, 'Dana', 'member'),
+    ]);
+    expect(changes).toEqual([]);
   });
 });

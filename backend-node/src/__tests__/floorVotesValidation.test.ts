@@ -28,6 +28,45 @@ const voting: MeetingState = {
 };
 
 describe('validating floor votes', () => {
+  describe('CLOSE_VOTING', () => {
+    const close = (state: MeetingState) =>
+      validateAction(state, { type: 'CLOSE_VOTING', timestamp: '' });
+
+    it('needs the show of hands entered before a voice vote closes', () => {
+      const voice = { ...voting, votingMethod: 'voice' as const };
+      expect(close(voice)).toEqual({
+        valid: false,
+        error: 'Enter the show of hands before closing',
+        errorCode: 'VOTING_METHOD',
+      });
+      expect(close({ ...voice, floorVotes: { yea: 0, nay: 3, abstain: 0 } }).valid).toBe(true);
+      // Nobody voting is a result on any other method
+      expect(close(voting).valid).toBe(true);
+    });
+  });
+
+  describe('SET_FLOOR_TALLY after the chair has voted', () => {
+    const tally = (state: MeetingState) =>
+      validateAction(state, { type: 'SET_FLOOR_TALLY', yea: 2, nay: 0, abstain: 0, timestamp: '' });
+
+    it("is refused, so the tally can't make the chair's deciding vote decide nothing", () => {
+      const chairVoted = {
+        ...voting,
+        votes: { yea: 2, nay: 1, abstain: 0 },
+        voters: [2, 1],
+        voterChoices: { 2: 'yea' as const, 1: 'nay' as const },
+      };
+      expect(tally(chairVoted)).toEqual({
+        valid: false,
+        error: 'The floor tally must be entered before the chair votes',
+        errorCode: 'VOTING_METHOD',
+      });
+      // Members voting is no bar; on a ballot the chair votes like anyone
+      expect(tally({ ...chairVoted, voters: [2], voterChoices: { 2: 'yea' } }).valid).toBe(true);
+      expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
+    });
+  });
+
   describe('CAST_VOTE', () => {
     it('is refused on a voice vote', () => {
       const result = validateAction(

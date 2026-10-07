@@ -158,3 +158,53 @@ describe('changing the presiding officer on the schedule', () => {
     expect(secretary.data.role).toBe('admin');
   });
 });
+
+describe("changing the organization's members", () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+  });
+  afterEach(live.disconnectAll);
+
+  const roleOf = async (userId: number) =>
+    (await stateOf(f.packet.code)).members.find((m) => m.id === userId)?.role;
+
+  it('changes their roles in the live meeting at once, without a rejoin', async () => {
+    const member = live.connect(f.users.member);
+    const viewer = live.connect(f.users.viewer);
+    await live.join(member, f.packet.code);
+    await live.join(viewer, f.packet.code);
+    expect(await roleOf(f.users.viewer.id)).toBe('guest');
+
+    // Removed from the organization: a guest now
+    const removed = await call(
+      'delete',
+      `/api/organizations/${f.orgA.id}/members/${f.users.member.id}`,
+      { cookie: f.users.admin.cookie },
+    );
+    expect(removed.status).toBe(204);
+    expect(await roleOf(f.users.member.id)).toBe('guest');
+    expect(member.data.role).toBe('guest');
+
+    // A viewer made a secretary: an admin now
+    const promoted = await call(
+      'put',
+      `/api/organizations/${f.orgA.id}/members/${f.users.viewer.id}`,
+      { cookie: f.users.admin.cookie, body: { role: 'secretary' } },
+    );
+    expect(promoted.status).toBe(200);
+    expect(await roleOf(f.users.viewer.id)).toBe('admin');
+    expect(viewer.data.role).toBe('admin');
+
+    // Leaving the organization
+    const left = await call(
+      'delete',
+      `/api/organizations/${f.orgA.id}/members/${f.users.viewer.id}`,
+      { cookie: f.users.viewer.cookie },
+    );
+    expect(left.status).toBe(204);
+    expect(await roleOf(f.users.viewer.id)).toBe('guest');
+  });
+});

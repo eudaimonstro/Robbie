@@ -51,6 +51,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   COMPLETE_AGENDA_ITEM: NONE,
   REORDER_AGENDA: NONE,
   RELOAD_AGENDA: NONE,
+  SET_MEETING_INFO: NONE,
   SET_SPEAKER_TIME_LIMIT: NONE,
   SET_VOTE_TIME_LIMIT: NONE,
   REQUEST_UNANIMOUS_CONSENT: NONE,
@@ -69,7 +70,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   CHAIR_RULING: NONE,
   OPEN_NOMINATIONS: NONE,
   NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },
-  DECLINE_NOMINATION: NONE,
+  DECLINE_NOMINATION: { id: 'declinedBy' },
   CLOSE_NOMINATIONS: NONE,
   START_ELECTION: NONE,
   CAST_BALLOT: { id: 'voterId' },
@@ -136,6 +137,20 @@ export function enrichAction(
   // client: otherwise any member could be demoted along with the handover
   if (enriched.type === 'SET_MEMBER_ROLE') {
     delete enriched.previousChairId;
+  }
+
+  // The members of a proxy are named as the meeting has them, not as the client says (the
+  // validator refuses a member the meeting doesn't have, so a name left alone goes nowhere)
+  const nameOf = (field: string, id: unknown) => {
+    const named = members.find((m) => m.id === id);
+    if (named) enriched[field] = named.name;
+  };
+  if (enriched.type === 'GRANT_PROXY') {
+    nameOf('grantedByName', enriched.grantedBy);
+    nameOf('grantedToName', enriched.grantedTo);
+  }
+  if (enriched.type === 'REQUEST_PROXY') {
+    nameOf('requestedForName', enriched.requestedFor);
   }
 
   // Server generates timestamps using shared utility for consistency

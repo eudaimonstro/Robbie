@@ -48,8 +48,9 @@ export async function checkAndSyncBylawAmendment(
     return null;
   }
 
-  // Find the completed motion in the new state to determine if it passed
-  const completedMotion = newState.completedMotions.find((cm) => cm.id === votedMotion.id);
+  // Find the completed motion in the new state to determine if it passed: the latest record,
+  // since a motion voted on again after reconsideration is recorded again with its id
+  const completedMotion = newState.completedMotions.filter((cm) => cm.id === votedMotion.id).at(-1);
 
   if (!completedMotion) {
     // Motion wasn't completed (might have been tabled or something)

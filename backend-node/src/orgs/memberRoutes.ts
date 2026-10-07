@@ -8,6 +8,7 @@ import type { OrgRole } from '../generated/prisma/client.js';
 import type { SessionUser } from '../auth/sessionService.js';
 import { validate } from '../middleware/validate.js';
 import { logger } from '../middleware/logger.js';
+import { syncOrganizationLiveRoles } from '../socket/meetingRoles.js';
 import {
   addMemberBody,
   changeRoleBody,
@@ -48,6 +49,18 @@ function sendError(res: Response, error: unknown, fallback: string) {
   res.status(500).json({ error: fallback });
 }
 
+/**
+ * After a membership changes: the organization's live meetings give the person their new role
+ * at once (a member removed becomes a guest, say). Best effort: the change stands regardless.
+ */
+async function syncLiveMeetings(organizationId: string): Promise<void> {
+  try {
+    await syncOrganizationLiveRoles(organizationId);
+  } catch (error) {
+    logger.error({ err: error, organizationId }, "Failed to sync a live meeting's roles");
+  }
+}
+
 // GET /api/organizations/:id/members: the members, and for admins the pending additions
 membersRouter.get(
   '/organizations/:id/members',
@@ -75,6 +88,7 @@ membersRouter.post(
         req.body.email,
         req.body.role,
       );
+      if (result.status === 'added') await syncLiveMeetings(req.params.id);
       res.status(result.status === 'updated' ? 200 : 201).json(result);
     } catch (error) {
       sendError(res, error, 'Failed to add the member');
@@ -95,6 +109,7 @@ membersRouter.put(
         Number(req.params.userId),
         req.body.role,
       );
+      await syncLiveMeetings(req.params.id);
       res.json({ member });
     } catch (error) {
       sendError(res, error, 'Failed to change the role');
@@ -110,6 +125,7 @@ membersRouter.delete(
   async (req, res) => {
     try {
       await removeMember(req.params.id, actorOf(req.user!, req.org!), Number(req.params.userId));
+      await syncLiveMeetings(req.params.id);
       res.status(204).send();
     } catch (error) {
       sendError(res, error, 'Failed to remove the member');

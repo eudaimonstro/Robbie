@@ -428,7 +428,8 @@ export type MeetingAction =
       nominationId: number;
       timestamp: string;
     }
-  | { type: 'DECLINE_NOMINATION'; nominationId: number; timestamp: string }
+  // declinedBy is set by the server from the signed-in user
+  | { type: 'DECLINE_NOMINATION'; nominationId: number; declinedBy?: number; timestamp: string }
   | { type: 'CLOSE_NOMINATIONS'; timestamp: string }
   | {
       type: 'START_ELECTION';
@@ -490,6 +491,15 @@ export type MeetingAction =
   | { type: 'SET_HEADCOUNT'; count: number; names: string[]; timestamp: string }
   // Server-only: the agenda from the packet, before the meeting starts
   | { type: 'RELOAD_AGENDA'; agenda: AgendaItem[]; timestamp: string }
+  // Server-only: the meeting's organization, title and date from its packet, for a live state
+  // saved before it recorded them
+  | {
+      type: 'SET_MEETING_INFO';
+      organizationId: string;
+      title: string;
+      scheduledFor: string | null;
+      timestamp: string;
+    }
   | { type: 'WITHDRAW_MOTION'; requesterId: number; timestamp: string }
   | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }

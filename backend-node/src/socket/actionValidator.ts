@@ -8,6 +8,7 @@ import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types'
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import {
+  NO_VOTES,
   addVotes,
   canChairVoteDecide,
   isRuleSuspended,
@@ -29,6 +30,12 @@ const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 /** Whether the member with this id is in the meeting as a guest */
 function isGuest(state: MeetingState, memberId: number): boolean {
   return state.members.some((m) => m.id === memberId && m.role === 'guest');
+}
+
+/** Whether the member with this id presides: the chair, or an admin */
+function isPresiding(state: MeetingState, memberId: number | undefined): boolean {
+  const role = state.members.find((m) => m.id === memberId)?.role;
+  return role === 'chair' || role === 'admin';
 }
 
 /** A count the chair enters: a whole number from 0 */
@@ -254,15 +261,36 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'CLOSE_VOTING':
+    case 'CLOSE_VOTING': {
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
+      // A voice vote is counted only in the room: closing it with nothing entered would decide
+      // the question on no votes at all
+      const floor = state.floorVotes ?? NO_VOTES;
+      if (state.votingMethod === 'voice' && floor.yea + floor.nay + floor.abstain === 0) {
+        return {
+          valid: false,
+          error: 'Enter the show of hands before closing',
+          errorCode: 'VOTING_METHOD',
+        };
+      }
       return { valid: true };
+    }
 
-    case 'SET_FLOOR_TALLY':
+    case 'SET_FLOOR_TALLY': {
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
+      }
+      // The chair's deciding vote was judged on the tally as it stood: a tally entered after
+      // it could leave the chair's vote cast where it no longer decides anything
+      const chair = state.members.find((m) => m.role === 'chair');
+      if (chair && state.votingMethod !== 'ballot' && state.voters.includes(chair.id)) {
+        return {
+          valid: false,
+          error: 'The floor tally must be entered before the chair votes',
+          errorCode: 'VOTING_METHOD',
+        };
       }
       if (![action.yea, action.nay, action.abstain].every(isCount)) {
         return {
@@ -272,6 +300,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+    }
 
     case 'SET_VOTING_METHOD':
       if (!VOTING_METHODS.includes(action.method)) {
@@ -618,6 +647,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Nomination is already declined',
           errorCode: 'NOMINATION_ALREADY_DECLINED',
+        };
+      }
+      // The nominee declines, or the chair for them (a nominee from outside the meeting, say)
+      if (
+        action.declinedBy !== undefined &&
+        action.declinedBy !== nomination.nomineeId &&
+        !isPresiding(state, action.declinedBy)
+      ) {
+        return {
+          valid: false,
+          error: 'Only the nominee or the chair can decline this nomination',
+          errorCode: 'PERMISSION_DENIED',
         };
       }
       return { valid: true };
@@ -1128,10 +1169,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'REQUEST_NOT_PENDING',
         };
       }
-      if (action.canceledBy !== undefined && action.canceledBy !== request.requestedBy) {
+      // The member who asked cancels, or the chair (for a member who has left, say)
+      if (
+        action.canceledBy !== undefined &&
+        action.canceledBy !== request.requestedBy &&
+        !isPresiding(state, action.canceledBy)
+      ) {
         return {
           valid: false,
-          error: 'Only the member who asked can cancel this request',
+          error: 'Only the member who asked or the chair can cancel this request',
           errorCode: 'PERMISSION_DENIED',
         };
       }
@@ -1288,7 +1334,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'REFRESH_MEMBERS':
-      // Server-only, from the organization's roster
+    case 'SET_MEETING_INFO':
+      // Server-only, from the organization's roster and the packet
       return { valid: true };
 
     case 'REORDER_AGENDA': {

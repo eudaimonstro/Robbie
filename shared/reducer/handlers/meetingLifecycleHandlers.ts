@@ -32,6 +32,16 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ),
       };
 
+    case 'SET_MEETING_INFO': {
+      const typedAction = action as Extract<MeetingAction, { type: 'SET_MEETING_INFO' }>;
+      return {
+        ...state,
+        organizationId: typedAction.organizationId,
+        title: typedAction.title,
+        scheduledFor: typedAction.scheduledFor,
+      };
+    }
+
     case 'ADVANCE_MEETING_STAGE': {
       const typedAction = action as Extract<MeetingAction, { type: 'ADVANCE_MEETING_STAGE' }>;
       // Adjourning ends the meeting (END_MEETING), so advancing stops at the last stage of

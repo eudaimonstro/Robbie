@@ -7,10 +7,13 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import type { OrgRole } from '../generated/prisma/client.js';
 import { getStorage } from '../db/meetingStorage.js';
+import { prisma } from '../db/prisma.js';
 import { atLeast } from '../orgs/roles.js';
+import { getIoInstance } from './ioInstance.js';
 import { findMeetingPacket, findOrgPeople } from './meetingPacket.js';
 import { roomManager } from './roomManager.js';
 import { applyAction } from './stateManager.js';
+import { emitState } from './statePublisher.js';
 
 type TypedServer = Server<
   ClientToServerEvents,
@@ -41,7 +44,11 @@ export function deriveMeetingRole(
   return atLeast(orgRole, 'secretary') ? 'admin' : 'member';
 }
 
-/** The members whose name or role differs from what the organization has now */
+/**
+ * The members whose role differs from what the organization gives them now, each with the
+ * name the meeting has for them: a member's name is refreshed only when they join, so a name
+ * taken in the meeting (RENAME_MEMBER) stays
+ */
 export async function roleChanges(
   packet: { organizationId: string; chairUserId: number | null },
   members: readonly Member[],
@@ -52,10 +59,8 @@ export async function roleChanges(
     members.map((m) => m.id),
   );
   return members.flatMap((m) => {
-    const person = people.get(m.id);
-    const role = deriveMeetingRole(packet.chairUserId, person?.role ?? null, m.id);
-    const name = person?.name ?? m.name;
-    return role !== m.role || name !== m.name ? [{ id: m.id, name, role }] : [];
+    const role = deriveMeetingRole(packet.chairUserId, people.get(m.id)?.role ?? null, m.id);
+    return role !== m.role ? [{ id: m.id, name: m.name, role }] : [];
   });
 }
 
@@ -97,4 +102,26 @@ export async function syncMeetingRoles(
   if (!result.success) return null;
   await updateSocketRoles(io, meetingCode, changes);
   return { state: result.state, stateVersion: result.stateVersion };
+}
+
+/**
+ * After the schedule or the organization changes who is what: a live meeting's roles follow
+ * at once, for the people in it and their sockets, and the room is sent the new state
+ */
+export async function syncLiveRoles(meetingCode: string): Promise<void> {
+  const io = getIoInstance();
+  if (!io) return;
+  const synced = await syncMeetingRoles(io, meetingCode);
+  if (synced) emitState(io, meetingCode, synced);
+}
+
+/** The same for every live meeting of an organization, after its members change */
+export async function syncOrganizationLiveRoles(organizationId: string): Promise<void> {
+  if (!getIoInstance()) return;
+  const packets = await prisma.meetingPacket.findMany({
+    where: { organizationId },
+    select: { robbieCode: true },
+  });
+  // syncMeetingRoles finds nothing to do for a packet whose meeting isn't live
+  for (const packet of packets) await syncLiveRoles(packet.robbieCode);
 }

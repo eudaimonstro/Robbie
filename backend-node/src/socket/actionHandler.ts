@@ -16,7 +16,7 @@ import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
 import { applyAction } from './stateManager.js';
 import { recordMeetingTimes } from './meetingPacket.js';
-import { prepareAttendanceAction } from './attendanceActions.js';
+import { afterAttendanceAction, prepareAttendanceAction } from './attendanceActions.js';
 import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import { logger } from '../middleware/logger.js';
@@ -268,6 +268,9 @@ export async function handleDispatchAction(
       }
       return;
     }
+
+    // Post-action: a member marked absent has no grace period to wait for
+    afterAttendanceAction(meetingCode, enrichedAction);
 
     // Post-action: a new chair is recorded on the packet, and sockets and roles follow
     const afterRoleChange = await handleRoleChangePostAction(io, meetingCode, enrichedAction);

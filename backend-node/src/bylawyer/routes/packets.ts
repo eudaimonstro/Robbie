@@ -18,7 +18,7 @@ import { atLeast, roleNeeded } from '../../orgs/roles.js';
 import { listMembers } from '../../orgs/membershipService.js';
 import { getStorage } from '../../db/meetingStorage.js';
 import { agendaFromPacket, findMeetingPacket } from '../../socket/meetingPacket.js';
-import { syncMeetingRoles } from '../../socket/meetingRoles.js';
+import { syncLiveRoles } from '../../socket/meetingRoles.js';
 import { getIoInstance } from '../../socket/ioInstance.js';
 import { applyAction } from '../../socket/stateManager.js';
 import { emitState } from '../../socket/statePublisher.js';
@@ -32,17 +32,6 @@ export const CODE_IN_USE = 'That meeting code is already in use';
 /** The answer when the presiding officer named isn't a voting member of the organization */
 export const CHAIR_NOT_MEMBER =
   'The presiding officer must be a member of the organization with the member role or above';
-
-/**
- * After the presiding officer changes on the schedule: a live meeting's roles follow at once,
- * for the people in it and their sockets
- */
-async function syncLiveRoles(meetingCode: string): Promise<void> {
-  const io = getIoInstance();
-  if (!io) return;
-  const synced = await syncMeetingRoles(io, meetingCode);
-  if (synced) emitState(io, meetingCode, synced);
-}
 
 /** Whether a user may preside over the organization's meetings: member role or above */
 async function canPreside(organizationId: string, userId: number): Promise<boolean> {

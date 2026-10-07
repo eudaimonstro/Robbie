@@ -27,6 +27,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     // Meeting lifecycle
     case 'START_MEETING':
     case 'END_MEETING':
+    case 'SET_MEETING_INFO':
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_MEETING_STAGE':
       return meetingLifecycleHandler(state, action, log);

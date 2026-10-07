@@ -81,7 +81,7 @@ describe('enrichAction', () => {
       CHAIR_RULING: {},
       OPEN_NOMINATIONS: {},
       NOMINATE: { nominatorId: SPOOF_ID, nominatedBy: SPOOF_NAME },
-      DECLINE_NOMINATION: {},
+      DECLINE_NOMINATION: { declinedBy: SPOOF_ID },
       CLOSE_NOMINATIONS: {},
       START_ELECTION: {},
       CAST_BALLOT: { voterId: SPOOF_ID },
@@ -95,6 +95,7 @@ describe('enrichAction', () => {
       ADD_MEMBER: {},
       SET_MEMBER_PRESENCE: {},
       REFRESH_MEMBERS: {},
+      SET_MEETING_INFO: {},
       MARK_PRESENT: {},
       SET_HEADCOUNT: {},
       WITHDRAW_MOTION: { requesterId: SPOOF_ID },
@@ -191,6 +192,49 @@ describe('enrichAction', () => {
       // A chair or admin grants a proxy for the absent member it names
       const grant = enrich({ type: 'GRANT_PROXY', grantedBy: 30, grantedTo: 40 }, chair);
       expect(grant).toMatchObject({ grantedBy: 30, grantedTo: 40 });
+    });
+
+    it('names the members of a proxy as the meeting has them, not as the client says', () => {
+      const members: Member[] = [
+        memberInMeeting,
+        { id: 30, name: 'Absent Member', role: 'member', present: false },
+        { id: 40, name: 'Holder', role: 'member', present: true },
+      ];
+      const grant = enrichAction(
+        {
+          type: 'GRANT_PROXY',
+          proxyId: 1,
+          grantedBy: 30,
+          grantedTo: 40,
+          grantedByName: 'Spoof',
+          grantedToName: 'Spoof',
+          scope: 'all',
+          timestamp: '',
+        },
+        chair,
+        members,
+      );
+      expect(grant).toMatchObject({ grantedByName: 'Absent Member', grantedToName: 'Holder' });
+
+      const request = enrichAction(
+        {
+          type: 'REQUEST_PROXY',
+          requestId: 1,
+          requestedBy: 999,
+          requestedByName: 'Spoof',
+          requestedFor: 40,
+          requestedForName: 'Spoof',
+          scope: 'all',
+          timestamp: '',
+        },
+        member,
+        members,
+      );
+      expect(request).toMatchObject({
+        requestedBy: 20,
+        requestedByName: 'Renamed Member',
+        requestedForName: 'Holder',
+      });
     });
 
     it('drops a client-sent person from MARK_PRESENT: the server reads the roster', () => {

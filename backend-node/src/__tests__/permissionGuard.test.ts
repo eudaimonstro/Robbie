@@ -11,6 +11,8 @@ describe('permissionGuard', () => {
       const chairOnlyActions = [
         'START_MEETING',
         'END_MEETING',
+        // The chair declares a motion dead for want of a second
+        'DECLINE_SECOND',
         'OPEN_VOTING',
         'CLOSE_VOTING',
         'RECOGNIZE_SPEAKER',
@@ -105,6 +107,7 @@ describe('permissionGuard', () => {
         'SET_MEMBER_PRESENCE',
         'REFRESH_MEMBERS',
         'RELOAD_AGENDA',
+        'SET_MEETING_INFO',
       ] as const;
 
       it.each(serverOnlyActions)('should deny every role %s', (action) => {
@@ -118,7 +121,6 @@ describe('permissionGuard', () => {
       const memberActions = [
         'MAKE_MOTION',
         'SECOND_MOTION',
-        'DECLINE_SECOND',
         'CAST_VOTE',
         'OBJECT_TO_CONSENT',
         'AGENDA_OBJECTION',

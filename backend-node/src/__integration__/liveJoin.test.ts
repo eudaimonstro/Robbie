@@ -117,8 +117,17 @@ describe('joining a live meeting', () => {
     });
     const secretary = live.connect(f.users.secretary);
     const member = live.connect(f.users.member);
+    const memberTab = live.connect(f.users.member);
     await live.join(secretary, f.packet.code);
     await live.join(member, f.packet.code);
+    await live.join(memberTab, f.packet.code);
+    // The secretary takes a name in the meeting, which the organization's name never replaces
+    await live.dispatch(secretary, {
+      type: 'RENAME_MEMBER',
+      memberId: f.users.secretary.id,
+      newName: 'Sec',
+      timestamp: '',
+    });
 
     // The schedule changes the presiding officer, and the member renames themselves
     await prisma.meetingPacket.update({
@@ -130,10 +139,12 @@ describe('joining a live meeting', () => {
 
     const state = await stateOf(f.packet.code);
     expect(state.members.map((m) => [m.id, m.name, m.role])).toEqual([
-      [f.users.secretary.id, 'A secretary', 'admin'],
+      [f.users.secretary.id, 'Sec', 'admin'],
       [f.users.member.id, 'Dana', 'chair'],
     ]);
     expect(member.data.role).toBe('chair');
+    // The member's other device too
+    expect(memberTab.data.role).toBe('chair');
     expect(secretary.data.role).toBe('admin');
   });
 
@@ -223,6 +234,51 @@ describe('the chair in a live meeting', () => {
     const ended = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
     expect(ended.startedAt).toEqual(started.startedAt);
     expect(ended.endedAt).toBeInstanceOf(Date);
+
+    // Called to order again after adjourning (by mistake, say): it is no longer over
+    expect((await live.dispatch(secretary, { type: 'START_MEETING', timestamp: '' })).success).toBe(
+      true,
+    );
+    const resumed = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
+    expect(resumed.startedAt).toEqual(started.startedAt);
+    expect(resumed.endedAt).toBeNull();
+  });
+});
+
+describe('a live meeting saved before it had a packet', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { chairUserId: f.users.secretary.id, scheduledFor: new Date('2026-10-20T19:00:00Z') },
+    });
+    await pool.query(
+      `INSERT INTO meetings (code, current_state, state_version) VALUES ($1, $2, 3)`,
+      [
+        f.packet.code,
+        JSON.stringify({
+          ...initialState,
+          meetingCode: f.packet.code,
+          organizationId: null,
+          title: '',
+          scheduledFor: null,
+        }),
+      ],
+    );
+  });
+  afterEach(live.disconnectAll);
+
+  it('takes its organization, title and date from the packet when someone joins', async () => {
+    const res = await live.join(live.connect(f.users.member), f.packet.code);
+    expect(res.success).toBe(true);
+    expect(await stateOf(f.packet.code)).toMatchObject({
+      organizationId: f.orgA.id,
+      title: 'October meeting',
+      scheduledFor: '2026-10-20T19:00:00.000Z',
+    });
   });
 });
 

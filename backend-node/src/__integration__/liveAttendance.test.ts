@@ -122,6 +122,47 @@ describe('attendance in a live meeting', () => {
     expect(after?.present).toBe(false);
   });
 
+  it('keeps a member on a connected device present, however they were marked', async () => {
+    // Marked present by the chair, then their device connects: still marked by the chair
+    await live.dispatch(chair, { type: 'MARK_PRESENT', userId: f.users.owner.id, timestamp: '' });
+    const owner = live.connect(f.users.owner);
+    await live.join(owner, f.packet.code);
+    const before = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.owner.id);
+    expect(before?.presentBy).toBe('chair');
+
+    const res = await live.dispatch(chair, {
+      type: 'MARK_ABSENT',
+      memberId: f.users.owner.id,
+      excused: true,
+      timestamp: '',
+    });
+    expect(res).toMatchObject({ success: false, errorCode: 'MEMBER_CONNECTED' });
+  });
+
+  it('leaves a member present on a connected device to their device when the chair marks them', async () => {
+    const member = live.connect(f.users.member);
+    await live.join(member, f.packet.code);
+    const res = await live.dispatch(chair, {
+      type: 'MARK_PRESENT',
+      userId: f.users.member.id,
+      timestamp: '',
+    });
+    expect(res).toMatchObject({ success: false, errorCode: 'INVALID_STATE' });
+    const marked = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.member.id);
+    expect(marked?.presentBy).toBe('device');
+
+    // Their phone locks: within the grace period the chair may mark them present to keep them
+    await live.drop(member);
+    const again = await live.dispatch(chair, {
+      type: 'MARK_PRESENT',
+      userId: f.users.member.id,
+      timestamp: '',
+    });
+    expect(again.success).toBe(true);
+    const kept = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.member.id);
+    expect(kept?.presentBy).toBe('chair');
+  });
+
   it('marks absent a member the chair marked present', async () => {
     await live.dispatch(chair, { type: 'MARK_PRESENT', userId: f.users.owner.id, timestamp: '' });
     const res = await live.dispatch(chair, {

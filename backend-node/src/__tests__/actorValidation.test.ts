@@ -71,7 +71,7 @@ describe('who may act', () => {
       expect(decline(1)).toMatchObject({ valid: false, errorCode: 'PERMISSION_DENIED' });
     });
 
-    it('are canceled only by the member who asked', () => {
+    it('are canceled by the member who asked, or by the chair', () => {
       const cancel = (canceledBy: number) =>
         validateAction(asked, {
           type: 'CANCEL_PROXY_REQUEST',
@@ -80,6 +80,7 @@ describe('who may act', () => {
           timestamp: '',
         });
       expect(cancel(2).valid).toBe(true);
+      expect(cancel(1).valid).toBe(true);
       expect(cancel(3)).toMatchObject({ valid: false, errorCode: 'PERMISSION_DENIED' });
     });
 
@@ -101,6 +102,37 @@ describe('who may act', () => {
     });
   });
 
+  describe('DECLINE_NOMINATION', () => {
+    const nominated = {
+      ...state,
+      nominations: [
+        {
+          id: 7,
+          position: 'Director',
+          nomineeName: 'Member 2',
+          nomineeId: 2,
+          nominatedBy: 'Member 3',
+          nominatorId: 3,
+          timestamp: '',
+          declined: false,
+        },
+      ],
+    };
+    const decline = (declinedBy: number) =>
+      validateAction(nominated, {
+        type: 'DECLINE_NOMINATION',
+        nominationId: 7,
+        declinedBy,
+        timestamp: '',
+      });
+
+    it('is for the nominee, or the chair on their behalf', () => {
+      expect(decline(2).valid).toBe(true);
+      expect(decline(1).valid).toBe(true);
+      expect(decline(3)).toMatchObject({ valid: false, errorCode: 'PERMISSION_DENIED' });
+    });
+  });
+
   describe('guests', () => {
     // The actor the enricher stamps from the socket is the guest (9), in every action a guest
     // may not send. The socket's role may be stale (a membership removed since it joined, a
@@ -118,6 +150,12 @@ describe('who may act', () => {
       },
       SECOND_MOTION: { type: 'SECOND_MOTION', seconder: 'Member 9', seconderId: 9, timestamp: '' },
       CAST_BALLOT: { type: 'CAST_BALLOT', candidateName: 'Ann', voterId: 9 },
+      DECLINE_NOMINATION: {
+        type: 'DECLINE_NOMINATION',
+        nominationId: 1,
+        declinedBy: 9,
+        timestamp: '',
+      },
       // A presiding socket whose member the meeting now has as a guest
       SET_MEMBER_ROLE: {
         type: 'SET_MEMBER_ROLE',

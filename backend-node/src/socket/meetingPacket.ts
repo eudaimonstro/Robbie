@@ -121,7 +121,8 @@ export async function savePresidingOfficer(meetingCode: string, userId: number):
 
 /**
  * Record on the packet when the meeting was called to order (the first time) and adjourned,
- * so the schedule shows which meetings happened. Best effort: the meeting goes on regardless.
+ * so the schedule shows which meetings happened. A meeting called to order again after
+ * adjourning is no longer over. Best effort: the meeting goes on regardless.
  */
 export async function recordMeetingTimes(
   meetingCode: string,
@@ -130,6 +131,10 @@ export async function recordMeetingTimes(
 ): Promise<void> {
   try {
     if (action.type === 'START_MEETING') {
+      await prisma.meetingPacket.updateMany({
+        where: { robbieCode: meetingCode },
+        data: { endedAt: null },
+      });
       await prisma.meetingPacket.updateMany({
         where: { robbieCode: meetingCode, startedAt: null },
         data: { startedAt: now },
