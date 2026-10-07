@@ -29,7 +29,7 @@ function addedMessage(email: string, result: AddMemberResult): string {
 
 /** The organization's members; for admins, adding, changing and removing them */
 export function MembersCard() {
-  const { currentOrganization, role } = useOrganization();
+  const { currentOrganization, role, refreshOrganizations } = useOrganization();
   const { user } = useSession();
   const isAdmin = useCan('admin');
   const orgId = currentOrganization?.id;
@@ -79,10 +79,10 @@ export function MembersCard() {
     setBusy(false);
   };
 
-  // Admins change members up to admin; only an owner changes an owner. Your own membership
-  // changes by leaving, in the danger zone.
-  const canManage = (target: OrgRole, userId?: number) =>
-    isAdmin && userId !== user?.id && (role === 'owner' || target !== 'owner');
+  // Admins change roles up to admin, their own included; only an owner changes an owner. The
+  // server keeps the last owner from stepping down. Leaving is in the danger zone.
+  const canChangeRole = (target: OrgRole) => isAdmin && (role === 'owner' || target !== 'owner');
+  const canRemove = (member: OrgMember) => canChangeRole(member.role) && member.userId !== user?.id;
 
   const nameOf = (member: OrgMember) => member.name ?? member.email;
 
@@ -101,6 +101,8 @@ export function MembersCard() {
     if (!orgId) return;
     void act(async () => {
       await membersApi.changeRole(orgId, member.userId, next);
+      // Your own new role shows in the header and decides what this page offers
+      if (member.userId === user?.id) await refreshOrganizations();
       return `${nameOf(member)} is now ${ROLE_LABELS[next]}.`;
     }, 'Failed to change the role');
   };
@@ -163,7 +165,7 @@ export function MembersCard() {
                   </p>
                   <p className="text-sm text-secondary-500 truncate">{member.email}</p>
                 </div>
-                {canManage(member.role, member.userId) ? (
+                {canChangeRole(member.role) ? (
                   <div className="flex items-center gap-2">
                     <select
                       aria-label={`Role of ${nameOf(member)}`}
@@ -178,15 +180,17 @@ export function MembersCard() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${nameOf(member)}`}
-                      className="btn-ghost btn-sm text-danger-600"
-                      disabled={busy}
-                      onClick={() => setRemoving(member)}
-                    >
-                      Remove
-                    </button>
+                    {canRemove(member) && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${nameOf(member)}`}
+                        className="btn-ghost btn-sm text-danger-600"
+                        disabled={busy}
+                        onClick={() => setRemoving(member)}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <span className="badge bg-secondary-100 text-secondary-700 dark:bg-secondary-700 dark:text-secondary-200">
@@ -210,7 +214,7 @@ export function MembersCard() {
                     {invite.email}{' '}
                     <span className="text-secondary-500">({ROLE_LABELS[invite.role]})</span>
                   </span>
-                  {canManage(invite.role) && (
+                  {canChangeRole(invite.role) && (
                     <button
                       type="button"
                       aria-label={`Cancel adding ${invite.email}`}

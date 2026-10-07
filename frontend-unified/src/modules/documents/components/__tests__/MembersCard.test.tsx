@@ -12,11 +12,13 @@ vi.mock('../../../../api/client', () => ({ members: api }));
 const orgState = vi.hoisted(() => ({
   rank: ['viewer', 'member', 'secretary', 'admin', 'owner'],
   currentOrganization: { id: 'o1', name: 'Maple Grove HOA', role: 'admin' },
+  refreshOrganizations: vi.fn(async () => {}),
 }));
 vi.mock('../../../../context/OrganizationContext', () => ({
   useOrganization: () => ({
     currentOrganization: orgState.currentOrganization,
     role: orgState.currentOrganization.role,
+    refreshOrganizations: orgState.refreshOrganizations,
   }),
   useCan: (min: string) =>
     orgState.rank.indexOf(orgState.currentOrganization.role) >= orgState.rank.indexOf(min),
@@ -110,6 +112,39 @@ describe('MembersCard', () => {
     fireEvent.change(select, { target: { value: 'secretary' } });
     await waitFor(() => expect(api.changeRole).toHaveBeenCalledWith('o1', 4, 'secretary'));
     expect(await screen.findByText('Alice Brennan is now Secretary.')).toBeTruthy();
+  });
+
+  it('lets an admin change their own role, but not remove themselves', async () => {
+    render(<MembersCard />);
+    const select = await screen.findByLabelText('Role of Dana Okafor');
+    expect(within(select).queryByRole('option', { name: 'Owner' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove Dana Okafor' })).toBeNull();
+
+    fireEvent.change(select, { target: { value: 'member' } });
+    await waitFor(() => expect(api.changeRole).toHaveBeenCalledWith('o1', 2, 'member'));
+    expect(await screen.findByText('Dana Okafor is now Member.')).toBeTruthy();
+    // The header and this page follow the new role
+    expect(orgState.refreshOrganizations).toHaveBeenCalled();
+  });
+
+  it('lets an owner step down while another owner remains, and says why not otherwise', async () => {
+    orgState.currentOrganization = { ...orgState.currentOrganization, role: 'owner' };
+    api.list.mockResolvedValue({
+      members: [people.members[0], { ...people.members[1], role: 'owner' }],
+    });
+    render(<MembersCard />);
+    fireEvent.change(await screen.findByLabelText('Role of Dana Okafor'), {
+      target: { value: 'admin' },
+    });
+    await waitFor(() => expect(api.changeRole).toHaveBeenCalledWith('o1', 2, 'admin'));
+    expect(await screen.findByText('Dana Okafor is now Admin.')).toBeTruthy();
+
+    // As the last owner, the server refuses
+    api.changeRole.mockRejectedValueOnce(new Error('An organization needs at least one owner'));
+    fireEvent.change(screen.getByLabelText('Role of Dana Okafor'), { target: { value: 'admin' } });
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'An organization needs at least one owner',
+    );
   });
 
   it("keeps a change's outcome when the list can't be reloaded", async () => {
