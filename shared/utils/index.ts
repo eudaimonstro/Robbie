@@ -9,6 +9,9 @@ export {
   calculateVoteResult,
   getChairVotingOptions,
   canChairVoteDecide,
+  addVotes,
+  completedMotionVotes,
+  NO_VOTES,
 } from './voteCalculator.js';
 
 export {

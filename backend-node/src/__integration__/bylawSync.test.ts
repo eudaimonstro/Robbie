@@ -51,6 +51,35 @@ describe('bylaw sync', () => {
     expect(amendment).toMatchObject({ documentId: f.doc, status: 'passed' });
   });
 
+  it('records the device votes, the floor tally and their total', async () => {
+    const { before } = votedStates(f.doc, f.section);
+    const after = {
+      ...initialState,
+      completedMotions: [
+        {
+          id: 41,
+          passed: true,
+          voterChoices: {},
+          deviceVotes: { yea: 5, nay: 1, abstain: 0 },
+          floorVotes: { yea: 9, nay: 2, abstain: 1 },
+          method: 'ballot',
+        },
+      ],
+    } as unknown as MeetingState;
+    await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after);
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+    });
+    expect(amendment.robbieVoteData).toMatchObject({
+      yeaCount: 14,
+      nayCount: 3,
+      abstainCount: 1,
+      deviceVotes: { yea: 5, nay: 1, abstain: 0 },
+      floorVotes: { yea: 9, nay: 2, abstain: 1 },
+      method: 'ballot',
+    });
+  });
+
   it('skips a motion whose document is in another organization', async () => {
     const { before, after } = votedStates(f.docB, f.sectionB);
     expect(await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after)).toBeNull();

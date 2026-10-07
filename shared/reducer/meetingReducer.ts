@@ -43,6 +43,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'OPEN_VOTING':
     case 'CAST_VOTE':
     case 'CLOSE_VOTING':
+    case 'SET_FLOOR_TALLY':
       return votingHandler(state, action, log);
 
     // Unanimous consent
@@ -87,6 +88,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'START_ELECTION':
     case 'CAST_BALLOT':
     case 'CLOSE_ELECTION':
+    case 'SET_FLOOR_BALLOTS':
     case 'DECLARE_ELECTED':
       return electionHandler(state, action, log);
 

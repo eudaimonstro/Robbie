@@ -175,6 +175,7 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
       if (!currentUserId) return; // Need user ID to check eligibility
       const hasReconsiderableMotions = state.completedMotions.some((cm) => {
         if (cm.reconsidered) return false; // Already reconsidered
+        if (cm.reconsiderable === false) return false; // Its motion can't be reconsidered
         const userVote = cm.voterChoices[currentUserId];
         if (!userVote || userVote === 'abstain') return false; // Didn't vote or abstained
         // Prevailing side: if motion passed, yea voters can reconsider; if failed, nay voters can

@@ -24,6 +24,7 @@ export const initialState: MeetingState = {
   votes: { yea: 0, nay: 0, abstain: 0 },
   voters: [],
   voterChoices: {},
+  floorVotes: { yea: 0, nay: 0, abstain: 0 },
   votingOpen: false,
   votingMethod: 'standard' as const,
   unanimousConsentPending: false,

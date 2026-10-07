@@ -89,6 +89,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           {} as Record<string, number>,
         ),
         votersWhoVoted: [],
+        floorBallots: {},
         elected: null,
       };
 
@@ -124,12 +125,28 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'SET_FLOOR_BALLOTS': {
+      const typedAction = action as Extract<MeetingAction, { type: 'SET_FLOOR_BALLOTS' }>;
+      if (!state.currentElection) return state;
+      return {
+        ...state,
+        currentElection: { ...state.currentElection, floorBallots: typedAction.counts },
+      };
+    }
+
     case 'CLOSE_ELECTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_ELECTION' }>;
       if (!state.currentElection) return state;
 
-      const results = state.currentElection.ballotResults;
-      const totalVotes = state.currentElection.votersWhoVoted.length;
+      // Ballots on devices and the tellers' count of paper ballots together
+      const floorBallots = state.currentElection.floorBallots ?? {};
+      const results = { ...state.currentElection.ballotResults };
+      for (const [name, count] of Object.entries(floorBallots)) {
+        results[name] = (results[name] ?? 0) + count;
+      }
+      const totalVotes =
+        state.currentElection.votersWhoVoted.length +
+        Object.values(floorBallots).reduce((sum, count) => sum + count, 0);
       const requiredVotes = state.currentElection.requiredVotes;
 
       // Calculate winner based on vote requirement
@@ -188,6 +205,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             candidates: tiedCandidateInfo,
             ballotResults: {},
             votersWhoVoted: [],
+            floorBallots: {},
             votingInProgress: true,
             elected: null,
             isRunoff: true,
@@ -214,6 +232,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
               {} as Record<string, number>,
             ),
             votersWhoVoted: [],
+            floorBallots: {},
             votingInProgress: true,
             elected: null,
             // Counts the repeated ballots (the first ballot is round 0)

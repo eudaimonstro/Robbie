@@ -8,6 +8,7 @@ import type { MeetingState, MeetingAction } from '@robbie-bylawyer/shared/types'
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { DISPLAYABLE_STAGES, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import {
+  addVotes,
   canChairVoteDecide,
   isRuleSuspended,
   isSecondaryAmendmentInOrder,
@@ -16,6 +17,17 @@ import {
 
 /** The most people the chair can count in the room without an account */
 export const MAX_HEADCOUNT = 100_000;
+
+/** The largest count the chair can enter for one choice in a floor tally or floor ballot */
+export const MAX_FLOOR_COUNT = 1_000_000;
+
+/** The voting methods (see VotingMethod) */
+const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
+
+/** A count the chair enters: a whole number from 0 */
+function isCount(value: unknown): boolean {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_FLOOR_COUNT;
+}
 
 export interface ValidationResult {
   valid: boolean;
@@ -87,7 +99,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         (action.motionType === 'takeFromTable' &&
           !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
         (action.motionType === 'reconsider' &&
-          !state.completedMotions.some((m) => m.id === action.reconsideredMotionId)) ||
+          !state.completedMotions.some(
+            (m) => m.id === action.reconsideredMotionId && m.reconsiderable !== false,
+          )) ||
         (action.motionType === 'suspendRules' &&
           !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
         (action.motionType === 'bylawAmendment' &&
@@ -177,6 +191,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
+      if (state.votingMethod === 'voice') {
+        return {
+          valid: false,
+          error: 'This is a voice vote: the chair counts it in the room',
+          errorCode: 'VOTING_METHOD',
+        };
+      }
       // A member who has voted may change the vote until the result is announced (RONR); the
       // reducer moves the count from the old choice to the new one
       // Chair voting restriction (unless suspended): the chair votes only when the vote would
@@ -189,11 +210,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           state.votingMethod !== 'ballot' &&
           !isRuleSuspended(state, 'chair-voting-restriction')
         ) {
-          // Judge on the other members' votes, leaving out a vote the chair already cast
+          // Judge on everyone else's votes, on devices and in the room, leaving out a vote the
+          // chair already cast
           const previous = state.voterChoices[action.voterId];
-          const othersVotes = previous
+          const deviceVotes = previous
             ? { ...state.votes, [previous]: state.votes[previous] - 1 }
             : state.votes;
+          const othersVotes = addVotes(deviceVotes, state.floorVotes);
           const decides =
             action.isChairDecidingVote &&
             canChairVoteDecide(othersVotes, state.currentMotion?.vote ?? 'majority');
@@ -211,6 +234,33 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'CLOSE_VOTING':
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
+      }
+      return { valid: true };
+
+    case 'SET_FLOOR_TALLY':
+      if (!state.votingOpen) {
+        return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
+      }
+      if (![action.yea, action.nay, action.abstain].every(isCount)) {
+        return {
+          valid: false,
+          error: `Each count must be a whole number from 0 to ${MAX_FLOOR_COUNT}`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+
+    case 'SET_VOTING_METHOD':
+      if (!VOTING_METHODS.includes(action.method)) {
+        return { valid: false, error: 'Unknown voting method', errorCode: 'INVALID_ACTION' };
+      }
+      // Changing the method of an open vote would change how its votes are counted and shown
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'The voting method cannot change while a vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
       }
       return { valid: true };
 
@@ -568,6 +618,35 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
+    case 'SET_FLOOR_BALLOTS': {
+      if (!state.currentElection) {
+        return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
+      }
+      if (!state.currentElection.votingInProgress) {
+        return {
+          valid: false,
+          error: 'Election voting is not open',
+          errorCode: 'ELECTION_VOTING_NOT_OPEN',
+        };
+      }
+      const counts =
+        typeof action.counts === 'object' && action.counts !== null && !Array.isArray(action.counts)
+          ? Object.entries(action.counts)
+          : null;
+      if (
+        !counts ||
+        counts.length > 100 ||
+        counts.some(([name, count]) => !name.trim() || name.length > 200 || !isCount(count))
+      ) {
+        return {
+          valid: false,
+          error: `Give each candidate's ballots as a whole number from 0 to ${MAX_FLOOR_COUNT}`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+    }
+
     case 'CLOSE_ELECTION':
       if (!state.currentElection) {
         return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
@@ -791,6 +870,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
+      }
+      if (state.votingMethod === 'voice') {
+        return {
+          valid: false,
+          error: 'This is a voice vote: the chair counts it in the room',
+          errorCode: 'VOTING_METHOD',
+        };
       }
       // Verify the caster has proxy authority for this member
       const proxy = state.proxies.find(
@@ -1136,7 +1222,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'REMOVE_AGENDA_ITEM':
     case 'SET_SPEAKER_TIME_LIMIT':
     case 'SET_VOTE_TIME_LIMIT':
-    case 'SET_VOTING_METHOD':
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_PREVIOUS_MINUTES':
     case 'ADD_COMMITTEE_REPORT':

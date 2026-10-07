@@ -151,6 +151,42 @@ describe('generateMeetingMinutes', () => {
     expect(minutes.motions[0].voteCount?.yea).toBe(2);
   });
 
+  it('should record both parts of a vote, and who moved it', () => {
+    const state = createMockState({
+      completedMotions: [
+        {
+          id: 1,
+          type: 'mainMotion',
+          name: 'Main Motion',
+          text: 'Resurface the pool',
+          mover: 'Bob',
+          moverId: 2,
+          passed: true,
+          voterChoices: {},
+          timestamp: '10:15:00',
+          reconsidered: false,
+          reconsiderable: true,
+          deviceVotes: { yea: 12, nay: 3, abstain: 0 },
+          floorVotes: { yea: 9, nay: 2, abstain: 1 },
+          method: 'ballot',
+        },
+      ],
+    });
+    const minutes = generateMeetingMinutes(state);
+
+    expect(minutes.motions[0]).toMatchObject({
+      mover: 'Bob',
+      moverId: 2,
+      voteCount: { yea: 21, nay: 5, abstain: 1 },
+      deviceVotes: { yea: 12, nay: 3, abstain: 0 },
+      floorVotes: { yea: 9, nay: 2, abstain: 1 },
+      method: 'ballot',
+    });
+    const markdown = formatMinutesAsMarkdown(minutes);
+    expect(markdown).toContain('**Vote:** Yea: 21, Nay: 5, Abstain: 1');
+    expect(markdown).toContain('(On devices 12 to 3, in the room 9 to 2)');
+  });
+
   it('should include tabled motions', () => {
     const state = createMockState({
       tabledMotions: [

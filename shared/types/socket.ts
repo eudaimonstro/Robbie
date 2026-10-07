@@ -118,6 +118,7 @@ export type ActionErrorCode =
   | 'VOTING_IN_PROGRESS'
   | 'ALREADY_VOTED'
   | 'CHAIR_CANNOT_VOTE'
+  | 'VOTING_METHOD'
   // Speaker errors
   | 'ALREADY_IN_QUEUE'
   | 'NOT_IN_QUEUE'

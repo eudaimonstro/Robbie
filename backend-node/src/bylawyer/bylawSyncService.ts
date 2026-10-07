@@ -9,6 +9,7 @@
 
 import type { MeetingState, MeetingAction, CompletedMotion } from '@robbie-bylawyer/shared/types';
 import type { ChangeType, AmendmentStatus } from '../generated/prisma/client.js';
+import { NO_VOTES } from '@robbie-bylawyer/shared/utils';
 import { prisma } from '../db/prisma.js';
 import { AmendmentService } from './services/amendmentService.js';
 import { logger } from '../middleware/logger.js';
@@ -170,11 +171,16 @@ async function syncMotionToBylawyer(
       renumber: 'renumber',
     };
 
-    // Build vote data
+    // Build vote data: the device votes and the chair's floor tally, and their total
+    const deviceVotes = completedMotion.deviceVotes ?? previousState.votes;
+    const floorVotes = completedMotion.floorVotes ?? NO_VOTES;
     const voteData = {
-      yeaCount: previousState.votes.yea,
-      nayCount: previousState.votes.nay,
-      abstainCount: previousState.votes.abstain,
+      yeaCount: deviceVotes.yea + floorVotes.yea,
+      nayCount: deviceVotes.nay + floorVotes.nay,
+      abstainCount: deviceVotes.abstain + floorVotes.abstain,
+      deviceVotes,
+      floorVotes,
+      method: completedMotion.method ?? previousState.votingMethod,
       voterChoices: completedMotion.voterChoices,
       voteRequirement: votedMotion.vote,
     };

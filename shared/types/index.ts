@@ -110,7 +110,11 @@ export interface Votes {
   abstain: number;
 }
 
-export type VotingMethod = 'standard' | 'ballot' | 'rollcall';
+/**
+ * How a vote is taken. Every method has a floor tally the chair enters for the people in the
+ * room not voting on a device; a voice vote has only that.
+ */
+export type VotingMethod = 'standard' | 'voice' | 'ballot' | 'rollcall';
 
 export type MeetingStage =
   | 'not-started'
@@ -152,12 +156,21 @@ export interface CompletedMotion {
   readonly name: string;
   readonly text: string;
   readonly passed: boolean;
+  /** Each device vote by member; empty for a secret ballot */
   readonly voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
   readonly timestamp: string;
+  /** Whether a motion to reconsider has brought this vote back */
   readonly reconsidered: boolean;
   readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
   readonly mover?: string; // Restored with the motion if it is reconsidered
   readonly moverId?: number;
+  // The two parts of the vote, and how it was taken. Records made before these existed, which
+  // were only of motions that can be reconsidered, have none of them.
+  readonly deviceVotes?: Votes;
+  readonly floorVotes?: Votes;
+  readonly method?: VotingMethod;
+  /** Whether the motion can be reconsidered (its definition's reconsidered flag) */
+  readonly reconsiderable?: boolean;
 }
 
 export interface Nomination {
@@ -177,8 +190,11 @@ export interface Election {
   candidates: Array<{ name: string; id: number }>;
   requiredVotes: 'majority' | 'plurality' | '2/3';
   votingInProgress: boolean;
+  /** Ballots cast on devices, by candidate name */
   ballotResults: Record<string, number>;
   votersWhoVoted: number[];
+  /** The tellers' count of paper ballots, by candidate name, entered by the chair */
+  floorBallots?: Record<string, number>;
   elected: string | null;
   isRunoff?: boolean;
   runoffRound?: number;
@@ -271,9 +287,12 @@ export interface MeetingState {
   motionStack: Motion[];
   currentMotion: Motion | null;
   pendingSecond: Motion | null;
+  /** Device votes on the open question */
   votes: Votes;
   voters: number[];
   voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
+  /** The chair's count of the room for the open question, apart from the device votes */
+  floorVotes: Votes;
   votingOpen: boolean;
   votingMethod: VotingMethod;
   unanimousConsentPending: boolean;
@@ -355,6 +374,8 @@ export type MeetingAction =
       timestamp?: string;
     }
   | { type: 'CLOSE_VOTING'; timestamp: string }
+  // The chair's count of the room: replaces the floor tally (a correction is a new entry)
+  | { type: 'SET_FLOOR_TALLY'; yea: number; nay: number; abstain: number; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
   | { type: 'LOWER_HAND'; member: Member }
   | {
@@ -415,6 +436,8 @@ export type MeetingAction =
     }
   | { type: 'CAST_BALLOT'; candidateName: string; voterId: number }
   | { type: 'CLOSE_ELECTION'; timestamp: string }
+  // The tellers' count of paper ballots by candidate name: replaces the floor ballots
+  | { type: 'SET_FLOOR_BALLOTS'; counts: Record<string, number>; timestamp: string }
   | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
   | {
       type: 'ASK_INQUIRY';
@@ -576,8 +599,12 @@ export interface MinutesMotionRecord {
   moverId: number;
   seconder?: string;
   outcome: 'passed' | 'failed' | 'withdrawn' | 'tabled';
+  /** Device and floor votes together */
   voteCount?: { yea: number; nay: number; abstain: number };
   voterChoices?: Record<number, 'yea' | 'nay' | 'abstain'>;
+  deviceVotes?: Votes;
+  floorVotes?: Votes;
+  method?: VotingMethod;
   timestamp: string;
 }
 

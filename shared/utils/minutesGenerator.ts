@@ -6,6 +6,7 @@ import type {
   MinutesElectionRecord,
 } from '../types/index.js';
 import { attendanceSummary } from './attendance.js';
+import { completedMotionVotes } from './voteCalculator.js';
 
 /**
  * Generate structured meeting minutes from the current meeting state
@@ -73,11 +74,14 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     type: motion.type,
     name: motion.name,
     text: motion.text,
-    mover: '', // Not stored in completedMotions, would need to track this
-    moverId: 0,
+    mover: motion.mover ?? '',
+    moverId: motion.moverId ?? 0,
     outcome: motion.passed ? 'passed' : 'failed',
-    voteCount: calculateVoteCount(motion.voterChoices),
+    voteCount: completedMotionVotes(motion),
     voterChoices: motion.voterChoices,
+    deviceVotes: motion.deviceVotes,
+    floorVotes: motion.floorVotes,
+    method: motion.method,
     timestamp: motion.timestamp,
   }));
 
@@ -134,21 +138,6 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     announcements,
     generatedAt: new Date().toISOString(),
   };
-}
-
-/**
- * Calculate vote counts from voter choices
- */
-function calculateVoteCount(voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>): {
-  yea: number;
-  nay: number;
-  abstain: number;
-} {
-  const counts = { yea: 0, nay: 0, abstain: 0 };
-  for (const vote of Object.values(voterChoices)) {
-    counts[vote]++;
-  }
-  return counts;
 }
 
 /**
@@ -230,6 +219,12 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
       if (motion.voteCount) {
         lines.push(
           `**Vote:** Yea: ${motion.voteCount.yea}, Nay: ${motion.voteCount.nay}, Abstain: ${motion.voteCount.abstain}`,
+        );
+      }
+      const floor = motion.floorVotes;
+      if (motion.deviceVotes && floor && floor.yea + floor.nay + floor.abstain > 0) {
+        lines.push(
+          `(On devices ${motion.deviceVotes.yea} to ${motion.deviceVotes.nay}, in the room ${floor.yea} to ${floor.nay})`,
         );
       }
       lines.push('');
