@@ -42,10 +42,14 @@ export function logFloorNomination(nomineeName: string, position: string): strin
   return `Nominated from the floor: ${nomineeName} for ${position}.`;
 }
 
+/** A motion that died for want of a second: the whole line */
 export const LOG_MOTION_FAILED_NO_SECOND = 'Motion fails for lack of a second.';
 
+/** How a withdrawal's line ends, after the mover's name */
+export const LOG_MOTION_WITHDRAWN = "'s motion is withdrawn.";
+
 export function logMotionWithdrawn(mover: string): string {
-  return `${mover}'s motion is withdrawn.`;
+  return `${mover}${LOG_MOTION_WITHDRAWN}`;
 }
 
 export function logMotionModified(mover: string, newText: string): string {
@@ -102,12 +106,12 @@ export function logUnanimousConsentObjection(objector: string): string {
   return `${objector} objects. Motion requires a vote.`;
 }
 
-export function logUnanimousConsentPassed(
-  suspensionLog: string,
-  restoredLog: string,
-  objectionLog: string,
-): string {
-  return `Motion CARRIED by unanimous consent.${suspensionLog}${restoredLog}${objectionLog}`;
+/** How the line for a motion adopted by unanimous consent begins */
+export const LOG_ADOPTED_BY_CONSENT = 'Motion CARRIED by unanimous consent.';
+
+/** A motion adopted by unanimous consent, with what its adoption did after it */
+export function logAdoptedByConsent(effects = ''): string {
+  return `${LOG_ADOPTED_BY_CONSENT}${effects}`;
 }
 
 // Committee reports
@@ -117,6 +121,18 @@ export function logCommitteeReportPresented(
   hasRecommendations: boolean,
 ): string {
   return `${committee} report presented by ${presenter}.${hasRecommendations ? ' Recommendations made.' : ''}`;
+}
+
+// Chair rulings
+/** How the line for a ruling of the chair begins */
+export const LOG_CHAIR_RULED = 'Chair ruled:';
+
+export function logChairRuled(
+  ruling: string,
+  explanation: string | undefined,
+  motionText: string,
+): string {
+  return `${LOG_CHAIR_RULED} ${ruling}${explanation ? ` - ${explanation}` : ''} (Re: ${motionText})`;
 }
 
 // Rule suspension

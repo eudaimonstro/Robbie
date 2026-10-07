@@ -1,4 +1,5 @@
 import type { MeetingAction } from '../../types/index.js';
+import { logChairRuled } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 
 export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
@@ -47,7 +48,7 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
               ? `The request is granted.`
               : `The request is denied.`;
 
-      const logMessage = `Chair ruled: ${rulingText}${typedAction.explanation ? ` - ${typedAction.explanation}` : ''} (Re: ${motionText})`;
+      const logMessage = logChairRuled(rulingText, typedAction.explanation, motionText);
 
       // Store this ruling so it can be appealed
       const lastChairRuling = {
