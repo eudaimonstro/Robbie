@@ -56,6 +56,9 @@ vi.mock('../../components/MembersCard', async () => {
     },
   };
 });
+vi.mock('../../components/AttendanceSettingsCard', () => ({
+  AttendanceSettingsCard: () => <p>Attendance settings</p>,
+}));
 vi.mock('../../../../components/organizations/NoOrganizations', () => ({
   NoOrganizations: () => <p>No organizations yet</p>,
 }));

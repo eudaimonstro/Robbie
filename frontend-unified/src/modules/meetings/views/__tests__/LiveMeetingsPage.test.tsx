@@ -12,7 +12,14 @@ const bridge = vi.hoisted(() => ({
   currentOrganization: null as null | { id: string; name: string; slug: string; role: string },
 }));
 vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
-vi.mock('../../components/scheduling', () => ({ MeetingScheduler: () => <p>Scheduler</p> }));
+vi.mock('../../components/scheduling', () => ({
+  MeetingScheduler: ({ onBack }: { onBack: () => void }) => (
+    <div>
+      <p>Scheduler</p>
+      <button onClick={onBack}>Done scheduling</button>
+    </div>
+  ),
+}));
 
 const { LiveMeetingsPage } = await import('../LiveMeetingsPage');
 
@@ -116,5 +123,17 @@ describe('LiveMeetingsPage', () => {
     schedule.list.mockRejectedValueOnce(new Error('Failed to list meeting packets'));
     renderPage();
     expect(await screen.findByText('Failed to list meeting packets')).toBeTruthy();
+  });
+
+  it('lists a meeting just scheduled when the scheduler closes', async () => {
+    bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+    schedule.list.mockResolvedValueOnce([]).mockResolvedValueOnce([meeting()]);
+    renderPage();
+    expect(await screen.findByText('No meetings scheduled.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule a meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done scheduling' }));
+    expect(await screen.findByRole('link', { name: 'Start 2026 Annual Meeting' })).toBeTruthy();
+    expect(schedule.list).toHaveBeenCalledTimes(2);
   });
 });

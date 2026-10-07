@@ -1,19 +1,21 @@
 /**
  * Meeting Scheduler Component
  *
- * Schedules a meeting in the current organization. Its details create the meeting's packet,
- * which claims the meeting code for the organization; the agenda and attachments are then added
- * to the packet.
+ * Schedules a meeting in the current organization. Its details create the meeting's packet, which
+ * claims the meeting code for the organization and names the presiding officer; the agenda and
+ * attachments are then added to the packet, and the join card shows how people get in.
  */
 
-import { useState } from 'react';
-import { Calendar, Clock, ArrowLeft, ArrowRight, Loader2, Check, Copy } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2 } from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
 import { createPacket, updatePacket } from './api';
-import { HttpError } from '../../../../api/client';
+import { HttpError, members as membersApi, type OrgMember } from '../../../../api/client';
+import { useSession } from '../../../../context/SessionContext';
 import { useMeetingOrganization } from '../../context/OrganizationBridge';
 import { atLeast } from '../../../../utils/roles';
+import { JoinInfoCard } from '../console/JoinInfoCard';
 
 interface MeetingSchedulerProps {
   onBack: () => void;
@@ -36,16 +38,20 @@ function generateMeetingCode(): string {
 }
 
 export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProps) {
+  const { user } = useSession();
   const { currentOrganization, availableOrganizations } = useMeetingOrganization();
   const [step, setStep] = useState<Step>('details');
   const [meetingCode, setMeetingCode] = useState(generateMeetingCode);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
+  // The presiding officer: undefined until the members load, then the scheduler when they may
+  // preside; null for nobody (the admins run the meeting)
+  const [chairUserId, setChairUserId] = useState<number | null | undefined>(undefined);
+  const [presiders, setPresiders] = useState<OrgMember[] | null>(null);
   const [packet, setPacket] = useState<MeetingPacket | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // Meetings are scheduled in the organization selected in the header, by its secretaries and
   // above. Once the packet exists it belongs to that organization, whatever the header shows.
@@ -56,19 +62,45 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const organization = packet
     ? (availableOrganizations.find((org) => org.id === packet.organizationId) ?? null)
     : headerOrganization;
+  const organizationId = organization?.id ?? null;
+
+  // Who may preside: the organization's members with the member role or above (the server's rule)
+  useEffect(() => {
+    if (!organizationId) return;
+    let canceled = false;
+    membersApi
+      .list(organizationId)
+      .then(({ members }) => {
+        if (canceled) return;
+        const eligible = members.filter((m) => atLeast(m.role, 'member'));
+        setPresiders(eligible);
+        setChairUserId((current) => {
+          if (current !== undefined) return current;
+          return eligible.some((m) => m.userId === user?.id) ? (user?.id ?? null) : null;
+        });
+      })
+      .catch(() => {
+        // Without the list the server's default stands: the person scheduling presides
+        if (!canceled) setPresiders([]);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [organizationId, user?.id]);
 
   const details = () => ({
     title: title || undefined,
     description: description || undefined,
     scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+    ...(chairUserId === undefined ? {} : { chairUserId }),
   });
 
   /** Create the packet, with a fresh code if a generated one is already taken */
-  const create = async (organizationId: string): Promise<MeetingPacket> => {
+  const create = async (orgId: string): Promise<MeetingPacket> => {
     let code = meetingCode;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await createPacket(organizationId, { robbieCode: code, ...details() });
+        return await createPacket(orgId, { robbieCode: code, ...details() });
       } catch (err) {
         if (!(err instanceof HttpError && err.status === 409) || attempt >= CODE_ATTEMPTS) {
           throw err;
@@ -84,7 +116,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     setIsSaving(true);
     setError(null);
     try {
-      // The first time, creating the packet claims the code; after Edit Details, save them
+      // The first time, creating the packet claims the code; after Edit the details, save them
       setPacket(packet ? await updatePacket(packet.id, details()) : await create(organization.id));
       setStep('agenda');
     } catch (err) {
@@ -94,7 +126,12 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     }
   };
 
-  const handleSaveAndJoin = async () => {
+  // The presiding officer goes straight into the meeting; anyone else is done
+  const presiding = chairUserId != null && chairUserId === user?.id;
+  const presidingName =
+    chairUserId == null ? null : (presiders?.find((m) => m.userId === chairUserId)?.name ?? null);
+
+  const handleFinish = async () => {
     if (packet) {
       setIsSaving(true);
       try {
@@ -105,13 +142,8 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
         setIsSaving(false);
       }
     }
-    onJoinMeeting(meetingCode);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(meetingCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (presiding) onJoinMeeting(meetingCode);
+    else onBack();
   };
 
   if (!organization) {
@@ -131,55 +163,24 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="card w-full max-w-2xl mx-auto overflow-hidden">
-        {/* Header */}
-        <div className="bg-gavel text-paper p-6">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              aria-label="Back"
-              className="bg-paper/20 p-2 rounded-lg hover:bg-paper/30 transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold">Schedule Meeting</h1>
-              <p className="text-paper/80 text-sm">
-                {organization.name}:{' '}
-                {step === 'details' ? 'Step 1: Meeting Details' : 'Step 2: Build Agenda'}
-              </p>
-            </div>
+    <div className="mx-auto max-w-2xl">
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-rule px-6 py-4">
+          <button type="button" onClick={onBack} aria-label="Back" className="btn-ghost btn-sm">
+            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="card-title">Schedule a meeting</h2>
+            <p className="text-sm text-ink-muted">
+              {organization.name}:{' '}
+              {step === 'details' ? 'step 1 of 2, the details' : 'step 2 of 2, the agenda'}
+            </p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Meeting code display */}
-          <div className="mb-6 bg-gavel-tint border border-gavel/30 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-ink-muted font-medium">Meeting Code</p>
-                <p className="text-2xl font-mono font-bold text-ink">{meetingCode}</p>
-              </div>
-              <button
-                onClick={handleCopyCode}
-                className="flex items-center gap-2 px-3 py-2 bg-gavel text-paper rounded-lg hover:bg-gavel/90 text-sm transition-colors"
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-            <p className="text-xs text-ink-muted mt-2">
-              Share this code with participants to join your meeting
-            </p>
-          </div>
-
+        <div className="space-y-6 p-6">
           {error && (
-            <div
-              role="alert"
-              className="mb-4 bg-gavel-tint border border-gavel/30 text-ink px-4 py-3 rounded-lg"
-            >
+            <div role="alert" className="rounded-lg bg-gavel-tint px-4 py-3 text-sm text-ink">
               {error}
             </div>
           )}
@@ -192,110 +193,140 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
               }}
               className="space-y-4"
             >
+              <p className="text-sm text-ink-muted">
+                Meeting code <span className="meeting-code text-ink">{meetingCode}</span>
+              </p>
+
               <div>
-                <label htmlFor="meetingTitle" className="block text-sm font-medium text-ink mb-1">
-                  Meeting Title
+                <label htmlFor="meetingTitle" className="label">
+                  Meeting title
                 </label>
                 <input
                   id="meetingTitle"
                   type="text"
+                  className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Board Meeting - January 2025"
-                  className="w-full p-3 border border-rule rounded-lg bg-surface text-ink"
+                  placeholder="2026 Annual Meeting"
                 />
               </div>
 
               <div>
-                <label
-                  htmlFor="meetingDescription"
-                  className="block text-sm font-medium text-ink mb-1"
-                >
+                <label htmlFor="meetingDescription" className="label">
                   Description
                 </label>
                 <textarea
                   id="meetingDescription"
+                  className="textarea"
+                  rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional meeting description..."
-                  rows={3}
-                  className="w-full p-3 border border-rule rounded-lg bg-surface text-ink resize-none"
+                  placeholder="Where it is, and anything members should know"
                 />
               </div>
 
               <div>
-                <label htmlFor="meetingDate" className="block text-sm font-medium text-ink mb-1">
-                  <Calendar size={16} className="inline mr-1" />
-                  Date & Time
+                <label htmlFor="meetingDate" className="label">
+                  <Calendar className="mr-1 inline h-4 w-4" aria-hidden="true" />
+                  Date and time
                 </label>
                 <input
                   id="meetingDate"
                   type="datetime-local"
+                  className="input"
                   value={scheduledFor}
                   onChange={(e) => setScheduledFor(e.target.value)}
-                  className="w-full p-3 border border-rule rounded-lg bg-surface text-ink"
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gavel text-paper py-3 px-4 rounded-lg font-medium hover:bg-gavel/90 transition-colors disabled:opacity-50"
+              <div>
+                <label htmlFor="presidingOfficer" className="label">
+                  Presiding officer
+                </label>
+                <select
+                  id="presidingOfficer"
+                  className="select"
+                  disabled={presiders === null}
+                  value={chairUserId == null ? '' : String(chairUserId)}
+                  onChange={(e) => setChairUserId(e.target.value ? Number(e.target.value) : null)}
                 >
-                  {isSaving ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      Next: Build Agenda
-                      <ArrowRight size={20} />
-                    </>
-                  )}
-                </button>
+                  <option value="">
+                    {presiders === null ? 'Loading the members...' : 'Nobody: the admins run it'}
+                  </option>
+                  {(presiders ?? []).map((member) => (
+                    <option key={member.userId} value={String(member.userId)}>
+                      {member.name ?? member.email}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Chairs the live meeting. Members and above can preside.
+                </p>
               </div>
+
+              <button type="submit" disabled={isSaving} className="btn-primary w-full">
+                {isSaving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <>
+                    Next: build the agenda
+                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </>
+                )}
+              </button>
             </form>
           ) : (
             packet && (
               <>
-                {/* Editable details summary */}
-                <div className="mb-6 p-4 bg-surface-2 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-ink">{title || 'Untitled Meeting'}</h3>
+                <JoinInfoCard code={meetingCode} />
+
+                <div className="rounded-lg bg-surface-2 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="font-medium text-ink">{title || 'Untitled meeting'}</h3>
                     <button
+                      type="button"
                       onClick={() => setStep('details')}
-                      className="text-sm text-gavel hover:underline"
+                      className="btn-ghost btn-sm"
                     >
-                      Edit Details
+                      Edit the details
                     </button>
                   </div>
                   {scheduledFor && (
-                    <p className="text-sm text-ink-muted flex items-center gap-1">
-                      <Clock size={14} />
+                    <p className="flex items-center gap-1 text-sm text-ink-muted">
+                      <Clock className="h-4 w-4" aria-hidden="true" />
                       {new Date(scheduledFor).toLocaleString()}
                     </p>
                   )}
+                  <p className="text-sm text-ink-muted">
+                    {presidingName ? `${presidingName} presides` : 'No presiding officer'}
+                  </p>
                 </div>
 
                 <PacketBuilder packet={packet} onPacketUpdate={setPacket} />
 
-                <div className="flex gap-3 pt-6 mt-6 border-t border-rule">
+                <div className="flex gap-3 border-t border-rule pt-6">
                   <button
+                    type="button"
                     onClick={() => setStep('details')}
-                    className="flex-1 py-3 px-4 border border-rule text-ink rounded-lg font-medium hover:bg-surface-2 transition-colors"
+                    className="btn-secondary flex-1"
                   >
                     Back
                   </button>
                   <button
-                    onClick={() => void handleSaveAndJoin()}
-                    className="flex-1 flex items-center justify-center gap-2 bg-carried text-paper py-3 px-4 rounded-lg font-medium hover:bg-carried/90 transition-colors"
+                    type="button"
+                    onClick={() => void handleFinish()}
+                    disabled={isSaving}
+                    className="btn-primary flex-1"
                   >
                     {isSaving ? (
-                      <Loader2 size={20} className="animate-spin" />
-                    ) : (
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    ) : presiding ? (
                       <>
-                        <Check size={20} />
-                        Save & Join Meeting
+                        <Check className="h-5 w-5" aria-hidden="true" />
+                        Start meeting
                       </>
+                    ) : (
+                      'Done'
                     )}
                   </button>
                 </div>

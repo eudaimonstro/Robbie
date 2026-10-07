@@ -27,6 +27,8 @@ export function LiveMeetingsPage() {
   const organizationId = currentOrganization?.id ?? null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  // Bumped when the scheduler closes, so a meeting just scheduled is listed
+  const [refresh, setRefresh] = useState(0);
   // Meetings are scheduled in the current organization, by its secretaries and above
   const canSchedule =
     currentOrganization !== null && atLeast(currentOrganization.role, 'secretary');
@@ -48,12 +50,15 @@ export function LiveMeetingsPage() {
     return () => {
       canceled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, refresh]);
 
   if (scheduling) {
     return (
       <MeetingScheduler
-        onBack={() => setScheduling(false)}
+        onBack={() => {
+          setScheduling(false);
+          setRefresh((n) => n + 1);
+        }}
         onJoinMeeting={(code) => navigate(meetingPath(code))}
       />
     );

@@ -30,7 +30,14 @@ export async function getPacket(robbieCode: string): Promise<MeetingPacket | nul
  */
 export async function createPacket(
   organizationId: string,
-  data: { robbieCode: string; title?: string; description?: string; scheduledFor?: string },
+  data: {
+    robbieCode: string;
+    title?: string;
+    description?: string;
+    scheduledFor?: string;
+    /** The presiding officer; the server defaults it to the creator, and null is nobody */
+    chairUserId?: number | null;
+  },
 ): Promise<MeetingPacket> {
   const response = await apiFetch(`/organizations/${organizationId}/packets`, {
     method: 'POST',
@@ -51,7 +58,12 @@ export async function createPacket(
  */
 export async function updatePacket(
   packetId: string,
-  data: { title?: string; description?: string; scheduledFor?: string },
+  data: {
+    title?: string;
+    description?: string;
+    scheduledFor?: string;
+    chairUserId?: number | null;
+  },
 ): Promise<MeetingPacket> {
   const response = await apiFetch(`/packets/${packetId}`, {
     method: 'PUT',
