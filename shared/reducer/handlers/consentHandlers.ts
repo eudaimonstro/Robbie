@@ -5,6 +5,7 @@ import {
   processOutcomeResult,
   restoreReconsideredMotion,
 } from '../../utils/motionOutcomeHelper.js';
+import { unvotedRecord } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const consentHandler: ActionHandler = (state, action, log) => {
@@ -81,7 +82,21 @@ export const consentHandler: ActionHandler = (state, action, log) => {
         agendaAdopted: outcome.agendaAdopted,
         agendaObjection: outcome.agendaObjection,
         agenda: outcome.agenda,
-        completedMotions: restored?.completedMotions ?? state.completedMotions,
+        // Adopted without a vote: recorded as unanimous consent, with the quorum
+        completedMotions: [
+          ...(restored?.completedMotions ?? state.completedMotions),
+          ...(state.currentMotion
+            ? [
+                unvotedRecord(
+                  state,
+                  state.currentMotion,
+                  'unanimous',
+                  typedAction.timestamp,
+                  typedAction.at,
+                ),
+              ]
+            : []),
+        ],
         debatePositions: {},
         // Debate on the decided question is over; none of it carries to the next one
         speakerQueue: [],

@@ -17,6 +17,7 @@ import {
   logSecondedFromFloor,
 } from '../../constants/logMessages.js';
 import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
+import { unvotedRecord } from './records.js';
 import type { ActionHandler } from './types.js';
 
 type Log = (timestamp: string, msg: string) => MeetingLogEntry[];
@@ -188,9 +189,17 @@ export const motionHandler: ActionHandler = (state, action, log) => {
 
     case 'DECLINE_SECOND': {
       const typedAction = action as Extract<MeetingAction, { type: 'DECLINE_SECOND' }>;
+      // The motion dies for want of a second; the minutes say so
+      const died = state.pendingSecond;
       return {
         ...state,
         pendingSecond: null,
+        completedMotions: died
+          ? [
+              ...state.completedMotions,
+              unvotedRecord(state, died, 'no-second', typedAction.timestamp, typedAction.at),
+            ]
+          : state.completedMotions,
         meetingLog: log(typedAction.timestamp, LOG_MOTION_FAILED_NO_SECOND),
       };
     }
@@ -211,6 +220,16 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         return {
           ...state,
           pendingSecond: null,
+          completedMotions: [
+            ...state.completedMotions,
+            unvotedRecord(
+              state,
+              state.pendingSecond,
+              'withdrawn',
+              typedAction.timestamp,
+              typedAction.at,
+            ),
+          ],
           meetingLog: log(typedAction.timestamp, logMotionWithdrawn(state.pendingSecond.mover)),
         };
       }
@@ -223,6 +242,16 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         ...state,
         currentMotion: previousMotion,
         motionStack: newStack,
+        completedMotions: [
+          ...state.completedMotions,
+          unvotedRecord(
+            state,
+            motionToWithdraw,
+            'withdrawn',
+            typedAction.timestamp,
+            typedAction.at,
+          ),
+        ],
         votingOpen: false,
         unanimousConsentPending: false,
         speakerQueue: [],

@@ -5,6 +5,7 @@ import {
   logFloorNomination,
   logNomination,
 } from '../../constants/logMessages.js';
+import { decisionContext } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {
@@ -157,6 +158,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       for (const [name, count] of Object.entries(floorBallots)) {
         results[name] = (results[name] ?? 0) + count;
       }
+      // Every ballot's count is kept for the minutes, whatever comes of it
+      const ballots = [...(state.currentElection.ballots ?? []), results];
       const totalVotes =
         state.currentElection.votersWhoVoted.length +
         Object.values(floorBallots).reduce((sum, count) => sum + count, 0);
@@ -219,6 +222,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             ballotResults: {},
             votersWhoVoted: [],
             floorBallots: {},
+            ballots,
             votingInProgress: true,
             elected: null,
             isRunoff: true,
@@ -246,6 +250,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             ),
             votersWhoVoted: [],
             floorBallots: {},
+            ballots,
             votingInProgress: true,
             elected: null,
             // Counts the repeated ballots (the first ballot is round 0)
@@ -265,6 +270,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           // The tally the result rests on, device and paper ballots together, for the result,
           // the declaration and the minutes
           ballotResults: results,
+          ballots,
           votingInProgress: false,
           elected: winner,
         },
@@ -296,11 +302,14 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         0;
 
       const isWriteIn = !nominatedCandidate;
+      const ballots = state.currentElection.ballots ?? [];
       const officer: Officer = {
         position: state.currentElection.position,
         name: typedAction.candidateName,
         memberId,
         electedAt: typedAction.timestamp,
+        ...(ballots.length > 0 ? { ballots } : {}),
+        ...decisionContext(state, typedAction.at),
       };
 
       const writeInNote = isWriteIn ? ' (write-in candidate)' : '';

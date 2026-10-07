@@ -1,5 +1,10 @@
 import type { MeetingAction } from '../../types/index.js';
-import { LOG_MINUTES_APPROVED, logQuorumChanged } from '../../constants/logMessages.js';
+import {
+  LOG_MINUTES_APPROVED,
+  logMinutesApprovedWithCorrections,
+  logQuorumChanged,
+} from '../../constants/logMessages.js';
+import { decisionContext } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const settingsHandler: ActionHandler = (state, action, log) => {
@@ -21,16 +26,30 @@ export const settingsHandler: ActionHandler = (state, action, log) => {
 
     case 'APPROVE_MINUTES': {
       const typedAction = action as Extract<MeetingAction, { type: 'APPROVE_MINUTES' }>;
+      // Blank corrections are none: approved as read
+      const corrections = typedAction.corrections?.trim() || null;
       return {
         ...state,
         minutesApproved: true,
-        meetingLog: log(typedAction.timestamp, LOG_MINUTES_APPROVED),
+        minutesApproval: {
+          corrections,
+          timestamp: typedAction.timestamp,
+          ...decisionContext(state, typedAction.at),
+        },
+        meetingLog: log(
+          typedAction.timestamp,
+          corrections ? logMinutesApprovedWithCorrections(corrections) : LOG_MINUTES_APPROVED,
+        ),
       };
     }
 
     case 'SET_PREVIOUS_MINUTES': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_PREVIOUS_MINUTES' }>;
-      return { ...state, minutesFromPreviousMeeting: typedAction.minutes };
+      return {
+        ...state,
+        minutesFromPreviousMeeting: typedAction.minutes,
+        previousMinutesId: typedAction.minutesId ?? null,
+      };
     }
 
     case 'SET_AUTO_YIELD': {

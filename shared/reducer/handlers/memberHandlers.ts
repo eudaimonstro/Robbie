@@ -4,6 +4,7 @@ import {
   logMemberPresenceChanged,
   logMemberRenamed,
 } from '../../constants/logMessages.js';
+import { withAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
 /** A member with a new presence; presentBy only on a present member */
@@ -27,6 +28,9 @@ export const memberHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         members: [...state.members, typedAction.member],
+        attendedIds: typedAction.member.present
+          ? withAttended(state, typedAction.member.id)
+          : state.attendedIds,
         meetingLog: log(typedAction.timestamp, logMemberJoined(typedAction.member.name)),
       };
     }
@@ -93,6 +97,9 @@ export const memberHandler: ActionHandler = (state, action, log) => {
         members: state.members.map((m) =>
           m.id === typedAction.memberId ? withPresence(m, typedAction.present, presentBy) : m,
         ),
+        attendedIds: typedAction.present
+          ? withAttended(state, typedAction.memberId)
+          : state.attendedIds,
         meetingLog: log(
           typedAction.timestamp,
           logMemberPresenceChanged(member.name, typedAction.present),

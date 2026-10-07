@@ -29,6 +29,9 @@ export const MAX_HEADCOUNT = 100_000;
 /** The largest count the chair can enter for one choice in a floor tally or floor ballot */
 export const MAX_FLOOR_COUNT = 1_000_000;
 
+/** The longest corrections to the previous minutes the chair can enter */
+export const MAX_CORRECTIONS_LENGTH = 2000;
+
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
@@ -780,6 +783,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Minutes are already approved',
           errorCode: 'MINUTES_ALREADY_APPROVED',
+        };
+      }
+      if (
+        action.corrections !== undefined &&
+        (typeof action.corrections !== 'string' ||
+          action.corrections.length > MAX_CORRECTIONS_LENGTH)
+      ) {
+        return {
+          valid: false,
+          error: `Corrections can be at most ${MAX_CORRECTIONS_LENGTH} characters`,
+          errorCode: 'INVALID_ACTION',
         };
       }
       return { valid: true };

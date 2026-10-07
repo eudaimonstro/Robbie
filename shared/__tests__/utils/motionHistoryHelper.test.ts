@@ -128,6 +128,26 @@ describe('getMotionHistory', () => {
     expect(history[0].outcome).toBe('failed');
   });
 
+  it('leaves out motions never decided, and gives no count for unanimous consent', () => {
+    const record = {
+      type: 'mainMotion',
+      name: 'Main Motion',
+      voterChoices: {},
+      timestamp: '10:15:00',
+      reconsidered: false,
+    };
+    const state = createMockState({
+      completedMotions: [
+        { ...record, id: 1, text: 'Thank the board', passed: true, disposition: 'unanimous' },
+        { ...record, id: 2, text: 'Paint it red', passed: false, disposition: 'no-second' },
+        { ...record, id: 3, text: 'Repave the lot', passed: false, disposition: 'withdrawn' },
+      ],
+    });
+    const history = getMotionHistory(state);
+    expect(history.map((m) => [m.id, m.outcome])).toEqual([[1, 'passed']]);
+    expect(history[0].voteCount).toBeUndefined();
+  });
+
   it('should include tabled motions', () => {
     const state = createMockState({
       tabledMotions: [createMockMotion({ id: 2, text: 'Tabled item' })],

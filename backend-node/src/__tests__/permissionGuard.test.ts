@@ -63,11 +63,7 @@ describe('permissionGuard', () => {
     });
 
     describe('admin-only actions', () => {
-      const adminOnlyActions = [
-        'SET_SPEAKER_TIME_LIMIT',
-        'SET_VOTE_TIME_LIMIT',
-        'SET_PREVIOUS_MINUTES',
-      ] as const;
+      const adminOnlyActions = ['SET_SPEAKER_TIME_LIMIT', 'SET_VOTE_TIME_LIMIT'] as const;
 
       it.each(adminOnlyActions)('should allow admin to perform %s', (action) => {
         expect(checkPermission('admin', action)).toBe(true);
@@ -113,6 +109,7 @@ describe('permissionGuard', () => {
         'REFRESH_MEMBERS',
         'RELOAD_AGENDA',
         'SET_MEETING_INFO',
+        'SET_PREVIOUS_MINUTES',
       ] as const;
 
       it.each(serverOnlyActions)('should deny every role %s', (action) => {

@@ -12,6 +12,21 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   ASK_INQUIRY: 'inquiryId',
 };
 
+/**
+ * The decisions the minutes record, stamped with the server's clock (ISO) as `at`, from which
+ * the minutes order them and give their times. Each action's `timestamp` is a clock time
+ * without a date (generateTimestamp), which the log shows as it is.
+ */
+export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'CLOSE_VOTING',
+  'UNANIMOUS_CONSENT_PASSED',
+  'DECLINE_SECOND',
+  'WITHDRAW_MOTION',
+  'CHAIR_RULING',
+  'DECLARE_ELECTED',
+  'APPROVE_MINUTES',
+]);
+
 /** The fields of an action that say who is acting, which the server sets from the socket */
 export interface ActorFields {
   /** Set to the sender's user id */
@@ -163,6 +178,11 @@ export function enrichAction(
   // Server generates timestamps using shared utility for consistency
   if ('timestamp' in enriched) {
     enriched.timestamp = generateTimestamp();
+  }
+
+  // When a decision the minutes record happened, by the server's clock, never a client's
+  if (CLOCKED_ACTIONS.has(enriched.type)) {
+    enriched.at = new Date().toISOString();
   }
 
   // Server generates the ID of a new item using shared utility to prevent collisions. Actions

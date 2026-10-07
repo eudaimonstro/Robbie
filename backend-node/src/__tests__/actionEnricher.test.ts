@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import type { SocketData } from '@robbie-bylawyer/shared/types/socket';
-import { ACTOR_FIELDS, enrichAction } from '../socket/actionEnricher.js';
+import { ACTOR_FIELDS, CLOCKED_ACTIONS, enrichAction } from '../socket/actionEnricher.js';
 import { ACTION_TYPES } from '../socket/permissionGuard.js';
 
 const chair: SocketData = {
@@ -299,5 +299,30 @@ describe('enrichAction', () => {
       expect(enriched.inquiryId).toBe(42);
       expect(enriched.answeredBy).toBe('Chair');
     });
+  });
+});
+
+describe('the clock on decisions', () => {
+  it('stamps each decision the minutes record with when it happened, whatever a client says', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T19:42:00Z'));
+    try {
+      expect([...CLOCKED_ACTIONS].sort()).toEqual([
+        'APPROVE_MINUTES',
+        'CHAIR_RULING',
+        'CLOSE_VOTING',
+        'DECLARE_ELECTED',
+        'DECLINE_SECOND',
+        'UNANIMOUS_CONSENT_PASSED',
+        'WITHDRAW_MOTION',
+      ]);
+      for (const type of CLOCKED_ACTIONS) {
+        const stamped = enrich({ type, timestamp: '', at: '1999-01-01T00:00:00.000Z' }, chair);
+        expect(stamped.at, type).toBe('2026-10-20T19:42:00.000Z');
+      }
+      expect(enrich({ type: 'OPEN_VOTING', timestamp: '' }, chair)).not.toHaveProperty('at');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

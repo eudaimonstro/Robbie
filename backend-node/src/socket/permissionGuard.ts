@@ -67,7 +67,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   ADD_AGENDA_ITEM: PRESIDING,
   REMOVE_AGENDA_ITEM: PRESIDING,
   REORDER_AGENDA: PRESIDING,
-  SET_PREVIOUS_MINUTES: ['admin'],
   ADD_COMMITTEE_REPORT: PRESIDING,
   SET_VOTING_METHOD: PRESIDING,
 
@@ -81,6 +80,8 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   REFRESH_MEMBERS: SERVER_ONLY,
   RELOAD_AGENDA: SERVER_ONLY,
   SET_MEETING_INFO: SERVER_ONLY,
+  // The server loads the previous meeting's published minutes (see joinHandler)
+  SET_PREVIOUS_MINUTES: SERVER_ONLY,
 
   // Member actions
   MAKE_MOTION: TAKING_PART,

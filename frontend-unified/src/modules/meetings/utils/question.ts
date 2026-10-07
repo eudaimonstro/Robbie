@@ -1,8 +1,4 @@
-import {
-  LOG_ADOPTED_BY_CONSENT,
-  LOG_MEETING_ADJOURNED,
-  PUT_BY_CHAIR,
-} from '@robbie-bylawyer/shared/constants';
+import { LOG_MEETING_ADJOURNED, PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import type { VoteResult } from '../hooks/useVoteResults';
 import { formatClockTime } from '../../../utils/dates';
@@ -248,10 +244,13 @@ export function adjournedAt(state: MeetingState): string | null {
   return entry ? formatClockTime(entry.time) : null;
 }
 
-/** How many things the meeting decided: votes, unanimous consents and elections */
+/**
+ * How many things the meeting decided: votes, unanimous consents and elections. Motions
+ * withdrawn or dead for want of a second are on the record too, but decided nothing.
+ */
 export function itemsDecided(state: MeetingState): number {
-  const consents = state.meetingLog.filter((e) =>
-    e.message.startsWith(LOG_ADOPTED_BY_CONSENT),
+  const decided = state.completedMotions.filter(
+    (m) => m.disposition !== 'withdrawn' && m.disposition !== 'no-second',
   ).length;
-  return state.completedMotions.length + consents + state.electedOfficers.length;
+  return decided + state.electedOfficers.length;
 }
