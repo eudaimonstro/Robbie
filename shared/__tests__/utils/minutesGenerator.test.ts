@@ -1,282 +1,428 @@
 import { describe, it, expect } from 'vitest';
-import { generateMeetingMinutes, formatMinutesAsMarkdown } from '../../utils/index.js';
-import type { MeetingState } from '../../types/index.js';
+import { initialState } from '../../reducer/index.js';
+import { NO_VOTES, formatMinutesAsMarkdown, generateMeetingMinutes } from '../../utils/index.js';
+import type { CompletedMotion, MeetingState, MinutesContext } from '../../types/index.js';
 
-// Helper to create a minimal meeting state for testing
-const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
-  meetingActive: false,
-  meetingCode: 'TEST01',
+/** The server's clock on the night, in UTC (7:00 PM in Chicago is midnight UTC) */
+const at = (time: string) => `2026-10-21T${time}:00.000Z`;
+
+function record(
+  overrides: Partial<CompletedMotion> & Pick<CompletedMotion, 'id' | 'text'>,
+): CompletedMotion {
+  return {
+    type: 'mainMotion',
+    name: 'Main Motion',
+    passed: true,
+    voterChoices: {},
+    timestamp: '',
+    reconsidered: false,
+    ...overrides,
+  };
+}
+
+/** Maple Grove's annual meeting, adjourned: every kind of thing the minutes record */
+const scenario: MeetingState = {
+  ...initialState,
+  meetingCode: 'MAPLE1',
+  title: '2026 Annual Meeting',
   meetingStage: 'adjourned',
-  agenda: [
-    { id: 1, title: 'Budget Review', status: 'completed' },
-    { id: 2, title: 'New Projects', status: 'pending' },
-  ],
-  currentAgendaItem: null,
-  agendaAdopted: true,
-  agendaObjection: false,
-  currentMotion: null,
-  pendingSecond: null,
-  motionStack: [],
-  votes: { yea: 0, nay: 0, abstain: 0 },
-  voters: [],
-  voterChoices: {},
-  votingOpen: false,
-  votingMethod: 'standard',
-  speakerQueue: [],
-  recognizedSpeaker: null,
-  speakerTimerEnd: null,
-  voteTimerEnd: null,
-  speakerTimeLimit: 120,
-  voteTimeLimit: 60,
-  lastSpeakerStance: null,
+  quorum: 29,
+  quorumAtCallToOrder: true,
   members: [
-    { id: 1, name: 'Alice', role: 'chair', present: true },
-    { id: 2, name: 'Bob', role: 'member', present: true },
-    { id: 3, name: 'Charlie', role: 'member', present: false },
+    { id: 1, name: 'Dana Okafor', role: 'chair', present: true, presentBy: 'device' },
+    { id: 2, name: 'Alice Brennan', role: 'member', present: true, presentBy: 'device' },
+    { id: 3, name: 'Ben Whitaker', role: 'member', present: true, presentBy: 'device' },
+    { id: 4, name: 'Carmen Diaz', role: 'member', present: true, presentBy: 'chair' },
+    // Left before the adjournment
+    { id: 5, name: 'Grace Kim', role: 'member', present: false },
+    { id: 6, name: 'Sam Ortiz', role: 'guest', present: true, presentBy: 'device' },
+    { id: 7, name: 'Pat Lindqvist', role: 'admin', present: true, presentBy: 'device' },
   ],
-  quorum: 2,
-  meetingLog: [
-    { time: '10:00:00', message: 'Meeting called to order.' },
-    { time: '10:30:00', message: 'Meeting adjourned.' },
-  ],
-  unanimousConsentPending: false,
-  suspendedRules: [],
-  tabledMotions: [],
-  defeatedMotions: [],
-  completedMotions: [
+  attendedIds: [1, 2, 3, 4, 5, 6, 7],
+  headcount: 3,
+  headcountNames: ['Dee Fox', 'Eli Grant'],
+  agenda: [
+    { id: 1, title: 'Call to order', status: 'completed' },
+    { id: 2, title: 'Approval of the minutes of the 2025 annual meeting', status: 'completed' },
+    { id: 3, title: 'Old business: pool resurfacing contract', status: 'completed' },
     {
-      id: 1,
-      type: 'mainMotion',
-      name: 'Main Motion',
-      text: 'Approve the budget',
-      passed: true,
-      voterChoices: { 1: 'yea', 2: 'yea' },
-      timestamp: '10:15:00',
-      reconsidered: false,
+      id: 4,
+      title: 'New business: amend Section 4.2 to lower the quorum to 15%',
+      status: 'completed',
+    },
+    { id: 5, title: 'Election of two directors', status: 'completed' },
+    { id: 6, title: "Treasurer's report", status: 'pending' },
+    { id: 7, title: 'Adjournment', status: 'completed' },
+  ],
+  minutesApproval: {
+    corrections: 'The 2025 meeting adjourned at 8:15 PM, not 8:50 PM',
+    timestamp: '7:05:00 PM',
+    decidedAt: at('00:05'),
+    agendaItemId: 2,
+  },
+  completedMotions: [
+    record({
+      id: 10,
+      text: 'I move that we resurface the pool this spring',
+      mover: 'Alice Brennan',
+      moverId: 2,
+      seconder: 'Ben Whitaker',
+      deviceVotes: { yea: 12, nay: 3, abstain: 0 },
+      floorVotes: { yea: 9, nay: 2, abstain: 0 },
+      method: 'standard',
+      disposition: 'carried',
+      quorumPresent: true,
+      agendaItemId: 3,
+      decidedAt: at('00:20'),
+    }),
+    // Recorded after the vote above but decided before it: the clock orders them
+    record({
+      id: 11,
+      type: 'amend',
+      name: 'Amend',
+      text: 'Strike spring and insert summer',
+      mover: 'Ben Whitaker',
+      moverId: 3,
+      passed: false,
+      disposition: 'withdrawn',
+      agendaItemId: 3,
+      decidedAt: at('00:15'),
+    }),
+    record({
+      id: 12,
+      text: 'Paint the clubhouse red',
+      mover: 'Grace Kim',
+      moverId: 5,
+      passed: false,
+      disposition: 'no-second',
+      agendaItemId: 3,
+      decidedAt: at('00:25'),
+    }),
+    record({
+      id: 13,
+      type: 'appeal',
+      name: "Appeal the Chair's Decision",
+      text: 'Appeal the ruling on the point of order',
+      mover: 'Ben Whitaker',
+      moverId: 3,
+      seconder: 'Alice Brennan',
+      deviceVotes: { yea: 15, nay: 5, abstain: 0 },
+      floorVotes: NO_VOTES,
+      method: 'standard',
+      disposition: 'carried',
+      quorumPresent: true,
+      agendaItemId: 3,
+      decidedAt: at('00:23'),
+    }),
+    record({
+      id: 14,
+      type: 'bylawAmendment',
+      name: 'Bylaw Amendment',
+      text: 'Amend Section 4.2 to lower the quorum to 15%',
+      mover: 'Pat Lindqvist',
+      moverId: 7,
+      seconder: 'Alice Brennan',
+      // A secret ballot: its record keeps no choices
+      deviceVotes: { yea: 14, nay: 4, abstain: 1 },
+      floorVotes: { yea: 8, nay: 2, abstain: 0 },
+      method: 'ballot',
+      disposition: 'carried',
+      quorumPresent: true,
+      agendaItemId: 4,
+      decidedAt: at('00:40'),
+    }),
+    record({
+      id: 15,
+      text: 'Thank the outgoing directors',
+      mover: 'Carmen Diaz',
+      moverId: 4,
+      seconder: 'a member in the room',
+      disposition: 'unanimous',
+      quorumPresent: true,
+      agendaItemId: 4,
+      decidedAt: at('00:45'),
+    }),
+    record({
+      id: 16,
+      text: 'Adopt the 2027 budget',
+      mover: 'Put by the chair',
+      moverId: 0,
+      seconder: 'Carmen Diaz',
+      deviceVotes: { yea: 20, nay: 1, abstain: 0 },
+      floorVotes: NO_VOTES,
+      method: 'standard',
+      disposition: 'carried',
+      quorumPresent: true,
+      agendaItemId: 4,
+      decidedAt: at('00:50'),
+    }),
+    // Decided outside any agenda item
+    record({
+      id: 17,
+      text: 'Hold the next meeting online',
+      mover: 'Ben Whitaker',
+      moverId: 3,
+      seconder: 'Alice Brennan',
+      passed: false,
+      deviceVotes: NO_VOTES,
+      floorVotes: { yea: 4, nay: 20, abstain: 0 },
+      method: 'voice',
+      disposition: 'failed',
+      quorumPresent: false,
+      decidedAt: at('01:30'),
+    }),
+  ],
+  chairRulings: [
+    {
+      ruling: 'The point is well taken.',
+      explanation: 'Debate must be on the motion',
+      motionText: 'Point of order: the speaker is off the subject',
+      timestamp: '',
+      decidedAt: at('00:22'),
+      agendaItemId: 3,
     },
   ],
-  lastChairRuling: null,
-  minutesApproved: true,
-  minutesFromPreviousMeeting: '',
-  committeeReports: [],
-  nominationsOpen: false,
-  currentNominationPosition: null,
-  nominations: [],
-  currentElection: null,
-  electedOfficers: [{ position: 'Secretary', name: 'Bob', memberId: 2, electedAt: '10:20:00' }],
-  inquiries: [],
-  debatePositions: {},
-  dividedQuestionParts: [],
-  ...overrides,
-});
-
-describe('generateMeetingMinutes', () => {
-  it('should generate minutes with basic meeting info', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.meetingCode).toBe('TEST01');
-    expect(minutes.startTime).toBe('10:00:00');
-    expect(minutes.endTime).toBe('10:30:00');
-    expect(minutes.chairName).toBe('Alice');
-  });
-
-  it('should include attendance records', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.attendance).toHaveLength(3);
-    expect(minutes.attendance.find((a) => a.name === 'Alice')?.status).toBe('present');
-    expect(minutes.attendance.find((a) => a.name === 'Charlie')?.status).toBe('absent');
-  });
-
-  it('should record the headcount and members marked present', () => {
-    const state = createMockState({
-      headcount: 2,
-      headcountNames: ['Dee'],
-      members: [
-        { id: 1, name: 'Alice', role: 'chair', present: true },
-        { id: 2, name: 'Bob', role: 'member', present: true, presentBy: 'chair' },
-        { id: 4, name: 'Gus', role: 'guest', present: true },
+  electedOfficers: [
+    {
+      position: 'Director',
+      name: 'Carmen Diaz',
+      memberId: 4,
+      electedAt: '',
+      ballots: [{ 'Carmen Diaz': 18, 'Ray Castillo': 9 }],
+      agendaItemId: 5,
+      decidedAt: at('01:05'),
+    },
+    {
+      position: 'Director',
+      name: 'Frank Osei',
+      memberId: 0,
+      electedAt: '',
+      ballots: [
+        { 'Frank Osei': 12, 'Hector Ramos': 12 },
+        { 'Frank Osei': 15, 'Hector Ramos': 11 },
       ],
-      meetingLog: [
-        { time: '10:00:00', message: 'Meeting called to order.' },
-        { time: '10:05:00', message: 'Bob marked present.' },
-        { time: '10:30:00', message: 'Meeting adjourned.' },
+      agendaItemId: 5,
+      decidedAt: at('01:15'),
+    },
+  ],
+  electionsSetAside: [
+    {
+      position: 'Treasurer',
+      ballots: [{ 'Ann Lee': 10, 'Bo Chen': 10 }],
+      timestamp: '',
+      decidedAt: at('01:20'),
+      agendaItemId: 5,
+    },
+  ],
+  // Left unfinished by the adjournment: the election under way, a motion pending and one
+  // awaiting a second
+  unfinishedAtAdjournment: [
+    {
+      kind: 'election',
+      position: 'Secretary',
+      ballots: [
+        { 'Ivy Moss': 7, 'June Park': 7 },
+        { 'June Park': 8, 'Ivy Moss': 6 },
       ],
-    });
-    const minutes = generateMeetingMinutes(state);
+    },
+    {
+      kind: 'motion',
+      id: 18,
+      name: 'Main Motion',
+      text: 'Repave the parking lot',
+      mover: 'Pat Lindqvist',
+      seconder: 'Carmen Diaz',
+    },
+    {
+      kind: 'motion',
+      id: 19,
+      name: 'Refer to a Committee',
+      text: 'Refer the question to the grounds committee',
+      mover: 'Ben Whitaker',
+      awaitingSecond: true,
+    },
+  ],
+};
 
-    expect(minutes.headcount).toBe(2);
-    expect(minutes.headcountNames).toEqual(['Dee']);
-    expect(minutes.attendance.find((a) => a.name === 'Bob')).toMatchObject({
-      status: 'late',
-      arrivedAt: '10:05:00',
-    });
+const context: MinutesContext = {
+  organizationName: 'Maple Grove HOA',
+  timeZone: 'America/Chicago',
+  title: '2026 Annual Meeting',
+  location: 'Maple Grove Clubhouse',
+  scheduledFor: '2026-10-21T00:00:00.000Z',
+  calledToOrderAt: '2026-10-21T00:02:00.000Z',
+  adjournedAt: '2026-10-21T01:42:00.000Z',
+  voters: [
+    { id: 1, name: 'Dana Okafor' },
+    { id: 2, name: 'Alice Brennan' },
+    { id: 3, name: 'Ben Whitaker' },
+    { id: 4, name: 'Carmen Diaz' },
+    { id: 5, name: 'Grace Kim' },
+    { id: 7, name: 'Pat Lindqvist' },
+    { id: 8, name: 'Elena Petrova' },
+    { id: 9, name: 'David Nguyen' },
+  ],
+};
 
-    const markdown = formatMinutesAsMarkdown(minutes);
-    expect(markdown).toContain('**Also present without an account:** 2: Dee');
-    expect(markdown).toContain('**Guests:**\n- Gus');
-    expect(markdown).not.toContain('- Gus (');
+const nothingKnown: MinutesContext = {
+  organizationName: 'Garden Club',
+  timeZone: 'America/Chicago',
+  title: '',
+  location: null,
+  scheduledFor: null,
+  calledToOrderAt: null,
+  adjournedAt: null,
+  voters: [],
+};
+
+describe('the minutes', () => {
+  it('record the meeting, each decision under its agenda item in the order it happened', () => {
+    const markdown = formatMinutesAsMarkdown(generateMeetingMinutes(scenario), context);
+    expect(markdown).toBe(
+      [
+        '# Maple Grove HOA',
+        '',
+        '## Minutes of the 2026 Annual Meeting',
+        '',
+        'Tuesday, October 20, 2026, at Maple Grove Clubhouse.',
+        '',
+        'Dana Okafor presided. The meeting was called to order at 7:02 PM.',
+        '',
+        '## Attendance',
+        '',
+        '**Members present (6):** Alice Brennan, Ben Whitaker, Carmen Diaz (marked present), Dana Okafor, Grace Kim, Pat Lindqvist.',
+        '',
+        '**Also present without an account (3):** Dee Fox, Eli Grant and 1 other.',
+        '',
+        '**Guests:** Sam Ortiz.',
+        '',
+        '**Absent (2):** David Nguyen, Elena Petrova.',
+        '',
+        'A quorum of 29 was present at the call to order.',
+        '',
+        '## Proceedings',
+        '',
+        '### 1. Call to order',
+        '',
+        '### 2. Approval of the minutes of the 2025 annual meeting',
+        '',
+        'The minutes of the previous meeting were approved with corrections: The 2025 meeting adjourned at 8:15 PM, not 8:50 PM.',
+        '',
+        '### 3. Old business: pool resurfacing contract',
+        '',
+        '**Amend.** Ben Whitaker moved: "Strike spring and insert summer." Withdrawn by the mover.',
+        '',
+        '**Main Motion.** Alice Brennan moved: "I move that we resurface the pool this spring." Seconded by Ben Whitaker. Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5. A quorum was present.',
+        '',
+        '**Ruling of the chair.** On "Point of order: the speaker is off the subject." the chair ruled: The point is well taken. Debate must be on the motion.',
+        '',
+        '**Appeal the Chair\'s Decision.** Ben Whitaker moved: "Appeal the ruling on the point of order." Seconded by Alice Brennan. The chair\'s decision was sustained, 15 to 5. A quorum was present.',
+        '',
+        '**Main Motion.** Grace Kim moved: "Paint the clubhouse red." Died for lack of a second.',
+        '',
+        '### 4. New business: amend Section 4.2 to lower the quorum to 15%',
+        '',
+        '**Bylaw Amendment.** Pat Lindqvist moved: "Amend Section 4.2 to lower the quorum to 15%." Seconded by Alice Brennan. Carried by ballot, on devices 14 to 4 and in the room 8 to 2: 22 to 6, 1 abstaining. A quorum was present.',
+        '',
+        '**Main Motion.** Carmen Diaz moved: "Thank the outgoing directors." Seconded by a member in the room. Adopted by unanimous consent. A quorum was present.',
+        '',
+        '**Main Motion.** The chair put the question: "Adopt the 2027 budget." Seconded by Carmen Diaz. Carried, 20 to 1. A quorum was present.',
+        '',
+        '### 5. Election of two directors',
+        '',
+        '**Election for Director.** Ballot 1: Carmen Diaz 18, Ray Castillo 9. Carmen Diaz was elected.',
+        '',
+        '**Election for Director.** Ballot 1: Frank Osei 12, Hector Ramos 12. Ballot 2: Frank Osei 15, Hector Ramos 11. Frank Osei was elected.',
+        '',
+        'The election for Treasurer was set aside. Ballot 1: Ann Lee 10, Bo Chen 10.',
+        '',
+        "### 6. Treasurer's report",
+        '',
+        'Not taken up.',
+        '',
+        '### 7. Adjournment',
+        '',
+        '### Other business',
+        '',
+        '**Main Motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed on a voice vote, 4 to 20. No quorum was present.',
+        '',
+        '## Adjournment',
+        '',
+        'The meeting adjourned at 8:42 PM with the following unfinished: the election for Secretary (Ballot 1: Ivy Moss 7, June Park 7; Ballot 2: June Park 8, Ivy Moss 6), the motion "Repave the parking lot" (Main Motion, moved by Pat Lindqvist and seconded by Carmen Diaz) and the motion "Refer the question to the grounds committee" (Refer to a Committee, moved by Ben Whitaker and awaiting a second).',
+        '',
+      ].join('\n'),
+    );
   });
 
-  it('should count the headcount toward quorum', () => {
-    const state = createMockState({ quorum: 4, headcount: 2 });
-    expect(generateMeetingMinutes(state).quorumPresent).toBe(true); // 2 members and 2 more
+  it('leave out what they do not know', () => {
+    const minutes = generateMeetingMinutes({ ...initialState, title: 'Board meeting' });
+    expect(formatMinutesAsMarkdown(minutes, nothingKnown)).toBe(
+      [
+        '# Garden Club',
+        '',
+        '## Minutes of the Board meeting',
+        '',
+        '## Attendance',
+        '',
+        '**Members present:** none.',
+        '',
+        '## Proceedings',
+        '',
+        'No business was recorded.',
+        '',
+      ].join('\n'),
+    );
   });
 
-  it('should calculate quorum status', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.quorumPresent).toBe(true); // 2 present, quorum is 2
-  });
-
-  it('should include agenda items', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.agendaItems).toHaveLength(2);
-    expect(minutes.agendaItems[0].title).toBe('Budget Review');
-    expect(minutes.agendaItems[0].status).toBe('completed');
-  });
-
-  it('should include completed motions', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.motions).toHaveLength(1);
-    expect(minutes.motions[0].text).toBe('Approve the budget');
-    expect(minutes.motions[0].outcome).toBe('passed');
-    expect(minutes.motions[0].voteCount?.yea).toBe(2);
-  });
-
-  it('should record both parts of a vote, and who moved it', () => {
-    const state = createMockState({
-      completedMotions: [
+  it('record an election set aside before a ballot, and what adjourning left unfinished', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      electionsSetAside: [{ position: null, timestamp: '' }],
+      unfinishedAtAdjournment: [
+        { kind: 'election', position: 'Treasurer' },
         {
+          kind: 'motion',
           id: 1,
-          type: 'mainMotion',
           name: 'Main Motion',
-          text: 'Resurface the pool',
-          mover: 'Bob',
-          moverId: 2,
-          passed: true,
-          voterChoices: {},
-          timestamp: '10:15:00',
-          reconsidered: false,
-          reconsiderable: true,
-          deviceVotes: { yea: 12, nay: 3, abstain: 0 },
-          floorVotes: { yea: 9, nay: 2, abstain: 1 },
-          method: 'ballot',
+          text: 'Adopt the budget',
+          mover: 'Put by the chair',
         },
       ],
     });
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.motions[0]).toMatchObject({
-      mover: 'Bob',
-      moverId: 2,
-      voteCount: { yea: 21, nay: 5, abstain: 1 },
-      deviceVotes: { yea: 12, nay: 3, abstain: 0 },
-      floorVotes: { yea: 9, nay: 2, abstain: 1 },
-      method: 'ballot',
-    });
-    const markdown = formatMinutesAsMarkdown(minutes);
-    expect(markdown).toContain('**Vote:** Yea: 21, Nay: 5, Abstain: 1');
-    expect(markdown).toContain('(On devices 12 to 3, in the room 9 to 2)');
+    expect(minutes.otherEntries).toEqual([
+      { kind: 'setAside', setAside: { position: null, timestamp: '' } },
+    ]);
+    const markdown = formatMinutesAsMarkdown(minutes, nothingKnown);
+    expect(markdown).toContain('\nThe election was set aside.\n');
+    expect(markdown).toContain(
+      '## Adjournment\n\nThe meeting adjourned with the following unfinished: the election for Treasurer and the motion "Adopt the budget" (Main Motion, put by the chair).\n',
+    );
   });
 
-  it('should include tabled motions', () => {
-    const state = createMockState({
-      tabledMotions: [
-        {
-          id: 2,
-          type: 'mainMotion',
-          name: 'Main Motion',
-          text: 'Postponed discussion',
-          mover: 'Bob',
-          moverId: 2,
-          secondedBy: 'Alice',
-          status: 'active',
-          precedence: 1,
-          category: 'main',
-          interrupt: false,
-          needsSecond: true,
-          debatable: true,
-          amendable: true,
-          reconsidered: false,
-          vote: 'majority',
-          phrase: 'I move...',
-          help: '',
-          whenToUse: '',
-        },
+  it('count a vote recorded before its parts were kept from its choices, and name nobody', () => {
+    const minutes = generateMeetingMinutes({
+      ...initialState,
+      completedMotions: [
+        record({
+          id: 1,
+          text: 'Approve the budget',
+          mover: 'Alice',
+          voterChoices: { 1: 'yea', 2: 'yea', 3: 'nay' },
+        }),
       ],
     });
-    const minutes = generateMeetingMinutes(state);
-
-    const tabledMotion = minutes.motions.find((m) => m.text === 'Postponed discussion');
-    expect(tabledMotion).toBeDefined();
-    expect(tabledMotion?.outcome).toBe('tabled');
+    expect(minutes.otherEntries).toHaveLength(1);
+    expect(formatMinutesAsMarkdown(minutes, nothingKnown)).toContain(
+      '**Main Motion.** Alice moved: "Approve the budget." Carried, 2 to 1.\n',
+    );
   });
 
-  it('should include elected officers', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.electedOfficers).toHaveLength(1);
-    expect(minutes.electedOfficers[0].position).toBe('Secretary');
-    expect(minutes.electedOfficers[0].name).toBe('Bob');
-  });
-
-  it('should set generatedAt timestamp', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-
-    expect(minutes.generatedAt).toBeDefined();
-    expect(new Date(minutes.generatedAt).getTime()).not.toBeNaN();
-  });
-});
-
-describe('formatMinutesAsMarkdown', () => {
-  it('should format minutes as markdown', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-    const markdown = formatMinutesAsMarkdown(minutes);
-
-    expect(markdown).toContain('# Meeting Minutes');
-    expect(markdown).toContain('**Meeting Code:** TEST01');
-    expect(markdown).toContain('**Chair:** Alice');
-  });
-
-  it('should include attendance section', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-    const markdown = formatMinutesAsMarkdown(minutes);
-
-    expect(markdown).toContain('## Attendance');
-    expect(markdown).toContain('**Present:**');
-    expect(markdown).toContain('- Alice (Chair)');
-    expect(markdown).toContain('**Absent:**');
-    expect(markdown).toContain('- Charlie');
-  });
-
-  it('should include motions section', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-    const markdown = formatMinutesAsMarkdown(minutes);
-
-    expect(markdown).toContain('## Motions');
-    expect(markdown).toContain('Approve the budget');
-    expect(markdown).toContain('**Outcome:** PASSED');
-  });
-
-  it('should include elected officers section', () => {
-    const state = createMockState();
-    const minutes = generateMeetingMinutes(state);
-    const markdown = formatMinutesAsMarkdown(minutes);
-
-    expect(markdown).toContain('## Officers Elected');
-    expect(markdown).toContain('**Secretary:** Bob');
+  it('give times in UTC when the time zone is unknown', () => {
+    const markdown = formatMinutesAsMarkdown(generateMeetingMinutes(initialState), {
+      ...nothingKnown,
+      timeZone: 'Nowhere/Land',
+      calledToOrderAt: '2026-10-21T00:02:00.000Z',
+    });
+    expect(markdown).toContain('The meeting was called to order at 12:02 AM.');
   });
 });

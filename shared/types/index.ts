@@ -752,57 +752,55 @@ export interface VoteCalculationResult {
 }
 
 // Meeting Minutes types
-export interface AttendanceRecord {
-  memberId: number;
-  name: string;
-  role: MeetingRole;
-  status: 'present' | 'absent' | 'excused' | 'late' | 'left-early';
-  arrivedAt?: string;
-  departedAt?: string;
+
+/** Something the minutes record */
+export type MinutesEntry =
+  | { kind: 'motion'; motion: CompletedMotion }
+  | { kind: 'ruling'; ruling: ChairRulingRecord }
+  | { kind: 'election'; officer: Officer }
+  | { kind: 'setAside'; setAside: ElectionSetAsideRecord }
+  | { kind: 'minutes'; approval: MinutesApprovalRecord };
+
+/** An agenda item, with what was decided under it in the order it happened */
+export interface MinutesItem {
+  title: string;
+  status: AgendaItem['status'];
+  entries: MinutesEntry[];
 }
 
-export interface MinutesMotionRecord {
-  id: number;
-  type: string;
-  name: string;
-  text: string;
-  mover: string;
-  moverId: number;
-  seconder?: string;
-  outcome: 'passed' | 'failed' | 'withdrawn' | 'tabled';
-  /** Device and floor votes together */
-  voteCount?: { yea: number; nay: number; abstain: number };
-  voterChoices?: Record<number, 'yea' | 'nay' | 'abstain'>;
-  deviceVotes?: Votes;
-  floorVotes?: Votes;
-  method?: VotingMethod;
-  timestamp: string;
-}
-
-export interface MinutesElectionRecord {
-  position: string;
-  candidates: string[];
-  winner: string | null;
-  ballotResults: Record<string, number>;
-  wasRunoff: boolean;
-  timestamp: string;
-}
-
+/** What the minutes of a meeting record, from its final state (see generateMeetingMinutes) */
 export interface MeetingMinutes {
   meetingCode: string;
-  startTime: string;
-  endTime?: string;
-  chairName?: string;
-  attendance: AttendanceRecord[];
+  title: string;
+  chairName: string | null;
+  /** Members (not guests) present at any point; marked when the chair marked them present */
+  present: Array<{ id: number; name: string; marked: boolean }>;
+  /** Guests present at any point, by name */
+  guests: string[];
   /** People present without an account, and the names given for them */
   headcount: number;
   headcountNames: string[];
-  quorumPresent: boolean;
-  agendaItems: Array<{ title: string; status: 'completed' | 'pending' | 'active' }>;
-  motions: MinutesMotionRecord[];
-  elections: MinutesElectionRecord[];
-  electedOfficers: Officer[];
-  announcements: string[];
-  nextMeetingDate?: string;
-  generatedAt: string;
+  quorum: number;
+  quorumAtCallToOrder: boolean | null;
+  /** The agenda in order */
+  items: MinutesItem[];
+  /** What was decided outside any agenda item, in order */
+  otherEntries: MinutesEntry[];
+  /** The business the meeting adjourned with unfinished, in order */
+  unfinished: UnfinishedBusinessRecord[];
+}
+
+/** What the minutes need from outside the meeting state: its organization and its packet */
+export interface MinutesContext {
+  organizationName: string;
+  /** An IANA time zone name: the minutes give dates and times there */
+  timeZone: string;
+  title: string;
+  location: string | null;
+  /** When the meeting was scheduled, called to order and adjourned (ISO) */
+  scheduledFor: string | null;
+  calledToOrderAt: string | null;
+  adjournedAt: string | null;
+  /** The organization's voting members (member role and above), for the absent list */
+  voters: Array<{ id: number; name: string }>;
 }

@@ -1,279 +1,354 @@
 import type {
-  MeetingState,
+  ChairRulingRecord,
+  CompletedMotion,
+  ElectionSetAsideRecord,
   MeetingMinutes,
-  AttendanceRecord,
-  MinutesMotionRecord,
-  MinutesElectionRecord,
+  MeetingState,
+  MinutesApprovalRecord,
+  MinutesContext,
+  MinutesEntry,
+  Officer,
+  UnfinishedBusinessRecord,
+  Votes,
 } from '../types/index.js';
-import { attendanceSummary } from './attendance.js';
-import { completedMotionVotes } from './voteCalculator.js';
+import { PUT_BY_CHAIR } from '../constants/floor.js';
+import { logElectionSetAside } from '../constants/logMessages.js';
+import { NO_VOTES, addVotes, completedMotionVotes } from './voteCalculator.js';
+
+/** An entry with where and when it happened, for grouping and ordering */
+interface Placed {
+  entry: MinutesEntry;
+  agendaItemId?: number;
+  decidedAt?: string;
+  order: number;
+}
+
+const byName = (a: string, b: string) => a.localeCompare(b);
 
 /**
- * Generate structured meeting minutes from the current meeting state
+ * What the minutes of a meeting record, from its final state: who attended (anyone present at
+ * any point), and each agenda item with what was decided under it, in the order it happened
+ * by the server's clock. Votes and ballots are counts: who voted which way is never kept here.
  */
 export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
-  // Get meeting start time from first log entry
-  const startTime = state.meetingLog[0]?.time ?? '';
+  const attended = new Set(state.attendedIds ?? []);
+  const there = state.members.filter((m) => m.present || attended.has(m.id));
+  const present = there
+    .filter((m) => m.role !== 'guest')
+    .map((m) => ({ id: m.id, name: m.name, marked: m.presentBy === 'chair' }))
+    .sort((a, b) => byName(a.name, b.name));
+  const guests = there
+    .filter((m) => m.role === 'guest')
+    .map((m) => m.name)
+    .sort(byName);
 
-  // Get meeting end time from last log entry if meeting is adjourned
-  const endTime =
-    state.meetingStage === 'adjourned'
-      ? state.meetingLog[state.meetingLog.length - 1]?.time
-      : undefined;
-
-  // Find chair name
-  const chair = state.members.find((m) => m.role === 'chair');
-  const chairName = chair?.name;
-
-  // Build attendance records
-  const attendance: AttendanceRecord[] = state.members.map((member) => {
-    // Look for arrival/departure in meeting log
-    const joinedLog = state.meetingLog.find(
-      (log) =>
-        log.message.includes(`${member.name} has joined`) ||
-        log.message.includes(`${member.name} is now present`) ||
-        log.message.includes(`${member.name} marked present`),
-    );
-    const leftLog = state.meetingLog.find((log) => log.message.includes(`${member.name} has left`));
-
-    let status: AttendanceRecord['status'] = member.present ? 'present' : 'absent';
-
-    // Check if they arrived late (joined after meeting started)
-    if (joinedLog && state.meetingLog.indexOf(joinedLog) > 0) {
-      status = 'late';
-    }
-
-    // Check if they left early
-    if (leftLog && state.meetingStage !== 'adjourned') {
-      status = 'left-early';
-    }
-
-    return {
-      memberId: member.id,
-      name: member.name,
-      role: member.role,
-      status,
-      arrivedAt: joinedLog?.time,
-      departedAt: leftLog?.time,
-    };
-  });
-
-  // Quorum as the meeting counts it: members on a device or marked present, the headcount,
-  // and proxies when they count
-  const quorumPresent = attendanceSummary(state).hasQuorum;
-
-  // Build agenda items
-  const agendaItems = state.agenda.map((item) => ({
-    title: item.title,
-    status: item.status,
-  }));
-
-  // Build motion records from completed motions
-  const motions: MinutesMotionRecord[] = state.completedMotions.map((motion) => ({
-    id: motion.id,
-    type: motion.type,
-    name: motion.name,
-    text: motion.text,
-    mover: motion.mover ?? '',
-    moverId: motion.moverId ?? 0,
-    outcome: motion.passed ? 'passed' : 'failed',
-    voteCount: completedMotionVotes(motion),
-    voterChoices: motion.voterChoices,
-    deviceVotes: motion.deviceVotes,
-    floorVotes: motion.floorVotes,
-    method: motion.method,
-    timestamp: motion.timestamp,
-  }));
-
-  // Add tabled motions
-  state.tabledMotions.forEach((motion) => {
-    motions.push({
-      id: motion.id,
-      type: motion.type,
-      name: motion.name,
-      text: motion.text,
-      mover: motion.mover,
-      moverId: motion.moverId,
-      outcome: 'tabled',
-      timestamp: '', // Would need timestamp from when it was tabled
+  const placed: Placed[] = [];
+  const add = (entry: MinutesEntry, where: { agendaItemId?: number; decidedAt?: string }) => {
+    placed.push({
+      entry,
+      agendaItemId: where.agendaItemId,
+      decidedAt: where.decidedAt,
+      order: placed.length,
     });
-  });
-
-  // Build election records from elected officers
-  const elections: MinutesElectionRecord[] = state.electedOfficers.map((officer) => ({
-    position: officer.position,
-    candidates: [], // Would need to track this during election
-    winner: officer.name,
-    ballotResults: {},
-    wasRunoff: false,
-    timestamp: officer.electedAt,
-  }));
-
-  // Extract announcements from meeting log (messages during announcements stage)
-  const announcements: string[] = [];
-  let inAnnouncementsStage = false;
-  for (const log of state.meetingLog) {
-    if (log.message.includes('Announcements')) {
-      inAnnouncementsStage = true;
-    } else if (log.message.includes('adjourned')) {
-      inAnnouncementsStage = false;
-    } else if (inAnnouncementsStage && !log.message.startsWith('Chair')) {
-      announcements.push(log.message);
-    }
+  };
+  for (const motion of state.completedMotions) add({ kind: 'motion', motion }, motion);
+  for (const ruling of state.chairRulings ?? []) add({ kind: 'ruling', ruling }, ruling);
+  for (const officer of state.electedOfficers) add({ kind: 'election', officer }, officer);
+  for (const setAside of state.electionsSetAside ?? []) {
+    add({ kind: 'setAside', setAside }, setAside);
   }
+  if (state.minutesApproval) {
+    add({ kind: 'minutes', approval: state.minutesApproval }, state.minutesApproval);
+  }
+  // By the server's clock; anything recorded without it comes first, in the order it was kept
+  placed.sort((a, b) => (a.decidedAt ?? '').localeCompare(b.decidedAt ?? '') || a.order - b.order);
 
+  const agendaIds = new Set(state.agenda.map((item) => item.id));
   return {
     meetingCode: state.meetingCode,
-    startTime,
-    endTime,
-    chairName,
-    attendance,
+    title: state.title,
+    chairName: state.members.find((m) => m.role === 'chair')?.name ?? null,
+    present,
+    guests,
     headcount: state.headcount ?? 0,
     headcountNames: state.headcountNames ?? [],
-    quorumPresent,
-    agendaItems,
-    motions,
-    elections,
-    electedOfficers: state.electedOfficers,
-    announcements,
-    generatedAt: new Date().toISOString(),
+    quorum: state.quorum,
+    quorumAtCallToOrder: state.quorumAtCallToOrder ?? null,
+    items: state.agenda.map((item) => ({
+      title: item.title,
+      status: item.status,
+      entries: placed.filter((p) => p.agendaItemId === item.id).map((p) => p.entry),
+    })),
+    otherEntries: placed
+      .filter((p) => p.agendaItemId === undefined || !agendaIds.has(p.agendaItemId))
+      .map((p) => p.entry),
+    unfinished: state.unfinishedAtAdjournment ?? [],
   };
 }
 
-/**
- * Format meeting minutes as Markdown
- */
-export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
-  const lines: string[] = [];
+/** A time zone this runtime knows, or UTC */
+function knownZone(timeZone: string): string {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
 
-  lines.push(`# Meeting Minutes`);
-  lines.push(`**Meeting Code:** ${minutes.meetingCode}`);
-  lines.push(
-    `**Date:** ${minutes.startTime ? new Date(minutes.startTime).toLocaleDateString() : 'N/A'}`,
+// ICU puts a narrow no-break space before AM and PM; the minutes are plain text
+const plainSpaces = (text: string) => text.replace(/[\u202f\u00a0]/g, ' ');
+
+/** "7:02 PM" in the organization's time zone */
+function clockTime(iso: string, timeZone: string): string {
+  return plainSpaces(
+    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(
+      new Date(iso),
+    ),
   );
-  if (minutes.chairName) {
-    lines.push(`**Chair:** ${minutes.chairName}`);
+}
+
+/** "Tuesday, October 20, 2026" in the organization's time zone */
+function longDate(iso: string, timeZone: string): string {
+  return plainSpaces(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(iso)),
+  );
+}
+
+/** Text as a sentence: with a closing period unless it has one (or a question or exclamation mark) */
+function sentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+const counted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
+
+/** "Carried, on devices 12 to 3 and in the room 9 to 2: 21 to 5." and the like */
+function voteText(motion: CompletedMotion): string {
+  const result =
+    motion.type === 'appeal'
+      ? motion.passed
+        ? "The chair's decision was sustained"
+        : "The chair's decision was overturned"
+      : motion.passed
+        ? 'Carried'
+        : 'Failed';
+  // A record made before the parts were kept is counted from its device votes
+  const device = motion.deviceVotes ?? completedMotionVotes(motion);
+  const floor = motion.floorVotes ?? NO_VOTES;
+  const total = addVotes(device, floor);
+  const abstaining = total.abstain > 0 ? `, ${total.abstain} abstaining` : '';
+  if (motion.method === 'voice') {
+    const count = counted(floor) ? `, ${floor.yea} to ${floor.nay}` : '';
+    return `${result} on a voice vote${count}${abstaining}.`;
   }
-  lines.push('');
-
-  // Attendance
-  lines.push('## Attendance');
-  lines.push(`**Quorum:** ${minutes.quorumPresent ? 'Present' : 'Not Present'}`);
-  lines.push('');
-
-  const voting = minutes.attendance.filter((a) => a.role !== 'guest');
-  const present = voting.filter((a) => a.status === 'present' || a.status === 'late');
-  const absent = voting.filter((a) => a.status === 'absent' || a.status === 'excused');
-  const guests = minutes.attendance.filter((a) => a.role === 'guest');
-
-  if (present.length > 0) {
-    lines.push('**Present:**');
-    present.forEach((a) => {
-      const note = a.status === 'late' ? ' (arrived late)' : '';
-      lines.push(`- ${a.name}${a.role === 'chair' ? ' (Chair)' : ''}${note}`);
-    });
-    lines.push('');
+  const how =
+    motion.method === 'ballot'
+      ? ' by ballot'
+      : motion.method === 'rollcall'
+        ? ' on a roll call'
+        : '';
+  if (counted(device) && counted(floor)) {
+    return `${result}${how}, on devices ${device.yea} to ${device.nay} and in the room ${floor.yea} to ${floor.nay}: ${total.yea} to ${total.nay}${abstaining}.`;
   }
+  if (counted(total)) return `${result}${how}, ${total.yea} to ${total.nay}${abstaining}.`;
+  return `${result}${how}.`;
+}
 
+function quorumNote(motion: CompletedMotion): string {
+  if (motion.quorumPresent === undefined) return '';
+  return motion.quorumPresent ? ' A quorum was present.' : ' No quorum was present.';
+}
+
+function outcomeText(motion: CompletedMotion): string {
+  switch (motion.disposition) {
+    case 'withdrawn':
+      return 'Withdrawn by the mover.';
+    case 'no-second':
+      return 'Died for lack of a second.';
+    case 'unanimous':
+      return `Adopted by unanimous consent.${quorumNote(motion)}`;
+    default:
+      return `${voteText(motion)}${quorumNote(motion)}`;
+  }
+}
+
+function motionText(motion: CompletedMotion): string {
+  const text = `"${sentence(motion.text)}"`;
+  const moved =
+    motion.mover === PUT_BY_CHAIR
+      ? `The chair put the question: ${text}`
+      : motion.mover
+        ? `${motion.mover} moved: ${text}`
+        : `Moved: ${text}`;
+  const seconded = motion.seconder ? ` Seconded by ${motion.seconder}.` : '';
+  return `**${motion.name}.** ${moved}${seconded} ${outcomeText(motion)}`;
+}
+
+function rulingText(ruling: ChairRulingRecord): string {
+  const why = ruling.explanation ? ` ${sentence(ruling.explanation)}` : '';
+  return `**Ruling of the chair.** On "${sentence(ruling.motionText)}" the chair ruled: ${ruling.ruling}${why}`;
+}
+
+type Ballots = ReadonlyArray<Record<string, number>> | undefined;
+
+/** "Ballot 1: Carmen Diaz 18, Ray Castillo 9" for each ballot: counts only, the most first */
+function ballotTallies(ballots: Ballots): string[] {
+  return (ballots ?? []).map((counts, index) => {
+    const tally = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => `${name} ${count}`)
+      .join(', ');
+    return `Ballot ${index + 1}: ${tally}`;
+  });
+}
+
+function electionText(officer: Officer): string {
+  const ballots = ballotTallies(officer.ballots).map((tally) => `${tally}.`);
+  return [`**Election for ${officer.position}.**`, ...ballots, `${officer.name} was elected.`].join(
+    ' ',
+  );
+}
+
+function setAsideText(setAside: ElectionSetAsideRecord): string {
+  const ballots = ballotTallies(setAside.ballots).map((tally) => `${tally}.`);
+  return [logElectionSetAside(setAside.position), ...ballots].join(' ');
+}
+
+/** 'the motion "Repave the lot" (Main Motion, moved by Pat and seconded by Carmen)' and the like */
+function unfinishedText(record: UnfinishedBusinessRecord): string {
+  if (record.kind === 'election') {
+    const ballots = ballotTallies(record.ballots);
+    return `the election for ${record.position}${ballots.length > 0 ? ` (${ballots.join('; ')})` : ''}`;
+  }
+  const moved = record.mover === PUT_BY_CHAIR ? 'put by the chair' : `moved by ${record.mover}`;
+  const seconded = record.seconder
+    ? ` and seconded by ${record.seconder}`
+    : record.awaitingSecond
+      ? ' and awaiting a second'
+      : '';
+  return `the motion "${record.text.trim()}" (${record.name}, ${moved}${seconded})`;
+}
+
+/** "The meeting adjourned at 8:42 PM with the following unfinished: ..." */
+function adjournmentText(
+  minutes: MeetingMinutes,
+  adjournedAt: string | null,
+  zone: string,
+): string {
+  const when = adjournedAt ? ` at ${clockTime(adjournedAt, zone)}` : '';
+  const items = minutes.unfinished.map(unfinishedText);
+  if (items.length === 0) return `The meeting adjourned${when}.`;
+  const listed =
+    items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0];
+  return `The meeting adjourned${when} with the following unfinished: ${listed}.`;
+}
+
+function approvalText(approval: MinutesApprovalRecord): string {
+  return approval.corrections
+    ? `The minutes of the previous meeting were approved with corrections: ${sentence(approval.corrections)}`
+    : 'The minutes of the previous meeting were approved as read.';
+}
+
+function entryText(entry: MinutesEntry): string {
+  switch (entry.kind) {
+    case 'motion':
+      return motionText(entry.motion);
+    case 'ruling':
+      return rulingText(entry.ruling);
+    case 'election':
+      return electionText(entry.officer);
+    case 'setAside':
+      return setAsideText(entry.setAside);
+    case 'minutes':
+      return approvalText(entry.approval);
+  }
+}
+
+/**
+ * The minutes as Markdown, the secretary's draft: a heading with the organization, the meeting,
+ * its date and place and who presided; attendance; each agenda item with what was decided under
+ * it; and the adjournment, with any business left unfinished. Dates and times are the organization's.
+ */
+export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: MinutesContext): string {
+  const zone = knownZone(context.timeZone);
+  const lines: string[] = [];
+  const paragraph = (text: string) => lines.push(text, '');
+
+  paragraph(`# ${context.organizationName}`);
+  paragraph(`## Minutes of the ${context.title || minutes.title || 'Meeting'}`);
+  const day = context.scheduledFor ?? context.calledToOrderAt;
+  if (day) {
+    paragraph(`${longDate(day, zone)}${context.location ? `, at ${context.location}` : ''}.`);
+  } else if (context.location) {
+    paragraph(`At ${context.location}.`);
+  }
+  const opening = [
+    ...(minutes.chairName ? [`${minutes.chairName} presided.`] : []),
+    ...(context.calledToOrderAt
+      ? [`The meeting was called to order at ${clockTime(context.calledToOrderAt, zone)}.`]
+      : []),
+  ];
+  if (opening.length > 0) paragraph(opening.join(' '));
+
+  paragraph('## Attendance');
+  const members = minutes.present.map((p) => (p.marked ? `${p.name} (marked present)` : p.name));
+  paragraph(
+    members.length > 0
+      ? `**Members present (${members.length}):** ${members.join(', ')}.`
+      : '**Members present:** none.',
+  );
   if (minutes.headcount > 0) {
-    const names = minutes.headcountNames.length > 0 ? `: ${minutes.headcountNames.join(', ')}` : '';
-    lines.push(`**Also present without an account:** ${minutes.headcount}${names}`);
-    lines.push('');
+    const named = minutes.headcountNames;
+    const others = minutes.headcount - named.length;
+    if (named.length === 0) {
+      paragraph(`**Also present without an account:** ${minutes.headcount}.`);
+    } else {
+      const rest = others > 0 ? ` and ${others} ${others === 1 ? 'other' : 'others'}` : '';
+      paragraph(
+        `**Also present without an account (${minutes.headcount}):** ${named.join(', ')}${rest}.`,
+      );
+    }
+  }
+  if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.join(', ')}.`);
+  const presentIds = new Set(minutes.present.map((p) => p.id));
+  const absent = context.voters
+    .filter((v) => !presentIds.has(v.id))
+    .map((v) => v.name)
+    .sort(byName);
+  if (absent.length > 0) paragraph(`**Absent (${absent.length}):** ${absent.join(', ')}.`);
+  if (minutes.quorumAtCallToOrder !== null) {
+    paragraph(
+      `A quorum of ${minutes.quorum} was ${minutes.quorumAtCallToOrder ? '' : 'not '}present at the call to order.`,
+    );
   }
 
-  if (absent.length > 0) {
-    lines.push('**Absent:**');
-    absent.forEach((a) => {
-      const note = a.status === 'excused' ? ' (excused)' : '';
-      lines.push(`- ${a.name}${note}`);
-    });
-    lines.push('');
+  paragraph('## Proceedings');
+  minutes.items.forEach((item, index) => {
+    paragraph(`### ${index + 1}. ${item.title}`);
+    if (item.status === 'pending' && item.entries.length === 0) paragraph('Not taken up.');
+    for (const entry of item.entries) paragraph(entryText(entry));
+  });
+  if (minutes.otherEntries.length > 0) {
+    if (minutes.items.length > 0) paragraph('### Other business');
+    for (const entry of minutes.otherEntries) paragraph(entryText(entry));
+  }
+  if (minutes.items.length === 0 && minutes.otherEntries.length === 0) {
+    paragraph('No business was recorded.');
   }
 
-  if (guests.length > 0) {
-    lines.push('**Guests:**');
-    guests.forEach((a) => lines.push(`- ${a.name}`));
-    lines.push('');
+  // Business is only left unfinished by adjourning, so it says the meeting adjourned
+  if (context.adjournedAt || minutes.unfinished.length > 0) {
+    paragraph('## Adjournment');
+    paragraph(adjournmentText(minutes, context.adjournedAt, zone));
   }
-
-  // Agenda
-  if (minutes.agendaItems.length > 0) {
-    lines.push('## Agenda');
-    minutes.agendaItems.forEach((item, i) => {
-      const status = item.status === 'completed' ? '✓' : item.status === 'active' ? '→' : '○';
-      lines.push(`${i + 1}. ${status} ${item.title}`);
-    });
-    lines.push('');
-  }
-
-  // Motions
-  if (minutes.motions.length > 0) {
-    lines.push('## Motions');
-    minutes.motions.forEach((motion) => {
-      lines.push(`### ${motion.name}`);
-      lines.push(`**Motion:** "${motion.text}"`);
-      if (motion.mover) {
-        lines.push(`**Moved by:** ${motion.mover}`);
-      }
-      lines.push(`**Outcome:** ${motion.outcome.toUpperCase()}`);
-      if (motion.voteCount) {
-        lines.push(
-          `**Vote:** Yea: ${motion.voteCount.yea}, Nay: ${motion.voteCount.nay}, Abstain: ${motion.voteCount.abstain}`,
-        );
-      }
-      const floor = motion.floorVotes;
-      if (motion.deviceVotes && floor && floor.yea + floor.nay + floor.abstain > 0) {
-        lines.push(
-          `(On devices ${motion.deviceVotes.yea} to ${motion.deviceVotes.nay}, in the room ${floor.yea} to ${floor.nay})`,
-        );
-      }
-      lines.push('');
-    });
-  }
-
-  // Elections
-  if (minutes.elections.length > 0) {
-    lines.push('## Elections');
-    minutes.elections.forEach((election) => {
-      lines.push(`### ${election.position}`);
-      if (election.winner) {
-        lines.push(`**Elected:** ${election.winner}`);
-      } else {
-        lines.push('**Result:** No candidate elected');
-      }
-      if (Object.keys(election.ballotResults).length > 0) {
-        lines.push('**Ballot Results:**');
-        Object.entries(election.ballotResults).forEach(([name, votes]) => {
-          lines.push(`- ${name}: ${votes} vote(s)`);
-        });
-      }
-      lines.push('');
-    });
-  }
-
-  // Elected Officers
-  if (minutes.electedOfficers.length > 0) {
-    lines.push('## Officers Elected');
-    minutes.electedOfficers.forEach((officer) => {
-      lines.push(`- **${officer.position}:** ${officer.name}`);
-    });
-    lines.push('');
-  }
-
-  // Announcements
-  if (minutes.announcements.length > 0) {
-    lines.push('## Announcements');
-    minutes.announcements.forEach((announcement) => {
-      lines.push(`- ${announcement}`);
-    });
-    lines.push('');
-  }
-
-  // Footer
-  lines.push('---');
-  lines.push(`*Minutes generated: ${new Date(minutes.generatedAt).toLocaleString()}*`);
-
-  return lines.join('\n');
+  return `${lines.join('\n').trimEnd()}\n`;
 }
 
 /**
