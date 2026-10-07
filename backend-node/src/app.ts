@@ -88,6 +88,14 @@ app.use(
   }),
 );
 
+// The Word document for the bylaws import is read in its route (versions.ts), after the role
+// check, since express.json below leaves its types alone.
+
+// The JSON bodies that can be larger than the 100 KB default (a whole set of bylaws), also
+// read only after sign-in. The JSON parser below skips a body already read here.
+export const LARGE_JSON_PATHS = ['/api/documents/:docId/versions/import'];
+app.use(LARGE_JSON_PATHS, authenticate, requireTerms, express.json({ limit: '2mb' }));
+
 app.use(express.json());
 
 // Health check (before other routes to avoid conflicts)
