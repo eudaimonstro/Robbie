@@ -88,3 +88,19 @@ export function useCan(min: OrgRole): boolean {
   const { role } = useOrganization();
   return role !== null && atLeast(role, min);
 }
+
+/**
+ * Makes the organization a record (a document, an amendment, a recorded meeting) belongs to
+ * the current one once the record loads, so the page's role, breadcrumb and lists follow the
+ * record rather than the header. Not one of the user's organizations: the selection stays,
+ * since the server has already answered that the record wasn't found.
+ */
+export function useSelectRecordOrganization(organizationId: string | undefined): void {
+  const { organizations: orgs, currentOrganization, setCurrentOrganization } = useOrganization();
+  const currentId = currentOrganization?.id;
+  useEffect(() => {
+    if (!organizationId || organizationId === currentId) return;
+    const org = orgs.find((o) => o.id === organizationId);
+    if (org) setCurrentOrganization(org);
+  }, [organizationId, currentId, orgs, setCurrentOrganization]);
+}

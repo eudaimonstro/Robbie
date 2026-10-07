@@ -2,7 +2,11 @@ import { useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Clock, FileText } from 'lucide-react';
 import { AmendmentChange, AmendmentChangeCreate } from '../../../api/client';
-import { useOrganization, useCan } from '../../../context/OrganizationContext';
+import {
+  useOrganization,
+  useCan,
+  useSelectRecordOrganization,
+} from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import { canEditAmendment } from '../../../utils/roles';
 import { useToast } from '../../../context/ToastContext';
@@ -20,8 +24,6 @@ export default function AmendmentDetailPage() {
   const { amendmentId } = useParams<{ amendmentId: string }>();
   const { currentOrganization, role } = useOrganization();
   const { user } = useSession();
-  // Proposing, withdrawing, deciding and applying need the secretary role
-  const canDecide = useCan('secretary');
   const { showToast } = useToast();
 
   const {
@@ -38,6 +40,11 @@ export default function AmendmentDetailPage() {
     fail,
     apply,
   } = useAmendmentData(amendmentId);
+
+  // The role and breadcrumb are the document's organization's, not the header's
+  useSelectRecordOrganization(document?.organizationId);
+  // Proposing, withdrawing, deciding and applying need the secretary role
+  const canDecide = useCan('secretary');
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);

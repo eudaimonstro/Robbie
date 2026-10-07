@@ -28,10 +28,7 @@ interface UseMeetingDataReturn {
   getDocumentTitle: (amendmentId: string) => string;
 }
 
-export function useMeetingData(
-  meetingId: string | undefined,
-  organizationId: string | undefined,
-): UseMeetingDataReturn {
+export function useMeetingData(meetingId: string | undefined): UseMeetingDataReturn {
   const { showToast } = useToast();
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
@@ -44,23 +41,20 @@ export function useMeetingData(
 
   // Loading (which shows a full-page spinner) is for the first load of each meeting; a refresh
   // after an action (recording a vote, say) updates the page in place
-  const loadKey = `${meetingId}:${organizationId}`;
-  const [loadedFor, setLoadedFor] = useState(loadKey);
-  if (loadKey !== loadedFor) {
-    setLoadedFor(loadKey);
+  const [loadedFor, setLoadedFor] = useState(meetingId);
+  if (meetingId !== loadedFor) {
+    setLoadedFor(meetingId);
     setLoading(true);
   }
 
   const fetchMeeting = useCallback(async () => {
-    if (!meetingId || !organizationId) return;
+    if (!meetingId) return;
 
     try {
       setError(null);
-      const [mtg, vts, docs] = await Promise.all([
-        meetingsApi.get(meetingId),
-        votesApi.list(meetingId),
-        documentsApi.list(organizationId),
-      ]);
+      const [mtg, vts] = await Promise.all([meetingsApi.get(meetingId), votesApi.list(meetingId)]);
+      // The meeting's organization's documents, whichever organization the header shows
+      const docs = await documentsApi.list(mtg.organizationId);
 
       setMeeting(mtg);
       setVotes(vts);
@@ -86,7 +80,7 @@ export function useMeetingData(
     } finally {
       setLoading(false);
     }
-  }, [meetingId, organizationId, showToast]);
+  }, [meetingId, showToast]);
 
   useEffect(() => {
     fetchMeeting();

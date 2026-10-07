@@ -2,7 +2,11 @@ import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import { VoteCreate, Amendment } from '../../../api/client';
-import { useOrganization, useCan } from '../../../context/OrganizationContext';
+import {
+  useOrganization,
+  useCan,
+  useSelectRecordOrganization,
+} from '../../../context/OrganizationContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
 import { useToast } from '../../../context/ToastContext';
 import {
@@ -19,8 +23,6 @@ import {
 export default function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
   const { currentOrganization } = useOrganization();
-  // Changing the record and recording votes need the secretary role
-  const canManage = useCan('secretary');
   const { showToast } = useToast();
 
   const {
@@ -35,7 +37,12 @@ export default function MeetingDetailPage() {
     recordVote,
     getAmendmentTitle,
     getDocumentTitle,
-  } = useMeetingData(meetingId, currentOrganization?.id);
+  } = useMeetingData(meetingId);
+
+  // The role, breadcrumb and documents are the meeting's organization's, not the header's
+  useSelectRecordOrganization(meeting?.organizationId);
+  // Changing the record and recording votes need the secretary role
+  const canManage = useCan('secretary');
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
