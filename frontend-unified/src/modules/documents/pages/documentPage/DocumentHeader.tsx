@@ -46,27 +46,31 @@ export function DocumentHeader({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {/* Version selector */}
-        <select
-          value={selectedVersion?.id || ''}
-          onChange={(e) => onVersionChange(e.target.value)}
-          className="select w-auto text-sm py-1.5"
-        >
-          {versions.map((v) => (
-            <option key={v.id} value={v.id}>
-              Version {v.versionNumber}
-              {v.id === doc.currentVersionId ? ' (Current)' : ''}
-              {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
-            </option>
-          ))}
-        </select>
+        {/* The version picker, export and compare wait for the first version */}
+        {versions.length > 0 && (
+          <>
+            <select
+              value={selectedVersion?.id || ''}
+              onChange={(e) => onVersionChange(e.target.value)}
+              className="select w-auto text-sm py-1.5"
+            >
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  Version {v.versionNumber}
+                  {v.id === doc.currentVersionId ? ' (Current)' : ''}
+                  {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
+                </option>
+              ))}
+            </select>
 
-        <ExportDropdown documentId={doc.id} selectedVersion={selectedVersion} />
+            <ExportDropdown documentId={doc.id} selectedVersion={selectedVersion} />
 
-        <Link to={`/documents/${doc.id}/diff`} className="btn-secondary btn-sm">
-          <GitCompare className="w-4 h-4 mr-2" />
-          Compare
-        </Link>
+            <Link to={`/documents/${doc.id}/diff`} className="btn-secondary btn-sm">
+              <GitCompare className="w-4 h-4 mr-2" />
+              Compare
+            </Link>
+          </>
+        )}
 
         {canShare && (
           <button onClick={onShare} className="btn-secondary btn-sm">
