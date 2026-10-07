@@ -1,4 +1,9 @@
-import type { MeetingAction, Nomination, Officer } from '../../types/index.js';
+import type {
+  ElectionSetAsideRecord,
+  MeetingAction,
+  Nomination,
+  Officer,
+} from '../../types/index.js';
 import { FROM_THE_FLOOR } from '../../constants/floor.js';
 import {
   logElectionSetAside,
@@ -325,11 +330,20 @@ export const electionHandler: ActionHandler = (state, action, log) => {
     }
 
     case 'SET_ASIDE_ELECTION': {
-      const { timestamp } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
+      const { timestamp, at } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
       if (!state.nominationsOpen && !state.currentNominationPosition && !state.currentElection) {
         return state;
       }
       const position = state.currentElection?.position ?? state.currentNominationPosition;
+      // The minutes record it, with the count of each ballot already closed (the open ballot's
+      // count, never announced, goes with it)
+      const ballots = state.currentElection?.ballots ?? [];
+      const setAside: ElectionSetAsideRecord = {
+        position,
+        ...(ballots.length > 0 ? { ballots } : {}),
+        timestamp,
+        ...decisionContext(state, at),
+      };
       // The nominations already made stand: nominations reopened for the same position bring
       // them back
       return {
@@ -337,6 +351,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         nominationsOpen: false,
         currentNominationPosition: null,
         currentElection: null,
+        electionsSetAside: [...(state.electionsSetAside ?? []), setAside],
         meetingLog: log(timestamp, logElectionSetAside(position)),
       };
     }

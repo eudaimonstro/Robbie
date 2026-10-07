@@ -74,6 +74,12 @@ describe('publicState', () => {
     );
   });
 
+  it("keeps the counts of an election's closed ballots, which the log announced, while the next is open", () => {
+    const runoff = { ...election, ballots: [{ Ann: 4, Bo: 4 }] };
+    const shown = publicState({ ...initialState, currentElection: runoff });
+    expect(shown.currentElection).toEqual({ ...runoff, ballotResults: {} });
+  });
+
   it('sends no choice of a secret ballot the meeting adjourned during', () => {
     const adjourned = meetingReducer(
       { ...ballot, meetingActive: true },

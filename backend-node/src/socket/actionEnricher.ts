@@ -24,6 +24,7 @@ export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<Meeti
   'WITHDRAW_MOTION',
   'CHAIR_RULING',
   'DECLARE_ELECTED',
+  'SET_ASIDE_ELECTION',
   'APPROVE_MINUTES',
 ]);
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
-import { MOTIONS } from '../../constants/index.js';
+import { A_MEMBER_IN_THE_ROOM, MOTIONS, PUT_BY_CHAIR } from '../../constants/index.js';
 import type { Election, MeetingState, Member, Motion } from '../../types/index.js';
 
 // The server's clock when a decision is made (the enricher's `at`)
@@ -359,5 +359,163 @@ describe('the meeting record', () => {
       timestamp: '',
     });
     expect(joined.members[1].present).toBe(false);
+  });
+});
+
+describe('the record of business from the floor, set aside or left unfinished', () => {
+  it('keeps the name the chair recorded for a motion from the floor that died', () => {
+    const made = meetingReducer(inSession, {
+      type: 'MAKE_FLOOR_MOTION',
+      motionType: 'mainMotion',
+      text: 'Paint the clubhouse',
+      moverName: 'Dee Fox',
+      motionId: 9,
+      timestamp: '',
+    });
+    const died = meetingReducer(made, { type: 'DECLINE_SECOND', at: AT, timestamp: '' });
+    expect(died.completedMotions).toEqual([
+      expect.objectContaining({ id: 9, mover: 'Dee Fox', moverId: 0, disposition: 'no-second' }),
+    ]);
+    expect(died.completedMotions[0]).not.toHaveProperty('seconder');
+  });
+
+  it('keeps a second from the floor, named or not', () => {
+    const made = meetingReducer(
+      { ...inSession, pendingSecond: awaitingSecond() },
+      { type: 'SECOND_FROM_FLOOR', timestamp: '' },
+    );
+    const adopted = meetingReducer(
+      { ...made, unanimousConsentPending: true },
+      { type: 'UNANIMOUS_CONSENT_PASSED', at: AT, timestamp: '' },
+    );
+    expect(adopted.completedMotions[0]).toMatchObject({
+      seconder: A_MEMBER_IN_THE_ROOM,
+      disposition: 'unanimous',
+    });
+  });
+
+  it('keeps a question the chair put, with no mover and no second', () => {
+    const put = meetingReducer(inSession, {
+      type: 'MAKE_MOTION',
+      motionType: 'mainMotion',
+      text: 'Approve the budget',
+      mover: 'Ann',
+      moverId: 1,
+      motionId: 10,
+      putByChair: true,
+      timestamp: '',
+    });
+    const voting = { ...put, votingOpen: true, votes: { yea: 2, nay: 0, abstain: 0 } };
+    const record = meetingReducer(voting, { type: 'CLOSE_VOTING', at: AT, timestamp: '' })
+      .completedMotions[0];
+    expect(record).toMatchObject({ mover: PUT_BY_CHAIR, moverId: 0, disposition: 'carried' });
+    expect(record).not.toHaveProperty('seconder');
+  });
+
+  it('keeps an election set aside, with its closed ballots and none of the open one', () => {
+    const election: Election = {
+      id: 1,
+      position: 'Director',
+      candidates: [
+        { name: 'Carmen', id: 4 },
+        { name: 'Ray', id: 5 },
+      ],
+      requiredVotes: 'majority',
+      votingInProgress: true,
+      ballotResults: { Carmen: 1, Ray: 0 },
+      votersWhoVoted: [2],
+      ballots: [{ Carmen: 4, Ray: 4 }],
+      elected: null,
+    };
+    const setAside = meetingReducer(
+      { ...inSession, currentElection: election },
+      { type: 'SET_ASIDE_ELECTION', at: AT, timestamp: '8:10:00 PM' },
+    );
+    expect(setAside.currentElection).toBeNull();
+    expect(setAside.electionsSetAside).toEqual([
+      {
+        position: 'Director',
+        ballots: [{ Carmen: 4, Ray: 4 }],
+        timestamp: '8:10:00 PM',
+        agendaItemId: 3,
+        decidedAt: AT,
+      },
+    ]);
+
+    // Nominations with nobody nominated: no ballots
+    const nominations = meetingReducer(
+      { ...inSession, nominationsOpen: true, currentNominationPosition: 'Treasurer' },
+      { type: 'SET_ASIDE_ELECTION', timestamp: '' },
+    );
+    expect(nominations.electionsSetAside).toEqual([
+      { position: 'Treasurer', timestamp: '', agendaItemId: 3 },
+    ]);
+  });
+
+  it('keeps the business the meeting adjourned with unfinished', () => {
+    const amendment = motion({
+      ...MOTIONS.amend,
+      id: 8,
+      type: 'amend',
+      text: 'Strike "spring"',
+      mover: 'Cy',
+      moverId: 3,
+      secondedBy: null,
+      status: 'pending',
+    });
+    const adjourned = meetingReducer(
+      {
+        ...inSession,
+        meetingActive: true,
+        currentMotion: motion(),
+        motionStack: [motion()],
+        pendingSecond: amendment,
+      },
+      { type: 'END_MEETING', timestamp: '9:00:00 PM' },
+    );
+    expect(adjourned.unfinishedAtAdjournment).toEqual([
+      {
+        kind: 'motion',
+        id: 7,
+        name: 'Main Motion',
+        text: 'Resurface the pool',
+        mover: 'Bo',
+        seconder: 'Cy',
+        agendaItemId: 3,
+      },
+      {
+        kind: 'motion',
+        id: 8,
+        name: MOTIONS.amend.name,
+        text: 'Strike "spring"',
+        mover: 'Cy',
+        awaitingSecond: true,
+        agendaItemId: 3,
+      },
+    ]);
+
+    // An election decided but not declared, with its ballots; nothing unfinished adds nothing
+    const undeclared = meetingReducer(
+      {
+        ...inSession,
+        currentElection: {
+          id: 1,
+          position: 'Director',
+          candidates: [{ name: 'Carmen', id: 4 }],
+          requiredVotes: 'majority',
+          votingInProgress: false,
+          ballotResults: { Carmen: 6 },
+          votersWhoVoted: [],
+          ballots: [{ Carmen: 6 }],
+          elected: 'Carmen',
+        },
+      },
+      { type: 'END_MEETING', timestamp: '' },
+    );
+    expect(undeclared.unfinishedAtAdjournment).toEqual([
+      { kind: 'election', position: 'Director', ballots: [{ Carmen: 6 }], agendaItemId: 3 },
+    ]);
+    const quiet = meetingReducer(inSession, { type: 'END_MEETING', timestamp: '' });
+    expect(quiet.unfinishedAtAdjournment).toEqual([]);
   });
 });

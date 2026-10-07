@@ -1,4 +1,4 @@
-import type { AgendaItem, MeetingAction } from '../../types/index.js';
+import type { AgendaItem, MeetingAction, UnfinishedBusinessRecord } from '../../types/index.js';
 import {
   getNextStage,
   getStageLogMessage,
@@ -11,7 +11,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import { NO_VOTES } from '../../utils/voteCalculator.js';
-import { quorumNow } from './records.js';
+import { decisionContext, quorumNow } from './records.js';
 import type { ActionHandler } from './types.js';
 
 /**
@@ -72,6 +72,45 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
           (m) => `the motion "${m.text}"`,
         ),
       ];
+      // The same business, for the minutes: each motion with its mover and seconder, and the
+      // election with the count of each ballot already closed
+      const { agendaItemId } = decisionContext(state, undefined);
+      const under = agendaItemId !== undefined ? { agendaItemId } : {};
+      const ballots = state.currentElection?.ballots ?? [];
+      const unfinishedRecords: UnfinishedBusinessRecord[] = [
+        ...(position
+          ? [
+              {
+                kind: 'election' as const,
+                position,
+                ...(ballots.length > 0 ? { ballots } : {}),
+                ...under,
+              },
+            ]
+          : []),
+        ...state.motionStack.map((m) => ({
+          kind: 'motion' as const,
+          id: m.id,
+          name: m.name,
+          text: m.text,
+          mover: m.mover,
+          ...(m.secondedBy ? { seconder: m.secondedBy } : {}),
+          ...under,
+        })),
+        ...(state.pendingSecond
+          ? [
+              {
+                kind: 'motion' as const,
+                id: state.pendingSecond.id,
+                name: state.pendingSecond.name,
+                text: state.pendingSecond.text,
+                mover: state.pendingSecond.mover,
+                awaitingSecond: true as const,
+                ...under,
+              },
+            ]
+          : []),
+      ];
       // A vote interrupted by adjourning is never decided, so its choices would never be cleared
       // or redacted: they go with it, as a secret ballot's must. (An election's ballot goes with
       // currentElection.)
@@ -107,6 +146,10 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         speakerTimerEnd: null,
         lastSpeakerStance: null,
         debatePositions: {},
+        unfinishedAtAdjournment:
+          unfinishedRecords.length > 0
+            ? [...(state.unfinishedAtAdjournment ?? []), ...unfinishedRecords]
+            : state.unfinishedAtAdjournment,
         meetingLog: [
           ...state.meetingLog,
           ...completed.map((a) => ({ time: timestamp, message: logAgendaItemCompleted(a.title) })),

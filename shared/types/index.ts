@@ -228,6 +228,42 @@ export interface MinutesApprovalRecord {
   readonly agendaItemId?: number;
 }
 
+/** An election the chair set aside (SET_ASIDE_ELECTION), as the minutes record it */
+export interface ElectionSetAsideRecord {
+  /** The office, or null when none was named */
+  readonly position: string | null;
+  /** Each ballot closed before it was set aside, devices and paper together; counts only */
+  readonly ballots?: ReadonlyArray<Record<string, number>>;
+  readonly timestamp: string;
+  readonly decidedAt?: string;
+  readonly agendaItemId?: number;
+}
+
+/**
+ * Business the meeting adjourned with unfinished (END_MEETING), as the minutes record it: a
+ * motion pending or awaiting a second, or an election under way, with the agenda item it was
+ * under
+ */
+export type UnfinishedBusinessRecord =
+  | {
+      readonly kind: 'motion';
+      readonly id: number;
+      readonly name: string;
+      readonly text: string;
+      readonly mover: string;
+      readonly seconder?: string;
+      /** Made, but not yet seconded */
+      readonly awaitingSecond?: true;
+      readonly agendaItemId?: number;
+    }
+  | {
+      readonly kind: 'election';
+      readonly position: string;
+      /** Each ballot closed before the adjournment; counts only */
+      readonly ballots?: ReadonlyArray<Record<string, number>>;
+      readonly agendaItemId?: number;
+    };
+
 export interface Nomination {
   id: number;
   position: string;
@@ -400,6 +436,10 @@ export interface MeetingState {
   chairRulings: ChairRulingRecord[];
   /** Members who have been present at any point, for the minutes' attendance */
   attendedIds: number[];
+  /** Elections the chair set aside, in order */
+  electionsSetAside: ElectionSetAsideRecord[];
+  /** Business left unfinished each time the meeting adjourned, in order */
+  unfinishedAtAdjournment: UnfinishedBusinessRecord[];
   suspendedRules: RuleSuspension[];
   lastChairRuling: { ruling: string; motionText: string; timestamp: string } | null;
   nominations: Nomination[];
@@ -547,7 +587,7 @@ export type MeetingAction =
   | { type: 'DECLARE_ELECTED'; candidateName: string; at?: string; timestamp: string }
   // The chair sets aside an election that can't go on (no nominee, a mistyped position): its
   // nominations close and its ballot, with any result not yet declared, is dropped
-  | { type: 'SET_ASIDE_ELECTION'; timestamp: string }
+  | { type: 'SET_ASIDE_ELECTION'; at?: string; timestamp: string }
   | {
       type: 'ASK_INQUIRY';
       inquiryType: InquiryType;

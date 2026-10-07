@@ -313,6 +313,7 @@ describe('the clock on decisions', () => {
         'CLOSE_VOTING',
         'DECLARE_ELECTED',
         'DECLINE_SECOND',
+        'SET_ASIDE_ELECTION',
         'UNANIMOUS_CONSENT_PASSED',
         'WITHDRAW_MOTION',
       ]);
