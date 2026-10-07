@@ -3,6 +3,7 @@ import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
+import { roomManager } from '../socket/roomManager.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { liveSockets, type FakeSocket } from './liveSockets.js';
@@ -95,6 +96,30 @@ describe('attendance in a live meeting', () => {
     expect((await markAbsent()).success).toBe(true);
     const absent = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.member.id);
     expect(absent?.present).toBe(false);
+  });
+
+  it('treats a member whose device becomes a display as gone from that device', async () => {
+    const member = live.connect(f.users.member);
+    await live.join(member, f.packet.code);
+    const markAbsent = () =>
+      live.dispatch(chair, {
+        type: 'MARK_ABSENT',
+        memberId: f.users.member.id,
+        excused: false,
+        timestamp: '',
+      });
+    expect(await markAbsent()).toMatchObject({ success: false, errorCode: 'MEMBER_CONNECTED' });
+
+    // The same socket opens the display: it is no longer the member's device
+    expect((await live.join(member, f.packet.code, true)).success).toBe(true);
+    expect(roomManager.isMemberConnected(f.packet.code, f.users.member.id)).toBe(false);
+    expect(roomManager.inGrace(f.packet.code, f.users.member.id)).toBe(true);
+    expect((await markAbsent()).success).toBe(true);
+
+    // The display closing changes nothing for the member
+    await live.drop(member);
+    const after = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.member.id);
+    expect(after?.present).toBe(false);
   });
 
   it('marks absent a member the chair marked present', async () => {

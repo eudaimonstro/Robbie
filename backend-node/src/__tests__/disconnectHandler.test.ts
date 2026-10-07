@@ -130,6 +130,15 @@ describe('handleDisconnect', () => {
     expect(socket.data.meetingCode).toBeNull();
   });
 
+  it("forgets a display socket's room entry, left from when it was a member's", async () => {
+    const socket = {
+      ...fakeSocket('old-socket'),
+      data: { ...fakeSocket('x').data, display: true },
+    };
+    await handleDisconnect(socket as never, io as never, 'disconnect');
+    expect(roomManager.isMemberConnected('TEST01', 1)).toBe(false);
+  });
+
   it("doesn't reset the user's join or action allowance when they leave", async () => {
     const userId = 42;
     roomManager.addMember('TEST01', 'spender', { ...member, id: userId });

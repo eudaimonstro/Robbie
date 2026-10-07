@@ -75,9 +75,10 @@ export async function handleDisconnect(
   if (!meetingCode || !socket.data.userId) return;
   const roomName = `meeting:${meetingCode}`;
 
-  // A display was never a member: it only leaves the room
+  // The socket's room entry goes whatever the socket is now (a display may have been a
+  // member's device); a display was never a member, so only a member's presence follows
+  roomManager.removeMember(meetingCode, socket.id);
   if (!socket.data.display) {
-    roomManager.removeMember(meetingCode, socket.id);
     const member = { id: socket.data.userId, name: socket.data.name, role: socket.data.role };
 
     // Another connection of the same member keeps them present

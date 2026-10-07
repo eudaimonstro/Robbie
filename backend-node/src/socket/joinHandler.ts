@@ -105,6 +105,12 @@ export async function handleJoinMeeting(
         callback({ success: false, error: DISPLAY_FOR_MEMBERS, errorCode: 'PERMISSION_DENIED' });
         return;
       }
+      // A member's socket that becomes a display is no longer the member's device: it leaves
+      // the room as a dropped connection does, so the member's grace period starts if it was
+      // their last one (otherwise it kept the member present for as long as the TV was on)
+      if (socket.data.meetingCode === meetingCode && !socket.data.display) {
+        await handleDisconnect(socket, io, 'disconnect');
+      }
       const meeting = await openMeeting(packet);
       socket.data.meetingCode = meetingCode;
       socket.data.role = 'guest';
