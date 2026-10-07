@@ -35,19 +35,115 @@ describe('enrichAction', () => {
       expect(Object.keys(ACTOR_FIELDS).sort()).toEqual([...ACTION_TYPES].sort());
     });
 
-    const withActor = ACTION_TYPES.filter((type) => Object.keys(ACTOR_FIELDS[type]).length > 0);
+    // Every field of the action union that says who sent the action, or that the server works
+    // out about the sender, each holding a forged value. Kept by hand from the union, not from
+    // ACTOR_FIELDS, so a field the enricher's table leaves out is caught here.
+    const SPOOF_ID = 999;
+    const SPOOF_NAME = 'Spoof';
+    const SPOOF_MEMBER = { id: SPOOF_ID, name: SPOOF_NAME, role: 'chair', present: true };
+    const SENDER_FIELDS: Record<MeetingAction['type'], Record<string, unknown>> = {
+      START_MEETING: {},
+      END_MEETING: {},
+      MAKE_MOTION: { moverId: SPOOF_ID, mover: SPOOF_NAME },
+      SECOND_MOTION: { seconderId: SPOOF_ID, seconder: SPOOF_NAME },
+      DECLINE_SECOND: {},
+      OPEN_VOTING: {},
+      CAST_VOTE: { voterId: SPOOF_ID },
+      CLOSE_VOTING: {},
+      SET_FLOOR_TALLY: {},
+      RAISE_HAND: { member: SPOOF_MEMBER },
+      LOWER_HAND: { member: SPOOF_MEMBER },
+      RECOGNIZE_SPEAKER: {},
+      YIELD_FLOOR: { yieldedBy: SPOOF_ID },
+      ADD_AGENDA_ITEM: {},
+      REMOVE_AGENDA_ITEM: {},
+      ADOPT_AGENDA: {},
+      AGENDA_OBJECTION: { objectorId: SPOOF_ID },
+      CALL_AGENDA_ITEM: {},
+      COMPLETE_AGENDA_ITEM: {},
+      REORDER_AGENDA: {},
+      RELOAD_AGENDA: {},
+      SET_SPEAKER_TIME_LIMIT: {},
+      SET_VOTE_TIME_LIMIT: {},
+      REQUEST_UNANIMOUS_CONSENT: {},
+      OBJECT_TO_CONSENT: { objectorId: SPOOF_ID, objector: SPOOF_NAME },
+      UNANIMOUS_CONSENT_PASSED: {},
+      SET_VOTING_METHOD: {},
+      ADVANCE_MEETING_STAGE: {},
+      SET_MEETING_STAGE: {},
+      SET_QUORUM: {},
+      APPROVE_MINUTES: {},
+      SET_PREVIOUS_MINUTES: {},
+      ADD_COMMITTEE_REPORT: {},
+      PRESENT_COMMITTEE_REPORT: {},
+      SUSPEND_RULE_APPROVED: {},
+      RESTORE_RULE: {},
+      CHAIR_RULING: {},
+      OPEN_NOMINATIONS: {},
+      NOMINATE: { nominatorId: SPOOF_ID, nominatedBy: SPOOF_NAME },
+      DECLINE_NOMINATION: {},
+      CLOSE_NOMINATIONS: {},
+      START_ELECTION: {},
+      CAST_BALLOT: { voterId: SPOOF_ID },
+      CLOSE_ELECTION: {},
+      SET_FLOOR_BALLOTS: {},
+      DECLARE_ELECTED: {},
+      ASK_INQUIRY: { askerId: SPOOF_ID, askedBy: SPOOF_NAME },
+      ANSWER_INQUIRY: { answeredBy: SPOOF_NAME },
+      // The server finds the chair being replaced; a client can't name one
+      SET_MEMBER_ROLE: { changedById: SPOOF_ID, changedBy: SPOOF_NAME, previousChairId: SPOOF_ID },
+      ADD_MEMBER: {},
+      SET_MEMBER_PRESENCE: {},
+      REFRESH_MEMBERS: {},
+      MARK_PRESENT: {},
+      SET_HEADCOUNT: {},
+      WITHDRAW_MOTION: { requesterId: SPOOF_ID },
+      MODIFY_MOTION: { requesterId: SPOOF_ID },
+      START_ROLL_CALL: {},
+      RESPOND_ROLL_CALL: { memberId: SPOOF_ID },
+      COMPLETE_ROLL_CALL: {},
+      MARK_ABSENT: {},
+      SET_AUTO_YIELD: {},
+      SET_PROXY_SETTINGS: {},
+      GRANT_PROXY: {},
+      REVOKE_PROXY: {},
+      CAST_PROXY_VOTE: { castById: SPOOF_ID },
+      REQUEST_PROXY: { requestedBy: SPOOF_ID, requestedByName: SPOOF_NAME },
+      ACCEPT_PROXY: { acceptedBy: SPOOF_ID },
+      DECLINE_PROXY: { declinedBy: SPOOF_ID },
+      CANCEL_PROXY_REQUEST: { canceledBy: SPOOF_ID },
+      RENAME_MEMBER: { renamedBy: SPOOF_ID },
+    };
 
-    it.each(withActor)('%s: a forged actor is replaced with the signed-in member', (type) => {
-      const { id, name, member: asMember } = ACTOR_FIELDS[type];
-      const forged: Record<string, unknown> = { type };
-      if (id) forged[id] = 999;
-      if (name) forged[name] = 'Spoof';
-      if (asMember) forged.member = { id: 999, name: 'Spoof', role: 'chair', present: true };
+    it('has a fixture for every action type', () => {
+      expect(Object.keys(SENDER_FIELDS).sort()).toEqual([...ACTION_TYPES].sort());
+    });
 
-      const enriched = enrich(forged);
-      if (id) expect(enriched[id]).toBe(20);
-      if (name) expect(enriched[name]).toBe('Renamed Member');
-      if (asMember) expect(enriched.member).toEqual(memberInMeeting);
+    const withSender = ACTION_TYPES.filter((type) => Object.keys(SENDER_FIELDS[type]).length > 0);
+
+    it.each(withSender)('%s: no forged field about the sender survives', (type) => {
+      const fields = SENDER_FIELDS[type];
+      const enriched = enrich({ type, ...fields });
+      for (const [field, forged] of Object.entries(fields)) {
+        expect(enriched[field], field).not.toEqual(forged);
+      }
+    });
+
+    it('replaces a forged actor with the signed-in member', () => {
+      expect(enrich({ type: 'MAKE_MOTION', moverId: 999, mover: 'Spoof' })).toMatchObject({
+        moverId: 20,
+        mover: 'Renamed Member',
+      });
+      expect(enrich({ type: 'RAISE_HAND', member: SPOOF_MEMBER }).member).toEqual(memberInMeeting);
+    });
+
+    it('drops a previous chair a client names: the server finds the chair being replaced', () => {
+      const enriched = enrich(
+        { type: 'SET_MEMBER_ROLE', targetMemberId: 30, newRole: 'chair', previousChairId: 999 },
+        chair,
+      );
+      expect(enriched).not.toHaveProperty('previousChairId');
+      expect(enriched).toMatchObject({ targetMemberId: 30, changedById: 10, changedBy: 'Chair' });
     });
 
     it('covers the fields that name who acts', () => {

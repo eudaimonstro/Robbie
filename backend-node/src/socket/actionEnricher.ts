@@ -132,6 +132,12 @@ export function enrichAction(
     delete enriched.member;
   }
 
+  // The chair being replaced is found in the state (see the action handler), never named by a
+  // client: otherwise any member could be demoted along with the handover
+  if (enriched.type === 'SET_MEMBER_ROLE') {
+    delete enriched.previousChairId;
+  }
+
   // Server generates timestamps using shared utility for consistency
   if ('timestamp' in enriched) {
     enriched.timestamp = generateTimestamp();
