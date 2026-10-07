@@ -71,13 +71,22 @@ describe('MoreArea', () => {
     );
   });
 
-  it('sets the quorum for this meeting', () => {
-    renderMore(dana);
+  it.each([
+    ['the chair', dana],
+    ['an admin', pat],
+  ])('lets %s set the quorum for this meeting', (_who, me) => {
+    renderMore(me);
     fireEvent.change(screen.getByLabelText('Quorum for this meeting'), { target: { value: '25' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set the quorum' }));
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SET_QUORUM', quorum: 25 }),
     );
+  });
+
+  it('keeps the quorum from a plain member', () => {
+    renderMore(alice);
+    expect(screen.queryByLabelText('Quorum for this meeting')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set the quorum' })).toBeNull();
   });
 
   it('shows the time limits and the bylaws link to admins only', () => {

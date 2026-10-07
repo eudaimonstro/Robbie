@@ -34,6 +34,8 @@ interface MoreAreaProps {
  */
 export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: MoreAreaProps) {
   const isAdmin = me?.role === 'admin';
+  // The server lets the chair and admins set the quorum
+  const presides = isAdmin || me?.role === 'chair';
   // Once adjourned, the console is a record: nothing more is done here
   const adjourned = state.meetingStage === 'adjourned';
   return (
@@ -54,7 +56,7 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
               <MinutesApprovalPanel state={state} dispatch={dispatch} />
               <CommitteeReportsPanel state={state} dispatch={dispatch} />
             </div>
-            <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />
+            {presides && <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />}
           </>
         )}
         <PeopleInMeeting state={state} dispatch={dispatch} readOnly={adjourned} />
@@ -73,7 +75,7 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
   );
 }
 
-/** This meeting's quorum, and for admins the time limits */
+/** This meeting's quorum, for the chair and admins, and for admins the time limits */
 function MeetingSettings({
   state,
   dispatch,
