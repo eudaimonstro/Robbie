@@ -190,7 +190,7 @@ describe('chairActions', () => {
     });
   });
 
-  it('leaves an election to the election card, from nominations to the declaration', () => {
+  it('leaves an election to the election card, but for adjourning, from nominations to the declaration', () => {
     const elections: Partial<MeetingState>[] = [
       { nominationsOpen: true, currentNominationPosition: 'Director' },
       // Nominations closed, the ballot still to open
@@ -209,7 +209,7 @@ describe('chairActions', () => {
       },
     ];
     for (const election of elections) {
-      expect(ids({ ...adopted, ...election })).toEqual([]);
+      expect(ids({ ...adopted, ...election })).toEqual(['adjourn']);
       expect(floorActions({ ...adopted, ...election })).toEqual([]);
     }
   });

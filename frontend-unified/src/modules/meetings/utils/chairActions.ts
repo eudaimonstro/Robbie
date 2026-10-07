@@ -90,7 +90,7 @@ function electionUnderway(state: MeetingState): boolean {
  * The chair's actions that are in order now, the expected next step first: never a wall of every
  * button (docs/design-brief.md). Closing a vote is the vote panel's, running an election the
  * election panel's, and recognizing speakers the queue's. Adjourn is offered whenever nothing is
- * pending, no vote is open and no election is underway, during an agenda item too.
+ * pending and no vote or ballot is open, during an agenda item and an election too.
  *
  * @param presidingId - who puts an agenda item to a vote: the chair, or the admin presiding
  */
@@ -106,7 +106,10 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
-  if (state.votingOpen || electionUnderway(state)) return [];
+  if (state.votingOpen || state.currentElection?.votingInProgress) return [];
+  // The election card runs the rest of an election; the chair can still adjourn (an election
+  // with no nominee has no other way out)
+  if (electionUnderway(state)) return [adjourn('secondary')];
 
   if (state.pendingSecond) {
     return [
