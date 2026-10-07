@@ -103,22 +103,20 @@ export default function AmendmentsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           {selectedDocument ? (
-            <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
-              <Link to="/" className="hover:text-primary-600">
+            <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+              <Link to="/" className="hover:text-gavel">
                 {currentOrganization.name}
               </Link>
               <ChevronRight className="w-4 h-4" />
-              <Link to={`/documents/${selectedDocument.id}`} className="hover:text-primary-600">
+              <Link to={`/documents/${selectedDocument.id}`} className="hover:text-gavel">
                 {selectedDocument.title}
               </Link>
               <ChevronRight className="w-4 h-4" />
               <span>Amendments</span>
             </div>
           ) : null}
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            Amendments
-          </h2>
-          <p className="text-secondary-600 dark:text-secondary-400 mt-1">
+          <h2 className="page-title">Amendments</h2>
+          <p className="text-ink-muted mt-1">
             {selectedDocument
               ? `Amendments for ${selectedDocument.title}`
               : 'All amendments across documents'}
@@ -167,40 +165,36 @@ export default function AmendmentsPage() {
       <div className="card">
         {filteredAmendments.length === 0 ? (
           <div className="p-8 text-center">
-            <GitBranch className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
-            <p className="text-secondary-600 dark:text-secondary-400">
+            <GitBranch className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+            <p className="text-ink-muted">
               {amendments.length === 0
                 ? 'No amendments yet'
                 : 'No amendments match the selected filters'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+          <div className="divide-y divide-rule">
             {filteredAmendments.map((amendment) => (
               <Link
                 key={amendment.id}
                 to={`/amendments/${amendment.id}`}
-                className="flex items-center justify-between px-6 py-4 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors group"
+                className="flex items-center justify-between px-6 py-4 hover:bg-surface-2 transition-colors group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <h4 className="font-medium text-secondary-900 dark:text-white">
-                      {amendment.title}
-                    </h4>
+                    <h4 className="font-medium text-ink">{amendment.title}</h4>
                     <StatusBadge status={amendment.status} />
                   </div>
                   {!selectedDocument && (
-                    <div className="flex items-center gap-1 text-xs text-secondary-500 mb-1">
+                    <div className="flex items-center gap-1 text-xs text-ink-muted mb-1">
                       <FileText className="w-3 h-3" />
                       {getDocumentTitle(amendment.documentId)}
                     </div>
                   )}
                   {amendment.description && (
-                    <p className="text-sm text-secondary-600 dark:text-secondary-400 line-clamp-1">
-                      {amendment.description}
-                    </p>
+                    <p className="text-sm text-ink-muted line-clamp-1">{amendment.description}</p>
                   )}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-secondary-500">
+                  <div className="flex items-center gap-4 mt-2 text-xs text-ink-muted">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       Created {new Date(amendment.createdAt).toLocaleDateString()}
@@ -211,7 +205,7 @@ export default function AmendmentsPage() {
                     )}
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-secondary-400 group-hover:text-primary-600 transition-colors" />
+                <ChevronRight className="w-5 h-5 text-ink-muted group-hover:text-gavel transition-colors" />
               </Link>
             ))}
           </div>

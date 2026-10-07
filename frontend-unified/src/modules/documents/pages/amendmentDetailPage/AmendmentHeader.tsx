@@ -43,12 +43,12 @@ export function AmendmentHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
-        <Link to="/" className="hover:text-primary-600">
+      <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+        <Link to="/" className="hover:text-gavel">
           {organizationName}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <Link to={`/documents/${document.id}`} className="hover:text-primary-600">
+        <Link to={`/documents/${document.id}`} className="hover:text-gavel">
           {document.title}
         </Link>
         <ChevronRight className="w-4 h-4" />
@@ -56,9 +56,7 @@ export function AmendmentHeader({
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            {amendment.title}
-          </h2>
+          <h2 className="page-title">{amendment.title}</h2>
           <StatusBadge status={amendment.status} />
         </div>
         <div className="flex items-center gap-2">
@@ -69,7 +67,7 @@ export function AmendmentHeader({
             </button>
           )}
           {canWithdraw && (
-            <button onClick={onWithdraw} className="btn-ghost btn-sm text-secondary-600">
+            <button onClick={onWithdraw} className="btn-ghost btn-sm text-ink-muted">
               <XCircle className="w-4 h-4 mr-1" />
               Withdraw
             </button>

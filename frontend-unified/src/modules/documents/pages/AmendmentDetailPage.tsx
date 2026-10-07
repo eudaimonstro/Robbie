@@ -110,11 +110,9 @@ export default function AmendmentDetailPage() {
   if (!amendment || !document) {
     return (
       <div className="text-center py-12">
-        <FileText className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-secondary-900 dark:text-white mb-2">
-          Amendment not found
-        </h2>
-        <Link to="/amendments" className="text-primary-600 hover:text-primary-700">
+        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-ink mb-2">Amendment not found</h2>
+        <Link to="/amendments" className="text-gavel hover:text-gavel">
           Return to amendments
         </Link>
       </div>
@@ -145,32 +143,30 @@ export default function AmendmentDetailPage() {
       {/* Description */}
       {amendment.description && (
         <div className="card p-4 mb-6">
-          <h3 className="font-medium text-secondary-900 dark:text-white mb-2">
-            Description / Rationale
-          </h3>
-          <p className="text-secondary-600 dark:text-secondary-400">{amendment.description}</p>
+          <h3 className="font-medium text-ink mb-2">Description / Rationale</h3>
+          <p className="text-ink-muted">{amendment.description}</p>
         </div>
       )}
 
       {/* Timeline info */}
       <div className="card p-4 mb-6">
         <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-1 text-secondary-600">
+          <div className="flex items-center gap-1 text-ink-muted">
             <Clock className="w-4 h-4" />
             Created: {new Date(amendment.createdAt).toLocaleString()}
           </div>
           {amendment.proposedAt && (
-            <div className="text-secondary-600">
+            <div className="text-ink-muted">
               Proposed: {new Date(amendment.proposedAt).toLocaleString()}
             </div>
           )}
           {amendment.decidedAt && (
-            <div className="text-secondary-600">
+            <div className="text-ink-muted">
               Decided: {new Date(amendment.decidedAt).toLocaleString()}
             </div>
           )}
           {amendment.resultingVersionId && (
-            <div className="text-success-600">Applied to new version</div>
+            <div className="text-carried">Applied to new version</div>
           )}
         </div>
       </div>

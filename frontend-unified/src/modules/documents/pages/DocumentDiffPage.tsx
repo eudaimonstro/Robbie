@@ -122,10 +122,8 @@ export default function DocumentDiffPage() {
   if (!document) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-secondary-900 dark:text-white mb-2">
-          Document not found
-        </h2>
-        <Link to="/" className="text-primary-600 hover:text-primary-700">
+        <h2 className="text-xl font-semibold text-ink mb-2">Document not found</h2>
+        <Link to="/" className="text-gavel hover:text-gavel">
           Return to documents
         </Link>
       </div>
@@ -136,20 +134,18 @@ export default function DocumentDiffPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
-          <Link to="/" className="hover:text-primary-600">
+        <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+          <Link to="/" className="hover:text-gavel">
             {currentOrganization?.name}
           </Link>
           <ChevronRight className="w-4 h-4" />
-          <Link to={`/documents/${documentId}`} className="hover:text-primary-600">
+          <Link to={`/documents/${documentId}`} className="hover:text-gavel">
             {document.title}
           </Link>
           <ChevronRight className="w-4 h-4" />
           <span>Compare Versions</span>
         </div>
-        <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-          Version Comparison
-        </h2>
+        <h2 className="page-title">Version Comparison</h2>
       </div>
 
       {/* Version selectors */}
@@ -198,37 +194,37 @@ export default function DocumentDiffPage() {
       {/* Diff content */}
       <div className="card">
         {leftVersionId === rightVersionId ? (
-          <div className="p-8 text-center text-secondary-500">
+          <div className="p-8 text-center text-ink-muted">
             Select two different versions to compare
           </div>
         ) : diffLoading ? (
           <div className="p-8 text-center">
-            <div className="spinner w-8 h-8 text-primary-600 mx-auto" />
-            <p className="mt-2 text-secondary-500">Loading diff...</p>
+            <div className="spinner w-8 h-8 text-gavel mx-auto" />
+            <p className="mt-2 text-ink-muted">Loading diff...</p>
           </div>
         ) : !diff || diff.changes.length === 0 ? (
-          <div className="p-8 text-center text-secondary-500">
+          <div className="p-8 text-center text-ink-muted">
             No differences found between these versions
           </div>
         ) : (
           <>
             {/* Summary */}
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
+            <div className="px-6 py-4 border-b border-rule">
               <div className="flex items-center gap-4">
-                <span className="text-sm text-secondary-600 dark:text-secondary-400">
+                <span className="text-sm text-ink-muted">
                   {diff.changes.length} change(s) between {getVersionLabel(leftVersionId)} and{' '}
                   {getVersionLabel(rightVersionId)}
                 </span>
                 <div className="flex items-center gap-3 ml-auto text-sm">
-                  <span className="flex items-center gap-1 text-success-600">
+                  <span className="flex items-center gap-1 text-carried">
                     <Plus className="w-4 h-4" />
                     {diff.changes.filter((c) => c.type === 'add').length} added
                   </span>
-                  <span className="flex items-center gap-1 text-danger-600">
+                  <span className="flex items-center gap-1 text-gavel">
                     <Minus className="w-4 h-4" />
                     {diff.changes.filter((c) => c.type === 'delete').length} deleted
                   </span>
-                  <span className="flex items-center gap-1 text-accent-600">
+                  <span className="flex items-center gap-1 text-caution-ink">
                     <Edit3 className="w-4 h-4" />
                     {diff.changes.filter((c) => c.type === 'modify').length} modified
                   </span>
@@ -237,7 +233,7 @@ export default function DocumentDiffPage() {
             </div>
 
             {/* Changes */}
-            <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+            <div className="divide-y divide-rule">
               {diff.changes.map((change, index) => (
                 <DiffChangeItem key={index} change={change} />
               ))}
@@ -251,9 +247,9 @@ export default function DocumentDiffPage() {
 
 function DiffChangeItem({ change }: { change: DiffChange }) {
   const typeColors = {
-    add: 'bg-success-50 border-success-200 dark:bg-success-900/20 dark:border-success-800',
-    delete: 'bg-danger-50 border-danger-200 dark:bg-danger-900/20 dark:border-danger-800',
-    modify: 'bg-accent-50 border-accent-200 dark:bg-accent-900/20 dark:border-accent-800',
+    add: 'bg-carried-tint border-carried/40',
+    delete: 'bg-gavel-tint border-gavel/30',
+    modify: 'bg-caution-tint border-caution/40',
   };
 
   const typeLabels = {
@@ -296,15 +292,15 @@ function DiffChangeItem({ change }: { change: DiffChange }) {
       {change.type === 'modify' && (
         <div className="grid grid-cols-2 gap-4 mt-3">
           <div>
-            <p className="text-xs font-medium text-secondary-500 mb-1">Old Content</p>
+            <p className="text-xs font-medium text-ink-muted mb-1">Old Content</p>
             <div className="diff-delete p-3 rounded-sm text-sm">
-              {change.oldContent || <span className="italic text-secondary-400">(empty)</span>}
+              {change.oldContent || <span className="italic text-ink-muted">(empty)</span>}
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium text-secondary-500 mb-1">New Content</p>
+            <p className="text-xs font-medium text-ink-muted mb-1">New Content</p>
             <div className="diff-add p-3 rounded-sm text-sm">
-              {change.newContent || <span className="italic text-secondary-400">(empty)</span>}
+              {change.newContent || <span className="italic text-ink-muted">(empty)</span>}
             </div>
           </div>
         </div>

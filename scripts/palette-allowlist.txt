@@ -1,27 +1,6 @@
 # Web source files that still use raw Tailwind palette classes, white or black, the old
 # meeting- palette, or emoji icons (see scripts/check-palette.sh). Remove a file once it is on
 # the design tokens; never add one.
-frontend-unified/src/modules/documents/components/MembersCard.tsx
-frontend-unified/src/modules/documents/components/SectionTree.tsx
-frontend-unified/src/modules/documents/components/ShareModal.tsx
-frontend-unified/src/modules/documents/pages/amendmentDetailPage/AmendmentChangesList.tsx
-frontend-unified/src/modules/documents/pages/amendmentDetailPage/AmendmentHeader.tsx
-frontend-unified/src/modules/documents/pages/AmendmentDetailPage.tsx
-frontend-unified/src/modules/documents/pages/AmendmentsPage.tsx
-frontend-unified/src/modules/documents/pages/DocumentDiffPage.tsx
-frontend-unified/src/modules/documents/pages/documentPage/DocumentContentCard.tsx
-frontend-unified/src/modules/documents/pages/documentPage/DocumentHeader.tsx
-frontend-unified/src/modules/documents/pages/documentPage/ExportDropdown.tsx
-frontend-unified/src/modules/documents/pages/documentPage/PendingAmendmentsPanel.tsx
-frontend-unified/src/modules/documents/pages/DocumentPage.tsx
-frontend-unified/src/modules/documents/pages/HomePage.tsx
-frontend-unified/src/modules/documents/pages/meetingDetailPage/MeetingDetailsCard.tsx
-frontend-unified/src/modules/documents/pages/meetingDetailPage/MeetingHeader.tsx
-frontend-unified/src/modules/documents/pages/MeetingDetailPage.tsx
-frontend-unified/src/modules/documents/pages/meetingDetailPage/VotesPanels.tsx
-frontend-unified/src/modules/documents/pages/MeetingsPage.tsx
-frontend-unified/src/modules/documents/pages/PublicDocumentPage.tsx
-frontend-unified/src/modules/documents/pages/SettingsPage.tsx
 frontend-unified/src/modules/meetings/components/ActiveSuspensionsBanner.tsx
 frontend-unified/src/modules/meetings/components/admin/MeetingSettingsPanel.tsx
 frontend-unified/src/modules/meetings/components/admin/MembersPanel.tsx

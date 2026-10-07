@@ -127,8 +127,8 @@ export function MembersCard() {
 
   return (
     <div className="card">
-      <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700">
-        <h3 className="font-semibold text-secondary-900 dark:text-white flex items-center gap-2">
+      <div className="px-6 py-4 border-b border-rule">
+        <h3 className="font-semibold text-ink flex items-center gap-2">
           <Users className="w-5 h-5" />
           Members
         </h3>
@@ -137,33 +137,29 @@ export function MembersCard() {
         {notice && (
           <p
             role={notice.kind}
-            className={`text-sm ${
-              notice.kind === 'alert'
-                ? 'text-danger-600 dark:text-danger-400'
-                : 'text-success-700 dark:text-success-400'
-            }`}
+            className={`text-sm ${notice.kind === 'alert' ? 'text-gavel' : 'text-carried'}`}
           >
             {notice.text}
           </p>
         )}
 
         {loading ? (
-          <p className="text-sm text-secondary-500">Loading members...</p>
+          <p className="text-sm text-ink-muted">Loading members...</p>
         ) : (
-          <ul className="divide-y divide-secondary-100 dark:divide-secondary-700">
+          <ul className="divide-y divide-rule">
             {list.map((member) => (
               <li
                 key={member.userId}
                 className="flex flex-wrap items-center justify-between gap-2 py-3"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-secondary-900 dark:text-white truncate">
+                  <p className="font-medium text-ink truncate">
                     {nameOf(member)}
                     {member.userId === user?.id && (
-                      <span className="font-normal text-secondary-500"> (you)</span>
+                      <span className="font-normal text-ink-muted"> (you)</span>
                     )}
                   </p>
-                  <p className="text-sm text-secondary-500 truncate">{member.email}</p>
+                  <p className="text-sm text-ink-muted truncate">{member.email}</p>
                 </div>
                 {canChangeRole(member.role) ? (
                   <div className="flex items-center gap-2">
@@ -184,7 +180,7 @@ export function MembersCard() {
                       <button
                         type="button"
                         aria-label={`Remove ${nameOf(member)}`}
-                        className="btn-ghost btn-sm text-danger-600"
+                        className="btn-ghost btn-sm text-gavel"
                         disabled={busy}
                         onClick={() => setRemoving(member)}
                       >
@@ -193,9 +189,7 @@ export function MembersCard() {
                     )}
                   </div>
                 ) : (
-                  <span className="badge bg-secondary-100 text-secondary-700 dark:bg-secondary-700 dark:text-secondary-200">
-                    {ROLE_LABELS[member.role]}
-                  </span>
+                  <span className="badge bg-surface-2 text-ink">{ROLE_LABELS[member.role]}</span>
                 )}
               </li>
             ))}
@@ -204,15 +198,13 @@ export function MembersCard() {
 
         {isAdmin && invites.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-              Waiting to sign in
-            </h4>
-            <ul className="divide-y divide-secondary-100 dark:divide-secondary-700">
+            <h4 className="text-sm font-medium text-ink mb-2">Waiting to sign in</h4>
+            <ul className="divide-y divide-rule">
               {invites.map((invite) => (
                 <li key={invite.id} className="flex items-center justify-between gap-2 py-2">
-                  <span className="text-sm text-secondary-700 dark:text-secondary-300 truncate">
+                  <span className="text-sm text-ink truncate">
                     {invite.email}{' '}
-                    <span className="text-secondary-500">({ROLE_LABELS[invite.role]})</span>
+                    <span className="text-ink-muted">({ROLE_LABELS[invite.role]})</span>
                   </span>
                   {canChangeRole(invite.role) && (
                     <button

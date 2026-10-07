@@ -102,7 +102,7 @@ export default function SectionEditor({
     <Modal isOpen={isOpen} onClose={onClose} title={titles[mode]} size="lg">
       <form onSubmit={handleSubmit}>
         {(error || validationError) && (
-          <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-md text-danger-700 text-sm">
+          <div className="mb-4 p-3 bg-gavel-tint border border-gavel/30 rounded-md text-gavel text-sm">
             {error || validationError}
           </div>
         )}
@@ -110,7 +110,7 @@ export default function SectionEditor({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label htmlFor="numberLabel" className="label">
-              Section Number {isCreateMode && <span className="text-danger-500">*</span>}
+              Section Number {isCreateMode && <span className="text-gavel">*</span>}
             </label>
             <input
               type="text"
@@ -124,7 +124,7 @@ export default function SectionEditor({
           </div>
           <div>
             <label htmlFor="title" className="label">
-              Title {isCreateMode && <span className="text-danger-500">*</span>}
+              Title {isCreateMode && <span className="text-gavel">*</span>}
             </label>
             <input
               type="text"
@@ -149,7 +149,7 @@ export default function SectionEditor({
             className="textarea h-40"
             placeholder="Enter section content (Markdown supported)"
           />
-          <p className="text-xs text-secondary-500 mt-1">Markdown formatting is supported</p>
+          <p className="text-xs text-ink-muted mt-1">Markdown formatting is supported</p>
         </div>
 
         <div className="mb-6">

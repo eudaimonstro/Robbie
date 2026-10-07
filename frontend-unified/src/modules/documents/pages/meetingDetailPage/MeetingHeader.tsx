@@ -15,10 +15,10 @@ interface MeetingHeaderProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-primary-100 text-primary-700',
-  in_progress: 'bg-accent-100 text-accent-700',
-  completed: 'bg-success-100 text-success-700',
-  cancelled: 'bg-secondary-200 text-secondary-600',
+  scheduled: 'bg-gavel-tint text-gavel',
+  in_progress: 'bg-caution-tint text-caution-ink',
+  completed: 'bg-carried-tint text-carried',
+  cancelled: 'bg-surface-2 text-ink-muted',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -44,12 +44,12 @@ export function MeetingHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-2 text-sm text-secondary-500 mb-1">
-        <Link to="/" className="hover:text-primary-600">
+      <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
+        <Link to="/" className="hover:text-gavel">
           {organizationName}
         </Link>
         <ChevronRight className="w-4 h-4" />
-        <Link to="/bylawyer-meetings" className="hover:text-primary-600">
+        <Link to="/bylawyer-meetings" className="hover:text-gavel">
           Meetings
         </Link>
         <ChevronRight className="w-4 h-4" />
@@ -57,9 +57,7 @@ export function MeetingHeader({
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            {meeting.title}
-          </h2>
+          <h2 className="page-title">{meeting.title}</h2>
           <MeetingTypeBadge type={meeting.meetingType} />
           <span className={`badge ${STATUS_COLORS[meeting.status]}`}>
             {STATUS_LABELS[meeting.status]}
@@ -74,7 +72,7 @@ export function MeetingHeader({
           )}
           {canManage && isScheduled && (
             <>
-              <button onClick={onCancel} className="btn-ghost btn-sm text-danger-600">
+              <button onClick={onCancel} className="btn-ghost btn-sm text-gavel">
                 <XCircle className="w-4 h-4 mr-1" />
                 Cancel
               </button>

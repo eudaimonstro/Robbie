@@ -98,12 +98,8 @@ export default function HomePage() {
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-            Dashboard
-          </h2>
-          <p className="text-secondary-600 dark:text-secondary-400 mt-1">
-            Welcome to {currentOrganization.name}
-          </p>
+          <h2 className="page-title">Dashboard</h2>
+          <p className="text-ink-muted mt-1">Welcome to {currentOrganization.name}</p>
         </div>
         <Link to="/meetings" className="btn-primary flex items-center gap-2">
           <Users className="w-4 h-4" />
@@ -115,40 +111,34 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-primary-600" />
+            <div className="w-12 h-12 rounded-lg bg-gavel-tint flex items-center justify-center">
+              <FileText className="w-6 h-6 text-gavel" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-secondary-900 dark:text-white">
-                {documents.length}
-              </p>
-              <p className="text-sm text-secondary-500">Documents</p>
+              <p className="text-2xl font-bold text-ink">{documents.length}</p>
+              <p className="text-sm text-ink-muted">Documents</p>
             </div>
           </div>
         </div>
         <div className="card p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center">
-              <GitBranch className="w-6 h-6 text-accent-600" />
+            <div className="w-12 h-12 rounded-lg bg-caution-tint flex items-center justify-center">
+              <GitBranch className="w-6 h-6 text-caution-ink" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-secondary-900 dark:text-white">
-                {recentAmendments.length}
-              </p>
-              <p className="text-sm text-secondary-500">Pending Amendments</p>
+              <p className="text-2xl font-bold text-ink">{recentAmendments.length}</p>
+              <p className="text-sm text-ink-muted">Pending Amendments</p>
             </div>
           </div>
         </div>
         <div className="card p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-success-100 dark:bg-success-900/30 flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-success-600" />
+            <div className="w-12 h-12 rounded-lg bg-carried-tint flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-carried" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-secondary-900 dark:text-white">
-                {upcomingMeetings.length}
-              </p>
-              <p className="text-sm text-secondary-500">Upcoming Meetings</p>
+              <p className="text-2xl font-bold text-ink">{upcomingMeetings.length}</p>
+              <p className="text-sm text-ink-muted">Upcoming Meetings</p>
             </div>
           </div>
         </div>
@@ -158,48 +148,46 @@ export default function HomePage() {
         {/* Documents List */}
         <div className="lg:col-span-2">
           <div className="card">
-            <div className="px-6 py-4 border-b border-secondary-200 dark:border-secondary-700 flex items-center justify-between">
-              <h3 className="font-semibold text-secondary-900 dark:text-white">Documents</h3>
-              <Link to="/" className="text-sm text-primary-600 hover:text-primary-700">
+            <div className="px-6 py-4 border-b border-rule flex items-center justify-between">
+              <h3 className="font-semibold text-ink">Documents</h3>
+              <Link to="/" className="text-sm text-gavel hover:text-gavel">
                 View all
               </Link>
             </div>
 
             {documents.length === 0 ? (
               <div className="p-8 text-center">
-                <FileText className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
-                <p className="text-secondary-600 dark:text-secondary-400">
+                <FileText className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+                <p className="text-ink-muted">
                   {canCreate
                     ? 'No documents yet. Create your first document to get started.'
                     : 'No documents yet.'}
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+              <div className="divide-y divide-rule">
                 {documents.map((doc) => (
                   <Link
                     key={doc.id}
                     to={`/documents/${doc.id}`}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors group"
+                    className="flex items-center justify-between px-6 py-4 hover:bg-surface-2 transition-colors group"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-primary-600" />
+                      <div className="w-10 h-10 rounded-lg bg-gavel-tint flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-gavel" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-secondary-900 dark:text-white truncate">
-                          {doc.title}
-                        </h4>
+                        <h4 className="font-medium text-ink truncate">{doc.title}</h4>
                         <div className="flex items-center gap-2 mt-1">
                           <DocumentTypeBadge type={doc.docType} />
-                          <span className="text-xs text-secondary-500 flex items-center gap-1">
+                          <span className="text-xs text-ink-muted flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {new Date(doc.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-secondary-400 group-hover:text-primary-600 transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-ink-muted group-hover:text-gavel transition-colors" />
                   </Link>
                 ))}
               </div>
@@ -211,33 +199,27 @@ export default function HomePage() {
         <div className="space-y-6">
           {/* Pending Amendments */}
           <div className="card">
-            <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white text-sm">
-                Pending Amendments
-              </h3>
+            <div className="px-4 py-3 border-b border-rule">
+              <h3 className="font-semibold text-ink text-sm">Pending Amendments</h3>
             </div>
             {recentAmendments.length === 0 ? (
-              <div className="p-4 text-center text-sm text-secondary-500">
-                No pending amendments
-              </div>
+              <div className="p-4 text-center text-sm text-ink-muted">No pending amendments</div>
             ) : (
-              <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+              <div className="divide-y divide-rule">
                 {recentAmendments.map((amendment) => (
                   <Link
                     key={amendment.id}
                     to={`/amendments/${amendment.id}`}
-                    className="block px-4 py-3 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors"
+                    className="block px-4 py-3 hover:bg-surface-2 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-secondary-900 dark:text-white truncate">
+                      <span className="font-medium text-sm text-ink truncate">
                         {amendment.title}
                       </span>
                       <StatusBadge status={amendment.status} />
                     </div>
                     {amendment.description && (
-                      <p className="text-xs text-secondary-500 line-clamp-1">
-                        {amendment.description}
-                      </p>
+                      <p className="text-xs text-ink-muted line-clamp-1">{amendment.description}</p>
                     )}
                   </Link>
                 ))}
@@ -247,28 +229,24 @@ export default function HomePage() {
 
           {/* Upcoming Meetings */}
           <div className="card">
-            <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
-              <h3 className="font-semibold text-secondary-900 dark:text-white text-sm">
-                Upcoming Meetings
-              </h3>
+            <div className="px-4 py-3 border-b border-rule">
+              <h3 className="font-semibold text-ink text-sm">Upcoming Meetings</h3>
             </div>
             {upcomingMeetings.length === 0 ? (
-              <div className="p-4 text-center text-sm text-secondary-500">No upcoming meetings</div>
+              <div className="p-4 text-center text-sm text-ink-muted">No upcoming meetings</div>
             ) : (
-              <div className="divide-y divide-secondary-100 dark:divide-secondary-700">
+              <div className="divide-y divide-rule">
                 {upcomingMeetings.map((meeting) => (
                   <Link
                     key={meeting.id}
                     to={`/bylawyer-meetings/${meeting.id}`}
-                    className="block px-4 py-3 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors"
+                    className="block px-4 py-3 hover:bg-surface-2 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-secondary-900 dark:text-white">
-                        {meeting.title}
-                      </span>
+                      <span className="font-medium text-sm text-ink">{meeting.title}</span>
                       <MeetingTypeBadge type={meeting.meetingType} />
                     </div>
-                    <p className="text-xs text-secondary-500 flex items-center gap-1">
+                    <p className="text-xs text-ink-muted flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       {new Date(meeting.scheduledDate).toLocaleDateString()}
                       {meeting.location && ` - ${meeting.location}`}
@@ -277,16 +255,13 @@ export default function HomePage() {
                 ))}
               </div>
             )}
-            <div className="px-4 py-2 border-t border-secondary-200 dark:border-secondary-700 flex justify-between">
-              <Link
-                to="/bylawyer-meetings"
-                className="text-sm text-primary-600 hover:text-primary-700"
-              >
+            <div className="px-4 py-2 border-t border-rule flex justify-between">
+              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:text-gavel">
                 View all meetings
               </Link>
               <Link
                 to="/meetings"
-                className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                className="text-sm text-gavel hover:text-gavel flex items-center gap-1"
               >
                 <ExternalLink className="w-3 h-3" />
                 Live

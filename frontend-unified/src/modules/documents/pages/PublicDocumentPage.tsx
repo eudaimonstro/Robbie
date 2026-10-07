@@ -138,13 +138,11 @@ export default function PublicDocumentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-paper flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          <AlertCircle className="w-16 h-16 text-danger-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-secondary-900 dark:text-white mb-2">
-            Document Not Available
-          </h2>
-          <p className="text-secondary-600 dark:text-secondary-400 mb-6">{error}</p>
+          <AlertCircle className="w-16 h-16 text-gavel mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-ink mb-2">Document Not Available</h2>
+          <p className="text-ink-muted mb-6">{error}</p>
           <Link to="/" className="btn-primary">
             Go to Home
           </Link>
@@ -156,23 +154,19 @@ export default function PublicDocumentPage() {
   if (!doc) {
     return (
       <div className="text-center py-12">
-        <FileText className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-secondary-900 dark:text-white mb-2">
-          Document not found
-        </h2>
+        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-ink mb-2">Document not found</h2>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900">
+    <div className="min-h-screen bg-paper">
       {/* Readonly banner */}
-      <div className="bg-primary-50 dark:bg-primary-900/30 border-b border-primary-200 dark:border-primary-800">
+      <div className="bg-gavel-tint border-b border-gavel/30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
-          <Eye className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-          <span className="text-sm text-primary-700 dark:text-primary-300">
-            You are viewing a shared document (read-only)
-          </span>
+          <Eye className="w-4 h-4 text-gavel" />
+          <span className="text-sm text-gavel">You are viewing a shared document (read-only)</span>
         </div>
       </div>
 
@@ -181,9 +175,7 @@ export default function PublicDocumentPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-heading font-bold text-secondary-900 dark:text-white">
-                {doc.title}
-              </h1>
+              <h1 className="page-title">{doc.title}</h1>
               <DocumentTypeBadge type={doc.docType} />
             </div>
           </div>
@@ -216,22 +208,22 @@ export default function PublicDocumentPage() {
               </button>
 
               {exportDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-secondary-800 rounded-lg shadow-lg border border-secondary-200 dark:border-secondary-700 z-10">
+                <div className="absolute right-0 mt-1 w-40 bg-surface rounded-lg shadow-lg border border-rule z-10">
                   <button
                     onClick={() => handleExport('pdf')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700 first:rounded-t-lg"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 first:rounded-t-lg"
                   >
                     PDF Document
                   </button>
                   <button
                     onClick={() => handleExport('markdown')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2"
                   >
                     Markdown
                   </button>
                   <button
                     onClick={() => handleExport('html')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700 last:rounded-b-lg"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 last:rounded-b-lg"
                   >
                     HTML
                   </button>
@@ -243,17 +235,15 @@ export default function PublicDocumentPage() {
 
         {/* Section tree */}
         <div className="card">
-          <div className="px-4 py-3 border-b border-secondary-200 dark:border-secondary-700">
-            <h3 className="font-semibold text-secondary-900 dark:text-white">Document Content</h3>
+          <div className="px-4 py-3 border-b border-rule">
+            <h3 className="font-semibold text-ink">Document Content</h3>
           </div>
 
           <div className="p-4">
             {sectionTree.length === 0 ? (
               <div className="text-center py-8">
-                <FileText className="w-10 h-10 text-secondary-400 mx-auto mb-3" />
-                <p className="text-secondary-600 dark:text-secondary-400">
-                  This document has no content yet.
-                </p>
+                <FileText className="w-10 h-10 text-ink-muted mx-auto mb-3" />
+                <p className="text-ink-muted">This document has no content yet.</p>
               </div>
             ) : (
               <SectionTree sections={sectionTree} editable={false} />
@@ -264,7 +254,7 @@ export default function PublicDocumentPage() {
         {/* Version info */}
         {selectedVersion && (
           <div className="mt-4 card p-4">
-            <div className="flex items-center gap-4 text-sm text-secondary-600 dark:text-secondary-400">
+            <div className="flex items-center gap-4 text-sm text-ink-muted">
               {selectedVersion.effectiveDate && (
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />

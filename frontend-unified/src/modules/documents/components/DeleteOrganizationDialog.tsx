@@ -21,7 +21,7 @@ export function DeleteOrganizationDialog({
   const [typed, setTyped] = useState('');
   return (
     <Modal isOpen onClose={onClose} title="Delete organization" size="sm">
-      <p className="text-secondary-600 dark:text-secondary-400 mb-4">
+      <p className="text-ink-muted mb-4">
         This permanently deletes {organizationName} with all its documents, versions, amendments,
         meeting records and files. It can't be undone.
       </p>

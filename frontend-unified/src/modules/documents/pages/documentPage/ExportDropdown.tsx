@@ -66,22 +66,22 @@ export function ExportDropdown({ selectedVersion }: ExportDropdownProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-secondary-800 rounded-lg shadow-lg border border-secondary-200 dark:border-secondary-700 z-10">
+        <div className="absolute right-0 mt-1 w-40 bg-surface rounded-lg shadow-lg border border-rule z-10">
           <button
             onClick={() => handleExport('pdf')}
-            className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700 first:rounded-t-lg"
+            className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 first:rounded-t-lg"
           >
             PDF Document
           </button>
           <button
             onClick={() => handleExport('markdown')}
-            className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700"
+            className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2"
           >
             Markdown
           </button>
           <button
             onClick={() => handleExport('html')}
-            className="w-full px-4 py-2 text-left text-sm hover:bg-secondary-100 dark:hover:bg-secondary-700 last:rounded-b-lg"
+            className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 last:rounded-b-lg"
           >
             HTML
           </button>
