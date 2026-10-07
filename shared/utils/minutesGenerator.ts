@@ -5,6 +5,7 @@ import type {
   MinutesMotionRecord,
   MinutesElectionRecord,
 } from '../types/index.js';
+import { attendanceSummary } from './attendance.js';
 
 /**
  * Generate structured meeting minutes from the current meeting state
@@ -29,7 +30,8 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     const joinedLog = state.meetingLog.find(
       (log) =>
         log.message.includes(`${member.name} has joined`) ||
-        log.message.includes(`${member.name} is now present`),
+        log.message.includes(`${member.name} is now present`) ||
+        log.message.includes(`${member.name} marked present`),
     );
     const leftLog = state.meetingLog.find((log) => log.message.includes(`${member.name} has left`));
 
@@ -55,9 +57,9 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     };
   });
 
-  // Check quorum
-  const presentCount = state.members.filter((m) => m.present).length;
-  const quorumPresent = presentCount >= state.quorum;
+  // Quorum as the meeting counts it: members on a device or marked present, the headcount,
+  // and proxies when they count
+  const quorumPresent = attendanceSummary(state).hasQuorum;
 
   // Build agenda items
   const agendaItems = state.agenda.map((item) => ({
@@ -122,6 +124,8 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     endTime,
     chairName,
     attendance,
+    headcount: state.headcount ?? 0,
+    headcountNames: state.headcountNames ?? [],
     quorumPresent,
     agendaItems,
     motions,
@@ -168,8 +172,10 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
   lines.push(`**Quorum:** ${minutes.quorumPresent ? 'Present' : 'Not Present'}`);
   lines.push('');
 
-  const present = minutes.attendance.filter((a) => a.status === 'present' || a.status === 'late');
-  const absent = minutes.attendance.filter((a) => a.status === 'absent' || a.status === 'excused');
+  const voting = minutes.attendance.filter((a) => a.role !== 'guest');
+  const present = voting.filter((a) => a.status === 'present' || a.status === 'late');
+  const absent = voting.filter((a) => a.status === 'absent' || a.status === 'excused');
+  const guests = minutes.attendance.filter((a) => a.role === 'guest');
 
   if (present.length > 0) {
     lines.push('**Present:**');
@@ -180,12 +186,24 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes): string {
     lines.push('');
   }
 
+  if (minutes.headcount > 0) {
+    const names = minutes.headcountNames.length > 0 ? `: ${minutes.headcountNames.join(', ')}` : '';
+    lines.push(`**Also present without an account:** ${minutes.headcount}${names}`);
+    lines.push('');
+  }
+
   if (absent.length > 0) {
     lines.push('**Absent:**');
     absent.forEach((a) => {
       const note = a.status === 'excused' ? ' (excused)' : '';
       lines.push(`- ${a.name}${note}`);
     });
+    lines.push('');
+  }
+
+  if (guests.length > 0) {
+    lines.push('**Guests:**');
+    guests.forEach((a) => lines.push(`- ${a.name}`));
     lines.push('');
   }
 

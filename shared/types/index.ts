@@ -1,9 +1,23 @@
 // Member and Meeting types
+
+/**
+ * A person's role in a live meeting, derived from the organization at every join: the
+ * presiding officer is the chair, secretaries and above are admins, members are members, and
+ * everyone else (viewers, people outside the organization) is a guest
+ */
+export type MeetingRole = 'chair' | 'admin' | 'member' | 'guest';
+
 export interface Member {
   id: number;
   name: string;
-  role: 'member' | 'chair' | 'admin';
+  role: MeetingRole;
   present: boolean;
+  /**
+   * Why a present member is present: their device is connected, or the chair or secretary
+   * marked them present. Only device presence ends when the device disconnects. Absent on a
+   * member who isn't present (and on states saved before it existed, where it means device).
+   */
+  presentBy?: 'device' | 'chair';
   selfRenameUsed?: boolean; // Members can only rename themselves once
 }
 
@@ -18,6 +32,8 @@ export interface AgendaItem {
   id: number;
   title: string;
   status: 'pending' | 'active' | 'completed';
+  /** The scheduled agenda item (MeetingAgendaItem) this came from, for its attachments */
+  packetItemId?: string;
 }
 
 export interface Motion {
@@ -243,8 +259,15 @@ export interface MeetingState {
   meetingStage: MeetingStage;
   meetingActive: boolean;
   meetingCode: string;
+  /** The meeting's organization, title and date, from its packet */
+  organizationId: string | null;
+  title: string;
+  scheduledFor: string | null;
   members: Member[];
   quorum: number;
+  /** People in the room without an account, counted by the chair, and the names given */
+  headcount: number;
+  headcountNames: string[];
   motionStack: Motion[];
   currentMotion: Motion | null;
   pendingSecond: Motion | null;
@@ -418,8 +441,29 @@ export type MeetingAction =
       changedById?: number;
       timestamp: string;
     }
+  // Server-only: a member joins (see the join handler)
   | { type: 'ADD_MEMBER'; member: Member; timestamp: string }
-  | { type: 'SET_MEMBER_PRESENCE'; memberId: number; present: boolean; timestamp: string }
+  // Server-only: a device connects or disconnects. presentBy defaults to 'device'.
+  | {
+      type: 'SET_MEMBER_PRESENCE';
+      memberId: number;
+      present: boolean;
+      presentBy?: 'device' | 'chair';
+      timestamp: string;
+    }
+  // Server-only: names and roles as the organization has them now, refreshed at each join
+  | {
+      type: 'REFRESH_MEMBERS';
+      members: Array<{ id: number; name: string; role: MeetingRole }>;
+      timestamp: string;
+    }
+  // The chair marks a person from the organization's roster present. The server fills in
+  // member from the roster; a client's member is replaced.
+  | { type: 'MARK_PRESENT'; userId: number; member?: Member; timestamp: string }
+  // People in the room without an account: replaces the count and the names
+  | { type: 'SET_HEADCOUNT'; count: number; names: string[]; timestamp: string }
+  // Server-only: the agenda from the packet, before the meeting starts
+  | { type: 'RELOAD_AGENDA'; agenda: AgendaItem[]; timestamp: string }
   | { type: 'WITHDRAW_MOTION'; requesterId: number; timestamp: string }
   | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }
@@ -517,7 +561,7 @@ export interface VoteCalculationResult {
 export interface AttendanceRecord {
   memberId: number;
   name: string;
-  role: 'member' | 'chair' | 'admin';
+  role: MeetingRole;
   status: 'present' | 'absent' | 'excused' | 'late' | 'left-early';
   arrivedAt?: string;
   departedAt?: string;
@@ -552,6 +596,9 @@ export interface MeetingMinutes {
   endTime?: string;
   chairName?: string;
   attendance: AttendanceRecord[];
+  /** People present without an account, and the names given for them */
+  headcount: number;
+  headcountNames: string[];
   quorumPresent: boolean;
   agendaItems: Array<{ title: string; status: 'completed' | 'pending' | 'active' }>;
   motions: MinutesMotionRecord[];

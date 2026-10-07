@@ -54,7 +54,8 @@ export function AdminView({ state, dispatch }: AdminViewProps) {
 
   const openRoleChangeModal = useCallback((member: Member) => {
     setRoleChangeTarget(member);
-    setSelectedRole(member.role);
+    // Guests can't be given a role here; the menu starts at member for them
+    setSelectedRole(member.role === 'guest' ? 'member' : member.role);
   }, []);
 
   const handleAppointChair = useCallback(() => {

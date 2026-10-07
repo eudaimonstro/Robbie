@@ -14,6 +14,9 @@ import {
   wasMotionDefeated,
 } from '@robbie-bylawyer/shared/utils';
 
+/** The most people the chair can count in the room without an account */
+export const MAX_HEADCOUNT = 100_000;
+
 export interface ValidationResult {
   valid: boolean;
   error?: string;
@@ -1054,6 +1057,65 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
+      return { valid: true };
+
+    // Attendance
+    case 'MARK_PRESENT': {
+      // The server fills in member from the organization's roster (see attendanceActions.ts)
+      if (!action.member || action.member.id !== action.userId) {
+        return {
+          valid: false,
+          error: "That person isn't in the organization",
+          errorCode: 'NOT_A_MEMBER',
+        };
+      }
+      const existing = state.members.find((m) => m.id === action.userId);
+      if (existing?.present && existing.presentBy === 'chair') {
+        return {
+          valid: false,
+          error: `${existing.name} is already marked present`,
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      return { valid: true };
+    }
+
+    case 'SET_HEADCOUNT': {
+      if (!Number.isInteger(action.count) || action.count < 0 || action.count > MAX_HEADCOUNT) {
+        return {
+          valid: false,
+          error: `The headcount must be a whole number from 0 to ${MAX_HEADCOUNT}`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      const names = Array.isArray(action.names) ? action.names : null;
+      if (
+        !names ||
+        names.some((n) => typeof n !== 'string' || n.trim().length > 100) ||
+        names.filter((n) => n.trim().length > 0).length > action.count
+      ) {
+        return {
+          valid: false,
+          error: 'Give at most one name for each person counted, each up to 100 characters',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+    }
+
+    case 'RELOAD_AGENDA':
+      // Once the meeting starts, the agenda is changed in the meeting
+      if (state.meetingActive || state.meetingStage !== 'not-started') {
+        return {
+          valid: false,
+          error: 'The meeting has started; change the agenda in the meeting',
+          errorCode: 'MEETING_ALREADY_ACTIVE',
+        };
+      }
+      return { valid: true };
+
+    case 'REFRESH_MEMBERS':
+      // Server-only, from the organization's roster
       return { valid: true };
 
     case 'REORDER_AGENDA': {

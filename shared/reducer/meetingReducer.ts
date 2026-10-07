@@ -4,6 +4,7 @@ import {
   speakerHandler,
   agendaHandler,
   memberHandler,
+  attendanceHandler,
   rollCallHandler,
   settingsHandler,
   motionHandler,
@@ -65,6 +66,7 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'AGENDA_OBJECTION':
     case 'CALL_AGENDA_ITEM':
     case 'COMPLETE_AGENDA_ITEM':
+    case 'RELOAD_AGENDA':
       return agendaHandler(state, action, log);
 
     // Settings
@@ -97,8 +99,14 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'ADD_MEMBER':
     case 'SET_MEMBER_ROLE':
     case 'SET_MEMBER_PRESENCE':
+    case 'REFRESH_MEMBERS':
     case 'RENAME_MEMBER':
       return memberHandler(state, action, log);
+
+    // Attendance
+    case 'MARK_PRESENT':
+    case 'SET_HEADCOUNT':
+      return attendanceHandler(state, action, log);
 
     // Roll call
     case 'START_ROLL_CALL':

@@ -78,6 +78,15 @@ describe('enrichAction', () => {
       expect(enrich({ type: 'REQUEST_PROXY', requestedBy: 99 }).requestedBy).toBe(20);
     });
 
+    it('drops a client-sent person from MARK_PRESENT: the server reads the roster', () => {
+      const enriched = enrich(
+        { type: 'MARK_PRESENT', userId: 30, member: { id: 30, role: 'admin' } },
+        chair,
+      );
+      expect(enriched.userId).toBe(30);
+      expect(enriched).not.toHaveProperty('member');
+    });
+
     it('keeps the absent member on a proxy the chair grants for them', () => {
       const enriched = enrich(
         { type: 'GRANT_PROXY', proxyId: 1, grantedBy: 30, grantedTo: 40, grantedByName: 'Absent' },

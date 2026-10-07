@@ -90,6 +90,41 @@ describe('generateMeetingMinutes', () => {
     expect(minutes.attendance.find((a) => a.name === 'Charlie')?.status).toBe('absent');
   });
 
+  it('should record the headcount and members marked present', () => {
+    const state = createMockState({
+      headcount: 2,
+      headcountNames: ['Dee'],
+      members: [
+        { id: 1, name: 'Alice', role: 'chair', present: true },
+        { id: 2, name: 'Bob', role: 'member', present: true, presentBy: 'chair' },
+        { id: 4, name: 'Gus', role: 'guest', present: true },
+      ],
+      meetingLog: [
+        { time: '10:00:00', message: 'Meeting called to order.' },
+        { time: '10:05:00', message: 'Bob marked present.' },
+        { time: '10:30:00', message: 'Meeting adjourned.' },
+      ],
+    });
+    const minutes = generateMeetingMinutes(state);
+
+    expect(minutes.headcount).toBe(2);
+    expect(minutes.headcountNames).toEqual(['Dee']);
+    expect(minutes.attendance.find((a) => a.name === 'Bob')).toMatchObject({
+      status: 'late',
+      arrivedAt: '10:05:00',
+    });
+
+    const markdown = formatMinutesAsMarkdown(minutes);
+    expect(markdown).toContain('**Also present without an account:** 2: Dee');
+    expect(markdown).toContain('**Guests:**\n- Gus');
+    expect(markdown).not.toContain('- Gus (');
+  });
+
+  it('should count the headcount toward quorum', () => {
+    const state = createMockState({ quorum: 4, headcount: 2 });
+    expect(generateMeetingMinutes(state).quorumPresent).toBe(true); // 2 members and 2 more
+  });
+
   it('should calculate quorum status', () => {
     const state = createMockState();
     const minutes = generateMeetingMinutes(state);

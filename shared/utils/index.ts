@@ -32,6 +32,13 @@ export {
 } from './motionHelpers.js';
 
 export {
+  attendanceSummary,
+  quorumFromSettings,
+  type AttendanceSummary,
+  type QuorumSettings,
+} from './attendance.js';
+
+export {
   generateMeetingMinutes,
   formatMinutesAsMarkdown,
   formatMinutesAsJSON,

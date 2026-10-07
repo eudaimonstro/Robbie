@@ -1,10 +1,9 @@
 import type { MeetingState } from '../types/index.js';
 
 /**
- * Clean initial state for new meetings.
- * All data is populated dynamically:
- * - Members: Added when users join via socket (first user becomes chair)
- * - Agenda: Chair adds items before/during meeting
+ * Clean initial state for new meetings. The server creates each live meeting's state from
+ * its packet (code, organization, title, date, quorum, agenda); the rest starts here.
+ * - Members: added when people join, with the role their organization gives them
  * - Committee Reports: Chair adds as needed
  * - Previous Minutes: Can be set via admin interface
  */
@@ -12,8 +11,13 @@ export const initialState: MeetingState = {
   meetingStage: 'not-started' as const,
   meetingActive: false,
   meetingCode: '',
+  organizationId: null,
+  title: '',
+  scheduledFor: null,
   members: [], // Members are added dynamically when users join
   quorum: 3,
+  headcount: 0,
+  headcountNames: [],
   motionStack: [],
   currentMotion: null,
   pendingSecond: null,

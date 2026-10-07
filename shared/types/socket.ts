@@ -1,6 +1,6 @@
 // Socket.io event types for client-server communication
 
-import type { MeetingAction, MeetingState, Member } from './index.js';
+import type { MeetingAction, MeetingRole, MeetingState, Member } from './index.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -28,6 +28,8 @@ export interface ServerToClientEvents {
 // Payloads for client → server events
 export interface JoinMeetingPayload {
   meetingCode: string;
+  /** A display (TV or projector): receives the state without becoming a member */
+  display?: boolean;
 }
 
 export interface JoinMeetingResponse {
@@ -36,6 +38,7 @@ export interface JoinMeetingResponse {
   stateVersion?: number;
   members?: Member[];
   error?: string;
+  errorCode?: ActionErrorCode;
 }
 
 export interface DispatchActionPayload {
@@ -154,6 +157,7 @@ export type ActionErrorCode =
   | 'MEMBER_NOT_FOUND'
   | 'ROLE_UNCHANGED'
   | 'MEMBER_EXISTS'
+  | 'MEMBER_CONNECTED'
   // Report errors
   | 'REPORT_NOT_FOUND'
   | 'REPORT_ALREADY_PRESENTED'
@@ -209,5 +213,7 @@ export interface SocketData {
   /** The session this socket signed in with */
   sessionId: string;
   meetingCode: string | null;
-  role: 'member' | 'chair' | 'admin';
+  role: MeetingRole;
+  /** Joined as a display: in the room, not a member */
+  display?: boolean;
 }

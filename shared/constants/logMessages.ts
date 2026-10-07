@@ -158,6 +158,14 @@ export function logMemberPresenceChanged(name: string, present: boolean): string
   return present ? `${name} is now present.` : `${name} has left the meeting.`;
 }
 
+export function logMemberMarkedPresent(name: string): string {
+  return `${name} marked present.`;
+}
+
+export function logHeadcountSet(count: number): string {
+  return `${count} ${count === 1 ? 'person' : 'people'} present without an account.`;
+}
+
 export function logMemberRenamed(oldName: string, newName: string, renamedBy: string): string {
   return renamedBy === oldName
     ? `${oldName} changed their name to ${newName}.`

@@ -35,6 +35,8 @@ describe('permissionGuard', () => {
         'COMPLETE_ROLL_CALL',
         'MARK_ABSENT',
         'SET_AUTO_YIELD',
+        'MARK_PRESENT',
+        'SET_HEADCOUNT',
       ] as const;
 
       it.each(chairOnlyActions)('should allow chair to perform %s', (action) => {
@@ -47,6 +49,10 @@ describe('permissionGuard', () => {
 
       it.each(chairOnlyActions)('should deny member from performing %s', (action) => {
         expect(checkPermission('member', action)).toBe(false);
+      });
+
+      it.each(chairOnlyActions)('should deny guest from performing %s', (action) => {
+        expect(checkPermission('guest', action)).toBe(false);
       });
     });
 
@@ -94,40 +100,44 @@ describe('permissionGuard', () => {
     });
 
     describe('server-only actions', () => {
-      const serverOnlyActions = ['ADD_MEMBER', 'SET_MEMBER_PRESENCE'] as const;
+      const serverOnlyActions = [
+        'ADD_MEMBER',
+        'SET_MEMBER_PRESENCE',
+        'REFRESH_MEMBERS',
+        'RELOAD_AGENDA',
+      ] as const;
 
-      it.each(serverOnlyActions)('should allow admin to perform %s', (action) => {
-        expect(checkPermission('admin', action)).toBe(true);
-      });
-
-      it.each(serverOnlyActions)('should deny chair from performing %s', (action) => {
-        expect(checkPermission('chair', action)).toBe(false);
-      });
-
-      it.each(serverOnlyActions)('should deny member from performing %s', (action) => {
-        expect(checkPermission('member', action)).toBe(false);
+      it.each(serverOnlyActions)('should deny every role %s', (action) => {
+        for (const role of ['admin', 'chair', 'member', 'guest'] as const) {
+          expect(checkPermission(role, action), role).toBe(false);
+        }
       });
     });
 
-    describe('member actions (all roles)', () => {
+    describe('member actions (members, the chair and admins, not guests)', () => {
       const memberActions = [
         'MAKE_MOTION',
         'SECOND_MOTION',
         'DECLINE_SECOND',
         'CAST_VOTE',
-        'RAISE_HAND',
-        'LOWER_HAND',
-        'YIELD_FLOOR',
         'OBJECT_TO_CONSENT',
         'AGENDA_OBJECTION',
         'NOMINATE',
         'DECLINE_NOMINATION',
         'CAST_BALLOT',
-        'ASK_INQUIRY',
         'WITHDRAW_MOTION',
         'MODIFY_MOTION',
         'RESPOND_ROLL_CALL',
+        'CAST_PROXY_VOTE',
+        'REQUEST_PROXY',
+        'ACCEPT_PROXY',
+        'DECLINE_PROXY',
+        'CANCEL_PROXY_REQUEST',
       ] as const;
+
+      it.each(memberActions)('should deny guest from performing %s', (action) => {
+        expect(checkPermission('guest', action)).toBe(false);
+      });
 
       it.each(memberActions)('should allow member to perform %s', (action) => {
         expect(checkPermission('member', action)).toBe(true);
@@ -139,6 +149,22 @@ describe('permissionGuard', () => {
 
       it.each(memberActions)('should allow admin to perform %s', (action) => {
         expect(checkPermission('admin', action)).toBe(true);
+      });
+    });
+
+    describe('actions guests may take', () => {
+      const guestActions = [
+        'RAISE_HAND',
+        'LOWER_HAND',
+        'YIELD_FLOOR',
+        'ASK_INQUIRY',
+        'RENAME_MEMBER',
+      ] as const;
+
+      it.each(guestActions)('should allow every role to perform %s', (action) => {
+        for (const role of ['admin', 'chair', 'member', 'guest'] as const) {
+          expect(checkPermission(role, action), role).toBe(true);
+        }
       });
     });
 
@@ -180,13 +206,20 @@ describe('permissionGuard', () => {
 
       // Admin actions
       expect(permitted).toContain('SET_SPEAKER_TIME_LIMIT');
-      expect(permitted).toContain('ADD_MEMBER');
+      // Server-only actions are nobody's
+      expect(permitted).not.toContain('ADD_MEMBER');
 
       // Chair actions
       expect(permitted).toContain('START_MEETING');
 
       // Member actions
       expect(permitted).toContain('MAKE_MOTION');
+    });
+
+    it('should give guests only following, asking to speak and asking questions', () => {
+      expect(getPermittedActions('guest').sort()).toEqual(
+        ['ASK_INQUIRY', 'LOWER_HAND', 'RAISE_HAND', 'RENAME_MEMBER', 'YIELD_FLOOR'].sort(),
+      );
     });
 
     it('should return more actions for higher privilege levels', () => {
@@ -210,8 +243,17 @@ describe('permissionGuard', () => {
       expect(reason).toBe('This action can only be performed by the chair');
     });
 
-    it('should return generic message for other actions', () => {
+    it('should tell a guest what they cannot take part in', () => {
       const reason = getPermissionDeniedReason('MAKE_MOTION');
+      expect(reason).toBe('Guests can follow the meeting but not take part in this');
+    });
+
+    it('should name server-only actions', () => {
+      expect(getPermissionDeniedReason('ADD_MEMBER')).toBe('Only the server applies this action');
+    });
+
+    it('should return generic message for other actions', () => {
+      const reason = getPermissionDeniedReason('RAISE_HAND');
       expect(reason).toBe('You do not have permission to perform this action');
     });
 

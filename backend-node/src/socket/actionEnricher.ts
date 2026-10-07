@@ -86,6 +86,11 @@ export function enrichAction(
     enriched.answeredBy = name;
   }
 
+  // The person marked present comes from the organization's roster, never from a client
+  if (enriched.type === 'MARK_PRESENT') {
+    delete enriched.member;
+  }
+
   // Server generates timestamps using shared utility for consistency
   if ('timestamp' in enriched) {
     enriched.timestamp = generateTimestamp();

@@ -75,6 +75,18 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'RELOAD_AGENDA': {
+      const typedAction = action as Extract<MeetingAction, { type: 'RELOAD_AGENDA' }>;
+      // Before the meeting starts: the agenda as scheduled, not yet adopted
+      return {
+        ...state,
+        agenda: typedAction.agenda,
+        agendaAdopted: false,
+        agendaObjection: false,
+        currentAgendaItem: null,
+      };
+    }
+
     case 'COMPLETE_AGENDA_ITEM': {
       const typedAction = action as Extract<MeetingAction, { type: 'COMPLETE_AGENDA_ITEM' }>;
       const updatedAgenda = state.agenda.map((a) =>
