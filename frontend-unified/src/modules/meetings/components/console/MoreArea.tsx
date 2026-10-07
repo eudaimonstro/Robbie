@@ -34,6 +34,8 @@ interface MoreAreaProps {
  */
 export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: MoreAreaProps) {
   const isAdmin = me?.role === 'admin';
+  // Once adjourned, the console is a record: nothing more is done here
+  const adjourned = state.meetingStage === 'adjourned';
   return (
     <details className="card group">
       <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4">
@@ -44,14 +46,18 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
         />
       </summary>
       <div className="space-y-8 border-t border-rule p-5">
-        <ProxyManagementPanel state={state} dispatch={dispatch} />
-        <div className="space-y-4">
-          <OrderOfBusinessPanel state={state} dispatch={dispatch} />
-          <MinutesApprovalPanel state={state} dispatch={dispatch} />
-          <CommitteeReportsPanel state={state} dispatch={dispatch} />
-        </div>
-        <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />
-        <PeopleInMeeting state={state} dispatch={dispatch} />
+        {!adjourned && (
+          <>
+            <ProxyManagementPanel state={state} dispatch={dispatch} />
+            <div className="space-y-4">
+              <OrderOfBusinessPanel state={state} dispatch={dispatch} />
+              <MinutesApprovalPanel state={state} dispatch={dispatch} />
+              <CommitteeReportsPanel state={state} dispatch={dispatch} />
+            </div>
+            <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />
+          </>
+        )}
+        <PeopleInMeeting state={state} dispatch={dispatch} readOnly={adjourned} />
         {state.meetingStage === 'not-started' && <ReloadAgenda meetingCode={meetingCode} />}
         {isAdmin && (
           <BylawyerLinkPanel
@@ -174,9 +180,11 @@ function MeetingSettings({
 function PeopleInMeeting({
   state,
   dispatch,
+  readOnly,
 }: {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
+  readOnly: boolean;
 }) {
   const [handingTo, setHandingTo] = useState<number | null>(null);
   const people = state.members.filter((m) => m.present);
@@ -197,8 +205,11 @@ function PeopleInMeeting({
               <RoleBadge role={person.role} />
             </span>
             <span className="flex gap-1">
-              {person.role !== 'chair' &&
+              {/* The new chair needs a screen to run the meeting: only someone on a device */}
+              {!readOnly &&
+                person.role !== 'chair' &&
                 person.role !== 'guest' &&
+                person.presentBy === 'device' &&
                 (handingTo === person.id ? (
                   <>
                     <button

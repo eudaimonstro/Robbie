@@ -7,8 +7,13 @@ interface NominationsPanelProps {
   dispatch: React.Dispatch<MeetingAction>;
   /** The signed-in user, who nominates and may decline their own nomination */
   currentUser: Member;
-  /** The chair, or an admin presiding: opens and closes nominations */
+  /**
+   * The chair, or an admin presiding: opens and closes nominations, and records nominations made
+   * from the floor (the chair doesn't nominate in their own name)
+   */
   isChair?: boolean;
+  /** Inside the console's election card: no card or heading of its own, and no Elected list */
+  embedded?: boolean;
 }
 
 /** The nominee select's value for someone typed in by name */
@@ -25,6 +30,7 @@ export function NominationsPanel({
   dispatch,
   currentUser,
   isChair = false,
+  embedded = false,
 }: NominationsPanelProps) {
   const positionId = useId();
   const nomineeId = useId();
@@ -70,6 +76,8 @@ export function NominationsPanel({
       nominatedBy: currentUser.name,
       nominatorId: currentUser.id,
       nominationId: generateId(),
+      // The chair records a nomination someone made in the room
+      ...(isChair ? { fromFloor: true } : {}),
       timestamp: generateTimestamp(),
     });
     setNominee('');
@@ -77,14 +85,19 @@ export function NominationsPanel({
   };
 
   const ready = nominee !== '' && (nominee !== SOMEONE_ELSE || name.trim() !== '');
+  // Nothing is opened once the meeting is adjourned
+  const canOpen =
+    isChair &&
+    !state.nominationsOpen &&
+    !state.currentElection &&
+    state.meetingStage !== 'adjourned';
+  const showElected = !embedded && state.electedOfficers.length > 0;
+  const showNone = !embedded && !isChair && !openPosition && state.electedOfficers.length === 0;
+  if (embedded && !canOpen && !openPosition) return null;
 
-  return (
-    <section className="card space-y-4 p-5" aria-labelledby="nominations-heading">
-      <h3 id="nominations-heading" className="label-caps">
-        Nominations and elections
-      </h3>
-
-      {isChair && !state.nominationsOpen && !state.currentElection && (
+  const body = (
+    <>
+      {canOpen && (
         <form onSubmit={openNominations} className="space-y-2">
           <label htmlFor={positionId} className="label">
             Open nominations for
@@ -116,7 +129,11 @@ export function NominationsPanel({
           </p>
 
           {canNominate && (
-            <form onSubmit={nominate} className="space-y-2">
+            <form
+              onSubmit={nominate}
+              aria-label={isChair ? 'Nominate from the floor' : 'Nominate'}
+              className="space-y-2"
+            >
               <label htmlFor={nomineeId} className="label">
                 Nominee
               </label>
@@ -147,8 +164,12 @@ export function NominationsPanel({
                   />
                 </div>
               )}
-              <button type="submit" className="btn-primary btn-sm" disabled={!ready}>
-                Nominate
+              <button
+                type="submit"
+                className={isChair ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'}
+                disabled={!ready}
+              >
+                {isChair ? 'Nominate from the floor' : 'Nominate'}
               </button>
             </form>
           )}
@@ -204,25 +225,39 @@ export function NominationsPanel({
         </div>
       )}
 
-      {state.electedOfficers.length > 0 && (
-        <div>
-          <p className="label-caps mb-2">Elected</p>
-          <ul className="space-y-1">
-            {state.electedOfficers.map((officer) => (
-              <li
-                key={`${officer.position}-${officer.memberId}-${officer.name}`}
-                className="text-sm text-ink"
-              >
-                <span className="font-medium">{officer.position}:</span> {officer.name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {showElected && <ElectedOfficers state={state} />}
 
-      {!isChair && !openPosition && state.electedOfficers.length === 0 && (
-        <p className="text-sm text-ink-muted">No nominations are open.</p>
-      )}
+      {showNone && <p className="text-sm text-ink-muted">No nominations are open.</p>}
+    </>
+  );
+
+  if (embedded) return <div className="space-y-4">{body}</div>;
+  return (
+    <section className="card space-y-4 p-5" aria-labelledby="nominations-heading">
+      <h3 id="nominations-heading" className="label-caps">
+        Nominations and elections
+      </h3>
+      {body}
     </section>
+  );
+}
+
+/** Who the meeting has elected, to what */
+export function ElectedOfficers({ state }: { state: MeetingState }) {
+  if (state.electedOfficers.length === 0) return null;
+  return (
+    <div>
+      <p className="label-caps mb-2">Elected</p>
+      <ul className="space-y-1">
+        {state.electedOfficers.map((officer) => (
+          <li
+            key={`${officer.position}-${officer.memberId}-${officer.name}`}
+            className="text-sm text-ink"
+          >
+            <span className="font-medium">{officer.position}:</span> {officer.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

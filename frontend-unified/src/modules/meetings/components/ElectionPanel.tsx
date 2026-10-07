@@ -10,6 +10,8 @@ interface ElectionPanelProps {
   currentUser: Member;
   /** The chair, or an admin presiding: opens and closes the ballot and counts the room */
   isChair?: boolean;
+  /** Inside the console's election card, which carries the heading */
+  embedded?: boolean;
 }
 
 type Required = Election['requiredVotes'];
@@ -24,8 +26,10 @@ export function ElectionPanel({
   dispatch,
   currentUser,
   isChair = false,
+  embedded = false,
 }: ElectionPanelProps) {
   const requiredId = useId();
+  const headingId = useId();
   const [required, setRequired] = useState<Required>('majority');
   const election = state.currentElection;
   const position = state.currentNominationPosition;
@@ -40,13 +44,24 @@ export function ElectionPanel({
     [state.nominations, position],
   );
 
+  /** A card with its heading, or inside the election card a part below a rule */
+  const frame = (heading: string, children: React.ReactNode, space = 'space-y-3') =>
+    embedded ? (
+      <div className={`${space} border-t border-rule pt-4`}>{children}</div>
+    ) : (
+      <section className={`card ${space} p-5`} aria-labelledby={headingId}>
+        <h3 id={headingId} className="label-caps">
+          {heading}
+        </h3>
+        {children}
+      </section>
+    );
+
   if (!election) {
     if (!isChair || state.nominationsOpen || !position) return null;
-    return (
-      <section className="card space-y-3 p-5" aria-labelledby="election-heading">
-        <h3 id="election-heading" className="label-caps">
-          Election for {position}
-        </h3>
+    return frame(
+      `Election for ${position}`,
+      <>
         <p className="text-sm text-ink">Candidates: {nominees.join(', ') || 'none'}</p>
         <div>
           <label htmlFor={requiredId} className="label">
@@ -78,7 +93,7 @@ export function ElectionPanel({
         >
           Open the ballot
         </button>
-      </section>
+      </>,
     );
   }
 
@@ -86,43 +101,45 @@ export function ElectionPanel({
   const canVote = currentUser.role !== 'guest';
 
   if (election.votingInProgress) {
-    return (
-      <section className="card space-y-4 p-5" aria-labelledby="election-heading">
-        <h3 id="election-heading" className="label-caps">
-          Election for {election.position}
-        </h3>
+    const ballot =
+      canVote &&
+      (voted ? (
+        <p role="status" className="text-sm font-medium text-carried">
+          Ballot recorded
+        </p>
+      ) : (
+        <div role="group" aria-label="Your ballot" className="space-y-2">
+          {isChair && <p className="label-caps">Your ballot</p>}
+          {election.candidates.map((candidate) => (
+            <button
+              key={candidate.name}
+              type="button"
+              // A phone's ballot is its one action; the chair's own ballot is a small part of
+              // running the election
+              className={isChair ? 'btn-secondary btn-sm w-full' : 'btn-secondary btn-lg w-full'}
+              onClick={() =>
+                dispatch({
+                  type: 'CAST_BALLOT',
+                  candidateName: candidate.name,
+                  voterId: currentUser.id,
+                })
+              }
+            >
+              {`Vote for ${candidate.name}`}
+            </button>
+          ))}
+        </div>
+      ));
+    return frame(
+      `Election for ${election.position}`,
+      <>
         <p className="text-sm tabular-nums text-ink-muted">
           <span className="animate-count-pulse">{election.votersWhoVoted.length}</span> ballots
           received on devices
         </p>
-        {canVote &&
-          (voted ? (
-            <p role="status" className="text-sm font-medium text-carried">
-              Ballot recorded
-            </p>
-          ) : (
-            <div role="group" aria-label="Your ballot" className="space-y-2">
-              {election.candidates.map((candidate) => (
-                <button
-                  key={candidate.name}
-                  type="button"
-                  className="btn-secondary btn-lg w-full"
-                  aria-label={`Vote for ${candidate.name}`}
-                  onClick={() =>
-                    dispatch({
-                      type: 'CAST_BALLOT',
-                      candidateName: candidate.name,
-                      voterId: currentUser.id,
-                    })
-                  }
-                >
-                  {candidate.name}
-                </button>
-              ))}
-            </div>
-          ))}
-        {isChair && (
+        {isChair ? (
           <>
+            {ballot && <div className="rounded-lg bg-surface-2 p-3">{ballot}</div>}
             <FloorBallotsForm
               key={JSON.stringify(election.floorBallots ?? {})}
               election={election}
@@ -136,16 +153,17 @@ export function ElectionPanel({
               Close the ballot
             </button>
           </>
+        ) : (
+          ballot
         )}
-      </section>
+      </>,
+      'space-y-4',
     );
   }
 
-  return (
-    <section className="card space-y-3 p-5" aria-labelledby="election-heading">
-      <h3 id="election-heading" className="label-caps">
-        Election for {election.position}
-      </h3>
+  return frame(
+    `Election for ${election.position}`,
+    <>
       <p className="text-sm tabular-nums text-ink">{electionTally(election)}</p>
       {election.elected ? (
         <>
@@ -174,7 +192,7 @@ export function ElectionPanel({
           {isChair && ' Open nominations again or hold another ballot.'}
         </p>
       )}
-    </section>
+    </>,
   );
 }
 

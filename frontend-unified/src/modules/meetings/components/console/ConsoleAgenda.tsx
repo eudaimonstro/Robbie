@@ -6,17 +6,24 @@ import { DraggableAgendaList } from '../DraggableAgendaList';
 interface ConsoleAgendaProps {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
+  /** An item was called: the console brings the Now column into view */
+  onCall?: () => void;
 }
 
 /**
  * The agenda in the console's side column: reordered and added to before it is adopted, then
  * each item called and completed in turn
  */
-export function ConsoleAgenda({ state, dispatch }: ConsoleAgendaProps) {
+export function ConsoleAgenda({ state, dispatch, onCall }: ConsoleAgendaProps) {
   const newItemId = useId();
   const [newItem, setNewItem] = useState('');
-  // Items are called and completed between questions, not during one
-  const busy = !!state.currentMotion || !!state.pendingSecond || state.votingOpen;
+  // Items are called and completed between questions, not during one, and not once the meeting
+  // is adjourned
+  const busy =
+    !!state.currentMotion ||
+    !!state.pendingSecond ||
+    state.votingOpen ||
+    state.meetingStage === 'adjourned';
 
   const addItem = (e: FormEvent) => {
     e.preventDefault();
@@ -30,7 +37,7 @@ export function ConsoleAgenda({ state, dispatch }: ConsoleAgendaProps) {
       <h3 id="agenda-heading" className="label-caps">
         Agenda
       </h3>
-      {!state.agendaAdopted ? (
+      {!state.agendaAdopted && state.meetingStage !== 'adjourned' ? (
         <>
           <p className="text-sm text-ink-muted">Drag to reorder before the agenda is adopted.</p>
           <DraggableAgendaList agenda={state.agenda} dispatch={dispatch} disabled={false} />
@@ -70,13 +77,14 @@ export function ConsoleAgenda({ state, dispatch }: ConsoleAgendaProps) {
                   type="button"
                   className="btn-ghost btn-sm"
                   aria-label={`Call ${item.title}`}
-                  onClick={() =>
+                  onClick={() => {
                     dispatch({
                       type: 'CALL_AGENDA_ITEM',
                       id: item.id,
                       timestamp: generateTimestamp(),
-                    })
-                  }
+                    });
+                    onCall?.();
+                  }}
                 >
                   Call
                 </button>

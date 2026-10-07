@@ -65,3 +65,33 @@ describe('getChairScript', () => {
     expect(getChairScript(afterVote(1, 3))?.text).toBe('"The motion has failed."');
   });
 });
+
+describe('the script while a vote is open', () => {
+  const voting = (votingMethod: MeetingState['votingMethod']) =>
+    getChairScript({
+      ...initialState,
+      meetingActive: true,
+      agendaAdopted: true,
+      currentMotion: pendingMotion,
+      motionStack: [pendingMotion],
+      votingOpen: true,
+      votingMethod,
+    })?.text;
+
+  it('asks the room to vote on their phones or raise their hands', () => {
+    expect(voting('standard')).toBe(
+      '"Those in favor, vote on your phone or raise your hand. Those opposed, vote on your phone or raise your hand."',
+    );
+  });
+
+  it('keeps Aye and No for a voice vote', () => {
+    expect(voting('voice')).toBe('"Those in favor say Aye. Those opposed say No."');
+  });
+
+  it('opens a secret ballot and a roll call in their own words', () => {
+    expect(voting('ballot')).toBe('"The ballot is open. Vote on your phone or on a paper ballot."');
+    expect(voting('rollcall')).toBe(
+      '"The secretary will call the roll. Answer Aye or No when your name is called, or vote on your phone."',
+    );
+  });
+});

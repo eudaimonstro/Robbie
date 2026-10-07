@@ -56,7 +56,7 @@ describe('the console top bar', () => {
       />,
     );
     expect(screen.getByRole('heading', { name: '2026 Annual Meeting' })).toBeTruthy();
-    expect(screen.getByText('New Business')).toBeTruthy();
+    expect(screen.getByText('In session')).toBeTruthy();
     expect(screen.getByText('4 present of 142, quorum 29, not met')).toBeTruthy();
     const display = screen.getByRole('link', { name: 'Display' });
     expect(display.getAttribute('href')).toBe('/meetings/MAPLE1/display');

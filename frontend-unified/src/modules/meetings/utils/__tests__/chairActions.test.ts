@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import { chairActions } from '../chairActions';
+import { chairActions, floorActions } from '../chairActions';
 
 const motion = (key: string, overrides: Partial<Motion> = {}): Motion => ({
   ...MOTIONS[key],
@@ -80,6 +80,14 @@ describe('chairActions', () => {
       ['put-item', 'secondary'],
     ]);
     expect(actions[0].make()).toMatchObject({ type: 'END_MEETING' });
+    // Adjourning asks first, wherever it is offered
+    expect(actions[0].confirm).toBe(true);
+    expect(chairActions(adopted, 2).find((a) => a.id === 'adjourn')?.confirm).toBe(true);
+    expect(
+      chairActions(state, 2)
+        .filter((a) => a.confirm)
+        .map((a) => a.id),
+    ).toEqual(['adjourn']);
   });
 
   it('offers no adjournment while a question is pending, a vote is open or a ballot runs', () => {
@@ -140,5 +148,45 @@ describe('chairActions', () => {
 
   it('leaves closing a vote to the vote panel, and an election to the election panel', () => {
     expect(ids({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual([]);
+  });
+
+  describe('business from the floor', () => {
+    const floor = (state: MeetingState) => floorActions(state).map((a) => a.id);
+
+    it('records a motion from the floor when nothing is pending, on an item or between them', () => {
+      expect(floor(adopted)).toEqual(['floor-motion']);
+      expect(
+        floor({
+          ...adopted,
+          currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
+        }),
+      ).toEqual(['floor-motion']);
+      expect(floorActions(adopted)[0]).toMatchObject({
+        label: 'A motion from the floor',
+        tone: 'secondary',
+      });
+    });
+
+    it('records a second from the floor while a motion waits for one', () => {
+      expect(
+        floor({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) }),
+      ).toEqual(['floor-second']);
+      expect(
+        floorActions({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })[0]
+          .label,
+      ).toBe('Seconded from the floor');
+    });
+
+    it('records nothing before the call to order, after the adjournment or while a question is up', () => {
+      expect(floor(initialState)).toEqual([]);
+      expect(floor({ ...adopted, meetingStage: 'adjourned', meetingActive: false })).toEqual([]);
+      expect(floor({ ...adopted, currentMotion: motion('mainMotion') })).toEqual([]);
+      expect(floor({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual(
+        [],
+      );
+      expect(
+        floor({ ...adopted, nominationsOpen: true, currentNominationPosition: 'Treasurer' }),
+      ).toEqual([]);
+    });
   });
 });

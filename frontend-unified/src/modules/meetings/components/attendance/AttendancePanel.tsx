@@ -14,6 +14,8 @@ interface AttendancePanelProps {
   roster: MeetingRoster | null;
   rosterError: string | null;
   eligible: number | null;
+  /** After the adjournment: the record of who was here, with nothing to change */
+  readOnly?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export function AttendancePanel({
   roster,
   rosterError,
   eligible,
+  readOnly = false,
 }: AttendancePanelProps) {
   const findId = useId();
   const [find, setFind] = useState('');
@@ -62,12 +65,14 @@ export function AttendancePanel({
       </p>
 
       {/* Keyed on what the meeting has, so a change from another console resets the form */}
-      <HeadcountForm
-        key={`${state.headcount}|${state.headcountNames.join('\n')}`}
-        headcount={state.headcount}
-        names={state.headcountNames}
-        dispatch={dispatch}
-      />
+      {!readOnly && (
+        <HeadcountForm
+          key={`${state.headcount}|${state.headcountNames.join('\n')}`}
+          headcount={state.headcount}
+          names={state.headcountNames}
+          dispatch={dispatch}
+        />
+      )}
 
       <div className="space-y-2">
         <label htmlFor={findId} className="label">
@@ -96,7 +101,9 @@ export function AttendancePanel({
                   <p className="truncate text-sm font-medium text-ink">{row.name}</p>
                   <StatusBadge status={row.status} />
                 </div>
-                <RowAction row={row} onMarkPresent={markPresent} onMarkAbsent={markAbsent} />
+                {!readOnly && (
+                  <RowAction row={row} onMarkPresent={markPresent} onMarkAbsent={markAbsent} />
+                )}
               </li>
             ))}
           </ul>

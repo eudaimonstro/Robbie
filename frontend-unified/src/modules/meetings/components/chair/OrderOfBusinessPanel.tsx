@@ -25,6 +25,11 @@ const STAGE_ICONS: Partial<Record<MeetingStage, LucideIcon>> = {
   announcements: Megaphone,
 };
 
+/** A stage's name in sentence case, as labels are written here: "Approval of minutes" */
+function sentenceCase(label: string): string {
+  return label.charAt(0) + label.slice(1).toLowerCase();
+}
+
 interface OrderOfBusinessPanelProps {
   state: MeetingState;
   dispatch: React.Dispatch<MeetingAction>;
@@ -77,7 +82,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
                 }`}
               >
                 {Icon && <Icon size={16} aria-hidden="true" />}
-                {item.label}
+                {sentenceCase(item.label)}
               </span>
               {isCurrent && <ChevronRight size={18} className="text-gavel" aria-hidden="true" />}
             </button>
@@ -89,7 +94,7 @@ export const OrderOfBusinessPanel = React.memo(function OrderOfBusinessPanel({
         className="w-full mt-3 bg-gavel text-paper py-2 rounded-lg hover:bg-gavel/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={isLastActiveStage(state.meetingStage)}
       >
-        Proceed to Next Stage
+        Proceed to the next stage
       </button>
     </section>
   );

@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
+import { useToast } from '../../../../context/ToastContext';
 
 interface HeadcountFormProps {
   /** The meeting's headcount and names now (the form is keyed on them, so a change resets it) */
@@ -19,6 +20,7 @@ export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps
   const [count, setCount] = useState(String(headcount));
   const [nameText, setNameText] = useState(names.join('\n'));
   const [problem, setProblem] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -37,6 +39,8 @@ export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps
     }
     setProblem(null);
     dispatch({ type: 'SET_HEADCOUNT', count: value, names: list, timestamp: generateTimestamp() });
+    // The form resets to what the meeting has, so say that it was saved
+    showToast('success', 'Headcount saved');
   };
 
   return (

@@ -6,6 +6,16 @@ export interface ChairScript {
   note: string;
 }
 
+/** What the chair says to open each kind of vote */
+const VOTE_SCRIPTS: Record<MeetingState['votingMethod'], string> = {
+  standard:
+    '"Those in favor, vote on your phone or raise your hand. Those opposed, vote on your phone or raise your hand."',
+  voice: '"Those in favor say Aye. Those opposed say No."',
+  ballot: '"The ballot is open. Vote on your phone or on a paper ballot."',
+  rollcall:
+    '"The secretary will call the roll. Answer Aye or No when your name is called, or vote on your phone."',
+};
+
 /**
  * Generates contextual chair script based on current meeting state
  * @param state - Current meeting state
@@ -47,12 +57,9 @@ export function getChairScript(state: MeetingState): ChairScript | null {
     };
   }
 
-  // Voting in progress
+  // Voting in progress: on phones and by a show of hands in the room, unless it is a voice vote
   if (state.votingOpen) {
-    return {
-      text: '"Those in favor say Aye. Those opposed say No."',
-      note: 'Close voting when done.',
-    };
+    return { text: VOTE_SCRIPTS[state.votingMethod], note: 'Close voting when done.' };
   }
 
   // Check for recently passed or failed vote. The reducer logs the result as

@@ -18,13 +18,26 @@ const { MoreArea } = await import('../MoreArea');
 
 const dana: Member = { id: 2, name: 'Dana Okafor', role: 'chair', present: true };
 const pat: Member = { id: 1, name: 'Pat Lindqvist', role: 'admin', present: true };
-const alice: Member = { id: 3, name: 'Alice Brennan', role: 'member', present: true };
+const alice: Member = {
+  id: 3,
+  name: 'Alice Brennan',
+  role: 'member',
+  present: true,
+  presentBy: 'device',
+};
+const carmen: Member = {
+  id: 5,
+  name: 'Carmen Diaz',
+  role: 'member',
+  present: true,
+  presentBy: 'chair',
+};
 const sam: Member = { id: 11, name: 'Sam Ortiz', role: 'guest', present: true };
 const state: MeetingState = {
   ...initialState,
   meetingCode: 'MAPLE1',
   quorum: 29,
-  members: [pat, dana, alice, sam],
+  members: [pat, dana, alice, carmen, sam],
 };
 
 const dispatch = vi.fn();
@@ -46,9 +59,11 @@ describe('MoreArea', () => {
     vi.clearAllMocks();
   });
 
-  it('hands the chair to a member present, after a confirmation', () => {
+  it('hands the chair to a member present on a device, after a confirmation', () => {
     renderMore(dana);
     expect(screen.queryByRole('button', { name: 'Hand the chair to Sam Ortiz' })).toBeNull();
+    // Marked present by the chair, with no screen to run the meeting from
+    expect(screen.queryByRole('button', { name: 'Hand the chair to Carmen Diaz' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Hand the chair to Alice Brennan' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm: Alice Brennan takes the chair' }));
     expect(dispatch).toHaveBeenCalledWith(
@@ -97,5 +112,15 @@ describe('MoreArea', () => {
       '7:41 PM Alice Brennan has joined the meeting.',
       expect.stringMatching(/^9:16\sAM Meeting called to order$/),
     ]);
+  });
+
+  it('keeps only the record once the meeting is adjourned', () => {
+    renderMore(dana, { meetingStage: 'adjourned' });
+    expect(screen.queryByText('Proxies')).toBeNull();
+    expect(screen.queryByText('Order of business')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set the quorum' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Hand the chair/ })).toBeNull();
+    expect(screen.getByText('Alice Brennan')).toBeTruthy();
+    expect(screen.getByText('Documents')).toBeTruthy();
   });
 });

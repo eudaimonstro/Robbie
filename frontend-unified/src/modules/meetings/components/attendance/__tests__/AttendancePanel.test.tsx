@@ -4,7 +4,11 @@ import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import type { MeetingRoster } from '../../../../../api/client';
-import { AttendancePanel } from '../AttendancePanel';
+
+const toast = vi.hoisted(() => ({ showToast: vi.fn() }));
+vi.mock('../../../../../context/ToastContext', () => ({ useToast: () => toast }));
+
+const { AttendancePanel } = await import('../AttendancePanel');
 
 const roster: MeetingRoster = {
   members: [
@@ -33,7 +37,7 @@ const state: MeetingState = {
 
 const dispatch = vi.fn();
 
-function renderPanel(overrides: Partial<MeetingState> = {}) {
+function renderPanel(overrides: Partial<MeetingState> = {}, readOnly = false) {
   const current = { ...state, ...overrides };
   render(
     <AttendancePanel
@@ -43,6 +47,7 @@ function renderPanel(overrides: Partial<MeetingState> = {}) {
       roster={roster}
       rosterError={null}
       eligible={142}
+      readOnly={readOnly}
     />,
   );
 }
@@ -106,6 +111,14 @@ describe('AttendancePanel', () => {
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SET_HEADCOUNT', count: 3, names: ['Dee Park', 'Eli Ross'] }),
     );
+    expect(toast.showToast).toHaveBeenCalledWith('success', 'Headcount saved');
+  });
+
+  it('changes nothing once the meeting is adjourned', () => {
+    renderPanel({ meetingStage: 'adjourned' }, true);
+    expect(screen.queryByLabelText('Headcount')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Mark / })).toBeNull();
+    expect(screen.getByRole('list', { name: 'Voting members' })).toBeTruthy();
   });
 
   it('refuses more names than people counted', () => {

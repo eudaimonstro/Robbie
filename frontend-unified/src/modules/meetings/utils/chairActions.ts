@@ -10,6 +10,15 @@ export interface ChairAction {
   tone: 'primary' | 'secondary';
   /** The action, made when the button is pressed (so its timestamp is that moment's) */
   make: () => MeetingAction;
+  /** Asks the chair first (Adjourn): the console confirms before it dispatches */
+  confirm?: boolean;
+}
+
+/** Business the chair records for someone in the room, each opening a short form */
+export interface FloorAction {
+  id: 'floor-motion' | 'floor-second';
+  label: string;
+  tone: 'secondary';
 }
 
 type Tone = ChairAction['tone'];
@@ -65,6 +74,7 @@ function adjourn(tone: Tone): ChairAction {
     label: 'Adjourn',
     tone,
     make: () => ({ type: 'END_MEETING', timestamp: generateTimestamp() }),
+    confirm: true,
   };
 }
 
@@ -196,4 +206,19 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
   return [adjourn('primary')];
+}
+
+/**
+ * What the chair can record for people in the room, many of them without a phone: a motion when
+ * nothing is pending, or a second for the motion waiting for one. They sit in the toolbar
+ * beside the chair's own actions.
+ */
+export function floorActions(state: MeetingState): FloorAction[] {
+  if (!state.meetingActive || state.meetingStage === 'adjourned') return [];
+  if (state.votingOpen || state.currentElection?.votingInProgress) return [];
+  if (state.pendingSecond) {
+    return [{ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' }];
+  }
+  if (state.currentMotion || state.unanimousConsentPending || state.nominationsOpen) return [];
+  return [{ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' }];
 }

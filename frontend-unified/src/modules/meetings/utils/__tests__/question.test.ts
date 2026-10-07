@@ -179,12 +179,73 @@ describe('currentResult', () => {
       key: 'election-7',
     });
   });
+
+  describe('once the chair declares the winner', () => {
+    const declared: MeetingState = {
+      ...active,
+      electedOfficers: [
+        { position: 'Director', name: 'Carmen Diaz', memberId: 5, electedAt: '8:30:00 PM' },
+      ],
+      meetingLog: [
+        { time: '7:45:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' },
+        {
+          time: '8:28:00 PM',
+          message:
+            'Voting closed for Director. Results: Carmen Diaz: 9 vote(s), Ray Castillo (write-in): 5 vote(s). Carmen Diaz elected.',
+        },
+        { time: '8:30:00 PM', message: 'Chair declares Carmen Diaz elected as Director.' },
+      ],
+    };
+
+    it('keeps the election stamp up, with its tally', () => {
+      expect(currentResult(declared, parseVoteResult(declared.meetingLog))).toEqual({
+        outcome: 'elected',
+        subject: 'Carmen Diaz, Director',
+        tally: 'Carmen Diaz 9, Ray Castillo (write-in) 5',
+        key: 'declared-2',
+      });
+    });
+
+    it('takes it down when the next question comes up', () => {
+      expect(currentResult({ ...declared, pendingSecond: motion('mainMotion') }, null)).toBeNull();
+      expect(
+        currentResult(
+          { ...declared, nominationsOpen: true, currentNominationPosition: 'Treasurer' },
+          null,
+        ),
+      ).toBeNull();
+      expect(
+        currentResult({ ...declared, currentNominationPosition: 'Treasurer' }, null),
+      ).toBeNull();
+    });
+
+    it('gives way to a vote taken after it', () => {
+      const later: MeetingState = {
+        ...declared,
+        meetingLog: [
+          ...declared.meetingLog,
+          { time: '8:35:00 PM', message: 'Chair puts the question: "Plant the hedge"' },
+          { time: '8:40:00 PM', message: 'Vote: Yea 3, Nay 9. FAILED.' },
+        ],
+      };
+      expect(currentResult(later, parseVoteResult(later.meetingLog))).toMatchObject({
+        outcome: 'failed',
+        subject: 'Plant the hedge',
+      });
+    });
+  });
 });
 
 describe('the meeting in words', () => {
-  it('names the stage', () => {
+  it('names where the meeting is: before it, on an item, between items, adjourned', () => {
     expect(stageLabel(initialState)).toBe('Not yet called to order');
-    expect(stageLabel(active)).toBe('New Business');
+    expect(
+      stageLabel({
+        ...active,
+        currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
+      }),
+    ).toBe("Treasurer's report");
+    expect(stageLabel(active)).toBe('In session');
     expect(stageLabel({ ...initialState, meetingStage: 'adjourned' })).toBe('Adjourned');
   });
 

@@ -1,10 +1,7 @@
-import {
-  DISPLAYABLE_STAGES,
-  LOG_MEETING_ADJOURNED,
-  PUT_BY_CHAIR,
-} from '@robbie-bylawyer/shared/constants';
+import { LOG_MEETING_ADJOURNED, PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import type { VoteResult } from '../hooks/useVoteResults';
+import { formatClockTime } from '../../../utils/dates';
 
 /** Whatever is before the assembly, in the one shape the question card draws */
 export interface QuestionView {
@@ -108,11 +105,15 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
   return null;
 }
 
-/** The stage of the meeting as a label for the top bar */
+/**
+ * Where the meeting is, as a label for the top bar: before it, the agenda item before it, in
+ * session between items, or adjourned (the agenda, not the order-of-business stages, is what
+ * the chair runs the meeting by)
+ */
 export function stageLabel(state: MeetingState): string {
   if (state.meetingStage === 'adjourned') return 'Adjourned';
   if (!state.meetingActive) return 'Not yet called to order';
-  return DISPLAYABLE_STAGES.find((s) => s.stage === state.meetingStage)?.label ?? 'In session';
+  return state.currentAgendaItem?.title ?? 'In session';
 }
 
 export type StampOutcome = 'carried' | 'failed' | 'elected';
@@ -143,9 +144,42 @@ export function electionTally(election: Election): string {
     .join(', ');
 }
 
+// The reducer's lines for an election: the ballot closed with a winner ("Voting closed for
+// Director. Results: Carmen Diaz: 9 vote(s), Ray Castillo: 5 vote(s). Carmen Diaz elected."),
+// then the chair's declaration ("Chair declares Carmen Diaz elected as Director.")
+const DECLARED = /^Chair declares (.+?)(?: \(write-in candidate\))? elected as (.+)\.$/;
+const BALLOT_CLOSED = /^Voting closed for (.+?)\. Results: (.*vote\(s\))\. .+ elected\.$/;
+const BALLOT_COUNT = /(.+?): (\d+) vote\(s\)(?:, |$)/g;
+
 /**
- * The result the room should see: an election just decided, or else the last vote, until the
- * next question comes up. Null while a question is pending or before anything is decided.
+ * The election the chair declared last, with its tally from the closed ballot, when nothing has
+ * been decided since: the election has left the state by then, but the room still reads it
+ */
+function declaredResult(state: MeetingState): ResultView | null {
+  const log = state.meetingLog;
+  const index = log.findLastIndex(
+    (entry) =>
+      DECLARED.test(entry.message) ||
+      /^Vote: Yea \d+, Nay \d+\./.test(entry.message) ||
+      entry.message.includes('CARRIED by unanimous consent'),
+  );
+  const declared = index >= 0 ? DECLARED.exec(log[index].message) : null;
+  if (!declared) return null;
+  const [, name, position] = declared;
+  const closed = log
+    .slice(0, index)
+    .map((entry) => BALLOT_CLOSED.exec(entry.message))
+    .findLast((match) => match?.[1] === position);
+  const tally = closed
+    ? [...closed[2].matchAll(BALLOT_COUNT)].map(([, who, votes]) => `${who} ${votes}`).join(', ')
+    : null;
+  return { outcome: 'elected', subject: `${name}, ${position}`, tally, key: `declared-${index}` };
+}
+
+/**
+ * The result the room should see: an election just decided (and then declared), or else the
+ * last vote, until the next question comes up. Null while a question is pending or before
+ * anything is decided.
  */
 export function currentResult(state: MeetingState, vote: VoteResult | null): ResultView | null {
   const election = state.currentElection;
@@ -162,15 +196,19 @@ export function currentResult(state: MeetingState, vote: VoteResult | null): Res
     !!state.pendingSecond ||
     !!state.currentMotion ||
     !!election?.votingInProgress ||
-    state.nominationsOpen;
-  if (questionPending || !vote) return null;
-  return voteResultView(vote);
+    // Nominations open, or closed with the ballot still to open
+    state.nominationsOpen ||
+    !!state.currentNominationPosition;
+  if (questionPending) return null;
+  // The vote, when it is the latest decision; a declaration after it replaces it
+  if (vote) return voteResultView(vote);
+  return election ? null : declaredResult(state);
 }
 
 /** When the meeting adjourned, by the chair's clock, without the seconds: "8:42 PM" */
 export function adjournedAt(state: MeetingState): string | null {
   const entry = state.meetingLog.findLast((e) => e.message === LOG_MEETING_ADJOURNED);
-  return entry ? entry.time.replace(/^(\d{1,2}:\d{2}):\d{2}/, '$1') : null;
+  return entry ? formatClockTime(entry.time) : null;
 }
 
 /** How many things the meeting decided: votes, unanimous consents and elections */

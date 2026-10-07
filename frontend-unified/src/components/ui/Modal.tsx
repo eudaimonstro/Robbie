@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useCallback } from 'react';
+import { ReactNode, useEffect, useId, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -12,6 +12,7 @@ interface ModalProps {
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const hasInitialFocus = useRef(false);
+  const titleId = useId();
 
   // Focus trap: get all focusable elements in modal (excluding disabled)
   const getFocusableElements = useCallback(() => {
@@ -107,11 +108,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     <div className="modal-backdrop" onClick={onClose}>
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`modal-content ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
-          <h3 className="text-lg font-semibold text-ink">{title}</h3>
+          <h3 id={titleId} className="text-lg font-semibold text-ink">
+            {title}
+          </h3>
           <button
             onClick={onClose}
             className="p-1 text-ink-muted hover:text-ink rounded-sm transition-colors"
