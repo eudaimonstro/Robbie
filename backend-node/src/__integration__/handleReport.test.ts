@@ -12,6 +12,8 @@ import {
   ReportError,
   preserveAttachment,
   preserveRoot,
+  readManifest,
+  recordReport,
   setSuspended,
   type PreservationManifest,
 } from '../abuse/reportHandling.js';
@@ -95,7 +97,11 @@ describe('handleReport: preserving an attachment', () => {
       packet: { id: f.packet.id, title: expect.any(String), meetingCode: f.packet.code },
       agendaItem: { id: f.item, title: 'Reports' },
       preservedAt: '2026-10-08T15:30:00.000Z',
-      keepUntil: '2027-10-08T15:30:00.000Z',
+      keepAtLeastUntil: '2027-10-08T15:30:00.000Z',
+      keepUntil: null,
+      reportedAt: null,
+      reportId: null,
+      retention: expect.any(String),
       preservedFile: path.basename(attachment.storagePath!),
       fileMissing: false,
       note: 'NCMEC report 123',
@@ -213,6 +219,62 @@ describe('handleReport: preserving an attachment', () => {
       /outside the uploads directory/,
     );
     expect(await prisma.attachment.findUnique({ where: { id: f.upload } })).not.toBeNull();
+  });
+
+  it('records the CyberTipline report, and keeps the folder a year from it', async () => {
+    const attachment = await uploaded(Buffer.from('%PDF-1.4 reported'));
+    const now = new Date('2026-10-08T15:30:00.000Z');
+    const { folder, manifest } = await preserveAttachment(attachment.id, 'CSAM report', {
+      root,
+      now,
+    });
+
+    const reportedAt = new Date('2026-10-09T14:00:00.000Z');
+    const dry = await recordReport(path.basename(folder), reportedAt, '1234567', {
+      root,
+      dryRun: true,
+      now: reportedAt,
+    });
+    expect(dry.manifest.keepUntil).toBe('2027-10-09T14:00:00.000Z');
+    expect(await readManifest(folder)).toEqual(manifest);
+
+    const result = await recordReport(folder, reportedAt, '1234567', { root, now: reportedAt });
+    expect(result.previous).toBeNull();
+    expect(await readManifest(folder)).toEqual({
+      ...manifest,
+      reportedAt: '2026-10-09T14:00:00.000Z',
+      reportId: '1234567',
+      keepUntil: '2027-10-09T14:00:00.000Z',
+    });
+    // Replaced in one rename: no temporary file is left, and the copy is untouched
+    expect((await fs.readdir(folder)).sort()).toEqual(
+      ['manifest.json', manifest.preservedFile!].sort(),
+    );
+    expect(((await fs.stat(path.join(folder, 'manifest.json'))).mode & 0o777).toString(8)).toBe(
+      '600',
+    );
+
+    // A correction says what it replaced
+    const corrected = await recordReport(folder, reportedAt, '7654321', { root, now: reportedAt });
+    expect(corrected.previous).toEqual({
+      reportId: '1234567',
+      reportedAt: reportedAt.toISOString(),
+    });
+  });
+
+  it('refuses a report in the future, or a folder outside the preserved files', async () => {
+    const attachment = await uploaded(Buffer.from('%PDF-1.4 x'));
+    const { folder } = await preserveAttachment(attachment.id, 'x', { root });
+    const now = new Date('2026-10-09T00:00:00Z');
+    await expect(
+      recordReport(folder, new Date('2026-10-10T00:00:00Z'), '1', { root, now }),
+    ).rejects.toThrow(/in the future/);
+    await expect(recordReport('../elsewhere', now, '1', { root, now })).rejects.toThrow(
+      /not a folder in/,
+    );
+    await expect(recordReport('nothing-here', now, '1', { root, now })).rejects.toThrow(
+      /No manifest/,
+    );
   });
 
   it('defaults to PRESERVE_DIR', () => {

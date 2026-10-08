@@ -349,6 +349,9 @@ SQL
 docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>" --dry-run
 docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>"
 
+# After a CyberTipline report: record it on the preserved folder (the year to keep it runs from the report)
+docker compose exec app node dist/scripts/handleReport.js --record-report <folder> --reported-at <2026-10-09> --report-id <report number>
+
 # Suspend an account (no sign-in; every session ends, and open meeting connections close within a minute), or lift it
 docker compose exec app node dist/scripts/handleReport.js --suspend <email>
 docker compose exec app node dist/scripts/handleReport.js --unsuspend <email>
@@ -356,24 +359,25 @@ docker compose exec app node dist/scripts/handleReport.js --unsuspend <email>
 
 With the app stopped, `docker compose run --rm app node dist/scripts/handleReport.js ...` does the same (it starts the database if it isn't running).
 
-`--attachment` copies the file into its own folder in the `preserved` volume (`/data/preserved/<time>-<id>/`, readable only by the app's user), writes `manifest.json` beside it (the attachment's id, display name, file name, type, size, SHA-256, who uploaded it and when, the organization, the meeting, the agenda item, when it was preserved, the date to keep it until, and your note), checks the copy's SHA-256 against the original's, and only then deletes the attachment and the original file. It prints the folder. To read a manifest (records only, never the file):
+`--attachment` copies the file into its own folder in the `preserved` volume (`/data/preserved/<time>-<id>/`, readable only by the app's user), writes `manifest.json` beside it (the attachment's id, display name, file name, type, size, SHA-256, who uploaded it and when, the organization, the meeting, the agenda item, when it was preserved, how long to keep it, and your note), checks the copy's SHA-256 against the original's, and only then deletes the original file and then the attachment. If a delete fails it says so; run the same command again and it finishes from the copy it made. A file already missing from disk is refused unless you add `--missing-ok`. It prints the folder. To read a manifest (records only, never the file):
 
 ```bash
 docker compose exec app ls /data/preserved
 docker compose exec app cat /data/preserved/<folder>/manifest.json
 ```
 
-Keep every preserved folder and its manifest at least until the manifest's `keepUntil`, a year after it was preserved; afterwards delete it only when no report or request about it is open: `docker compose exec app rm -r /data/preserved/<folder>`. The nightly backups leave the `preserved` volume out (see "Backups"). Robbie records who uploaded a file (`uploadedBy`) from this release on; files uploaded earlier show `null`, and Robbie keeps no IP addresses.
+Keep every preserved folder and its manifest at least until the manifest's `keepAtLeastUntil`, a year after it was preserved. A folder reported to the CyberTipline has `keepUntil` once the report is recorded (`--record-report`), a year after the report: keep it until then or until law enforcement releases it, whichever is later. Afterwards delete it only when no report or request about it is open: `docker compose exec app rm -r /data/preserved/<folder>`. The nightly backups leave the `preserved` volume out (see "Backups"). Robbie records who uploaded a file (`uploadedBy`) from this release on; files uploaded earlier show `null`, and Robbie keeps no IP addresses.
 
 ### Child sexual abuse material
 
 1. **Don't open, download, view or forward the file**, and don't ask the person reporting it to send it. Work only from the report and the records. Possessing or distributing it is a crime; the steps below keep the one copy the law requires, on the server.
 2. **Preserve and remove it** right away: find its id, then `--attachment <id> --note "CSAM report from <who>, received <date>"` (a `--dry-run` first to check it's the right file).
 3. **Suspend the uploader:** `--suspend <uploadedBy from the manifest>`. Under the Terms the account is closed: it stays suspended.
-4. **Report it to NCMEC's CyberTipline** at [report.cybertip.org](https://report.cybertip.org) as soon as reasonably possible, as 18 U.S.C. 2258A requires once you know of it. Give what the manifest records: the uploader's email and account, when it was uploaded, the file's name, type, size and SHA-256, and the organization and meeting it was in, plus how you learned of it. Don't upload the file from the server; if NCMEC or law enforcement wants it, follow their directions. Keep the report's confirmation number with the folder's name in your own records, off the server.
-5. **Keep the preserved folder and manifest at least a year** (18 U.S.C. 2258A(h), as amended by the REPORT Act), longer if law enforcement asks, and let no one else at it: it is on the server only, readable only by the app's user, and never in a backup. Never copy it off the server except as law enforcement directs.
-6. **The older uploads backups still hold the file.** Take a new backup now (`docker compose run --rm backup once`), then delete the `uploads-*.tar.gz` files taken while the file was there, on the server and in every copy off it (your workstation's `~/robbie-backups/`). The preserved copy is the one the law requires; other copies are only a risk. If you ever restore one of those older backups, run `--attachment` for it again.
-7. **Don't tell the user why** beyond what the Terms say: the account was closed for breaking them. Telling them more can warn someone under investigation. Answer law enforcement's questions and legal process through your lawyer.
+4. **Report it to NCMEC's CyberTipline** at [report.cybertip.org](https://report.cybertip.org) as soon as reasonably possible, as 18 U.S.C. 2258A requires once you know of it. Give what the manifest records: the uploader's email and account, when it was uploaded, the file's name, type, size and SHA-256, and the organization and meeting it was in, plus how you learned of it. Don't upload the file from the server; if NCMEC or law enforcement wants it, follow their directions.
+5. **Record the report on the preserved folder**, with the date you submitted it and the report number NCMEC gives: `--record-report <folder> --reported-at <date> --report-id <number>`. The manifest then has `reportedAt`, `reportId` and `keepUntil`, a year after the report. Keep the report number with the folder's name in your own records too, off the server.
+6. **Keep the preserved folder and manifest until a year after the report (`keepUntil`) or until law enforcement releases it, whichever is later** (18 U.S.C. 2258A(h), as amended by the REPORT Act), and let no one else at it: it is on the server only, readable only by the app's user, and never in a backup. Never copy it off the server except as law enforcement directs.
+7. **The older uploads backups still hold the file.** Take a new backup now (`docker compose run --rm backup once`), then delete the `uploads-*.tar.gz` files taken while the file was there, on the server and in every copy off it (your workstation's `~/robbie-backups/`). The preserved copy is the one the law requires; other copies are only a risk. If you ever restore one of those older backups, run `--attachment` for it again.
+8. **Don't tell the user why** beyond what the Terms say: the account was closed for breaking them. Telling them more can warn someone under investigation. Answer law enforcement's questions and legal process through your lawyer.
 
 ### Copyright notices
 

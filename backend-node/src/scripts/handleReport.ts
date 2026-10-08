@@ -18,6 +18,7 @@ import {
   USAGE,
   parseReportArgs,
   preserveAttachment,
+  recordReport,
   setSuspended,
   type ReportCommand,
 } from '../abuse/reportHandling.js';
@@ -59,10 +60,36 @@ async function run(command: ReportCommand): Promise<void> {
         : `Preserved in ${folder} (the file and manifest.json), and removed from Robbie.`,
     );
     console.log(
-      `Keep that folder and its manifest at least until ${manifest.keepUntil.slice(0, 10)}: ` +
-        'reported material must be preserved for one year (18 U.S.C. 2258A(h), as amended by ' +
-        'the REPORT Act). Restrict access to it, and never copy it off the server except as ' +
-        'law enforcement directs.',
+      `Keep that folder and its manifest at least until ${manifest.keepAtLeastUntil.slice(0, 10)}. ` +
+        'If you report it to the NCMEC CyberTipline, the year runs from the report: record it ' +
+        'with --record-report <folder> --reported-at <date> --report-id <number>, and keep the ' +
+        'folder until a year after the report or until law enforcement releases it, whichever ' +
+        'is later (18 U.S.C. 2258A(h), as amended by the REPORT Act). Restrict access to it, and ' +
+        'never copy it off the server except as law enforcement directs.',
+    );
+    return;
+  }
+
+  if (command.kind === 'record-report') {
+    const { folder, manifest, previous } = await recordReport(
+      command.folder,
+      command.reportedAt,
+      command.reportId,
+      { dryRun: command.dryRun },
+    );
+    if (previous) {
+      console.log(
+        `${dry}Replacing the report recorded before: ${previous.reportId ?? 'no number'}, ` +
+          `${previous.reportedAt ?? 'no date'}.`,
+      );
+    }
+    console.log(
+      `${dry}${command.dryRun ? 'Would record' : 'Recorded'} CyberTipline report ` +
+        `${manifest.reportId}, submitted ${manifest.reportedAt}, in ${folder}.`,
+    );
+    console.log(
+      `Keep the folder until ${manifest.keepUntil!.slice(0, 10)} (a year after the report) or ` +
+        'until law enforcement releases it, whichever is later.',
     );
     return;
   }

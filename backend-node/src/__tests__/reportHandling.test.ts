@@ -41,6 +41,62 @@ describe('parseReportArgs', () => {
     );
   });
 
+  it('reads a CyberTipline report to record on a preserved folder', () => {
+    expect(
+      parseReportArgs([
+        '--record-report',
+        '2026-10-08T15-30-00-000Z-' + ID,
+        '--reported-at',
+        '2026-10-09',
+        '--report-id',
+        ' 123456789 ',
+      ]),
+    ).toEqual({
+      command: {
+        kind: 'record-report',
+        folder: '2026-10-08T15-30-00-000Z-' + ID,
+        reportedAt: new Date('2026-10-09T00:00:00Z'),
+        reportId: '123456789',
+        dryRun: false,
+      },
+    });
+    expect(
+      parseReportArgs([
+        '--record-report',
+        'f',
+        '--reported-at',
+        '2026-10-09T14:05:00-05:00',
+        '--report-id',
+        '1',
+        '--dry-run',
+      ]).command,
+    ).toMatchObject({ reportedAt: new Date('2026-10-09T19:05:00Z'), dryRun: true });
+  });
+
+  it('wants a real date and a plain report number with --record-report, and only there', () => {
+    const args = (date: string, id = '42') => [
+      '--record-report',
+      'f',
+      '--reported-at',
+      date,
+      '--report-id',
+      id,
+    ];
+    for (const date of ['yesterday', '2026-13-01', '2026-02-30', '10/09/2026']) {
+      expect(parseReportArgs(args(date)).error).toMatch(/--reported-at/);
+    }
+    expect(parseReportArgs(args('2026-10-09', 'a b\n')).error).toMatch(/--report-id/);
+    expect(parseReportArgs(['--record-report', 'f', '--report-id', '1']).error).toMatch(
+      /--reported-at/,
+    );
+    expect(parseReportArgs(['--record-report', 'f', '--reported-at', '2026-10-09']).error).toMatch(
+      /--report-id/,
+    );
+    expect(parseReportArgs(['--suspend', 'a@b.org', '--report-id', '1']).error).toBe(
+      '--reported-at and --report-id go with --record-report only',
+    );
+  });
+
   it('reads a suspension and its reversal, with the email normalized', () => {
     expect(parseReportArgs(['--suspend', ' Ann@Example.ORG '])).toEqual({
       command: { kind: 'suspend', email: 'ann@example.org', dryRun: false },
@@ -53,7 +109,7 @@ describe('parseReportArgs', () => {
   });
 
   it('wants exactly one action', () => {
-    const one = 'Give exactly one of --attachment, --suspend and --unsuspend';
+    const one = 'Give exactly one of --attachment, --record-report, --suspend and --unsuspend';
     expect(parseReportArgs([]).error).toBe(one);
     expect(parseReportArgs(['--dry-run']).error).toBe(one);
     expect(parseReportArgs(['--suspend', 'a@b.org', '--unsuspend', 'a@b.org']).error).toBe(one);
@@ -121,8 +177,12 @@ describe('buildManifest', () => {
       packet: { id: 'packet-1', title: 'Annual meeting', meetingCode: 'MAPLE1' },
       agendaItem: null,
       preservedAt: '2028-02-29T10:00:00.000Z',
-      // One year on from a 29 February
-      keepUntil: '2029-03-01T10:00:00.000Z',
+      // One year on from a 29 February; the year that counts starts at the report
+      keepAtLeastUntil: '2029-03-01T10:00:00.000Z',
+      keepUntil: null,
+      reportedAt: null,
+      reportId: null,
+      retention: expect.stringMatching(/--record-report.*one year after the report/s),
       preservedFile: `${ID}.pdf`,
       fileMissing: false,
       note: 'Report 7',

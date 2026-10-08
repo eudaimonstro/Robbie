@@ -20,6 +20,9 @@ export const USAGE = `Usage (from backend-node, or /app/backend-node in the imag
   node dist/scripts/handleReport.js --attachment <id> --note <text> [--missing-ok] [--dry-run]
       Preserve an uploaded file and its record in PRESERVE_DIR, then remove it from Robbie
       (--missing-ok: remove the record even if its file is already gone from disk)
+  node dist/scripts/handleReport.js --record-report <folder> --reported-at <date> --report-id <number> [--dry-run]
+      Record the CyberTipline report on a preserved folder: kept one year from the report
+      (<date> as 2026-10-09, or with a time and zone, 2026-10-09T14:05-05:00)
   node dist/scripts/handleReport.js --suspend <email> [--dry-run]
       Suspend the account: no sign-in, every session ended
   node dist/scripts/handleReport.js --unsuspend <email> [--dry-run]
@@ -27,6 +30,22 @@ export const USAGE = `Usage (from backend-node, or /app/backend-node in the imag
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REPORT_ID_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
+// A date, or a date and time with its zone (a time without one would depend on the server's)
+const REPORTED_AT_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
+/** A date (UTC midnight) or a date and time with its zone, or null if it isn't one */
+export function parseReportedAt(value: string): Date | null {
+  const match = REPORTED_AT_PATTERN.exec(value.trim());
+  if (!match) return null;
+  const [year, month, day] = match.slice(1, 4).map(Number);
+  const calendar = new Date(Date.UTC(year, month - 1, day));
+  // 2026-02-30 rolls over to March: not a date
+  if (calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day) return null;
+  const date = new Date(value.trim().length === 10 ? calendar : value.trim());
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export type ReportCommand =
   | {
@@ -35,6 +54,13 @@ export type ReportCommand =
       note: string;
       dryRun: boolean;
       missingOk: boolean;
+    }
+  | {
+      kind: 'record-report';
+      folder: string;
+      reportedAt: Date;
+      reportId: string;
+      dryRun: boolean;
     }
   | { kind: 'suspend' | 'unsuspend'; email: string; dryRun: boolean };
 
@@ -50,6 +76,9 @@ export function parseReportArgs(
       allowPositionals: false,
       options: {
         attachment: { type: 'string' },
+        'record-report': { type: 'string' },
+        'reported-at': { type: 'string' },
+        'report-id': { type: 'string' },
         suspend: { type: 'string' },
         unsuspend: { type: 'string' },
         note: { type: 'string' },
@@ -62,11 +91,39 @@ export function parseReportArgs(
   }
 
   const dryRun = values['dry-run'] ?? false;
-  const chosen = (['attachment', 'suspend', 'unsuspend'] as const).filter(
+  const chosen = (['attachment', 'record-report', 'suspend', 'unsuspend'] as const).filter(
     (name) => values[name] !== undefined,
   );
   if (chosen.length !== 1) {
-    return { error: 'Give exactly one of --attachment, --suspend and --unsuspend' };
+    return {
+      error: 'Give exactly one of --attachment, --record-report, --suspend and --unsuspend',
+    };
+  }
+
+  if (chosen[0] === 'record-report') {
+    if (values.note !== undefined || values['missing-ok']) {
+      return { error: '--note and --missing-ok go with --attachment only' };
+    }
+    const folder = values['record-report']!.trim();
+    if (!folder) return { error: '--record-report takes the preserved folder' };
+    const reportedAt = values['reported-at'] ? parseReportedAt(values['reported-at']) : null;
+    if (!reportedAt) {
+      return {
+        error:
+          '--reported-at is required: when the CyberTipline report was submitted, as ' +
+          '2026-10-09 or 2026-10-09T14:05-05:00',
+      };
+    }
+    const reportId = values['report-id']?.trim() ?? '';
+    if (!REPORT_ID_PATTERN.test(reportId)) {
+      return {
+        error: '--report-id is required: the CyberTipline report number (letters, digits, - . _)',
+      };
+    }
+    return { command: { kind: 'record-report', folder, reportedAt, reportId, dryRun } };
+  }
+  if (values['reported-at'] !== undefined || values['report-id'] !== undefined) {
+    return { error: '--reported-at and --report-id go with --record-report only' };
   }
 
   if (chosen[0] === 'attachment') {
@@ -131,8 +188,18 @@ export interface PreservationManifest {
   /** The agenda item the file was on, if it wasn't on the packet itself */
   agendaItem: { id: string; title: string } | null;
   preservedAt: string;
-  /** Keep the file and this record at least until then (18 U.S.C. 2258A(h), one year) */
-  keepUntil: string;
+  /** A year after it was preserved: the least it is kept, before any report is recorded */
+  keepAtLeastUntil: string;
+  /**
+   * A year after the CyberTipline report (18 U.S.C. 2258A(h)), once recorded with
+   * --record-report; null until then. Law enforcement may ask for longer.
+   */
+  keepUntil: string | null;
+  /** When the CyberTipline report was submitted, and its number (--record-report) */
+  reportedAt: string | null;
+  reportId: string | null;
+  /** How long to keep the folder, in words */
+  retention: string;
   /** The preserved copy's name in this folder; null when the file was already gone */
   preservedFile: string | null;
   /** The file was gone from disk when its record was removed (--missing-ok) */
@@ -169,6 +236,12 @@ function oneYearAfter(date: Date): Date {
   return later;
 }
 
+const RETENTION =
+  'Keep this folder at least until keepAtLeastUntil. If the material is reported to the ' +
+  'NCMEC CyberTipline, the year that counts runs from the report: record it with ' +
+  '--record-report, and keepUntil becomes one year after the report (18 U.S.C. 2258A(h)). ' +
+  'Keep it longer if law enforcement asks, until they release it.';
+
 export function buildManifest(
   attachment: AttachmentRecord,
   details: { sha256: string | null; preservedFile: string | null; preservedAt: Date; note: string },
@@ -191,7 +264,11 @@ export function buildManifest(
       ? null
       : { id: attachment.agendaItem!.id, title: attachment.agendaItem!.title },
     preservedAt: details.preservedAt.toISOString(),
-    keepUntil: oneYearAfter(details.preservedAt).toISOString(),
+    keepAtLeastUntil: oneYearAfter(details.preservedAt).toISOString(),
+    keepUntil: null,
+    reportedAt: null,
+    reportId: null,
+    retention: RETENTION,
     preservedFile: details.preservedFile,
     fileMissing: details.sha256 === null,
     note: details.note,
@@ -415,6 +492,62 @@ async function removeOriginal(
         'again to finish.',
     );
   }
+}
+
+export interface RecordReportResult extends PreservedFolder {
+  /** The report recorded before, if this replaced one */
+  previous: { reportId: string | null; reportedAt: string | null } | null;
+  dryRun: boolean;
+}
+
+/** A preserved folder named by its name in the root, or its path; refused anywhere else */
+function preservedFolder(root: string, name: string): string {
+  const folder = path.resolve(root, name);
+  if (path.dirname(folder) !== root) {
+    throw new ReportError(`${name} is not a folder in ${root}`);
+  }
+  return folder;
+}
+
+/**
+ * Record the CyberTipline report on a preserved folder: its number and when it was submitted,
+ * and keepUntil, a year after it. The manifest is replaced in one rename. A second run corrects
+ * the record and returns what it replaced.
+ */
+export async function recordReport(
+  name: string,
+  reportedAt: Date,
+  reportId: string,
+  options: { root?: string; dryRun?: boolean; now?: Date } = {},
+): Promise<RecordReportResult> {
+  const root = path.resolve(options.root ?? preserveRoot());
+  const folder = preservedFolder(root, name);
+  const now = options.now ?? new Date();
+  if (reportedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
+    throw new ReportError(`The report date ${reportedAt.toISOString()} is in the future`);
+  }
+  let current: PreservationManifest;
+  try {
+    current = await readManifest(folder);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new ReportError(`No manifest.json in ${folder}`);
+    }
+    throw error;
+  }
+  const previous =
+    current.reportId || current.reportedAt
+      ? { reportId: current.reportId, reportedAt: current.reportedAt }
+      : null;
+  const manifest: PreservationManifest = {
+    ...current,
+    reportedAt: reportedAt.toISOString(),
+    reportId,
+    keepUntil: oneYearAfter(reportedAt).toISOString(),
+  };
+  const dryRun = options.dryRun ?? false;
+  if (!dryRun) await writeManifest(folder, manifest, 'replace');
+  return { folder, manifest, previous, dryRun };
 }
 
 export interface SuspensionResult {
