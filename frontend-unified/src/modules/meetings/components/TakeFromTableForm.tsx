@@ -1,3 +1,4 @@
+import { fitMotionText } from '@robbie-bylawyer/shared/utils';
 import { useState } from 'react';
 import type { Motion } from '@robbie-bylawyer/shared/types';
 
@@ -15,7 +16,11 @@ export function TakeFromTableForm({ tabledMotions, onSubmit, onCancel }: TakeFro
   const handleSubmit = () => {
     const motion = tabledMotions.find((m) => m.id === selectedMotionId);
     if (motion) {
-      const text = `I move to take from the table the motion relating to "${motion.text}"`;
+      const text = fitMotionText(
+        'I move to take from the table the motion relating to "',
+        motion.text,
+        '"',
+      );
       onSubmit(text, selectedMotionId);
     }
   };

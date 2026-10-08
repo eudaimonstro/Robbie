@@ -1,6 +1,11 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MOTIONS, motionWords } from '@robbie-bylawyer/shared/constants';
-import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
+import {
+  fitMotionText,
+  generateId,
+  generateTimestamp,
+  getValidMotions,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { AgendaAmendmentForm } from '../AgendaAmendmentForm';
 import { BylawAmendmentForm } from '../BylawAmendmentForm';
@@ -122,7 +127,10 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
             onSubmit={(purpose, specificAction, scope, rule) =>
               move(
                 'suspendRules',
-                `I move to suspend the rules (${rule}) for the following purpose: ${purpose}. Specific action: ${specificAction}`,
+                fitMotionText(
+                  `I move to suspend the rules (${rule}) for the following purpose: `,
+                  `${purpose}. Specific action: ${specificAction}`,
+                ),
                 { ruleSuspension: { rule, purpose, specificAction, scope } },
               )
             }

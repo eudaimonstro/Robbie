@@ -17,7 +17,9 @@ import {
   MAX_BYLAW_TEXT_LENGTH,
   MAX_BYLAW_TITLE_LENGTH,
   MAX_FLOOR_NAME_LENGTH,
+  MAX_AGENDA_TITLE_LENGTH,
   MAX_MOTION_TEXT_LENGTH,
+  MAX_POSITION_LENGTH,
   MOTIONS,
 } from '@robbie-bylawyer/shared/constants';
 import {
@@ -31,8 +33,8 @@ import {
 const MAX_NAME_LENGTH = MAX_FLOOR_NAME_LENGTH;
 /** A candidate's name as the tellers count it (a write-in can be longer than a member's name) */
 const MAX_CANDIDATE_LENGTH = 200;
-/** An office, an agenda item's title, a committee */
-const MAX_TITLE_LENGTH = 200;
+/** An office, a committee */
+const MAX_TITLE_LENGTH = MAX_POSITION_LENGTH;
 /** A question to the chair, a rule suspension's purpose, a reason */
 const MAX_SHORT_TEXT_LENGTH = 500;
 /** The chair's answer to a question */
@@ -70,7 +72,12 @@ const meetingRole = z.enum(['chair', 'admin', 'member', 'guest']);
 const proxyScope = z.enum(['all', 'single-vote']);
 const motionType = z.enum(Object.keys(MOTIONS) as [string, ...string[]]);
 
-const member = z.strictObject({
+/**
+ * A member as the state has it, echoed back by a client (the speaker the chair recognizes): an
+ * unknown field is dropped rather than refused, so a member saved with a field since retired can
+ * still be named. The server takes the member from the state by id anyway.
+ */
+const member = z.object({
   id,
   name: text(MAX_NAME_LENGTH),
   role: meetingRole,
@@ -102,7 +109,7 @@ const ruleSuspension = z.strictObject({
 
 const agendaAmendment = z.strictObject({
   action: z.enum(['add', 'remove', 'reorder']),
-  title: text(MAX_TITLE_LENGTH).optional(),
+  title: text(MAX_AGENDA_TITLE_LENGTH).optional(),
   position: z.union([z.enum(['beginning', 'end']), z.int().min(0)]).optional(),
   itemId: optionalId,
   fromIndex: z.int().min(0).optional(),
@@ -252,7 +259,7 @@ export const ACTION_SCHEMAS = {
   }),
   ADD_AGENDA_ITEM: z.strictObject({
     type: z.literal('ADD_AGENDA_ITEM'),
-    title: text(MAX_TITLE_LENGTH),
+    title: text(MAX_AGENDA_TITLE_LENGTH),
     itemId: id,
   }),
   REMOVE_AGENDA_ITEM: z.strictObject({ type: z.literal('REMOVE_AGENDA_ITEM'), id }),

@@ -1,6 +1,11 @@
 import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
-import { calculateTimerEnd, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import {
+  calculateTimerEnd,
+  fitMotionText,
+  generateId,
+  generateTimestamp,
+} from '@robbie-bylawyer/shared/utils';
 import { minutesItemUnderWay } from './minutesApproval';
 
 /** One thing the chair can do now, as a button in the console's toolbar */
@@ -214,7 +219,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         make: () => ({
           type: 'MAKE_MOTION',
           motionType: 'mainMotion',
-          text: `Approve: ${item.title}`,
+          text: fitMotionText('Approve: ', item.title),
           mover: PUT_BY_CHAIR,
           moverId: presidingId,
           motionId: generateId(),

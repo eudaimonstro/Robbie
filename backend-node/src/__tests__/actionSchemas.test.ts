@@ -64,6 +64,28 @@ describe('action schemas', () => {
     }
   });
 
+  it('takes a member echoed from an older state, dropping the field since retired', () => {
+    const result = parseClientAction({
+      type: 'RECOGNIZE_SPEAKER',
+      member: { id: 3, name: 'Ben', role: 'member', present: true, selfRenameUsed: true },
+      stance: 'pro',
+      speakerTimerEnd: null,
+      timestamp: '',
+    });
+    expect(result).toMatchObject({
+      success: true,
+      action: { member: { id: 3, name: 'Ben', role: 'member', present: true } },
+    });
+    if (result.success) expect(result.action).not.toHaveProperty('member.selfRenameUsed');
+  });
+
+  it('takes an agenda item title up to 500 characters, as the schedule does', () => {
+    const add = (title: string) =>
+      parseClientAction({ type: 'ADD_AGENDA_ITEM', title, itemId: 1 }).success;
+    expect(add('x'.repeat(500))).toBe(true);
+    expect(add('x'.repeat(501))).toBe(false);
+  });
+
   describe("refuses the reviewer's probes", () => {
     it.each([
       ['a prototype key as a stance', { type: 'RAISE_HAND', stance: '__proto__' }],

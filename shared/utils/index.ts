@@ -82,3 +82,5 @@ export {
   type BylawChangeView,
   type SectionText,
 } from './bylawAmendment.js';
+
+export { fitMotionText } from './motionText.js';

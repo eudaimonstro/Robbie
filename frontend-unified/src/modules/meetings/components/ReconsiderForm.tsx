@@ -1,3 +1,4 @@
+import { fitMotionText } from '@robbie-bylawyer/shared/utils';
 import { useState } from 'react';
 import type { CompletedMotion } from '@robbie-bylawyer/shared/types';
 
@@ -30,7 +31,7 @@ export function ReconsiderForm({
   const handleSubmit = () => {
     const motion = reconsiderableMotions.find((m) => m.id === selectedMotionId);
     if (motion) {
-      const text = `I move to reconsider the vote on "${motion.text}"`;
+      const text = fitMotionText('I move to reconsider the vote on "', motion.text, '"');
       onSubmit(text, selectedMotionId);
     }
   };

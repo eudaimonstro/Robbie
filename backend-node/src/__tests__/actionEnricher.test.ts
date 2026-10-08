@@ -186,6 +186,16 @@ describe('enrichAction', () => {
       expect(enriched).toMatchObject({ mover: 'Chair', moverId: 10 });
     });
 
+    it('recognizes the speaker as the meeting has them', () => {
+      const stale = { id: 20, name: 'Old Name', role: 'member', present: true, extra: 1 };
+      const enriched = enrichAction(
+        { type: 'RECOGNIZE_SPEAKER', member: stale } as unknown as MeetingAction,
+        chair,
+        [memberInMeeting],
+      ) as unknown as Record<string, unknown>;
+      expect(enriched.member).toEqual(memberInMeeting);
+    });
+
     it('leaves alone the fields that name someone else', () => {
       const speaker = { id: 30, name: 'Speaker', role: 'member', present: true };
       expect(enrich({ type: 'RECOGNIZE_SPEAKER', member: speaker }, chair).member).toEqual(speaker);

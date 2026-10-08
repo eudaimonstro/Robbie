@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
+import { MAX_NAME_LENGTH, MAX_POSITION_LENGTH } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
@@ -109,6 +110,7 @@ export function NominationsPanel({
               id={positionId}
               className="input min-w-0 flex-1"
               placeholder="Director, Treasurer..."
+              maxLength={MAX_POSITION_LENGTH}
               value={position}
               onChange={(e) => setPosition(e.target.value)}
             />
@@ -161,6 +163,7 @@ export function NominationsPanel({
                   <input
                     id={nameId}
                     className="input"
+                    maxLength={MAX_NAME_LENGTH}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
