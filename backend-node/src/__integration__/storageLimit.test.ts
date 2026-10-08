@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs/promises';
 import { prisma } from '../db/prisma.js';
 import { getFullPath } from '../bylawyer/services/fileStorage.js';
@@ -65,6 +65,41 @@ describe('organization storage limit', () => {
 
     // Up to the limit itself is fine
     expect((await upload(f, 10, `agendaItemId=${f.item}`)).status).toBe(201);
+  });
+
+  it('refuses a full organization before writing the file', async () => {
+    await fillWith(f, 500 * MB - 7);
+    // A meeting folder that can't be written to: storing the file would fail with a 500
+    const meetingDir = getFullPath(f.packet.code);
+    await fs.chmod(meetingDir, 0o555);
+    try {
+      expect((await upload(f, 10)).status).toBe(413);
+    } finally {
+      await fs.chmod(meetingDir, 0o755);
+    }
+  });
+
+  it('lets only one of two uploads at once take the last of the space', async () => {
+    await fillWith(f, 500 * MB - 7 - 10);
+    const before = await filesUnder(f.packet.code);
+
+    const results = await Promise.all([upload(f, 8), upload(f, 8)]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 413]);
+    expect(await prisma.attachment.count({ where: { displayName: 'big.txt' } })).toBe(1);
+    // The refused upload's file is gone too
+    expect((await filesUnder(f.packet.code)).length).toBe(before.length + 1);
+  });
+
+  it('deletes the stored file when recording it fails', async () => {
+    const before = await filesUnder(f.packet.code);
+    const failing = vi.spyOn(prisma, '$transaction').mockRejectedValueOnce(new Error('down'));
+    try {
+      const res = await upload(f, 100);
+      expect(res.status).toBe(500);
+    } finally {
+      failing.mockRestore();
+    }
+    expect(await filesUnder(f.packet.code)).toEqual(before);
   });
 
   it("counts only the organization's own files", async () => {
