@@ -37,6 +37,22 @@ describe('phoneMoment', () => {
     ['while the agenda awaits adoption', { ...active, agendaAdopted: false }, 'agenda'],
     ['with nothing pending', active, 'motion'],
     [
+      'while the mover asks to withdraw',
+      { ...active, currentMotion: motion('withdrawMotion') },
+      'withdraw-request',
+    ],
+    [
+      'on a voice vote someone called a division on: counted',
+      {
+        ...active,
+        currentMotion: motion('mainMotion'),
+        votingOpen: true,
+        votingMethod: 'voice',
+        divisionCalled: true,
+      },
+      'vote',
+    ],
+    [
       'while a motion awaits a second',
       { ...active, pendingSecond: motion('mainMotion') },
       'second',

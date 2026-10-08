@@ -11,6 +11,7 @@ import { DebateBlock } from './DebateBlock';
 import { MotionPanel } from './MotionPanel';
 import { WithdrawMine } from './WithdrawMine';
 import { ForumHand } from './ForumHand';
+import { RaisePointOfOrder } from './RaisePointOfOrder';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
@@ -80,10 +81,16 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
           >
             Call for a division
           </button>
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
         </div>
       );
     case 'vote':
-      return <VoteBlock state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <VoteBlock state={state} dispatch={dispatch} me={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'ballot':
       return <ElectionPanel state={state} dispatch={dispatch} currentUser={me} />;
     case 'nominate':
@@ -97,20 +104,35 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
             <p>You moved this. Another member must second it.</p>
           </Note>
           <WithdrawMine state={state} dispatch={dispatch} me={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
         </div>
       ) : (
-        <button
-          type="button"
-          className="btn-primary btn-lg w-full"
-          onClick={() =>
-            dispatch({ type: 'SECOND_MOTION', seconder: me.name, timestamp: generateTimestamp() })
-          }
-        >
-          Second
-        </button>
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="btn-primary btn-lg w-full"
+            onClick={() =>
+              dispatch({ type: 'SECOND_MOTION', seconder: me.name, timestamp: generateTimestamp() })
+            }
+          >
+            Second
+          </button>
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
       );
     case 'consent':
-      return <UnanimousConsentSection state={state} dispatch={dispatch} currentUser={me} />;
+      return (
+        <div className="space-y-3">
+          <UnanimousConsentSection state={state} dispatch={dispatch} currentUser={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
+    case 'withdraw-request':
+      return (
+        <Note>
+          <p>{state.currentMotion?.mover} asks to withdraw the motion. The chair asks the room.</p>
+        </Note>
+      );
     case 'agenda':
       return (
         <div className="space-y-3">

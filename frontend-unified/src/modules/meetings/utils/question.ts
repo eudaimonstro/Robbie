@@ -133,7 +133,9 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       byline: motion.secondedBy
         ? `${moverLine(motion)}, seconded by ${motion.secondedBy}`
         : moverLine(motion),
-      requirement: requirementOf(motion.vote),
+      // An appeal's vote needs no majority for the chair: a tie sustains the ruling
+      requirement:
+        motion.type === 'appeal' ? 'A tie sustains the chair' : requirementOf(motion.vote),
       awaitingSecond: false,
       beneath: state.motionStack
         .filter((m) => m.id !== motion.id)
@@ -209,7 +211,7 @@ export function stageLabel(state: MeetingState): string {
   return state.currentAgendaItem?.title ?? 'In session';
 }
 
-export type StampOutcome = 'carried' | 'failed' | 'elected' | 'adopted';
+export type StampOutcome = 'carried' | 'failed' | 'elected' | 'adopted' | 'sustained' | 'overruled';
 
 /** A decision for the stamp: what it was, about what, and the tally */
 export interface ResultView {
@@ -221,8 +223,16 @@ export interface ResultView {
 }
 
 export function voteResultView(vote: VoteResult): ResultView {
+  const outcome: StampOutcome =
+    vote.outcome === 'SUSTAINED'
+      ? 'sustained'
+      : vote.outcome === 'OVERTURNED'
+        ? 'overruled'
+        : vote.passed
+          ? 'carried'
+          : 'failed';
   return {
-    outcome: vote.passed ? 'carried' : 'failed',
+    outcome,
     subject: vote.motionText || null,
     tally: vote.tally,
     key: `vote-${vote.timestamp}-${vote.tally}`,

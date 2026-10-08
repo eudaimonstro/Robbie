@@ -16,6 +16,9 @@ const WORDS: Record<StampOutcome, string> = {
   failed: 'Failed',
   elected: 'Elected',
   adopted: 'Adopted',
+  // An appeal's result
+  sustained: 'Chair sustained',
+  overruled: 'Chair overruled',
 };
 
 const SIZES = {
@@ -37,7 +40,10 @@ const SIZES = {
  */
 export function Stamp({ outcome, subject, tally, size = 'panel' }: StampProps) {
   const sizes = SIZES[size];
-  const color = outcome === 'failed' ? 'border-ink text-ink' : 'border-carried text-carried';
+  const color =
+    outcome === 'failed' || outcome === 'overruled'
+      ? 'border-ink text-ink'
+      : 'border-carried text-carried';
   const label = tally ? `${WORDS[outcome]}, ${tally}` : WORDS[outcome];
   const spoken = [WORDS[outcome], subject, tally].filter(Boolean).join(', ');
   const liveRef = useRef<HTMLSpanElement>(null);

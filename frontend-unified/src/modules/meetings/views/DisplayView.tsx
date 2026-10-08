@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MeetingState, SpeakerQueueEntry } from '@robbie-bylawyer/shared/types';
 import type { AttendanceSummary } from '@robbie-bylawyer/shared/utils';
+import { votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import { useSocket } from '../context/SocketContext';
 import { useMeetingOrganization } from '../context/OrganizationBridge';
 import { useRoster } from '../hooks/useRoster';
@@ -278,7 +279,7 @@ function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueu
 
 /** How the room votes now, in one line from the back of the room */
 function howToVote(state: MeetingState): string {
-  switch (state.votingMethod) {
+  switch (votingMethodNow(state)) {
     case 'voice':
       return 'Answer aloud when the chair asks.';
     case 'ballot':
@@ -294,7 +295,7 @@ function VoteBand({ state }: { state: MeetingState }) {
   if (state.votingOpen) {
     const floor = state.floorVotes;
     const floorEntered = floor.yea + floor.nay + floor.abstain > 0;
-    const voice = state.votingMethod === 'voice';
+    const voice = votingMethodNow(state) === 'voice';
     return (
       <div className="space-y-2 text-right">
         <p className={LABEL}>Voting now</p>

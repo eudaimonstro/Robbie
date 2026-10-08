@@ -1,4 +1,5 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
+import { votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import { nomineesFor } from './question';
 
 export interface ChairScript {
@@ -113,8 +114,8 @@ export function getChairScript(state: MeetingState): ChairScript | null {
 
   // Voting in progress: on phones and by a show of hands in the room, unless it is a voice vote
   if (state.votingOpen) {
-    const method = Object.hasOwn(VOTE_SCRIPTS, state.votingMethod)
-      ? state.votingMethod
+    const method = Object.hasOwn(VOTE_SCRIPTS, votingMethodNow(state))
+      ? votingMethodNow(state)
       : 'standard';
     return { text: VOTE_SCRIPTS[method], note: 'Close voting when done.' };
   }

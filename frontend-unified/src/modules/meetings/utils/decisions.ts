@@ -17,8 +17,10 @@ export interface Decision {
   index: number;
 }
 
-// The reducer's line for a closed vote: "Vote: Yea 21, Nay 5. CARRIED."
-export const VOTE_LINE = /^Vote: Yea (\d+), Nay (\d+)\. (CARRIED|FAILED)/;
+// The reducer's line for a closed vote: "Vote: Yea 21, Nay 5. CARRIED.", or for an appeal
+// "Vote: Yea 3, Nay 1. Chair's decision SUSTAINED."
+export const VOTE_LINE =
+  /^Vote: Yea (\d+), Nay (\d+)\. (CARRIED|FAILED|Chair's decision SUSTAINED|Chair's decision OVERTURNED)/;
 // An election's lines: a ballot closed ("Voting closed for Director. Results: ..."), and the
 // chair's declaration ("Chair declares Carmen Diaz elected as Director.")
 export const DECLARED_LINE = /^Chair declares (.+?)(?: \(write-in candidate\))? elected as (.+)\.$/;

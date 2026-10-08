@@ -334,6 +334,38 @@ describe('PhoneView', () => {
     expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
   });
 
+  it('raises a point of order during a vote, while a motion awaits a second, and during consent', () => {
+    socket.dispatch.mockResolvedValue(true);
+    for (const state of [
+      voting,
+      { ...active, pendingSecond: { ...motion, secondedBy: null } },
+      { ...active, currentMotion: motion, motionStack: [motion], unanimousConsentPending: true },
+    ]) {
+      renderAs(ben, state);
+      fireEvent.click(screen.getByText('Point of order', { selector: 'summary' }));
+      fireEvent.change(screen.getByLabelText('What is out of order'), {
+        target: { value: 'Guests are voting' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Raise the point of order' }));
+      expect(socket.dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'MAKE_MOTION',
+          motionType: 'pointOrder',
+          text: 'Guests are voting',
+        }),
+      );
+      cleanup();
+    }
+  });
+
+  it("tells the room the chair is asking about a mover's request to withdraw", () => {
+    const request = { ...motion, id: 2, type: 'withdrawMotion', mover: 'Alice Brennan' };
+    renderAs(ben, { ...active, currentMotion: request, motionStack: [motion, request] });
+    expect(
+      screen.getByText('Alice Brennan asks to withdraw the motion. The chair asks the room.'),
+    ).toBeTruthy();
+  });
+
   it('makes another motion in plain words, each saying what it does', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));

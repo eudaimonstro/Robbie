@@ -1,4 +1,5 @@
 import type { DebateStance, MeetingState } from '@robbie-bylawyer/shared/types';
+import { votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import { electionUnderway } from './chairActions';
 import { minutesItemUnderWay } from './minutesApproval';
 
@@ -16,6 +17,7 @@ export type PhoneMoment =
   | 'election'
   | 'second'
   | 'consent'
+  | 'withdraw-request'
   | 'agenda'
   | 'debate'
   | 'debate-closed'
@@ -30,11 +32,13 @@ export function phoneMoment(state: MeetingState): PhoneMoment {
   if (state.recess) return 'recess';
   // A point of order holds everything, a vote too, until the chair rules
   if (state.currentMotion?.vote === 'none') return 'ruling';
-  if (state.votingOpen) return state.votingMethod === 'voice' ? 'voice-vote' : 'vote';
+  if (state.votingOpen) return votingMethodNow(state) === 'voice' ? 'voice-vote' : 'vote';
   if (state.currentElection?.votingInProgress) return 'ballot';
   if (state.nominationsOpen) return 'nominate';
   if (state.pendingSecond) return 'second';
   if (state.unanimousConsentPending) return 'consent';
+  // The mover asked to withdraw their motion: the chair asks the room
+  if (state.currentMotion?.type === 'withdrawMotion') return 'withdraw-request';
   if (state.currentMotion?.debateClosed) return 'debate-closed';
   if (state.currentMotion?.debatable) return 'debate';
   // Nominations closed with the ballot still to open, or a winner awaiting the declaration: the

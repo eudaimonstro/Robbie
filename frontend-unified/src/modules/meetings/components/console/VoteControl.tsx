@@ -11,6 +11,7 @@ import {
   addVotes,
   canChairVoteDecide,
   generateTimestamp,
+  votingMethodNow,
 } from '@robbie-bylawyer/shared/utils';
 import { TimerLine } from '../TimerLine';
 
@@ -70,7 +71,8 @@ export function VoteControl({ state, dispatch, me }: VoteControlProps) {
 }
 
 function OpenVote({ state, dispatch, me }: VoteControlProps) {
-  const method = state.votingMethod;
+  // A division counts this voice vote, on devices and in the room
+  const method = votingMethodNow(state);
   const floor = state.floorVotes ?? NO_VOTES;
   const combined = addVotes(state.votes, floor);
   const requirement = state.currentMotion?.vote ?? 'majority';

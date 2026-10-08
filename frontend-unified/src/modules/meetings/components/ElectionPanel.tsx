@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from 'react';
-import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { attendanceSummary, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { NoQuorumDialog } from './console/NoQuorumDialog';
 import type { Election, MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { electionTally, nomineesFor } from '../utils/question';
 
@@ -31,6 +32,8 @@ export function ElectionPanel({
   const requiredId = useId();
   const headingId = useId();
   const [required, setRequired] = useState<Required>('majority');
+  // Opening the ballot without a quorum asks first (the server requires the confirmation)
+  const [confirming, setConfirming] = useState(false);
   const election = state.currentElection;
   const position = state.currentNominationPosition;
   const nominees = position ? nomineesFor(state, position) : [];
@@ -47,6 +50,18 @@ export function ElectionPanel({
         {children}
       </section>
     );
+
+  const attendance = attendanceSummary(state);
+  const openBallot = (confirmedWithoutQuorum: boolean) =>
+    position &&
+    dispatch({
+      type: 'START_ELECTION',
+      electionId: generateId(),
+      position,
+      requiredVotes: required,
+      ...(confirmedWithoutQuorum && { confirmedWithoutQuorum }),
+      timestamp: generateTimestamp(),
+    });
 
   if (!election) {
     if (!isChair || state.nominationsOpen || !position) return null;
@@ -81,18 +96,21 @@ export function ElectionPanel({
         <button
           type="button"
           className="btn-primary"
-          onClick={() =>
-            dispatch({
-              type: 'START_ELECTION',
-              electionId: generateId(),
-              position,
-              requiredVotes: required,
-              timestamp: generateTimestamp(),
-            })
-          }
+          onClick={() => (attendance.hasQuorum ? openBallot(false) : setConfirming(true))}
         >
           Open the ballot
         </button>
+        <NoQuorumDialog
+          isOpen={confirming}
+          attendance={`${attendance.present} present, ${attendance.quorum} needed`}
+          question="Open the ballot anyway?"
+          confirmText="Open the ballot anyway"
+          onOpen={() => {
+            setConfirming(false);
+            openBallot(true);
+          }}
+          onWait={() => setConfirming(false)}
+        />
       </>,
     );
   }

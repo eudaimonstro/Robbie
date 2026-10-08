@@ -6,6 +6,7 @@ import {
   calculateTimerEnd,
   fitMotionText,
   floorOpenForDebate,
+  pendingNotOffered,
   sortSpeakerQueue,
   generateId,
   generateTimestamp,
@@ -150,9 +151,18 @@ const NO_QUORUM_NEEDED = new Set(['adjourn', 'recess']);
  * Open the vote. Without a quorum (anything but adjourning or a recess) it asks the chair first,
  * and the vote is opened as confirmed, which the server requires.
  */
+/**
+ * Whether doing business now needs the chair to confirm there is no quorum: anything but
+ * adjourning or a recess, as the server rules
+ */
+export function withoutQuorum(state: MeetingState): boolean {
+  return (
+    !attendanceSummary(state).hasQuorum && !NO_QUORUM_NEEDED.has(state.currentMotion?.type ?? '')
+  );
+}
+
 function openVote(state: MeetingState, tone: Tone): ChairAction {
-  const withoutQuorum =
-    !attendanceSummary(state).hasQuorum && !NO_QUORUM_NEEDED.has(state.currentMotion?.type ?? '');
+  const unconfirmed = withoutQuorum(state);
   return {
     id: 'open-vote',
     label: 'Open the vote',
@@ -160,10 +170,10 @@ function openVote(state: MeetingState, tone: Tone): ChairAction {
     make: () => ({
       type: 'OPEN_VOTING',
       voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
-      ...(withoutQuorum && { confirmedWithoutQuorum: true }),
+      ...(unconfirmed && { confirmedWithoutQuorum: true }),
       timestamp: generateTimestamp(),
     }),
-    ...(withoutQuorum && { confirm: true }),
+    ...(unconfirmed && { confirm: true }),
   };
 }
 
@@ -270,7 +280,12 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         label:
           motion.type === 'withdrawMotion' ? 'No objection: withdrawn' : 'No objection: adopted',
         tone: 'primary',
-        make: () => ({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() }),
+        make: () => ({
+          type: 'UNANIMOUS_CONSENT_PASSED',
+          ...(withoutQuorum(state) && { confirmedWithoutQuorum: true }),
+          timestamp: generateTimestamp(),
+        }),
+        ...(withoutQuorum(state) && { confirm: true }),
       },
       {
         id: 'floor-objection',
@@ -286,6 +301,12 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
   if (motion) {
+    // A motion Robbie no longer offers, from a meeting saved earlier: the mover withdraws it
+    if (pendingNotOffered(state)) return [withdrawFromFloor('The mover asks to withdraw it')];
+    // While a ballot is open nothing is put to a vote or to consent (the server refuses both)
+    if (state.currentElection?.votingInProgress) {
+      return [withdrawFromFloor('The mover asks to withdraw it')];
+    }
     const consent: ChairAction = {
       id: 'consent',
       label: 'Ask for unanimous consent',
@@ -362,7 +383,12 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         id: 'adopt-agenda',
         label: 'Adopt the agenda',
         tone: 'primary',
-        make: () => ({ type: 'ADOPT_AGENDA', timestamp: generateTimestamp() }),
+        make: () => ({
+          type: 'ADOPT_AGENDA',
+          ...(withoutQuorum(state) && { confirmedWithoutQuorum: true }),
+          timestamp: generateTimestamp(),
+        }),
+        ...(withoutQuorum(state) && { confirm: true }),
       },
       {
         id: 'agenda-objection',

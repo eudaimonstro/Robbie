@@ -1,4 +1,4 @@
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { generateTimestamp, votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
 interface VoteBlockProps {
@@ -19,7 +19,7 @@ const LABELS = { yea: 'Yes', nay: 'No', abstain: 'Abstain' } as const;
  * the chair closes it.
  */
 export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
-  const method = state.votingMethod;
+  const method = votingMethodNow(state);
   const labels = LABELS;
   const myVote = state.voterChoices[me.id];
   const voted = state.voters.includes(me.id);

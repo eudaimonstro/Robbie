@@ -281,6 +281,49 @@ describe('chairActions', () => {
     expect(takeUp?.make()).toMatchObject({ type: 'TAKE_UP_POSTPONED', motionId: 9 });
   });
 
+  it('puts nothing to a vote or consent while a ballot is open, or a motion no longer offered', () => {
+    const balloting = {
+      ...adopted,
+      currentMotion: motion('recess'),
+      currentElection: {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Ben', id: 4 }],
+        requiredVotes: 'majority' as const,
+        votingInProgress: true,
+        ballotResults: {},
+        votersWhoVoted: [],
+        elected: null,
+      },
+    };
+    expect(ids(balloting)).toEqual(['floor-withdraw']);
+    const old = { ...adopted, currentMotion: motion('layOnTable') };
+    expect(ids(old)).toEqual(['floor-withdraw']);
+  });
+
+  it('asks before adopting by consent or adopting the agenda without a quorum', () => {
+    const present = (id: number) => ({
+      id,
+      name: `M${id}`,
+      role: 'member' as const,
+      present: true,
+    });
+    const thin = { ...adopted, quorum: 10, members: [present(3)] };
+    const [adopted_] = chairActions(
+      { ...thin, currentMotion: motion('mainMotion'), unanimousConsentPending: true },
+      2,
+    );
+    expect(adopted_).toMatchObject({ id: 'adopted', confirm: true });
+    expect(adopted_.make()).toMatchObject({ confirmedWithoutQuorum: true });
+    const [adoptAgenda] = chairActions({ ...thin, agendaAdopted: false }, 2);
+    expect(adoptAgenda).toMatchObject({ id: 'adopt-agenda', confirm: true });
+    expect(adoptAgenda.make()).toMatchObject({ confirmedWithoutQuorum: true });
+    // With a quorum, no asking
+    expect(
+      chairActions({ ...thin, quorum: 1, agendaAdopted: false }, 2)[0].confirm,
+    ).toBeUndefined();
+  });
+
   describe('business from the floor', () => {
     const floor = (state: MeetingState) => floorActions(state).map((a) => a.id);
 

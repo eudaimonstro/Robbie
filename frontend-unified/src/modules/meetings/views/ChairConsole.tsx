@@ -36,6 +36,13 @@ import Modal from '../../../components/ui/Modal';
 import { scrollBehavior } from '../../../utils/motion';
 import type { ChairAction } from '../utils/chairActions';
 
+/** What the chair is about to do without a quorum, by the action that asks first */
+const NO_QUORUM_ASKS: Record<string, string> = {
+  'open-vote': 'Open the vote',
+  adopted: 'Adopt it',
+  'adopt-agenda': 'Adopt the agenda',
+};
+
 /**
  * The chair console (docs/design-brief.md, "The three screens"), for the chair and admins: a top
  * bar, a "Now" column (columns 1 to 8 at 1280px) and a side column (9 to 12)
@@ -230,8 +237,10 @@ export function ChairConsole() {
         onClose={keepGoing}
       />
       <NoQuorumDialog
-        isOpen={confirming?.id === 'open-vote' && stillInOrder}
+        isOpen={!!confirming && NO_QUORUM_ASKS[confirming.id] !== undefined && stillInOrder}
         attendance={`${attendance.present} present, ${attendance.quorum} needed`}
+        question={`${NO_QUORUM_ASKS[confirming?.id ?? ''] ?? 'Go ahead'} anyway?`}
+        confirmText={`${NO_QUORUM_ASKS[confirming?.id ?? ''] ?? 'Go ahead'} anyway`}
         onOpen={() => confirming && confirm(confirming)}
         onWait={keepGoing}
       />

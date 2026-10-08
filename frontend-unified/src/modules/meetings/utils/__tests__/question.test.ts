@@ -52,6 +52,13 @@ describe('describeQuestion', () => {
     expect(describeQuestion(active)).toBeNull();
   });
 
+  it('says on an appeal that a tie sustains the chair', () => {
+    const appeal = motion('appeal', { text: 'I appeal', secondedBy: 'Ben' });
+    expect(
+      describeQuestion({ ...active, currentMotion: appeal, motionStack: [appeal] })?.requirement,
+    ).toBe('A tie sustains the chair');
+  });
+
   it('says who raised a point of order', () => {
     const point = motion('pointOrder', { text: 'Not germane', mover: 'Ben Whitaker' });
     expect(
@@ -259,6 +266,18 @@ describe('currentResult', () => {
       { time: '7:41:00 PM', message: 'Chair puts the question: "Resurface the pool this spring"' },
       { time: '7:45:00 PM', message },
     ],
+  });
+
+  it("stamps an appeal's result as the chair sustained or overruled", () => {
+    const sustained = voted("Vote: Yea 3, Nay 1. Chair's decision SUSTAINED.");
+    expect(currentResult(sustained, parseVoteResult(sustained.meetingLog))).toMatchObject({
+      outcome: 'sustained',
+      tally: '3 to 1',
+    });
+    const overruled = voted("Vote: Yea 1, Nay 3. Chair's decision OVERTURNED.");
+    expect(currentResult(overruled, parseVoteResult(overruled.meetingLog))).toMatchObject({
+      outcome: 'overruled',
+    });
   });
 
   it('stamps the last vote with both parts', () => {
