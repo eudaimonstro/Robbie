@@ -74,7 +74,7 @@ npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint, then the palette check
 npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes, and no emoji in frontend-unified/src or shared's constants, reducer and utils
-npm run e2e              # Playwright: builds, starts the API (3101), which serves the web build as production does, on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke tests (with a CSP check), the header tests, screenshots in both palettes, the bylaws import, the meeting scenarios and the whole annual meeting
+npm run e2e              # Playwright: builds, starts the API (3101), which serves the web build as production does, on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke tests (with a CSP check), the header tests, screenshots in both palettes, axe (`@axe-core/playwright`, WCAG 2.1 AA) over the main pages in both palettes failing on a serious or critical violation (`e2e/tests/accessibility.spec.ts`), the bylaws import, the meeting scenarios and the whole annual meeting
 npm run format:check     # Prettier
 ```
 
