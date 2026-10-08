@@ -29,7 +29,10 @@ export function unvotedRecord(
   disposition: Exclude<Disposition, 'carried' | 'failed'>,
   timestamp: string,
   at: string | undefined,
-  extras: Pick<CompletedMotion, 'postponedTo' | 'referredTo' | 'pendingAmendments'> = {},
+  extras: Pick<
+    CompletedMotion,
+    'postponedTo' | 'referredTo' | 'pendingAmendments' | 'withPermission'
+  > = {},
 ): CompletedMotion {
   const adopted = disposition === 'unanimous';
   return {

@@ -149,15 +149,34 @@ describe('chairActions', () => {
   });
 
   it('declares no second while a motion waits for one', () => {
-    expect(ids({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })).toEqual([
-      'no-second',
+    const awaiting = { ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) };
+    expect(ids(awaiting)).toEqual(['no-second', 'floor-withdraw']);
+    // The chair records the mover in the room taking it back
+    const withdraw = chairActions(awaiting, 2)[1];
+    expect(withdraw.label).toBe('The mover withdraws it');
+    expect(withdraw.make()).toMatchObject({ type: 'WITHDRAW_MOTION', fromFloor: true });
+  });
+
+  it("puts the mover's request to withdraw by unanimous consent, an appeal by a vote", () => {
+    const request = { ...adopted, currentMotion: motion('withdrawMotion', { secondedBy: null }) };
+    expect(chairActions(request, 2).map((a) => [a.id, a.tone])).toEqual([
+      ['consent', 'primary'],
+      ['open-vote', 'secondary'],
     ]);
+    expect(chairActions({ ...request, unanimousConsentPending: true }, 2)[0].label).toBe(
+      'No objection: withdrawn',
+    );
+    expect(ids({ ...adopted, currentMotion: motion('appeal') })).toEqual(['open-vote']);
   });
 
   it('opens the vote or asks for unanimous consent on a seconded motion', () => {
     const state = { ...adopted, currentMotion: motion('mainMotion') };
     const actions = chairActions(state, 2);
-    expect(actions.map((a) => a.label)).toEqual(['Open the vote', 'Ask for unanimous consent']);
+    expect(actions.map((a) => a.label)).toEqual([
+      'Open the vote',
+      'Ask for unanimous consent',
+      'The mover asks to withdraw it',
+    ]);
     expect(actions[0].make()).toMatchObject({ type: 'OPEN_VOTING' });
     expect(ids({ ...state, unanimousConsentPending: true })).toEqual([
       'adopted',
@@ -325,10 +344,12 @@ describe('chairActions', () => {
     };
     expect(ids({ ...nominating, pendingSecond: motion('recess', { secondedBy: null }) })).toEqual([
       'no-second',
+      'floor-withdraw',
     ]);
     expect(ids({ ...nominating, currentMotion: motion('recess') })).toEqual([
       'open-vote',
       'consent',
+      'floor-withdraw',
     ]);
     expect(ids({ ...nominating, currentMotion: motion('pointOrder') })).toEqual([
       'sustain',

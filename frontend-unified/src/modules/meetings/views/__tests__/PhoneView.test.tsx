@@ -278,6 +278,22 @@ describe('PhoneView', () => {
     expect(categories.every((c) => c === 'privileged' || c === 'incidental')).toBe(true);
   });
 
+  it('lets the mover withdraw their motion, at once while it awaits a second, by asking once stated', () => {
+    socket.dispatch.mockResolvedValue(true);
+    renderAs(alice, { ...active, pendingSecond: { ...motion, secondedBy: null } });
+    fireEvent.click(screen.getByRole('button', { name: 'Withdraw my motion' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'WITHDRAW_MOTION', requesterId: 3 }),
+    );
+    cleanup();
+    renderAs(alice, { ...active, currentMotion: motion, motionStack: [motion] });
+    expect(screen.getByText(/the chair asks the meeting's permission/)).toBeTruthy();
+    cleanup();
+    // Nobody else sees it
+    renderAs(ben, { ...active, currentMotion: motion, motionStack: [motion] });
+    expect(screen.queryByRole('button', { name: 'Withdraw my motion' })).toBeNull();
+  });
+
   it('makes another motion in plain words, each saying what it does', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));

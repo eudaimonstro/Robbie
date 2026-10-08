@@ -628,22 +628,42 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'WITHDRAW_MOTION': {
+      // The motion awaiting a second, or else the immediately pending one
       const motionToWithdraw = state.pendingSecond || state.currentMotion;
       if (!motionToWithdraw) {
         return { valid: false, error: 'No motion to withdraw', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      if (motionToWithdraw.moverId !== action.requesterId) {
-        return {
-          valid: false,
-          error: 'Only the motion maker can withdraw their motion',
-          errorCode: 'NOT_MOTION_MAKER',
-        };
       }
       if (state.votingOpen) {
         return {
           valid: false,
           error: 'Cannot withdraw motion while voting is in progress',
           errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (motionToWithdraw.type === 'withdrawMotion') {
+        return {
+          valid: false,
+          error: 'The request to withdraw is before the meeting',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      // The mover asks on their phone; the chair records the request of a mover in the room,
+      // whoever they are (one recorded by a typed name has no account to ask from)
+      if (action.fromFloor) {
+        if (!isPresiding(state, action.requesterId)) return NOT_PRESIDING;
+      } else if (motionToWithdraw.moverId !== action.requesterId) {
+        return {
+          valid: false,
+          error: 'Only the motion maker can withdraw their motion',
+          errorCode: 'NOT_MOTION_MAKER',
+        };
+      }
+      // Once stated, the request is put to the meeting as a question of its own
+      if (!state.pendingSecond && action.motionId === undefined) {
+        return {
+          valid: false,
+          error: 'The request to withdraw needs an id',
+          errorCode: 'INVALID_ACTION',
         };
       }
       return { valid: true };

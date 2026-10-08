@@ -262,6 +262,8 @@ export interface CompletedMotion {
   readonly pendingAmendments?: string[];
   /** The vote was retaken as a counted vote after a member called for a division */
   readonly division?: true;
+  /** Withdrawn once stated, with the meeting's permission (by unanimous consent or a vote) */
+  readonly withPermission?: true;
 }
 
 /**

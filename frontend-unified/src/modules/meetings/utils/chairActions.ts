@@ -84,6 +84,22 @@ function rulings(state: MeetingState, motionType: string): ChairAction[] {
   }
 }
 
+/** The chair records the mover's withdrawing (or asking to withdraw) a motion, for the mover in the room */
+function withdrawFromFloor(label: string): ChairAction {
+  return {
+    id: 'floor-withdraw',
+    label,
+    tone: 'secondary',
+    make: () => ({
+      type: 'WITHDRAW_MOTION',
+      requesterId: 0,
+      fromFloor: true,
+      motionId: generateId(),
+      timestamp: generateTimestamp(),
+    }),
+  };
+}
+
 /** A motion's words for a button: the first few, with an ellipsis */
 function shortened(text: string, length = 48): string {
   return text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
@@ -192,6 +208,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         tone: 'secondary',
         make: () => ({ type: 'DECLINE_SECOND', timestamp: generateTimestamp() }),
       },
+      withdrawFromFloor('The mover withdraws it'),
     ];
   }
 
@@ -201,7 +218,8 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     return [
       {
         id: 'adopted',
-        label: 'No objection: adopted',
+        label:
+          motion.type === 'withdrawMotion' ? 'No objection: withdrawn' : 'No objection: adopted',
         tone: 'primary',
         make: () => ({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() }),
       },
@@ -219,14 +237,22 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
   if (motion) {
+    const consent: ChairAction = {
+      id: 'consent',
+      label: 'Ask for unanimous consent',
+      tone: 'secondary',
+      make: () => ({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() }),
+    };
+    // The mover's request to withdraw is granted without objection, as a rule
+    if (motion.type === 'withdrawMotion') {
+      return [{ ...consent, tone: 'primary' }, openVote(state, 'secondary')];
+    }
+    // An appeal is decided by a vote
+    if (motion.type === 'appeal') return [openVote(state, 'primary')];
     return [
       openVote(state, 'primary'),
-      {
-        id: 'consent',
-        label: 'Ask for unanimous consent',
-        tone: 'secondary',
-        make: () => ({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() }),
-      },
+      consent,
+      withdrawFromFloor('The mover asks to withdraw it'),
     ];
   }
 

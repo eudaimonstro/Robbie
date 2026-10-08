@@ -468,6 +468,8 @@ export const ACTION_SCHEMAS = {
   WITHDRAW_MOTION: z.strictObject({
     type: z.literal('WITHDRAW_MOTION'),
     requesterId: optionalId,
+    fromFloor: z.boolean().optional(),
+    motionId: optionalId,
     at: timestamp.optional(),
     timestamp,
   }),

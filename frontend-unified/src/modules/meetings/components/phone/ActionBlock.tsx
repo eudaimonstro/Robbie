@@ -9,6 +9,7 @@ import { UnanimousConsentSection } from '../participant';
 import { VoteBlock } from './VoteBlock';
 import { DebateBlock } from './DebateBlock';
 import { MotionPanel } from './MotionPanel';
+import { WithdrawMine } from './WithdrawMine';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
@@ -80,9 +81,12 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       return <ElectionWaiting state={state} />;
     case 'second':
       return state.pendingSecond?.moverId === me.id ? (
-        <Note>
-          <p>You moved this. Another member must second it.</p>
-        </Note>
+        <div className="space-y-3">
+          <Note>
+            <p>You moved this. Another member must second it.</p>
+          </Note>
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
       ) : (
         <button
           type="button"
@@ -113,7 +117,12 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
         </div>
       );
     case 'debate':
-      return <DebateBlock state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <DebateBlock state={state} dispatch={dispatch} me={me} />
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'minutes':
       return (
         <Note>
@@ -121,7 +130,12 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
         </Note>
       );
     case 'motion':
-      return <MotionPanel state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <MotionPanel state={state} dispatch={dispatch} me={me} />
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
   }
 }
 

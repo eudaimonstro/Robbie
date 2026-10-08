@@ -2,6 +2,7 @@ import type {
   MeetingAction,
   MeetingLogEntry,
   MeetingState,
+  Motion,
   MotionDetails,
 } from '../../types/index.js';
 import { MOTIONS } from '../../constants/motions.js';
@@ -16,6 +17,7 @@ import {
   logQuestionPut,
   logSecondedFromFloor,
   logTakenUp,
+  logWithdrawalAsked,
 } from '../../constants/logMessages.js';
 import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
 import { motionTextFromDetails } from '../../utils/motionRules.js';
@@ -214,17 +216,8 @@ export const motionHandler: ActionHandler = (state, action, log) => {
 
     case 'WITHDRAW_MOTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'WITHDRAW_MOTION' }>;
-      // Motion can be withdrawn if it's pending a second or is the current motion
-      const motionToWithdraw = state.pendingSecond || state.currentMotion;
-      if (!motionToWithdraw) {
-        return state;
-      }
-      if (motionToWithdraw.moverId !== typedAction.requesterId) {
-        return state; // Only the mover can withdraw their motion
-      }
-
+      // Before the question is stated (awaiting a second) the mover withdraws it at once
       if (state.pendingSecond) {
-        // Motion not yet seconded - can be withdrawn freely
         return {
           ...state,
           pendingSecond: null,
@@ -241,31 +234,27 @@ export const motionHandler: ActionHandler = (state, action, log) => {
           meetingLog: log(typedAction.timestamp, logMotionWithdrawn(state.pendingSecond.mover)),
         };
       }
-
-      // Motion is already seconded - remove from stack
-      const newStack = state.motionStack.slice(0, -1);
-      const previousMotion = newStack.length > 0 ? newStack[newStack.length - 1] : null;
-
+      // Once stated it is the meeting's: the mover asks, and the request is the question, which
+      // the chair puts by unanimous consent or a vote (RONR 33:11 to 33:19)
+      const motion = state.currentMotion;
+      if (!motion || typedAction.motionId === undefined) return state;
+      const request: Motion = {
+        ...MOTIONS.withdrawMotion,
+        id: typedAction.motionId,
+        type: 'withdrawMotion',
+        text: `Permission to withdraw "${motion.text}"`,
+        mover: motion.mover,
+        moverId: motion.moverId,
+        secondedBy: null,
+        status: 'active',
+        moverHasSpoken: false,
+        ...(typedAction.fromFloor && { fromFloor: true }),
+      };
       return {
         ...state,
-        currentMotion: previousMotion,
-        motionStack: newStack,
-        completedMotions: [
-          ...state.completedMotions,
-          unvotedRecord(
-            state,
-            motionToWithdraw,
-            'withdrawn',
-            typedAction.timestamp,
-            typedAction.at,
-          ),
-        ],
-        votingOpen: false,
-        unanimousConsentPending: false,
-        speakerQueue: [],
-        recognizedSpeaker: null,
-        debatePositions: {},
-        meetingLog: log(typedAction.timestamp, logMotionWithdrawn(motionToWithdraw.mover)),
+        currentMotion: request,
+        motionStack: [...state.motionStack, request],
+        meetingLog: log(typedAction.timestamp, logWithdrawalAsked(motion.mover, motion.text)),
       };
     }
 

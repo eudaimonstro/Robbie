@@ -228,7 +228,9 @@ function pendingText(motion: CompletedMotion): string {
 function outcomeText(motion: CompletedMotion): string {
   switch (motion.disposition) {
     case 'withdrawn':
-      return 'Withdrawn by the mover.';
+      return motion.withPermission
+        ? "Withdrawn by the mover, with the meeting's permission."
+        : 'Withdrawn by the mover.';
     case 'no-second':
       return 'Died for lack of a second.';
     case 'unanimous':

@@ -10,6 +10,8 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   NOMINATE: 'nominationId',
   START_ELECTION: 'electionId',
   ASK_INQUIRY: 'inquiryId',
+  // The request to withdraw a motion already stated, put to the meeting
+  WITHDRAW_MOTION: 'motionId',
 };
 
 /**

@@ -478,3 +478,66 @@ describe('a point of order ruled well taken', () => {
     expect(s.currentMotion?.type).toBe('mainMotion');
   });
 });
+
+describe('withdrawing a motion', () => {
+  it('awaiting a second, the mover withdraws it at once', () => {
+    let s = move(inSession(), 'alice', 'mainMotion', 'Paint the clubhouse purple');
+    expect(refusal(s, 'ben', { type: 'WITHDRAW_MOTION' })).toMatchObject({
+      errorCode: 'NOT_MOTION_MAKER',
+    });
+    s = act(s, 'alice', { type: 'WITHDRAW_MOTION' });
+    expect(s.pendingSecond).toBeNull();
+    expect(minutesOf(s)).toContain('Paint the clubhouse purple." Withdrawn by the mover.');
+  });
+
+  it('once stated, the mover asks and the chair grants it without objection', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Paint the clubhouse purple', 'ben');
+    s = act(s, 'alice', { type: 'WITHDRAW_MOTION', motionId: 1 });
+    expect(s.currentMotion).toMatchObject({
+      type: 'withdrawMotion',
+      text: 'Permission to withdraw "Paint the clubhouse purple"',
+    });
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    s = act(s, 'dana', { type: 'UNANIMOUS_CONSENT_PASSED' });
+    expect(s.motionStack).toEqual([]);
+    // The request leaves no record of its own; the motion's says how it went
+    expect(s.completedMotions.map((m) => [m.type, m.disposition])).toEqual([
+      ['mainMotion', 'withdrawn'],
+    ]);
+    expect(minutesOf(s)).toContain(
+      "Seconded by Ben Whitaker. Withdrawn by the mover, with the meeting's permission.",
+    );
+  });
+
+  it('once stated, a vote can refuse it, and the motion stays', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Paint the clubhouse purple', 'ben');
+    s = act(s, 'alice', { type: 'WITHDRAW_MOTION', motionId: 1 });
+    s = vote(s, { pat: 'nay', ben: 'nay', carl: 'nay', eve: 'yea' });
+    expect(s.currentMotion?.text).toBe('Paint the clubhouse purple');
+    expect(s.completedMotions).toEqual([]);
+  });
+
+  it('is recorded by the chair for a mover in the room, even one recorded by a typed name (sim 9b)', () => {
+    let s = act(inSession(), 'dana', {
+      type: 'MAKE_FLOOR_MOTION',
+      motionType: 'mainMotion',
+      text: 'Ban leaf blowers',
+      moverName: 'Mrs. Ortiz',
+      motionId: 1,
+    });
+    s = act(s, 'dana', { type: 'SECOND_FROM_FLOOR' });
+    expect(
+      refusal(s, 'carl', { type: 'WITHDRAW_MOTION', fromFloor: true, motionId: 1 }),
+    ).toMatchObject({
+      errorCode: 'PERMISSION_DENIED',
+    });
+    s = act(s, 'dana', { type: 'WITHDRAW_MOTION', fromFloor: true, motionId: 1 });
+    expect(s.currentMotion?.type).toBe('withdrawMotion');
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    s = act(s, 'dana', { type: 'UNANIMOUS_CONSENT_PASSED' });
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      text: 'Ban leaf blowers',
+      disposition: 'withdrawn',
+    });
+  });
+});

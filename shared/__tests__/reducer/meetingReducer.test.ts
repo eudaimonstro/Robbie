@@ -453,8 +453,8 @@ describe('meetingReducer', () => {
       expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
     });
 
-    it('should allow mover to withdraw the current motion', () => {
-      const motion = createMockMotion({ moverId: 2, mover: 'Bob' });
+    it("puts the mover's request to withdraw a stated motion to the meeting", () => {
+      const motion = createMockMotion({ moverId: 2, mover: 'Bob', text: 'Paint it' });
       const stateWithMotion: MeetingState = {
         ...initialState,
         meetingActive: true,
@@ -465,32 +465,21 @@ describe('meetingReducer', () => {
       const state = meetingReducer(stateWithMotion, {
         type: 'WITHDRAW_MOTION',
         requesterId: 2,
+        motionId: 5,
         timestamp: '10:07:00',
       });
 
-      expect(state.currentMotion).toBeNull();
-      expect(state.motionStack).toHaveLength(0);
-      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
-    });
-
-    it('should not allow non-mover to withdraw a motion', () => {
-      const stateWithPending: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        pendingSecond: createMockMotion({ moverId: 1 }),
-      };
-
-      const state = meetingReducer(stateWithPending, {
-        type: 'WITHDRAW_MOTION',
-        requesterId: 99, // Different user
-        timestamp: '10:06:00',
+      expect(state.currentMotion).toMatchObject({
+        id: 5,
+        type: 'withdrawMotion',
+        text: 'Permission to withdraw "Paint it"',
+        mover: 'Bob',
       });
-
-      // Motion should still be pending - withdrawal rejected
-      expect(state.pendingSecond).not.toBeNull();
+      expect(state.motionStack).toHaveLength(2);
+      expect(state.meetingLog.at(-1)?.message).toBe('Bob asks to withdraw the motion "Paint it".');
     });
 
-    it('should reset debate state when current motion is withdrawn', () => {
+    it('withdraws the motion when the meeting grants the request, and ends its debate', () => {
       const motion = createMockMotion({ moverId: 1 });
       const stateWithDebate: MeetingState = {
         ...initialState,
@@ -502,15 +491,24 @@ describe('meetingReducer', () => {
         ],
         debatePositions: { 2: 'pro' },
       };
-
-      const state = meetingReducer(stateWithDebate, {
+      const asked = meetingReducer(stateWithDebate, {
         type: 'WITHDRAW_MOTION',
         requesterId: 1,
+        motionId: 5,
         timestamp: '10:08:00',
       });
+      const granted = meetingReducer(
+        { ...asked, unanimousConsentPending: true, consentMotionId: 5 },
+        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:09:00' },
+      );
 
-      expect(state.speakerQueue).toHaveLength(0);
-      expect(state.debatePositions).toEqual({});
+      expect(granted.motionStack).toHaveLength(0);
+      expect(granted.speakerQueue).toHaveLength(0);
+      expect(granted.debatePositions).toEqual({});
+      expect(granted.completedMotions.at(-1)).toMatchObject({
+        disposition: 'withdrawn',
+        withPermission: true,
+      });
     });
   });
 

@@ -52,6 +52,11 @@ export function logMotionWithdrawn(mover: string): string {
   return `${mover}${LOG_MOTION_WITHDRAWN}`;
 }
 
+/** The mover asks to withdraw a motion already stated */
+export function logWithdrawalAsked(mover: string, text: string): string {
+  return `${mover} asks to withdraw the motion "${text}".`;
+}
+
 /** The chair takes up a question postponed to later in the meeting */
 export function logTakenUp(text: string): string {
   return `The chair takes up the motion postponed earlier: "${text}"`;

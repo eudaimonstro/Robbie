@@ -204,7 +204,7 @@ function adopt(
       return {
         ...none,
         stack: stack.slice(0, -1),
-        records: [unvotedRecord(state, top, 'withdrawn', timestamp, at)],
+        records: [unvotedRecord(state, top, 'withdrawn', timestamp, at, { withPermission: true })],
         log: [`The motion is withdrawn: "${top.text}"`],
       };
     default:
