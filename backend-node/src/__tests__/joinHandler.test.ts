@@ -14,6 +14,7 @@ vi.mock('../db/meetingStorage.js', () => ({
   }),
 }));
 vi.mock('../bylawyer/services/meetingMinutes.js', () => ({ previousMinutesFor: async () => null }));
+vi.mock('../orgs/membershipService.js', () => ({ acceptPendingInvitesFor: async () => 0 }));
 vi.mock('../socket/meetingPacket.js', () => ({
   findMeetingPacket: async (code: string) =>
     code === 'NEW1'

@@ -101,6 +101,24 @@ describe('joining a live meeting', () => {
     expect((await live.join(live.connect(f.users.admin), f.packet.code)).success).toBe(true);
   });
 
+  it('makes someone added in bulk who already had an account a member as they join', async () => {
+    await prisma.organizationInvite.create({
+      data: {
+        organizationId: f.orgA.id,
+        email: 'outsider@example.org',
+        role: 'member',
+        emailed: false,
+      },
+    });
+    const socket = live.connect(f.outsider);
+    expect((await live.join(socket, f.packet.code)).success).toBe(true);
+    expect(socket.data.role).toBe('member');
+    const membership = await prisma.organizationMember.findUnique({
+      where: { organizationId_userId: { organizationId: f.orgA.id, userId: f.outsider.id } },
+    });
+    expect(membership?.role).toBe('member');
+  });
+
   it('gives each person the role their organization gives them', async () => {
     await prisma.meetingPacket.update({
       where: { id: f.packet.id },

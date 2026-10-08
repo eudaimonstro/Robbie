@@ -245,6 +245,28 @@ describe('MembersCard', () => {
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('o1', 4));
   });
 
+  it("says which lines the server didn't add, and leaves out a spreadsheet's other columns", async () => {
+    api.addBulk.mockResolvedValueOnce({
+      results: [
+        { email: 'a@example.org', status: 'invited' },
+        { email: 'boss@example.org', status: 'owner-only' },
+      ],
+    });
+    render(<MembersCard />);
+    await screen.findByText('Alice Brennan');
+    fireEvent.click(screen.getByRole('button', { name: 'Add several people' }));
+    fireEvent.change(screen.getByLabelText('People, one per line'), {
+      target: { value: 'Ann Lee\ta@example.org\tLot 12\nboss@example.org' },
+    });
+    expect(screen.getByText('Left out: Lot 12')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add 2 people' }));
+    expect(
+      await screen.findByText(
+        'Added 1 person as Member. Only an owner can change boss@example.org, waiting to join as an owner.',
+      ),
+    ).toBeTruthy();
+  });
+
   it('cancels a pending addition', async () => {
     render(<MembersCard />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel adding new@example.org' }));

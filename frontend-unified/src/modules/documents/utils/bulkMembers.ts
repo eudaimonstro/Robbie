@@ -3,23 +3,37 @@ export const MAX_BULK_PEOPLE = 500;
 /** The longest name a person can have (the meeting's MAX_NAME_LENGTH) */
 export const MAX_PERSON_NAME = 100;
 
-/** One pasted line, read: the person on it, or what is wrong with it */
+import { isEmailAddress } from '@robbie-bylawyer/shared/utils';
+
+/**
+ * One pasted line, read: the person on it (with what came after the email, left out: another
+ * column of a spreadsheet), or what is wrong with it
+ */
 export type PastedLine =
-  | { line: number; text: string; email: string; name: string }
+  | { line: number; text: string; email: string; name: string; ignored?: string }
   | { line: number; text: string; problem: string };
 
 /** An email address as it appears in a line: anything around one @ up to a separator */
 const EMAIL_IN_TEXT = /[^\s<>,;:"'()[\]]+@[^\s<>,;:"'()[\]]+/g;
-/** Enough of an address to send to: something@something.something */
-const COMPLETE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@.]+$/;
 /** What separates a name from an email on a line: tabs, commas, semicolons, quotes, <> */
 const SEPARATORS = /^[\s,;:<>"'()]+|[\s,;:<>"'()]+$/g;
 
+/** A part of a line as a name: tabs as spaces, no separators at its ends */
+const asName = (text: string) =>
+  text
+    .replace(/\t+/g, ' ')
+    .replace(/<\s*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(SEPARATORS, '')
+    .replace(/\s+,/g, ',');
+
 /**
  * Read a pasted list of people, one per line: "Name, email", "Name <email>", a spreadsheet row
- * (cells separated by tabs), or just an email. Blank lines are skipped. Each other line gives
- * the person (the email lowercased, the name what is left) or the problem, in words: no email,
- * two emails, an incomplete email, a name too long, an email listed on an earlier line.
+ * (cells separated by tabs), or just an email. Blank lines are skipped. The name is what comes
+ * before the email; anything after it (a spreadsheet's other columns) is left out, and said so.
+ * Each other line gives the person (the email lowercased) or the problem, in words: no email,
+ * two emails, an email the server wouldn't take (the same check: isEmailAddress), a name too
+ * long, an email listed on an earlier line.
  */
 export function readPastedPeople(text: string): PastedLine[] {
   const seen = new Map<string, number>();
@@ -39,17 +53,13 @@ export function readPastedPeople(text: string): PastedLine[] {
     }
     const found = emails[0] ?? '';
     const email = found.replace(/\.$/, '').toLowerCase();
-    if (!COMPLETE_EMAIL.test(email) || email.length > 254) {
+    if (!isEmailAddress(email)) {
       lines.push({ line, text: trimmed, problem: "That email address isn't complete" });
       continue;
     }
-    const name = trimmed
-      .replace(found, ' ')
-      .replace(/\t+/g, ' ')
-      .replace(/<\s*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(SEPARATORS, '')
-      .replace(/\s+,/g, ',');
+    const at = trimmed.indexOf(found);
+    const name = asName(trimmed.slice(0, at));
+    const ignored = asName(trimmed.slice(at + found.length));
     if ([...name].length > MAX_PERSON_NAME) {
       lines.push({
         line,
@@ -64,7 +74,7 @@ export function readPastedPeople(text: string): PastedLine[] {
       continue;
     }
     seen.set(email, line);
-    lines.push({ line, text: trimmed, email, name });
+    lines.push({ line, text: trimmed, email, name, ...(ignored && { ignored }) });
   }
   return lines;
 }

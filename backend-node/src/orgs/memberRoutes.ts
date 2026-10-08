@@ -117,9 +117,6 @@ membersRouter.post(
         req.body.people,
         req.body.role,
       );
-      if (results.some((result) => result.status === 'added')) {
-        await syncLiveMeetings(req.params.id);
-      }
       res.json({ results });
     } catch (error) {
       sendError(res, error, 'Failed to add them');

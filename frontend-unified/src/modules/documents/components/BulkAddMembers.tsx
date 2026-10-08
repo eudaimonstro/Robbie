@@ -78,11 +78,22 @@ export function BulkAddMembers({
         sending.map((line) => ({ email: line.email, ...(line.name && { name: line.name }) })),
         role,
       );
-      const added = results.filter((r) => r.status === 'added' || r.status === 'invited').length;
+      const added = results.filter((r) => r.status === 'invited').length;
       const updated = results.filter((r) => r.status === 'updated').length;
+      // Lines the server answered on their own (an email it won't take, a pending owner)
+      const refused = results.filter(
+        (r) => r.status === 'invalid' || r.status === 'duplicate' || r.status === 'owner-only',
+      );
+      const ownerOnly = refused.filter((r) => r.status === 'owner-only').map((r) => r.email);
       const parts = [
         `Added ${count(added, 'person', 'people')} as ${ROLE_LABELS[role]}.`,
         ...(updated > 0 ? [`Updated ${count(updated, 'waiting addition')}.`] : []),
+        ...(ownerOnly.length > 0
+          ? [`Only an owner can change ${ownerOnly.join(', ')}, waiting to join as an owner.`]
+          : []),
+        ...(refused.length > ownerOnly.length
+          ? [`${count(refused.length - ownerOnly.length, 'line')} not added.`]
+          : []),
         ...(toFix > 0 ? [`${count(toFix, 'line')} left out to fix.`] : []),
       ];
       setText('');
@@ -154,6 +165,11 @@ export function BulkAddMembers({
                         {line.name || <span className="text-ink-muted">No name</span>}
                       </span>
                       <span className="block truncate text-ink-muted">{line.email}</span>
+                      {line.ignored && (
+                        <span className="block truncate text-xs text-ink-muted">
+                          Left out: {line.ignored}
+                        </span>
+                      )}
                     </span>
                     <span
                       className={`max-w-[45%] shrink-0 text-right text-xs ${
@@ -181,9 +197,10 @@ export function BulkAddMembers({
       )}
 
       <p className="text-xs text-ink-muted">
-        No emails are sent. Each person joins the first time they sign in with their address, for
-        example from a meeting&apos;s link or QR code, and the chair can count them in the room
-        before then. People who already have a Robbie account are added at once.
+        No emails are sent. Each person joins the first time they sign in or open Robbie with their
+        address, for example from a meeting&apos;s link or QR code, and the chair can count them in
+        the room before then. Anything after the email on a line, such as other columns of a
+        spreadsheet, is left out.
       </p>
       {problem && (
         <p role="alert" className="text-sm text-gavel">

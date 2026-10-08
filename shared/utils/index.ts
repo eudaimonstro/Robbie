@@ -46,6 +46,8 @@ export {
   textAmendmentProblem,
 } from './textAmendment.js';
 
+export { isEmailAddress } from './email.js';
+
 export {
   attendanceSummary,
   isQuorumSet,

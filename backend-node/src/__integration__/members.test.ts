@@ -271,12 +271,13 @@ describe('members', () => {
     const bulk = (cookie: string, body: object) =>
       call('post', `${members()}/bulk`, { cookie, body });
 
-    it('adds each person once, emails nobody, and says what happened to each', async () => {
+    it('adds each person as waiting to sign in, emails nobody, and says the same of everyone', async () => {
       const bo = await signIn('bo@example.org', { name: 'Bo' });
       const res = await bulk(f.users.admin.cookie, {
         role: 'member',
         people: [
           { email: 'Carmen.Diaz@Example.org', name: 'Carmen Diaz' },
+          // Has an account: the answer doesn't say so, and they aren't added behind their back
           { email: 'bo@example.org', name: 'Bo Brown' },
           { email: 'member@example.org' },
           { email: 'pending@example.org', name: 'Pat P.' },
@@ -287,16 +288,14 @@ describe('members', () => {
       expect(res.body).toEqual({
         results: [
           { email: 'carmen.diaz@example.org', status: 'invited' },
-          { email: 'bo@example.org', status: 'added' },
+          { email: 'bo@example.org', status: 'invited' },
           { email: 'member@example.org', status: 'member' },
           { email: 'pending@example.org', status: 'updated' },
           { email: 'eli@example.org', status: 'invited' },
         ],
       });
       expect(mail).toEqual([]);
-      expect(await roleOf(bo.id)).toBe('member');
-      // An account's own name stays theirs
-      expect((await prisma.user.findUniqueOrThrow({ where: { id: bo.id } })).name).toBe('Bo');
+      expect(await roleOf(bo.id)).toBeNull();
       const carmen = await prisma.organizationInvite.findFirstOrThrow({
         where: { email: 'carmen.diaz@example.org' },
       });
@@ -305,7 +304,11 @@ describe('members', () => {
         where: { id: f.invite },
       });
       expect(pending).toMatchObject({ name: 'Pat P.', role: 'member' });
-      expect(await roleOf(f.users.member.id)).toBe('member');
+
+      // Bo becomes a member the next time Robbie lists his organizations, and keeps his name
+      const list = await call('get', '/api/organizations', { cookie: bo.cookie });
+      expect(list.body).toEqual([expect.objectContaining({ id: f.orgA.id, role: 'member' })]);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: bo.id } })).name).toBe('Bo');
     });
 
     it("doesn't count toward the emailed additions' daily limit", async () => {
@@ -314,17 +317,42 @@ describe('members', () => {
       expect((await add(f.users.admin.cookie, 'single@example.org', 'member')).status).toBe(201);
     });
 
-    it('refuses a list that is too long, repeats an email or has a bad line, and adds nothing', async () => {
+    it('answers a bad line on its own and adds the rest', async () => {
+      // A pending addition as owner, which only an owner changes
+      await prisma.organizationInvite.create({
+        data: { organizationId: f.orgA.id, email: 'boss@example.org', role: 'owner' },
+      });
+      const res = await bulk(f.users.admin.cookie, {
+        role: 'member',
+        people: [
+          { email: 'a@example.org' },
+          { email: 'A@example.org' },
+          { email: 'not an email' },
+          { email: 'pat@example' },
+          { email: 'boss@example.org' },
+          { email: 'b@example.org' },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.results).toEqual([
+        { email: 'a@example.org', status: 'invited' },
+        { email: 'a@example.org', status: 'duplicate' },
+        { email: 'not an email', status: 'invalid' },
+        { email: 'pat@example', status: 'invalid' },
+        { email: 'boss@example.org', status: 'owner-only' },
+        { email: 'b@example.org', status: 'invited' },
+      ]);
+      const boss = await prisma.organizationInvite.findFirstOrThrow({
+        where: { email: 'boss@example.org' },
+      });
+      expect(boss.role).toBe('owner');
+    });
+
+    it('refuses a list that is too long or empty, or a name too long, and adds nothing', async () => {
       const many = Array.from({ length: MAX_BULK_PEOPLE + 1 }, (_, i) => ({
         email: `p${i}@example.org`,
       }));
-      for (const people of [
-        many,
-        [],
-        [{ email: 'a@example.org' }, { email: 'A@example.org' }],
-        [{ email: 'not an email' }],
-        [{ email: 'a@example.org', name: 'x'.repeat(101) }],
-      ]) {
+      for (const people of [many, [], [{ email: 'a@example.org', name: 'x'.repeat(101) }]]) {
         const res = await bulk(f.users.admin.cookie, { role: 'member', people });
         expect(res.status, JSON.stringify(people).slice(0, 80)).toBe(400);
       }

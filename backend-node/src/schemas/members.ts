@@ -25,14 +25,12 @@ export const addMemberBody = z.object({
 /** At most this many people in one bulk addition (MAX_BULK_PEOPLE in membershipService) */
 const BULK_LIMIT = 500;
 
+// Each email is checked on its own (a bad one is answered for its line: addMembersInBulk)
 export const addMembersBulkBody = z.object({
   people: z
-    .array(z.object({ email, name: personName }))
+    .array(z.object({ email: z.string().max(320), name: personName }))
     .min(1)
-    .max(BULK_LIMIT)
-    .refine((people) => new Set(people.map((p) => p.email)).size === people.length, {
-      message: 'Each email can be listed once',
-    }),
+    .max(BULK_LIMIT),
   role: orgRole,
 });
 

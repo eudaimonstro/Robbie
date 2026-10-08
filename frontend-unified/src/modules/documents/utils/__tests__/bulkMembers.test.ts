@@ -25,6 +25,17 @@ describe('readPastedPeople', () => {
     ]);
   });
 
+  it('takes the name from before the email and leaves out the columns after it', () => {
+    const [line] = readPastedPeople('Carmen Diaz\tcarmen@example.org\tLot 12\tPaid');
+    expect(line).toEqual({
+      line: 1,
+      text: 'Carmen Diaz\tcarmen@example.org\tLot 12\tPaid',
+      email: 'carmen@example.org',
+      name: 'Carmen Diaz',
+      ignored: 'Lot 12 Paid',
+    });
+  });
+
   it('says what is wrong with a line, in words', () => {
     const lines = readPastedPeople(
       [

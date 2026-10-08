@@ -26,6 +26,7 @@ import { deriveMeetingRole, staleRoles, updateSocketRoles } from './meetingRoles
 import { previousMinutesFor } from '../bylawyer/services/meetingMinutes.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
+import { acceptPendingInvitesFor } from '../orgs/membershipService.js';
 
 type TypedSocket = Socket<
   ClientToServerEvents,
@@ -197,6 +198,9 @@ export async function handleJoinMeeting(
     }
 
     const packet = await findMeetingPacket(meetingCode);
+    // Additions by email waiting for this user become memberships first, so someone added in
+    // bulk who already had an account joins as a member, not a guest
+    if (packet) await acceptPendingInvitesFor(userId);
     const person = packet ? await findPerson(packet.organizationId, userId) : null;
     if (!packet || !person) {
       joinRateLimiter.consume(userId);

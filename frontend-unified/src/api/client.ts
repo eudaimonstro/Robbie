@@ -624,9 +624,15 @@ export interface MeetingRoster {
   invites: RosterInvite[];
 }
 
-/** What a bulk addition did with each person: added (had an account), invited, updated, member */
+/**
+ * What a bulk addition did with each line: invited (waiting to sign in, account or not), updated
+ * (already waiting), member, or refused on its own (invalid, duplicate, owner-only)
+ */
 export interface BulkAddResult {
-  results: Array<{ email: string; status: 'added' | 'invited' | 'updated' | 'member' }>;
+  results: Array<{
+    email: string;
+    status: 'invited' | 'updated' | 'member' | 'invalid' | 'duplicate' | 'owner-only';
+  }>;
 }
 
 export type AddMemberResult =
