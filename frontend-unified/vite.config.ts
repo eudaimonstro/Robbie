@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
-// The API the dev server and `vite preview` forward to: 3001 in development. The Playwright
-// harness (e2e/) runs its own on another port.
+// The API the dev server and `vite preview` forward to: 3001 in development. (The Playwright
+// harness doesn't use Vite: its API serves the built app, as production does.)
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:3001';
 
 export default defineConfig({

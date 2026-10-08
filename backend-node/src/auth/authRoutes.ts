@@ -23,13 +23,19 @@ import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessi
 
 export const authRouter = Router();
 
-// Per-IP limits on top of the per-email limits in signInService. Tests sign in many times from
-// one address, so the per-IP limits are off under test.
+// Per-IP limits on top of the per-email limits in signInService (5 codes an hour, 5 attempts per
+// code), which are the guard against guessing. These only slow one machine spraying many
+// addresses: at a meeting every homeowner on the venue's Wi-Fi shares one public address, so
+// they allow a room. Tests sign in many times from one address, so they are off under test.
+export const SIGN_IN_WINDOW_MS = 15 * 60 * 1000;
+export const REQUEST_CODE_LIMIT_PER_IP = 300;
+export const VERIFY_LIMIT_PER_IP = 600;
+
 const skipInTests = () => process.env.NODE_ENV === 'test';
 
 const requestCodeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: SIGN_IN_WINDOW_MS,
+  max: REQUEST_CODE_LIMIT_PER_IP,
   skip: skipInTests,
   message: { error: 'Too many requests. Try again in 15 minutes.' },
   standardHeaders: true,
@@ -37,8 +43,8 @@ const requestCodeLimiter = rateLimit({
 }) as unknown as RequestHandler;
 
 const verifyLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: SIGN_IN_WINDOW_MS,
+  max: VERIFY_LIMIT_PER_IP,
   skip: skipInTests,
   message: { error: 'Too many attempts. Try again in 15 minutes.' },
   standardHeaders: true,

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Read-only by default; only publish writes, to the package registry
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -53,6 +57,11 @@ jobs:
 
       - name: Apply database migrations
         run: npm run db:deploy -w backend-node
+
+      - name: Audit the production dependencies
+        # Fails on critical findings; the high ones it prints are accepted in
+        # docs/superpowers/specs/2026-10-07-ship-design.md (Dependencies)
+        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=critical
 
       - name: Format check
         run: npm run format:check
@@ -181,3 +190,76 @@ jobs:
             e2e/test-results
             e2e/playwright-report
           retention-days: 14
+
+  image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: robbie:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start it from compose, check it, and restore a backup into it
+        run: bash deploy/smoke.sh robbie:ci
+
+  publish:
+    # Only main, and only once everything else passed
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [ci, e2e, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # One publish at a time; a later push's publish waits for this one
+    concurrency:
+      group: publish-main
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Name the commit's tags
+        id: tag
+        # :main moves only to the commit at the tip of main. Once main has moved on, a later
+        # push's publish moves it (or already has, if its tests finished first), so this commit
+        # gets only its sha- tag and never puts :main back on an older build
+        run: |
+          echo "sha=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          tip=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "main=ghcr.io/eudaimonstro/robbie:main" >> "$GITHUB_OUTPUT"
+          else
+            echo "main is at $tip now, so :main stays where it is"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.main }}
+            ghcr.io/eudaimonstro/robbie:${{ steps.tag.outputs.sha }}
+          cache-from: type=gha

@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getMemberQueueInfo,
   calculateStanceBalance,
-  getQueueStats,
   canRemoveSelfFromQueue,
   formatWaitTime,
-  getNextSpeakerInfo,
 } from '../../utils/index.js';
 import type { MeetingState, SpeakerQueueEntry, Member } from '../../types/index.js';
 
@@ -65,51 +62,6 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   ...overrides,
 });
 
-describe('getMemberQueueInfo', () => {
-  it('should return null when member not in queue', () => {
-    const state = createMockState();
-    const info = getMemberQueueInfo(state, 1);
-    expect(info).toBeNull();
-  });
-
-  it('should return position 1 for first in queue', () => {
-    const member = createMockMember({ id: 1 });
-    const state = createMockState({
-      speakerQueue: [{ member, stance: 'pro' }],
-    });
-
-    const info = getMemberQueueInfo(state, 1);
-    expect(info?.position).toBe(1);
-  });
-
-  it('should calculate estimated wait time based on position', () => {
-    const member1 = createMockMember({ id: 1, name: 'First' });
-    const member2 = createMockMember({ id: 2, name: 'Second' });
-    const state = createMockState({
-      speakerQueue: [
-        { member: member1, stance: 'pro' },
-        { member: member2, stance: 'con' },
-      ],
-      speakerTimeLimit: 60, // 60 seconds
-    });
-
-    const info = getMemberQueueInfo(state, 2);
-    expect(info?.position).toBe(2);
-    expect(info?.estimatedWaitSeconds).toBe(60); // One person ahead * 60 seconds
-  });
-
-  it('should indicate willSpeakNext when first and no current speaker', () => {
-    const member = createMockMember({ id: 1 });
-    const state = createMockState({
-      speakerQueue: [{ member, stance: 'pro' }],
-      recognizedSpeaker: null,
-    });
-
-    const info = getMemberQueueInfo(state, 1);
-    expect(info?.willSpeakNext).toBe(true);
-  });
-});
-
 describe('calculateStanceBalance', () => {
   it('should count stances correctly', () => {
     const queue: SpeakerQueueEntry[] = [
@@ -148,23 +100,6 @@ describe('calculateStanceBalance', () => {
       { member: createMockMember({ id: 4 }), stance: 'con' },
     ];
     expect(calculateStanceBalance(unbalanced).isBalanced).toBe(false);
-  });
-});
-
-describe('getQueueStats', () => {
-  it('should return correct queue statistics', () => {
-    const state = createMockState({
-      speakerQueue: [
-        { member: createMockMember({ id: 1 }), stance: 'pro' },
-        { member: createMockMember({ id: 2 }), stance: 'con' },
-      ],
-      speakerTimeLimit: 60,
-    });
-
-    const stats = getQueueStats(state);
-    expect(stats.totalInQueue).toBe(2);
-    expect(stats.estimatedTotalTime).toBe(120); // 2 * 60
-    expect(stats.currentSpeakerRemaining).toBeNull();
   });
 });
 
@@ -213,57 +148,5 @@ describe('formatWaitTime', () => {
   it('should format minutes and seconds', () => {
     expect(formatWaitTime(90)).toBe('1min 30s');
     expect(formatWaitTime(150)).toBe('2min 30s');
-  });
-});
-
-describe('getNextSpeakerInfo', () => {
-  it('should return null when queue is empty', () => {
-    const state = createMockState();
-    const info = getNextSpeakerInfo(state);
-    expect(info.nextSpeaker).toBeNull();
-  });
-
-  it('should return first speaker when no alternation rule', () => {
-    const member1 = createMockMember({ id: 1, name: 'First' });
-    const member2 = createMockMember({ id: 2, name: 'Second' });
-    const state = createMockState({
-      speakerQueue: [
-        { member: member1, stance: 'pro' },
-        { member: member2, stance: 'con' },
-      ],
-      suspendedRules: [
-        {
-          id: 1,
-          rule: 'pro-con-alternation',
-          purpose: 'Test',
-          specificAction: '',
-          scope: 'meeting-remainder',
-          suspendedAt: '10:00:00',
-          motionId: 1,
-        },
-      ],
-    });
-
-    const info = getNextSpeakerInfo(state);
-    expect(info.nextSpeaker?.member.name).toBe('First');
-    expect(info.isAlternating).toBe(false);
-  });
-
-  it('should prefer opposite stance when alternation is active', () => {
-    const proMember = createMockMember({ id: 1, name: 'Pro Speaker' });
-    const conMember = createMockMember({ id: 2, name: 'Con Speaker' });
-    const state = createMockState({
-      speakerQueue: [
-        { member: proMember, stance: 'pro' },
-        { member: conMember, stance: 'con' },
-      ],
-      lastSpeakerStance: 'pro', // Last was pro, so prefer con
-      suspendedRules: [], // No rule suspended, alternation active
-    });
-
-    const info = getNextSpeakerInfo(state);
-    expect(info.isAlternating).toBe(true);
-    expect(info.preferredStance).toBe('con');
-    expect(info.nextSpeaker?.member.name).toBe('Con Speaker');
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import type {
   MeetingState,
@@ -6,6 +6,7 @@ import type {
   MeetingAction,
   DebateStance,
 } from '@robbie-bylawyer/shared/types';
+import { sortSpeakerQueue } from '@robbie-bylawyer/shared/utils';
 import { Card, Button } from './ui';
 import { colors, spacing, typography, borderRadius, stanceColors } from '../theme';
 
@@ -32,8 +33,9 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
   const [selectedStance, setSelectedStance] = useState<DebateStance>('neutral');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get user's position in queue
-  const queuePosition = state.speakerQueue.findIndex((s) => s.member.id === currentUser.id);
+  // The queue in the order the chair will call it, as the web screens show it
+  const queue = useMemo(() => sortSpeakerQueue(state), [state]);
+  const queuePosition = queue.findIndex((s) => s.member.id === currentUser.id);
 
   // Handle raise hand
   const handleRaiseHand = useCallback(async () => {
@@ -131,10 +133,10 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
       )}
 
       {/* Show queue preview */}
-      {state.speakerQueue.length > 0 && (
+      {queue.length > 0 && (
         <View style={styles.queuePreview}>
-          <Text style={styles.queueTitle}>Queue ({state.speakerQueue.length})</Text>
-          {state.speakerQueue.slice(0, 3).map((entry, index) => (
+          <Text style={styles.queueTitle}>Queue ({queue.length})</Text>
+          {queue.slice(0, 3).map((entry, index) => (
             <View
               key={entry.member.id}
               style={styles.queueItem}
@@ -151,9 +153,7 @@ export const SpeakerQueueSection = memo(function SpeakerQueueSection({
               </View>
             </View>
           ))}
-          {state.speakerQueue.length > 3 && (
-            <Text style={styles.queueMore}>+{state.speakerQueue.length - 3} more</Text>
-          )}
+          {queue.length > 3 && <Text style={styles.queueMore}>+{queue.length - 3} more</Text>}
         </View>
       )}
     </View>

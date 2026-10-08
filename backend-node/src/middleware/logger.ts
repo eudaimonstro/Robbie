@@ -16,6 +16,15 @@ export const logger = pino({
       }),
 });
 
+/**
+ * A request's URL without a share link's token: /api/share/<token>/... (the API) and
+ * /share/<token>/... (the web app's pages, including /print) log as /share/[token]. The token is
+ * the only key to a shared document, and the logs are kept for days.
+ */
+export function redactUrl(url: string | undefined): string | undefined {
+  return url?.replace(/^((?:\/api)?\/share\/)[^/?#]+/, '$1[token]');
+}
+
 export const httpLogger = pinoHttp({
   logger,
   genReqId: (req) => {
@@ -24,7 +33,7 @@ export const httpLogger = pinoHttp({
   serializers: {
     req: (req) => ({
       method: req.method,
-      url: req.url,
+      url: redactUrl(req.url),
     }),
     res: (res) => ({
       statusCode: res.statusCode,

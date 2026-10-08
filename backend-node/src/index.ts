@@ -15,7 +15,7 @@ import { initializeStorage as initializeFileStorage } from './bylawyer/services/
 import { logger } from './middleware/logger.js';
 import { deleteExpiredSessionsAndCodes } from './auth/sessionService.js';
 import { getEmailProvider } from './auth/emailService.js';
-import { signInStartupCheck } from './auth/signInStartupCheck.js';
+import { startupCheck } from './startupCheck.js';
 
 const PORT = process.env.PORT || 3001;
 const httpServer = createServer(app);
@@ -46,12 +46,12 @@ setIoInstance(io);
 
 // Initialize storage and start server
 async function start() {
-  // Refuse to start production without a way to send sign-in codes or an address for email
-  // links, and flag test sign-in
-  const signInCheck = signInStartupCheck(process.env, getEmailProvider());
-  for (const warning of signInCheck.warnings) logger.warn(warning);
-  if (signInCheck.error) {
-    logger.error(signInCheck.error);
+  // Refuse to start production misconfigured (no database, no way to send sign-in codes, no
+  // sender or address for emails, test sign-in), and flag what is merely risky
+  const check = startupCheck(process.env, getEmailProvider());
+  for (const warning of check.warnings) logger.warn(warning);
+  if (check.error) {
+    logger.error(check.error);
     process.exit(1);
   }
 
@@ -76,7 +76,7 @@ async function start() {
     );
     cleanup.unref();
 
-    // Start server - bind to 0.0.0.0 for Railway
+    // Every interface: in a container, Caddy reaches the server over the compose network
     httpServer.listen(Number(PORT), '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT}`);
       logger.info(`Storage mode: ${storage.mode}`);

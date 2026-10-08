@@ -41,7 +41,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "https://robbie-backend-production.up.railway.app",
+      "apiUrl": "https://robbie.scouch.dev",
       "eas": {
         "projectId": "your-project-id"
       }

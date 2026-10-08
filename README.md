@@ -79,21 +79,21 @@ npm run dev
 
 ### Available Scripts
 
-| Command                             | Description                                                                                                 |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                       | Start the backend and the web app                                                                           |
-| `npm run build`                     | Build all packages                                                                                          |
-| `npm run test`                      | Run tests                                                                                                   |
-| `npm run lint`                      | ESLint, then the palette check (`scripts/check-palette.sh`)                                                 |
-| `npm run e2e`                       | Playwright: build, start the API and the web build, reseed the demo, run the smoke test and the screenshots |
-| `npm run db:studio`                 | Open Prisma Studio                                                                                          |
-| `npm run seed:demo -w backend-node` | Create the Maple Grove HOA demo (`-- --reset` replaces it)                                                  |
+| Command                             | Description                                                                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                       | Start the backend and the web app                                                                                                                                 |
+| `npm run build`                     | Build all packages                                                                                                                                                |
+| `npm run test`                      | Run tests                                                                                                                                                         |
+| `npm run lint`                      | ESLint, then the palette check (`scripts/check-palette.sh`)                                                                                                       |
+| `npm run e2e`                       | Playwright: build, start the API (which serves the web build as production does), reseed the demo, run the smoke tests, the screenshots and the meeting scenarios |
+| `npm run db:studio`                 | Open Prisma Studio                                                                                                                                                |
+| `npm run seed:demo -w backend-node` | Create the Maple Grove HOA demo (`-- --reset` replaces it)                                                                                                        |
 
 The demo's people sign in with the code `000000` when the server runs with `ENABLE_TEST_AUTH=true`; the seed prints their emails and roles.
 
 ### End-to-end tests
 
-`npm run e2e` runs the Playwright harness in `e2e/`. It starts its own API on port 3101 and the production web build on port 4173, on the database in `E2E_DATABASE_URL`, which defaults to a throwaway Postgres on port 55432 (it never uses `DATABASE_URL`). Every run migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo, so don't point it at data you want to keep. To run it locally:
+`npm run e2e` runs the Playwright harness in `e2e/`. It starts its own API on port 3101, which serves the production web build on its own origin with the headers production sends, on the database in `E2E_DATABASE_URL`, which defaults to a throwaway Postgres on port 55432 (it never uses `DATABASE_URL`). Every run migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo, so don't point it at data you want to keep. To run it locally:
 
 ```bash
 # Once: the throwaway Postgres and Chromium
@@ -103,7 +103,7 @@ npx playwright install chromium
 npm run e2e
 ```
 
-Screenshots of the main pages in both palettes land in `e2e/test-results/`. Locally the harness reuses a server already listening on 3101 or 4173, so stop stale ones first.
+Screenshots of the main pages in both palettes land in `e2e/test-results/`. Locally the harness reuses a server already listening on 3101, so stop a stale one first.
 
 ### Design
 
@@ -120,6 +120,10 @@ PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
 DATABASE_URL=postgresql://...
 ```
+
+## Deploying
+
+Robbie runs on one server with Docker Compose (the app, Postgres, nightly backups and Caddy for HTTPS). The runbook, from preparing the host to the night of a meeting, is [`docs/deploy.md`](docs/deploy.md).
 
 ## License
 

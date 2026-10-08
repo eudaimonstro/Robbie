@@ -377,6 +377,53 @@ describe('PhoneView', () => {
     );
   });
 
+  describe('the speakers waiting, in the order the chair will call them', () => {
+    const debating = { ...active, currentMotion: motion, motionStack: [motion] };
+    const spoken = { ...motion, moverHasSpoken: true };
+    const speakerNames = () =>
+      within(screen.getByRole('region', { name: 'Speakers' }))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+
+    it('lists the mover first, though another member asked first', () => {
+      renderAs(dana, {
+        ...debating,
+        speakerQueue: [
+          { member: ben, stance: 'con' },
+          { member: alice, stance: 'pro' },
+        ],
+      });
+      expect(speakerNames()).toEqual(['1. Alice Brennan (For)', '2. Ben Whitaker (Against)']);
+    });
+
+    it('lists a speaker on the other side next, after the last speaker', () => {
+      renderAs(dana, {
+        ...debating,
+        currentMotion: spoken,
+        motionStack: [spoken],
+        lastSpeakerStance: 'pro',
+        speakerQueue: [
+          { member: ben, stance: 'pro' },
+          { member: sam, stance: 'con' },
+        ],
+      });
+      expect(speakerNames()).toEqual(['1. Sam Ortiz (Against)', '2. Ben Whitaker (For)']);
+    });
+
+    it('tells a member who asked before the mover that the mover speaks first', () => {
+      renderAs(ben, {
+        ...debating,
+        speakerQueue: [
+          { member: ben, stance: 'con' },
+          { member: alice, stance: 'pro' },
+        ],
+      });
+      expect(screen.getByText(/You asked to speak/).textContent).toBe(
+        'You asked to speak: 2 of 2 waiting, against.',
+      );
+    });
+  });
+
   describe('the result', () => {
     const decided: MeetingState = {
       ...active,

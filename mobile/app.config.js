@@ -12,8 +12,8 @@ const getApiUrl = () => {
   if (IS_STAGING) {
     return 'https://robbie-backend-staging.up.railway.app';
   }
-  // Production
-  return 'https://robbie-backend-production.up.railway.app';
+  // Production: the server in docs/deploy.md
+  return 'https://robbie.scouch.dev';
 };
 
 const getBundleId = () => {
