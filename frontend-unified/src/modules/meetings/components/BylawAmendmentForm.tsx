@@ -442,9 +442,17 @@ function ProposedPicker({
       <legend className="label">Proposed amendments</legend>
       <ul className="space-y-2">
         {proposed.map((amendment) => {
-          const one = amendment.changes.length === 1;
           const [first] = amendment.changes;
           const section = sections.find((s) => s.id === first?.targetSectionId);
+          // Why it can't be moved, if it can't: more than one change, or a section the current
+          // bylaws no longer have (for an addition, none means the top level)
+          const reason =
+            amendment.changes.length !== 1
+              ? `${amendment.changes.length} changes: can't be moved in a meeting yet`
+              : first.targetSectionId && !section
+                ? "Its section isn't in the current bylaws"
+                : null;
+          const one = !reason;
           return (
             <li key={amendment.id}>
               <label
@@ -464,13 +472,12 @@ function ProposedPicker({
                 <span>
                   <span className="block font-medium text-ink">{amendment.title}</span>
                   <span className="block text-sm text-ink-muted">
-                    {one
-                      ? section
-                        ? sectionLabel(section)
-                        : first.changeType === 'add'
-                          ? 'A new section'
-                          : 'A section'
-                      : `${amendment.changes.length} changes: can't be moved in a meeting yet`}
+                    {reason ??
+                      (section
+                        ? first.changeType === 'add'
+                          ? `A new section under ${sectionLabel(section)}`
+                          : sectionLabel(section)
+                        : 'A new section at the top level')}
                   </span>
                 </span>
               </label>

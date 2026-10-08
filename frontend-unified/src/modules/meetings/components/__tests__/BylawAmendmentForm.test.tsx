@@ -80,6 +80,9 @@ describe('BylawAmendmentForm', () => {
       amendment('a1', 'Lower the quorum to 15%', 'proposed', [change()]),
       amendment('a2', 'Rewrite Article IV', 'proposed', [change(), change({ id: 'c2' })]),
       amendment('a3', 'A draft', 'draft', [change()]),
+      amendment('a4', 'Written against an old version', 'proposed', [
+        change({ targetSectionId: 'gone' }),
+      ]),
     ]);
   });
 
@@ -93,6 +96,9 @@ describe('BylawAmendmentForm', () => {
       'disabled',
       true,
     );
+    const old = within(proposed).getByRole('radio', { name: /Written against an old version/ });
+    expect(old).toHaveProperty('disabled', true);
+    expect(within(proposed).getByText("Its section isn't in the current bylaws")).toBeTruthy();
     fireEvent.click(within(proposed).getByRole('radio', { name: /Lower the quorum/ }));
 
     const text = screen.getByRole('region', { name: 'The text' });

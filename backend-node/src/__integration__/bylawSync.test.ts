@@ -473,6 +473,58 @@ describe('bylaw sync in a live meeting', () => {
     expect(seal.parent?.title).toBe('Name');
   });
 
+  it('moves a second proposed amendment after the first is applied', async () => {
+    await prisma.amendmentChange.create({
+      data: {
+        amendmentId: f.proposed,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    const second = await prisma.amendment.create({
+      data: {
+        documentId: f.doc,
+        title: 'Shorten the short name',
+        status: 'proposed',
+        changes: {
+          create: { changeType: 'modify', targetSectionId: f.child, newContent: 'A for short.' },
+        },
+      },
+    });
+    const { secretary, member, owner } = await meetingUnderWay();
+    const adopt = async (amendmentId: string) => {
+      await act(member, {
+        type: 'MAKE_MOTION',
+        motionType: 'bylawAmendment',
+        text: '',
+        motionId: 0,
+        bylawAmendment: { documentId: f.doc, amendmentId, changeType: 'modify' },
+      });
+      await act(owner, { type: 'SECOND_MOTION' });
+      await act(secretary, { type: 'REQUEST_UNANIMOUS_CONSENT' });
+      await act(secretary, { type: 'UNANIMOUS_CONSENT_PASSED' });
+    };
+    await adopt(f.proposed);
+    // The first made version 3: the second's change now names the short name's new id
+    const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
+    const child = await prisma.section.findFirstOrThrow({
+      where: { versionId: doc.currentVersionId!, numberLabel: '1.1' },
+    });
+    expect(
+      await prisma.amendmentChange.findFirstOrThrow({ where: { amendmentId: second.id } }),
+    ).toMatchObject({ targetSectionId: child.id });
+
+    await adopt(second.id);
+    const decided = await prisma.amendment.findUniqueOrThrow({ where: { id: second.id } });
+    expect(decided.status).toBe('passed');
+    expect(decided.resultingVersionId).not.toBeNull();
+    const latest = await prisma.section.findFirstOrThrow({
+      where: { versionId: decided.resultingVersionId!, numberLabel: '1.1' },
+    });
+    expect(latest.content).toBe('A for short.');
+  });
+
   it.each([
     [
       'a section not in the current version',
