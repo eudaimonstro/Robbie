@@ -10,6 +10,8 @@ import { bylawsImport, documents as documentsApi, type Document } from '../../..
 import { useCan, useSelectRecordOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import ErrorState from '../../../components/ui/ErrorState';
+import { isNotFound } from '../../../utils/httpErrors';
 import { canMerge, mergeIntoPrevious, renameSection, type TreePath } from '../utils/parsedTree';
 
 /** The largest Word document the server reads */
@@ -27,7 +29,9 @@ export default function ImportBylawsPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [doc, setDoc] = useState<Document | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<'missing' | 'failed' | null>(null);
+  // Bumped by Try again
+  const [attempt, setAttempt] = useState(0);
   useSelectRecordOrganization(doc?.organizationId);
   const canImport = useCan('secretary');
 
@@ -57,13 +61,13 @@ export default function ImportBylawsPage() {
       .then((found) => {
         if (!canceled) setDoc(found);
       })
-      .catch(() => {
-        if (!canceled) setNotFound(true);
+      .catch((err) => {
+        if (!canceled) setLoadError(isNotFound(err) ? 'missing' : 'failed');
       });
     return () => {
       canceled = true;
     };
-  }, [documentId]);
+  }, [documentId, attempt]);
 
   /** Read the text into sections, starting over */
   const parse = (value: string) => {
@@ -154,7 +158,23 @@ export default function ImportBylawsPage() {
     }
   };
 
-  if (notFound) return <p className="py-12 text-center text-ink-muted">Document not found.</p>;
+  if (loadError === 'missing') {
+    return <p className="py-12 text-center text-ink-muted">Document not found.</p>;
+  }
+  if (loadError === 'failed') {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <ErrorState
+          title="Couldn't load the document."
+          description="Check your connection, then try again."
+          onRetry={() => {
+            setLoadError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      </div>
+    );
+  }
   if (!doc) return <LoadingPage label="Loading the document..." />;
 
   return (
