@@ -15,25 +15,67 @@ const ID = '3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b';
 
 describe('parseReportArgs', () => {
   it('reads an attachment with its note, and a dry run', () => {
-    expect(parseReportArgs(['--attachment', ID, '--note', ' NCMEC report 42 '])).toEqual({
+    expect(
+      parseReportArgs(['--attachment', ID, '--kind', 'csam', '--note', ' NCMEC report 42 ']),
+    ).toEqual({
       command: {
-        kind: 'attachment',
+        action: 'attachment',
         attachmentId: ID,
+        kind: 'csam',
         note: 'NCMEC report 42',
         dryRun: false,
         missingOk: false,
       },
     });
     expect(
-      parseReportArgs(['--attachment', ID.toUpperCase(), '--note', 'x', '--dry-run']).command,
-    ).toEqual({ kind: 'attachment', attachmentId: ID, note: 'x', dryRun: true, missingOk: false });
+      parseReportArgs([
+        '--attachment',
+        ID.toUpperCase(),
+        '--kind',
+        'other',
+        '--note',
+        'x',
+        '--dry-run',
+      ]).command,
+    ).toEqual({
+      action: 'attachment',
+      attachmentId: ID,
+      kind: 'other',
+      note: 'x',
+      dryRun: true,
+      missingOk: false,
+    });
+  });
+
+  it('wants the kind of report with --attachment, and only there', () => {
+    const kindError = '--kind is required with --attachment: csam, copyright or other';
+    expect(parseReportArgs(['--attachment', ID, '--note', 'x']).error).toBe(kindError);
+    expect(parseReportArgs(['--attachment', ID, '--kind', 'spam', '--note', 'x']).error).toBe(
+      kindError,
+    );
+    expect(parseReportArgs(['--suspend', 'a@b.org', '--kind', 'csam']).error).toBe(
+      '--kind goes with --attachment only',
+    );
+  });
+
+  it('reads a restore with its note', () => {
+    expect(parseReportArgs(['--restore', 'folder-1', '--note', ' Counter-notice 3 '])).toEqual({
+      command: { action: 'restore', folder: 'folder-1', note: 'Counter-notice 3', dryRun: false },
+    });
+    expect(parseReportArgs(['--restore', 'folder-1']).error).toMatch(/--note is required/);
+    expect(
+      parseReportArgs(['--restore', 'folder-1', '--note', 'x', '--kind', 'copyright']).error,
+    ).toBe('--kind goes with --attachment only');
   });
 
   it('reads --missing-ok with an attachment only', () => {
     expect(
-      parseReportArgs(['--attachment', ID, '--note', 'x', '--missing-ok']).command,
+      parseReportArgs(['--attachment', ID, '--kind', 'copyright', '--note', 'x', '--missing-ok'])
+        .command,
     ).toMatchObject({ missingOk: true });
-    expect(parseReportArgs(['--attachment', ID, '--note', 'x']).command).toMatchObject({
+    expect(
+      parseReportArgs(['--attachment', ID, '--kind', 'copyright', '--note', 'x']).command,
+    ).toMatchObject({
       missingOk: false,
     });
     expect(parseReportArgs(['--suspend', 'a@b.org', '--missing-ok']).error).toBe(
@@ -53,7 +95,7 @@ describe('parseReportArgs', () => {
       ]),
     ).toEqual({
       command: {
-        kind: 'record-report',
+        action: 'record-report',
         folder: '2026-10-08T15-30-00-000Z-' + ID,
         reportedAt: new Date('2026-10-09T00:00:00Z'),
         reportId: '123456789',
@@ -99,17 +141,18 @@ describe('parseReportArgs', () => {
 
   it('reads a suspension and its reversal, with the email normalized', () => {
     expect(parseReportArgs(['--suspend', ' Ann@Example.ORG '])).toEqual({
-      command: { kind: 'suspend', email: 'ann@example.org', dryRun: false },
+      command: { action: 'suspend', email: 'ann@example.org', dryRun: false },
     });
     expect(parseReportArgs(['--unsuspend', 'ann@example.org', '--dry-run']).command).toEqual({
-      kind: 'unsuspend',
+      action: 'unsuspend',
       email: 'ann@example.org',
       dryRun: true,
     });
   });
 
   it('wants exactly one action', () => {
-    const one = 'Give exactly one of --attachment, --record-report, --suspend and --unsuspend';
+    const one =
+      'Give exactly one of --attachment, --restore, --record-report, --suspend and --unsuspend';
     expect(parseReportArgs([]).error).toBe(one);
     expect(parseReportArgs(['--dry-run']).error).toBe(one);
     expect(parseReportArgs(['--suspend', 'a@b.org', '--unsuspend', 'a@b.org']).error).toBe(one);
@@ -117,11 +160,17 @@ describe('parseReportArgs', () => {
   });
 
   it('refuses a bad id, a missing note, a stray note and a bad email', () => {
-    expect(parseReportArgs(['--attachment', '../etc', '--note', 'x']).error).toMatch(/UUID/);
-    expect(parseReportArgs(['--attachment', ID]).error).toMatch(/--note is required/);
-    expect(parseReportArgs(['--attachment', ID, '--note', '  ']).error).toMatch(/--note/);
+    expect(
+      parseReportArgs(['--attachment', '../etc', '--kind', 'other', '--note', 'x']).error,
+    ).toMatch(/UUID/);
+    expect(parseReportArgs(['--attachment', ID, '--kind', 'other']).error).toMatch(
+      /--note is required/,
+    );
+    expect(parseReportArgs(['--attachment', ID, '--kind', 'other', '--note', '  ']).error).toMatch(
+      /--note/,
+    );
     expect(parseReportArgs(['--suspend', 'a@b.org', '--note', 'x']).error).toBe(
-      '--note goes with --attachment only',
+      '--note goes with --attachment and --restore only',
     );
     expect(parseReportArgs(['--suspend', 'not-an-email']).error).toBe(
       'Not an email address: not-an-email',
@@ -142,6 +191,7 @@ function attachment(overrides: Partial<AttachmentRecord> = {}): AttachmentRecord
     id: ID,
     type: 'uploaded_file',
     displayName: 'Budget',
+    description: null,
     filename: 'budget.pdf',
     storagePath: `MAPLE1/${ID}.pdf`,
     mimeType: 'application/pdf',
@@ -159,6 +209,7 @@ describe('buildManifest', () => {
     sha256: 'ab'.repeat(32),
     preservedFile: `${ID}.pdf`,
     preservedAt: new Date('2028-02-29T10:00:00Z'),
+    kind: 'copyright' as const,
     note: 'Report 7',
   };
 
@@ -185,7 +236,12 @@ describe('buildManifest', () => {
       retention: expect.stringMatching(/--record-report.*one year after the report/s),
       preservedFile: `${ID}.pdf`,
       fileMissing: false,
+      kind: 'copyright',
       note: 'Report 7',
+      description: null,
+      restoredAt: null,
+      restoreNote: null,
+      restoredStoragePath: null,
     });
   });
 

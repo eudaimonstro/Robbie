@@ -89,7 +89,7 @@ export default function TermsPage() {
         <p>
           When Robbie removes material after a notice, it tells the person who uploaded it. If they
           believe it was removed by mistake or misidentification, they can send the agent a
-          counter-notice as the Act describes, and Robbie may restore the material 10 to 14 business
+          counter-notice as the Act describes, and Robbie restores the material 10 to 14 business
           days later unless the person who sent the notice says they have gone to court.
         </p>
         <p>

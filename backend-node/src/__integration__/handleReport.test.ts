@@ -14,6 +14,7 @@ import {
   preserveRoot,
   readManifest,
   recordReport,
+  restoreAttachment,
   setSuspended,
   type PreservationManifest,
 } from '../abuse/reportHandling.js';
@@ -71,7 +72,11 @@ describe('handleReport: preserving an attachment', () => {
     const original = getFullPath(attachment.storagePath!);
     const now = new Date('2026-10-08T15:30:00.000Z');
 
-    const result = await preserveAttachment(attachment.id, 'NCMEC report 123', { root, now });
+    const result = await preserveAttachment(
+      attachment.id,
+      { kind: 'csam', note: 'NCMEC report 123' },
+      { root, now },
+    );
 
     expect(path.dirname(result.folder)).toBe(root);
     const copy = path.join(result.folder, path.basename(attachment.storagePath!));
@@ -104,7 +109,12 @@ describe('handleReport: preserving an attachment', () => {
       retention: expect.any(String),
       preservedFile: path.basename(attachment.storagePath!),
       fileMissing: false,
+      kind: 'csam',
       note: 'NCMEC report 123',
+      description: null,
+      restoredAt: null,
+      restoreNote: null,
+      restoredStoragePath: null,
     });
 
     expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
@@ -115,7 +125,11 @@ describe('handleReport: preserving an attachment', () => {
 
   it('changes nothing on a dry run', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 kept'));
-    const result = await preserveAttachment(attachment.id, 'checking', { root, dryRun: true });
+    const result = await preserveAttachment(
+      attachment.id,
+      { kind: 'other', note: 'checking' },
+      { root, dryRun: true },
+    );
     expect(result.dryRun).toBe(true);
     expect(result.manifest.organization.name).toBe('Org A');
     expect(await fs.readdir(root)).toEqual([]);
@@ -126,13 +140,17 @@ describe('handleReport: preserving an attachment', () => {
   it('refuses an attachment whose file is gone, unless told the file may be missing', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 gone'));
     await fs.rm(getFullPath(attachment.storagePath!));
-    await expect(preserveAttachment(attachment.id, 'gone', { root })).rejects.toThrow(
-      /missing.*--missing-ok/s,
-    );
+    await expect(
+      preserveAttachment(attachment.id, { kind: 'other', note: 'gone' }, { root }),
+    ).rejects.toThrow(/missing.*--missing-ok/s);
     expect(await fs.readdir(root)).toEqual([]);
     expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).not.toBeNull();
 
-    const result = await preserveAttachment(attachment.id, 'gone', { root, missingOk: true });
+    const result = await preserveAttachment(
+      attachment.id,
+      { kind: 'other', note: 'gone' },
+      { root, missingOk: true },
+    );
     expect(result.manifest).toMatchObject({ sha256: null, preservedFile: null, fileMissing: true });
     expect(await fs.readdir(result.folder)).toEqual(['manifest.json']);
     expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
@@ -144,7 +162,7 @@ describe('handleReport: preserving an attachment', () => {
     await fs.chmod(meetingDir, 0o000);
     try {
       await expect(
-        preserveAttachment(attachment.id, 'x', { root, missingOk: true }),
+        preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root, missingOk: true }),
       ).rejects.toMatchObject({ code: 'EACCES' });
     } finally {
       await fs.chmod(meetingDir, 0o755);
@@ -159,9 +177,9 @@ describe('handleReport: preserving an attachment', () => {
     await fs.rm(original);
     await fs.symlink('/etc/hostname', original);
     try {
-      await expect(preserveAttachment(attachment.id, 'x', { root })).rejects.toThrow(
-        /not a regular file/,
-      );
+      await expect(
+        preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root }),
+      ).rejects.toThrow(/not a regular file/);
     } finally {
       await fs.rm(original);
     }
@@ -177,9 +195,9 @@ describe('handleReport: preserving an attachment', () => {
     // The original can't be deleted: the record stays with it, and the copy is kept
     await fs.chmod(meetingDir, 0o555);
     try {
-      await expect(preserveAttachment(attachment.id, 'x', { root })).rejects.toThrow(
-        /couldn't be deleted.*run the same command again/is,
-      );
+      await expect(
+        preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root }),
+      ).rejects.toThrow(/couldn't be deleted.*run the same command again/is);
     } finally {
       await fs.chmod(meetingDir, 0o755);
     }
@@ -188,7 +206,7 @@ describe('handleReport: preserving an attachment', () => {
     const [folder] = await fs.readdir(root);
 
     // Again: the earlier copy is used, not a second one
-    const again = await preserveAttachment(attachment.id, 'x', { root });
+    const again = await preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root });
     expect(again.resumed).toBe(true);
     expect(again.folder).toBe(path.join(root, folder));
     expect(await fs.readdir(root)).toEqual([folder]);
@@ -198,36 +216,46 @@ describe('handleReport: preserving an attachment', () => {
 
   it('finishes a removal whose record survived the file', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 half'));
-    const first = await preserveAttachment(attachment.id, 'x', { root });
+    const first = await preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root });
     // As if deleting the record had failed after the file went
     const { id, ...row } = attachment;
     await prisma.attachment.create({ data: { id, ...row } });
 
-    const again = await preserveAttachment(attachment.id, 'x', { root });
+    const again = await preserveAttachment(attachment.id, { kind: 'other', note: 'x' }, { root });
     expect(again).toMatchObject({ resumed: true, folder: first.folder });
     expect(await fs.readdir(root)).toEqual([path.basename(first.folder)]);
     expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
   });
 
   it('refuses a linked document, an unknown id and a folder inside the uploads', async () => {
-    await expect(preserveAttachment(f.linked, 'x', { root })).rejects.toBeInstanceOf(ReportError);
     await expect(
-      preserveAttachment('00000000-0000-4000-8000-000000000000', 'x', { root }),
+      preserveAttachment(f.linked, { kind: 'other', note: 'x' }, { root }),
+    ).rejects.toBeInstanceOf(ReportError);
+    await expect(
+      preserveAttachment(
+        '00000000-0000-4000-8000-000000000000',
+        { kind: 'other', note: 'x' },
+        { root },
+      ),
     ).rejects.toThrow(/No attachment/);
     const inside = path.join(path.dirname(getFullPath(f.packet.code)), 'preserved');
-    await expect(preserveAttachment(f.upload, 'x', { root: inside })).rejects.toThrow(
-      /outside the uploads directory/,
-    );
+    await expect(
+      preserveAttachment(f.upload, { kind: 'other', note: 'x' }, { root: inside }),
+    ).rejects.toThrow(/outside the uploads directory/);
     expect(await prisma.attachment.findUnique({ where: { id: f.upload } })).not.toBeNull();
   });
 
   it('records the CyberTipline report, and keeps the folder a year from it', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 reported'));
     const now = new Date('2026-10-08T15:30:00.000Z');
-    const { folder, manifest } = await preserveAttachment(attachment.id, 'CSAM report', {
-      root,
-      now,
-    });
+    const { folder, manifest } = await preserveAttachment(
+      attachment.id,
+      { kind: 'csam', note: 'CSAM report' },
+      {
+        root,
+        now,
+      },
+    );
 
     const reportedAt = new Date('2026-10-09T14:00:00.000Z');
     const dry = await recordReport(path.basename(folder), reportedAt, '1234567', {
@@ -264,7 +292,11 @@ describe('handleReport: preserving an attachment', () => {
 
   it('refuses a report in the future, or a folder outside the preserved files', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 x'));
-    const { folder } = await preserveAttachment(attachment.id, 'x', { root });
+    const { folder } = await preserveAttachment(
+      attachment.id,
+      { kind: 'other', note: 'x' },
+      { root },
+    );
     const now = new Date('2026-10-09T00:00:00Z');
     await expect(
       recordReport(folder, new Date('2026-10-10T00:00:00Z'), '1', { root, now }),
@@ -275,6 +307,115 @@ describe('handleReport: preserving an attachment', () => {
     await expect(recordReport('nothing-here', now, '1', { root, now })).rejects.toThrow(
       /No manifest/,
     );
+  });
+
+  it('restores a file removed after a copyright notice, under a new name', async () => {
+    const data = Buffer.from('%PDF-1.4 disputed');
+    const attachment = await uploaded(data);
+    await prisma.attachment.update({
+      where: { id: attachment.id },
+      data: { description: 'The 2026 rules' },
+    });
+    const { folder, manifest } = await preserveAttachment(
+      attachment.id,
+      { kind: 'copyright', note: 'DMCA notice from Acme, 2026-10-08' },
+      { root },
+    );
+    expect(manifest).toMatchObject({ kind: 'copyright', description: 'The 2026 rules' });
+
+    const now = new Date('2026-10-22T16:00:00.000Z');
+    const dry = await restoreAttachment(path.basename(folder), 'Counter-notice 1', {
+      root,
+      dryRun: true,
+      now,
+    });
+    expect(dry.dryRun).toBe(true);
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
+
+    const result = await restoreAttachment(folder, 'Counter-notice 1', { root, now });
+    const restored = await prisma.attachment.findUniqueOrThrow({ where: { id: attachment.id } });
+    expect(restored).toMatchObject({
+      type: 'uploaded_file',
+      displayName: 'Pool rules',
+      description: 'The 2026 rules',
+      filename: 'report_me.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: data.length,
+      agendaItemId: f.item,
+      meetingPacketId: null,
+      uploadedBy: f.users.secretary.email,
+    });
+    // A new name, chosen by the server, in the meeting's folder
+    expect(restored.storagePath).not.toBe(attachment.storagePath);
+    expect(restored.storagePath).toMatch(new RegExp(`^${f.packet.code}/[0-9a-f-]{36}\\.pdf$`));
+    expect(sha256(await fs.readFile(getFullPath(restored.storagePath!)))).toBe(sha256(data));
+
+    // The manifest says so, and the preserved copy stays
+    expect(await readManifest(folder)).toEqual({
+      ...manifest,
+      restoredAt: '2026-10-22T16:00:00.000Z',
+      restoreNote: 'Counter-notice 1',
+      restoredStoragePath: restored.storagePath,
+    });
+    expect(result.manifest.restoredAt).toBe('2026-10-22T16:00:00.000Z');
+    await expect(fs.access(path.join(folder, manifest.preservedFile!))).resolves.toBeUndefined();
+
+    // Members can download it again
+    const download = await call('get', `/api/attachments/${attachment.id}/download`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(download.status).toBe(200);
+
+    await expect(restoreAttachment(folder, 'again', { root })).rejects.toThrow(/already restored/);
+  });
+
+  it('never restores what is marked as child sexual abuse material', async () => {
+    const preserve = async (kind: 'csam' | 'other', note: string) =>
+      (await preserveAttachment((await uploaded(Buffer.from(note))).id, { kind, note }, { root }))
+        .folder;
+
+    const csam = await preserve('csam', 'Report from a member');
+    await expect(restoreAttachment(csam, 'x', { root })).rejects.toThrow(/CSAM.*never restored/s);
+
+    const byNote = await preserve('other', 'NCMEC CyberTipline report pending');
+    await expect(restoreAttachment(byNote, 'x', { root })).rejects.toThrow(/never restored/);
+
+    const reported = await preserve('other', 'odd file');
+    await recordReport(reported, new Date(), '99', { root });
+    await expect(restoreAttachment(reported, 'x', { root })).rejects.toThrow(/never restored/);
+
+    // A manifest from before --kind can't be told apart
+    const old = await preserve('other', 'from before');
+    const { kind: _kind, ...withoutKind } = await readManifest(old);
+    await fs.writeFile(path.join(old, 'manifest.json'), JSON.stringify(withoutKind));
+    await expect(restoreAttachment(old, 'x', { root })).rejects.toThrow(/no --kind/);
+    expect(await prisma.attachment.count({ where: { displayName: 'Pool rules' } })).toBe(0);
+  });
+
+  it('refuses to restore where the agenda item is gone, or from a changed copy', async () => {
+    const first = await preserveAttachment(
+      (await uploaded(Buffer.from('%PDF-1.4 one'))).id,
+      { kind: 'copyright', note: 'x' },
+      { root },
+    );
+    const second = await preserveAttachment(
+      (await uploaded(Buffer.from('%PDF-1.4 two'))).id,
+      { kind: 'copyright', note: 'x' },
+      { root },
+    );
+    await fs.chmod(path.join(second.folder, second.manifest.preservedFile!), 0o600);
+    await fs.appendFile(path.join(second.folder, second.manifest.preservedFile!), 'tampered');
+    await expect(restoreAttachment(second.folder, 'x', { root })).rejects.toThrow(
+      /doesn't match its manifest/,
+    );
+
+    await prisma.meetingAgendaItem.delete({ where: { id: f.item } });
+    await expect(restoreAttachment(first.folder, 'x', { root })).rejects.toThrow(
+      /agenda item .*Reports.* no longer exists/,
+    );
+    expect((await readManifest(first.folder)).restoredAt).toBeNull();
+    // Nothing was copied back
+    expect(await prisma.attachment.count({ where: { displayName: 'Pool rules' } })).toBe(0);
   });
 
   it('defaults to PRESERVE_DIR', () => {

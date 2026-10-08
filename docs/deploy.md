@@ -346,8 +346,12 @@ SQL
 
 ```bash
 # Preserve the file and its record in /data/preserved, then remove it from Robbie. Check first with --dry-run.
-docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>" --dry-run
-docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>"
+# --kind is csam, copyright or other, and is recorded: csam is never restored.
+docker compose exec app node dist/scripts/handleReport.js --attachment <id> --kind <kind> --note "<the report: who, when, what>" --dry-run
+docker compose exec app node dist/scripts/handleReport.js --attachment <id> --kind <kind> --note "<the report: who, when, what>"
+
+# After a valid copyright counter-notice: put the file back where it was (refused for anything marked CSAM)
+docker compose exec app node dist/scripts/handleReport.js --restore <folder> --note "<the counter-notice: who, when>"
 
 # After a CyberTipline report: record it on the preserved folder (the year to keep it runs from the report)
 docker compose exec app node dist/scripts/handleReport.js --record-report <folder> --reported-at <2026-10-09> --report-id <report number>
@@ -371,7 +375,7 @@ Keep every preserved folder and its manifest at least until the manifest's `keep
 ### Child sexual abuse material
 
 1. **Don't open, download, view or forward the file**, and don't ask the person reporting it to send it. Work only from the report and the records. Possessing or distributing it is a crime; the steps below keep the one copy the law requires, on the server.
-2. **Preserve and remove it** right away: find its id, then `--attachment <id> --note "CSAM report from <who>, received <date>"` (a `--dry-run` first to check it's the right file).
+2. **Preserve and remove it** right away: find its id, then `--attachment <id> --kind csam --note "CSAM report from <who>, received <date>"` (a `--dry-run` first to check it's the right file).
 3. **Suspend the uploader:** `--suspend <uploadedBy from the manifest>`. Under the Terms the account is closed: it stays suspended.
 4. **Report it to NCMEC's CyberTipline** at [report.cybertip.org](https://report.cybertip.org) as soon as reasonably possible, as 18 U.S.C. 2258A requires once you know of it. Give what the manifest records: the uploader's email and account, when it was uploaded, the file's name, type, size and SHA-256, and the organization and meeting it was in, plus how you learned of it. Don't upload the file from the server; if NCMEC or law enforcement wants it, follow their directions.
 5. **Record the report on the preserved folder**, with the date you submitted it and the report number NCMEC gives: `--record-report <folder> --reported-at <date> --report-id <number>`. The manifest then has `reportedAt`, `reportId` and `keepUntil`, a year after the report. Keep the report number with the folder's name in your own records too, off the server.
@@ -382,14 +386,14 @@ Keep every preserved folder and its manifest at least until the manifest's `keep
 ### Copyright notices
 
 1. **Check the notice** has what 17 U.S.C. 512(c)(3) asks for (the Terms list it): a signature; the copyrighted work; the material and where it is in Robbie; the sender's contact details; the good-faith statement; and the statement that it is accurate, under penalty of perjury, from the owner or someone authorized to act for them. If the work, the material and a way to reach the sender are there but something else is missing, write back asking for it. A notice without those three isn't one.
-2. **Remove the material promptly:** `--attachment <id> --note "DMCA notice from <who>, dated <date>"`. Don't suspend the uploader for a first notice.
+2. **Remove the material promptly:** `--attachment <id> --kind copyright --note "DMCA notice from <who>, dated <date>"`. Don't suspend the uploader for a first notice.
 3. **Tell the uploader** (the manifest's `uploadedBy`): what was removed and why, with the notice's substance, and that they can send a counter-notice to `copyright@robbie.scouch.dev` if it was removed by mistake or misidentification.
-4. **A counter-notice** must have the uploader's signature; the material and where it was before it was removed; a statement under penalty of perjury that they believe in good faith it was removed by mistake or misidentification; their name, address and phone; and their consent to the federal district court for their address (or, outside the US, any district where Robbie may be found) and to accept service from the person who sent the notice. Send a copy to the person who sent the notice promptly, saying the material comes back in 10 business days. Then, 10 to 14 business days after the counter-notice arrived, unless that person has told you meanwhile that they have gone to court, put it back: tell the uploader they may upload it again (there is no restore command; the preserved copy stays on the server).
+4. **A counter-notice** must have the uploader's signature; the material and where it was before it was removed; a statement under penalty of perjury that they believe in good faith it was removed by mistake or misidentification; their name, address and phone; and their consent to the federal district court for their address (or, outside the US, any district where Robbie may be found) and to accept service from the person who sent the notice. Send a copy to the person who sent the notice promptly, saying the material comes back in 10 business days. Then, 10 to 14 business days after the counter-notice arrived, unless that person has told you meanwhile that they have gone to court, restore it: `--restore <folder> --note "Counter-notice from <who>, dated <date>"` (a `--dry-run` first). It puts the attachment back, with its id, on the same agenda item or meeting, copies the file back under a new name and checks it against the manifest's SHA-256, and marks the manifest restored; the preserved copy stays. If the agenda item or the meeting has since been deleted, it refuses: tell the uploader they may upload it again. Then tell the uploader it is back.
 5. **Repeat infringers:** keep a log off the server (date, sender, account, attachment id, outcome). An account with three notices that stood (no successful counter-notice) is suspended for good with `--suspend`; a flagrant case sooner. That is the repeat-infringer policy the Terms promise, and the safe harbor depends on applying it.
 
 ### Other abuse
 
-- **Malware**, or a file that harms people (threats, harassment, someone's private information): preserve and remove it the same way, without opening it, and suspend the uploader if it was deliberate. Telling the organization's owner what was removed, and why, is usually right.
+- **Malware**, or a file that harms people (threats, harassment, someone's private information): preserve and remove it the same way (`--kind other`), without opening it, and suspend the uploader if it was deliberate. Telling the organization's owner what was removed, and why, is usually right.
 - **Anything else illegal:** preserve and remove it, and ask your lawyer before reporting it or answering anyone about it.
 - **A request from law enforcement** for records or files: through your lawyer, and only with legal process (a subpoena, a court order or a warrant), except an emergency involving danger of death or serious injury.
 

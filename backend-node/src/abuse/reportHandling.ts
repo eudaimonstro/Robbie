@@ -6,7 +6,7 @@
  * Reported material is never opened, printed or served: the file is hashed and copied as bytes.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -17,9 +17,11 @@ import { normalizeEmail } from '../auth/normalizeEmail.js';
 import { deleteFile, getFullPath, uploadRoot } from '../bylawyer/services/fileStorage.js';
 
 export const USAGE = `Usage (from backend-node, or /app/backend-node in the image):
-  node dist/scripts/handleReport.js --attachment <id> --note <text> [--missing-ok] [--dry-run]
+  node dist/scripts/handleReport.js --attachment <id> --kind <csam|copyright|other> --note <text> [--missing-ok] [--dry-run]
       Preserve an uploaded file and its record in PRESERVE_DIR, then remove it from Robbie
       (--missing-ok: remove the record even if its file is already gone from disk)
+  node dist/scripts/handleReport.js --restore <folder> --note <text> [--dry-run]
+      Put a preserved file back where it was, after a copyright counter-notice (never CSAM)
   node dist/scripts/handleReport.js --record-report <folder> --reported-at <date> --report-id <number> [--dry-run]
       Record the CyberTipline report on a preserved folder: kept one year from the report
       (<date> as 2026-10-09, or with a time and zone, 2026-10-09T14:05-05:00)
@@ -47,22 +49,30 @@ export function parseReportedAt(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** What a report is about, given with --attachment and recorded in the manifest */
+export const REPORT_KINDS = ['csam', 'copyright', 'other'] as const;
+export type ReportKind = (typeof REPORT_KINDS)[number];
+
 export type ReportCommand =
   | {
-      kind: 'attachment';
+      action: 'attachment';
       attachmentId: string;
+      kind: ReportKind;
       note: string;
       dryRun: boolean;
       missingOk: boolean;
     }
+  | { action: 'restore'; folder: string; note: string; dryRun: boolean }
   | {
-      kind: 'record-report';
+      action: 'record-report';
       folder: string;
       reportedAt: Date;
       reportId: string;
       dryRun: boolean;
     }
-  | { kind: 'suspend' | 'unsuspend'; email: string; dryRun: boolean };
+  | { action: 'suspend' | 'unsuspend'; email: string; dryRun: boolean };
+
+const ACTIONS = ['attachment', 'restore', 'record-report', 'suspend', 'unsuspend'] as const;
 
 /** The script's arguments as one command, or why they aren't one */
 export function parseReportArgs(
@@ -76,11 +86,13 @@ export function parseReportArgs(
       allowPositionals: false,
       options: {
         attachment: { type: 'string' },
+        restore: { type: 'string' },
         'record-report': { type: 'string' },
         'reported-at': { type: 'string' },
         'report-id': { type: 'string' },
         suspend: { type: 'string' },
         unsuspend: { type: 'string' },
+        kind: { type: 'string' },
         note: { type: 'string' },
         'missing-ok': { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
@@ -91,19 +103,70 @@ export function parseReportArgs(
   }
 
   const dryRun = values['dry-run'] ?? false;
-  const chosen = (['attachment', 'record-report', 'suspend', 'unsuspend'] as const).filter(
-    (name) => values[name] !== undefined,
-  );
+  const chosen = ACTIONS.filter((name) => values[name] !== undefined);
   if (chosen.length !== 1) {
     return {
-      error: 'Give exactly one of --attachment, --record-report, --suspend and --unsuspend',
+      error:
+        'Give exactly one of --attachment, --restore, --record-report, --suspend and --unsuspend',
+    };
+  }
+  const action = chosen[0];
+
+  // Each option with the actions it goes with
+  if (action !== 'attachment' && values.kind !== undefined) {
+    return { error: '--kind goes with --attachment only' };
+  }
+  if (action !== 'attachment' && values['missing-ok']) {
+    return { error: '--missing-ok goes with --attachment only' };
+  }
+  if (action !== 'attachment' && action !== 'restore' && values.note !== undefined) {
+    return { error: '--note goes with --attachment and --restore only' };
+  }
+  if (
+    action !== 'record-report' &&
+    (values['reported-at'] !== undefined || values['report-id'] !== undefined)
+  ) {
+    return { error: '--reported-at and --report-id go with --record-report only' };
+  }
+  const note = values.note?.trim() ?? '';
+
+  if (action === 'attachment') {
+    const attachmentId = values.attachment!.trim();
+    if (!UUID_PATTERN.test(attachmentId)) {
+      return { error: 'The attachment id is a UUID, as in /api/attachments/<id>/download' };
+    }
+    const kind = REPORT_KINDS.find((k) => k === values.kind?.trim().toLowerCase());
+    if (!kind) {
+      return { error: '--kind is required with --attachment: csam, copyright or other' };
+    }
+    if (!note) {
+      return { error: '--note is required with --attachment: why it is removed (the report)' };
+    }
+    const missingOk = values['missing-ok'] ?? false;
+    return {
+      command: {
+        action,
+        attachmentId: attachmentId.toLowerCase(),
+        kind,
+        note,
+        dryRun,
+        missingOk,
+      },
     };
   }
 
-  if (chosen[0] === 'record-report') {
-    if (values.note !== undefined || values['missing-ok']) {
-      return { error: '--note and --missing-ok go with --attachment only' };
+  if (action === 'restore') {
+    const folder = values.restore!.trim();
+    if (!folder) return { error: '--restore takes the preserved folder' };
+    if (!note) {
+      return {
+        error: '--note is required with --restore: why it is restored (the counter-notice)',
+      };
     }
+    return { command: { action, folder, note, dryRun } };
+  }
+
+  if (action === 'record-report') {
     const folder = values['record-report']!.trim();
     if (!folder) return { error: '--record-report takes the preserved folder' };
     const reportedAt = values['reported-at'] ? parseReportedAt(values['reported-at']) : null;
@@ -120,44 +183,14 @@ export function parseReportArgs(
         error: '--report-id is required: the CyberTipline report number (letters, digits, - . _)',
       };
     }
-    return { command: { kind: 'record-report', folder, reportedAt, reportId, dryRun } };
-  }
-  if (values['reported-at'] !== undefined || values['report-id'] !== undefined) {
-    return { error: '--reported-at and --report-id go with --record-report only' };
+    return { command: { action, folder, reportedAt, reportId, dryRun } };
   }
 
-  if (chosen[0] === 'attachment') {
-    const attachmentId = values.attachment!.trim();
-    if (!UUID_PATTERN.test(attachmentId)) {
-      return { error: 'The attachment id is a UUID, as in /api/attachments/<id>/download' };
-    }
-    const note = values.note?.trim() ?? '';
-    if (!note) {
-      return { error: '--note is required with --attachment: why it is removed (the report)' };
-    }
-    const missingOk = values['missing-ok'] ?? false;
-    return {
-      command: {
-        kind: 'attachment',
-        attachmentId: attachmentId.toLowerCase(),
-        note,
-        dryRun,
-        missingOk,
-      },
-    };
-  }
-
-  if (values.note !== undefined) {
-    return { error: '--note goes with --attachment only' };
-  }
-  if (values['missing-ok']) {
-    return { error: '--missing-ok goes with --attachment only' };
-  }
-  const email = normalizeEmail(values[chosen[0]]!);
+  const email = normalizeEmail(values[action]!);
   if (!EMAIL_PATTERN.test(email)) {
-    return { error: `Not an email address: ${values[chosen[0]]}` };
+    return { error: `Not an email address: ${values[action]}` };
   }
-  return { command: { kind: chosen[0], email, dryRun } };
+  return { command: { action, email, dryRun } };
 }
 
 /**
@@ -172,6 +205,7 @@ export function preserveRoot(env: NodeJS.ProcessEnv = process.env): string {
 export interface PreservationManifest {
   attachmentId: string;
   displayName: string;
+  description: string | null;
   /** The uploader's file name, as stored (sanitized) */
   filename: string | null;
   /** Where the file was in the uploads directory */
@@ -204,7 +238,13 @@ export interface PreservationManifest {
   preservedFile: string | null;
   /** The file was gone from disk when its record was removed (--missing-ok) */
   fileMissing: boolean;
+  /** What the report is about (--kind): csam is never restored */
+  kind: ReportKind;
   note: string;
+  /** When it was put back after a counter-notice (--restore), why, and where it went */
+  restoredAt: string | null;
+  restoreNote: string | null;
+  restoredStoragePath: string | null;
 }
 
 /** The attachment as preserveAttachment reads it */
@@ -212,6 +252,7 @@ export interface AttachmentRecord {
   id: string;
   type: string;
   displayName: string;
+  description: string | null;
   filename: string | null;
   storagePath: string | null;
   mimeType: string | null;
@@ -244,13 +285,20 @@ const RETENTION =
 
 export function buildManifest(
   attachment: AttachmentRecord,
-  details: { sha256: string | null; preservedFile: string | null; preservedAt: Date; note: string },
+  details: {
+    sha256: string | null;
+    preservedFile: string | null;
+    preservedAt: Date;
+    kind: ReportKind;
+    note: string;
+  },
 ): PreservationManifest {
   const packet = attachment.meetingPacket ?? attachment.agendaItem?.packet;
   if (!packet) throw new Error(`Attachment ${attachment.id} is on no packet`);
   return {
     attachmentId: attachment.id,
     displayName: attachment.displayName,
+    description: attachment.description,
     filename: attachment.filename,
     storagePath: attachment.storagePath,
     mimeType: attachment.mimeType,
@@ -271,7 +319,11 @@ export function buildManifest(
     retention: RETENTION,
     preservedFile: details.preservedFile,
     fileMissing: details.sha256 === null,
+    kind: details.kind,
     note: details.note,
+    restoredAt: null,
+    restoreNote: null,
+    restoredStoragePath: null,
   };
 }
 
@@ -368,7 +420,7 @@ export interface PreservationResult {
  */
 export async function preserveAttachment(
   attachmentId: string,
-  note: string,
+  report: { kind: ReportKind; note: string },
   options: { dryRun?: boolean; root?: string; now?: Date; missingOk?: boolean } = {},
 ): Promise<PreservationResult> {
   const now = options.now ?? new Date();
@@ -421,7 +473,12 @@ export async function preserveAttachment(
     );
   }
   const preservedFile = onDisk ? path.basename(storagePath) : null;
-  const manifest = buildManifest(attachment, { sha256, preservedFile, preservedAt: now, note });
+  const manifest = buildManifest(attachment, {
+    sha256,
+    preservedFile,
+    preservedAt: now,
+    ...report,
+  });
   const stamp = now.toISOString().replace(/[:.]/g, '-');
   const folder = path.join(root, `${stamp}-${attachment.id}`);
   if (dryRun) return { folder, manifest, dryRun, resumed: false };
@@ -494,6 +551,162 @@ async function removeOriginal(
   }
 }
 
+// Words in a note that mark the material as child sexual abuse material, whatever its --kind
+const CSAM_NOTE = /\b(csam|child sexual|child abuse|child exploitation|cybertip\w*|ncmec)\b/i;
+
+export interface RestoreResult extends PreservedFolder {
+  /** Where the file went back: the agenda item, or else the packet */
+  target: { agendaItemId: string | null; packetId: string };
+  dryRun: boolean;
+}
+
+/**
+ * Put a preserved file back where it was, after a valid copyright counter-notice (17 U.S.C.
+ * 512(g)): the attachment's record again, with its id, on the same agenda item or packet (refused
+ * if that is gone), and the file copied back into the uploads under a new name, checked against
+ * the manifest's SHA-256. The manifest records the restore; the preserved copy stays.
+ *
+ * Never for child sexual abuse material: a manifest of kind csam, one with a CyberTipline report
+ * recorded, one whose note mentions CSAM, NCMEC or the CyberTipline, and one from before --kind
+ * are all refused.
+ */
+export async function restoreAttachment(
+  name: string,
+  note: string,
+  options: { root?: string; dryRun?: boolean; now?: Date } = {},
+): Promise<RestoreResult> {
+  const root = path.resolve(options.root ?? preserveRoot());
+  const folder = preservedFolder(root, name);
+  const manifest = await readManifestOrRefuse(folder);
+
+  if (!manifest.kind) {
+    throw new ReportError(
+      `${folder} has no --kind (it was preserved before kinds were recorded), so it can't be ` +
+        'told apart from CSAM: it is not restored',
+    );
+  }
+  if (manifest.kind === 'csam' || manifest.reportId || CSAM_NOTE.test(manifest.note)) {
+    throw new ReportError(
+      `${folder} is marked as CSAM (its kind, a recorded CyberTipline report, or its note): ` +
+        'it is never restored',
+    );
+  }
+  if (manifest.restoredAt) {
+    throw new ReportError(`${folder} was already restored, at ${manifest.restoredAt}`);
+  }
+  if (!manifest.preservedFile || !manifest.sha256 || !manifest.storagePath) {
+    throw new ReportError(`${folder} holds no file (it was missing when preserved)`);
+  }
+  const copy = path.join(folder, manifest.preservedFile);
+  if (!(await filePresent(copy)) || (await sha256OfFile(copy)) !== manifest.sha256) {
+    throw new ReportError(
+      `The preserved file in ${folder} is missing or doesn't match its manifest's SHA-256; ` +
+        'nothing changed',
+    );
+  }
+  if (await prisma.attachment.findUnique({ where: { id: manifest.attachmentId } })) {
+    throw new ReportError(`Attachment ${manifest.attachmentId} is already in Robbie`);
+  }
+
+  // The same place, or nowhere
+  let robbieCode: string;
+  if (manifest.agendaItem) {
+    const item = await prisma.meetingAgendaItem.findUnique({
+      where: { id: manifest.agendaItem.id },
+      include: { packet: { select: { id: true, robbieCode: true } } },
+    });
+    if (!item || item.packet.id !== manifest.packet.id) {
+      throw new ReportError(
+        `The agenda item "${manifest.agendaItem.title}" (${manifest.agendaItem.id}) the file ` +
+          'was on no longer exists, so there is nowhere to put it back; nothing changed',
+      );
+    }
+    robbieCode = item.packet.robbieCode;
+  } else {
+    const packet = await prisma.meetingPacket.findUnique({ where: { id: manifest.packet.id } });
+    if (!packet) {
+      throw new ReportError(
+        `The meeting ${manifest.packet.meetingCode} (${manifest.packet.id}) the file was on no ` +
+          'longer exists, so there is nowhere to put it back; nothing changed',
+      );
+    }
+    robbieCode = packet.robbieCode;
+  }
+  const target = {
+    agendaItemId: manifest.agendaItem?.id ?? null,
+    packetId: manifest.packet.id,
+  };
+  const now = options.now ?? new Date();
+  const dryRun = options.dryRun ?? false;
+  if (dryRun) return { folder, manifest, target, dryRun };
+
+  // A new name chosen here, never the one the file had (nor anything from the manifest)
+  const extension = path.extname(manifest.preservedFile).toLowerCase();
+  const storagePath = path.join(
+    robbieCode,
+    randomUUID() + (/^\.[a-z]{1,5}$/.test(extension) ? extension : ''),
+  );
+  const destination = getFullPath(storagePath);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.copyFile(copy, destination, fsConstants.COPYFILE_EXCL);
+  try {
+    if ((await sha256OfFile(destination)) !== manifest.sha256) {
+      throw new ReportError("The file copied back doesn't match the manifest's SHA-256");
+    }
+    const where = target.agendaItemId
+      ? { agendaItemId: target.agendaItemId }
+      : { meetingPacketId: target.packetId };
+    const { _max } = await prisma.attachment.aggregate({ where, _max: { position: true } });
+    await prisma.attachment.create({
+      data: {
+        id: manifest.attachmentId,
+        type: 'uploaded_file',
+        filename: manifest.filename,
+        mimeType: manifest.mimeType,
+        sizeBytes: manifest.sizeBytes,
+        storagePath,
+        displayName: manifest.displayName,
+        description: manifest.description ?? null,
+        position: (_max.position ?? -1) + 1,
+        ...where,
+        uploadedBy: manifest.uploadedBy,
+        uploadedAt: new Date(manifest.uploadedAt),
+      },
+    });
+  } catch (error) {
+    await fs.rm(destination, { force: true });
+    throw error;
+  }
+
+  const restored: PreservationManifest = {
+    ...manifest,
+    restoredAt: now.toISOString(),
+    restoreNote: note,
+    restoredStoragePath: storagePath,
+  };
+  try {
+    await writeManifest(folder, restored, 'replace');
+  } catch (error) {
+    throw new ReportError(
+      `Restored as attachment ${manifest.attachmentId}, but the manifest in ${folder} couldn't ` +
+        `be marked (${error instanceof Error ? error.message : error}); note the restore there.`,
+    );
+  }
+  return { folder, manifest: restored, target, dryRun };
+}
+
+/** A preserved folder's manifest, or a refusal naming the folder */
+async function readManifestOrRefuse(folder: string): Promise<PreservationManifest> {
+  try {
+    return await readManifest(folder);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new ReportError(`No manifest.json in ${folder}`);
+    }
+    throw error;
+  }
+}
+
 export interface RecordReportResult extends PreservedFolder {
   /** The report recorded before, if this replaced one */
   previous: { reportId: string | null; reportedAt: string | null } | null;
@@ -526,15 +739,7 @@ export async function recordReport(
   if (reportedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
     throw new ReportError(`The report date ${reportedAt.toISOString()} is in the future`);
   }
-  let current: PreservationManifest;
-  try {
-    current = await readManifest(folder);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new ReportError(`No manifest.json in ${folder}`);
-    }
-    throw error;
-  }
+  const current = await readManifestOrRefuse(folder);
   const previous =
     current.reportId || current.reportedAt
       ? { reportId: current.reportId, reportedAt: current.reportedAt }

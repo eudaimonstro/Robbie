@@ -19,6 +19,7 @@ import {
   parseReportArgs,
   preserveAttachment,
   recordReport,
+  restoreAttachment,
   setSuspended,
   type ReportCommand,
 } from '../abuse/reportHandling.js';
@@ -33,10 +34,10 @@ if (!parsed.command) {
 async function run(command: ReportCommand): Promise<void> {
   const dry = command.dryRun ? 'Dry run, nothing changed. ' : '';
 
-  if (command.kind === 'attachment') {
+  if (command.action === 'attachment') {
     const { folder, manifest, resumed } = await preserveAttachment(
       command.attachmentId,
-      command.note,
+      { kind: command.kind, note: command.note },
       { dryRun: command.dryRun, missingOk: command.missingOk },
     );
     const where = manifest.packet.title ?? manifest.packet.meetingCode;
@@ -46,6 +47,7 @@ async function run(command: ReportCommand): Promise<void> {
     console.log(`  Uploaded by ${manifest.uploadedBy ?? 'unknown'} at ${manifest.uploadedAt}`);
     console.log(`  ${manifest.mimeType ?? 'unknown type'}, ${manifest.sizeBytes ?? '?'} bytes`);
     console.log(`  SHA-256: ${manifest.sha256 ?? 'none: the file was already gone from disk'}`);
+    console.log(`  Kind: ${manifest.kind}`);
     if (command.dryRun) {
       console.log(
         resumed
@@ -70,7 +72,26 @@ async function run(command: ReportCommand): Promise<void> {
     return;
   }
 
-  if (command.kind === 'record-report') {
+  if (command.action === 'restore') {
+    const { folder, manifest, target } = await restoreAttachment(command.folder, command.note, {
+      dryRun: command.dryRun,
+    });
+    const place = target.agendaItemId
+      ? `agenda item ${target.agendaItemId} of packet ${target.packetId}`
+      : `packet ${target.packetId}`;
+    console.log(
+      `${dry}${command.dryRun ? 'Would restore' : 'Restored'} attachment ` +
+        `${manifest.attachmentId} ("${manifest.displayName}") from ${folder} to ${place}.`,
+    );
+    if (!command.dryRun) {
+      console.log(
+        `Its file is ${manifest.restoredStoragePath} in the uploads; the preserved copy stays.`,
+      );
+    }
+    return;
+  }
+
+  if (command.action === 'record-report') {
     const { folder, manifest, previous } = await recordReport(
       command.folder,
       command.reportedAt,
@@ -94,7 +115,7 @@ async function run(command: ReportCommand): Promise<void> {
     return;
   }
 
-  const suspend = command.kind === 'suspend';
+  const suspend = command.action === 'suspend';
   const result = await setSuspended(command.email, suspend, { dryRun: command.dryRun });
   if (command.dryRun) {
     const state = result.unchanged

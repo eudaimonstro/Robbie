@@ -36,7 +36,9 @@ describe('legal pages', () => {
     expect(screen.getByText(/Child sexual abuse material\. Robbie reports it/)).toBeTruthy();
     expect(screen.getByText(/National Center for Missing & Exploited Children/)).toBeTruthy();
     expect(screen.getByText(/under penalty of perjury/)).toBeTruthy();
-    expect(screen.getByText(/counter-notice/)).toBeTruthy();
+    expect(screen.getByText(/counter-notice/).textContent).toMatch(
+      /Robbie restores the material 10 to 14 business\s+days later/,
+    );
     expect(screen.getByText(/infringe copyright repeatedly/)).toBeTruthy();
     expect(mailLink(ABUSE_EMAIL)).toEqual([`mailto:${ABUSE_EMAIL}`]);
     expect(mailLink(DMCA_AGENT.email)).toEqual([`mailto:${DMCA_AGENT.email}`]);

@@ -91,7 +91,7 @@ npm run db:migrate       # Create/apply migrations in development (prisma migrat
 npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
 npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces it); its people sign in with code 000000 when ENABLE_TEST_AUTH=true. It has this year's annual meeting (MAPLE1, at the clubhouse) and last year's (MAPLE25, adjourned, with the minutes Pat published), so MAPLE1 has minutes to approve; Maple Grove keeps America/Chicago time
-npm run report -- --attachment <id> --note <text>   # handleReport (src/scripts/handleReport.ts; in the image, node dist/scripts/handleReport.js): preserve a reported file in PRESERVE_DIR with a manifest, then remove it; also --suspend <email>, --unsuspend <email>, and --dry-run for each (docs/deploy.md, "Handling a report")
+npm run report -- --attachment <id> --kind <csam|copyright|other> --note <text>   # handleReport (src/scripts/handleReport.ts; in the image, node dist/scripts/handleReport.js): preserve a reported file in PRESERVE_DIR with a manifest, then remove it (--missing-ok for a file already gone); --record-report <folder> --reported-at <date> --report-id <n> records the CyberTipline report (kept a year from it); --restore <folder> --note <text> puts a copyright removal back (never CSAM); --suspend/--unsuspend <email>; --dry-run for each (docs/deploy.md, "Handling a report")
 ```
 
 ### Docker
