@@ -152,7 +152,7 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
               onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
               placeholder="Search documents..."
               aria-label="Search documents"
-              className="w-full xl:w-64 pl-9 pr-8 py-1.5 text-sm border border-rule rounded-md bg-surface focus:ring-2 focus:ring-gavel/30 focus:border-gavel"
+              className="w-full xl:w-64 pl-9 pr-8 py-1.5 max-md:min-h-11 text-sm border border-rule rounded-md bg-surface focus:border-gavel"
             />
             {searchQuery && (
               <button

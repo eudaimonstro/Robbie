@@ -152,13 +152,16 @@
 }
 
 @layer base {
-  /* Borders default to the rule, not currentcolor (Tailwind 4) */
+  /* Borders default to the rule, not currentcolor (Tailwind 4). Outlines are the gavel at
+     rest too: the focus ring below only turns the outline on, so transition-colors has no color
+     to fade it in from (it used to start in the element's text color). */
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
     border-color: var(--rule);
+    outline-color: var(--gavel);
   }
 
   input::placeholder,
@@ -181,6 +184,8 @@
     font-variation-settings: 'SOFT' 50;
   }
 
+  /* The one focus style (docs/design-brief.md): a 2px gavel ring, 2px off the element, over
+     the page behind it. Buttons, links and fields all use it; don't add rings of your own. */
   :focus-visible {
     outline: 2px solid var(--gavel);
     outline-offset: 2px;
@@ -214,8 +219,9 @@
 }
 
 @utility btn {
-  /* 40px on laptops; btn-lg is the 56px phone size. The focus ring is 2px gavel, offset on paper. */
-  @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-10 rounded-lg font-body font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gavel focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50 disabled:cursor-not-allowed;
+  /* 40px on laptops and 44px on phones, where it is tapped; btn-lg is the 56px phone size. The
+     focus ring is the base one (:focus-visible). */
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-10 max-md:min-h-11 rounded-lg font-body font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /*
@@ -243,8 +249,9 @@
   @apply btn bg-carried text-paper hover:bg-carried-700 dark:hover:bg-carried-300;
 }
 
+/* Small on laptops only: on phones every button is at least 44px tall, a finger's width */
 @utility btn-sm {
-  @apply px-3 py-1.5 min-h-8 text-sm;
+  @apply px-3 py-1.5 min-h-8 max-md:min-h-11 text-sm;
 }
 
 @utility btn-lg {
@@ -326,12 +333,12 @@
 }
 
 @utility input {
-  /* Form inputs */
-  @apply w-full px-3 py-2 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:outline-hidden focus:border-gavel focus:ring-2 focus:ring-gavel/30;
+  /* Form inputs: 44px tall on phones; the focus ring is the base one, with a gavel border */
+  @apply w-full px-3 py-2 max-md:min-h-11 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:border-gavel;
 }
 
 @utility input-error {
-  @apply input border-gavel focus:ring-gavel/30;
+  @apply input border-gavel;
 }
 
 @utility label {
@@ -392,7 +399,7 @@
 
 @utility tab {
   /* Tabs */
-  @apply px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink border-b-2 border-transparent hover:border-rule transition-colors;
+  @apply px-4 py-2 max-md:min-h-11 text-sm font-medium text-ink-muted hover:text-ink border-b-2 border-transparent hover:border-rule transition-colors;
 }
 
 @utility tab-active {
