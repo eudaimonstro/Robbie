@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
+  amendments,
   bylawSync,
+  type Amendment,
   type Document,
   type SectionTree,
   type MeetingOrganizationResponse,
@@ -23,6 +25,8 @@ function flattenSections(sectionList: SectionTree[], depth = 0): FlatSection[] {
   return result;
 }
 
+const NO_AMENDMENTS: Amendment[] = [];
+
 interface BylawAmendmentData {
   linkedOrg: MeetingOrganizationResponse | null;
   documents: Document[];
@@ -32,6 +36,10 @@ interface BylawAmendmentData {
   error: string | null;
   selectedDocumentId: string;
   setSelectedDocumentId: (id: string) => void;
+  /** The selected document's proposed amendments, which a member can move as they are */
+  proposed: Amendment[];
+  /** Whether the proposed amendments are still loading */
+  loadingProposed: boolean;
 }
 
 export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
@@ -43,6 +51,10 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
   const [loadingSections, setLoadingSections] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
+  const [loadedProposed, setLoadedProposed] = useState<{
+    documentId: string;
+    list: Amendment[];
+  }>({ documentId: '', list: NO_AMENDMENTS });
 
   // Fetch linked organization
   useEffect(() => {
@@ -102,6 +114,30 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
     fetchSections();
   }, [selectedDocumentId, showToast]);
 
+  // The document's proposed amendments, drafted and proposed ahead of the meeting: kept with
+  // the document they are for, so another document's never show while its own load
+  useEffect(() => {
+    if (!selectedDocumentId) return;
+    let current = true;
+    amendments
+      .list(selectedDocumentId)
+      // None to move when they can't be loaded: the member can still write the change
+      .catch(() => [])
+      .then((list) => {
+        if (!current) return;
+        setLoadedProposed({
+          documentId: selectedDocumentId,
+          list: list.filter((a) => a.status === 'proposed'),
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [selectedDocumentId]);
+  const proposed =
+    loadedProposed.documentId === selectedDocumentId ? loadedProposed.list : NO_AMENDMENTS;
+  const loadingProposed = !!selectedDocumentId && loadedProposed.documentId !== selectedDocumentId;
+
   return {
     linkedOrg,
     documents,
@@ -111,5 +147,7 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
     error,
     selectedDocumentId,
     setSelectedDocumentId,
+    proposed,
+    loadingProposed,
   };
 }

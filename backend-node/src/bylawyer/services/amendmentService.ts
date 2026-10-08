@@ -22,6 +22,47 @@ export class AmendmentAppliedError extends Error {
 
 type Tx = Prisma.TransactionClient;
 
+/**
+ * Point the changes of a document's other draft and proposed amendments at the sections of the
+ * version just made (idMap: old section id to new), where those sections still exist
+ */
+async function remapOpenAmendments(
+  tx: Tx,
+  applied: Amendment,
+  versionId: string,
+  idMap: Record<string, string>,
+): Promise<void> {
+  const changes = await tx.amendmentChange.findMany({
+    where: {
+      targetSectionId: { in: Object.keys(idMap) },
+      amendment: {
+        documentId: applied.documentId,
+        id: { not: applied.id },
+        status: { in: ['draft', 'proposed'] },
+      },
+    },
+    select: { id: true, targetSectionId: true },
+  });
+  if (changes.length === 0) return;
+  const remaining = new Set(
+    (
+      await tx.section.findMany({
+        where: { versionId, id: { in: changes.map((c) => idMap[c.targetSectionId!]) } },
+        select: { id: true },
+      })
+    ).map((section) => section.id),
+  );
+  for (const change of changes) {
+    const newId = idMap[change.targetSectionId!];
+    if (remaining.has(newId)) {
+      await tx.amendmentChange.update({
+        where: { id: change.id },
+        data: { targetSectionId: newId },
+      });
+    }
+  }
+}
+
 export class AmendmentService {
   async applyAmendment(amendment: AmendmentWithChanges, effectiveDate?: Date): Promise<Version> {
     if (amendment.status !== 'passed') {
@@ -118,6 +159,12 @@ export class AmendmentService {
             await this.applyChange(tx, change, newVersion, idMap);
           }
         }
+
+        // The document's other open amendments (drafts and proposals) were written against the
+        // version this one replaces: their changes now name its sections by their new ids, so
+        // they can still be previewed, moved and applied. A section this one deleted has no new
+        // id, and its changes keep the old one (they no longer apply as written).
+        await remapOpenAmendments(tx, amendment, newVersion.id, idMap);
 
         // Record the resulting version. The decision date stays the vote's, not the apply's.
         await tx.amendment.update({

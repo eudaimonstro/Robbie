@@ -164,8 +164,17 @@ export function flattenSections(
   return result;
 }
 
-export function getSectionLabel(sectionTree: SectionTree[], sectionId: string): string {
+/**
+ * The section a change targets: as the current version names it, or else as it was named when
+ * the change was made (a change applied, or drafted against an earlier version, targets a section
+ * id the current version no longer has)
+ */
+export function getSectionLabel(
+  sectionTree: SectionTree[],
+  sectionId: string,
+  savedLabel?: string | null,
+): string {
   const flat = flattenSections(sectionTree);
   const section = flat.find((s) => s.id === sectionId);
-  return section?.label || 'Unknown section';
+  return section?.label.trim() || savedLabel || 'Unknown section';
 }

@@ -1,9 +1,5 @@
 import type { MeetingAction, Member } from '../../types/index.js';
-import {
-  logMemberJoined,
-  logMemberPresenceChanged,
-  logMemberRenamed,
-} from '../../constants/logMessages.js';
+import { logMemberJoined, logMemberPresenceChanged } from '../../constants/logMessages.js';
 import { withAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
@@ -126,36 +122,6 @@ export const memberHandler: ActionHandler = (state, action, log) => {
         ...state,
         members,
         proxies: proxies.length === state.proxies.length ? state.proxies : proxies,
-      };
-    }
-
-    case 'RENAME_MEMBER': {
-      const typedAction = action as Extract<MeetingAction, { type: 'RENAME_MEMBER' }>;
-      const member = state.members.find((m) => m.id === typedAction.memberId);
-      if (!member) return state;
-
-      // Validate new name
-      const trimmedName = typedAction.newName.trim();
-      if (!trimmedName || trimmedName.length < 2) return state;
-
-      const oldName = member.name;
-      const renamedByMember = state.members.find((m) => m.id === typedAction.renamedBy);
-      const renamedByName = renamedByMember?.name || 'System';
-
-      // Check if this is a self-rename (member renaming themselves)
-      const isSelfRename = typedAction.memberId === typedAction.renamedBy;
-
-      return {
-        ...state,
-        members: state.members.map((m) =>
-          m.id === typedAction.memberId
-            ? { ...m, name: trimmedName, ...(isSelfRename && { selfRenameUsed: true }) }
-            : m,
-        ),
-        meetingLog: log(
-          typedAction.timestamp,
-          logMemberRenamed(oldName, trimmedName, renamedByName),
-        ),
       };
     }
 

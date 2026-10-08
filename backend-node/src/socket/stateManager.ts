@@ -16,7 +16,13 @@ export type ActionValidator = (state: MeetingState, action: MeetingAction) => Va
 
 /** Discriminated union for action result - ensures state/version exist when success is true */
 export type ApplyActionResult =
-  | { success: true; state: MeetingState; stateVersion: number }
+  | {
+      success: true;
+      state: MeetingState;
+      stateVersion: number;
+      /** The state the action was applied to (in the meeting's queue, so after any before it) */
+      previousState: MeetingState;
+    }
   | {
       success: false;
       error: string;
@@ -107,7 +113,12 @@ async function applyActionNow(
       );
 
       if (updateResult.success) {
-        return { success: true, state: newState, stateVersion: newVersion };
+        return {
+          success: true,
+          state: newState,
+          stateVersion: newVersion,
+          previousState: meeting.state,
+        };
       }
 
       if (updateResult.error === 'NOT_FOUND') {

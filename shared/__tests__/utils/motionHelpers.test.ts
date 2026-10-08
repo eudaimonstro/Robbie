@@ -1,6 +1,7 @@
 import { MOTIONS } from '../../constants/index.js';
 import { describe, it, expect } from 'vitest';
 import {
+  wordingFixedBy,
   getValidMotions,
   normalizeMotionText,
   isSimilarMotionSubject,
@@ -97,6 +98,31 @@ describe('motionHelpers', () => {
       // Privileged motions with higher precedence should be available
       expect(motionKeys).toContain('adjourn');
       expect(motionKeys).toContain('recess');
+    });
+
+    it("doesn't offer amending or dividing a pending bylaw amendment, whose words are its text", () => {
+      const bylaw = createMockMotion({
+        type: 'bylawAmendment',
+        category: 'main',
+        precedence: 1,
+        bylawAmendment: { documentId: 'd', changeType: 'delete' },
+      });
+      const keys = getValidMotions(
+        createMockState({ currentMotion: bylaw, motionStack: [bylaw] }),
+      ).map((m) => m.key);
+      expect(keys).not.toContain('amend');
+      expect(keys).not.toContain('divideQuestion');
+      expect(keys).toContain('adjourn');
+      expect(
+        wordingFixedBy(createMockState({ currentMotion: bylaw, motionStack: [bylaw] }), 'amend'),
+      ).toBe(true);
+      // A main motion can still be amended
+      const main = createMockMotion({ category: 'main', precedence: 1 });
+      expect(
+        getValidMotions(createMockState({ currentMotion: main, motionStack: [main] })).map(
+          (m) => m.key,
+        ),
+      ).toContain('amend');
     });
 
     it('should offer main motions when no motion is pending', () => {

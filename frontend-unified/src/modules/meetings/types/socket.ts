@@ -5,66 +5,14 @@ import type {
   MeetingRole,
   Member,
 } from '@robbie-bylawyer/shared/types';
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from '@robbie-bylawyer/shared/types/socket';
 import type { AttendanceSummary } from '@robbie-bylawyer/shared/utils';
 
-// Socket event types (matching server)
-export interface StateUpdatePayload {
-  state: MeetingState;
-  stateVersion: number;
-  triggeredBy?: {
-    actionType: string;
-    userId: number;
-  };
-}
-
-export interface JoinMeetingResponse {
-  success: boolean;
-  state?: MeetingState;
-  stateVersion?: number;
-  members?: Member[];
-  error?: string;
-  /**
-   * Why a join was refused: MEETING_NOT_FOUND (no scheduled meeting has the code), NAME_REQUIRED,
-   * PERMISSION_DENIED (a display outside the organization)
-   */
-  errorCode?: string;
-}
-
-export interface ActionResponse {
-  success: boolean;
-  stateVersion?: number;
-  error?: string;
-}
-
-export interface ClientToServerEvents {
-  JOIN_MEETING: (
-    // display: a TV or projector, which receives the meeting without becoming a member of it
-    data: { meetingCode: string; display?: boolean },
-    callback: (response: JoinMeetingResponse) => void,
-  ) => void;
-  LEAVE_MEETING: () => void;
-  DISPATCH_ACTION: (
-    data: { action: MeetingAction; clientSequence: number },
-    callback: (response: ActionResponse) => void,
-  ) => void;
-  REQUEST_STATE: (
-    callback: (response: {
-      success: boolean;
-      state?: MeetingState;
-      stateVersion?: number;
-      error?: string;
-    }) => void,
-  ) => void;
-}
-
-export interface ServerToClientEvents {
-  STATE_UPDATE: (data: StateUpdatePayload) => void;
-  ACTION_REJECTED: (data: { clientSequence: number; reason: string; errorCode: string }) => void;
-  MEMBER_JOINED: (data: { member: Member; timestamp: string }) => void;
-  MEMBER_LEFT: (data: { member: Member; timestamp: string }) => void;
-  ERROR: (data: { message: string; code: string }) => void;
-}
-
+// The protocol (events and payloads) is shared with the server in shared/types/socket.ts; only
+// the client's own types are here
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 /** A join the server refused: its message, and its error code when it sent one */

@@ -8,7 +8,7 @@ import { useVoteResults } from '../hooks/useVoteResults';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
-import { STANCE_LABELS } from '../utils/phoneMoment';
+import { stanceLabel } from '../utils/phoneMoment';
 import {
   agendaNamesTheApproval,
   minutesHeading,
@@ -47,14 +47,15 @@ export function DisplayView() {
   return (
     <div className="dark relative min-h-screen overflow-hidden bg-paper font-body text-ink">
       <Grain />
-      <main className="relative flex min-h-screen flex-col gap-10 px-16 py-12">
+      {/* The screen's height and no more: nothing on a TV scrolls */}
+      <main className="relative flex h-screen flex-col gap-10 px-16 py-12">
         {!showMeeting ? (
           <p className="m-auto text-display-line text-ink-muted">
             {canceled ?? joinError?.message ?? 'Connecting to the meeting...'}
           </p>
         ) : (
           <>
-            <header className="space-y-1">
+            <header className="shrink-0 space-y-1">
               {organization && <p className={LABEL}>{organization.name}</p>}
               <h1 className="font-serif-soft text-display-line font-semibold text-ink">
                 {state.title || 'Meeting'}
@@ -143,9 +144,11 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
 
   return (
     <>
-      <div className={`grid flex-1 gap-12 ${debate ? 'grid-cols-[24rem_1fr]' : 'grid-cols-1'}`}>
+      <div
+        className={`grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-12 ${debate ? 'grid-cols-[24rem_1fr]' : 'grid-cols-1'}`}
+      >
         {debate && <SpeakerRail state={state} queue={queue} />}
-        <div className="flex flex-col justify-center gap-6">
+        <div className="flex min-h-0 flex-col justify-center gap-6">
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
@@ -170,7 +173,7 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           )}
         </div>
       </div>
-      <footer className="grid grid-cols-[1fr_auto] items-end gap-12 border-t border-rule pt-8">
+      <footer className="grid shrink-0 grid-cols-[1fr_auto] items-end gap-12 border-t border-rule pt-8">
         <AttendanceBlock summary={attendance} eligible={eligible} size="display" />
         <VoteBand state={state} />
       </footer>
@@ -215,7 +218,10 @@ function MinutesOnDisplay({ state }: { state: MeetingState }) {
 
 function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueueEntry[] }) {
   return (
-    <aside aria-label="Speakers" className="space-y-8 border-r border-rule pr-10">
+    <aside
+      aria-label="Speakers"
+      className="min-h-0 space-y-8 overflow-hidden border-r border-rule pr-10"
+    >
       <div className="space-y-3">
         <p className={LABEL}>Speaking</p>
         {state.recognizedSpeaker ? (
@@ -241,7 +247,7 @@ function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueu
             {queue.map((entry) => (
               <li key={entry.member.id} className="text-display-label text-ink">
                 {entry.member.name}{' '}
-                <span className="text-ink-muted">{STANCE_LABELS[entry.stance]}</span>
+                <span className="text-ink-muted">{stanceLabel(entry.stance)}</span>
               </li>
             ))}
           </ol>

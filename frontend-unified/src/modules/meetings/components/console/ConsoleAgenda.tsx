@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
+import { MAX_AGENDA_TITLE_LENGTH } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { electionUnderway } from '../../utils/chairActions';
@@ -52,6 +53,7 @@ export function ConsoleAgenda({ state, dispatch, onCall }: ConsoleAgendaProps) {
               id={newItemId}
               className="input"
               placeholder="Add an item"
+              maxLength={MAX_AGENDA_TITLE_LENGTH}
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
             />

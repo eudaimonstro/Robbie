@@ -48,6 +48,9 @@ const io = new Server<
     maxDisconnectionDuration: 2 * 60 * 1000,
     skipMiddlewares: true,
   },
+  // The largest action a client sends (a bylaw amendment motion with a section's text) is well
+  // under this; the default (1 MB) let one message carry a megabyte into the meeting's state
+  maxHttpBufferSize: 100 * 1024,
 });
 
 // Store io instance for access from other modules (e.g., sessionSockets)

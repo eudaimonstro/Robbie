@@ -27,6 +27,8 @@ export { applyMotionOutcome } from './motionOutcomeHelper.js';
 
 export {
   getValidMotions,
+  wordingFixedBy,
+  BYLAW_WORDING_FIXED,
   normalizeMotionText,
   isSimilarMotionSubject,
   wasMotionDefeated,
@@ -72,3 +74,13 @@ export {
   describeParsedBylaws,
   type ParsedSection,
 } from './bylawsParser.js';
+
+export {
+  bylawChangeView,
+  bylawMotionText,
+  sectionLabel,
+  type BylawChangeView,
+  type SectionText,
+} from './bylawAmendment.js';
+
+export { fitMotionText } from './motionText.js';

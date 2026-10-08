@@ -18,7 +18,6 @@ export interface Member {
    * member who isn't present (and on states saved before it existed, where it means device).
    */
   presentBy?: 'device' | 'chair';
-  selfRenameUsed?: boolean; // Members can only rename themselves once
 }
 
 export type DebateStance = 'pro' | 'con' | 'neutral';
@@ -95,16 +94,39 @@ export interface AgendaAmendment {
 // Bylaw amendment types for Bylawyer integration
 export type BylawChangeType = 'add' | 'modify' | 'delete' | 'renumber';
 
+/**
+ * The change a bylaw amendment motion proposes, carried in the motion so that everyone sees the
+ * text they are voting on, and the text adopted is the text applied. The mover sends the
+ * document, the change and its new text, or a proposed amendment to move; the server checks them
+ * against the document's current version and fills in the rest (the fields marked so), so what
+ * the room sees comes from the bylaws, never from the mover's device.
+ */
 export interface BylawAmendment {
   documentId: string; // Bylawyer document ID
-  documentTitle?: string; // Document title for display
+  /** The document's title (set by the server) */
+  documentTitle?: string;
+  /**
+   * The proposed amendment (status proposed) this motion moves, when moved from the drafts: its
+   * change is copied into the motion by the server, and the sync marks it decided
+   */
+  amendmentId?: string;
+  /** The proposed amendment's title (set by the server) */
+  amendmentTitle?: string;
   changeType: BylawChangeType;
-  targetSectionId?: string; // Section being modified
-  targetSectionLabel?: string; // Section label for display (e.g., "Article III, Section 2")
+  /** The section changed, deleted or renumbered */
+  targetSectionId?: string;
+  /** That section's number and title, as 'Section 4.2 "Quorum"' (set by the server) */
+  targetSectionLabel?: string;
+  /** That section's title and text as they stand (set by the server) */
+  currentTitle?: string;
+  currentContent?: string;
   newContent?: string; // New/modified content
-  newNumberLabel?: string; // New section number (for renumber)
+  newNumberLabel?: string; // New section number (for renumber, or an added section)
   newTitle?: string; // New section title
-  parentSectionId?: string; // Parent section for add operations
+  /** Where an added section goes: under this section, or at the top level when absent */
+  parentSectionId?: string;
+  /** That section's number and title (set by the server) */
+  parentSectionLabel?: string;
 }
 
 export interface CommitteeReport {
@@ -178,7 +200,8 @@ export interface CompletedMotion {
   readonly timestamp: string;
   /** Whether a motion to reconsider has brought this vote back */
   readonly reconsidered: boolean;
-  readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
+  /** A bylaw amendment's change: the text decided, for the sync, the minutes and reconsideration */
+  readonly bylawAmendment?: BylawAmendment;
   readonly mover?: string; // Restored with the motion if it is reconsidered
   readonly moverId?: number;
   // The two parts of the vote, and how it was taken. Records made before these existed, which
@@ -707,15 +730,7 @@ export type MeetingAction =
       declinedBy?: number;
       timestamp: string;
     }
-  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string }
-  // Member management
-  | {
-      type: 'RENAME_MEMBER';
-      memberId: number;
-      newName: string;
-      renamedBy: number;
-      timestamp: string;
-    };
+  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

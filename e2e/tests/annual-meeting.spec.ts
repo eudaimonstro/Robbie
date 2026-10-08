@@ -1,4 +1,11 @@
-import { test, expect, type BrowserContextOptions, type Page } from '@playwright/test';
+import {
+  test,
+  expect,
+  type BrowserContextOptions,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 import { resetDemo } from '../demo';
 import { BASE_URL } from '../env';
 import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
@@ -27,6 +34,15 @@ test.afterAll(async () => {
   test.setTimeout(120_000);
   await resetDemo();
 });
+
+/** A phone's screen as the person sees it, scrolled to this part (a full-page capture of a phone
+ * leaves the page below its height blank) */
+async function phoneShot(page: Page, testInfo: TestInfo, name: string, at: Locator) {
+  await at.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+  const file = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path: file });
+  await testInfo.attach(name, { path: file, contentType: 'image/png' });
+}
 
 interface PacketJson {
   organizationId: string;
@@ -79,6 +95,14 @@ test('the annual meeting runs from the call to order to published minutes and ne
       },
     });
     expect(linked.ok(), "link a document to the treasurer's report").toBe(true);
+
+    // The board proposed its amendment to Section 4.2 ahead of the meeting (the demo has it
+    // proposed), so a member can move it as drafted
+    const drafts: Array<{ id: string; title: string; status: string }> = await (
+      await pat.request.get(`/api/documents/${bylaws!.id}/amendments`)
+    ).json();
+    const lowerQuorum = drafts.find((amendment) => amendment.title === 'Lower the quorum to 15%');
+    expect(lowerQuorum?.status, "the demo's proposed amendment").toBe('proposed');
 
     // The TV shows the display (Morgan, a viewer, is signed in on it)
     const tv = await open(PEOPLE.morgan, { viewport: { width: 1920, height: 1080 } });
@@ -174,8 +198,9 @@ test('the annual meeting runs from the call to order to published minutes and ne
       pool.caption.getByText('On devices 2 to 0, in the room 20 to 3: 22 to 3', { exact: true }),
     ).toBeVisible();
 
-    // New business: Alice moves to amend Section 4.2 from her phone (the console's floor motion
-    // leaves out bylaw amendments; phone/MotionPanel.tsx, BylawAmendmentForm.tsx)
+    // New business: Alice moves the proposed amendment to Section 4.2 from her phone, as the
+    // board drafted it (phone/MotionPanel.tsx, BylawAmendmentForm.tsx; the console's floor
+    // motion leaves out bylaw amendments)
     await callNext(dana, 'New business: amend Section 4.2 to lower the quorum to 15%');
     await alice.locator('summary', { hasText: 'Other motions' }).click();
     await alice.getByRole('radio', { name: /^Amend the bylaws/ }).check();
@@ -183,27 +208,47 @@ test('the annual meeting runs from the call to order to published minutes and ne
       .getByRole('group', { name: 'Other motions' })
       .getByRole('button', { name: 'Move' })
       .click();
-    const form = alice.getByRole('region', { name: 'Make a motion' });
-    await expect(form.getByText('Proposing amendment for Maple Grove HOA')).toBeVisible();
-    // The form's selects have no labels: the document, then the section (indented by depth)
-    const [documentSelect, sectionSelect] = [
-      form.getByRole('combobox').nth(0),
-      form.getByRole('combobox').nth(1),
-    ];
-    await documentSelect.selectOption({ label: BYLAWS });
-    const quorum = await sectionSelect
-      .locator('option', { hasText: 'Section 4.2' })
-      .getAttribute('value');
-    await sectionSelect.selectOption(quorum!);
-    await form.getByPlaceholder('Enter the section content...').fill(LOWER_QUORUM);
-    await form.getByRole('button', { name: 'Submit Motion' }).click();
-    await expect(
-      dana.getByText('I move to amend the bylaws by modifying Section 4.2 "Quorum"').first(),
-    ).toBeVisible();
+    const form = alice.getByRole('form', { name: 'Amend the bylaws' });
+    await expect(form.getByLabel('Document')).toHaveValue(bylaws!.id);
+    await form
+      .getByRole('group', { name: 'Proposed amendments' })
+      .getByRole('radio', { name: /Lower the quorum to 15%/ })
+      .check();
+    // Before moving it, Alice sees the section as it reads and as it would read
+    await expect(form.getByRole('region', { name: 'The text' })).toContainText(LOWER_QUORUM);
+    await expect(form.getByRole('region', { name: 'The text' })).toContainText('twenty percent');
+    await phoneShot(alice, testInfo, 'bylaw-form-phone', form);
+    await form.getByRole('button', { name: 'Move', exact: true }).click();
+    const words =
+      'I move to amend the bylaws by modifying Section 4.2 "Quorum", as proposed in "Lower the quorum to 15%"';
+    await expect(dana.getByText(words).first()).toBeVisible();
     await ben.getByRole('button', { name: 'Second', exact: true }).click();
     await expect(dana.getByText('Two thirds').first()).toBeVisible();
+    // Everyone sees the text they are voting on: the console and the phones as it reads now
+    // and as it would read, the TV the new text
+    for (const page of [dana, alice, ben, tv]) {
+      await expect(page.getByRole('region', { name: 'The text' })).toContainText(LOWER_QUORUM);
+    }
+    await expect(dana.getByRole('region', { name: 'The text' })).toContainText('Now reads');
+    // The TV fits it all on the screen, with the speaker rail up too
+    await fitsTheScreen(tv);
+    await ben.getByRole('button', { name: 'For', exact: true }).click();
+    await ben.getByRole('button', { name: 'Ask to speak' }).click();
+    await expect(tv.getByRole('complementary', { name: 'Speakers' })).toBeVisible();
+    await fitsTheScreen(tv);
+    await capture(dana, testInfo, 'bylaw-text-console');
+    await phoneShot(
+      alice,
+      testInfo,
+      'bylaw-text-phone',
+      alice.getByRole('region', { name: 'The question' }),
+    );
+    await capture(tv, testInfo, 'bylaw-text-display');
     // 22 to 5 is more than two thirds (abstentions don't count)
-    await voteOn(dana, [alice, ben], { yea: 20, nay: 5 });
+    await voteOn(dana, [alice, ben], { yea: 20, nay: 5 }, async () => {
+      await expect(tv.getByText('Voting now')).toBeVisible();
+      await fitsTheScreen(tv);
+    });
     const amendment = visibleStamp(tv, 'Carried');
     await expect(
       amendment.caption.getByText('On devices 2 to 0, in the room 20 to 5: 22 to 5', {
@@ -262,6 +307,12 @@ test('the annual meeting runs from the call to order to published minutes and ne
       });
     }).toPass({ timeout: 30_000 });
     await expect(pat.getByText(/fifteen percent \(15%\)/).first()).toBeVisible();
+    // The board's amendment is the one adopted: passed, with no second one beside it
+    const after: Array<{ id: string; status: string }> = await (
+      await pat.request.get(`/api/documents/${bylaws!.id}/amendments`)
+    ).json();
+    expect(after.find((amendment) => amendment.id === lowerQuorum!.id)?.status).toBe('passed');
+    expect(after).toHaveLength(drafts.length);
 
     // Pat opens the drafted minutes, sees last year's approved, fixes a name and publishes
     // this year's
@@ -278,6 +329,8 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(minutes).toContainText(`at ${POOL_HOUSE}`);
     await expect(minutes).not.toContainText(`at ${CLUBHOUSE}`);
     await expect(minutes).toContainText('Section 4.2');
+    await expect(minutes).toContainText('As adopted, Section 4.2 "Quorum" reads:');
+    await expect(minutes).toContainText(LOWER_QUORUM);
     await expect(minutes).toContainText('Director, seat 1');
     await expect(minutes).toContainText('Director, seat 2');
     // Ben goes by Benjamin in the record. Publish saves the text as typed first, without waiting
@@ -349,6 +402,7 @@ async function voteOn(
   dana: Page,
   phones: Page[],
   room: { yea: number; nay: number },
+  whileOpen?: () => Promise<void>,
 ): Promise<void> {
   await dana.getByRole('button', { name: 'Open the vote' }).click();
   for (const phone of phones) await phone.getByRole('button', { name: 'Vote yea' }).click();
@@ -360,7 +414,14 @@ async function voteOn(
   await expect(
     dana.getByText(`Together: ${phones.length + room.yea} to ${room.nay}`),
   ).toBeVisible();
+  await whileOpen?.();
   await dana.getByRole('button', { name: 'Close the vote' }).click();
+}
+
+/** The display shows everything within the TV's 1080 lines: nothing on it scrolls */
+async function fitsTheScreen(tv: Page): Promise<void> {
+  const height = await tv.evaluate(() => document.documentElement.scrollHeight);
+  expect(height, 'the display fits the screen').toBeLessThanOrEqual(1080);
 }
 
 /**

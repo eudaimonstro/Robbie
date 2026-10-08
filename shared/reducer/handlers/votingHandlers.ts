@@ -207,6 +207,9 @@ export const votingHandler: ActionHandler = (state, action, log) => {
             floorVotes,
             method: state.votingMethod,
             ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
+            // The change a bylaw amendment proposed: the text adopted (or not), for the sync,
+            // the minutes and a reconsideration
+            ...(decided.bylawAmendment ? { bylawAmendment: decided.bylawAmendment } : {}),
             disposition: passed ? 'carried' : 'failed',
             quorumPresent: quorumNow(state),
             ...decisionContext(state, typedAction.at),

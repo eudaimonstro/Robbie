@@ -821,6 +821,37 @@ describe('meetingReducer', () => {
       ]);
     });
 
+    it('should keep the proposed change on the record of a decided bylaw amendment', () => {
+      const bylawAmendment = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'New text',
+      };
+      const motion = createMockMotion({ type: 'bylawAmendment', vote: '2/3', bylawAmendment });
+      const decide = (votes: { yea: number; nay: number; abstain: number }) =>
+        meetingReducer(
+          {
+            ...initialState,
+            meetingActive: true,
+            votingOpen: true,
+            currentMotion: motion,
+            motionStack: [motion],
+            votes,
+          },
+          { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
+        ).completedMotions.at(-1);
+
+      expect(decide({ yea: 5, nay: 1, abstain: 0 })).toMatchObject({
+        passed: true,
+        bylawAmendment,
+      });
+      expect(decide({ yea: 1, nay: 5, abstain: 0 })).toMatchObject({
+        passed: false,
+        bylawAmendment,
+      });
+    });
+
     it('should clear the speaker state once the question is decided', () => {
       // Debate on an amendment must not carry over to the main motion it returns to
       const mainMotion = createMockMotion({ id: 1 });
@@ -1314,6 +1345,25 @@ describe('meetingReducer', () => {
       expect(state.currentMotion).toBeNull();
       expect(state.meetingLog.some((l) => l.message.includes('unanimous consent'))).toBe(true);
     });
+
+    it('should keep the proposed change on the record of a bylaw amendment adopted', () => {
+      const bylawAmendment = { documentId: 'doc-1', changeType: 'delete' as const };
+      const motion = createMockMotion({ type: 'bylawAmendment', bylawAmendment });
+      const state = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          unanimousConsentPending: true,
+          currentMotion: motion,
+          motionStack: [motion],
+        },
+        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:12:00' },
+      );
+      expect(state.completedMotions.at(-1)).toMatchObject({
+        disposition: 'unanimous',
+        bylawAmendment,
+      });
+    });
   });
 
   describe('CALL_AGENDA_ITEM', () => {
@@ -1696,6 +1746,61 @@ describe('meetingReducer', () => {
 
     it('gives the same result each time (the reducer stays pure)', () => {
       expect(byVote().currentMotion).toEqual(byVote().currentMotion);
+    });
+
+    it('brings a bylaw amendment back with its change, decided again with it', () => {
+      const bylawAmendment = {
+        documentId: 'doc-1',
+        changeType: 'modify' as const,
+        targetSectionId: 'sec-1',
+        newContent: 'New text',
+      };
+      const amendment = createMockMotion({
+        id: 30,
+        type: 'bylawAmendment',
+        vote: '2/3',
+        bylawAmendment,
+      });
+      // Adopted, then reconsidered
+      const adopted = meetingReducer(
+        {
+          ...initialState,
+          meetingActive: true,
+          votingOpen: true,
+          currentMotion: amendment,
+          motionStack: [amendment],
+          votes: { yea: 5, nay: 1, abstain: 0 },
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:00:00' },
+      );
+      const reconsiderIt = createMockMotion({
+        id: 40,
+        type: 'reconsider',
+        vote: 'majority',
+        reconsideredMotionId: 30,
+      });
+      const restored = meetingReducer(
+        {
+          ...adopted,
+          votingOpen: true,
+          currentMotion: reconsiderIt,
+          motionStack: [reconsiderIt],
+          votes: { yea: 4, nay: 1, abstain: 0 },
+        },
+        { type: 'CLOSE_VOTING', timestamp: '10:10:00' },
+      );
+      expect(restored.currentMotion).toMatchObject({ type: 'bylawAmendment', bylawAmendment });
+
+      // Voted on again, it fails: the new record has the change, for the sync
+      const again = meetingReducer(
+        { ...restored, votingOpen: true, votes: { yea: 1, nay: 5, abstain: 0 } },
+        { type: 'CLOSE_VOTING', timestamp: '10:20:00' },
+      );
+      expect(again.completedMotions.at(-1)).toMatchObject({
+        id: 40,
+        passed: false,
+        bylawAmendment,
+      });
     });
 
     it('brings the motion back when adopted by unanimous consent', () => {

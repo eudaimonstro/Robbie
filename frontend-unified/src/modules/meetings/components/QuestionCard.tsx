@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { QuestionView } from '../utils/question';
+import { BylawText } from './BylawText';
 
 interface QuestionCardProps {
   question: QuestionView | null;
@@ -33,18 +34,21 @@ export function QuestionCard({
     ? 'text-display-label font-semibold uppercase tracking-[0.08em] text-ink-muted'
     : 'label-caps';
   const secondary = display ? 'text-display-line text-ink-muted' : 'text-ink-muted';
+  // On the display, a bylaw amendment's text needs the room: the question steps down a size
+  const textSize = display && question?.bylawText ? 'text-display-line' : TEXT_SIZE[size];
 
   return (
     <section
       aria-label="The question"
-      className={display ? '' : 'card border-t-2 border-t-gavel p-5 sm:p-6'}
+      className={display ? 'flex min-h-0 flex-col' : 'card border-t-2 border-t-gavel p-5 sm:p-6'}
     >
       {question ? (
-        <div key={question.key} className="animate-crossfade space-y-3">
+        <div
+          key={question.key}
+          className={`animate-crossfade ${display ? 'flex min-h-0 flex-col gap-3' : 'space-y-3'}`}
+        >
           <p className={label}>{question.kind}</p>
-          <p className={`font-serif-soft font-semibold text-ink ${TEXT_SIZE[size]}`}>
-            {question.text}
-          </p>
+          <p className={`font-serif-soft font-semibold text-ink ${textSize}`}>{question.text}</p>
           {question.byline && <p className={secondary}>{question.byline}</p>}
           {(question.requirement || question.awaitingSecond) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -57,6 +61,7 @@ export function QuestionCard({
               {question.awaitingSecond && <span className="badge-proposed">Awaiting a second</span>}
             </div>
           )}
+          {question.bylawText && <BylawText text={question.bylawText} size={size} />}
           {question.beneath.length > 0 && (
             <div>
               <p className={label}>Pending beneath it</p>

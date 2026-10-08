@@ -58,7 +58,7 @@ describe('demo seed', () => {
       where: { documentId: document.id },
       include: { changes: true },
     });
-    expect(amendment).toMatchObject({ title: 'Lower the quorum to 15%', status: 'draft' });
+    expect(amendment).toMatchObject({ title: 'Lower the quorum to 15%', status: 'proposed' });
     expect(amendment.changes).toMatchObject([
       { changeType: 'modify', targetSectionId: quorum?.id },
     ]);

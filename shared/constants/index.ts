@@ -18,3 +18,12 @@ export {
   MAX_FLOOR_NAME_LENGTH,
 } from './floor.js';
 export { TERMS_VERSION } from './terms.js';
+export {
+  MAX_MOTION_TEXT_LENGTH,
+  MAX_BYLAW_TEXT_LENGTH,
+  MAX_BYLAW_TITLE_LENGTH,
+  MAX_BYLAW_LABEL_LENGTH,
+  MAX_AGENDA_TITLE_LENGTH,
+  MAX_POSITION_LENGTH,
+  MAX_NAME_LENGTH,
+} from './limits.js';

@@ -124,7 +124,6 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   ACCEPT_PROXY: { id: 'acceptedBy' },
   DECLINE_PROXY: { id: 'declinedBy' },
   CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
-  RENAME_MEMBER: { id: 'renamedBy' },
 };
 
 /**
@@ -150,6 +149,13 @@ export function enrichAction(
   if (actor.id) enriched[actor.id] = socketData.userId;
   if (actor.name) enriched[actor.name] = self.name;
   if (actor.member) enriched.member = self;
+
+  // The speaker the chair recognizes is the member as the meeting has them, by id: a client's
+  // copy may be stale (a name since refreshed, a field since retired)
+  if (enriched.type === 'RECOGNIZE_SPEAKER') {
+    const speaker = members.find((m) => m.id === (enriched.member as Member | undefined)?.id);
+    if (speaker) enriched.member = speaker;
+  }
 
   // The person marked present comes from the organization's roster, never from a client
   if (enriched.type === 'MARK_PRESENT') {

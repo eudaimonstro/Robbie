@@ -5,3 +5,10 @@ export const INQUIRY_KINDS: Record<InquiryType, { label: string; hint: string }>
   parliamentary: { label: 'About the rules', hint: 'How the meeting works, or what is in order' },
   information: { label: 'For information', hint: 'A fact about the business at hand' },
 };
+
+/** An inquiry's kind from the meeting's state, looked up as an own key (anything else: information) */
+export function inquiryKind(type: unknown): { label: string; hint: string } {
+  return typeof type === 'string' && Object.hasOwn(INQUIRY_KINDS, type)
+    ? INQUIRY_KINDS[type as InquiryType]
+    : INQUIRY_KINDS.information;
+}

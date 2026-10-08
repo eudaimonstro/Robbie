@@ -216,12 +216,6 @@ export function logHeadcountSet(count: number): string {
   return `${count} ${count === 1 ? 'person' : 'people'} present without an account.`;
 }
 
-export function logMemberRenamed(oldName: string, newName: string, renamedBy: string): string {
-  return renamedBy === oldName
-    ? `${oldName} changed their name to ${newName}.`
-    : `${renamedBy} renamed ${oldName} to ${newName}.`;
-}
-
 export function logRoleChanged(
   memberName: string,
   oldRole: string,

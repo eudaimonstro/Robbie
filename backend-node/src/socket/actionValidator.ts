@@ -12,6 +12,7 @@ import {
   MOTIONS,
 } from '@robbie-bylawyer/shared/constants';
 import {
+  BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
   canChairVoteDecide,
@@ -19,6 +20,7 @@ import {
   isSecondaryAmendmentInOrder,
   moverCanClaimFloor,
   wasMotionDefeated,
+  wordingFixedBy,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
 import { checkPermission, isServerOnly } from './permissionGuard.js';
@@ -47,6 +49,26 @@ function isGuest(state: MeetingState, memberId: number): boolean {
 function isPresiding(state: MeetingState, memberId: number | undefined): boolean {
   const role = state.members.find((m) => m.id === memberId)?.role;
   return role === 'chair' || role === 'admin';
+}
+
+/**
+ * Why the member with this id can't vote now, or null when they can: they must be in the meeting
+ * and present. Checked against the state the vote is applied to, so a member marked absent a
+ * moment before isn't counted.
+ */
+function checkVoterPresent(state: MeetingState, voterId: number): ValidationResult | null {
+  const voter = state.members.find((m) => m.id === voterId);
+  if (!voter) {
+    return {
+      valid: false,
+      error: 'You are not a member of this meeting',
+      errorCode: 'NOT_A_MEMBER',
+    };
+  }
+  if (!voter.present) {
+    return { valid: false, error: 'You must be present to vote', errorCode: 'NOT_PRESENT' };
+  }
+  return null;
 }
 
 /** Whether an election is under way: nominations open or closed, or a ballot */
@@ -145,6 +167,10 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       error: `${definition.name} needs details this request did not include`,
       errorCode: 'INVALID_ACTION',
     };
+  }
+  // A bylaw amendment's words are the text the room sees and the sync applies
+  if (wordingFixedBy(state, action.motionType)) {
+    return { valid: false, error: BYLAW_WORDING_FIXED, errorCode: 'INVALID_ACTION' };
   }
   // A secondary amendment is in order only on a pending primary amendment; its numeric
   // precedence can't express that, so it is checked by type instead
@@ -416,7 +442,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'CAST_VOTE':
+    case 'CAST_VOTE': {
+      const notVoting = checkVoterPresent(state, action.voterId);
+      if (notVoting) return notVoting;
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
@@ -459,6 +487,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         }
       }
       return { valid: true };
+    }
 
     case 'CLOSE_VOTING': {
       if (!state.votingOpen) {
@@ -547,6 +576,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       const motionToModify = state.pendingSecond || state.currentMotion;
       if (!motionToModify) {
         return { valid: false, error: 'No motion to modify', errorCode: 'NO_CURRENT_MOTION' };
+      }
+      // A bylaw amendment's words come from the change it carries, which is what the room sees
+      // and what is applied: the mover withdraws it and moves it again instead
+      if (motionToModify.type === 'bylawAmendment') {
+        return {
+          valid: false,
+          error: BYLAW_WORDING_FIXED,
+          errorCode: 'INVALID_ACTION',
+        };
       }
       if (motionToModify.moverId !== action.requesterId) {
         return {
@@ -940,7 +978,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'CAST_BALLOT':
+    case 'CAST_BALLOT': {
+      const notVoting = checkVoterPresent(state, action.voterId);
+      if (notVoting) return notVoting;
       if (!state.currentElection) {
         return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
       }
@@ -959,6 +999,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+    }
 
     case 'SET_FLOOR_BALLOTS': {
       if (!state.currentElection) {
@@ -1504,29 +1545,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       const memberToMark = state.members.find((m) => m.id === action.memberId);
       if (!memberToMark) {
         return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      return { valid: true };
-    }
-
-    case 'RENAME_MEMBER': {
-      const memberToRename = state.members.find((m) => m.id === action.memberId);
-      if (!memberToRename) {
-        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      const trimmedName = action.newName?.trim() || '';
-      if (trimmedName.length < 2) {
-        return {
-          valid: false,
-          error: 'Name must be at least 2 characters',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (trimmedName.length > 100) {
-        return {
-          valid: false,
-          error: 'Name must be 100 characters or less',
-          errorCode: 'INVALID_ACTION',
-        };
       }
       return { valid: true };
     }

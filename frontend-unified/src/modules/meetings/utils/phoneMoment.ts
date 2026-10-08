@@ -44,3 +44,14 @@ export const STANCE_LABELS: Record<DebateStance, string> = {
   con: 'Against',
   neutral: 'Neutral',
 };
+
+/**
+ * A stance from the meeting's state, in words: looked up as an own key, so a value that isn't a
+ * stance (the server refuses one, but the screens shouldn't depend on it) shows as Neutral
+ * rather than reaching the prototype
+ */
+export function stanceLabel(stance: unknown): string {
+  return typeof stance === 'string' && Object.hasOwn(STANCE_LABELS, stance)
+    ? STANCE_LABELS[stance as DebateStance]
+    : STANCE_LABELS.neutral;
+}

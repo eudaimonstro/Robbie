@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import { phoneMoment } from '../phoneMoment';
+import { phoneMoment, stanceLabel } from '../phoneMoment';
+import { inquiryKind } from '../inquiryKinds';
 
 const motion = (key: string): Motion => ({
   ...MOTIONS[key],
@@ -142,5 +143,18 @@ describe('phoneMoment', () => {
     ],
   ])('asks for one thing %s', (_when, state, moment) => {
     expect(phoneMoment(state)).toBe(moment);
+  });
+});
+
+describe('labels from the state', () => {
+  it('names each stance', () => {
+    expect(['pro', 'con', 'neutral'].map(stanceLabel)).toEqual(['For', 'Against', 'Neutral']);
+  });
+
+  it("never reaches the prototype for a stance or an inquiry that isn't one", () => {
+    for (const value of ['__proto__', 'constructor', 'toString', 3, null]) {
+      expect(stanceLabel(value)).toBe('Neutral');
+      expect(inquiryKind(value).label).toBe('For information');
+    }
   });
 });

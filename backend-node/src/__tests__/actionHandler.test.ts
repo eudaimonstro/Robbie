@@ -67,7 +67,7 @@ function socketOf(data: Partial<SocketData>) {
   };
 }
 
-async function dispatch(socket: ReturnType<typeof socketOf>, action: Record<string, unknown>) {
+async function dispatch(socket: ReturnType<typeof socketOf>, action: unknown) {
   const emit = vi.fn();
   const io = { to: vi.fn(() => ({ emit })), in: () => ({ fetchSockets: async () => [] }) };
   const callback = vi.fn();
@@ -188,5 +188,79 @@ describe('handleDispatchAction', () => {
     expect(update.state.voterChoices).toEqual({});
     expect(update.state.voters).toEqual([1, 2]);
     expect(update.triggeredBy).toEqual({ actionType: 'CAST_VOTE', userId: 0 });
+  });
+
+  describe('refuses a malformed action before anything reads it', () => {
+    it.each([
+      ['a prototype key as a stance, from a guest', 9, { type: 'RAISE_HAND', stance: '__proto__' }],
+      [
+        'an object as motion text',
+        2,
+        {
+          type: 'MAKE_MOTION',
+          motionType: 'mainMotion',
+          text: { length: 3 },
+          motionId: 1,
+          timestamp: '',
+        },
+      ],
+      ['a megabyte vote', 2, { type: 'CAST_VOTE', vote: 'y'.repeat(1024 * 1024) }],
+      ['a prototype key as the type', 2, { type: '__proto__' }],
+      ['a type no action has', 2, { type: 'constructor' }],
+    ])('%s', async (_label, userId, action) => {
+      stored.state = { ...stored.state, votingOpen: true };
+      const before = structuredClone(stored.state);
+      const socket = socketOf({ userId, role: userId === 9 ? 'guest' : 'member' });
+      const { callback, emit } = await dispatch(socket, action);
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ACTION_REJECTED',
+        expect.objectContaining({ clientSequence: 1 }),
+      );
+      // Nothing reached the state, and nothing went to the room
+      expect(applyAction).not.toHaveBeenCalled();
+      expect(emit).not.toHaveBeenCalled();
+      expect(stored.state).toEqual(before);
+    });
+  });
+
+  it('refuses a vote from a member marked absent, as the validator checks it', async () => {
+    stored.state = {
+      ...stored.state,
+      votingOpen: true,
+      members: stored.state.members.map((m) => (m.id === 2 ? { ...m, present: false } : m)),
+    };
+    const { callback } = await dispatch(socketOf({}), { type: 'CAST_VOTE', vote: 'yea' });
+    expect(callback).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, errorCode: 'NOT_PRESENT' }),
+    );
+    expect(applyAction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a ballot from a member marked absent', async () => {
+    stored.state = {
+      ...stored.state,
+      currentMotion: null,
+      motionStack: [],
+      currentElection: {
+        id: 5,
+        position: 'Director',
+        candidates: [{ name: 'Carmen Diaz', id: 0 }],
+        requiredVotes: 'majority',
+        votingInProgress: true,
+        ballotResults: {},
+        votersWhoVoted: [],
+        elected: null,
+      },
+      members: stored.state.members.map((m) => (m.id === 2 ? { ...m, present: false } : m)),
+    };
+    const { callback } = await dispatch(socketOf({}), {
+      type: 'CAST_BALLOT',
+      candidateName: 'Carmen Diaz',
+    });
+    expect(callback).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, errorCode: 'NOT_PRESENT' }),
+    );
+    expect(applyAction).not.toHaveBeenCalled();
   });
 });

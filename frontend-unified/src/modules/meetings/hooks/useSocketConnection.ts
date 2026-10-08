@@ -2,7 +2,8 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import type { JoinError, TypedSocket, StateUpdatePayload } from '../types/socket';
+import type { StateUpdatePayload } from '@robbie-bylawyer/shared/types/socket';
+import type { JoinError, TypedSocket } from '../types/socket';
 import { TERMS_NOT_ACCEPTED } from '../../../api/client';
 
 /** The ERROR code the server sends the room of a meeting canceled while it is open */

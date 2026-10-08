@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowUpDown, Minus, Plus } from 'lucide-react';
+import { MAX_AGENDA_TITLE_LENGTH } from '@robbie-bylawyer/shared/constants';
 import { generateId } from '@robbie-bylawyer/shared/utils';
 import type { AgendaAmendmentFormProps } from '../types';
 
@@ -80,6 +81,7 @@ export function AgendaAmendmentForm({ agenda, onSubmit, onCancel }: AgendaAmendm
               value={newItemTitle}
               onChange={(e) => setNewItemTitle(e.target.value)}
               placeholder="Enter agenda item..."
+              maxLength={MAX_AGENDA_TITLE_LENGTH}
               className="w-full p-3 border rounded-lg"
             />
           </div>

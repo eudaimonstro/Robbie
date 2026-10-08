@@ -1,5 +1,5 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
-import { STANCE_LABELS } from '../../utils/phoneMoment';
+import { stanceLabel } from '../../utils/phoneMoment';
 import { TimerLine } from '../TimerLine';
 import { useSortedSpeakerQueue } from '../../hooks/useSortedSpeakerQueue';
 
@@ -34,7 +34,7 @@ export function SpeakerList({ state }: { state: MeetingState }) {
           {queue.map((entry, index) => (
             <li key={entry.member.id}>
               {index + 1}. {entry.member.name}{' '}
-              <span className="text-ink-muted">({STANCE_LABELS[entry.stance]})</span>
+              <span className="text-ink-muted">({stanceLabel(entry.stance)})</span>
             </li>
           ))}
         </ol>
