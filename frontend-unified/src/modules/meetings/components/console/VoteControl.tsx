@@ -11,7 +11,6 @@ import {
   addVotes,
   canChairVoteDecide,
   generateTimestamp,
-  isRuleSuspended,
 } from '@robbie-bylawyer/shared/utils';
 import { TimerLine } from '../TimerLine';
 
@@ -78,26 +77,22 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
   const iVoted = me !== null && state.voters.includes(me.id);
   const myVote = me ? state.voterChoices[me.id] : undefined;
   const floorEntered = floor.yea + floor.nay + floor.abstain > 0;
-  // With the restriction suspended, the chair votes like anyone (the server's rule)
-  const chairRestricted = !isRuleSuspended(state, 'chair-voting-restriction');
 
   // The chair votes only when that would change the result, judged on the devices and the room
   // together, as the server judges it; on a secret ballot the chair votes like anyone
   const chairMayDecide =
     me?.role === 'chair' &&
-    chairRestricted &&
     (method === 'standard' || method === 'rollcall') &&
     !iVoted &&
     canChairVoteDecide(combined, requirement);
   const ownVote =
     me !== null &&
     method !== 'voice' &&
-    (me.role === 'admin' || (me.role === 'chair' && (method === 'ballot' || !chairRestricted)));
+    (me.role === 'admin' || (me.role === 'chair' && method === 'ballot'));
   // The server judged the chair's vote on the count in the room as it stood, so once the chair
   // has voted (outside a secret ballot) the count can no longer change
   const chair = state.members.find((m) => m.role === 'chair');
-  const tallyLocked =
-    !!chair && method !== 'ballot' && chairRestricted && state.voters.includes(chair.id);
+  const tallyLocked = !!chair && method !== 'ballot' && state.voters.includes(chair.id);
   // A voice vote is counted only in the room: the server refuses to close it on no count
   const closeBlocked = method === 'voice' && !floorEntered;
 

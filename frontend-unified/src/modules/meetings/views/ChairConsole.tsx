@@ -12,7 +12,6 @@ import {
   setAsideElection,
 } from '../utils/chairActions';
 import { adjournedAt, currentResult, describeQuestion } from '../utils/question';
-import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
 import { InquiryPanel } from '../components/InquiryPanel';
@@ -114,13 +113,6 @@ export function ChairConsole() {
         meetingCode={meetingCode}
         onJoinInfo={() => setJoinInfoOpen(true)}
       />
-      {!adjourned && (
-        <ActiveSuspensionsBanner
-          state={state}
-          currentUser={presiding ?? undefined}
-          dispatch={dispatch}
-        />
-      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div ref={nowRef} className="space-y-4 xl:col-span-8">

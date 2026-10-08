@@ -66,7 +66,7 @@ describe('validating floor votes', () => {
       expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
     });
 
-    it('is taken while the chair voting restriction is suspended, since the chair votes freely', () => {
+    it('is refused even with the chair voting restriction suspended in an older saved state', () => {
       const suspension = {
         id: 1,
         rule: 'chair-voting-restriction' as const,
@@ -76,7 +76,7 @@ describe('validating floor votes', () => {
         suspendedAt: '',
         motionId: 9,
       };
-      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(true);
+      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(false);
     });
   });
 

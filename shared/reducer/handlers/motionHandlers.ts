@@ -19,7 +19,6 @@ import {
   logTakenUp,
   logWithdrawalAsked,
 } from '../../constants/logMessages.js';
-import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
 import { motionTextFromDetails } from '../../utils/motionRules.js';
 import { unvotedRecord } from './records.js';
 import type { ActionHandler } from './types.js';
@@ -80,17 +79,18 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     ...(made.recessUntil?.trim() && { recessUntil: made.recessUntil.trim() }),
     ...(made.fromFloor && { fromFloor: true }),
     ...(made.putByChair && { putByChair: true }),
+    // An appeal keeps the ruling it appeals from, to put back what the ruling removed
+    ...(made.motionType === 'appeal' &&
+      state.lastChairRuling && { appealOf: state.lastChairRuling }),
   };
   // Clear lastChairRuling for non-Appeal motions
   const lastChairRuling = made.motionType === 'appeal' ? state.lastChairRuling : null;
 
   // A question the chair puts from the agenda needs no second: the agenda is the assembly's
-  // business already (and it leaves a suspended second requirement for the next motion)
+  // business already
   const needsSecond = motion.needsSecond && !made.putByChair;
-  // Check if second requirement is suspended
-  const secondSuspended = isRuleSuspended(state, 'second-requirement');
 
-  if (needsSecond && !secondSuspended) {
+  if (needsSecond) {
     const message = made.fromFloor
       ? logFloorMotionMade(made.mover, text, motion.name)
       : logMotionMade(made.mover, text, motion.name);
@@ -102,18 +102,9 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     };
   }
 
-  // If second was bypassed due to suspension, note it in the log
-  const bypassedSecond = needsSecond && secondSuspended;
   const logMessage = made.putByChair
     ? logQuestionPut(text, motion.name)
-    : bypassedSecond
-      ? `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}: "${text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
-      : `${made.mover} raises ${motion.name}${made.fromFloor ? ' from the floor' : ''}.`;
-
-  // Auto-complete single-action suspension when used
-  const updatedSuspensions = bypassedSecond
-    ? markSingleActionComplete(state, 'second-requirement')
-    : state.suspendedRules;
+    : `${made.mover} raises ${motion.name}${made.fromFloor ? ' from the floor' : ''}.`;
 
   // With no second to wait for, the motion is the pending question at once, as a seconded
   // motion is (objection to consideration, for one, requires an active motion)
@@ -124,7 +115,6 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     ...(state.motionStack.length === 0 && made.motionType !== 'pointOrder' && FORUM_ENDS),
     currentMotion: activeMotion,
     motionStack: [...state.motionStack, activeMotion],
-    suspendedRules: updatedSuspensions,
     lastChairRuling,
     meetingLog: log(made.timestamp, logMessage),
   };

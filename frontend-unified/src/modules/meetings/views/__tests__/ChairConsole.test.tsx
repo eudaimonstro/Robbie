@@ -171,9 +171,9 @@ describe('ChairConsole', () => {
       expect(screen.queryByPlaceholderText('Enter your answer...')).not.toBeNull();
     });
 
-    it('lets the admin restore a suspended rule', () => {
+    it('shows nothing of a rule suspended in a state saved before suspensions went', () => {
       render(<ChairConsole />);
-      expect(screen.queryByRole('button', { name: /restore/i })).not.toBeNull();
+      expect(screen.queryByRole('button', { name: /restore/i })).toBeNull();
     });
   });
 

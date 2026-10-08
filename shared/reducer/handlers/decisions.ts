@@ -232,7 +232,8 @@ export function decide(
   const stack = state.motionStack.slice(0, -1);
   let outcome: Outcome = { stack, records: [], fields: {}, log: [] };
   if (decided?.type === 'appeal') {
-    const removed = state.lastChairRuling?.removed;
+    // The ruling the appeal names (an appeal saved before it kept one: the latest ruling)
+    const removed = (decided.appealOf ?? state.lastChairRuling)?.removed;
     if (!passed && removed) {
       outcome = removed.awaitingSecond
         ? {

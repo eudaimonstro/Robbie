@@ -82,6 +82,17 @@ export interface Motion {
   originalText?: string;
   /** Debate on this question was closed (close debate adopted): it is put to the vote */
   debateClosed?: boolean;
+  /** For an appeal: the ruling appealed from, with what it removed */
+  appealOf?: ChairRulingNote;
+}
+
+/** A ruling of the chair, as an appeal from it needs it */
+export interface ChairRulingNote {
+  ruling: string;
+  motionText: string;
+  timestamp: string;
+  /** What a ruling of out of order removed, to put back if an appeal reverses it */
+  removed?: { motion: Motion; awaitingSecond: boolean };
 }
 
 /**
@@ -548,13 +559,8 @@ export interface MeetingState {
   /** Business left unfinished when the meeting last adjourned */
   unfinishedAtAdjournment: UnfinishedBusinessRecord[];
   suspendedRules: RuleSuspension[];
-  lastChairRuling: {
-    ruling: string;
-    motionText: string;
-    timestamp: string;
-    /** What a ruling of out of order removed, to put back if an appeal reverses it */
-    removed?: { motion: Motion; awaitingSecond: boolean };
-  } | null;
+  /** The latest ruling, while an appeal from it is in order (at once, before anything else) */
+  lastChairRuling: ChairRulingNote | null;
   /** The meeting is in recess: since when (the chair's clock), and until when if set */
   recess?: { since: string; until: string | null } | null;
   /** The recesses taken, for the minutes */

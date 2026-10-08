@@ -193,7 +193,7 @@ describe('business from the floor', () => {
       });
     });
 
-    it('refuses the mover seconding their own motion, unless that rule is suspended', () => {
+    it('refuses the mover seconding their own motion, whatever a saved state suspended', () => {
       expect(second({ seconderMemberId: alice.id })).toEqual({
         valid: false,
         error: 'The mover cannot second their own motion',
@@ -213,7 +213,7 @@ describe('business from the floor', () => {
           },
         ],
       };
-      expect(second({ seconderMemberId: alice.id }, suspended)).toEqual({ valid: true });
+      expect(second({ seconderMemberId: alice.id }, suspended)).toMatchObject({ valid: false });
     });
 
     it('needs a seconder the meeting has present, who is not the chair or a guest', () => {

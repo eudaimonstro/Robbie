@@ -284,7 +284,7 @@ describe('actionValidator', () => {
       expect(second(pending(), 3).valid).toBe(true);
     });
 
-    it('is allowed while that rule is suspended', () => {
+    it('is refused even with that rule suspended in a state saved before suspensions went', () => {
       const suspension = {
         id: 1,
         rule: 'mover-cannot-second' as const,
@@ -294,7 +294,7 @@ describe('actionValidator', () => {
         suspendedAt: '',
         motionId: 9,
       };
-      expect(second(pending([suspension]), 2).valid).toBe(true);
+      expect(second(pending([suspension]), 2).valid).toBe(false);
     });
   });
 

@@ -15,15 +15,6 @@ export {
 } from './voteCalculator.js';
 
 export {
-  isRuleSuspended,
-  markSingleActionComplete,
-  getRuleName,
-  getRuleDescription,
-  getActiveSuspensions,
-  getRuleWarning,
-} from './ruleSuspensionHelper.js';
-
-export {
   getValidMotions,
   wordingFixedBy,
   BYLAW_WORDING_FIXED,

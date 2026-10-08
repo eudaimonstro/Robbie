@@ -18,7 +18,6 @@ import {
   attendanceSummary,
   awaitingRuling,
   canChairVoteDecide,
-  isRuleSuspended,
   floorOpenForDebate,
   motionOutOfOrder,
   moverClaimsFloor,
@@ -451,12 +450,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_PENDING_SECOND',
         };
       }
-      // RONR: the mover can't second their own motion (unless that rule is suspended)
-      if (
-        action.seconderId !== undefined &&
-        action.seconderId === state.pendingSecond.moverId &&
-        !isRuleSuspended(state, 'mover-cannot-second')
-      ) {
+      // RONR: the mover can't second their own motion
+      if (action.seconderId !== undefined && action.seconderId === state.pendingSecond.moverId) {
         return {
           valid: false,
           error: 'You cannot second your own motion',
@@ -484,11 +479,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           'seconder',
         );
         if (!seconder.valid) return seconder;
-        // RONR: the mover can't second their own motion (unless that rule is suspended)
-        if (
-          action.seconderMemberId === state.pendingSecond.moverId &&
-          !isRuleSuspended(state, 'mover-cannot-second')
-        ) {
+        // RONR: the mover can't second their own motion
+        if (action.seconderMemberId === state.pendingSecond.moverId) {
           return {
             valid: false,
             error: 'The mover cannot second their own motion',
@@ -552,16 +544,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       // A member who has voted may change the vote until the result is announced (RONR); the
       // reducer moves the count from the old choice to the new one
-      // Chair voting restriction (unless suspended): the chair votes only when the vote would
+      // The chair votes only when the vote would
       // change the result. That is checked here, not taken from the client's flag.
       {
         const voter = state.members.find((m) => m.id === action.voterId);
         // On a secret ballot the chair votes like any member (RONR)
-        if (
-          voter?.role === 'chair' &&
-          state.votingMethod !== 'ballot' &&
-          !isRuleSuspended(state, 'chair-voting-restriction')
-        ) {
+        if (voter?.role === 'chair' && state.votingMethod !== 'ballot') {
           // Judge on everyone else's votes, on devices and in the room, leaving out a vote the
           // chair already cast
           const previous = state.voterChoices[action.voterId];
@@ -606,15 +594,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
       // The chair's deciding vote was judged on the tally as it stood: a tally entered after
-      // it could leave the chair's vote cast where it no longer decides anything (unless the
-      // chair voting restriction is suspended, and the chair votes like anyone)
+      // it could leave the chair's vote cast where it no longer decides anything
       const chair = state.members.find((m) => m.role === 'chair');
-      if (
-        chair &&
-        state.votingMethod !== 'ballot' &&
-        !isRuleSuspended(state, 'chair-voting-restriction') &&
-        state.voters.includes(chair.id)
-      ) {
+      if (chair && state.votingMethod !== 'ballot' && state.voters.includes(chair.id)) {
         return {
           valid: false,
           error: 'The floor tally must be entered before the chair votes',

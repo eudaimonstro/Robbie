@@ -135,30 +135,6 @@ describe('useSortedSpeakerQueue', () => {
     expect(result.current[0].member.name).toBe('Bob');
   });
 
-  it('should not alternate when pro-con-alternation rule is suspended', () => {
-    const queue: SpeakerQueueEntry[] = [
-      { member: { id: 1, name: 'Alice', role: 'member', present: true }, stance: 'pro' },
-      { member: { id: 2, name: 'Bob', role: 'member', present: true }, stance: 'con' },
-    ];
-    const state = createMockState([
-      {
-        id: 1,
-        rule: 'pro-con-alternation',
-        purpose: 'Speed up debate',
-        specificAction: 'Allow any speaker order',
-        scope: 'meeting-remainder',
-        suspendedAt: '10:00:00',
-        actionCompleted: false,
-        motionId: 1,
-      },
-    ]);
-
-    const { result } = renderHook(() => useSortedSpeakerQueue(queue, null, 'pro', state));
-
-    // Should maintain FIFO order when alternation is suspended
-    expect(result.current[0].member.name).toBe('Alice');
-  });
-
   it('should handle neutral stance without affecting alternation', () => {
     const queue: SpeakerQueueEntry[] = [
       { member: { id: 1, name: 'Alice', role: 'member', present: true }, stance: 'neutral' },
