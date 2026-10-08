@@ -43,6 +43,7 @@ export function unvotedRecord(
     mover: motion.mover,
     moverId: motion.moverId,
     ...(motion.secondedBy ? { seconder: motion.secondedBy } : {}),
+    ...(motion.bylawAmendment ? { bylawAmendment: motion.bylawAmendment } : {}),
     disposition,
     ...(adopted ? { quorumPresent: quorumNow(state) } : {}),
     ...decisionContext(state, at),

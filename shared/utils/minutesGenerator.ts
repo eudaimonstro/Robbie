@@ -16,6 +16,7 @@ import { logElectionSetAside } from '../constants/logMessages.js';
 import { MOTIONS } from '../constants/motions.js';
 import { plainMotionName } from '../constants/motionWords.js';
 import { NO_VOTES, addVotes, completedMotionVotes } from './voteCalculator.js';
+import { bylawChangeView } from './bylawAmendment.js';
 
 /** An entry with where and when it happened, for grouping and ordering */
 interface Placed {
@@ -212,6 +213,51 @@ function outcomeText(motion: CompletedMotion): string {
   }
 }
 
+/** Text a member or the bylaws gave, as a Markdown quote: each paragraph escaped, one line each */
+function quoted(lines: string[]): string {
+  return lines
+    .flatMap((line) => line.split(/\n\s*\n|\n/))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n>\n> ')
+    .replace(/^/, '> ');
+}
+
+/**
+ * What a bylaw amendment changed (or would have): "As adopted, Section 4.2 "Quorum" reads:" and
+ * the text, or a section struck out or renumbered. The text is the motion's own, as it was
+ * decided, from the record.
+ */
+function bylawText(motion: CompletedMotion): string | null {
+  const change = motion.bylawAmendment;
+  if (!change) return null;
+  const view = bylawChangeView(change);
+  const heading = md(view.heading);
+  const passed = motion.passed;
+  const what =
+    change.changeType === 'add'
+      ? `a new section ${change.parentSectionLabel ? `under ${md(change.parentSectionLabel)}` : 'at the top level'}`
+      : heading;
+  switch (change.changeType) {
+    case 'add':
+    case 'modify': {
+      if (!view.proposed) return null;
+      const intro = passed ? `As adopted, ${what} reads:` : `As proposed, ${what} would have read:`;
+      const title = view.proposed.title ? [`**${md(view.proposed.title)}**`] : [];
+      const body = (view.proposed.text ?? '').split(/\n/).map(md);
+      return `${intro}\n\n${quoted([...title, ...body])}`;
+    }
+    case 'delete':
+      return passed ? `${heading} was struck out.` : `The motion proposed striking out ${heading}.`;
+    case 'renumber': {
+      const number = md(change.newNumberLabel ?? '');
+      return passed
+        ? `${heading} was renumbered as ${number}.`
+        : `The motion proposed renumbering ${heading} as ${number}.`;
+    }
+  }
+}
+
 function motionText(motion: CompletedMotion): string {
   const text = `"${sentence(md(motion.text))}"`;
   const moved =
@@ -221,7 +267,9 @@ function motionText(motion: CompletedMotion): string {
         ? `${md(motion.mover)} moved: ${text}`
         : `Moved: ${text}`;
   const seconded = motion.seconder ? ` Seconded by ${md(motion.seconder)}.` : '';
-  return `**${md(plainMotionName(motion.name, motion.type))}.** ${moved}${seconded} ${outcomeText(motion)}`;
+  const decided = `**${md(plainMotionName(motion.name, motion.type))}.** ${moved}${seconded} ${outcomeText(motion)}`;
+  const changed = bylawText(motion);
+  return changed ? `${decided}\n\n${changed}` : decided;
 }
 
 function rulingText(ruling: ChairRulingRecord): string {

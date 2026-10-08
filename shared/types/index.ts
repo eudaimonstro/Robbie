@@ -200,7 +200,8 @@ export interface CompletedMotion {
   readonly timestamp: string;
   /** Whether a motion to reconsider has brought this vote back */
   readonly reconsidered: boolean;
-  readonly bylawAmendment?: BylawAmendment; // Preserved for Bylawyer sync
+  /** A bylaw amendment's change: the text decided, for the sync, the minutes and reconsideration */
+  readonly bylawAmendment?: BylawAmendment;
   readonly mover?: string; // Restored with the motion if it is reconsidered
   readonly moverId?: number;
   // The two parts of the vote, and how it was taken. Records made before these existed, which

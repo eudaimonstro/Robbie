@@ -72,3 +72,11 @@ export {
   describeParsedBylaws,
   type ParsedSection,
 } from './bylawsParser.js';
+
+export {
+  bylawChangeView,
+  bylawMotionText,
+  sectionLabel,
+  type BylawChangeView,
+  type SectionText,
+} from './bylawAmendment.js';

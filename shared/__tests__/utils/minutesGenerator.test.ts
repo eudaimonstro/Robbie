@@ -123,6 +123,16 @@ const scenario: MeetingState = {
       mover: 'Pat Lindqvist',
       moverId: 7,
       seconder: 'Alice Brennan',
+      bylawAmendment: {
+        documentId: 'doc',
+        changeType: 'modify',
+        targetSectionId: 's42',
+        targetSectionLabel: 'Section 4.2 "Quorum"',
+        currentTitle: 'Quorum',
+        currentContent: 'Twenty percent (20%) of the votes is a quorum.',
+        newContent:
+          'Fifteen percent (15%) of the votes is a quorum.\n\nProxies count toward it. *Not* the [board].',
+      },
       // A secret ballot: its record keeps no choices
       deviceVotes: { yea: 14, nay: 4, abstain: 1 },
       floorVotes: { yea: 8, nay: 2, abstain: 0 },
@@ -325,6 +335,14 @@ describe('the minutes', () => {
         '',
         '**Amend the bylaws.** Pat Lindqvist moved: "Amend Section 4.2 to lower the quorum to 15%." Seconded by Alice Brennan. Carried by ballot, two thirds required, on devices 14 to 4 and in the room 8 to 2: 22 to 6, 1 abstaining. A quorum was present.',
         '',
+        'As adopted, Section 4.2 "Quorum" reads:',
+        '',
+        '> **Quorum**',
+        '>',
+        '> Fifteen percent \\(15%\\) of the votes is a quorum.',
+        '>',
+        '> Proxies count toward it. \\*Not\\* the \\[board\\].',
+        '',
         '**Main motion.** Carmen Diaz moved: "Thank the outgoing directors." Seconded by a member in the room. Adopted by unanimous consent. A quorum was present.',
         '',
         '**Main motion.** The chair put the question: "Adopt the 2027 budget." Seconded by Carmen Diaz. Carried, 20 to 1. A quorum was present.',
@@ -525,6 +543,65 @@ describe('the minutes', () => {
     );
     expect(markdown).toContain(
       '**Election for Treasurer.** Ballot 1: Ann Lee 14, Bo Chen 6. Ann Lee was elected, two thirds required.\n',
+    );
+  });
+
+  it('record the text of each bylaw amendment, adopted or not', () => {
+    const bylaw = (
+      id: number,
+      passed: boolean,
+      bylawAmendment: CompletedMotion['bylawAmendment'],
+    ): CompletedMotion =>
+      record({
+        id,
+        type: 'bylawAmendment',
+        name: 'Bylaw Amendment',
+        text: `Motion ${id}`,
+        mover: 'Alice',
+        passed,
+        deviceVotes: passed ? { yea: 9, nay: 1, abstain: 0 } : { yea: 2, nay: 8, abstain: 0 },
+        floorVotes: NO_VOTES,
+        method: 'standard',
+        disposition: passed ? 'carried' : 'failed',
+        bylawAmendment,
+      });
+    const quorum = {
+      documentId: 'doc',
+      targetSectionId: 's42',
+      targetSectionLabel: 'Section 4.2 "Quorum"',
+      currentTitle: 'Quorum',
+      currentContent: 'Twenty percent is a quorum.',
+    };
+    const markdown = formatMinutesAsMarkdown(
+      generateMeetingMinutes({
+        ...initialState,
+        completedMotions: [
+          bylaw(1, false, { ...quorum, changeType: 'modify', newContent: 'Ten percent.' }),
+          bylaw(2, true, {
+            documentId: 'doc',
+            changeType: 'add',
+            parentSectionLabel: 'Article IV "Meetings"',
+            newNumberLabel: 'Section 4.7',
+            newTitle: 'Remote attendance',
+            newContent: 'Members may attend by video.',
+          }),
+          bylaw(3, true, { ...quorum, changeType: 'delete' }),
+          bylaw(4, false, { ...quorum, changeType: 'renumber', newNumberLabel: 'Section 4.3' }),
+        ],
+      }),
+      nothingKnown,
+    );
+    expect(markdown).toContain(
+      'Failed, two thirds required, 2 to 8.\n\nAs proposed, Section 4.2 "Quorum" would have read:\n\n> **Quorum**\n>\n> Ten percent.\n',
+    );
+    expect(markdown).toContain(
+      'Carried, two thirds required, 9 to 1.\n\nAs adopted, a new section under Article IV "Meetings" reads:\n\n> **Section 4.7 Remote attendance**\n>\n> Members may attend by video.\n',
+    );
+    expect(markdown).toContain(
+      'Carried, two thirds required, 9 to 1.\n\nSection 4.2 "Quorum" was struck out.\n',
+    );
+    expect(markdown).toContain(
+      'Failed, two thirds required, 2 to 8.\n\nThe motion proposed renumbering Section 4.2 "Quorum" as Section 4.3.\n',
     );
   });
 
