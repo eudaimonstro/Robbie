@@ -24,6 +24,8 @@ RUN npm run build:shared \
   && npm run build -w frontend-unified
 
 FROM node:24-slim
+# Links the published package to its repository on GitHub
+LABEL org.opencontainers.image.source=https://github.com/eudaimonstro/Robbie
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
