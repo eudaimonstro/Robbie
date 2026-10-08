@@ -40,7 +40,7 @@ const io = new Server<
   // CORS doesn't stop a WebSocket from another site's page: its handshake is refused unless it
   // comes from the app's own pages (or from no page: the mobile app)
   allowRequest: (req, callback) =>
-    callback(null, requestOriginAllowed(req.headers.origin, trustedOrigins)),
+    callback(null, requestOriginAllowed(req.headers.origin, req.headers.host, trustedOrigins)),
   // A phone that loses signal for a moment resumes the same session: its meeting, and the
   // state updates it missed. Recovered sockets skip the session check (socketAuth), which they
   // passed when they connected; a socket closed by signing out is not recovered.
