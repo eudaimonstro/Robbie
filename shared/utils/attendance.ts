@@ -56,6 +56,36 @@ export function attendanceSummary(state: MeetingState): AttendanceSummary {
   };
 }
 
+/** The meeting's counts as SET_HEADCOUNT replaces them (its `base`) */
+export function headcountBaseOf(state: MeetingState): {
+  count: number;
+  names: string[];
+  proxiesHeld: number;
+  invites: string[];
+} {
+  return {
+    count: state.headcount ?? 0,
+    names: state.headcountNames ?? [],
+    proxiesHeld: state.proxiesHeld ?? 0,
+    invites: state.headcountInvites ?? [],
+  };
+}
+
+/** Whether the meeting still has the counts a SET_HEADCOUNT was made from */
+export function headcountBaseHolds(
+  state: MeetingState,
+  base: { count: number; names: string[]; proxiesHeld: number; invites?: string[] },
+): boolean {
+  const now = headcountBaseOf(state);
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  return (
+    now.count === base.count &&
+    now.proxiesHeld === base.proxiesHeld &&
+    same(now.names, base.names) &&
+    (base.invites === undefined || same(now.invites, base.invites))
+  );
+}
+
 /** An organization's attendance settings (see Organization in the Prisma schema) */
 export interface QuorumSettings {
   eligibleVoters: number | null;

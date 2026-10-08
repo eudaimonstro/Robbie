@@ -191,6 +191,27 @@ describe('attendance in a live meeting', () => {
     const state = await stateOf(f.packet.code);
     expect(state.headcount).toBe(2);
     expect(state.headcountNames).toEqual(['Dee']);
+
+    // More proxies than the organization has voting members (20) can't be held
+    const tooMany = await live.dispatch(chair, {
+      type: 'SET_HEADCOUNT',
+      count: 2,
+      names: ['Dee'],
+      proxiesHeld: 21,
+      timestamp: '',
+    });
+    expect(tooMany).toMatchObject({ success: false, errorCode: 'INVALID_ACTION' });
+    expect(
+      (
+        await live.dispatch(chair, {
+          type: 'SET_HEADCOUNT',
+          count: 2,
+          names: ['Dee'],
+          proxiesHeld: 20,
+          timestamp: '',
+        })
+      ).success,
+    ).toBe(true);
     expect(attendanceSummary(state)).toMatchObject({
       devicePresent: 1,
       markedPresent: 1,

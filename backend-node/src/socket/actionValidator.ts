@@ -19,6 +19,7 @@ import {
   awaitingRuling,
   canChairVoteDecide,
   floorOpenForDebate,
+  headcountBaseHolds,
   motionOutOfOrder,
   moverClaimsFloor,
   pendingNotOffered,
@@ -1879,6 +1880,21 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Give at most one name for each person counted, each up to 100 characters',
           errorCode: 'INVALID_ACTION',
+        };
+      }
+      if ((action.invites?.length ?? 0) > action.count) {
+        return {
+          valid: false,
+          error: 'Count each person added by email in the headcount',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      // Made from counts another screen has changed since: the client counts again from these
+      if (action.base && !headcountBaseHolds(state, action.base)) {
+        return {
+          valid: false,
+          error: 'The counts changed on another screen. Check them and save again.',
+          errorCode: 'HEADCOUNT_CHANGED',
         };
       }
       return { valid: true };

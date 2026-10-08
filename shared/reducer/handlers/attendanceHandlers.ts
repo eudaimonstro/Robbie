@@ -35,11 +35,15 @@ export const attendanceHandler: ActionHandler = (state, action, log) => {
       const names = typedAction.names.map((n) => n.trim()).filter((n) => n.length > 0);
       const heldBefore = state.proxiesHeld ?? 0;
       const held = typedAction.proxiesHeld ?? heldBefore;
+      const invitesBefore = state.headcountInvites ?? [];
+      const invites = typedAction.invites ?? invitesBefore;
+      const invitesChanged =
+        invites.length !== invitesBefore.length || invites.some((id, i) => id !== invitesBefore[i]);
       const headcountChanged =
         typedAction.count !== state.headcount ||
         names.length !== state.headcountNames.length ||
         names.some((n, i) => n !== state.headcountNames[i]);
-      if (!headcountChanged && held === heldBefore) return state;
+      if (!headcountChanged && held === heldBefore && !invitesChanged) return state;
       // The log says what changed: the room, the proxies held, or both
       let meetingLog = state.meetingLog;
       if (headcountChanged) {
@@ -56,6 +60,7 @@ export const attendanceHandler: ActionHandler = (state, action, log) => {
         headcount: typedAction.count,
         headcountNames: names,
         proxiesHeld: held,
+        headcountInvites: invites,
         meetingLog,
       };
     }

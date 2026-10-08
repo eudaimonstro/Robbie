@@ -58,6 +58,14 @@ describe('action schemas', () => {
       },
       { type: 'SET_HEADCOUNT', count: 3, names: ['Mrs. Ortiz'], timestamp: '' },
       { type: 'SET_HEADCOUNT', count: 3, names: [], proxiesHeld: 21, timestamp: '' },
+      {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: ['Rosa'],
+        invites: ['3f1f8c5e-7a5b-4c47-9d2a-4f0d2f2c9b11'],
+        base: { count: 2, names: [], proxiesHeld: 0, invites: [] },
+        timestamp: '',
+      },
       { type: 'OPEN_VOTING', voteTimerEnd: null, timestamp: '' },
     ];
     for (const action of actions) {

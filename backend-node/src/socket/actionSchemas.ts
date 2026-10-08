@@ -475,6 +475,17 @@ export const ACTION_SCHEMAS = {
     names: z.array(text(MAX_NAME_LENGTH)).max(MAX_HEADCOUNT_NAMES),
     // Paper proxies and absentee ballots held; left out, they stay as they are
     proxiesHeld: z.int().min(0).max(MAX_HEADCOUNT).optional(),
+    // People added by email counted in the room, by pending addition; left out, they stay
+    invites: z.array(z.uuid()).max(MAX_HEADCOUNT_NAMES).optional(),
+    // The counts the change was made from (refused when the meeting's moved on)
+    base: z
+      .strictObject({
+        count: z.int().min(0).max(MAX_HEADCOUNT),
+        names: z.array(text(MAX_NAME_LENGTH)).max(MAX_HEADCOUNT_NAMES),
+        proxiesHeld: z.int().min(0).max(MAX_HEADCOUNT),
+        invites: z.array(z.uuid()).max(MAX_HEADCOUNT_NAMES).optional(),
+      })
+      .optional(),
     timestamp,
   }),
   RELOAD_AGENDA: serverOnly,

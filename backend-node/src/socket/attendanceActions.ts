@@ -12,6 +12,7 @@ type Prepared = { action: MeetingAction } | { error: string; errorCode: ActionEr
  *   organization gives them (the validator refuses it without one: not in the roster). A
  *   member present on a connected device is left to their device: it is already here, and
  *   leaves when it does.
+ * - SET_HEADCOUNT is refused with more proxies held than the organization has voting members
  * - MARK_ABSENT is refused for a member whose device is still connected, however they were
  *   marked present: they are still in the room, and leave when their device does
  */
@@ -46,6 +47,18 @@ export async function prepareAttendanceAction(
         },
       },
     };
+  }
+
+  // No more proxies and absentee ballots than the organization has voting members
+  if (action.type === 'SET_HEADCOUNT' && action.proxiesHeld !== undefined) {
+    const packet = await findMeetingPacket(meetingCode);
+    const eligible = packet?.organization.eligibleVoters ?? null;
+    if (eligible !== null && action.proxiesHeld > eligible) {
+      return {
+        error: `The proxies and absentee ballots held can't be more than the ${eligible} voting members`,
+        errorCode: 'INVALID_ACTION',
+      };
+    }
   }
 
   if (action.type === 'MARK_ABSENT') {

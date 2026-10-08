@@ -506,6 +506,11 @@ export interface MeetingState {
   headcountNames: string[];
   /** Paper proxies and absentee ballots the chair holds: they count toward quorum */
   proxiesHeld: number;
+  /**
+   * People added by email who haven't signed in, counted in the room (in the headcount, and by
+   * name in its names when they have one), by the id of their pending addition
+   */
+  headcountInvites: string[];
   motionStack: Motion[];
   currentMotion: Motion | null;
   pendingSecond: Motion | null;
@@ -791,12 +796,16 @@ export type MeetingAction =
   // member from the roster; a client's member is replaced.
   | { type: 'MARK_PRESENT'; userId: number; member?: Member; timestamp: string }
   // People in the room without an account: replaces the count and the names, and the proxies
-  // and absentee ballots held when given (left out, they stay as they are)
+  // and absentee ballots held and the people added by email counted (each left out, it stays as
+  // it is). With `base`, the counts it was made from: refused (HEADCOUNT_CHANGED) when the
+  // meeting's are no longer those, so two screens can't overwrite each other's change
   | {
       type: 'SET_HEADCOUNT';
       count: number;
       names: string[];
       proxiesHeld?: number;
+      invites?: string[];
+      base?: HeadcountBase;
       timestamp: string;
     }
   // Server-only: the agenda from the packet, before the meeting starts
@@ -941,6 +950,14 @@ export interface MinutesItem {
   title: string;
   status: AgendaItem['status'];
   entries: MinutesEntry[];
+}
+
+/** The meeting's counts a SET_HEADCOUNT was made from */
+export interface HeadcountBase {
+  count: number;
+  names: string[];
+  proxiesHeld: number;
+  invites?: string[];
 }
 
 /** What the minutes of a meeting record, from its final state (see generateMeetingMinutes) */

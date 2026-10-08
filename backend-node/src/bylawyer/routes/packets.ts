@@ -382,8 +382,12 @@ packetsRouter.get(
 
 /**
  * GET /api/packets/:robbieCode/roster
- * The meeting's organization's members, for marking people present. Admins also get their
- * emails and the pending additions; everyone else gets names and roles only.
+ * The meeting's organization's members, for marking people present: names and roles, and for
+ * admins emails. Those who mark people present (secretaries and above, the presiding officer
+ * on the schedule, and the chair of the live meeting, who may have been handed the chair) also
+ * get the pending additions that would vote (people added by email who haven't signed in, whom
+ * the chair counts in the room), and for each member the addition they joined by: its id and
+ * the name it gave, so someone counted in the room who signs in later is found counted twice.
  */
 packetsRouter.get(
   '/packets/:robbieCode/roster',
@@ -391,24 +395,51 @@ packetsRouter.get(
   requireRole('viewer', fromParam('robbieCode', orgOfPacketCode)),
   async (req, res) => {
     try {
+      const meetingCode = req.params.robbieCode;
       const admin = atLeast(req.org!.role, 'admin');
-      // Who marks people present: secretaries and above, and the presiding officer
-      const packet = await findMeetingPacket(req.params.robbieCode);
-      const presiding = atLeast(req.org!.role, 'secretary') || packet?.chairUserId === req.user!.id;
-      // With the pending additions (people added by email who haven't signed in) for those
-      // who mark people present: the chair counts the ones who would vote in the room by name.
-      // Emails stay with admins (below).
-      const { members, invites = [] } = await listMembers(req.org!.id, admin || presiding);
+      const packet = await findMeetingPacket(meetingCode);
+      const live = await getStorage().getMeeting(meetingCode);
+      const liveChair = live?.state.members.some(
+        (m) => m.role === 'chair' && m.id === req.user!.id,
+      );
+      const presiding =
+        atLeast(req.org!.role, 'secretary') || packet?.chairUserId === req.user!.id || !!liveChair;
+      const { members, invites = [] } = await listMembers(req.org!.id, true);
+      // The addition each member joined by (the latest), by their email
+      const joinedBy = new Map<string, { id: string; name: string | null }>();
+      if (presiding) {
+        const accepted = await prisma.organizationInvite.findMany({
+          where: {
+            organizationId: req.org!.id,
+            acceptedAt: { not: null },
+            email: { in: members.map((m) => m.email!).filter(Boolean) },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, name: true, email: true },
+        });
+        for (const invite of accepted) joinedBy.set(invite.email, invite);
+      }
       res.json({
-        members: members.map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          ...(admin && { email: m.email }),
-          orgRole: m.role,
-        })),
-        invites: invites
-          .filter((i) => atLeast(i.role, 'member'))
-          .map((i) => ({ id: i.id, name: i.name, ...(admin && { email: i.email }), role: i.role })),
+        members: members.map((m) => {
+          const invite = m.email ? joinedBy.get(m.email) : undefined;
+          return {
+            userId: m.userId,
+            name: m.name,
+            ...(admin && { email: m.email }),
+            orgRole: m.role,
+            ...(invite && { inviteId: invite.id, inviteName: invite.name }),
+          };
+        }),
+        invites: presiding
+          ? invites
+              .filter((i) => atLeast(i.role, 'member'))
+              .map((i) => ({
+                id: i.id,
+                name: i.name,
+                ...(admin && { email: i.email }),
+                role: i.role,
+              }))
+          : [],
       });
     } catch (error) {
       logger.error({ err: error }, 'Error getting roster');

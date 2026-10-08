@@ -170,6 +170,32 @@ describe('attendance actions', () => {
       expect(one.meetingLog.at(-1)?.message).toBe('1 proxy or absentee ballot held.');
     });
 
+    it('keeps the people added by email counted in the room, by invite, until replaced', () => {
+      const counted = meetingReducer(state, {
+        type: 'SET_HEADCOUNT',
+        count: 2,
+        names: ['Rosa Alvarez'],
+        invites: ['i1', 'i2'],
+        timestamp: '10:00',
+      });
+      expect(counted.headcountInvites).toEqual(['i1', 'i2']);
+      const kept = meetingReducer(counted, {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: ['Rosa Alvarez'],
+        timestamp: '10:05',
+      });
+      expect(kept.headcountInvites).toEqual(['i1', 'i2']);
+      const sameButInvites = meetingReducer(kept, {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: ['Rosa Alvarez'],
+        invites: ['i2'],
+        timestamp: '10:10',
+      });
+      expect(sameButInvites.headcountInvites).toEqual(['i2']);
+    });
+
     it('logs nothing when nothing changes', () => {
       const unchanged = { ...state, headcount: 2, headcountNames: ['Dee'], proxiesHeld: 5 };
       expect(

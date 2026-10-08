@@ -50,6 +50,8 @@ export { isEmailAddress } from './email.js';
 
 export {
   attendanceSummary,
+  headcountBaseHolds,
+  headcountBaseOf,
   isQuorumSet,
   quorumFromSettings,
   type AttendanceSummary,
