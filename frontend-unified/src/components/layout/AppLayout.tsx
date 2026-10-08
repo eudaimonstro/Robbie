@@ -53,10 +53,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setNewDocType('bylaws');
       setIsNewDocModalOpen(false);
       modalTriggerRef.current = null; // Don't restore focus since we're navigating away
-      showToast('success', `Document "${newDoc.title}" created successfully`);
+      showToast('success', `Created "${newDoc.title}"`);
       navigate(`/documents/${newDoc.id}`);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Failed to create document');
+      showToast('error', err instanceof Error ? err.message : "Couldn't create the document");
     } finally {
       setCreating(false);
     }
@@ -121,12 +121,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             modalTriggerRef.current = null;
           }, 0);
         }}
-        title="Create New Document"
+        title="New document"
       >
         <form onSubmit={handleCreateDocument}>
           <div className="mb-4">
             <label htmlFor="docTitle" className="label">
-              Document Title
+              Title
             </label>
             <input
               type="text"
@@ -134,13 +134,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
               value={newDocTitle}
               onChange={(e) => setNewDocTitle(e.target.value)}
               className="input"
-              placeholder="e.g., Organization Bylaws"
+              placeholder="e.g. Bylaws"
               autoFocus
             />
           </div>
           <div className="mb-6">
             <label htmlFor="docType" className="label">
-              Document Type
+              Kind of document
             </label>
             <select
               id="docType"
@@ -149,7 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               className="select"
             >
               <option value="bylaws">Bylaws</option>
-              <option value="standing_rules">Standing Rules</option>
+              <option value="standing_rules">Standing rules</option>
               <option value="policy">Policy</option>
             </select>
           </div>
@@ -162,7 +162,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               className="btn-primary"
               disabled={!newDocTitle.trim() || creating}
             >
-              {creating ? 'Creating...' : 'Create Document'}
+              {creating ? 'Creating...' : 'Create document'}
             </button>
           </div>
         </form>

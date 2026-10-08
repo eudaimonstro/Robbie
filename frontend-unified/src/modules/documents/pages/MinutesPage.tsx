@@ -94,7 +94,7 @@ export default function MinutesPage() {
       </div>
     );
   }
-  if (!record) return <LoadingPage />;
+  if (!record) return <LoadingPage label="Loading the minutes..." />;
 
   // Published minutes a meeting has before it are the meeting's to correct (the server refuses
   // a save; see beforeMeeting): they open read. Approved minutes are the record: nobody edits

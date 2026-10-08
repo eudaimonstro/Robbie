@@ -7,13 +7,13 @@ test('Pat signs in, opens the bylaws and finds the annual meeting on the schedul
 }) => {
   await signIn(page, PEOPLE.pat);
   await page.goto('/');
-  await expect(page.getByText('Welcome to Maple Grove HOA')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maple Grove HOA' })).toBeVisible();
 
   const bylaws = 'Bylaws of Maple Grove Homeowners Association';
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: bylaws }).click();
   await expect(page.getByRole('heading', { name: bylaws })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Live Meetings' }).click();
+  await page.getByRole('link', { name: 'Live meetings', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Live meetings' })).toBeVisible();
   // Dana presides over it, so Pat joins it
   await expect(page.getByRole('link', { name: 'Join 2026 Annual Meeting' })).toBeVisible();
@@ -42,7 +42,7 @@ test('the app runs under the content security policy production sends', async ({
 
   // The pages with the most moving parts: the fonts and icons, the QR code, the socket
   await page.goto('/');
-  await expect(page.getByText('Welcome to Maple Grove HOA')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maple Grove HOA' })).toBeVisible();
   // Socket.io starts on long-polling and moves to a WebSocket: the policy lets it, and frames
   // come back (listening from the start: after the upgrade the next frame is 25 seconds away)
   const socketWorks = page

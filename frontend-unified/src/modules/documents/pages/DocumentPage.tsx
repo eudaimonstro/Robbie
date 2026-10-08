@@ -135,7 +135,7 @@ export default function DocumentPage() {
   };
 
   if (loading) {
-    return <LoadingPage />;
+    return <LoadingPage label="Loading the document..." />;
   }
 
   if (!doc) {

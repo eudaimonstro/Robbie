@@ -15,9 +15,9 @@ test('pasted bylaws become articles and sections, checked and saved as a version
   // A new document, so the demo's own bylaws stay as they are (a retry makes another)
   const title = `Imported bylaws ${Date.now()}`;
   await page.goto('/');
-  await page.getByRole('button', { name: 'New Document' }).click();
-  await page.getByLabel('Document Title').fill(title);
-  await page.getByRole('button', { name: 'Create Document' }).click();
+  await page.getByRole('button', { name: 'New document' }).click();
+  await page.getByLabel('Title', { exact: true }).fill(title);
+  await page.getByRole('button', { name: 'Create document' }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
 
   // Pat pastes the bylaws in: the articles and sections are found from the headings

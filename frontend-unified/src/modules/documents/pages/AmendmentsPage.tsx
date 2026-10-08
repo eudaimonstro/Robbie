@@ -83,7 +83,7 @@ export default function AmendmentsPage() {
   };
 
   if (loading) {
-    return <LoadingPage />;
+    return <LoadingPage label="Loading the amendments..." />;
   }
 
   if (!currentOrganization) {

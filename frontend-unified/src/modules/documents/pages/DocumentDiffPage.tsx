@@ -116,7 +116,7 @@ export default function DocumentDiffPage() {
   };
 
   if (loading) {
-    return <LoadingPage />;
+    return <LoadingPage label="Loading the versions..." />;
   }
 
   if (!document) {

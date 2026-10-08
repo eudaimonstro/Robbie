@@ -86,7 +86,7 @@ export default function PublicDocumentPage() {
   };
 
   if (loading) {
-    return <LoadingPage />;
+    return <LoadingPage label="Loading the document..." />;
   }
 
   if (error) {

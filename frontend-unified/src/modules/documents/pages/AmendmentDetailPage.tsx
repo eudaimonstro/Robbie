@@ -105,7 +105,7 @@ export default function AmendmentDetailPage() {
   }, []);
 
   if (loading) {
-    return <LoadingPage />;
+    return <LoadingPage label="Loading the amendment..." />;
   }
 
   if (!amendment || !document) {

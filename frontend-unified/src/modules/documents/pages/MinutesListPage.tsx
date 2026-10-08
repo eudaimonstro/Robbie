@@ -46,7 +46,7 @@ export default function MinutesListPage() {
   if (failedFor === organizationId)
     return <p className="py-12 text-center text-ink-muted">Couldn&apos;t load the minutes.</p>;
   const list = loaded?.organizationId === organizationId ? loaded.list : null;
-  if (!list) return <LoadingPage />;
+  if (!list) return <LoadingPage label="Loading the minutes..." />;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

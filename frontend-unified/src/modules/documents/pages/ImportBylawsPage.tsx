@@ -155,7 +155,7 @@ export default function ImportBylawsPage() {
   };
 
   if (notFound) return <p className="py-12 text-center text-ink-muted">Document not found.</p>;
-  if (!doc) return <LoadingPage />;
+  if (!doc) return <LoadingPage label="Loading the document..." />;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

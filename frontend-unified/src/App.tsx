@@ -41,7 +41,7 @@ function App() {
         <SessionProvider>
           <ErrorBoundary>
             <RouteAnnouncer />
-            <Suspense fallback={<LoadingPage />}>
+            <Suspense fallback={<LoadingPage label="Loading Robbie..." />}>
               <Routes>
                 {/* Public routes (no layout, no session) */}
                 <Route path="/share/:shareToken" element={<PublicDocumentPage />} />
