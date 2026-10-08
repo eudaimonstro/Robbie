@@ -1,5 +1,5 @@
 import type { MeetingAction } from '../../types/index.js';
-import { logAdoptedByConsent } from '../../constants/logMessages.js';
+import { logAdoptedByConsent, logUnanimousConsentObjection } from '../../constants/logMessages.js';
 import {
   applyMotionOutcome,
   processOutcomeResult,
@@ -12,22 +12,26 @@ export const consentHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'REQUEST_UNANIMOUS_CONSENT': {
       const typedAction = action as Extract<MeetingAction, { type: 'REQUEST_UNANIMOUS_CONSENT' }>;
+      // The request is on the question pending now; it ends when that question does
       return {
         ...state,
         unanimousConsentPending: true,
+        consentMotionId: state.currentMotion?.id ?? null,
         meetingLog: log(typedAction.timestamp, 'Chair: "Is there any objection?"'),
       };
     }
 
     case 'OBJECT_TO_CONSENT': {
       const typedAction = action as Extract<MeetingAction, { type: 'OBJECT_TO_CONSENT' }>;
+      // An objection from the floor is recorded by the chair, with the objector's name if given
+      const objector = typedAction.fromFloor
+        ? typedAction.floorObjector?.trim() || 'A member in the room'
+        : typedAction.objector;
       return {
         ...state,
         unanimousConsentPending: false,
-        meetingLog: log(
-          typedAction.timestamp,
-          `${typedAction.objector} objects. Motion requires a vote.`,
-        ),
+        consentMotionId: null,
+        meetingLog: log(typedAction.timestamp, logUnanimousConsentObjection(objector)),
       };
     }
 
@@ -75,6 +79,7 @@ export const consentHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         unanimousConsentPending: false,
+        consentMotionId: null,
         currentMotion: processed.finalCurrentMotion,
         motionStack: processed.finalStack,
         suspendedRules: processed.suspendedRules,

@@ -116,3 +116,80 @@ describe('the meeting rules, through the server', () => {
     });
   });
 });
+
+describe('unanimous consent', () => {
+  it('ends when the chair opens a vote instead, so the next question is never adopted unasked (sim 8)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Approve the pool contract', 'ben');
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    expect(s.consentMotionId).toBe(s.currentMotion?.id);
+    s = vote(s, ALL_YES);
+    expect(s.unanimousConsentPending).toBe(false);
+    s = moved(s, 'carl', 'mainMotion', 'Repave the parking lot', 'eve');
+    expect(refusal(s, 'dana', { type: 'UNANIMOUS_CONSENT_PASSED' })).toMatchObject({
+      errorCode: 'NO_CONSENT_PENDING',
+    });
+  });
+
+  it('asked on an amendment, ends when the amendment is decided (sim 8b)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool in May', 'ben');
+    s = moved(s, 'carl', 'amend', 'Strike "May" and insert "June"', 'eve', {
+      textAmendment: { form: 'strikeInsert', strike: 'May', insert: 'June' },
+    });
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion?.type).toBe('mainMotion');
+    expect(s.unanimousConsentPending).toBe(false);
+  });
+
+  it('ends when a motion is made, which is as good as an objection', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool in May', 'ben');
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    s = move(s, 'carl', 'amend', 'Strike "May" and insert "June"', {
+      textAmendment: { form: 'strikeInsert', strike: 'May', insert: 'June' },
+    });
+    expect(s.unanimousConsentPending).toBe(false);
+  });
+
+  it("takes an objection from the floor, recorded by the chair in the objector's name (I1)", () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Approve the pool contract', 'ben');
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    expect(
+      refusal(s, 'carl', {
+        type: 'OBJECT_TO_CONSENT',
+        fromFloor: true,
+        floorObjector: 'Mrs. Ortiz',
+      }),
+    ).toMatchObject({ errorCode: 'PERMISSION_DENIED' });
+    s = act(s, 'dana', {
+      type: 'OBJECT_TO_CONSENT',
+      fromFloor: true,
+      floorObjector: 'Mrs. Ortiz',
+    });
+    expect(s.unanimousConsentPending).toBe(false);
+    expect(s.meetingLog.at(-1)?.message).toBe('Mrs. Ortiz objects. The question is put to a vote.');
+    // Without a name: a member in the room
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    s = act(s, 'dana', { type: 'OBJECT_TO_CONSENT', fromFloor: true });
+    expect(s.meetingLog.at(-1)?.message).toBe(
+      'A member in the room objects. The question is put to a vote.',
+    );
+  });
+
+  it('is not asked on an appeal, or while a motion waits for a second', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Approve the pool contract', 'ben');
+    s = move(s, 'carl', 'amend', 'Insert "for $40,000" at the end', {
+      textAmendment: { form: 'insert', insert: 'for $40,000' },
+    });
+    expect(refusal(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' })).toMatchObject({
+      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+    });
+    // An appeal from a ruling on a point of order
+    s = act(s, 'dana', { type: 'DECLINE_SECOND' });
+    s = move(s, 'eve', 'pointOrder', 'The contract was not in the packet');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'overrule' });
+    s = moved(s, 'eve', 'appeal', 'I appeal from the decision of the chair', 'carl');
+    expect(refusal(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' })).toMatchObject({
+      error: 'An appeal is decided by a vote',
+    });
+  });
+});

@@ -103,7 +103,7 @@ export function logAgendaItemCompleted(title: string | undefined): string {
 export const LOG_UNANIMOUS_CONSENT_REQUESTED = 'Chair: "Is there any objection?"';
 
 export function logUnanimousConsentObjection(objector: string): string {
-  return `${objector} objects. Motion requires a vote.`;
+  return `${objector} objects. The question is put to a vote.`;
 }
 
 /** How the line for a motion adopted by unanimous consent begins */

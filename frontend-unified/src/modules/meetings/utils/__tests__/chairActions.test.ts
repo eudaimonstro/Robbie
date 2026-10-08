@@ -159,7 +159,13 @@ describe('chairActions', () => {
     const actions = chairActions(state, 2);
     expect(actions.map((a) => a.label)).toEqual(['Open the vote', 'Ask for unanimous consent']);
     expect(actions[0].make()).toMatchObject({ type: 'OPEN_VOTING' });
-    expect(ids({ ...state, unanimousConsentPending: true })).toEqual(['adopted', 'open-vote']);
+    expect(ids({ ...state, unanimousConsentPending: true })).toEqual([
+      'adopted',
+      'floor-objection',
+    ]);
+    const [, objection] = chairActions({ ...state, unanimousConsentPending: true }, 2);
+    expect(objection.label).toBe('Objection from the floor');
+    expect(objection.make()).toMatchObject({ type: 'OBJECT_TO_CONSENT', fromFloor: true });
   });
 
   it('gives the chair a ruling on a call for the orders of the day', () => {

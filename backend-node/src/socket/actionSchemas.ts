@@ -293,6 +293,8 @@ export const ACTION_SCHEMAS = {
     type: z.literal('OBJECT_TO_CONSENT'),
     objector: optionalName,
     objectorId: optionalId,
+    fromFloor: z.boolean().optional(),
+    floorObjector: optionalName,
     timestamp,
   }),
   UNANIMOUS_CONSENT_PASSED: clocked('UNANIMOUS_CONSENT_PASSED'),

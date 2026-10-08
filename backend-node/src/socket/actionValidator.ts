@@ -790,6 +790,29 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.currentMotion) {
         return { valid: false, error: 'No motion on the floor', errorCode: 'NO_CURRENT_MOTION' };
       }
+      // Asked on the question before the meeting: not while a vote is open or a motion waits
+      // for a second, and not on an appeal, which the members decide by a vote
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'A vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'A motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
+      if (state.currentMotion.type === 'appeal') {
+        return {
+          valid: false,
+          error: 'An appeal is decided by a vote',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       if (state.unanimousConsentPending) {
         return {
           valid: false,
@@ -807,10 +830,21 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_CONSENT_PENDING',
         };
       }
+      // An objection from the floor is recorded by the chair for someone in the room
+      if (action.fromFloor) {
+        if (!isPresiding(state, action.objectorId)) return NOT_PRESIDING;
+        const name = checkFloorName(action.floorObjector, false);
+        if (!name.valid) return name;
+      }
       return { valid: true };
 
     case 'UNANIMOUS_CONSENT_PASSED':
-      if (!state.unanimousConsentPending) {
+      // Only the question the chair asked about is adopted without objection
+      if (
+        !state.unanimousConsentPending ||
+        !state.currentMotion ||
+        (state.consentMotionId != null && state.consentMotionId !== state.currentMotion.id)
+      ) {
         return {
           valid: false,
           error: 'No unanimous consent request pending',

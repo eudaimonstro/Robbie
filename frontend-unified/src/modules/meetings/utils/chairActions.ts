@@ -146,16 +146,27 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
   }
 
   if (motion && state.unanimousConsentPending) {
-    const actions: ChairAction[] = [
+    // Someone in the room without a phone objects aloud: the chair records it, and puts the
+    // question to a vote
+    return [
       {
         id: 'adopted',
         label: 'No objection: adopted',
         tone: 'primary',
         make: () => ({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() }),
       },
+      {
+        id: 'floor-objection',
+        label: 'Objection from the floor',
+        tone: 'secondary',
+        make: () => ({
+          type: 'OBJECT_TO_CONSENT',
+          objector: '',
+          fromFloor: true,
+          timestamp: generateTimestamp(),
+        }),
+      },
     ];
-    if (motion.vote !== 'none') actions.push(openVote(state, 'secondary'));
-    return actions;
   }
   if (motion) {
     return [

@@ -17,7 +17,27 @@ import {
   proxyHandler,
 } from './handlers/index.js';
 
+/**
+ * A request for unanimous consent is on the question the chair named (RONR 4:58): it ends when a
+ * vote opens, a motion is made, or the question pending changes, so a later question is never
+ * adopted without the room being asked
+ */
+function settleConsent(state: MeetingState): MeetingState {
+  if (!state.unanimousConsentPending) return state;
+  const asked = state.consentMotionId ?? state.currentMotion?.id;
+  const stillAsked =
+    !state.votingOpen &&
+    !state.pendingSecond &&
+    !!state.currentMotion &&
+    state.currentMotion.id === asked;
+  return stillAsked ? state : { ...state, unanimousConsentPending: false, consentMotionId: null };
+}
+
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
+  return settleConsent(applyAction(state, action));
+}
+
+function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
   const log = (timestamp: string, msg: string): MeetingLogEntry[] => [
     ...state.meetingLog,
     { time: timestamp, message: msg },
