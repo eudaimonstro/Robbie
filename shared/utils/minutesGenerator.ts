@@ -241,6 +241,13 @@ function bylawText(motion: CompletedMotion): string | null {
   switch (change.changeType) {
     case 'add':
     case 'modify': {
+      // A new title or number alone
+      if (change.changeType === 'modify' && change.newContent === undefined) {
+        const retitle = change.newTitle !== undefined;
+        const to = retitle ? `"${md(change.newTitle ?? '')}"` : md(change.newNumberLabel ?? '');
+        if (passed) return `${heading} was ${retitle ? 'retitled' : 'renumbered as'} ${to}.`;
+        return `The motion proposed ${retitle ? 'retitling' : 'renumbering'} ${heading} ${retitle ? '' : 'as '}${to}.`;
+      }
       if (!view.proposed) return null;
       const intro = passed ? `As adopted, ${what} reads:` : `As proposed, ${what} would have read:`;
       const title = view.proposed.title ? [`**${md(view.proposed.title)}**`] : [];

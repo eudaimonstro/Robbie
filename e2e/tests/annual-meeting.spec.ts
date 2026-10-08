@@ -232,6 +232,12 @@ test('the annual meeting runs from the call to order to published minutes and ne
       await expect(page.getByRole('region', { name: 'The text' })).toContainText(LOWER_QUORUM);
     }
     await expect(dana.getByRole('region', { name: 'The text' })).toContainText('Now reads');
+    // The TV fits it all on the screen, with the speaker rail up too
+    await fitsTheScreen(tv);
+    await ben.getByRole('button', { name: 'For', exact: true }).click();
+    await ben.getByRole('button', { name: 'Ask to speak' }).click();
+    await expect(tv.getByRole('complementary', { name: 'Speakers' })).toBeVisible();
+    await fitsTheScreen(tv);
     await capture(dana, testInfo, 'bylaw-text-console');
     await phoneShot(
       alice,
@@ -241,7 +247,10 @@ test('the annual meeting runs from the call to order to published minutes and ne
     );
     await capture(tv, testInfo, 'bylaw-text-display');
     // 22 to 5 is more than two thirds (abstentions don't count)
-    await voteOn(dana, [alice, ben], { yea: 20, nay: 5 });
+    await voteOn(dana, [alice, ben], { yea: 20, nay: 5 }, async () => {
+      await expect(tv.getByText('Voting now')).toBeVisible();
+      await fitsTheScreen(tv);
+    });
     const amendment = visibleStamp(tv, 'Carried');
     await expect(
       amendment.caption.getByText('On devices 2 to 0, in the room 20 to 5: 22 to 5', {
@@ -395,6 +404,7 @@ async function voteOn(
   dana: Page,
   phones: Page[],
   room: { yea: number; nay: number },
+  whileOpen?: () => Promise<void>,
 ): Promise<void> {
   await dana.getByRole('button', { name: 'Open the vote' }).click();
   for (const phone of phones) await phone.getByRole('button', { name: 'Vote yea' }).click();
@@ -406,7 +416,14 @@ async function voteOn(
   await expect(
     dana.getByText(`Together: ${phones.length + room.yea} to ${room.nay}`),
   ).toBeVisible();
+  await whileOpen?.();
   await dana.getByRole('button', { name: 'Close the vote' }).click();
+}
+
+/** The display shows everything within the TV's 1080 lines: nothing on it scrolls */
+async function fitsTheScreen(tv: Page): Promise<void> {
+  const height = await tv.evaluate(() => document.documentElement.scrollHeight);
+  expect(height, 'the display fits the screen').toBeLessThanOrEqual(1080);
 }
 
 /**

@@ -587,6 +587,7 @@ describe('the minutes', () => {
           }),
           bylaw(3, true, { ...quorum, changeType: 'delete' }),
           bylaw(4, false, { ...quorum, changeType: 'renumber', newNumberLabel: 'Section 4.3' }),
+          bylaw(5, true, { ...quorum, changeType: 'modify', newTitle: 'Quorum of members' }),
         ],
       }),
       nothingKnown,
@@ -602,6 +603,9 @@ describe('the minutes', () => {
     );
     expect(markdown).toContain(
       'Failed, two thirds required, 2 to 8.\n\nThe motion proposed renumbering Section 4.2 "Quorum" as Section 4.3.\n',
+    );
+    expect(markdown).toContain(
+      'Carried, two thirds required, 9 to 1.\n\nSection 4.2 "Quorum" was retitled "Quorum of members".\n',
     );
   });
 

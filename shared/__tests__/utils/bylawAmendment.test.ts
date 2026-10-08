@@ -50,6 +50,15 @@ describe('bylawMotionText', () => {
     ).toBe('I move to amend the bylaws by adding a new section: "Remote attendance"');
   });
 
+  it('says when a change gives a section only a new title or number', () => {
+    expect(
+      bylawMotionText({ ...modify, newContent: undefined, newTitle: 'Quorum of members' }),
+    ).toBe('I move to amend the bylaws by retitling Section 4.2 "Quorum" "Quorum of members"');
+    expect(
+      bylawMotionText({ ...modify, newContent: undefined, newNumberLabel: 'Section 4.3' }),
+    ).toBe('I move to amend the bylaws by renumbering Section 4.2 "Quorum" as Section 4.3');
+  });
+
   it('names the proposed amendment it moves', () => {
     expect(bylawMotionText({ ...modify, amendmentTitle: 'Lower the quorum to 15%' })).toBe(
       'I move to amend the bylaws by modifying Section 4.2 "Quorum", as proposed in "Lower the quorum to 15%"',
@@ -72,12 +81,18 @@ describe('bylawChangeView', () => {
       current: { title: 'Quorum', text: 'Twenty percent of the votes is a quorum.' },
       proposed: { title: 'Quorum', text: 'Fifteen percent of the votes is a quorum.' },
     });
-    // A new title, with the text kept
+    // A new title alone: the text is unchanged, so it isn't shown as new
     expect(
       bylawChangeView({ ...modify, newTitle: 'Quorum of members', newContent: undefined }),
-    ).toMatchObject({
-      proposed: { title: 'Quorum of members', text: 'Twenty percent of the votes is a quorum.' },
+    ).toEqual({
+      heading: QUORUM,
+      action: 'To be titled "Quorum of members"',
+      current: null,
+      proposed: null,
     });
+    expect(
+      bylawChangeView({ ...modify, newNumberLabel: 'Section 4.3', newContent: undefined }).action,
+    ).toBe('To renumber as Section 4.3');
   });
 
   it('shows an added section, where it goes, and its text', () => {

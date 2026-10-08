@@ -41,7 +41,13 @@ export function bylawMotionText(change: BylawAmendment): string {
       break;
     }
     case 'modify':
-      words = `I move to amend the bylaws by modifying ${target}`;
+      // A change of title or number alone says so
+      words =
+        change.newContent !== undefined
+          ? `I move to amend the bylaws by modifying ${target}`
+          : change.newTitle !== undefined
+            ? `I move to amend the bylaws by retitling ${target} "${change.newTitle}"`
+            : `I move to amend the bylaws by renumbering ${target} as ${change.newNumberLabel ?? ''}`;
       break;
     case 'delete':
       words = `I move to amend the bylaws by deleting ${target}`;
@@ -99,13 +105,25 @@ export function bylawChangeView(change: BylawAmendment): BylawChangeView {
       };
     }
     case 'modify':
+      // The text unchanged: only the new title or number, never the text as if it were new
+      if (change.newContent === undefined) {
+        return {
+          heading: target,
+          action:
+            change.newTitle !== undefined
+              ? `To be titled "${change.newTitle}"`
+              : `To renumber as ${change.newNumberLabel ?? ''}`.trimEnd(),
+          current: null,
+          proposed: null,
+        };
+      }
       return {
         heading: target,
         action: 'To read',
         current,
         proposed: present({
           title: change.newTitle ?? change.currentTitle,
-          text: change.newContent ?? change.currentContent,
+          text: change.newContent,
         }),
       };
     case 'delete':
