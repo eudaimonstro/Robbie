@@ -71,8 +71,9 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
       order: placed.length,
     });
   };
-  for (const motion of state.completedMotions) add({ kind: 'motion', motion }, motion);
+  // A ruling comes before what it decided at the same moment (a motion ruled out of order)
   for (const ruling of state.chairRulings ?? []) add({ kind: 'ruling', ruling }, ruling);
+  for (const motion of state.completedMotions) add({ kind: 'motion', motion }, motion);
   for (const officer of state.electedOfficers) add({ kind: 'election', officer }, officer);
   for (const setAside of state.electionsSetAside ?? []) {
     add({ kind: 'setAside', setAside }, setAside);
@@ -325,6 +326,9 @@ function recessText(recess: RecessRecord, zone: string): string {
 
 function rulingText(ruling: ChairRulingRecord): string {
   const why = ruling.explanation ? ` ${sentence(md(ruling.explanation))}` : '';
+  if (ruling.raisedBy) {
+    return `**Point of order.** ${md(ruling.raisedBy)} raised a point of order: "${sentence(md(ruling.motionText))}" The chair ruled: ${md(ruling.ruling)}${why}`;
+  }
   return `**Ruling of the chair.** On "${sentence(md(ruling.motionText))}" the chair ruled: ${md(ruling.ruling)}${why}`;
 }
 

@@ -1334,6 +1334,19 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_STATE',
         };
       }
+      // Out of order: the point is well taken, about a motion awaiting a second or beneath it
+      if (
+        action.outOfOrder &&
+        (action.ruling !== 'sustain' ||
+          state.currentMotion?.type !== 'pointOrder' ||
+          (!state.pendingSecond && state.motionStack.length < 2))
+      ) {
+        return {
+          valid: false,
+          error: 'Only a point of order well taken rules a pending motion out of order',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       if (
         action.explanation !== undefined &&
         (typeof action.explanation !== 'string' ||

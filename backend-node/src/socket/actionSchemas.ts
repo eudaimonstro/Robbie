@@ -370,6 +370,7 @@ export const ACTION_SCHEMAS = {
   CHAIR_RULING: z.strictObject({
     type: z.literal('CHAIR_RULING'),
     ruling: z.enum(['sustain', 'overrule', 'allow', 'deny']),
+    outOfOrder: z.boolean().optional(),
     explanation: text(MAX_RULING_EXPLANATION_LENGTH).optional(),
     at: timestamp.optional(),
     timestamp,

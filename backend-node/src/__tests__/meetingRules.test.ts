@@ -405,3 +405,76 @@ describe('what each motion does when it carries', () => {
     );
   });
 });
+
+describe('a point of order ruled well taken', () => {
+  const amendment = () => {
+    const s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool', 'ben');
+    return moved(s, 'carl', 'amend', '', 'eve', {
+      textAmendment: { form: 'insert', insert: 'and fire the management company' },
+    });
+  };
+
+  it('rules a motion out of order, which leaves the floor with a record (sim 13)', () => {
+    let s = move(amendment(), 'ben', 'pointOrder', 'The amendment is not germane');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    expect(s.currentMotion?.text).toBe('Resurface the pool');
+    expect(s.completedMotions.at(-1)).toMatchObject({ type: 'amend', disposition: 'out-of-order' });
+    const minutes = minutesOf(s);
+    expect(minutes).toContain(
+      '**Point of order.** Ben Whitaker raised a point of order: "The amendment is not germane." The chair ruled: The point is well taken; the motion is out of order.',
+    );
+    expect(minutes).toContain('Seconded by Eve Park. Ruled out of order by the chair.');
+    // The ruling comes first
+    expect(minutes.indexOf('**Point of order.**')).toBeLessThan(minutes.indexOf('**Amend.**'));
+  });
+
+  it('rules out of order a motion awaiting a second', () => {
+    let s = move(inSession(), 'alice', 'mainMotion', 'Sue the board members personally');
+    s = move(s, 'carl', 'pointOrder', 'That is against the bylaws');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    expect(s.pendingSecond).toBeNull();
+    expect(s.completedMotions.at(-1)).toMatchObject({ disposition: 'out-of-order' });
+  });
+
+  it('rules out of order the motion being voted on, which ends the vote undecided', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Spend the reserves on a party', 'ben');
+    s = act(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null });
+    s = act(s, 'carl', { type: 'CAST_VOTE', vote: 'yea', voterId: 0 });
+    s = move(s, 'eve', 'pointOrder', 'Reserves can only be spent on repairs');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    expect(s.votingOpen).toBe(false);
+    expect(s.voterChoices).toEqual({});
+    expect(s.currentMotion).toBeNull();
+  });
+
+  it('is not used to rule out of order with nothing it is about, or when not well taken', () => {
+    const s = move(inSession(), 'ben', 'pointOrder', 'Guests are voting');
+    expect(
+      refusal(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true }),
+    ).toMatchObject({ errorCode: 'INVALID_ACTION' });
+    const t = move(amendment(), 'ben', 'pointOrder', 'Not germane');
+    expect(
+      refusal(t, 'dana', { type: 'CHAIR_RULING', ruling: 'overrule', outOfOrder: true }),
+    ).toMatchObject({ errorCode: 'INVALID_ACTION' });
+  });
+
+  it('is appealed: reversed, the motion ruled out of order is pending again, and the minutes say so', () => {
+    let s = move(amendment(), 'ben', 'pointOrder', 'The amendment is not germane');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    s = moved(s, 'carl', 'appeal', 'I appeal from the decision of the chair', 'eve');
+    s = vote(s, { pat: 'nay', alice: 'nay', ben: 'yea', carl: 'nay', eve: 'nay' });
+    expect(s.currentMotion).toMatchObject({ type: 'amend' });
+    expect(s.lastChairRuling).toBeNull();
+    expect(minutesOf(s)).toContain(
+      '**Appeal the chair\'s ruling.** Carl Moss moved: "I appeal from the decision of the chair." Seconded by Eve Park. The chair\'s decision was overturned, 1 to 4.',
+    );
+  });
+
+  it('is appealed: sustained by a tie, the ruling stands', () => {
+    let s = move(amendment(), 'ben', 'pointOrder', 'The amendment is not germane');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    s = moved(s, 'carl', 'appeal', 'I appeal from the decision of the chair', 'eve');
+    s = vote(s, { pat: 'yea', alice: 'yea', carl: 'nay', eve: 'nay' });
+    expect(s.currentMotion?.type).toBe('mainMotion');
+  });
+});

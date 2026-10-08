@@ -193,6 +193,7 @@ describe('the meeting record', () => {
         ruling: 'The point is well taken.',
         explanation: 'Debate must be on the motion',
         motionText: 'The speaker is off the subject',
+        raisedBy: point.mover,
         timestamp: '7:25:00 PM',
         agendaItemId: 3,
         decidedAt: AT,

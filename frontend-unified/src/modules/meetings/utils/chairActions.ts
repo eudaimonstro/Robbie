@@ -41,14 +41,35 @@ function ruling(id: string, label: string, kind: Ruling, tone: Tone): ChairActio
   };
 }
 
-/** The chair's rulings on a point of order (or a request saved before they were questions) */
-function rulings(motionType: string): ChairAction[] {
+/**
+ * The chair's rulings on a point of order (or a request saved before they were questions): well
+ * taken, well taken with the motion it is about ruled out of order (the one awaiting a second, or
+ * the one beneath the point), or not well taken
+ */
+function rulings(state: MeetingState, motionType: string): ChairAction[] {
   switch (motionType) {
-    case 'pointOrder':
+    case 'pointOrder': {
+      const about = state.pendingSecond ?? state.motionStack.at(-2);
       return [
-        ruling('sustain', 'The point is well taken', 'sustain', 'primary'),
-        ruling('overrule', 'The point is not well taken', 'overrule', 'secondary'),
+        ruling('sustain', 'Rule the point well taken', 'sustain', 'primary'),
+        ...(about
+          ? [
+              {
+                id: 'out-of-order',
+                label: 'Rule the motion out of order',
+                tone: 'secondary' as const,
+                make: (): MeetingAction => ({
+                  type: 'CHAIR_RULING',
+                  ruling: 'sustain',
+                  outOfOrder: true,
+                  timestamp: generateTimestamp(),
+                }),
+              },
+            ]
+          : []),
+        ruling('overrule', 'Rule the point not well taken', 'overrule', 'secondary'),
       ];
+    }
     case 'questionPrivilege':
     case 'withdrawMotion':
       return [
@@ -159,7 +180,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
 
   // A point of order waits for nothing: during a vote, or with a motion awaiting a second
   const motion = state.currentMotion;
-  if (motion && motion.vote === 'none') return rulings(motion.type);
+  if (motion && motion.vote === 'none') return rulings(state, motion.type);
 
   if (state.votingOpen) return [];
 

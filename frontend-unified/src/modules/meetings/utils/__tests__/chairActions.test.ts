@@ -178,8 +178,8 @@ describe('chairActions', () => {
   it('rules on a point of order', () => {
     const state = { ...adopted, currentMotion: motion('pointOrder', { secondedBy: null }) };
     expect(chairActions(state, 2).map((a) => a.label)).toEqual([
-      'The point is well taken',
-      'The point is not well taken',
+      'Rule the point well taken',
+      'Rule the point not well taken',
     ]);
   });
 
@@ -192,14 +192,20 @@ describe('chairActions', () => {
       motionStack: [main, point],
       votingOpen: true,
     };
-    expect(ids(voting)).toEqual(['sustain', 'overrule']);
+    expect(ids(voting)).toEqual(['sustain', 'out-of-order', 'overrule']);
+    expect(chairActions(voting, 2)[1]).toMatchObject({ label: 'Rule the motion out of order' });
+    expect(chairActions(voting, 2)[1].make()).toMatchObject({
+      type: 'CHAIR_RULING',
+      ruling: 'sustain',
+      outOfOrder: true,
+    });
     const awaiting = {
       ...adopted,
       currentMotion: point,
       motionStack: [point],
       pendingSecond: motion('mainMotion', { secondedBy: null }),
     };
-    expect(ids(awaiting)).toEqual(['sustain', 'overrule']);
+    expect(ids(awaiting)).toEqual(['sustain', 'out-of-order', 'overrule']);
     // Nothing is recorded from the floor until the chair rules
     expect(floorActions(awaiting)).toEqual([]);
   });
