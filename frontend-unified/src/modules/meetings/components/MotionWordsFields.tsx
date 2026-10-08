@@ -86,7 +86,7 @@ export function MotionWordsFields({ type, state, draft, onChange }: MotionWordsF
             <span className="label-caps block">
               {type === 'amend' ? 'The motion would read' : 'The amendment would insert'}
             </span>
-            {reads}
+            <span className="block">{reads}</span>
           </p>
         )}
       </div>
