@@ -728,6 +728,8 @@ export interface AmendmentChange {
   newNumberLabel: string | null;
   newTitle: string | null;
   position: number;
+  /** The section targeted, as it was named when a meeting adopted the change; null otherwise */
+  targetLabel?: string | null;
 }
 
 export interface AmendmentChangeCreate {

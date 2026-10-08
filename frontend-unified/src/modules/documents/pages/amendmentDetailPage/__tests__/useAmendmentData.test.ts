@@ -15,7 +15,7 @@ vi.mock('../../../../../api/client', () => ({
 const toast = vi.hoisted(() => ({ showToast: () => {} }));
 vi.mock('../../../../../context/ToastContext', () => ({ useToast: () => toast }));
 
-const { useAmendmentData } = await import('../useAmendmentData');
+const { getSectionLabel, useAmendmentData } = await import('../useAmendmentData');
 
 describe('useAmendmentData', () => {
   it('refreshes after an action without going back to the loading state', async () => {
@@ -39,5 +39,20 @@ describe('useAmendmentData', () => {
       finish({ id: 'am-1', documentId: 'doc-1', changes: [] });
       await pending;
     });
+  });
+});
+
+describe('getSectionLabel', () => {
+  const tree = [
+    { id: 's1', numberLabel: '1', title: 'Name', content: null, children: [] },
+  ] as unknown as Parameters<typeof getSectionLabel>[0];
+
+  it('names the section as the current version has it', () => {
+    expect(getSectionLabel(tree, 's1', 'Section 1 "Old name"')).toBe('1 Name');
+  });
+
+  it('names a section the current version no longer has as it was named when adopted', () => {
+    expect(getSectionLabel(tree, 'gone', 'Section 4.2 "Quorum"')).toBe('Section 4.2 "Quorum"');
+    expect(getSectionLabel(tree, 'gone')).toBe('Unknown section');
   });
 });

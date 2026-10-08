@@ -72,7 +72,7 @@ export function AmendmentChangesList({
 
                   {change.targetSectionId && (
                     <p className="text-sm text-ink-muted mb-2">
-                      Target: {getSectionLabel(sectionTree, change.targetSectionId)}
+                      Target: {getSectionLabel(sectionTree, change.targetSectionId, change.targetLabel)}
                     </p>
                   )}
 

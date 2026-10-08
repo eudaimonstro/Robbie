@@ -162,7 +162,10 @@ export async function checkAndSyncBylawAmendment(
   return syncMotionToBylawyer(meetingCode, record, appliedTo, earlier);
 }
 
-/** The change as Bylawyer keeps it: for an added section, its target is the section it goes under */
+/**
+ * The change as Bylawyer keeps it: for an added section, its target is the section it goes
+ * under
+ */
 function changeData(change: BylawAmendment) {
   const changeType: ChangeType = change.changeType;
   return {
@@ -173,6 +176,9 @@ function changeData(change: BylawAmendment) {
     newNumberLabel: change.newNumberLabel ?? null,
     newTitle: change.newTitle ?? null,
     position: 0,
+    // The section as the room saw it named, which outlives the section's id once applied
+    targetLabel:
+      (change.changeType === 'add' ? change.parentSectionLabel : change.targetSectionLabel) ?? null,
   };
 }
 
@@ -271,16 +277,11 @@ async function syncMotionToBylawyer(
     } else {
       // The motion's timestamp is only a display time of day; the sync runs as it is decided
       const decidedAt = new Date();
-      const title = change.documentTitle
-        ? `Amendment to ${change.documentTitle}`
-        : record.text.length > 100
-          ? `${record.text.substring(0, 97)}...`
-          : record.text;
+      // Titled with the motion's words, which name the section and the change
       const created = await prisma.amendment.create({
         data: {
           documentId: change.documentId,
-          title,
-          description: record.text,
+          title: record.text,
           status: record.passed ? 'passed' : 'failed',
           proposedAt: decidedAt,
           decidedAt,

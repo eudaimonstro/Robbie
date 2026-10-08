@@ -65,7 +65,11 @@ describe('bylaw sync', () => {
     const amendment = await prisma.amendment.findFirstOrThrow({
       where: { robbieMeetingCode: f.packet.code },
     });
-    expect(amendment).toMatchObject({ documentId: f.doc, status: 'passed' });
+    expect(amendment).toMatchObject({
+      documentId: f.doc,
+      status: 'passed',
+      title: 'Rename the organization',
+    });
   });
 
   it('applies a bylaw amendment that failed and carries on reconsideration', async () => {
@@ -157,7 +161,12 @@ describe('bylaw sync', () => {
     });
     const amendments = await prisma.amendment.count();
     const { before, after } = states(
-      decided({ ...rename(f.doc, f.section), amendmentId: f.proposed, amendmentTitle: 'Rename' }),
+      decided({
+        ...rename(f.doc, f.section),
+        targetSectionLabel: '1 "Name"',
+        amendmentId: f.proposed,
+        amendmentTitle: 'Rename',
+      }),
     );
     const result = await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after);
     expect(result).toMatchObject({ success: true, amendmentId: f.proposed, applied: true });
@@ -174,7 +183,11 @@ describe('bylaw sync', () => {
     });
     expect(amendment.resultingVersionId).not.toBeNull();
     expect(amendment.changes).toEqual([
-      expect.objectContaining({ changeType: 'modify', newContent: 'The name is A Prime.' }),
+      expect.objectContaining({
+        changeType: 'modify',
+        newContent: 'The name is A Prime.',
+        targetLabel: '1 "Name"',
+      }),
     ]);
     // Run again, nothing changes
     expect(

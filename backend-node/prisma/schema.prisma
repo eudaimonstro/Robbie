@@ -166,6 +166,9 @@ model AmendmentChange {
   newNumberLabel  String?
   newTitle        String?
   position        Int        @default(0)
+  // The section the change targeted (for an add, the one it went under), as it was named then:
+  // a section's id belongs to one version, so once the amendment is applied it names nothing
+  targetLabel     String?
 
   amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
 }
