@@ -2,13 +2,24 @@
  * API functions for Meeting Packet and Scheduling
  */
 
-import type { MeetingPacket, AgendaItem, Attachment, BylawyerDocument } from './types';
+import type {
+  MeetingPacket,
+  AgendaItem,
+  AgendaItemChanges,
+  Attachment,
+  BylawyerDocument,
+} from './types';
 import { apiFetch, HttpError } from '../../../../api/client';
 
 /** The server's { error } message from a failed response, or the fallback */
 async function serverMessage(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => null);
   return typeof body?.error === 'string' ? body.error : fallback;
+}
+
+/** A failed response as an HttpError with the server's message (a refusal says why) */
+async function failure(response: Response, fallback: string): Promise<HttpError> {
+  return new HttpError(await serverMessage(response, fallback), response.status);
 }
 
 /**
@@ -19,7 +30,7 @@ export async function getPacket(robbieCode: string): Promise<MeetingPacket | nul
   const response = await apiFetch(`/packets/${robbieCode}`);
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error('Failed to get meeting packet');
+    throw await failure(response, "Couldn't load the meeting");
   }
   return response.json();
 }
@@ -55,7 +66,8 @@ export async function createPacket(
 }
 
 /**
- * Update packet metadata
+ * Update packet metadata (secretary and above). A refusal is an HttpError with the server's
+ * message.
  */
 export async function updatePacket(
   packetId: string,
@@ -76,9 +88,20 @@ export async function updatePacket(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to update packet');
+    throw await failure(response, "Couldn't save the meeting");
   }
   return response.json();
+}
+
+/**
+ * Cancel a scheduled meeting: delete its packet, agenda and files (secretary and above). The
+ * server refuses (409) a meeting already called to order.
+ */
+export async function deletePacket(packetId: string): Promise<void> {
+  const response = await apiFetch(`/packets/${packetId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw await failure(response, "Couldn't cancel the meeting");
+  }
 }
 
 /**
@@ -94,17 +117,17 @@ export async function createAgendaItem(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to create agenda item');
+    throw await failure(response, 'Failed to create agenda item');
   }
   return response.json();
 }
 
 /**
- * Update an agenda item
+ * Update an agenda item; null clears its description, presenter or time
  */
 export async function updateAgendaItem(
   itemId: string,
-  data: { title?: string; description?: string; estimatedMinutes?: number; presenter?: string },
+  data: AgendaItemChanges,
 ): Promise<AgendaItem> {
   const response = await apiFetch(`/agenda-items/${itemId}`, {
     method: 'PUT',
@@ -112,7 +135,7 @@ export async function updateAgendaItem(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to update agenda item');
+    throw await failure(response, 'Failed to update agenda item');
   }
   return response.json();
 }
@@ -125,7 +148,7 @@ export async function deleteAgendaItem(itemId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete agenda item');
+    throw await failure(response, 'Failed to delete agenda item');
   }
 }
 
@@ -139,7 +162,7 @@ export async function reorderAgendaItems(itemIds: string[]): Promise<void> {
     body: JSON.stringify({ itemIds }),
   });
   if (!response.ok) {
-    throw new Error('Failed to reorder agenda items');
+    throw await failure(response, 'Failed to reorder agenda items');
   }
 }
 
@@ -192,7 +215,7 @@ export async function linkDocument(
     }),
   });
   if (!response.ok) {
-    throw new Error('Failed to link document');
+    throw await failure(response, 'Failed to link document');
   }
   return response.json();
 }
@@ -205,7 +228,7 @@ export async function deleteAttachment(attachmentId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete attachment');
+    throw await failure(response, 'Failed to delete attachment');
   }
 }
 

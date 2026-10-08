@@ -11,6 +11,8 @@ import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
  */
 
 const CODE = 'MAPLE1';
+const CLUBHOUSE = 'Maple Grove Clubhouse, 400 Maple Grove Drive';
+const POOL_HOUSE = 'Maple Grove Pool House';
 const BYLAWS = 'Bylaws of Maple Grove Homeowners Association';
 const LOWER_QUORUM =
   'The presence, in person or by proxy, of members holding fifteen percent (15%) of the votes of the Association constitutes a quorum at any meeting of the members.';
@@ -40,10 +42,26 @@ test('the annual meeting runs from the call to order to published minutes and ne
     personPage(browser, email, options);
 
   try {
-    // Before the meeting, Pat attaches a document to the treasurer's report. No screen adds one
-    // to a meeting already scheduled, so this goes through the API (POST
-    // /api/attachments/link-document, secretary and above).
+    // Before the meeting, the clubhouse is booked: Pat moves the meeting to the pool house from
+    // Live Meetings (Change, before the call to order)
     const pat = await open(PEOPLE.pat, { viewport: { width: 1280, height: 900 } });
+    await pat.goto('/meetings');
+    await pat.getByRole('button', { name: 'Change 2026 Annual Meeting' }).click();
+    await expect(pat.getByRole('heading', { name: 'Change the meeting' })).toBeFocused();
+    await expect(pat.getByLabel('Place')).toHaveValue(CLUBHOUSE);
+    await pat.getByLabel('Place').fill(POOL_HOUSE);
+    await pat.getByRole('button', { name: 'Next: the agenda' }).click();
+    await expect(
+      pat.getByRole('status').filter({ hasText: 'The details are saved.' }),
+    ).toBeVisible();
+    await pat.getByRole('button', { name: 'Done' }).click();
+    await expect(
+      pat.getByRole('status').filter({ hasText: '2026 Annual Meeting is changed.' }),
+    ).toBeVisible();
+
+    // Pat also attaches a document to the treasurer's report under a name of its own. The screen
+    // links a document under its title, so this goes through the API (POST
+    // /api/attachments/link-document, secretary and above), which takes a display name.
     const packet: PacketJson = await (await pat.request.get(`/api/packets/${CODE}`)).json();
     const treasurer = packet.agendaItems.find(
       (item) => item.title === "Treasurer's report and the 2027 budget",
@@ -256,6 +274,9 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(pat.getByRole('link', { name: /2025 Annual Meeting/ })).toContainText('Approved');
     await draft.click();
     const minutes = pat.getByRole('region', { name: 'Preview' });
+    // The minutes give the place as Pat changed it
+    await expect(minutes).toContainText(`at ${POOL_HOUSE}`);
+    await expect(minutes).not.toContainText(`at ${CLUBHOUSE}`);
     await expect(minutes).toContainText('Section 4.2');
     await expect(minutes).toContainText('Director, seat 1');
     await expect(minutes).toContainText('Director, seat 2');

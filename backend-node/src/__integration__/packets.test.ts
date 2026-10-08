@@ -1,7 +1,7 @@
 import fs from 'fs';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prisma } from '../db/prisma.js';
-import { CHAIR_NOT_MEMBER, packetsRouter } from '../bylawyer/routes/packets.js';
+import { CHAIR_NOT_MEMBER, MEETING_HELD, packetsRouter } from '../bylawyer/routes/packets.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -131,6 +131,57 @@ describe('packets', () => {
     });
     expect(res.status).toBe(204);
     expect(files.map((file) => fs.existsSync(file))).toEqual([false, false]);
+  });
+
+  it('are not deleted once called to order, with their minutes', async () => {
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: new Date('2026-10-01T19:00:00Z') },
+    });
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe(MEETING_HELD);
+    expect(await prisma.meetingPacket.findUnique({ where: { id: f.packet.id } })).not.toBeNull();
+    expect(await prisma.minutes.findUnique({ where: { id: f.draftMinutes } })).not.toBeNull();
+  });
+
+  it('are not deleted when called to order while the delete is under way', async () => {
+    // The call to order lands after the handler has started, before it deletes
+    const findUploads = prisma.attachment.findMany.bind(prisma.attachment);
+    const spy = vi.spyOn(prisma.attachment, 'findMany').mockImplementationOnce((async (
+      args: Parameters<typeof findUploads>[0],
+    ) => {
+      await prisma.meetingPacket.update({
+        where: { id: f.packet.id },
+        data: { startedAt: new Date('2026-10-01T19:00:00Z') },
+      });
+      return findUploads(args);
+    }) as never);
+    try {
+      const res = await call('delete', `/api/packets/${f.packet.id}`, {
+        cookie: f.users.secretary.cookie,
+      });
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe(MEETING_HELD);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await prisma.meetingPacket.findUnique({ where: { id: f.packet.id } })).not.toBeNull();
+    expect(await prisma.minutes.findUnique({ where: { id: f.draftMinutes } })).not.toBeNull();
+    const upload = await prisma.attachment.findUniqueOrThrow({ where: { id: f.upload } });
+    expect(fs.existsSync(getFullPath(upload.storagePath!))).toBe(true);
+  });
+
+  it("are deleted only in the rule's organization", async () => {
+    // A's rule passed, then the handler is given B's packet
+    const res = await runHandler(packetsRouter, 'delete', '/packets/:id', {
+      params: { id: f.packetB.id },
+      org: { id: f.orgA.id, role: 'secretary' },
+    });
+    expect(res.status).toBe(404);
+    expect(await prisma.meetingPacket.count({ where: { id: f.packetB.id } })).toBe(1);
   });
 
   it('are not created by reading a code', async () => {

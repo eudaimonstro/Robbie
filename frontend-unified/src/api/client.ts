@@ -952,12 +952,6 @@ export interface MeetingOrganizationResponse {
   warning?: string;
 }
 
-export interface LinkMeetingResponse {
-  success: boolean;
-  meetingCode: string;
-  organization: LinkedOrganization;
-}
-
 export interface SyncStatusResponse {
   synced: boolean;
   amendmentId?: string;
@@ -967,22 +961,6 @@ export interface SyncStatusResponse {
 
 // Bylaw Sync API - for Robbie/Bylawyer integration
 export const bylawSync = {
-  // The user's organizations, each with their role (the link needs secretary)
-  getOrganizations: () => request<OrganizationWithRole[]>('/bylawyer/organizations'),
-
-  // Link a Robbie meeting to a Bylawyer organization
-  linkMeeting: (meetingCode: string, organizationId: string) =>
-    request<LinkMeetingResponse>('/bylawyer/link-meeting', {
-      method: 'POST',
-      body: JSON.stringify({ meetingCode, organizationId }),
-    }),
-
-  // Unlink a meeting from its organization
-  unlinkMeeting: (meetingCode: string) =>
-    request<{ success: boolean }>(`/bylawyer/link-meeting/${meetingCode}`, {
-      method: 'DELETE',
-    }),
-
   // The organization a meeting is linked to. A code without a packet, or with one in an
   // organization the user isn't in, is a 404: not linked, as far as this user can tell.
   getMeetingOrganization: async (meetingCode: string): Promise<MeetingOrganizationResponse> => {

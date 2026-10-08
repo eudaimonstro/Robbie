@@ -314,15 +314,16 @@ async function recoverSocket(
     close();
     return;
   }
-  // A display shows the meeting; it isn't a member of it
-  if (socket.data.display) {
+  const packet = await findMeetingPacket(meetingCode);
+  // A display shows the meeting while it is on the schedule; it isn't a member of it
+  if (packet && socket.data.display) {
     socket.data.meetingCode = meetingCode;
     return;
   }
-  const packet = await findMeetingPacket(meetingCode);
   const person = packet ? await findPerson(packet.organizationId, userId) : null;
   if (!packet || !person) {
-    // The meeting is gone (as a join would find); the disconnect handler takes it from here
+    // The meeting is gone, canceled say (as a join would find); the disconnect handler takes
+    // it from here
     close();
     return;
   }

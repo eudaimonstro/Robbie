@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarPlus } from 'lucide-react';
 import { schedule, type ScheduledMeeting } from '../../../api/client';
@@ -18,7 +18,8 @@ type Loaded =
 /**
  * The Live Meetings page: the current organization's schedule, each meeting with a way in (Start
  * for its presiding officer, Join for everyone else), the meetings already held, the code box
- * for anyone with a code, and Schedule a meeting for secretaries and above
+ * for anyone with a code, and for secretaries and above Schedule a meeting and Change on each
+ * meeting not yet called to order
  */
 export function LiveMeetingsPage() {
   const navigate = useNavigate();
@@ -27,8 +28,17 @@ export function LiveMeetingsPage() {
   const organizationId = currentOrganization?.id ?? null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  // The meeting being changed, by its code, and what the last change came to
+  const [changing, setChanging] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   // Bumped when the scheduler closes, so a meeting just scheduled is listed
   const [refresh, setRefresh] = useState(0);
+  // Where the focus goes when the scheduler closes: what happened, or back where it was opened
+  // (the Change of that meeting, or Schedule a meeting), never the top of the page
+  const returnFocus = useRef<{ code: string | null } | null>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const scheduleRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // Meetings are scheduled in the current organization, by its secretaries and above
   const canSchedule =
     currentOrganization !== null && atLeast(currentOrganization.role, 'secretary');
@@ -52,11 +62,27 @@ export function LiveMeetingsPage() {
     };
   }, [organizationId, refresh]);
 
-  if (scheduling) {
+  const open = scheduling || changing !== null;
+  useLayoutEffect(() => {
+    const target = returnFocus.current;
+    if (open || !target) return;
+    returnFocus.current = null;
+    const change = target.code
+      ? listRef.current?.querySelector<HTMLButtonElement>(`button[data-change="${target.code}"]`)
+      : null;
+    (status ? statusRef.current : (change ?? scheduleRef.current))?.focus();
+  }, [open, status]);
+
+  if (scheduling || changing) {
     return (
       <MeetingScheduler
-        onBack={() => {
+        key={changing ?? 'new'}
+        meetingCode={changing ?? undefined}
+        onBack={(message) => {
+          returnFocus.current = { code: changing };
           setScheduling(false);
+          setChanging(null);
+          setStatus(message ?? null);
           setRefresh((n) => n + 1);
         }}
         onJoinMeeting={(code) => navigate(meetingPath(code))}
@@ -82,14 +108,36 @@ export function LiveMeetingsPage() {
           </p>
         </div>
         {canSchedule && (
-          <button type="button" className="btn-primary" onClick={() => setScheduling(true)}>
+          <button
+            ref={scheduleRef}
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setStatus(null);
+              setScheduling(true);
+            }}
+          >
             <CalendarPlus className="w-5 h-5" aria-hidden="true" />
             Schedule a meeting
           </button>
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Always there, so a screen reader hears it when it is filled in */}
+      <p
+        ref={statusRef}
+        role="status"
+        tabIndex={-1}
+        className={
+          status
+            ? 'mb-6 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink focus:outline-none'
+            : 'sr-only'
+        }
+      >
+        {status}
+      </p>
+
+      <div ref={listRef} className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {currentOrganization && (
             <section className="card" aria-labelledby="schedule-heading">
@@ -111,6 +159,15 @@ export function LiveMeetingsPage() {
                       key={meeting.id}
                       meeting={meeting}
                       presiding={meeting.chairUserId !== null && meeting.chairUserId === user?.id}
+                      onChange={
+                        // Changed until the call to order; after it, in the meeting
+                        canSchedule && !meeting.startedAt
+                          ? () => {
+                              setStatus(null);
+                              setChanging(meeting.robbieCode);
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -138,8 +195,19 @@ export function LiveMeetingsPage() {
   );
 }
 
-/** One scheduled meeting: its title, date, presiding officer and code, and the way in */
-function ScheduleRow({ meeting, presiding }: { meeting: ScheduledMeeting; presiding: boolean }) {
+/**
+ * One scheduled meeting: its title, date, presiding officer and code, the way in, and Change when
+ * it can be changed
+ */
+function ScheduleRow({
+  meeting,
+  presiding,
+  onChange,
+}: {
+  meeting: ScheduledMeeting;
+  presiding: boolean;
+  onChange?: () => void;
+}) {
   const title = meeting.title || 'Untitled meeting';
   const inSession = meeting.startedAt !== null && meeting.endedAt === null;
   // The presiding officer starts a meeting not yet called to order; everyone else joins it.
@@ -160,6 +228,17 @@ function ScheduleRow({ meeting, presiding }: { meeting: ScheduledMeeting; presid
       <div className="flex items-center gap-3">
         {inSession && <span className="badge-present">In session</span>}
         <span className="meeting-code text-sm text-ink-muted">{meeting.robbieCode}</span>
+        {onChange && (
+          <button
+            type="button"
+            onClick={onChange}
+            aria-label={`Change ${title}`}
+            data-change={meeting.robbieCode}
+            className="btn-ghost btn-sm"
+          >
+            Change
+          </button>
+        )}
         <Link
           to={meetingPath(meeting.robbieCode)}
           aria-label={`${action} ${title}`}

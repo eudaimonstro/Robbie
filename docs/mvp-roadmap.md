@@ -59,4 +59,3 @@ Each phase is a design (docs/superpowers/specs), a plan (docs/superpowers/plans)
 - Proxies stay as they are (members who once joined can grant one). HOA proxy forms on paper are handled by marking the holder present and counting their votes in the floor tally.
 - The exotic motions (division of a question, reconsider, rescind) keep their current state. The scenario uses main motions, amendments, unanimous consent and elections.
 - Mobile app: no new features.
-- No UI to change a scheduled meeting's date, place or attachments after scheduling: the scheduler only creates meetings. The API supports the changes (`PUT /api/packets/{id}` and the attachment routes).

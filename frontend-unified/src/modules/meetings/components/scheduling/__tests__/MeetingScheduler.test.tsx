@@ -2,14 +2,55 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpError } from '../../../../../api/client';
 
-const api = vi.hoisted(() => ({ createPacket: vi.fn(), updatePacket: vi.fn() }));
+const api = vi.hoisted(() => ({
+  createPacket: vi.fn(),
+  updatePacket: vi.fn(),
+  getPacket: vi.fn(),
+  deletePacket: vi.fn(),
+}));
 vi.mock('../api', () => api);
-vi.mock('../PacketBuilder', () => ({ PacketBuilder: () => <p>Agenda builder</p> }));
+vi.mock('../PacketBuilder', () => {
+  type Packet = { agendaItems: Array<{ title: string }>; attachments: object[] };
+  return {
+    PacketBuilder: ({
+      packet,
+      onPacketUpdate,
+    }: {
+      packet: Packet;
+      onPacketUpdate: (update: (prev: Packet) => Packet) => void;
+    }) => (
+      <>
+        <p data-items={packet.agendaItems.map((item) => item.title).join('|')}>Agenda builder</p>
+        <button
+          type="button"
+          onClick={() =>
+            onPacketUpdate((prev) => ({ ...prev, agendaItems: [...prev.agendaItems].reverse() }))
+          }
+        >
+          Reverse the agenda
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onPacketUpdate((prev) => ({
+              ...prev,
+              attachments: [...prev.attachments, { id: 'a9' }],
+            }))
+          }
+        >
+          Attach a file
+        </button>
+      </>
+    ),
+  };
+});
 vi.mock('../../QrCode', () => ({ QrCode: ({ label }: { label: string }) => <img alt={label} /> }));
 const membersApi = vi.hoisted(() => ({ list: vi.fn() }));
+const meetingPackets = vi.hoisted(() => ({ reloadAgenda: vi.fn() }));
 vi.mock('../../../../../api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../../api/client')>()),
   members: membersApi,
+  meetingPackets,
 }));
 vi.mock('../../../../../context/SessionContext', () => ({
   useSession: () => ({ user: { id: 7, name: 'Pat Lindqvist', email: 'pat@maplegrove.example' } }),
@@ -72,10 +113,15 @@ describe('MeetingScheduler', () => {
     vi.clearAllMocks();
     bridge.currentOrganization = bridge.maple;
     membersApi.list.mockResolvedValue(people);
-    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) =>
-      packet(data.robbieCode),
-    );
-    api.updatePacket.mockResolvedValue(packet('ABC234'));
+    // The server answers with what it saved
+    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) => ({
+      ...packet(data.robbieCode),
+      ...data,
+    }));
+    api.updatePacket.mockImplementation(async (_id: string, data: object) => ({
+      ...packet('ABC234'),
+      ...data,
+    }));
   });
 
   it('creates the meeting in the current organization, presided over by its scheduler', async () => {
@@ -177,6 +223,35 @@ describe('MeetingScheduler', () => {
     expect(api.updatePacket).not.toHaveBeenCalled();
   });
 
+  it("doesn't clear a date left half typed, and says so", async () => {
+    await schedule();
+    const date = screen.getByLabelText('Date and time') as HTMLInputElement;
+    // A browser holds a partly typed date as an empty value, flagged as bad input
+    Object.defineProperty(date, 'validity', { value: { badInput: true }, configurable: true });
+    next();
+    expect(screen.getByRole('alert').textContent).toBe('Finish the date or clear it.');
+    expect(date.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(date);
+    expect(api.createPacket).not.toHaveBeenCalled();
+
+    Object.defineProperty(date, 'validity', { value: { badInput: false }, configurable: true });
+    fireEvent.change(date, { target: { value: '2026-11-03T19:00' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    next();
+    await screen.findByText('Agenda builder');
+  });
+
+  it('moves the focus to the heading at each step, never to the page', async () => {
+    await schedule();
+    next();
+    await screen.findByText('Agenda builder');
+    const heading = screen.getByRole('heading', { name: 'Schedule a meeting' });
+    expect(document.activeElement).toBe(heading);
+    heading.blur();
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    expect(document.activeElement).toBe(heading);
+  });
+
   it('leaves an empty place and description out of a new meeting', async () => {
     await schedule();
     next();
@@ -217,6 +292,8 @@ describe('MeetingScheduler', () => {
     expect(screen.queryByRole('button', { name: 'Start meeting' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(onBack).toHaveBeenCalled());
+    // The details were saved when the meeting was created: nothing is saved again
+    expect(api.updatePacket).not.toHaveBeenCalled();
   });
 
   it('tries a fresh code when the generated one is taken', async () => {
@@ -258,6 +335,296 @@ describe('MeetingScheduler', () => {
     bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'member' };
     render(<MeetingScheduler onBack={vi.fn()} onJoinMeeting={vi.fn()} />);
     expect(screen.getByText(/by its secretaries and admins/)).toBeTruthy();
+    expect(screen.queryByLabelText('Meeting title')).toBeNull();
+  });
+});
+
+describe('MeetingScheduler, changing a scheduled meeting', () => {
+  const scheduled = {
+    id: 'p1',
+    organizationId: 'org-1',
+    robbieCode: 'MAPLE1',
+    title: '2026 Annual Meeting',
+    description: 'The pool and the budget',
+    location: 'Maple Grove Clubhouse',
+    scheduledFor: new Date('2026-10-20T19:00').toISOString(),
+    chairUserId: 2,
+    startedAt: null,
+    endedAt: null,
+    createdAt: '',
+    attachments: [],
+    agendaItems: [
+      { id: 'i1', title: 'Call to order', position: 0, attachments: [] },
+      { id: 'i2', title: "Treasurer's report", position: 1, attachments: [] },
+    ],
+  };
+
+  function change(onBack = vi.fn()) {
+    render(<MeetingScheduler meetingCode="MAPLE1" onBack={onBack} onJoinMeeting={vi.fn()} />);
+    return onBack;
+  }
+
+  /** The details, loaded and with the presiding officers listed */
+  async function loaded() {
+    await screen.findByRole('option', { name: 'Dana Okafor' });
+    await screen.findByDisplayValue('2026 Annual Meeting');
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    bridge.currentOrganization = bridge.maple;
+    membersApi.list.mockResolvedValue(people);
+    api.getPacket.mockResolvedValue(scheduled);
+    // The server's answer to a PUT leaves out the linked documents' titles
+    api.updatePacket.mockImplementation(async (_id: string, data: object) => ({
+      ...scheduled,
+      ...data,
+      agendaItems: [],
+    }));
+    meetingPackets.reloadAgenda.mockResolvedValue({ live: false });
+  });
+
+  it('opens with the details of the meeting filled in, its heading focused', async () => {
+    change();
+    await loaded();
+    expect(api.getPacket).toHaveBeenCalledWith('MAPLE1');
+    const heading = screen.getByRole('heading', { name: 'Change the meeting' });
+    expect(document.activeElement).toBe(heading);
+    expect(screen.getByText('MAPLE1')).toBeTruthy();
+    expect((screen.getByLabelText('Date and time') as HTMLInputElement).value).toBe(
+      '2026-10-20T19:00',
+    );
+    expect((screen.getByLabelText('Place') as HTMLInputElement).value).toBe(
+      'Maple Grove Clubhouse',
+    );
+    expect((screen.getByLabelText('Description') as HTMLTextAreaElement).value).toBe(
+      'The pool and the budget',
+    );
+    expect((screen.getByLabelText('Presiding officer') as HTMLSelectElement).value).toBe('2');
+    expect(api.createPacket).not.toHaveBeenCalled();
+  });
+
+  it('saves the changes, clears what was emptied, and keeps the agenda', async () => {
+    change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: ' ' } });
+    fireEvent.change(screen.getByLabelText('Date and time'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+
+    expect((await screen.findByRole('status')).textContent).toBe('The details are saved.');
+    // Only what changed: a chair handed over in the open meeting meanwhile stays
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', {
+      description: null,
+      location: 'Pool house',
+      scheduledFor: null,
+    });
+    expect(screen.getByText('Agenda builder').dataset.items).toBe(
+      "Call to order|Treasurer's report",
+    );
+    expect(screen.getByText('Pool house')).toBeTruthy();
+  });
+
+  it('keeps a meeting without a presiding officer without one', async () => {
+    api.getPacket.mockResolvedValue({ ...scheduled, chairUserId: null });
+    change();
+    await loaded();
+    expect((screen.getByLabelText('Presiding officer') as HTMLSelectElement).value).toBe('');
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { location: 'Pool house' });
+  });
+
+  it('saves nothing when the details are unchanged', async () => {
+    change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).not.toHaveBeenCalled();
+    expect(screen.queryByText('The details are saved.')).toBeNull();
+  });
+
+  it('sends the presiding officer only when it is changed', async () => {
+    change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Presiding officer'), { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { chairUserId: 7 });
+  });
+
+  it('keeps a presiding officer who can no longer preside, and says so', async () => {
+    api.getPacket.mockResolvedValue({ ...scheduled, chairUserId: 9 });
+    change();
+    await loaded();
+    const select = screen.getByLabelText('Presiding officer') as HTMLSelectElement;
+    expect(await screen.findByRole('option', { name: 'Morgan Lee (can no longer preside)' })).toBe(
+      select.selectedOptions[0],
+    );
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { location: 'Pool house' });
+  });
+
+  it("shows the server's refusal and stays on the details", async () => {
+    api.updatePacket.mockRejectedValueOnce(
+      new HttpError(
+        'The presiding officer must be a member of the organization with the member role or above',
+        400,
+      ),
+    );
+    change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Presiding officer'), { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /^The presiding officer must be a member/,
+    );
+    expect(screen.queryByText('Agenda builder')).toBeNull();
+  });
+
+  it("closes with Done, bringing an open meeting's agenda up to date", async () => {
+    meetingPackets.reloadAgenda.mockResolvedValue({ live: true });
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() =>
+      expect(onBack).toHaveBeenCalledWith(
+        "2026 Annual Meeting is changed. The open meeting's agenda now matches.",
+      ),
+    );
+    expect(meetingPackets.reloadAgenda).toHaveBeenCalledWith('MAPLE1');
+  });
+
+  it('says only that the meeting is changed when nobody has opened it', async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).toHaveBeenCalledWith('MAPLE1');
+  });
+
+  it("leaves an open meeting's agenda alone when only the details changed", async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Attach a file' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).not.toHaveBeenCalled();
+  });
+
+  it('leaves it alone when the agenda was changed and changed back', async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Back' })[0]);
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).not.toHaveBeenCalled();
+  });
+
+  it("passes on the server's answer when the meeting was called to order meanwhile", async () => {
+    meetingPackets.reloadAgenda.mockRejectedValue(
+      new HttpError('The meeting has started; change the agenda in the meeting', 409),
+    );
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() =>
+      expect(onBack).toHaveBeenCalledWith(
+        '2026 Annual Meeting is changed. The meeting has started; change the agenda in the meeting',
+      ),
+    );
+  });
+
+  it('does not start the meeting for its presiding officer', async () => {
+    api.getPacket.mockResolvedValue({ ...scheduled, chairUserId: 7 });
+    const onJoinMeeting = vi.fn();
+    render(
+      <MeetingScheduler meetingCode="MAPLE1" onBack={vi.fn()} onJoinMeeting={onJoinMeeting} />,
+    );
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(screen.queryByRole('button', { name: 'Start meeting' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy();
+  });
+
+  it('closes with Back and nothing to say when nothing was changed', async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledWith(undefined);
+    expect(meetingPackets.reloadAgenda).not.toHaveBeenCalled();
+  });
+
+  it('cancels the meeting after asking', async () => {
+    api.deletePacket.mockResolvedValue(undefined);
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel the meeting' }));
+    expect(
+      screen.getByText('Cancel 2026 Annual Meeting? Its agenda and attached files are deleted.'),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep it' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+    expect(screen.queryByRole('button', { name: 'Yes, cancel it' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel the meeting' }));
+    expect(api.deletePacket).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel the meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel it' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is canceled.'));
+    expect(api.deletePacket).toHaveBeenCalledWith('p1');
+  });
+
+  it("shows the server's message when the meeting can't be canceled", async () => {
+    api.deletePacket.mockRejectedValue(
+      new HttpError("A meeting that has been called to order can't be canceled", 409),
+    );
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel the meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel it' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      "A meeting that has been called to order can't be canceled",
+    );
+    expect(onBack).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel the meeting' }));
+  });
+
+  it('offers no changes to a meeting already called to order', async () => {
+    api.getPacket.mockResolvedValue({ ...scheduled, startedAt: '2026-10-21T00:05:00.000Z' });
+    change();
+    expect(
+      await screen.findByText(
+        '2026 Annual Meeting has been called to order. Its agenda is changed in the meeting.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Meeting title')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel the meeting' })).toBeNull();
+  });
+
+  it('says so when the meeting is no longer on the schedule', async () => {
+    api.getPacket.mockResolvedValue(null);
+    change();
+    expect(await screen.findByText('This meeting is no longer on the schedule.')).toBeTruthy();
     expect(screen.queryByLabelText('Meeting title')).toBeNull();
   });
 });

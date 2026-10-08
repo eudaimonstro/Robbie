@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { HttpError, setSignedOutHandler } from '../../../../../api/client';
-import { createPacket, getAttachmentDownloadUrl, getPacket, uploadAttachment } from '../api';
+import {
+  createPacket,
+  deletePacket,
+  getAttachmentDownloadUrl,
+  getPacket,
+  reorderAgendaItems,
+  updatePacket,
+  uploadAttachment,
+} from '../api';
 
 function mockFetch(status: number, body: unknown) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -21,9 +29,12 @@ describe('scheduling API', () => {
     expect(getAttachmentDownloadUrl('a1')).toBe('/api/attachments/a1/download');
   });
 
-  it('keeps its own error message', async () => {
-    mockFetch(500, { error: 'boom' });
-    await expect(getPacket('DEMO')).rejects.toThrow('Failed to get meeting packet');
+  it('keeps its own error message when the server gives none', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('oops', { status: 500 })),
+    );
+    await expect(getPacket('DEMO')).rejects.toThrow("Couldn't load the meeting");
   });
 
   it('reports a lost session on a 401', async () => {
@@ -49,6 +60,14 @@ describe('scheduling API', () => {
     expect(await getPacket('DEMO')).toBeNull();
   });
 
+  it("reads a packet, with the server's message for a refusal", async () => {
+    mockFetch(403, { error: 'You need the viewer role for this' });
+    await expect(getPacket('MAPLE1')).rejects.toMatchObject({
+      message: 'You need the viewer role for this',
+      status: 403,
+    });
+  });
+
   it("creates a packet in an organization, with the server's message for a taken code", async () => {
     const fetchMock = mockFetch(409, { error: 'That meeting code is already in use' });
     const error = await createPacket('org-1', { robbieCode: 'MAPLE1', title: 'Annual' }).catch(
@@ -60,5 +79,42 @@ describe('scheduling API', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/organizations/org-1/packets');
     expect(JSON.parse(init.body as string)).toEqual({ robbieCode: 'MAPLE1', title: 'Annual' });
+  });
+
+  it("saves a meeting's changes, with the server's message for a refusal", async () => {
+    const fetchMock = mockFetch(400, {
+      error: 'The presiding officer must be a member of the organization',
+    });
+    const error = await updatePacket('p1', { location: null }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(HttpError);
+    expect((error as HttpError).message).toBe(
+      'The presiding officer must be a member of the organization',
+    );
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/packets/p1');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ location: null });
+  });
+
+  it("cancels a meeting, with the server's message for a meeting called to order", async () => {
+    const fetchMock = mockFetch(409, {
+      error: "A meeting that has been called to order can't be canceled",
+    });
+    const error = await deletePacket('p1').catch((err: unknown) => err);
+    expect((error as HttpError).status).toBe(409);
+    expect((error as HttpError).message).toBe(
+      "A meeting that has been called to order can't be canceled",
+    );
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/packets/p1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('keeps its own message for an agenda change when the server gives none', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('oops', { status: 500 })),
+    );
+    await expect(reorderAgendaItems(['i1'])).rejects.toThrow('Failed to reorder agenda items');
   });
 });

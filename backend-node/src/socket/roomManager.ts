@@ -105,6 +105,17 @@ class RoomManager {
     return true;
   }
 
+  /** Forget a meeting that has ended for good (canceled): its connections and grace periods */
+  forgetMeeting(meetingCode: string): void {
+    this.rooms.delete(meetingCode);
+    const prefix = `${meetingCode}:`;
+    for (const [key, timer] of this.graceTimers) {
+      if (!key.startsWith(prefix)) continue;
+      clearTimeout(timer);
+      this.graceTimers.delete(key);
+    }
+  }
+
   /** Whether a disconnected member is within their grace period */
   inGrace(meetingCode: string, memberId: number): boolean {
     return this.graceTimers.has(`${meetingCode}:${memberId}`);

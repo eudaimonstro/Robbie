@@ -140,7 +140,7 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/` - Dashboard/Home (documents)
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
-- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer) and the code box (Robbie)
+- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer; Change for secretaries and above until the call to order, which reopens the scheduler on that meeting, with Cancel the meeting) and the code box (Robbie)
 - `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
 - `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
 - `/style-guide` - The design language: the tokens and components in both palettes
@@ -170,7 +170,7 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 **Socket.io Events:**
 
 - Client → Server: `JOIN_MEETING` (`{ meetingCode, display? }`; a display receives the state without becoming a member), `LEAVE_MEETING`, `DISPATCH_ACTION`, `REQUEST_STATE`
-- Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR`
+- Server → Client: `STATE_UPDATE`, `ACTION_REJECTED`, `MEMBER_JOINED`, `MEMBER_LEFT`, `ERROR` (code `MEETING_CANCELED` when the meeting is canceled while open: the client closes the connection for good)
 
 **Screens** (`docs/design-brief.md`): `MeetingApp` shows the chair console (`views/ChairConsole.tsx`) to the chair and admins and the phone view (`views/PhoneView.tsx`) to members and guests, by `myRole` from `SocketContext` (the role the server derived and put in the state; never assume one). `/meetings/:code/display` (`display.tsx`, `views/DisplayView.tsx`) joins with `display: true`. The question card, the stamp and the attendance block are shared by all three, fed by `describeQuestion`, `currentResult` and `parseVoteResult` (`utils/question.ts`, `hooks/useVoteResults.ts`) and `attendanceSummary` (shared); the console's toolbar shows only `chairActions(state)`, and the phone's one action block follows `phoneMoment(state)`. Counts the chair enters (`SET_HEADCOUNT`, `SET_FLOOR_TALLY`, `SET_FLOOR_BALLOTS`) replace the last entry, so their forms reset with a `key` on the meeting's value. Names come from accounts: there is no Rename in the console (a rejoin restores the account name), only Hand over the chair. The console's join card folds to one line after the call to order. Adjourn is the primary action at the last agenda item, and `END_MEETING` completes the item in progress. The floor tally goes in before the chair's deciding vote, a voice vote can't close without one, and an election's totals stay hidden until the ballot closes.
 
@@ -224,7 +224,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
 - `PUT /api/organizations/{id}` - Name, description, time zone (`timeZone`, an IANA name; the minutes give times there), and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
-- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` (canceling the meeting) also deletes its uploaded files, refuses (409) a meeting already called to order, whose minutes would go with it, and closes one already open (`closeCanceledMeeting`, `socket/meetingLifecycle.ts`): the room is sent `ERROR` with code `MEETING_CANCELED`, its sockets leave it (still signed in), and its live state is deleted, so the screens say "This meeting was canceled." with the way back to Live Meetings
 - `GET /api/packets/{code}/roster` - The meeting's organization's members, for marking people present (emails and pending additions for admins only)
 - `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
@@ -243,7 +243,7 @@ When a bylaw amendment motion passes in Robbie:
 
 **Linking Flow:**
 
-1. Link a Robbie meeting to a Bylawyer organization via `POST /api/bylawyer/link-meeting` (secretary). This gives the meeting code a packet in the organization (or uses the one it has there; 409 if the code is another organization's), the only record of the link.
+1. A meeting scheduled in an organization is linked to it by its packet. The API can still link a code via `POST /api/bylawyer/link-meeting` (secretary): this gives the meeting code a packet in the organization (or uses the one it has there; 409 if the code is another organization's), the only record of the link. `DELETE /api/bylawyer/link-meeting/{code}` deletes a bare packet, and refuses (409) one with an agenda or attachments, one called to order, and one whose meeting is open ("This meeting is open. Cancel it from Live Meetings instead."). The web app has no Link or Unlink: the console's More shows the meeting's organization, and a meeting is canceled from Live Meetings.
 2. When creating a bylawAmendment motion in Robbie, select the document and section
 3. After the motion passes, it's automatically synced to Bylawyer. The sync skips a document outside the meeting's organization and a target section outside the document's current version.
 

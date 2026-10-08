@@ -16,6 +16,7 @@ const socket = vi.hoisted(() => ({
   isConnected: true,
   hasJoined: true,
   joinError: null as { message: string; code: string | null } | null,
+  canceled: null as string | null,
 }));
 vi.mock('../../context/SocketContext', () => ({
   useSocket: () => ({
@@ -23,6 +24,7 @@ vi.mock('../../context/SocketContext', () => ({
     isConnected: socket.isConnected,
     hasJoined: socket.hasJoined,
     joinError: socket.joinError,
+    canceled: socket.canceled,
     meetingCode: 'MAPLE1',
     attendance: attendanceSummary(socket.state),
   }),
@@ -76,6 +78,7 @@ describe('DisplayView', () => {
     socket.isConnected = true;
     socket.hasJoined = true;
     socket.joinError = null;
+    socket.canceled = null;
   });
 
   it('keeps the meeting up while it reconnects after a dropped connection', () => {
@@ -285,6 +288,17 @@ describe('DisplayView', () => {
     };
     render(<DisplayView />);
     expect(screen.getByText("Only the organization's members can open the display")).toBeTruthy();
+  });
+
+  it('says the meeting was canceled, with nothing to click', () => {
+    socket.state = initialState;
+    socket.isConnected = false;
+    socket.hasJoined = false;
+    socket.canceled = 'This meeting was canceled.';
+    render(<DisplayView />);
+    expect(screen.getByText('This meeting was canceled.')).toBeTruthy();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
   it('puts the minutes before the room and asks for corrections', () => {

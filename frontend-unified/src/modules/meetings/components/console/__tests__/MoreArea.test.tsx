@@ -11,7 +11,9 @@ vi.mock('../../chair', () => ({
   CommitteeReportsPanel: () => null,
   MeetingDocumentsPanel: () => <p>Documents</p>,
 }));
-vi.mock('../../BylawyerLinkPanel', () => ({ BylawyerLinkPanel: () => <p>Bylaws link</p> }));
+vi.mock('../../MeetingOrganizationPanel', () => ({
+  MeetingOrganizationPanel: () => <p>The organization</p>,
+}));
 
 const { MoreArea } = await import('../MoreArea');
 
@@ -88,16 +90,16 @@ describe('MoreArea', () => {
     expect(screen.queryByRole('button', { name: 'Set the quorum' })).toBeNull();
   });
 
-  it('shows the time limits and the bylaws link to admins only', () => {
+  it('shows the time limits and the organization to admins only', () => {
     renderMore(pat);
     expect(screen.getByLabelText('Speaking time (seconds)')).toBeTruthy();
-    expect(screen.getByText('Bylaws link')).toBeTruthy();
+    expect(screen.getByText('The organization')).toBeTruthy();
   });
 
   it('keeps the time limits from a chair who is not an admin', () => {
     renderMore(dana);
     expect(screen.queryByLabelText('Speaking time (seconds)')).toBeNull();
-    expect(screen.queryByText('Bylaws link')).toBeNull();
+    expect(screen.queryByText('The organization')).toBeNull();
   });
 
   it('reloads the agenda from the schedule before the call to order', async () => {

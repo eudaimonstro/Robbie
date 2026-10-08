@@ -16,7 +16,7 @@ import {
   OrderOfBusinessPanel,
   ProxyManagementPanel,
 } from '../chair';
-import { BylawyerLinkPanel } from '../BylawyerLinkPanel';
+import { MeetingOrganizationPanel } from '../MeetingOrganizationPanel';
 import { moverLine } from '../../utils/question';
 
 interface MoreAreaProps {
@@ -59,12 +59,7 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
         )}
         <PeopleInMeeting state={state} dispatch={dispatch} readOnly={adjourned} />
         {state.meetingStage === 'not-started' && <ReloadAgenda meetingCode={meetingCode} />}
-        {isAdmin && (
-          <BylawyerLinkPanel
-            meetingCode={meetingCode}
-            suggestedOrgId={organizationId ?? undefined}
-          />
-        )}
+        {isAdmin && <MeetingOrganizationPanel organizationId={organizationId} />}
         <MeetingDocumentsPanel meetingCode={meetingCode} />
         <TabledMotions state={state} />
         <MeetingLog log={state.meetingLog} />

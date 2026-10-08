@@ -151,6 +151,21 @@ describe('agenda items and attachments across packets', () => {
     expect((await reorderItems([f.itemB, f.item])).status).toBe(404);
   });
 
+  it("clear an item's description, presenter and time with null", async () => {
+    await prisma.meetingAgendaItem.update({
+      where: { id: f.item },
+      data: { description: 'The 2027 budget', presenter: 'Ben', estimatedMinutes: 15 },
+    });
+    const res = await call('put', `/api/agenda-items/${f.item}`, {
+      cookie: f.users.secretary.cookie,
+      body: { description: null, presenter: null, estimatedMinutes: null },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ description: null, presenter: null, estimatedMinutes: null });
+    const item = await prisma.meetingAgendaItem.findUniqueOrThrow({ where: { id: f.item } });
+    expect(item).toMatchObject({ description: null, presenter: null, estimatedMinutes: null });
+  });
+
   it("don't add items to another organization's packet", async () => {
     const res = await call('post', '/api/agenda-items/bulk', {
       cookie: f.users.secretary.cookie,
