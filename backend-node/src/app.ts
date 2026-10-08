@@ -20,7 +20,6 @@ import {
   sectionsRouter,
   amendmentsRouter,
   publicRouter,
-  robbieRouter,
   packetsRouter,
   attachmentsRouter,
   agendaItemsRouter,
@@ -145,7 +144,6 @@ app.use('/api', documentsRouter);
 app.use('/api', versionsRouter);
 app.use('/api', sectionsRouter);
 app.use('/api', amendmentsRouter);
-app.use('/api/robbie', robbieRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);

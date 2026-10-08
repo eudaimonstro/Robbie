@@ -10,7 +10,6 @@ export { versionsRouter } from './versions.js';
 export { sectionsRouter } from './sections.js';
 export { amendmentsRouter } from './amendments.js';
 export { publicRouter } from './public.js';
-export { robbieRouter } from './robbie.js';
 
 // Meeting packet and agenda routes
 export { packetsRouter } from './packets.js';

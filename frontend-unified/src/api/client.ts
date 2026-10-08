@@ -883,14 +883,7 @@ export interface MeetingOrganizationResponse {
   warning?: string;
 }
 
-export interface SyncStatusResponse {
-  synced: boolean;
-  amendmentId?: string;
-  status?: string;
-  applied?: boolean;
-}
-
-// Bylaw Sync API - for Robbie/Bylawyer integration
+// What a bylaw amendment motion in a live meeting is made from
 export const bylawSync = {
   // The organization a meeting is linked to. A code without a packet, or with one in an
   // organization the user isn't in, is a 404: not linked, as far as this user can tell.
@@ -916,20 +909,6 @@ export const bylawSync = {
   // Get section tree for a document
   getDocumentSections: (docId: string) =>
     request<SectionTree[]>(`/bylawyer/documents/${docId}/sections`),
-
-  // Check sync status for a motion; an unlinked meeting (404) has synced nothing
-  getSyncStatus: async (meetingCode: string, motionId: number): Promise<SyncStatusResponse> => {
-    try {
-      return await request<SyncStatusResponse>(
-        `/robbie/sync-status/${meetingCode}/${motionId}`,
-        {},
-        false,
-      );
-    } catch (err) {
-      if (err instanceof HttpError && err.status === 404) return { synced: false };
-      throw err;
-    }
-  },
 };
 
 export interface SessionUser {

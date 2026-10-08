@@ -71,8 +71,7 @@ const packetInclude = {
 /**
  * GET /api/packets/:robbieCode
  * Get the packet for a Robbie meeting. Packets are created in an organization
- * (POST /api/organizations/:orgId/packets) or by linking a live meeting
- * (POST /api/bylawyer/link-meeting), never by reading.
+ * (POST /api/organizations/:orgId/packets), never by reading.
  */
 packetsRouter.get(
   '/packets/:robbieCode',
