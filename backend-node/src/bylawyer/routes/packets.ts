@@ -394,12 +394,11 @@ packetsRouter.get(
       const admin = atLeast(req.org!.role, 'admin');
       // Who marks people present: secretaries and above, and the presiding officer
       const packet = await findMeetingPacket(req.params.robbieCode);
-      const presiding =
-        atLeast(req.org!.role, 'secretary') || packet?.chairUserId === req.user!.id;
-      const { members } = await listMembers(req.org!.id, admin);
-      // People added by email who haven't signed in, who would vote: the chair counts them in
-      // the room by name
-      const invites = presiding ? (await listMembers(req.org!.id, true)).invites! : [];
+      const presiding = atLeast(req.org!.role, 'secretary') || packet?.chairUserId === req.user!.id;
+      // With the pending additions (people added by email who haven't signed in) for those
+      // who mark people present: the chair counts the ones who would vote in the room by name.
+      // Emails stay with admins (below).
+      const { members, invites = [] } = await listMembers(req.org!.id, admin || presiding);
       res.json({
         members: members.map((m) => ({
           userId: m.userId,

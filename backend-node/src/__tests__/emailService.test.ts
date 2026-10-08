@@ -25,7 +25,7 @@ describe('signInCodeEmail', () => {
     }
   });
 
-  it("is on the brand: paper and ink, no gradient and no old tagline", () => {
+  it('is on the brand: paper and ink, no gradient and no old tagline', () => {
     expect(email.html).toContain('#F7F3EC');
     expect(email.html).toContain('#8B2E25');
     expect(email.html).not.toMatch(/gradient|#4f46e5|Parliamentary Procedure Made Easy/i);

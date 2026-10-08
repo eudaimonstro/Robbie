@@ -94,7 +94,11 @@ describe('organizations', () => {
     const list = await call('get', '/api/organizations', { cookie: ann.cookie });
     expect(list.body).toEqual([expect.objectContaining({ id: res.body.id, role: 'owner' })]);
     // Nothing set: no quorum of 3 nobody chose
-    expect(res.body).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: null });
+    expect(res.body).toMatchObject({
+      eligibleVoters: null,
+      quorumPercent: null,
+      quorumCount: null,
+    });
   });
 
   it('takes the voting members and the quorum when it is created', async () => {

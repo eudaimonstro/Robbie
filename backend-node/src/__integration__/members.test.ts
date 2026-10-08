@@ -301,7 +301,9 @@ describe('members', () => {
         where: { email: 'carmen.diaz@example.org' },
       });
       expect(carmen).toMatchObject({ name: 'Carmen Diaz', role: 'member', emailed: false });
-      const pending = await prisma.organizationInvite.findUniqueOrThrow({ where: { id: f.invite } });
+      const pending = await prisma.organizationInvite.findUniqueOrThrow({
+        where: { id: f.invite },
+      });
       expect(pending).toMatchObject({ name: 'Pat P.', role: 'member' });
       expect(await roleOf(f.users.member.id)).toBe('member');
     });
