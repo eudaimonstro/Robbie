@@ -65,6 +65,7 @@ export {
   canRemoveSelfFromQueue,
   formatWaitTime,
   getNextSpeakerInfo,
+  sortSpeakerQueue,
   type SpeakerQueueInfo,
   type StanceBalance,
   type QueueStats,
