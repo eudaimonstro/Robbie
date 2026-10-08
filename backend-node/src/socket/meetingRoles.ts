@@ -46,8 +46,7 @@ export function deriveMeetingRole(
 
 /**
  * The members whose role differs from what the organization gives them now, each with the
- * name the meeting has for them: a member's name is refreshed only when they join, so a name
- * taken in the meeting (RENAME_MEMBER) stays
+ * name the meeting has for them (a member's name is refreshed only when they join)
  */
 export async function roleChanges(
   packet: { organizationId: string; chairUserId: number | null },

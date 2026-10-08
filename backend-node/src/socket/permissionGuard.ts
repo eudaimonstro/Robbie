@@ -113,9 +113,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   ACCEPT_PROXY: TAKING_PART, // Members can accept proxy requests
   DECLINE_PROXY: TAKING_PART, // Members can decline proxy requests
   CANCEL_PROXY_REQUEST: TAKING_PART, // Members can cancel their own requests
-
-  // Member management
-  RENAME_MEMBER: EVERYONE, // Anyone can rename themselves once; admin/chair can rename anyone
 };
 
 /**

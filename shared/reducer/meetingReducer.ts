@@ -106,7 +106,6 @@ export function meetingReducer(state: MeetingState, action: MeetingAction): Meet
     case 'SET_MEMBER_ROLE':
     case 'SET_MEMBER_PRESENCE':
     case 'REFRESH_MEMBERS':
-    case 'RENAME_MEMBER':
       return memberHandler(state, action, log);
 
     // Attendance

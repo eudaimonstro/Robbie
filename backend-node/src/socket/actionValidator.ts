@@ -1508,29 +1508,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
-    case 'RENAME_MEMBER': {
-      const memberToRename = state.members.find((m) => m.id === action.memberId);
-      if (!memberToRename) {
-        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      const trimmedName = action.newName?.trim() || '';
-      if (trimmedName.length < 2) {
-        return {
-          valid: false,
-          error: 'Name must be at least 2 characters',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (trimmedName.length > 100) {
-        return {
-          valid: false,
-          error: 'Name must be 100 characters or less',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      return { valid: true };
-    }
-
     // Settings actions
     case 'SET_AUTO_YIELD':
       // Always valid - chair setting

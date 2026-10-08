@@ -160,37 +160,6 @@ export async function handleDispatchAction(
       }
     }
 
-    // Rename authorization: members can only rename themselves, admins/chairs can rename anyone
-    // Members can only self-rename once
-    if (data.action.type === 'RENAME_MEMBER') {
-      const renameAction = data.action as { memberId: number };
-      const isRenamingSelf = renameAction.memberId === userId;
-      const isAdminOrChair = socket.data.role === 'admin' || socket.data.role === 'chair';
-
-      if (!isRenamingSelf && !isAdminOrChair) {
-        callback({
-          success: false,
-          error: 'You can only rename yourself',
-          errorCode: 'PERMISSION_DENIED',
-        });
-        return;
-      }
-
-      // Members can only rename themselves once (admins/chairs can rename anyone anytime)
-      if (isRenamingSelf && !isAdminOrChair) {
-        const member = meeting.state.members.find((m) => m.id === userId);
-        if (member?.selfRenameUsed) {
-          callback({
-            success: false,
-            error:
-              'You have already changed your name once. Ask the chair or admin if you need another change.',
-            errorCode: 'RENAME_LIMIT_REACHED',
-          });
-          return;
-        }
-      }
-    }
-
     // Enrich action with server-authoritative values
     let enrichedAction = enrichAction(data.action, socket.data, meeting.state.members);
 

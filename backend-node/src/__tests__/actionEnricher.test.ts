@@ -117,7 +117,6 @@ describe('enrichAction', () => {
       ACCEPT_PROXY: { acceptedBy: SPOOF_ID },
       DECLINE_PROXY: { declinedBy: SPOOF_ID },
       CANCEL_PROXY_REQUEST: { canceledBy: SPOOF_ID },
-      RENAME_MEMBER: { renamedBy: SPOOF_ID },
     };
 
     it('has a fixture for every action type', () => {
@@ -169,7 +168,6 @@ describe('enrichAction', () => {
         ACCEPT_PROXY: { id: 'acceptedBy' },
         DECLINE_PROXY: { id: 'declinedBy' },
         CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
-        RENAME_MEMBER: { id: 'renamedBy' },
         WITHDRAW_MOTION: { id: 'requesterId' },
         MODIFY_MOTION: { id: 'requesterId' },
         RAISE_HAND: { member: true },
@@ -194,7 +192,6 @@ describe('enrichAction', () => {
       const nomination = enrich({ type: 'NOMINATE', nomineeId: 30, nomineeName: 'Speaker' });
       expect(nomination).toMatchObject({ nomineeId: 30, nomineeName: 'Speaker' });
       expect(enrich({ type: 'MARK_ABSENT', memberId: 30 }, chair).memberId).toBe(30);
-      expect(enrich({ type: 'RENAME_MEMBER', memberId: 30 }, chair).memberId).toBe(30);
       // The chair records business from the floor for the people it names, never as the mover
       const floor = enrich(
         { type: 'MAKE_FLOOR_MOTION', moverMemberId: 30, moverName: 'Speaker', motionId: 1 },

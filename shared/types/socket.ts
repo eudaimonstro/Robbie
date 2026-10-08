@@ -179,9 +179,7 @@ export type ActionErrorCode =
   | 'REQUEST_NOT_FOUND'
   | 'REQUEST_NOT_PENDING'
   // Roll call errors
-  | 'ROLL_CALL_NOT_IN_PROGRESS'
-  // Member rename errors
-  | 'RENAME_LIMIT_REACHED';
+  | 'ROLL_CALL_NOT_IN_PROGRESS';
 
 // Auth-related types
 export interface AuthPayload {

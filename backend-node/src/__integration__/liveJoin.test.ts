@@ -122,14 +122,6 @@ describe('joining a live meeting', () => {
     await live.join(secretary, f.packet.code);
     await live.join(member, f.packet.code);
     await live.join(memberTab, f.packet.code);
-    // The secretary takes a name in the meeting, which the organization's name never replaces
-    await live.dispatch(secretary, {
-      type: 'RENAME_MEMBER',
-      memberId: f.users.secretary.id,
-      newName: 'Sec',
-      timestamp: '',
-    });
-
     // The schedule changes the presiding officer, and the member renames themselves
     await prisma.meetingPacket.update({
       where: { id: f.packet.id },
@@ -139,10 +131,11 @@ describe('joining a live meeting', () => {
     await live.join(member, f.packet.code);
 
     const state = await stateOf(f.packet.code);
-    expect(state.members.map((m) => [m.id, m.name, m.role])).toEqual([
-      [f.users.secretary.id, 'Sec', 'admin'],
-      [f.users.member.id, 'Dana', 'chair'],
+    expect(state.members.map((m) => [m.id, m.role])).toEqual([
+      [f.users.secretary.id, 'admin'],
+      [f.users.member.id, 'chair'],
     ]);
+    expect(state.members.find((m) => m.id === f.users.member.id)?.name).toBe('Dana');
     expect(member.data.role).toBe('chair');
     // The member's other device too
     expect(memberTab.data.role).toBe('chair');

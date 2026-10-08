@@ -162,7 +162,6 @@ describe('permissionGuard', () => {
         'LOWER_HAND',
         'YIELD_FLOOR',
         'ASK_INQUIRY',
-        'RENAME_MEMBER',
       ] as const;
 
       it.each(guestActions)('should allow every role to perform %s', (action) => {
@@ -222,7 +221,7 @@ describe('permissionGuard', () => {
 
     it('should give guests only following, asking to speak and asking questions', () => {
       expect(getPermittedActions('guest').sort()).toEqual(
-        ['ASK_INQUIRY', 'LOWER_HAND', 'RAISE_HAND', 'RENAME_MEMBER', 'YIELD_FLOOR'].sort(),
+        ['ASK_INQUIRY', 'LOWER_HAND', 'RAISE_HAND', 'YIELD_FLOOR'].sort(),
       );
     });
 

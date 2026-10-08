@@ -124,7 +124,6 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   ACCEPT_PROXY: { id: 'acceptedBy' },
   DECLINE_PROXY: { id: 'declinedBy' },
   CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
-  RENAME_MEMBER: { id: 'renamedBy' },
 };
 
 /**

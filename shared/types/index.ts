@@ -18,7 +18,6 @@ export interface Member {
    * member who isn't present (and on states saved before it existed, where it means device).
    */
   presentBy?: 'device' | 'chair';
-  selfRenameUsed?: boolean; // Members can only rename themselves once
 }
 
 export type DebateStance = 'pro' | 'con' | 'neutral';
@@ -707,15 +706,7 @@ export type MeetingAction =
       declinedBy?: number;
       timestamp: string;
     }
-  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string }
-  // Member management
-  | {
-      type: 'RENAME_MEMBER';
-      memberId: number;
-      newName: string;
-      renamedBy: number;
-      timestamp: string;
-    };
+  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {
