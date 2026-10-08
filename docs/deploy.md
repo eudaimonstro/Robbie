@@ -67,7 +67,7 @@ From here on, work as `deploy`: `sudo -iu deploy`.
 
 As `deploy` on the server:
 
-1. Get the deploy files (a private repository needs a deploy key and the `git@github.com:` URL):
+1. Get the deploy files. The repository is public, so this needs no key or login:
 
    ```bash
    git clone https://github.com/eudaimonstro/Robbie.git /opt/robbie
@@ -291,8 +291,9 @@ CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`
 2. **The chair's laptop:** plugged in, signed in as the presiding officer. On **Live Meetings**, **Start** opens the console at `/meetings/<CODE>` (everyone else sees **Join**). If the agenda changed since anyone opened the meeting, **More**, then **Reload the agenda**, before the call to order.
 3. **The TV or projector:** a laptop signed in as anyone in the organization (a viewer is enough), opened to `https://robbie.scouch.dev/meetings/<CODE>/display`, full screen, with sleep and screen savers off and the power plugged in. If the chair's laptop drives the TV, the console's **Display** button opens it in a new window to drag there. Before the call to order the display shows the meeting code and a QR code.
 4. **The QR code:** scan it from the back of the room with one phone on the venue Wi-Fi and one on mobile data; both open the meeting after sign-in.
-5. **One test sign-in on the venue Wi-Fi** with a homeowner's real email. The server allows 300 code requests per network address per 15 minutes, and everyone on the venue Wi-Fi shares one address: a room larger than that should spread sign-ins out or use mobile data.
-6. **Paper:** a printed agenda and a sheet for the names of people without a phone, for the secretary.
+5. **An iPhone, in Safari, on the venue Wi-Fi:** join the meeting signed in as a member and leave it open. Within a few seconds, without reloading anything, the TV's attendance count goes up by one and the console lists them as present. When the chair calls the meeting to order, that iPhone should change by itself. If the count doesn't move, reload the page once; if it still doesn't, ask people to use mobile data.
+6. **One test sign-in on the venue Wi-Fi** with a homeowner's real email. The server allows 300 code requests per network address per 15 minutes, and everyone on the venue Wi-Fi shares one address: a room larger than that should spread sign-ins out or use mobile data.
+7. **Paper:** a printed agenda and a sheet for the names of people without a phone, for the secretary.
 
 **During the meeting** (the chair's console)
 
