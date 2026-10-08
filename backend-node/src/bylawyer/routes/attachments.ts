@@ -4,7 +4,12 @@
  * File upload, download, and Bylawyer document linking
  */
 
-import { Router, type Request, type RequestHandler, type Router as RouterType } from 'express';
+import express, {
+  Router,
+  type Request,
+  type RequestHandler,
+  type Router as RouterType,
+} from 'express';
 import { prisma } from '../../db/prisma.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { validate, type RouteParams } from '../../middleware/validate.js';
@@ -19,6 +24,7 @@ import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fi
 import { orgStorageLimitMb, orgStorageUsed, storageFullMessage } from '../services/storageQuota.js';
 import fs from 'fs';
 import { logger } from '../../middleware/logger.js';
+import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
 import { orgOfAgendaItem, orgOfAttachment, orgOfPacket } from '../../orgs/resolvers.js';
 
@@ -61,8 +67,16 @@ const byFirstAttachment: OrgResolver = async (req) => {
   return typeof first === 'string' ? orgOfAttachment(first) : null;
 };
 
-// We'll use raw body parsing for file uploads
-// The main app should configure express.raw() for /api/attachments/upload
+/** The file types an upload is read as (fileStorage's validateFile checks the type it gives) */
+const UPLOAD_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/rtf',
+  'application/rtf',
+  'application/octet-stream',
+];
 
 /**
  * POST /api/attachments/upload
@@ -78,6 +92,10 @@ attachmentsRouter.post(
     'secretary',
     packetOrAgendaItem((req) => req.query),
   ),
+  heavyWriteLimiter,
+  // Read only now, after the role check: nobody below a secretary can make the server read
+  // 10 MB
+  express.raw({ type: UPLOAD_TYPES, limit: '10mb' }),
   async (req, res) => {
     try {
       const filename = req.headers['x-filename'] as string;

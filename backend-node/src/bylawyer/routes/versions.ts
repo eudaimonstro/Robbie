@@ -26,6 +26,8 @@ import {
   docxToText,
 } from '../services/docxText.js';
 import { logger } from '../../middleware/logger.js';
+import { heavyWriteLimiter } from '../../middleware/userLimits.js';
+import { concurrencyLimit } from '../../middleware/concurrency.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
 import { ApiError } from '../../middleware/apiError.js';
@@ -35,6 +37,11 @@ import { currentVersionOnly, versionDeleteProblem } from '../services/versionRul
 export const versionsRouter: RouterType = Router();
 
 const byDocument = fromParam('docId', orgOfDocument);
+
+/** Word documents read at once (see the docx import) */
+export const DOCX_AT_ONCE = 2;
+export const DOCX_BUSY = 'The server is reading other Word documents. Try again in a moment.';
+const docxSlots = concurrencyLimit(DOCX_AT_ONCE, DOCX_BUSY);
 const byVersion = fromParam('id', orgOfVersion);
 
 // Build nested section tree from flat list
@@ -211,6 +218,7 @@ versionsRouter.post(
   '/documents/:docId/versions',
   validate({ params: docIdParam, body: createVersionBody }),
   requireRole('secretary', byDocument),
+  heavyWriteLimiter,
   async (req, res) => {
     const documentId = req.params.docId;
     const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
@@ -257,6 +265,10 @@ versionsRouter.post(
   '/documents/:docId/import/docx',
   validate({ params: docIdParam }),
   requireRole('secretary', byDocument),
+  heavyWriteLimiter,
+  // A Word document unpacks to as much as 50 MB, and mammoth's model of it more: two at a time
+  // on the server's small memory, and a third waits (503) before its body is read
+  docxSlots,
   express.raw({ type: DOCX_TYPES, limit: DOCX_LIMIT }),
   async (req, res) => {
     // express.raw leaves no Buffer for an empty body or a type it doesn't read
@@ -287,6 +299,7 @@ versionsRouter.post(
   '/documents/:docId/versions/import',
   validate({ params: docIdParam }),
   requireRole('secretary', byDocument),
+  heavyWriteLimiter,
   // Read only now, after the role check (see largeJson)
   largeJson,
   (req, res, next) => {

@@ -7,6 +7,7 @@ import { requireTerms } from '../auth/terms.js';
 import * as routes from '../bylawyer/routes/index.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { httpLogger } from '../middleware/logger.js';
+import { writeLimiter } from '../middleware/userLimits.js';
 import { accessRuleOf, requireRole } from '../orgs/requireRole.js';
 
 /** The parts of Express's router layers this test reads (router 2.x) */
@@ -36,16 +37,13 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   httpLogger,
   'corsMiddleware',
   'cookieParser',
-  // The upload mount: session and terms before the 10 MB body is read
-  authenticate,
-  requireTerms,
-  'rawParser',
   // Every JSON body but the larger ones (LARGE_JSON_ROUTES), which their routes read after
   // the role check, as the Word document import reads its file
   'jsonBodies',
-  // Everything under /api after the public routers
+  // Everything under /api after the public routers, with each user's writes limited
   authenticate,
   requireTerms,
+  writeLimiter,
   // The JSON 404 for unknown /api paths
   '<anonymous>',
   // The web app (serveWebApp): the hashed bundles and the 404 for a missing one, then the files

@@ -10,6 +10,7 @@ import {
 } from '../../schemas/organizations.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
+import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { OrgError } from '../../orgs/orgError.js';
 import {
   createOwnedOrganization,
@@ -68,6 +69,7 @@ organizationsRouter.post(
   '/organizations',
   validate({ body: createOrganizationBody }),
   signedInOnly(),
+  heavyWriteLimiter,
   async (req, res) => {
     try {
       const { name, slug: providedSlug, description, timeZone } = req.body;

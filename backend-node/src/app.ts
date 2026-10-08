@@ -32,6 +32,7 @@ import { appUrl } from './auth/emailService.js';
 import { serveWebApp } from './webApp.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { membersRouter } from './orgs/memberRoutes.js';
+import { writeLimiter } from './middleware/userLimits.js';
 
 export const app = express();
 
@@ -71,28 +72,9 @@ app.use(
 );
 app.use(cookieParser() as unknown as express.RequestHandler);
 
-// Raw body parser for file uploads (before JSON parser). Check the session and the terms
-// first, so nobody can make the server read 10 MB without signing in.
-app.use(
-  '/api/attachments/upload',
-  authenticate,
-  requireTerms,
-  express.raw({
-    type: [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/rtf',
-      'application/rtf',
-      'application/octet-stream',
-    ],
-    limit: '10mb',
-  }),
-);
-
-// The Word document for the bylaws import is read in its route (versions.ts), after the role
-// check, since express.json below leaves its types alone.
+// An uploaded file (attachments.ts) and the Word document for the bylaws import (versions.ts)
+// are read in their routes, after the role check, since express.json below leaves their types
+// alone: nobody below a secretary can make the server read them.
 
 /**
  * The JSON bodies that can be larger than the 100 KB default (a whole set of bylaws, a
@@ -135,8 +117,9 @@ app.get(
 app.use('/api/auth', authRouter);
 app.use('/api', publicRouter);
 
-// Everything else under /api needs a signed-in user who has accepted the current terms
-app.use('/api', authenticate, requireTerms);
+// Everything else under /api needs a signed-in user who has accepted the current terms, and
+// each user's writes are limited (userLimits)
+app.use('/api', authenticate, requireTerms, writeLimiter);
 
 app.use('/api/bylawyer', bylawyerRouter);
 app.use('/api', organizationsRouter);

@@ -10,7 +10,8 @@ const chairUserId = z.number().int().positive().nullable();
 const location = z.string().max(500);
 
 export const createPacketBody = z.object({
-  robbieCode: meetingCode,
+  // Generated (random) when left out
+  robbieCode: meetingCode.optional(),
   title: z.string().max(500).optional(),
   description: z.string().max(2000).optional(),
   location: location.optional(),
