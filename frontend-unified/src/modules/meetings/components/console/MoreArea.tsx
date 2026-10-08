@@ -12,7 +12,6 @@ import { RoleBadge } from '../../../../components/ui/Badge';
 import { formatClockTime } from '../../../../utils/dates';
 import { MeetingDocumentsPanel } from '../chair';
 import { MeetingOrganizationPanel } from '../MeetingOrganizationPanel';
-import { moverLine } from '../../utils/question';
 
 interface MoreAreaProps {
   state: MeetingState;
