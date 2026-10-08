@@ -5,12 +5,14 @@
  * a refusal is shown with the server's message, and a reorder the server refuses is put back.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useRef } from 'react';
 import { Plus, Clock, FileText, Loader2, X } from 'lucide-react';
 import type { MeetingPacket, AgendaItem, AgendaItemChanges, Attachment } from './types';
 import { AgendaItemEditor } from './AgendaItemEditor';
 import { AttachmentUploader } from './AttachmentUploader';
 import { createAgendaItem, updateAgendaItem, deleteAgendaItem, reorderAgendaItems } from './api';
+
+type MoveDirection = 'up' | 'down';
 
 /** A change to the packet, made to the latest one (another save may have landed meanwhile) */
 export type PacketUpdater = (prev: MeetingPacket) => MeetingPacket;
@@ -53,6 +55,27 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
   // A reorder is being saved: the next waits for it, so each is put back on its own if refused
   const [isMoving, setIsMoving] = useState(false);
   const movingRef = useRef(false);
+  // A move from the keyboard: the moved item's button to focus once it is in its new place, and
+  // what the live region says
+  const focusAfterMove = useRef<{ itemId: string; direction: MoveDirection } | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  const [announcement, setAnnouncement] = useState('');
+
+  // Moving the item's row in the page takes the focus from its button: give it back, or to the
+  // other button when the item has reached the end of the agenda
+  useLayoutEffect(() => {
+    const target = focusAfterMove.current;
+    if (!target) return;
+    focusAfterMove.current = null;
+    const row = [...(listRef.current?.children ?? [])].find(
+      (child) => (child as HTMLElement).dataset.itemId === target.itemId,
+    );
+    const button = (direction: MoveDirection) =>
+      row?.querySelector<HTMLButtonElement>(`button[data-move="${direction}"]`);
+    const same = button(target.direction);
+    const other = button(target.direction === 'up' ? 'down' : 'up');
+    (same && !same.disabled ? same : other)?.focus();
+  }, [packet.agendaItems]);
 
   const handleAddItem = async () => {
     const title = newItemTitle.trim();
@@ -155,10 +178,14 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
    * Move the item at one position to another: shown at once, saved, and put back if refused.
    * One at a time: a move while another is being saved is ignored (the buttons are disabled).
    */
-  const moveItem = async (fromIndex: number, toIndex: number) => {
+  const moveItem = async (fromIndex: number, toIndex: number, from?: MoveDirection) => {
     const items = packet.agendaItems;
     if (movingRef.current) return;
     if (fromIndex === toIndex || toIndex < 0 || toIndex >= items.length) return;
+    if (from) {
+      focusAfterMove.current = { itemId: items[fromIndex].id, direction: from };
+      setAnnouncement(`${items[fromIndex].title}, ${toIndex + 1} of ${items.length}`);
+    }
 
     const before = items.map((item) => item.id);
     const after = [...before];
@@ -259,15 +286,20 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
 
       {/* Agenda items */}
       <section aria-labelledby="agenda-heading">
+        {/* Where a moved item is now, for a screen reader */}
+        <p role="status" className="sr-only">
+          {announcement}
+        </p>
         <h3 id="agenda-heading" className="mb-3 font-medium text-ink">
           Agenda
         </h3>
 
         {count > 0 && (
-          <ol className="mb-4 space-y-2">
+          <ol ref={listRef} className="mb-4 space-y-2">
             {packet.agendaItems.map((item, index) => (
               <li
                 key={item.id}
+                data-item-id={item.id}
                 onDragOver={handleDragOver}
                 onDrop={() => void handleDrop(item.id)}
                 className="flex items-start gap-2 transition-opacity"
@@ -291,8 +323,8 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
                     packetId={packet.id}
                     onUpdate={(updates) => handleUpdateItem(item.id, updates)}
                     onDelete={() => handleDeleteItem(item.id)}
-                    onMoveUp={() => void moveItem(index, index - 1)}
-                    onMoveDown={() => void moveItem(index, index + 1)}
+                    onMoveUp={() => void moveItem(index, index - 1, 'up')}
+                    onMoveDown={() => void moveItem(index, index + 1, 'down')}
                     onAttachmentAdded={(attachment) =>
                       handleItemAttachmentAdded(item.id, attachment)
                     }

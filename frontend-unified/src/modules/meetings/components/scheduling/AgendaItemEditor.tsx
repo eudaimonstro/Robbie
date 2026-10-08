@@ -26,7 +26,10 @@ interface AgendaItemEditorProps {
   index: number;
   isFirst: boolean;
   isLast: boolean;
-  /** A move is being saved: Move up and Move down wait for it */
+  /**
+   * A move is being saved: Move up and Move down wait for it (aria-disabled, not disabled, so a
+   * focused one keeps the focus)
+   */
   isMoving?: boolean;
   robbieCode: string;
   /** The packet's organization, for linking its documents */
@@ -152,8 +155,12 @@ export function AgendaItemEditor({
 
         <button
           type="button"
-          onClick={onMoveUp}
-          disabled={isFirst || isMoving}
+          onClick={() => {
+            if (!isMoving) onMoveUp();
+          }}
+          disabled={isFirst}
+          aria-disabled={(!isFirst && isMoving) || undefined}
+          data-move="up"
           aria-label={`Move ${item.title} up`}
           className={iconButton}
         >
@@ -161,8 +168,12 @@ export function AgendaItemEditor({
         </button>
         <button
           type="button"
-          onClick={onMoveDown}
-          disabled={isLast || isMoving}
+          onClick={() => {
+            if (!isMoving) onMoveDown();
+          }}
+          disabled={isLast}
+          aria-disabled={(!isLast && isMoving) || undefined}
+          data-move="down"
           aria-label={`Move ${item.title} down`}
           className={iconButton}
         >

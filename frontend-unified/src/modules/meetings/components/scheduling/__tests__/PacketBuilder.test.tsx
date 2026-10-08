@@ -220,19 +220,39 @@ describe('PacketBuilder', () => {
     api.reorderAgendaItems.mockReturnValueOnce(reorder.promise);
     render(<Harness initial={scheduled()} />);
     fireEvent.click(screen.getByRole('button', { name: "Move Treasurer's report up" }));
-    const moveDown = screen.getByRole('button', {
-      name: 'Move Call to order down',
-    }) as HTMLButtonElement;
-    expect(moveDown.disabled).toBe(true);
+    // Still focusable (a disabled button would drop the focus), but it waits
+    const moveDown = screen.getByRole('button', { name: 'Move Call to order down' });
+    expect(moveDown.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(moveDown);
     expect(api.reorderAgendaItems).toHaveBeenCalledTimes(1);
 
     reorder.resolve();
-    await waitFor(() => expect(moveDown.disabled).toBe(false));
+    await waitFor(() => expect(moveDown.getAttribute('aria-disabled')).toBeNull());
     fireEvent.click(moveDown);
     await waitFor(() =>
       expect(api.reorderAgendaItems).toHaveBeenLastCalledWith(['i2', 'i3', 'i1']),
     );
+  });
+
+  it('keeps the focus on the moved item, and says where it is now', async () => {
+    render(<Harness initial={scheduled()} />);
+    const down = screen.getByRole('button', { name: 'Move Call to order down' });
+    down.focus();
+    fireEvent.click(down);
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Move Call to order down' }),
+    );
+    expect(screen.getByRole('status').textContent).toBe('Call to order, 2 of 3');
+    const up = screen.getByRole('button', { name: 'Move Call to order up' });
+    await waitFor(() => expect(up.getAttribute('aria-disabled')).toBeNull());
+
+    // Back at the top, Move up can't be pressed again: the focus goes to Move down
+    up.focus();
+    fireEvent.click(up);
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Move Call to order down' }),
+    );
+    expect(screen.getByRole('status').textContent).toBe('Call to order, 1 of 3');
   });
 
   it('puts back only the refused move, keeping a rename saved meanwhile', async () => {
