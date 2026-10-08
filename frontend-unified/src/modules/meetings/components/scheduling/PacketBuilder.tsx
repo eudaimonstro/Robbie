@@ -7,7 +7,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { Plus, Clock, FileText, Loader2, X } from 'lucide-react';
-import type { MeetingPacket, AgendaItem, Attachment } from './types';
+import type { MeetingPacket, AgendaItemChanges, Attachment } from './types';
 import { AgendaItemEditor } from './AgendaItemEditor';
 import { AttachmentUploader } from './AttachmentUploader';
 import { createAgendaItem, updateAgendaItem, deleteAgendaItem, reorderAgendaItems } from './api';
@@ -51,7 +51,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
   };
 
   const handleUpdateItem = useCallback(
-    async (itemId: string, updates: Partial<AgendaItem>) => {
+    async (itemId: string, updates: AgendaItemChanges) => {
       setError(null);
       try {
         const updated = await updateAgendaItem(itemId, updates);

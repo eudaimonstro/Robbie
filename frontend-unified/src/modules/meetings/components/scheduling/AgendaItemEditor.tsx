@@ -17,7 +17,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
-import type { AgendaItem, Attachment } from './types';
+import type { AgendaItem, AgendaItemChanges, Attachment } from './types';
 import { AttachmentUploader } from './AttachmentUploader';
 
 interface AgendaItemEditorProps {
@@ -30,7 +30,8 @@ interface AgendaItemEditorProps {
   /** The packet's organization, for linking its documents */
   organizationId: string;
   packetId: string;
-  onUpdate: (updates: Partial<AgendaItem>) => void;
+  /** Save a change; null clears a field */
+  onUpdate: (updates: AgendaItemChanges) => void;
   onDelete: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -80,21 +81,22 @@ export function AgendaItemEditor({
     }
   };
 
+  // An emptied field is cleared on the server (null), not left out of the change
   const handleDescriptionBlur = () => {
     if (description !== (item.description || '')) {
-      onUpdate({ description: description || undefined });
+      onUpdate({ description: description || null });
     }
   };
 
   const handlePresenterBlur = () => {
     if (presenter !== (item.presenter || '')) {
-      onUpdate({ presenter: presenter || undefined });
+      onUpdate({ presenter: presenter || null });
     }
   };
 
   const handleMinutesBlur = () => {
-    const minutes = estimatedMinutes ? parseInt(estimatedMinutes, 10) : undefined;
-    if (minutes !== item.estimatedMinutes) {
+    const minutes = estimatedMinutes ? parseInt(estimatedMinutes, 10) : null;
+    if (minutes !== (item.estimatedMinutes ?? null)) {
       onUpdate({ estimatedMinutes: minutes });
     }
   };

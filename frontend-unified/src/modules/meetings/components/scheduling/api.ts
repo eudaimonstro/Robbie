@@ -2,7 +2,13 @@
  * API functions for Meeting Packet and Scheduling
  */
 
-import type { MeetingPacket, AgendaItem, Attachment, BylawyerDocument } from './types';
+import type {
+  MeetingPacket,
+  AgendaItem,
+  AgendaItemChanges,
+  Attachment,
+  BylawyerDocument,
+} from './types';
 import { apiFetch, HttpError } from '../../../../api/client';
 
 /** The server's { error } message from a failed response, or the fallback */
@@ -117,11 +123,11 @@ export async function createAgendaItem(
 }
 
 /**
- * Update an agenda item
+ * Update an agenda item; null clears its description, presenter or time
  */
 export async function updateAgendaItem(
   itemId: string,
-  data: { title?: string; description?: string; estimatedMinutes?: number; presenter?: string },
+  data: AgendaItemChanges,
 ): Promise<AgendaItem> {
   const response = await apiFetch(`/agenda-items/${itemId}`, {
     method: 'PUT',

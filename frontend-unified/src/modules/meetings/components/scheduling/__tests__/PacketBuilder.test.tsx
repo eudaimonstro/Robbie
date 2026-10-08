@@ -108,6 +108,32 @@ describe('PacketBuilder', () => {
     expect(api.updateAgendaItem).toHaveBeenCalledTimes(1);
   });
 
+  it("clears an item's description, presenter and time when they are emptied", async () => {
+    api.updateAgendaItem.mockImplementation(async (id: string, data: object) => ({
+      ...item(id, "Treasurer's report", 1),
+      ...data,
+    }));
+    const initial = scheduled();
+    initial.agendaItems[1] = {
+      ...initial.agendaItems[1],
+      description: 'The 2027 budget',
+      presenter: 'Ben Ortiz',
+      estimatedMinutes: 15,
+    };
+    render(<Harness initial={initial} />);
+    fireEvent.click(screen.getByRole('button', { name: "Details of Treasurer's report" }));
+    const details = screen.getByRole('group', { name: "Treasurer's report" });
+    for (const label of ['Description', 'Presenter', 'Time in minutes']) {
+      const field = within(details).getByLabelText(label);
+      fireEvent.change(field, { target: { value: '' } });
+      fireEvent.blur(field);
+    }
+    await waitFor(() => expect(api.updateAgendaItem).toHaveBeenCalledTimes(3));
+    expect(api.updateAgendaItem).toHaveBeenNthCalledWith(1, 'i2', { description: null });
+    expect(api.updateAgendaItem).toHaveBeenNthCalledWith(2, 'i2', { presenter: null });
+    expect(api.updateAgendaItem).toHaveBeenNthCalledWith(3, 'i2', { estimatedMinutes: null });
+  });
+
   it('removes an item', async () => {
     render(<Harness initial={scheduled()} />);
     fireEvent.click(screen.getByRole('button', { name: "Remove Treasurer's report" }));

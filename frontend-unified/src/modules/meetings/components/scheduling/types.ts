@@ -25,12 +25,17 @@ export interface Attachment {
 export interface AgendaItem {
   id: string;
   title: string;
-  description?: string;
-  estimatedMinutes?: number;
-  presenter?: string;
+  description?: string | null;
+  estimatedMinutes?: number | null;
+  presenter?: string | null;
   position: number;
   attachments: Attachment[];
 }
+
+/** A change to an agenda item: null clears its description, presenter or time */
+export type AgendaItemChanges = Partial<
+  Pick<AgendaItem, 'title' | 'description' | 'estimatedMinutes' | 'presenter'>
+>;
 
 export interface MeetingPacket {
   id: string;
