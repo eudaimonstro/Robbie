@@ -200,7 +200,7 @@ export default function ImportBylawsPage() {
         <form onSubmit={(e) => void read(e)} className="card max-w-3xl space-y-5 p-6">
           <fieldset className="flex flex-wrap gap-x-6 gap-y-2">
             <legend className="label">Source</legend>
-            <label className="flex items-center gap-2 text-sm text-ink">
+            <label className="flex items-center gap-2 text-sm text-ink max-md:min-h-11">
               <input
                 type="radio"
                 name="source"
@@ -210,7 +210,7 @@ export default function ImportBylawsPage() {
               />
               Paste the text
             </label>
-            <label className="flex items-center gap-2 text-sm text-ink">
+            <label className="flex items-center gap-2 text-sm text-ink max-md:min-h-11">
               <input
                 type="radio"
                 name="source"
