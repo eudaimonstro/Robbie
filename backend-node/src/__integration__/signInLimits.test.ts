@@ -13,7 +13,7 @@ describe('per-IP sign-in limits', () => {
 
   it('lets a room of people on one network ask for codes', async () => {
     process.env.NODE_ENV = 'development';
-    expect(REQUEST_CODE_LIMIT_PER_IP).toBe(100);
+    expect(REQUEST_CODE_LIMIT_PER_IP).toBe(300);
     for (let i = 0; i < REQUEST_CODE_LIMIT_PER_IP; i++) {
       const res = await request(app).post('/api/auth/request-code').send({ email: 'not-an-email' });
       expect(res.status, `request ${i + 1}`).toBe(400);
@@ -24,7 +24,7 @@ describe('per-IP sign-in limits', () => {
 
   it('lets a room of people on one network enter their codes', async () => {
     process.env.NODE_ENV = 'development';
-    expect(VERIFY_LIMIT_PER_IP).toBe(200);
+    expect(VERIFY_LIMIT_PER_IP).toBe(600);
     const body = { email: 'homeowner@example.org', code: 'x' };
     for (let i = 0; i < VERIFY_LIMIT_PER_IP; i++) {
       const res = await request(app).post('/api/auth/verify').send(body);

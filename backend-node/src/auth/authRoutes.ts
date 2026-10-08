@@ -28,8 +28,8 @@ export const authRouter = Router();
 // addresses: at a meeting every homeowner on the venue's Wi-Fi shares one public address, so
 // they allow a room. Tests sign in many times from one address, so they are off under test.
 export const SIGN_IN_WINDOW_MS = 15 * 60 * 1000;
-export const REQUEST_CODE_LIMIT_PER_IP = 100;
-export const VERIFY_LIMIT_PER_IP = 200;
+export const REQUEST_CODE_LIMIT_PER_IP = 300;
+export const VERIFY_LIMIT_PER_IP = 600;
 
 const skipInTests = () => process.env.NODE_ENV === 'test';
 

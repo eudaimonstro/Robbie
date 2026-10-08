@@ -258,7 +258,7 @@ APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
-In production (`NODE_ENV=production`) the server refuses to start without `DATABASE_URL`, an email provider, `EMAIL_FROM`, or `APP_URL`/`CLIENT_ORIGIN`, or with `ENABLE_TEST_AUTH=true`, and warns without `TRUST_PROXY` (`startupCheck` in `backend-node/src/startupCheck.ts`). `deploy/.env.production.example` documents every variable. `GET /api/health` is 200 only when the database answers `SELECT 1` within 2 seconds, else 503. The per-IP sign-in limits are 100 code requests and 200 verifications per 15 minutes (a room on one Wi-Fi).
+In production (`NODE_ENV=production`) the server refuses to start without `DATABASE_URL`, an email provider, `EMAIL_FROM`, or `APP_URL`/`CLIENT_ORIGIN`, or with `ENABLE_TEST_AUTH=true`, and warns without `TRUST_PROXY` (`startupCheck` in `backend-node/src/startupCheck.ts`). `deploy/.env.production.example` documents every variable. `GET /api/health` is 200 only when the database answers `SELECT 1` within 2 seconds, else 503. The per-IP sign-in limits are 300 code requests and 600 verifications per 15 minutes (a room on one Wi-Fi).
 
 No variable sets meeting roles: the chair, admins, members and guests of a live meeting come from the organization at every join (see Key Conventions, Live meetings).
 

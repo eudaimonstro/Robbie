@@ -30,7 +30,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # The server closes its sockets and the database pool on SIGTERM, within 10 seconds
+    # The server closes its sockets and the database pool on SIGTERM, within 10 seconds. An init
+    # process passes SIGTERM on while app-start is still migrating (a shell as PID 1 ignores it,
+    # so docker stop would wait out the grace period and kill it)
+    init: true
     stop_grace_period: 15s
     logging: *logging
 
