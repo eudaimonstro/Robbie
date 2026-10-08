@@ -6,6 +6,7 @@ const session = vi.hoisted(() => ({
   status: 'signedOut' as 'signedOut' | 'signedIn',
   user: null as null | { id: number; email: string; name: string | null },
   termsAccepted: true as boolean,
+  suggestedName: null as string | null,
   requestCode: vi.fn(async () => {}),
   verify: vi.fn(),
   setName: vi.fn(async () => {}),
@@ -28,6 +29,7 @@ function renderAt(path: string) {
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/documents/d1" element={<p>Document page</p>} />
         <Route path="/documents/:id" element={<DocumentSpy />} />
+        <Route path="/meetings/:code" element={<p>The meeting</p>} />
         <Route path="/" element={<p>Home</p>} />
       </Routes>
     </MemoryRouter>,
@@ -40,6 +42,7 @@ describe('SignInPage', () => {
     session.status = 'signedOut';
     session.user = null;
     session.termsAccepted = true;
+    session.suggestedName = null;
     // The last existing test makes setName throw; clearAllMocks keeps implementations
     session.setName.mockImplementation(async () => {});
   });
@@ -199,5 +202,55 @@ describe('SignInPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(session.setName).toHaveBeenCalledWith('Ann'));
     expect(session.acceptTerms).not.toHaveBeenCalled();
+  });
+
+  it('says which meeting a sign-in from its link is for, and that people without a phone count', async () => {
+    renderAt('/sign-in?next=%2Fmeetings%2Fmaple1');
+    expect(screen.getByRole('heading', { name: 'Sign in to join meeting MAPLE1' })).toBeTruthy();
+    expect(
+      screen.getByText('No phone? You still count: the chair will count you in the room.'),
+    ).toBeTruthy();
+  });
+
+  it('says neither on a plain sign-in', () => {
+    renderAt('/sign-in');
+    expect(screen.getByRole('heading', { name: 'Sign in to Robbie' })).toBeTruthy();
+    expect(screen.queryByText(/No phone\?/)).toBeNull();
+  });
+
+  it("sends a new code, and puts a wrong code's message by the field", async () => {
+    session.verify.mockRejectedValueOnce(new Error('That code is wrong or has expired'));
+    renderAt('/sign-in?next=%2Fmeetings%2FMAPLE1');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ann@example.org' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    const field = await screen.findByLabelText('Code');
+    fireEvent.change(field, { target: { value: '000001' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    const problem = await screen.findByText('That code is wrong or has expired');
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(field.getAttribute('aria-describedby')).toBe(problem.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send a new code' }));
+    await waitFor(() => expect(session.requestCode).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/We sent a new code to ann@example.org/)).toBeTruthy();
+  });
+
+  it('starts the name step from the name given when they were added', async () => {
+    session.suggestedName = 'Carmen Diaz';
+    session.verify.mockImplementation(async () => {
+      session.status = 'signedIn';
+      session.user = { id: 1, email: 'carmen@example.org', name: null };
+      return session.user;
+    });
+    renderAt('/sign-in');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'carmen@example.org' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    const name = (await screen.findByLabelText('Your name')) as HTMLInputElement;
+    expect(name.value).toBe('Carmen Diaz');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(session.setName).toHaveBeenCalledWith('Carmen Diaz'));
   });
 });
