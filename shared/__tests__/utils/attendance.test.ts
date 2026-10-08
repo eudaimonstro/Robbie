@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { initialState } from '../../reducer/index.js';
-import { attendanceSummary, quorumFromSettings } from '../../utils/index.js';
+import { attendanceSummary, isQuorumSet, quorumFromSettings } from '../../utils/index.js';
 import type { MeetingState, Member } from '../../types/index.js';
 
 const member = (id: number, present: boolean, extra: Partial<Member> = {}): Member => ({
@@ -32,6 +32,7 @@ describe('attendanceSummary', () => {
       markedPresent: 1,
       headcount: 2,
       proxies: 0,
+      proxiesHeld: 0,
       present: 5,
       quorum: 5,
       hasQuorum: true,
@@ -71,6 +72,40 @@ describe('attendanceSummary', () => {
   it('reads a state saved before the headcount existed', () => {
     const { headcount: _h, headcountNames: _n, ...old } = initialState;
     expect(attendanceSummary(old as MeetingState).headcount).toBe(0);
+  });
+
+  it('counts the proxies and absentee ballots held toward quorum, apart from the room', () => {
+    const state: MeetingState = {
+      ...initialState,
+      quorum: 25,
+      headcount: 3,
+      proxiesHeld: 21,
+      members: [member(1, true)],
+    };
+    expect(attendanceSummary(state)).toMatchObject({
+      devicePresent: 1,
+      headcount: 3,
+      proxiesHeld: 21,
+      present: 25,
+      hasQuorum: true,
+    });
+  });
+
+  it('reads a state saved before the proxies held existed', () => {
+    const { proxiesHeld: _p, ...old } = initialState;
+    expect(attendanceSummary(old as MeetingState).proxiesHeld).toBe(0);
+  });
+});
+
+describe('isQuorumSet', () => {
+  it('needs the voting members and a quorum, either way', () => {
+    expect(isQuorumSet({ eligibleVoters: 142, quorumPercent: 20, quorumCount: null })).toBe(true);
+    expect(isQuorumSet({ eligibleVoters: 142, quorumPercent: null, quorumCount: 29 })).toBe(true);
+    // The old default: a count of 3 and no voting members
+    expect(isQuorumSet({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 })).toBe(false);
+    expect(isQuorumSet({ eligibleVoters: 142, quorumPercent: null, quorumCount: null })).toBe(
+      false,
+    );
   });
 });
 

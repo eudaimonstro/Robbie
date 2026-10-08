@@ -473,6 +473,8 @@ export const ACTION_SCHEMAS = {
     type: z.literal('SET_HEADCOUNT'),
     count: z.int().min(0).max(MAX_HEADCOUNT),
     names: z.array(text(MAX_NAME_LENGTH)).max(MAX_HEADCOUNT_NAMES),
+    // Paper proxies and absentee ballots held; left out, they stay as they are
+    proxiesHeld: z.int().min(0).max(MAX_HEADCOUNT).optional(),
     timestamp,
   }),
   RELOAD_AGENDA: serverOnly,

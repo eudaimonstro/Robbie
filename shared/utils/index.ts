@@ -48,6 +48,7 @@ export {
 
 export {
   attendanceSummary,
+  isQuorumSet,
   quorumFromSettings,
   type AttendanceSummary,
   type QuorumSettings,

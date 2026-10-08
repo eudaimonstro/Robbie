@@ -18,6 +18,7 @@ export const initialState: MeetingState = {
   quorum: 3,
   headcount: 0,
   headcountNames: [],
+  proxiesHeld: 0,
   motionStack: [],
   currentMotion: null,
   pendingSecond: null,

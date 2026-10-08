@@ -10,7 +10,9 @@ export interface AttendanceSummary {
   headcount: number;
   /** Absent members represented by a present proxy holder, when proxies count for quorum */
   proxies: number;
-  /** Everyone who counts toward quorum: the four above */
+  /** Paper proxies and absentee ballots the chair holds */
+  proxiesHeld: number;
+  /** Everyone who counts toward quorum: the five above */
   present: number;
   quorum: number;
   hasQuorum: boolean;
@@ -39,12 +41,14 @@ export function attendanceSummary(state: MeetingState): AttendanceSummary {
     ).length;
   }
 
-  const total = devicePresent + markedPresent + headcount + proxies;
+  const proxiesHeld = state.proxiesHeld ?? 0;
+  const total = devicePresent + markedPresent + headcount + proxies + proxiesHeld;
   return {
     devicePresent,
     markedPresent,
     headcount,
     proxies,
+    proxiesHeld,
     present: total,
     quorum: state.quorum,
     hasQuorum: total >= state.quorum,
@@ -60,9 +64,23 @@ export interface QuorumSettings {
 }
 
 /**
+ * Whether the organization has set its voting members and its quorum: a meeting can't open
+ * before (the server refuses to make its live state). A quorum count without voting members is
+ * the old default (3), never chosen, so it doesn't count as set.
+ */
+export function isQuorumSet(settings: QuorumSettings): boolean {
+  return (
+    settings.eligibleVoters !== null &&
+    (settings.quorumPercent !== null || settings.quorumCount !== null)
+  );
+}
+
+/**
  * The quorum a meeting starts with: a percentage of the eligible voting members (the
  * organization's count, or else `rosterVoters`, its members with the member role or above),
- * rounded up, or a fixed count. At least 1; 3 when nothing is set.
+ * rounded up, or a fixed count. At least 1. A meeting opens only once both are set
+ * (isQuorumSet), so the roster's count and the 3 when nothing is set serve only live states
+ * made before that rule.
  */
 export function quorumFromSettings(settings: QuorumSettings, rosterVoters: number): number {
   if (settings.quorumPercent !== null) {

@@ -234,6 +234,12 @@ export function logHeadcountSet(count: number): string {
   return `${count} ${count === 1 ? 'person' : 'people'} present without an account.`;
 }
 
+export function logProxiesHeldSet(count: number): string {
+  return count === 1
+    ? '1 proxy or absentee ballot held.'
+    : `${count} proxies and absentee ballots held.`;
+}
+
 export function logRoleChanged(
   memberName: string,
   oldRole: string,

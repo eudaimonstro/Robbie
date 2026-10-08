@@ -622,6 +622,19 @@ describe('the minutes', () => {
     expect(minutes.guests).toEqual(['Sam Ortiz']);
   });
 
+  it('give the proxies and absentee ballots held apart from the people in the room', () => {
+    const minutes = generateMeetingMinutes({ ...scenario, proxiesHeld: 21 });
+    expect(minutes.proxiesHeld).toBe(21);
+    const markdown = formatMinutesAsMarkdown(minutes, context);
+    expect(markdown).toContain(
+      '**Also present without an account (3):** Dee Fox, Eli Grant and 1 other.\n\n**Proxies and absentee ballots held:** 21, counted toward the quorum.\n',
+    );
+    // None held: no line
+    expect(formatMinutesAsMarkdown(generateMeetingMinutes(scenario), context)).not.toContain(
+      'Proxies and absentee ballots',
+    );
+  });
+
   it('give times in UTC when the time zone is unknown', () => {
     const markdown = formatMinutesAsMarkdown(generateMeetingMinutes(initialState), {
       ...nothingKnown,

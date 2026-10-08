@@ -504,6 +504,8 @@ export interface MeetingState {
   /** People in the room without an account, counted by the chair, and the names given */
   headcount: number;
   headcountNames: string[];
+  /** Paper proxies and absentee ballots the chair holds: they count toward quorum */
+  proxiesHeld: number;
   motionStack: Motion[];
   currentMotion: Motion | null;
   pendingSecond: Motion | null;
@@ -788,8 +790,15 @@ export type MeetingAction =
   // The chair marks a person from the organization's roster present. The server fills in
   // member from the roster; a client's member is replaced.
   | { type: 'MARK_PRESENT'; userId: number; member?: Member; timestamp: string }
-  // People in the room without an account: replaces the count and the names
-  | { type: 'SET_HEADCOUNT'; count: number; names: string[]; timestamp: string }
+  // People in the room without an account: replaces the count and the names, and the proxies
+  // and absentee ballots held when given (left out, they stay as they are)
+  | {
+      type: 'SET_HEADCOUNT';
+      count: number;
+      names: string[];
+      proxiesHeld?: number;
+      timestamp: string;
+    }
   // Server-only: the agenda from the packet, before the meeting starts
   | { type: 'RELOAD_AGENDA'; agenda: AgendaItem[]; timestamp: string }
   // Server-only: the meeting's organization, title and date from its packet, for a live state
@@ -946,6 +955,8 @@ export interface MeetingMinutes {
   /** People present without an account, and the names given for them */
   headcount: number;
   headcountNames: string[];
+  /** Paper proxies and absentee ballots held, counted toward the quorum */
+  proxiesHeld: number;
   quorum: number;
   quorumAtCallToOrder: boolean | null;
   /** The agenda in order */
