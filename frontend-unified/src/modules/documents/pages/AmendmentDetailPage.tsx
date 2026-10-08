@@ -205,6 +205,7 @@ export default function AmendmentDetailPage() {
             changes={amendment.changes || []}
             sectionTree={sectionTree}
             canEdit={canEditDraft}
+            open={amendment.status === 'draft' || amendment.status === 'proposed'}
             onAddChange={() => setChangeModalOpen(true)}
             onDeleteChange={(change) => {
               setDeletingChange(change);

@@ -183,6 +183,11 @@ export function flattenSections(
  * the change was made (a change applied, or drafted against an earlier version, targets a section
  * id the current version no longer has)
  */
+/** Whether the section is in the tree (the document's current version) */
+export function sectionInTree(sectionTree: SectionTree[], sectionId: string): boolean {
+  return flattenSections(sectionTree).some((s) => s.id === sectionId);
+}
+
 export function getSectionLabel(
   sectionTree: SectionTree[],
   sectionId: string,

@@ -1,12 +1,17 @@
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { AmendmentChange, SectionTree } from '../../../../api/client';
-import { getSectionLabel } from './useAmendmentData';
+import { getSectionLabel, sectionInTree } from './useAmendmentData';
 import { count } from '../../../../utils/plural';
 
 interface AmendmentChangesListProps {
   changes: AmendmentChange[];
   sectionTree: SectionTree[];
   canEdit: boolean;
+  /**
+   * A draft or proposed amendment: its changes are written against the current version, so a
+   * change to a section that isn't in it (a new version left it out) says so
+   */
+  open?: boolean;
   onAddChange: () => void;
   onDeleteChange: (change: AmendmentChange) => void;
 }
@@ -22,6 +27,7 @@ export function AmendmentChangesList({
   changes,
   sectionTree,
   canEdit,
+  open = false,
   onAddChange,
   onDeleteChange,
 }: AmendmentChangesListProps) {
@@ -79,6 +85,16 @@ export function AmendmentChangesList({
                       {getSectionLabel(sectionTree, change.targetSectionId, change.targetLabel)}
                     </p>
                   )}
+                  {open &&
+                    change.targetSectionId &&
+                    sectionTree.length > 0 &&
+                    !sectionInTree(sectionTree, change.targetSectionId) && (
+                      <p className="mb-2 rounded-sm bg-caution-tint px-3 py-2 text-sm text-caution-ink">
+                        {change.targetLabel ?? 'This section'} is no longer in the bylaws, so this
+                        change can&apos;t apply as written.
+                        {canEdit && ' Delete it and add it again against the current text.'}
+                      </p>
+                    )}
 
                   {(change.newNumberLabel || change.newTitle) && (
                     <p className="text-sm mb-2">
