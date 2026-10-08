@@ -128,13 +128,13 @@ export function MembersCard() {
 
   return (
     <div className="card">
-      <div className="px-6 py-4 border-b border-rule">
-        <h3 className="font-semibold text-ink flex items-center gap-2">
-          <Users className="w-5 h-5" />
+      <div className="px-4 py-4 sm:px-6 border-b border-rule">
+        <h3 className="card-title flex items-center gap-2">
+          <Users className="w-5 h-5" aria-hidden="true" />
           Members
         </h3>
       </div>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {notice && (
           <p
             role={notice.kind}

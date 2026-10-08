@@ -30,13 +30,13 @@ export function TimeZoneCard() {
 
   return (
     <div className="card">
-      <div className="border-b border-rule px-6 py-4">
+      <div className="border-b border-rule px-4 py-4 sm:px-6">
         <h3 className="card-title flex items-center gap-2">
           <Globe className="h-5 w-5" aria-hidden="true" />
           Time zone
         </h3>
       </div>
-      <div className="space-y-2 p-6">
+      <div className="space-y-2 p-4 sm:p-6">
         {isAdmin ? (
           <>
             <label htmlFor={selectId} className="label">

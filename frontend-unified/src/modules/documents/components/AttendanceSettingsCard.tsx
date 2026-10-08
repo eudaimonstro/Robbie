@@ -23,7 +23,7 @@ export function AttendanceSettingsCard() {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between border-b border-rule px-6 py-4">
+      <div className="flex items-center justify-between border-b border-rule px-4 py-4 sm:px-6">
         <h3 className="card-title flex items-center gap-2">
           <Users className="h-5 w-5" aria-hidden="true" />
           Attendance
@@ -39,7 +39,7 @@ export function AttendanceSettingsCard() {
           </button>
         )}
       </div>
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         {editing ? (
           <AttendanceForm
             organizationId={org.id}
