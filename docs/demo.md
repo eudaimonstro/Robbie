@@ -1,0 +1,64 @@
+# Try a meeting on your own machine
+
+`npm run demo` runs the Maple Grove HOA demo locally: the roadmap's acceptance scenario (`docs/mvp-roadmap.md`, "The acceptance scenario") with you playing everyone. It needs Docker and Node 24, and `npm install` done once.
+
+```bash
+npm run demo              # start (the first run builds, migrates and seeds; later runs keep the demo)
+npm run demo -- --reset   # start over with a fresh demo
+npm run demo -- --stop    # stop the server and the database (the data stays)
+npm run demo -- --remove  # delete the database container and its volume
+```
+
+The app is at http://localhost:3301. Its database is the Docker container `robbie-demo-pg` (port 55433, volume `robbie-demo-pgdata`). Ctrl-C stops the server.
+
+## Who is who
+
+Sign in with the email, then the code **000000** (no email is sent). Give each person a separate browser profile or private window, since one window holds one sign-in.
+
+| Person        | Email                       | Plays                                                            |
+| ------------- | --------------------------- | ---------------------------------------------------------------- |
+| Dana Okafor   | `dana@maplegrove.example`   | The president, chairing from the laptop                          |
+| Alice Brennan | `alice@maplegrove.example`  | A homeowner on a phone                                           |
+| Ben Whitaker  | `ben@maplegrove.example`    | A homeowner on a phone                                           |
+| Morgan Lee    | `morgan@maplegrove.example` | The TV: http://localhost:3301/meetings/MAPLE1/display            |
+| Pat Lindqvist | `pat@maplegrove.example`    | The secretary: the schedule before, the minutes after (any time) |
+
+The meeting code is **MAPLE1**. For Alice and Ben, a narrow window works, or a real phone on the same Wi-Fi: the server listens on every interface and `npm run demo` prints the machine's address. The QR code holds the address the display was opened from, so for phones open the display at `http://<that address>:3301/meetings/MAPLE1/display` and scan it.
+
+## The meeting
+
+**Before the call to order**
+
+1. Morgan: open the display. It shows the meeting name, MAPLE1 and a QR code.
+2. Dana: **Live Meetings**, then **Start** on 2026 Annual Meeting. The console opens.
+3. Alice and Ben: **Live Meetings**, then **Join** (or the QR code, or `/meetings/MAPLE1`). Their phones say the meeting has not been called to order yet.
+4. Dana, under **Attendance**: **Mark present** beside Carmen Diaz (she has no phone), then **Headcount** 25 and **Save the headcount**. The console reads "29 present of 142, quorum 29, met"; the display shows **Quorum met**.
+
+**Business** (the console's toolbar always shows the next step)
+
+5. Dana: **Call to order**, then **Adopt the agenda**.
+6. **Call the next item: Approval of the minutes of the 2025 annual meeting**. The console, the display and the phones ask "Any corrections?". Dana: **Approve as read** (or **Approve with corrections**).
+7. **Call the next item: Treasurer's report and the 2027 budget**. Attachments added to the item on the schedule open from here.
+8. **Call the next item: Old business: pool resurfacing contract**.
+   - Alice: type in **Motion text**, then **Move**. Ben: **Second**. The console reads "Moved by Alice Brennan, seconded by Ben Whitaker".
+   - Alice and Ben: pick a position (**For**, ...), then **Ask to speak**. The display lists them under Speakers.
+   - Dana: **Recognize** each in turn (the mover speaks first). On the phone: **Yield the floor**.
+   - Dana: **Open the vote**. Alice and Ben: **Yea**.
+   - Dana, under **In the room**: 20 yea, 3 nay, 0 abstain, then **Enter the count**, then **Close the vote**. The display stamps **Carried**: "On devices 2 to 0, in the room 20 to 3: 22 to 3".
+9. **Call the next item: New business: amend Section 4.2 to lower the quorum to 15%**.
+   - Alice: **Other motions**, **Amend the bylaws**, **Move**. In the form pick the bylaws and Section 4.2, type the new text (say, "fifteen percent (15%)" in place of twenty), then **Submit Motion**. Ben: **Second**.
+   - The console shows **Two thirds** required. Vote as before with 20 yea and 5 nay: carried.
+10. **Call the next item: Election of two directors**.
+    - Dana: **Open nominations for** "Director, seat 1", then **Open nominations**.
+    - Ben, on his phone: under **Nominate** pick Alice Brennan, then **Nominate**. Dana: pick Carmen Diaz and **Nominate from the floor**.
+    - Dana: **Close nominations**, then **Open the ballot**. Alice and Ben: **Vote for Alice Brennan** ("Ballot recorded").
+    - Dana: the paper ballots, say 15 for Alice Brennan and 8 for Carmen Diaz in the room, then **Enter the paper ballots**, **Close the ballot** and **Declare Alice Brennan elected**. The display stamps **Elected**.
+    - Again for "Director, seat 2" (Alice nominates Ben Whitaker).
+11. **Call the next item: Adjournment**, then **Adjourn**, and **Adjourn** again in the dialog. The console and the display read "Adjourned at ...".
+
+## After
+
+12. Pat: the bylaws (in the sidebar) now show **Version 2 (Current)** with the 15% quorum. It can take a few seconds after the vote.
+13. Pat: **Minutes**, then 2026 Annual Meeting (Draft). Edit the text under **Minutes text** (the preview follows), then **Publish**. Alice can now read them under **Minutes**; the 2025 minutes show as Approved.
+
+To run it again: `npm run demo -- --reset`.

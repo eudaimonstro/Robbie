@@ -14,6 +14,7 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev -w backend-node",
     "dev:frontend": "npm run dev -w frontend-unified",
+    "demo": "bash scripts/demo.sh",
     "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
     "build:shared": "npm run build -w shared",
     "build:backend": "npm run build -w backend-node",

@@ -54,6 +54,7 @@ npm install              # Install all workspace dependencies
 npm run dev              # Start backend + unified frontend
 npm run dev:backend      # Backend only
 npm run dev:frontend     # Unified frontend only
+npm run demo             # The Maple Grove HOA demo on http://localhost:3301 with its own Postgres (Docker, port 55433), test sign-in code 000000; -- --reset, --stop, --remove (scripts/demo.sh, docs/demo.md)
 ```
 
 ### Building
