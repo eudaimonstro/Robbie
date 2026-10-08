@@ -59,9 +59,9 @@ jobs:
         run: npm run db:deploy -w backend-node
 
       - name: Audit the production dependencies
-        # Fails on critical findings; the high ones it prints are accepted in
-        # docs/superpowers/specs/2026-10-07-ship-design.md (Dependencies)
-        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=critical
+        # Fails on high or critical findings; the moderate ones it prints are
+        # accepted in docs/security/dependency-audit.md
+        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=high
 
       - name: Format check
         run: npm run format:check

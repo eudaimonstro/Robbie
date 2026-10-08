@@ -67,7 +67,7 @@ A multi-stage `Dockerfile` on `node:24-slim`:
 
 ## CI
 
-- **`ci` job**: gains `npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=critical`.
+- **`ci` job**: gains `npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=critical` (raised to `--audit-level=high` on 2026-10-08, once overrides cleared the high findings; see `docs/security/dependency-audit.md`).
 - **`e2e` job**: unchanged in shape; the harness it runs now serves the web app from the API, and the new annual meeting spec runs with the rest.
 - **`image` job (new)**: builds the image with Buildx and the GitHub Actions cache, loads it as `robbie:ci`, checks that the image refuses to start with `ENABLE_TEST_AUTH=true` and with no email provider, starts `app` and `db` from `deploy/compose.yaml` plus `deploy/compose.ci.yaml` (which publishes the app on `127.0.0.1:3001`) with dummy secrets, waits for health, then checks: `/api/health` is healthy, `/` and a deep link `/meetings/ABC123` are the web app with `Cache-Control: no-cache` and a CSP, a bundle under `/assets/` has an immutable cache header, a missing bundle is a 404, and an API path signed out is a JSON 401, never the web app. It then makes a backup, changes the database and the uploads, restores, and checks both are back. Compose logs are printed on failure; everything is torn down at the end. On a push to `main`, it logs in to GHCR with `GITHUB_TOKEN` and pushes the two tags.
 
