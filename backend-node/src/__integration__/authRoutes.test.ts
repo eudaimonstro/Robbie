@@ -46,6 +46,25 @@ describe('auth routes', () => {
     expect(sessionCookie(res)).toBeUndefined();
   });
 
+  it("refuses a change from another site's page, and takes one from the app's", async () => {
+    const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    const evil = await request(app)
+      .patch('/api/auth/me')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://evil.scouch.dev')
+      .send({ name: 'Mallory' });
+    expect(evil.status).toBe(403);
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { email: 'ann@example.org' } })).name,
+    ).toBeNull();
+    // The app's own origin (APP_URL, here the development default), and no Origin at all
+    for (const origin of ['http://localhost:5173', undefined]) {
+      let req = request(app).patch('/api/auth/me').set('Cookie', cookie);
+      if (origin) req = req.set('Origin', origin);
+      expect((await req.send({ name: 'Ann Lee' })).status, origin).toBe(200);
+    }
+  });
+
   it('tells browsers and proxies not to keep API answers', async () => {
     const cookie = sessionCookie(await signIn('ann@example.org'))!;
     const me = await request(app).get('/api/auth/me').set('Cookie', cookie);

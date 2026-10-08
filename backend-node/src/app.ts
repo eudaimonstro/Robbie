@@ -33,6 +33,7 @@ import { serveWebApp } from './webApp.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { membersRouter } from './orgs/memberRoutes.js';
 import { writeLimiter } from './middleware/userLimits.js';
+import { originCheck, type AllowedOrigin } from './middleware/originCheck.js';
 
 export const app = express();
 
@@ -57,6 +58,24 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
 /** Origins allowed to make cross-origin requests (Socket.io uses the same list) */
 export { allowedOrigins };
 
+/** The origin of a URL, or null when it isn't one */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where a state-changing request or the meeting socket may come from (see originCheck): the
+ * app's own origin (APP_URL), and the origins allowed cross-origin requests
+ */
+export const trustedOrigins: AllowedOrigin[] = [
+  ...[originOf(appUrl())].filter((origin): origin is string => origin !== null),
+  ...allowedOrigins,
+];
+
 // Security headers, with the Content Security Policy the web app is served under
 app.use(securityHeaders(appUrl()));
 
@@ -71,6 +90,9 @@ app.use(
   }),
 );
 app.use(cookieParser() as unknown as express.RequestHandler);
+
+// A change to anything must come from the app's own pages (or from no page: mobile, curl)
+app.use('/api', originCheck(trustedOrigins));
 
 // An uploaded file (attachments.ts) and the Word document for the bylaws import (versions.ts)
 // are read in their routes, after the role check, since express.json below leaves their types

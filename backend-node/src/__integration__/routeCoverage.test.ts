@@ -37,6 +37,8 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   httpLogger,
   'corsMiddleware',
   'cookieParser',
+  // State-changing requests only from the app's own pages
+  'originCheck',
   // Every JSON body but the larger ones (LARGE_JSON_ROUTES), which their routes read after
   // the role check, as the Word document import reads its file
   'jsonBodies',
