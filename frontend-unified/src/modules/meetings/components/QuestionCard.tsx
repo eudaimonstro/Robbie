@@ -50,6 +50,14 @@ export function QuestionCard({
           <p className={label}>{question.kind}</p>
           <p className={`font-serif-soft font-semibold text-ink ${textSize}`}>{question.text}</p>
           {question.byline && <p className={secondary}>{question.byline}</p>}
+          {question.reads && (
+            <div>
+              <p className={label}>{question.reads.label}</p>
+              <p className={display ? 'text-display-line text-ink' : 'text-ink'}>
+                {question.reads.text}
+              </p>
+            </div>
+          )}
           {(question.requirement || question.awaitingSecond) && (
             <div className="flex flex-wrap items-center gap-2">
               {question.requirement &&
@@ -58,7 +66,15 @@ export function QuestionCard({
                 ) : (
                   <span className="badge">{question.requirement}</span>
                 ))}
-              {question.awaitingSecond && <span className="badge-proposed">Awaiting a second</span>}
+              {question.awaitingSecond &&
+                (display ? (
+                  // Read from the back of the room: the label's size, in caution
+                  <p className="text-display-label font-semibold uppercase tracking-[0.08em] text-caution-ink">
+                    Awaiting a second
+                  </p>
+                ) : (
+                  <span className="badge-proposed">Awaiting a second</span>
+                ))}
             </div>
           )}
           {question.bylawText && <BylawText text={question.bylawText} size={size} />}

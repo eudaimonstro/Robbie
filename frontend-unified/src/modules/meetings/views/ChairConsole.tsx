@@ -23,6 +23,7 @@ import { AdjournDialog } from '../components/console/AdjournDialog';
 import { ElectionCard } from '../components/console/ElectionCard';
 import { SetAsideDialog } from '../components/console/SetAsideDialog';
 import { NoQuorumDialog } from '../components/console/NoQuorumDialog';
+import { PutQuestionDialog } from '../components/console/PutQuestionDialog';
 import { FloorMotionDialog, FloorSecondForm } from '../components/console/FloorBusiness';
 import { ChairScriptLine } from '../components/console/ChairScriptLine';
 import { ConsoleAgenda } from '../components/console/ConsoleAgenda';
@@ -157,6 +158,10 @@ export function ChairConsole() {
             )}
             <ChairScriptLine state={state} />
           </QuestionCard>
+          {/* Who is waiting to speak, right under the question: recognizing is the next step */}
+          {!adjourned && (
+            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
+          )}
           <MinutesApprovalCard state={state} dispatch={dispatch} />
           {result && !adjourned && (
             <section aria-label="The result" className="card p-6">
@@ -169,9 +174,6 @@ export function ChairConsole() {
             </section>
           )}
           {!adjourned && <VoteControl state={state} dispatch={dispatch} me={currentUser} />}
-          {!adjourned && (
-            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
-          )}
         </div>
 
         <div className="space-y-4 xl:col-span-4">
@@ -223,6 +225,17 @@ export function ChairConsole() {
         agenda={state.agenda}
         onAdjourn={() => confirming && confirm(confirming)}
         onKeepGoing={keepGoing}
+      />
+      <PutQuestionDialog
+        isOpen={confirming?.id === 'put-question' && stillInOrder}
+        item={state.currentAgendaItem?.title ?? null}
+        onPut={(text) => {
+          if (!confirming) return;
+          const put = confirming.make();
+          if (put.type === 'MAKE_MOTION') dispatch({ ...put, text });
+          setConfirming(null);
+        }}
+        onClose={keepGoing}
       />
       <NoQuorumDialog
         isOpen={confirming?.id === 'open-vote' && stillInOrder}

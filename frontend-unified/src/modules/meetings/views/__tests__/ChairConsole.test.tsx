@@ -472,7 +472,7 @@ describe('ChairConsole', () => {
         within(screen.getByRole('toolbar'))
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Set the election aside', 'A motion from the floor']);
+      ).toEqual(['Close the ballot', 'Set the election aside', 'A motion from the floor']);
       const headings = screen.getAllByRole('heading').map((h) => h.textContent);
       expect(headings.indexOf('Election for Director')).toBeLessThan(
         headings.indexOf('Attendance'),

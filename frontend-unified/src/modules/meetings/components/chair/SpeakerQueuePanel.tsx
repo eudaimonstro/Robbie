@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateTimestamp, calculateTimerEnd } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction, SpeakerQueueEntry } from '@robbie-bylawyer/shared/types';
+import { Check, Circle, X } from 'lucide-react';
 import { CountdownTimer } from '../CountdownTimer';
 
 interface SpeakerQueuePanelProps {
@@ -25,7 +26,7 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
   speakerTimeLimit,
   dispatch,
 }: SpeakerListItemProps) {
-  const stanceIcon = entry.stance === 'pro' ? '✓' : entry.stance === 'con' ? '✗' : '○';
+  const StanceIcon = entry.stance === 'pro' ? Check : entry.stance === 'con' ? X : Circle;
   const stanceColor =
     entry.stance === 'pro'
       ? 'text-carried'
@@ -55,13 +56,11 @@ const SpeakerListItem = React.memo(function SpeakerListItem({
         <span>
           {index + 1}. {entry.member.name}
         </span>
-        <span className={`text-xs font-medium ${stanceColor}`} title={stanceLabel}>
-          {stanceIcon} {stanceLabel}
+        <span className={`inline-flex items-center gap-1 text-xs font-medium ${stanceColor}`}>
+          <StanceIcon className="h-4 w-4" aria-hidden="true" /> {stanceLabel}
         </span>
         {isMotionMaker && (
-          <span className="ml-2 text-xs text-ink-muted font-medium">
-            (Motion Maker - speaks first)
-          </span>
+          <span className="ml-2 text-xs text-ink-muted font-medium">Moved it: speaks first</span>
         )}
       </span>
       <button

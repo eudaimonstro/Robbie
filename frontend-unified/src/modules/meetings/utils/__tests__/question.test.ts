@@ -52,6 +52,35 @@ describe('describeQuestion', () => {
     expect(describeQuestion(active)).toBeNull();
   });
 
+  it('says how the motion would read if a pending amendment is adopted, and an amendment of it', () => {
+    const main = motion('mainMotion', { text: 'Resurface the pool for $40,000' });
+    const amendment = motion('amend', {
+      id: 2,
+      text: 'Strike \u201c$40,000\u201d and insert \u201c$35,000\u201d',
+      textAmendment: { form: 'strikeInsert', strike: '$40,000', insert: '$35,000' },
+    });
+    const pending = { ...active, currentMotion: amendment, motionStack: [main, amendment] };
+    expect(describeQuestion(pending)?.reads).toEqual({
+      label: 'If adopted, the motion reads',
+      text: 'Resurface the pool for $35,000',
+    });
+    const secondary = motion('amendAmendment', {
+      id: 3,
+      textAmendment: { form: 'strikeInsert', strike: '35', insert: '38' },
+    });
+    expect(
+      describeQuestion({
+        ...active,
+        pendingSecond: secondary,
+        currentMotion: amendment,
+        motionStack: [main, amendment],
+      })?.reads,
+    ).toEqual({
+      label: 'If adopted, the amendment reads',
+      text: 'Strike \u201c$40,000\u201d and insert \u201c$38,000\u201d',
+    });
+  });
+
   it('puts the text of a bylaw amendment, as it reads and would read, with the question', () => {
     const bylawAmendment = {
       documentId: 'doc',
@@ -279,7 +308,7 @@ describe('currentResult', () => {
     });
   });
 
-  it('stamps an election when the ballot is closed with a winner', () => {
+  it('stamps nothing when the ballot closes with a winner: ELECTED waits for the declaration', () => {
     const state = {
       ...active,
       currentElection: election({
@@ -288,11 +317,12 @@ describe('currentResult', () => {
         elected: 'Carmen Diaz',
       }),
     };
-    expect(currentResult(state, null)).toEqual({
-      outcome: 'elected',
-      subject: 'Carmen Diaz, Director',
-      tally: 'Carmen Diaz 9, Ray Castillo 5',
-      key: 'election-7',
+    expect(currentResult(state, null)).toBeNull();
+    // The question card says who has the vote required, with the count
+    expect(describeQuestion(state)).toMatchObject({
+      kind: 'Election for Director',
+      text: 'Carmen Diaz has the vote required',
+      byline: 'Ballot: Carmen Diaz 9, Ray Castillo 5',
     });
   });
 
