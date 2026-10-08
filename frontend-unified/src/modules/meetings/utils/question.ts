@@ -25,7 +25,7 @@ export interface QuestionView {
 const REQUIREMENTS = { majority: 'Majority', '2/3': 'Two thirds', plurality: 'Plurality' } as const;
 
 function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string | null {
-  return vote === 'none' ? null : REQUIREMENTS[vote];
+  return Object.hasOwn(REQUIREMENTS, vote) ? REQUIREMENTS[vote as keyof typeof REQUIREMENTS] : null;
 }
 
 /**

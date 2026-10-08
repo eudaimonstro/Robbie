@@ -92,7 +92,10 @@ export function getChairScript(state: MeetingState): ChairScript | null {
 
   // Voting in progress: on phones and by a show of hands in the room, unless it is a voice vote
   if (state.votingOpen) {
-    return { text: VOTE_SCRIPTS[state.votingMethod], note: 'Close voting when done.' };
+    const method = Object.hasOwn(VOTE_SCRIPTS, state.votingMethod)
+      ? state.votingMethod
+      : 'standard';
+    return { text: VOTE_SCRIPTS[method], note: 'Close voting when done.' };
   }
 
   // Check for recently passed or failed vote. The reducer logs the result as

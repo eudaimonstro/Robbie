@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DebateStance, MeetingState, Member } from '@robbie-bylawyer/shared/types';
-import { STANCE_LABELS } from '../../utils/phoneMoment';
+import { STANCE_LABELS, stanceLabel } from '../../utils/phoneMoment';
 import { MotionPanel } from './MotionPanel';
 import { useSortedSpeakerQueue } from '../../hooks/useSortedSpeakerQueue';
 import type { MeetingDispatch } from '../../types/socket';
@@ -32,7 +32,7 @@ export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
         <>
           <p role="status" className="text-ink">
             You asked to speak: {place} of {queue.length} waiting,{' '}
-            {STANCE_LABELS[queued.stance].toLowerCase()}.
+            {stanceLabel(queued.stance).toLowerCase()}.
           </p>
           <button
             type="button"

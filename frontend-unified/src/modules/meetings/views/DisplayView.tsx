@@ -8,7 +8,7 @@ import { useVoteResults } from '../hooks/useVoteResults';
 import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
-import { STANCE_LABELS } from '../utils/phoneMoment';
+import { stanceLabel } from '../utils/phoneMoment';
 import {
   agendaNamesTheApproval,
   minutesHeading,
@@ -241,7 +241,7 @@ function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueu
             {queue.map((entry) => (
               <li key={entry.member.id} className="text-display-label text-ink">
                 {entry.member.name}{' '}
-                <span className="text-ink-muted">{STANCE_LABELS[entry.stance]}</span>
+                <span className="text-ink-muted">{stanceLabel(entry.stance)}</span>
               </li>
             ))}
           </ol>

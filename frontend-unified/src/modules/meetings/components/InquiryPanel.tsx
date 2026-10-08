@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
-import { INQUIRY_KINDS } from '../utils/inquiryKinds';
+import { inquiryKind } from '../utils/inquiryKinds';
 
 interface InquiryPanelProps {
   state: MeetingState;
@@ -55,7 +55,7 @@ export function InquiryPanel({ state, dispatch, currentUser }: InquiryPanelProps
         <div className="mb-4 space-y-3">
           {unansweredInquiries.map((inquiry) => (
             <div key={inquiry.id} className="rounded-lg border border-rule bg-caution-tint p-3">
-              <p className="label-caps">{INQUIRY_KINDS[inquiry.type].label}</p>
+              <p className="label-caps">{inquiryKind(inquiry.type).label}</p>
               <p className="mt-1 text-sm text-ink">
                 <span className="font-medium">{inquiry.askedBy}:</span> &ldquo;{inquiry.question}
                 &rdquo;
@@ -102,7 +102,7 @@ export function AnsweredQuestions({ inquiries }: { inquiries: MeetingState['inqu
       <p className="label-caps">Answered</p>
       {inquiries.map((inquiry) => (
         <div key={inquiry.id} className="rounded-lg bg-surface-2 p-3 text-sm">
-          <p className="text-xs text-ink-muted">{INQUIRY_KINDS[inquiry.type].label}</p>
+          <p className="text-xs text-ink-muted">{inquiryKind(inquiry.type).label}</p>
           <p className="text-ink">
             <span className="font-medium">Q:</span> {inquiry.question}
           </p>
