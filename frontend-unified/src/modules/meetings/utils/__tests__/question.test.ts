@@ -52,6 +52,36 @@ describe('describeQuestion', () => {
     expect(describeQuestion(active)).toBeNull();
   });
 
+  it('puts the text of a bylaw amendment, as it reads and would read, with the question', () => {
+    const bylawAmendment = {
+      documentId: 'doc',
+      changeType: 'modify' as const,
+      targetSectionId: 's42',
+      targetSectionLabel: 'Section 4.2 "Quorum"',
+      currentContent: 'Twenty percent is a quorum.',
+      newContent: 'Fifteen percent is a quorum.',
+    };
+    for (const state of [
+      { ...active, pendingSecond: motion('bylawAmendment', { bylawAmendment }) },
+      {
+        ...active,
+        currentMotion: motion('bylawAmendment', { bylawAmendment }),
+        motionStack: [motion('bylawAmendment', { bylawAmendment })],
+      },
+    ]) {
+      expect(describeQuestion(state)?.bylawText).toEqual({
+        heading: 'Section 4.2 "Quorum"',
+        action: 'To read',
+        current: { text: 'Twenty percent is a quorum.' },
+        proposed: { text: 'Fifteen percent is a quorum.' },
+      });
+    }
+    // Any other motion has none
+    expect(describeQuestion({ ...active, pendingSecond: motion('mainMotion') })).not.toHaveProperty(
+      'bylawText',
+    );
+  });
+
   it('shows a motion awaiting a second', () => {
     const question = describeQuestion({ ...active, pendingSecond: motion('mainMotion') });
     expect(question).toMatchObject({

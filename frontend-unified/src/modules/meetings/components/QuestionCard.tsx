@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { QuestionView } from '../utils/question';
+import { BylawText } from './BylawText';
 
 interface QuestionCardProps {
   question: QuestionView | null;
@@ -57,6 +58,7 @@ export function QuestionCard({
               {question.awaitingSecond && <span className="badge-proposed">Awaiting a second</span>}
             </div>
           )}
+          {question.bylawText && <BylawText text={question.bylawText} size={size} />}
           {question.beneath.length > 0 && (
             <div>
               <p className={label}>Pending beneath it</p>

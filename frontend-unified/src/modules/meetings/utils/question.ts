@@ -1,5 +1,6 @@
 import { LOG_MEETING_ADJOURNED, PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
+import { bylawChangeView, type BylawChangeView } from '@robbie-bylawyer/shared/utils';
 import type { VoteResult } from '../hooks/useVoteResults';
 import { formatClockTime } from '../../../utils/dates';
 import { DECLARED_LINE, latestDecision } from './decisions';
@@ -18,6 +19,8 @@ export interface QuestionView {
   awaitingSecond: boolean;
   /** Questions pending beneath it, the nearest first */
   beneath: string[];
+  /** For a bylaw amendment, the section and its text as it reads now and as it would read */
+  bylawText?: BylawChangeView;
   /** Changes when the question does, so the card crossfades */
   key: string;
 }
@@ -35,6 +38,13 @@ function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string
 export function moverLine(motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'>): string {
   if (motion.putByChair) return PUT_BY_CHAIR;
   return motion.fromFloor ? `Moved from the floor by ${motion.mover}` : `Moved by ${motion.mover}`;
+}
+
+/** The text a bylaw amendment puts before the meeting, for the question card */
+function bylawTextOf(motion: Motion): Pick<QuestionView, 'bylawText'> {
+  return motion.type === 'bylawAmendment' && motion.bylawAmendment
+    ? { bylawText: bylawChangeView(motion.bylawAmendment) }
+    : {};
 }
 
 function beneathLine(motion: Motion): string {
@@ -69,6 +79,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       requirement: requirementOf(motion.vote),
       awaitingSecond: true,
       beneath: [...state.motionStack].reverse().map(beneathLine),
+      ...bylawTextOf(motion),
       key: `second-${motion.id}`,
     };
   }
@@ -87,6 +98,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
         .filter((m) => m.id !== motion.id)
         .reverse()
         .map(beneathLine),
+      ...bylawTextOf(motion),
       key: `motion-${motion.id}`,
     };
   }
