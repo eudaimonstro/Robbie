@@ -37,19 +37,19 @@ function renderCard(props: {
 }
 
 describe('DocumentContentCard', () => {
-  it('disables Add Section until the document has a version', () => {
+  it('disables Add section until the document has a version', () => {
     renderCard({ canEdit: true, selectedVersion: null });
 
     // A section needs a version to belong to; saving one without it did nothing
-    expect(screen.getByRole('button', { name: 'Add Section' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Add section' })).toHaveProperty('disabled', true);
   });
 
   it('shows a role below secretary no way to change the document', () => {
     renderCard({ canEdit: false, selectedVersion: version });
 
-    expect(screen.queryByRole('button', { name: 'Add Section' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'New Version' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add First Section' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add section' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New version' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add the first section' })).toBeNull();
     expect(screen.getByText('This document has no sections yet.')).toBeTruthy();
   });
 
@@ -58,7 +58,7 @@ describe('DocumentContentCard', () => {
     renderCard({ canEdit: true, selectedVersion: null, onImport });
     fireEvent.click(screen.getByRole('button', { name: 'Import the bylaws' }));
     expect(onImport).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Create First Version' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create the first version' })).toBeTruthy();
 
     cleanup();
     renderCard({ canEdit: true, selectedVersion: version, onImport });
@@ -74,14 +74,14 @@ describe('DocumentContentCard', () => {
 
   it('keeps an earlier version as it was, and says so', () => {
     renderCard({ canEdit: true, selectedVersion: version, isCurrentVersion: false });
-    expect(screen.queryByRole('button', { name: 'Add Section' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add First Section' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add section' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add the first section' })).toBeNull();
     expect(
       screen.getByText(
         'This is an earlier version, kept as it was. Only the current version can be changed.',
       ),
     ).toBeTruthy();
     // A new version still starts from the current one
-    expect(screen.getByRole('button', { name: 'New Version' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New version' })).toBeTruthy();
   });
 });

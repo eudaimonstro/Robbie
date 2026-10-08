@@ -11,6 +11,8 @@ import { useSession } from '../../../context/SessionContext';
 import { canEditAmendment } from '../../../utils/roles';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import ErrorState from '../../../components/ui/ErrorState';
+import { formatDateTime } from '../../../utils/dates';
 import {
   useAmendmentData,
   AmendmentHeader,
@@ -32,6 +34,8 @@ export default function AmendmentDetailPage() {
     document,
     sectionTree,
     loading,
+    loadError,
+    fetchAmendment,
     updateAmendment,
     addChange,
     deleteChange,
@@ -86,7 +90,7 @@ export default function AmendmentDetailPage() {
       setDeleteChangeDialogOpen(false);
       setDeletingChange(null);
     } catch {
-      showToast('error', 'Failed to delete change');
+      showToast('error', "Couldn't delete the change");
     } finally {
       setDeletingChangeLoading(false);
     }
@@ -108,17 +112,38 @@ export default function AmendmentDetailPage() {
     return <LoadingPage label="Loading the amendment..." />;
   }
 
+  if (loadError === 'failed') {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <ErrorState
+          title="Couldn't load the amendment."
+          description="Check your connection, then try again."
+          onRetry={() => void fetchAmendment()}
+        >
+          <Link to="/amendments" className="text-gavel hover:underline">
+            All amendments
+          </Link>
+        </ErrorState>
+      </div>
+    );
+  }
+
   if (!amendment || !document) {
     return (
       <div className="text-center py-12">
-        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-ink mb-2">Amendment not found</h2>
+        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" aria-hidden="true" />
+        <h2 className="card-title mb-2">Amendment not found</h2>
+        <p className="mb-4 text-ink-muted">
+          This amendment doesn&apos;t exist, or it isn&apos;t shared with you.
+        </p>
         <Link to="/amendments" className="text-gavel hover:underline">
-          Return to amendments
+          All amendments
         </Link>
       </div>
     );
   }
+
+  const timeZone = currentOrganization?.timeZone;
 
   const isDraft = amendment.status === 'draft';
   // A member edits only drafts they created; a secretary any draft (the server's rule)
@@ -144,7 +169,7 @@ export default function AmendmentDetailPage() {
       {/* Description */}
       {amendment.description && (
         <div className="card p-4 mb-6">
-          <h3 className="font-medium text-ink mb-2">Description / Rationale</h3>
+          <h3 className="label-caps mb-2">Why</h3>
           <p className="text-ink-muted">{amendment.description}</p>
         </div>
       )}
@@ -153,17 +178,17 @@ export default function AmendmentDetailPage() {
       <div className="card p-4 mb-6">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-1 text-ink-muted">
-            <Clock className="w-4 h-4" />
-            Created: {new Date(amendment.createdAt).toLocaleString()}
+            <Clock className="w-4 h-4" aria-hidden="true" />
+            Created {formatDateTime(amendment.createdAt, timeZone)}
           </div>
           {amendment.proposedAt && (
             <div className="text-ink-muted">
-              Proposed: {new Date(amendment.proposedAt).toLocaleString()}
+              Proposed {formatDateTime(amendment.proposedAt, timeZone)}
             </div>
           )}
           {amendment.decidedAt && (
             <div className="text-ink-muted">
-              Decided: {new Date(amendment.decidedAt).toLocaleString()}
+              Decided {formatDateTime(amendment.decidedAt, timeZone)}
             </div>
           )}
           {amendment.resultingVersionId && (

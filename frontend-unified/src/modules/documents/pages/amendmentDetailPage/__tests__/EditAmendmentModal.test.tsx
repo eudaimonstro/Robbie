@@ -15,7 +15,7 @@ describe('EditAmendmentModal', () => {
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'New title' } });
     expect(screen.getByLabelText('Title')).toHaveProperty('value', 'New title');
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('New title', 'Old description'));
   });

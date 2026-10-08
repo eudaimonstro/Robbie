@@ -31,15 +31,15 @@ function renderHeader(can: { canDraft: boolean; canShare: boolean }, versions: V
 }
 
 describe('DocumentHeader', () => {
-  it('shows a viewer neither Share nor Propose Amendment', () => {
+  it('shows a viewer neither Share nor Propose amendment', () => {
     renderHeader({ canDraft: false, canShare: false });
     expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Propose Amendment' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Propose amendment' })).toBeNull();
   });
 
   it('lets a member draft an amendment, and only an admin share', () => {
     renderHeader({ canDraft: true, canShare: false });
-    expect(screen.getByRole('button', { name: 'Propose Amendment' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Propose amendment' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
   });
 
@@ -50,7 +50,7 @@ describe('DocumentHeader', () => {
     expect(screen.queryByRole('link', { name: 'Compare' })).toBeNull();
     // The rest of the header is still there
     expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Propose Amendment' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Propose amendment' })).toBeTruthy();
   });
 
   it('offers the version picker, export and compare once a version exists', () => {

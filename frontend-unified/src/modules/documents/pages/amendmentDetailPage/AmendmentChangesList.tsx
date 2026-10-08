@@ -1,6 +1,7 @@
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { AmendmentChange, SectionTree } from '../../../../api/client';
 import { getSectionLabel } from './useAmendmentData';
+import { count } from '../../../../utils/plural';
 
 interface AmendmentChangesListProps {
   changes: AmendmentChange[];
@@ -11,10 +12,10 @@ interface AmendmentChangesListProps {
 }
 
 const CHANGE_TYPE_LABELS: Record<string, string> = {
-  add: 'Add Section',
-  modify: 'Modify Section',
-  delete: 'Delete Section',
-  renumber: 'Renumber Section',
+  add: 'Add a section',
+  modify: 'Change a section',
+  delete: 'Remove a section',
+  renumber: 'Renumber a section',
 };
 
 export function AmendmentChangesList({
@@ -26,26 +27,28 @@ export function AmendmentChangesList({
 }: AmendmentChangesListProps) {
   return (
     <div className="card">
-      <div className="px-4 py-3 border-b border-rule flex items-center justify-between">
-        <h3 className="font-semibold text-ink">Proposed Changes ({changes.length})</h3>
+      <div className="px-4 py-3 border-b border-rule flex flex-wrap items-center justify-between gap-2">
+        <h3 className="label-caps">
+          Proposed changes <span className="normal-case">({count(changes.length, 'change')})</span>
+        </h3>
         {canEdit && (
           <button onClick={onAddChange} className="btn-primary btn-sm">
-            <Plus className="w-4 h-4 mr-1" />
-            Add Change
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            Add a change
           </button>
         )}
       </div>
 
       {changes.length === 0 ? (
         <div className="p-8 text-center">
-          <AlertTriangle className="w-10 h-10 text-caution mx-auto mb-3" />
+          <AlertTriangle className="w-10 h-10 text-caution mx-auto mb-3" aria-hidden="true" />
           <p className="text-ink-muted mb-4">
-            No changes defined yet. Add changes to specify what this amendment will modify.
+            No changes yet. Add the changes this amendment makes to the document.
           </p>
           {canEdit && (
             <button onClick={onAddChange} className="btn-primary btn-sm">
-              <Plus className="w-4 h-4 mr-1" />
-              Add First Change
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              Add the first change
             </button>
           )}
         </div>
@@ -72,7 +75,7 @@ export function AmendmentChangesList({
 
                   {change.targetSectionId && (
                     <p className="text-sm text-ink-muted mb-2">
-                      Target:{' '}
+                      Section:{' '}
                       {getSectionLabel(sectionTree, change.targetSectionId, change.targetLabel)}
                     </p>
                   )}
@@ -96,10 +99,11 @@ export function AmendmentChangesList({
                 {canEdit && (
                   <button
                     onClick={() => onDeleteChange(change)}
-                    className="p-1 text-ink-muted hover:text-gavel rounded-sm"
-                    title="Delete change"
+                    className="p-1 max-md:p-3 max-md:-m-2 text-ink-muted hover:text-gavel rounded-sm"
+                    title="Delete the change"
+                    aria-label={`Delete change ${index + 1}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </button>
                 )}
               </div>

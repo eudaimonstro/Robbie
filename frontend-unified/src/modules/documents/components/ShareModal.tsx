@@ -97,14 +97,14 @@ export default function ShareModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showToast('error', 'Failed to copy link');
+      showToast('error', "Couldn't copy the link");
     } finally {
       setCopying(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Share Document" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Share document" size="md">
       <div className="space-y-4">
         <p className="text-sm text-ink-muted">
           Share "{documentTitle}" with a read-only link. Anyone with this link can view the
@@ -121,7 +121,7 @@ export default function ShareModal({
             <Link className="w-12 h-12 text-ink-muted mx-auto mb-4" />
             <p className="text-ink-muted mb-4">Sharing is not enabled for this document.</p>
             <button onClick={handleEnableSharing} className="btn-primary">
-              Enable Sharing
+              Turn on sharing
             </button>
           </div>
         ) : (
@@ -129,9 +129,12 @@ export default function ShareModal({
           <div className="space-y-4">
             {/* Share link */}
             <div>
-              <label className="label">Share Link</label>
+              <label htmlFor="share-link" className="label">
+                Share link
+              </label>
               <div className="flex items-center gap-2">
                 <input
+                  id="share-link"
                   type="text"
                   readOnly
                   value={getFullShareUrl()}
@@ -141,7 +144,8 @@ export default function ShareModal({
                   onClick={handleCopyLink}
                   disabled={copying || !shareStatus.shareEnabled}
                   className="btn-secondary flex items-center gap-2"
-                  title={copied ? 'Copied!' : 'Copy to clipboard'}
+                  title={copied ? 'Copied' : 'Copy the link'}
+                  aria-label={copied ? 'Copied' : 'Copy the link'}
                 >
                   {copied ? (
                     <Check className="w-4 h-4 text-carried" />
@@ -156,7 +160,7 @@ export default function ShareModal({
             <div className="flex items-center justify-between py-3 border-t border-rule">
               <div>
                 <p className="font-medium text-ink">
-                  Sharing {shareStatus.shareEnabled ? 'Enabled' : 'Disabled'}
+                  Sharing {shareStatus.shareEnabled ? 'on' : 'off'}
                 </p>
                 <p className="text-sm text-ink-muted">
                   {shareStatus.shareEnabled
@@ -168,7 +172,7 @@ export default function ShareModal({
                 onClick={shareStatus.shareEnabled ? handleDisableSharing : handleEnableSharing}
                 className={shareStatus.shareEnabled ? 'btn-ghost text-gavel' : 'btn-primary'}
               >
-                {shareStatus.shareEnabled ? 'Disable' : 'Enable'}
+                {shareStatus.shareEnabled ? 'Turn off' : 'Turn on'}
               </button>
             </div>
 
@@ -180,7 +184,7 @@ export default function ShareModal({
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="w-5 h-5 text-caution-ink shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-medium text-ink">Regenerate share link?</p>
+                        <p className="font-medium text-ink">Make a new share link?</p>
                         <p className="text-sm text-ink mt-1">
                           This will create a new link. Anyone using the old link will no longer be
                           able to access this document.
@@ -191,7 +195,7 @@ export default function ShareModal({
                             disabled={regenerating}
                             className="btn-primary"
                           >
-                            {regenerating ? 'Regenerating...' : 'Yes, Regenerate'}
+                            {regenerating ? 'Making a new link...' : 'Make a new link'}
                           </button>
                           <button
                             onClick={() => setShowRegenerateConfirm(false)}
@@ -209,7 +213,7 @@ export default function ShareModal({
                     className="btn-ghost text-ink-muted flex items-center gap-2"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    Regenerate Link
+                    Make a new link
                   </button>
                 )}
               </div>

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
+import ErrorState from '../../../components/ui/ErrorState';
 import {
   SectionTree as SectionTreeType,
   SectionCreate,
@@ -44,6 +45,8 @@ export default function DocumentPage() {
     sectionTree,
     amendments,
     loading,
+    loadError,
+    reload,
     handleSaveSection,
     handleDeleteSection,
     handleReorderSections,
@@ -111,8 +114,8 @@ export default function DocumentPage() {
       await handleDeleteSection(deletingSection.id);
       setDeleteDialogOpen(false);
       setDeletingSection(null);
-    } catch {
-      showToast('error', 'Failed to delete section');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : "Couldn't delete the section");
     } finally {
       setDeleting(false);
     }
@@ -138,13 +141,32 @@ export default function DocumentPage() {
     return <LoadingPage label="Loading the document..." />;
   }
 
+  if (loadError === 'failed') {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <ErrorState
+          title="Couldn't load the document."
+          description="Check your connection, then try again."
+          onRetry={() => void reload()}
+        >
+          <Link to="/" className="text-gavel hover:underline">
+            All documents
+          </Link>
+        </ErrorState>
+      </div>
+    );
+  }
+
   if (!doc) {
     return (
       <div className="text-center py-12">
-        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-ink mb-2">Document not found</h2>
+        <FileText className="w-12 h-12 text-ink-muted mx-auto mb-4" aria-hidden="true" />
+        <h2 className="card-title mb-2">Document not found</h2>
+        <p className="mb-4 text-ink-muted">
+          This document doesn&apos;t exist, or it isn&apos;t shared with you.
+        </p>
         <Link to="/" className="text-gavel hover:underline">
-          Return to documents
+          All documents
         </Link>
       </div>
     );
@@ -180,6 +202,7 @@ export default function DocumentPage() {
           onAddSection={handleAddSection}
           onCreateVersion={() => setVersionModalOpen(true)}
           onImport={() => navigate(`/documents/${doc.id}/import`)}
+          timeZone={currentOrganization?.timeZone}
         />
       </div>
 
@@ -201,8 +224,8 @@ export default function DocumentPage() {
         isOpen={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={confirmDelete}
-        title="Delete Section"
-        message={`Are you sure you want to delete "${deletingSection?.numberLabel || deletingSection?.title || 'this section'}"? This action cannot be undone.`}
+        title="Delete the section?"
+        message={`Delete "${deletingSection?.numberLabel || deletingSection?.title || 'this section'}" from this version? This can't be undone.`}
         confirmText="Delete"
         variant="danger"
         loading={deleting}

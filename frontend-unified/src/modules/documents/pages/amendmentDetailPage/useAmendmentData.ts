@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   amendments as amendmentsApi,
   documents as documentsApi,
@@ -9,12 +9,15 @@ import {
   SectionTree,
 } from '../../../../api/client';
 import { useToast } from '../../../../context/ToastContext';
+import { isNotFound } from '../../../../utils/httpErrors';
 
 interface UseAmendmentDataReturn {
   amendment: Amendment | null;
   document: Document | null;
   sectionTree: SectionTree[];
   loading: boolean;
+  /** The first load failed: the amendment isn't there (or isn't the user's), or the load failed */
+  loadError: 'missing' | 'failed' | null;
   fetchAmendment: () => Promise<void>;
   updateAmendment: (title: string, description?: string) => Promise<void>;
   addChange: (data: AmendmentChangeCreate) => Promise<void>;
@@ -33,6 +36,10 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
   const [document, setDocument] = useState<Document | null>(null);
   const [sectionTree, setSectionTree] = useState<SectionTree[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<'missing' | 'failed' | null>(null);
+  // Whether this amendment is on the page: a refresh that fails after an action is a toast, and
+  // the page stays; a first load that fails is the page's own message, with Try again
+  const shown = useRef(false);
 
   // Loading (which shows a full-page spinner) is for the first load of each amendment; a
   // refresh after an action updates the page in place
@@ -40,12 +47,14 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
   if (amendmentId !== loadedFor) {
     setLoadedFor(amendmentId);
     setLoading(true);
+    setLoadError(null);
   }
 
   const fetchAmendment = useCallback(async () => {
     if (!amendmentId) return;
 
     try {
+      setLoadError(null);
       const amend = await amendmentsApi.get(amendmentId);
       setAmendment(amend);
 
@@ -56,14 +65,18 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
         const tree = await versionsApi.getTree(doc.currentVersionId);
         setSectionTree(tree);
       }
-    } catch {
-      showToast('error', 'Failed to load amendment');
+      shown.current = true;
+    } catch (err) {
+      if (shown.current) showToast('error', "Couldn't load the amendment again. Reload the page.");
+      else setLoadError(isNotFound(err) ? 'missing' : 'failed');
     } finally {
       setLoading(false);
     }
   }, [amendmentId, showToast]);
 
   useEffect(() => {
+    // Another amendment: not on the page yet
+    shown.current = false;
     fetchAmendment();
   }, [fetchAmendment]);
 
@@ -137,6 +150,7 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
     document,
     sectionTree,
     loading,
+    loadError,
     fetchAmendment,
     updateAmendment,
     addChange,

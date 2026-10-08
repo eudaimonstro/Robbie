@@ -56,8 +56,8 @@ export function AmendmentActionDialogs({
         isOpen={deleteChangeDialogOpen}
         onClose={onDeleteChangeClose}
         onConfirm={onDeleteChangeConfirm}
-        title="Delete Change"
-        message="Are you sure you want to delete this change from the amendment?"
+        title="Delete the change?"
+        message="This change comes out of the amendment."
         confirmText="Delete"
         variant="danger"
         loading={deletingChangeLoading}
@@ -67,8 +67,8 @@ export function AmendmentActionDialogs({
         isOpen={proposeDialogOpen}
         onClose={onProposeClose}
         onConfirm={onProposeConfirm}
-        title="Propose Amendment"
-        message="Are you sure you want to propose this amendment? Once proposed, it can be voted on but the changes cannot be modified."
+        title="Propose the amendment?"
+        message="Once proposed, it can be voted on, and its changes can't be edited."
         confirmText="Propose"
         loading={actionLoading}
       />
@@ -77,8 +77,8 @@ export function AmendmentActionDialogs({
         isOpen={withdrawDialogOpen}
         onClose={onWithdrawClose}
         onConfirm={onWithdrawConfirm}
-        title="Withdraw Amendment"
-        message="Are you sure you want to withdraw this amendment? This action cannot be undone."
+        title="Withdraw the amendment?"
+        message="A withdrawn amendment can't be brought back."
         confirmText="Withdraw"
         variant="danger"
         loading={actionLoading}
@@ -88,9 +88,9 @@ export function AmendmentActionDialogs({
         isOpen={passDialogOpen}
         onClose={onPassClose}
         onConfirm={onPassConfirm}
-        title="Mark Amendment as Passed"
-        message="Are you sure this amendment has passed the required vote? This will allow it to be applied to the document."
-        confirmText="Mark as Passed"
+        title="Mark the amendment passed?"
+        message="Only when it passed the vote it needed. Then it can be applied to the document."
+        confirmText="Mark passed"
         loading={actionLoading}
       />
 
@@ -98,9 +98,9 @@ export function AmendmentActionDialogs({
         isOpen={failDialogOpen}
         onClose={onFailClose}
         onConfirm={onFailConfirm}
-        title="Mark Amendment as Failed"
-        message="Are you sure this amendment has failed the vote? This action cannot be undone."
-        confirmText="Mark as Failed"
+        title="Mark the amendment failed?"
+        message="Only when it failed the vote. This can't be undone."
+        confirmText="Mark failed"
         variant="danger"
         loading={actionLoading}
       />
@@ -109,9 +109,9 @@ export function AmendmentActionDialogs({
         isOpen={applyDialogOpen}
         onClose={onApplyClose}
         onConfirm={onApplyConfirm}
-        title="Apply Amendment to Document"
-        message="This will create a new version of the document with all the changes from this amendment applied. Continue?"
-        confirmText="Apply Amendment"
+        title="Apply the amendment to the document?"
+        message="This makes a new version of the document with the amendment's changes in it."
+        confirmText="Apply the amendment"
         loading={actionLoading}
       />
     </>
