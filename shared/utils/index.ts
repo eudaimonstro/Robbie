@@ -59,16 +59,11 @@ export {
 } from './motionHistoryHelper.js';
 
 export {
-  getMemberQueueInfo,
   calculateStanceBalance,
-  getQueueStats,
   canRemoveSelfFromQueue,
   formatWaitTime,
-  getNextSpeakerInfo,
   sortSpeakerQueue,
-  type SpeakerQueueInfo,
   type StanceBalance,
-  type QueueStats,
 } from './speakerQueueHelper.js';
 
 export {
