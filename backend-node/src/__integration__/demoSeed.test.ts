@@ -29,6 +29,15 @@ describe('demo seed', () => {
     expect(byRole).toEqual({ owner: 1, admin: 1, secretary: 1, member: 12, viewer: 2 });
     expect(members.every((m) => m.user.name && m.user.termsVersion === TERMS_VERSION)).toBe(true);
     expect(members.find((m) => m.role === 'admin')?.user.name).toBe('Dana Okafor');
+    // Two homeowners added by email who haven't signed in, by name for the roster
+    const waiting = await prisma.organizationInvite.findMany({
+      where: { organizationId: org.id, acceptedAt: null },
+      orderBy: { email: 'asc' },
+    });
+    expect(waiting.map((invite) => [invite.name, invite.role])).toEqual([
+      ['Harold Becker', 'member'],
+      ['Rosa Alvarez', 'member'],
+    ]);
     // 142 lots, one vote each; the bylaws' Section 4.2 sets the quorum at 20%
     expect(org).toMatchObject({
       eligibleVoters: 142,

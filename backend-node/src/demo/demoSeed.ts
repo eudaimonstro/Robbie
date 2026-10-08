@@ -89,6 +89,12 @@ export const DEMO_PEOPLE: readonly DemoPerson[] = [
   { email: 'sam@maplegrove.example', name: 'Sam Ortiz', role: 'viewer' },
 ];
 
+/** Homeowners Pat added by email who haven't signed in: members once they do */
+export const DEMO_NOT_SIGNED_IN: ReadonlyArray<{ email: string; name: string }> = [
+  { email: 'harold@maplegrove.example', name: 'Harold Becker' },
+  { email: 'rosa@maplegrove.example', name: 'Rosa Alvarez' },
+];
+
 interface DemoSection {
   label: string;
   title: string;
@@ -387,6 +393,19 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
         create: DEMO_PEOPLE.map((person) => ({ userId: idOf(person.email), role: person.role })),
       },
     },
+  });
+
+  // Two homeowners Pat added by email who haven't signed in yet: the chair's roster lists them,
+  // and the chair counts them in the room by name
+  await tx.organizationInvite.createMany({
+    data: DEMO_NOT_SIGNED_IN.map((person) => ({
+      organizationId: organization.id,
+      email: person.email,
+      name: person.name,
+      role: 'member' as const,
+      invitedById: idOf('pat@maplegrove.example'),
+      createdAt: now,
+    })),
   });
 
   // The bylaws, version 1
