@@ -29,18 +29,28 @@ vi.mock('../bylawyer/bylawSyncService.js', () => ({
 const organization = vi.hoisted(() => ({
   chairUserId: null as number | null,
   orgRole: 'member' as string | null,
+  /** The meeting was canceled (its packet deleted) while the socket was away */
+  canceled: false,
 }));
 vi.mock('../bylawyer/services/meetingMinutes.js', () => ({ previousMinutesFor: async () => null }));
 vi.mock('../socket/meetingPacket.js', () => ({
-  findMeetingPacket: async () => ({
-    robbieCode: 'REC001',
-    organizationId: 'org',
-    title: null,
-    scheduledFor: null,
-    chairUserId: organization.chairUserId,
-    organization: { name: 'Org', eligibleVoters: null, quorumPercent: null, quorumCount: null },
-    agendaItems: [],
-  }),
+  findMeetingPacket: async () =>
+    organization.canceled
+      ? null
+      : {
+          robbieCode: 'REC001',
+          organizationId: 'org',
+          title: null,
+          scheduledFor: null,
+          chairUserId: organization.chairUserId,
+          organization: {
+            name: 'Org',
+            eligibleVoters: null,
+            quorumPercent: null,
+            quorumCount: null,
+          },
+          agendaItems: [],
+        },
   findPerson: async () => ({
     name: 'Ann',
     email: 'ann@example.org',
@@ -86,6 +96,7 @@ describe('handleRecoveredSocket', () => {
     session.find = async () => session.current;
     organization.chairUserId = null;
     organization.orgRole = 'member';
+    organization.canceled = false;
     stored.state = {
       ...initialState,
       members: [{ id: 3, name: 'Ann', role: 'member', present: true, presentBy: 'device' }],
@@ -124,6 +135,15 @@ describe('handleRecoveredSocket', () => {
 
   it('closes a display whose session was signed out while it was away', async () => {
     session.current = null;
+    const socket = recovered({ display: true });
+
+    await handleRecoveredSocket(socket as never, io as never);
+
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+  });
+
+  it('closes a display whose meeting was canceled while it was away', async () => {
+    organization.canceled = true;
     const socket = recovered({ display: true });
 
     await handleRecoveredSocket(socket as never, io as never);

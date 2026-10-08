@@ -121,6 +121,12 @@ export interface StorageProvider {
   ): Promise<UpdateResult>;
   getMeeting(code: string): Promise<MeetingRecord | null>;
   /**
+   * Delete a meeting's live state (in PostgreSQL its action log and participants go with it, by
+   * cascade): when its meeting is canceled
+   * @returns whether there was one
+   */
+  deleteMeeting(code: string): Promise<boolean>;
+  /**
    * Log an action for audit trail (optional - implemented in PostgreSQL mode)
    */
   logAction?(
@@ -182,6 +188,10 @@ class InMemoryStorage implements StorageProvider {
 
   async getMeeting(code: string): Promise<MeetingRecord | null> {
     return this.meetings.get(code) || null;
+  }
+
+  async deleteMeeting(code: string): Promise<boolean> {
+    return this.meetings.delete(code);
   }
 }
 
@@ -267,6 +277,12 @@ class PostgresStorage implements StorageProvider {
       state: withDefaults(result.rows[0].current_state),
       stateVersion: result.rows[0].state_version,
     };
+  }
+
+  async deleteMeeting(code: string): Promise<boolean> {
+    // meeting_actions and meeting_participants cascade from meetings
+    const result = await pool.query('DELETE FROM meetings WHERE code = $1', [code]);
+    return (result.rowCount ?? 0) > 0;
   }
 
   async shutdown(): Promise<void> {

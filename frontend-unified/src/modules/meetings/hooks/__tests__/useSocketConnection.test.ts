@@ -148,6 +148,36 @@ describe('useSocketConnection', () => {
     expect(socket.connect).not.toHaveBeenCalled();
   });
 
+  it('leaves a canceled meeting for good, saying so', () => {
+    const { handlers, socket } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() => handlers.ERROR({ message: 'This meeting was canceled.', code: 'MEETING_CANCELED' }));
+    expect(result.current.canceled).toBe('This meeting was canceled.');
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.hasJoined).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(socket.disconnect).toHaveBeenCalled();
+
+    // Nothing brings it back: there is no meeting to rejoin
+    socket.connected = false;
+    act(() => handlers.disconnect('io client disconnect'));
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+
+  it('shows any other error the server sends', () => {
+    const { handlers } = connectedSocket();
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    act(() => handlers.ERROR({ message: 'Something went wrong', code: 'INTERNAL' }));
+    expect(result.current.error).toBe('Something went wrong');
+    expect(result.current.canceled).toBeNull();
+  });
+
   it('remembers the meeting was joined through a dropped connection, until it is left', () => {
     const { handlers } = connectedSocket();
     const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));

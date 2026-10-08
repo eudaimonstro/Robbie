@@ -9,7 +9,7 @@
 
 import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
 import { LiveMeetingsPage } from './views/LiveMeetingsPage';
@@ -19,8 +19,16 @@ import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 
 function MeetingsContent() {
-  const { isConnected, hasJoined, error, joinError, reconnect, leaveMeeting, meetingCode } =
-    useSocket();
+  const {
+    isConnected,
+    hasJoined,
+    error,
+    joinError,
+    canceled,
+    reconnect,
+    leaveMeeting,
+    meetingCode,
+  } = useSocket();
   const { showToast } = useToast();
   // A link to a meeting that isn't scheduled (or a code typed wrong): the code box says so
   const notFound = joinError?.code === 'MEETING_NOT_FOUND';
@@ -31,6 +39,22 @@ function MeetingsContent() {
       showToast('error', error);
     }
   }, [error, notFound, showToast]);
+
+  // Canceled while it was open: the meeting is gone, and the way on is the schedule
+  if (canceled) {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <div className="card p-8 text-center">
+          <p role="status" className="text-ink mb-4">
+            {canceled}
+          </p>
+          <Link to="/meetings" className="btn-primary btn-sm">
+            Live Meetings
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!isConnected && joinError?.code === 'MEETING_NOT_FOUND') {
     return (

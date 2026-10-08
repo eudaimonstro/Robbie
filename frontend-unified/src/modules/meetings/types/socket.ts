@@ -94,6 +94,11 @@ export interface SocketContextValue {
   error: string | null;
   /** Why the last join was refused, or null */
   joinError: JoinError | null;
+  /**
+   * The meeting was canceled while it was open, with what the server said: the connection is
+   * closed for good, and the screens say so with the way back to Live Meetings
+   */
+  canceled: string | null;
   /** The meeting in the page's link (/meetings/:code) */
   meetingCode: string;
   /** A display follows the meeting without being a member of it */

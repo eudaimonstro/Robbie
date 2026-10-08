@@ -33,14 +33,16 @@ const LABEL = 'text-display-label font-semibold uppercase tracking-[0.08em] text
  * session, the question (or the result) and the room's attendance and vote; adjourned, when.
  */
 export function DisplayView() {
-  const { state, isConnected, hasJoined, joinError, meetingCode, attendance } = useSocket();
+  const { state, isConnected, hasJoined, joinError, canceled, meetingCode, attendance } =
+    useSocket();
   const { availableOrganizations } = useMeetingOrganization();
   const organization = availableOrganizations.find((o) => o.id === state.organizationId) ?? null;
   const { roster } = useRoster(meetingCode, isConnected);
   const eligible = eligibleCount(organization, roster);
   const beforeMeeting = !state.meetingActive && state.meetingStage !== 'adjourned';
   // Once joined, a dropped connection keeps the last screen up while the socket reconnects
-  const showMeeting = isConnected || (hasJoined && !joinError);
+  // A meeting canceled while open is gone: the display says so (nothing on it is interactive)
+  const showMeeting = !canceled && (isConnected || (hasJoined && !joinError));
 
   return (
     <div className="dark relative min-h-screen overflow-hidden bg-paper font-body text-ink">
@@ -48,7 +50,7 @@ export function DisplayView() {
       <main className="relative flex min-h-screen flex-col gap-10 px-16 py-12">
         {!showMeeting ? (
           <p className="m-auto text-display-line text-ink-muted">
-            {joinError?.message ?? 'Connecting to the meeting...'}
+            {canceled ?? joinError?.message ?? 'Connecting to the meeting...'}
           </p>
         ) : (
           <>

@@ -9,6 +9,7 @@ const socket = vi.hoisted(() => ({
   hasJoined: false,
   error: null as string | null,
   joinError: null as { message: string; code: string | null } | null,
+  canceled: null as string | null,
   reconnect: vi.fn(),
   leaveMeeting: vi.fn(),
 }));
@@ -79,6 +80,20 @@ describe('MeetingsModule while not connected', () => {
     socket.hasJoined = false;
     socket.error = null;
     socket.joinError = null;
+    socket.canceled = null;
+  });
+
+  it('says calmly that the meeting was canceled, with the way back to Live Meetings', () => {
+    socket.hasJoined = false;
+    socket.canceled = 'This meeting was canceled.';
+    renderAt('/meetings/DEMO');
+
+    expect(screen.getByRole('status').textContent).toBe('This meeting was canceled.');
+    expect(screen.queryByText('The meeting')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(toast.showToast).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('link', { name: 'Live Meetings' }));
+    expect(screen.getByText('Live meetings page')).toBeTruthy();
   });
 
   it('keeps the meeting on screen under a banner when a joined connection drops', () => {

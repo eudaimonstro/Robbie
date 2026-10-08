@@ -5,6 +5,9 @@ import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { JoinError, TypedSocket, StateUpdatePayload } from '../types/socket';
 import { TERMS_NOT_ACCEPTED } from '../../../api/client';
 
+/** The ERROR code the server sends the room of a meeting canceled while it is open */
+const MEETING_CANCELED = 'MEETING_CANCELED';
+
 // Unset in development: the socket connects to the page's own origin, which Vite proxies
 const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL;
 
@@ -17,6 +20,8 @@ interface UseSocketConnectionReturn {
   error: string | null;
   /** Why the last join was refused, with the server's error code */
   joinError: JoinError | null;
+  /** The meeting was canceled while open, with what the server said: it is left for good */
+  canceled: string | null;
   dispatch: (action: MeetingAction) => Promise<boolean>;
   reconnect: () => void;
   disconnect: () => void;
@@ -33,6 +38,7 @@ export function useSocketConnection(
   const display = options.display === true;
   const [state, setState] = useState<MeetingState>(initialState);
   const [joinError, setJoinError] = useState<JoinError | null>(null);
+  const [canceled, setCanceled] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [connectedMembers, setConnectedMembers] = useState<Member[]>([]);
@@ -167,7 +173,18 @@ export function useSocketConnection(
       setTemporaryError(reason);
     });
 
-    newSocket.on('ERROR', ({ message }) => {
+    // A canceled meeting is gone: the server has sent everyone out of it, and there is nothing
+    // to rejoin, so the socket closes and stays closed
+    let meetingCanceled = false;
+    newSocket.on('ERROR', ({ message, code }) => {
+      if (code === MEETING_CANCELED) {
+        meetingCanceled = true;
+        setCanceled(message);
+        setIsConnected(false);
+        setHasJoined(false);
+        newSocket.disconnect();
+        return;
+      }
       setError(message);
     });
 
@@ -175,7 +192,7 @@ export function useSocketConnection(
     // rather than wait for the next attempt, or at all once socket.io has stopped (the server
     // ended the connection)
     const connectNow = () => {
-      if (!newSocket.connected) newSocket.connect();
+      if (!meetingCanceled && !newSocket.connected) newSocket.connect();
     };
     const onVisible = () => {
       if (document.visibilityState === 'visible') connectNow();
@@ -259,6 +276,7 @@ export function useSocketConnection(
     connectedMembers,
     error,
     joinError,
+    canceled,
     dispatch,
     reconnect,
     disconnect,

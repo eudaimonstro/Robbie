@@ -3,6 +3,8 @@ import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { setIoInstance } from '../socket/ioInstance.js';
+import { MEETING_CANCELED } from '../socket/meetingLifecycle.js';
+import { roomManager } from '../socket/roomManager.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -249,5 +251,73 @@ describe("changing the organization's members", () => {
     expect(removed.status).toBe(204);
     expect(await getStorage().getMeeting(f.packet.code)).toEqual(adjourned);
     expect(member.data.role).toBe('member');
+  });
+});
+
+describe('canceling a meeting that is open', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+  });
+  afterEach(live.disconnectAll);
+
+  it('tells the room, sends everyone out, and deletes the live meeting', async () => {
+    const member = live.connect(f.users.member);
+    const display = live.connect(f.users.viewer);
+    expect((await live.join(member, f.packet.code)).success).toBe(true);
+    expect((await live.join(display, f.packet.code, true)).success).toBe(true);
+    live.broadcasts.length = 0;
+
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(204);
+
+    expect(live.broadcasts).toEqual([
+      {
+        room: 'meeting:ORGA01',
+        event: 'ERROR',
+        payload: { message: MEETING_CANCELED, code: 'MEETING_CANCELED' },
+      },
+    ]);
+    for (const socket of [member, display]) {
+      expect(socket.rooms.has('meeting:ORGA01')).toBe(false);
+      expect(socket.data.meetingCode).toBeNull();
+    }
+    expect(roomManager.getMembers(f.packet.code)).toEqual([]);
+    expect(await getStorage().getMeeting(f.packet.code)).toBeNull();
+
+    // Nothing is left to call to order: the code has no meeting
+    const again = await live.join(member, f.packet.code);
+    expect(again).toMatchObject({ success: false, errorCode: 'MEETING_NOT_FOUND' });
+    expect(await getStorage().getMeeting(f.packet.code)).toBeNull();
+  });
+
+  it('leaves a meeting nobody has opened as it was', async () => {
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(live.broadcasts).toEqual([]);
+  });
+
+  it('keeps an open meeting when the cancellation is refused', async () => {
+    const chair = live.connect(f.users.secretary);
+    await live.join(chair, f.packet.code);
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: new Date() },
+    });
+    live.broadcasts.length = 0;
+
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(409);
+    expect(live.broadcasts).toEqual([]);
+    expect(chair.data.meetingCode).toBe(f.packet.code);
+    expect(await getStorage().getMeeting(f.packet.code)).not.toBeNull();
   });
 });

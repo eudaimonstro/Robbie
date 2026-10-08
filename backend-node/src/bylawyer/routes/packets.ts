@@ -19,6 +19,7 @@ import { listMembers } from '../../orgs/membershipService.js';
 import { getStorage } from '../../db/meetingStorage.js';
 import { agendaFromPacket, findMeetingPacket } from '../../socket/meetingPacket.js';
 import { syncLiveRoles } from '../../socket/meetingRoles.js';
+import { closeCanceledMeeting } from '../../socket/meetingLifecycle.js';
 import { getIoInstance } from '../../socket/ioInstance.js';
 import { applyAction } from '../../socket/stateManager.js';
 import { emitState } from '../../socket/statePublisher.js';
@@ -247,7 +248,8 @@ packetsRouter.put(
 /**
  * DELETE /api/packets/:id
  * Delete packet and all its contents (canceling the meeting). A meeting already called to order
- * is refused (409): its minutes would go with it.
+ * is refused (409): its minutes would go with it. A meeting already open is closed: the people
+ * in it are told and sent out, and its live state is deleted.
  */
 packetsRouter.delete(
   '/packets/:id',
@@ -268,6 +270,12 @@ packetsRouter.delete(
         select: { storagePath: true },
       });
 
+      // The meeting code, whose live meeting (if it is open) closes with the packet
+      const code = await prisma.meetingPacket.findFirst({
+        where: { id, organizationId },
+        select: { robbieCode: true },
+      });
+
       // One statement, so a call to order meanwhile can't be deleted with the packet; the
       // cascade takes the agenda items and attachments. It names the rule's organization too.
       const deleted = await prisma.meetingPacket.deleteMany({
@@ -285,6 +293,8 @@ packetsRouter.delete(
       }
 
       await deleteFiles(uploads.map((upload) => upload.storagePath));
+      // A meeting already open (not yet called to order) closes with it
+      if (code) await closeCanceledMeeting(code.robbieCode);
 
       res.status(204).send();
     } catch (error) {
