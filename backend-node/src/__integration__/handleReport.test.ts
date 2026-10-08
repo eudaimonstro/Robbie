@@ -97,6 +97,7 @@ describe('handleReport: preserving an attachment', () => {
       preservedAt: '2026-10-08T15:30:00.000Z',
       keepUntil: '2027-10-08T15:30:00.000Z',
       preservedFile: path.basename(attachment.storagePath!),
+      fileMissing: false,
       note: 'NCMEC report 123',
     });
 
@@ -116,12 +117,89 @@ describe('handleReport: preserving an attachment', () => {
     await expect(fs.access(getFullPath(attachment.storagePath!))).resolves.toBeUndefined();
   });
 
-  it('still records and removes an attachment whose file is already gone', async () => {
+  it('refuses an attachment whose file is gone, unless told the file may be missing', async () => {
     const attachment = await uploaded(Buffer.from('%PDF-1.4 gone'));
     await fs.rm(getFullPath(attachment.storagePath!));
-    const result = await preserveAttachment(attachment.id, 'gone', { root });
-    expect(result.manifest).toMatchObject({ sha256: null, preservedFile: null });
+    await expect(preserveAttachment(attachment.id, 'gone', { root })).rejects.toThrow(
+      /missing.*--missing-ok/s,
+    );
+    expect(await fs.readdir(root)).toEqual([]);
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).not.toBeNull();
+
+    const result = await preserveAttachment(attachment.id, 'gone', { root, missingOk: true });
+    expect(result.manifest).toMatchObject({ sha256: null, preservedFile: null, fileMissing: true });
     expect(await fs.readdir(result.folder)).toEqual(['manifest.json']);
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
+  });
+
+  it('treats only a missing file as gone: another error stops it, changing nothing', async () => {
+    const attachment = await uploaded(Buffer.from('%PDF-1.4 locked'));
+    const meetingDir = path.dirname(getFullPath(attachment.storagePath!));
+    await fs.chmod(meetingDir, 0o000);
+    try {
+      await expect(
+        preserveAttachment(attachment.id, 'x', { root, missingOk: true }),
+      ).rejects.toMatchObject({ code: 'EACCES' });
+    } finally {
+      await fs.chmod(meetingDir, 0o755);
+    }
+    expect(await fs.readdir(root)).toEqual([]);
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).not.toBeNull();
+  });
+
+  it('refuses a stored path that is not a regular file', async () => {
+    const attachment = await uploaded(Buffer.from('%PDF-1.4 link'));
+    const original = getFullPath(attachment.storagePath!);
+    await fs.rm(original);
+    await fs.symlink('/etc/hostname', original);
+    try {
+      await expect(preserveAttachment(attachment.id, 'x', { root })).rejects.toThrow(
+        /not a regular file/,
+      );
+    } finally {
+      await fs.rm(original);
+    }
+    expect(await fs.readdir(root)).toEqual([]);
+  });
+
+  it('deletes the original before the record, and a run after a failed delete finishes', async () => {
+    const data = Buffer.from('%PDF-1.4 stuck');
+    const attachment = await uploaded(data);
+    const original = getFullPath(attachment.storagePath!);
+    const meetingDir = path.dirname(original);
+
+    // The original can't be deleted: the record stays with it, and the copy is kept
+    await fs.chmod(meetingDir, 0o555);
+    try {
+      await expect(preserveAttachment(attachment.id, 'x', { root })).rejects.toThrow(
+        /couldn't be deleted.*run the same command again/is,
+      );
+    } finally {
+      await fs.chmod(meetingDir, 0o755);
+    }
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).not.toBeNull();
+    await expect(fs.access(original)).resolves.toBeUndefined();
+    const [folder] = await fs.readdir(root);
+
+    // Again: the earlier copy is used, not a second one
+    const again = await preserveAttachment(attachment.id, 'x', { root });
+    expect(again.resumed).toBe(true);
+    expect(again.folder).toBe(path.join(root, folder));
+    expect(await fs.readdir(root)).toEqual([folder]);
+    expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
+    await expect(fs.access(original)).rejects.toThrow();
+  });
+
+  it('finishes a removal whose record survived the file', async () => {
+    const attachment = await uploaded(Buffer.from('%PDF-1.4 half'));
+    const first = await preserveAttachment(attachment.id, 'x', { root });
+    // As if deleting the record had failed after the file went
+    const { id, ...row } = attachment;
+    await prisma.attachment.create({ data: { id, ...row } });
+
+    const again = await preserveAttachment(attachment.id, 'x', { root });
+    expect(again).toMatchObject({ resumed: true, folder: first.folder });
+    expect(await fs.readdir(root)).toEqual([path.basename(first.folder)]);
     expect(await prisma.attachment.findUnique({ where: { id: attachment.id } })).toBeNull();
   });
 

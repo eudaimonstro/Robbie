@@ -16,11 +16,29 @@ const ID = '3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b';
 describe('parseReportArgs', () => {
   it('reads an attachment with its note, and a dry run', () => {
     expect(parseReportArgs(['--attachment', ID, '--note', ' NCMEC report 42 '])).toEqual({
-      command: { kind: 'attachment', attachmentId: ID, note: 'NCMEC report 42', dryRun: false },
+      command: {
+        kind: 'attachment',
+        attachmentId: ID,
+        note: 'NCMEC report 42',
+        dryRun: false,
+        missingOk: false,
+      },
     });
     expect(
       parseReportArgs(['--attachment', ID.toUpperCase(), '--note', 'x', '--dry-run']).command,
-    ).toEqual({ kind: 'attachment', attachmentId: ID, note: 'x', dryRun: true });
+    ).toEqual({ kind: 'attachment', attachmentId: ID, note: 'x', dryRun: true, missingOk: false });
+  });
+
+  it('reads --missing-ok with an attachment only', () => {
+    expect(
+      parseReportArgs(['--attachment', ID, '--note', 'x', '--missing-ok']).command,
+    ).toMatchObject({ missingOk: true });
+    expect(parseReportArgs(['--attachment', ID, '--note', 'x']).command).toMatchObject({
+      missingOk: false,
+    });
+    expect(parseReportArgs(['--suspend', 'a@b.org', '--missing-ok']).error).toBe(
+      '--missing-ok goes with --attachment only',
+    );
   });
 
   it('reads a suspension and its reversal, with the email normalized', () => {
@@ -106,6 +124,7 @@ describe('buildManifest', () => {
       // One year on from a 29 February
       keepUntil: '2029-03-01T10:00:00.000Z',
       preservedFile: `${ID}.pdf`,
+      fileMissing: false,
       note: 'Report 7',
     });
   });

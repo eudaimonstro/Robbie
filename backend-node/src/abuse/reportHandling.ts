@@ -17,8 +17,9 @@ import { normalizeEmail } from '../auth/normalizeEmail.js';
 import { deleteFile, getFullPath, uploadRoot } from '../bylawyer/services/fileStorage.js';
 
 export const USAGE = `Usage (from backend-node, or /app/backend-node in the image):
-  node dist/scripts/handleReport.js --attachment <id> --note <text> [--dry-run]
+  node dist/scripts/handleReport.js --attachment <id> --note <text> [--missing-ok] [--dry-run]
       Preserve an uploaded file and its record in PRESERVE_DIR, then remove it from Robbie
+      (--missing-ok: remove the record even if its file is already gone from disk)
   node dist/scripts/handleReport.js --suspend <email> [--dry-run]
       Suspend the account: no sign-in, every session ended
   node dist/scripts/handleReport.js --unsuspend <email> [--dry-run]
@@ -28,7 +29,13 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type ReportCommand =
-  | { kind: 'attachment'; attachmentId: string; note: string; dryRun: boolean }
+  | {
+      kind: 'attachment';
+      attachmentId: string;
+      note: string;
+      dryRun: boolean;
+      missingOk: boolean;
+    }
   | { kind: 'suspend' | 'unsuspend'; email: string; dryRun: boolean };
 
 /** The script's arguments as one command, or why they aren't one */
@@ -46,6 +53,7 @@ export function parseReportArgs(
         suspend: { type: 'string' },
         unsuspend: { type: 'string' },
         note: { type: 'string' },
+        'missing-ok': { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
       },
     }));
@@ -70,13 +78,23 @@ export function parseReportArgs(
     if (!note) {
       return { error: '--note is required with --attachment: why it is removed (the report)' };
     }
+    const missingOk = values['missing-ok'] ?? false;
     return {
-      command: { kind: 'attachment', attachmentId: attachmentId.toLowerCase(), note, dryRun },
+      command: {
+        kind: 'attachment',
+        attachmentId: attachmentId.toLowerCase(),
+        note,
+        dryRun,
+        missingOk,
+      },
     };
   }
 
   if (values.note !== undefined) {
     return { error: '--note goes with --attachment only' };
+  }
+  if (values['missing-ok']) {
+    return { error: '--missing-ok goes with --attachment only' };
   }
   const email = normalizeEmail(values[chosen[0]]!);
   if (!EMAIL_PATTERN.test(email)) {
@@ -103,7 +121,7 @@ export interface PreservationManifest {
   storagePath: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
-  /** SHA-256 of the file, hex; null when the file was already gone from disk */
+  /** SHA-256 of the file, hex; null when the file was already gone from disk (fileMissing) */
   sha256: string | null;
   /** The uploader's email, as recorded at upload (null for files uploaded before it was) */
   uploadedBy: string | null;
@@ -117,6 +135,8 @@ export interface PreservationManifest {
   keepUntil: string;
   /** The preserved copy's name in this folder; null when the file was already gone */
   preservedFile: string | null;
+  /** The file was gone from disk when its record was removed (--missing-ok) */
+  fileMissing: boolean;
   note: string;
 }
 
@@ -173,6 +193,7 @@ export function buildManifest(
     preservedAt: details.preservedAt.toISOString(),
     keepUntil: oneYearAfter(details.preservedAt).toISOString(),
     preservedFile: details.preservedFile,
+    fileMissing: details.sha256 === null,
     note: details.note,
   };
 }
@@ -184,15 +205,6 @@ export async function sha256OfFile(file: string): Promise<string> {
   return hash.digest('hex');
 }
 
-async function exists(file: string): Promise<boolean> {
-  try {
-    await fs.access(file);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export class ReportError extends Error {
   constructor(message: string) {
     super(message);
@@ -200,25 +212,90 @@ export class ReportError extends Error {
   }
 }
 
+/**
+ * Whether a stored file is on disk. Only ENOENT means it is gone: any other error (EACCES,
+ * ELOOP, ENOTDIR) is thrown, and anything but a regular file (a symbolic link, a folder) is
+ * refused, so a file is never taken for gone, or followed elsewhere, by mistake.
+ */
+export async function filePresent(file: string): Promise<boolean> {
+  let stats;
+  try {
+    stats = await fs.lstat(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+  if (!stats.isFile()) throw new ReportError(`${file} is not a regular file; nothing changed`);
+  return true;
+}
+
+/** A preserved folder: its path and its manifest */
+export interface PreservedFolder {
+  folder: string;
+  manifest: PreservationManifest;
+}
+
+/** The manifest in a preserved folder */
+export async function readManifest(folder: string): Promise<PreservationManifest> {
+  return JSON.parse(await fs.readFile(path.join(folder, 'manifest.json'), 'utf8'));
+}
+
+/**
+ * The latest earlier preservation of an attachment whose copy is intact (its SHA-256 matches its
+ * manifest's), or null. A run that stopped after the copy (a failed delete) is finished from it.
+ */
+async function earlierPreservation(
+  root: string,
+  attachmentId: string,
+): Promise<PreservedFolder | null> {
+  let names: string[];
+  try {
+    names = await fs.readdir(root);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  for (const name of names
+    .filter((n) => n.endsWith(`-${attachmentId}`))
+    .sort()
+    .reverse()) {
+    const folder = path.join(root, name);
+    const manifest = await readManifest(folder).catch(() => null);
+    if (manifest?.attachmentId !== attachmentId || !manifest.sha256 || !manifest.preservedFile) {
+      continue;
+    }
+    const copy = path.join(folder, manifest.preservedFile);
+    if ((await filePresent(copy)) && (await sha256OfFile(copy)) === manifest.sha256) {
+      return { folder, manifest };
+    }
+  }
+  return null;
+}
+
 export interface PreservationResult {
   /** The folder holding the copy and manifest.json (where it would go, on a dry run) */
   folder: string;
   manifest: PreservationManifest;
   dryRun: boolean;
+  /** An earlier run's copy was found and its removal finished, without a new copy */
+  resumed: boolean;
 }
 
 /**
  * Preserve an uploaded file and remove it from Robbie: copy it into its own folder under the
- * preservation root, write manifest.json beside it, check the copy's hash against the
- * original's, then delete the attachment's row and the original file. Nothing is removed until
- * the copy is checked. A file already gone from disk still gets its manifest, and its row goes.
+ * preservation root, check the copy's hash against the original's, write manifest.json beside
+ * it, then delete the original file and, last, the attachment's row. Nothing is removed until
+ * the copy is checked, and a file is never left without its record: if a delete fails, the same
+ * command run again finds the earlier copy and finishes.
+ * A file already gone from disk is refused unless missingOk, when the manifest says so.
  */
 export async function preserveAttachment(
   attachmentId: string,
   note: string,
-  options: { dryRun?: boolean; root?: string; now?: Date } = {},
+  options: { dryRun?: boolean; root?: string; now?: Date; missingOk?: boolean } = {},
 ): Promise<PreservationResult> {
   const now = options.now ?? new Date();
+  const dryRun = options.dryRun ?? false;
   const root = path.resolve(options.root ?? preserveRoot());
   const uploads = uploadRoot();
   if (root === uploads || root.startsWith(uploads + path.sep)) {
@@ -247,15 +324,30 @@ export async function preserveAttachment(
       `Attachment ${attachmentId} links a Robbie document; it is not an uploaded file`,
     );
   }
-
-  const original = getFullPath(attachment.storagePath);
-  const onDisk = await exists(original);
+  const storagePath = attachment.storagePath;
+  const original = getFullPath(storagePath);
+  const onDisk = await filePresent(original);
   const sha256 = onDisk ? await sha256OfFile(original) : null;
-  const preservedFile = onDisk ? path.basename(attachment.storagePath) : null;
+
+  // A run that stopped after its copy: finish it from that copy
+  const earlier = await earlierPreservation(root, attachment.id);
+  if (earlier && (!onDisk || sha256 === earlier.manifest.sha256)) {
+    if (!dryRun) await removeOriginal(attachment.id, onDisk ? storagePath : null, earlier.folder);
+    return { ...earlier, dryRun, resumed: true };
+  }
+
+  if (!onDisk && !options.missingOk) {
+    throw new ReportError(
+      `The file of attachment ${attachment.id} (${storagePath}) is missing from the uploads ` +
+        'directory, and no earlier copy was found; nothing changed. If it is really gone, run ' +
+        'again with --missing-ok to record and remove the attachment without its file.',
+    );
+  }
+  const preservedFile = onDisk ? path.basename(storagePath) : null;
   const manifest = buildManifest(attachment, { sha256, preservedFile, preservedAt: now, note });
   const stamp = now.toISOString().replace(/[:.]/g, '-');
   const folder = path.join(root, `${stamp}-${attachment.id}`);
-  if (options.dryRun) return { folder, manifest, dryRun: true };
+  if (dryRun) return { folder, manifest, dryRun, resumed: false };
 
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
   // Fails if the folder exists, so nothing earlier is ever overwritten
@@ -272,14 +364,57 @@ export async function preserveAttachment(
       );
     }
   }
-  await fs.writeFile(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', {
-    mode: 0o600,
-    flag: 'wx',
-  });
+  await writeManifest(folder, manifest, 'wx');
+  await removeOriginal(attachment.id, onDisk ? storagePath : null, folder);
+  return { folder, manifest, dryRun, resumed: false };
+}
 
-  await prisma.attachment.delete({ where: { id: attachment.id } });
-  if (onDisk) await deleteFile(attachment.storagePath);
-  return { folder, manifest, dryRun: false };
+/** Write a folder's manifest.json: new (flag wx), or replacing it in one rename */
+async function writeManifest(
+  folder: string,
+  manifest: PreservationManifest,
+  mode: 'wx' | 'replace',
+): Promise<void> {
+  const text = JSON.stringify(manifest, null, 2) + '\n';
+  const target = path.join(folder, 'manifest.json');
+  if (mode === 'wx') {
+    await fs.writeFile(target, text, { mode: 0o600, flag: 'wx' });
+    return;
+  }
+  const temporary = path.join(folder, `manifest.json.${process.pid}.tmp`);
+  await fs.writeFile(temporary, text, { mode: 0o600, flag: 'wx' });
+  await fs.rename(temporary, target);
+}
+
+/**
+ * Delete the original file, then the attachment's row: a failure leaves the record (with or
+ * without its file), never a file without a record, and the same command finishes the job
+ */
+async function removeOriginal(
+  attachmentId: string,
+  storagePath: string | null,
+  folder: string,
+): Promise<void> {
+  if (storagePath) {
+    try {
+      await deleteFile(storagePath);
+    } catch (error) {
+      throw new ReportError(
+        `Preserved in ${folder}, but the original file couldn't be deleted ` +
+          `(${error instanceof Error ? error.message : error}). The attachment is still in ` +
+          'Robbie: fix that, then run the same command again to finish.',
+      );
+    }
+  }
+  try {
+    await prisma.attachment.delete({ where: { id: attachmentId } });
+  } catch (error) {
+    throw new ReportError(
+      `Preserved in ${folder} and the file removed, but the attachment's record couldn't be ` +
+        `deleted (${error instanceof Error ? error.message : error}). Run the same command ` +
+        'again to finish.',
+    );
+  }
 }
 
 export interface SuspensionResult {

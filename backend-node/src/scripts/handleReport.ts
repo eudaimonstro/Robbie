@@ -33,9 +33,11 @@ async function run(command: ReportCommand): Promise<void> {
   const dry = command.dryRun ? 'Dry run, nothing changed. ' : '';
 
   if (command.kind === 'attachment') {
-    const { folder, manifest } = await preserveAttachment(command.attachmentId, command.note, {
-      dryRun: command.dryRun,
-    });
+    const { folder, manifest, resumed } = await preserveAttachment(
+      command.attachmentId,
+      command.note,
+      { dryRun: command.dryRun, missingOk: command.missingOk },
+    );
     const where = manifest.packet.title ?? manifest.packet.meetingCode;
     console.log(`${dry}Attachment ${manifest.attachmentId} ("${manifest.displayName}")`);
     console.log(`  Organization: ${manifest.organization.name} (${manifest.organization.id})`);
@@ -44,10 +46,18 @@ async function run(command: ReportCommand): Promise<void> {
     console.log(`  ${manifest.mimeType ?? 'unknown type'}, ${manifest.sizeBytes ?? '?'} bytes`);
     console.log(`  SHA-256: ${manifest.sha256 ?? 'none: the file was already gone from disk'}`);
     if (command.dryRun) {
-      console.log(`Would preserve it in ${folder} and remove it from Robbie.`);
+      console.log(
+        resumed
+          ? `Already preserved in ${folder}; would finish removing it from Robbie.`
+          : `Would preserve it in ${folder} and remove it from Robbie.`,
+      );
       return;
     }
-    console.log(`Preserved in ${folder} (the file and manifest.json), and removed from Robbie.`);
+    console.log(
+      resumed
+        ? `Already preserved in ${folder}; now removed from Robbie.`
+        : `Preserved in ${folder} (the file and manifest.json), and removed from Robbie.`,
+    );
     console.log(
       `Keep that folder and its manifest at least until ${manifest.keepUntil.slice(0, 10)}: ` +
         'reported material must be preserved for one year (18 U.S.C. 2258A(h), as amended by ' +
