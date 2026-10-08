@@ -6,12 +6,8 @@ import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
 import type { MeetingDispatch } from '../../types/socket';
 import { FORM_MOTIONS } from '../../utils/motionWords';
-import {
-  EMPTY_DRAFT,
-  MotionWordsFields,
-  motionFromDraft,
-  type MotionDraft,
-} from '../MotionWordsFields';
+import { MotionWordsFields } from '../MotionWordsFields';
+import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/motionDraft';
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the

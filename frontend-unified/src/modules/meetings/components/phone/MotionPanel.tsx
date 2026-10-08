@@ -4,12 +4,8 @@ import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer
 import type { MeetingState, Member, MotionDetails } from '@robbie-bylawyer/shared/types';
 import { AgendaAmendmentForm } from '../AgendaAmendmentForm';
 import { BylawAmendmentForm } from '../BylawAmendmentForm';
-import {
-  EMPTY_DRAFT,
-  MotionWordsFields,
-  motionFromDraft,
-  type MotionDraft,
-} from '../MotionWordsFields';
+import { MotionWordsFields } from '../MotionWordsFields';
+import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/motionDraft';
 import { FORM_MOTIONS } from '../../utils/motionWords';
 import { electionUnderway } from '../../utils/chairActions';
 import { useSocket } from '../../context/SocketContext';

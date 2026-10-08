@@ -4,12 +4,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { MOTIONS } from '@robbie-bylawyer/shared/constants';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import {
-  EMPTY_DRAFT,
-  MotionWordsFields,
-  motionFromDraft,
-  type MotionDraft,
-} from '../MotionWordsFields';
+import { MotionWordsFields } from '../MotionWordsFields';
+import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/motionDraft';
 
 const pool: Motion = {
   ...MOTIONS.mainMotion,
