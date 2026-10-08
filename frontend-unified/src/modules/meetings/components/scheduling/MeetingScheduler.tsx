@@ -4,22 +4,34 @@
  * Schedules a meeting in the current organization. Its details create the meeting's packet, which
  * claims the meeting code for the organization and names the presiding officer; the agenda and
  * attachments are then added to the packet, and the join card shows how people get in.
+ *
+ * Given a meeting code, it changes that scheduled meeting instead: the same two steps, filled in
+ * from its packet, and Cancel the meeting. A meeting called to order is changed in the meeting.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2, MapPin } from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
-import { createPacket, updatePacket } from './api';
-import { HttpError, members as membersApi, type OrgMember } from '../../../../api/client';
+import { createPacket, deletePacket, getPacket, updatePacket } from './api';
+import {
+  HttpError,
+  meetingPackets,
+  members as membersApi,
+  type OrgMember,
+} from '../../../../api/client';
+import { toLocalDateTimeInput } from '../../../../utils/dates';
 import { useSession } from '../../../../context/SessionContext';
 import { useMeetingOrganization } from '../../context/OrganizationBridge';
 import { atLeast } from '../../../../utils/roles';
 import { JoinInfoCard } from '../console/JoinInfoCard';
 
 interface MeetingSchedulerProps {
-  onBack: () => void;
+  /** Closes the scheduler; after a change or a cancellation, with what to tell the person */
+  onBack: (status?: string) => void;
   onJoinMeeting: (code: string) => void;
+  /** The scheduled meeting to change; without one, a new meeting is scheduled */
+  meetingCode?: string;
 }
 
 type Step = 'details' | 'agenda';
@@ -37,11 +49,20 @@ function generateMeetingCode(): string {
   return code;
 }
 
-export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProps) {
+/** A scheduled meeting being changed, as loaded */
+type Existing = 'loading' | 'ready' | 'gone' | 'called to order' | { error: string };
+
+export function MeetingScheduler({
+  onBack,
+  onJoinMeeting,
+  meetingCode: existingCode,
+}: MeetingSchedulerProps) {
   const { user } = useSession();
   const { currentOrganization, availableOrganizations } = useMeetingOrganization();
+  const changing = existingCode !== undefined;
+  const [existing, setExisting] = useState<Existing>(changing ? 'loading' : 'ready');
   const [step, setStep] = useState<Step>('details');
-  const [meetingCode, setMeetingCode] = useState(generateMeetingCode);
+  const [meetingCode, setMeetingCode] = useState(() => existingCode ?? generateMeetingCode());
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -55,6 +76,56 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const [error, setError] = useState<string | null>(null);
   // Next was pressed without a title: the meeting needs one, and a saved one is kept
   const [titleMissing, setTitleMissing] = useState(false);
+  // Changing a meeting: something was saved (the details or the agenda), the details just were,
+  // and Cancel the meeting is asking
+  const [changed, setChanged] = useState(false);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // The form's heading takes focus when it opens (and once a meeting being changed has loaded),
+  // so a screen reader starts there
+  const opened = existing === 'ready';
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [opened]);
+
+  // Changing a meeting: its packet fills in the details, and holds the agenda and files
+  useEffect(() => {
+    if (!existingCode) return;
+    let canceled = false;
+    getPacket(existingCode)
+      .then((loaded) => {
+        if (canceled) return;
+        if (!loaded) {
+          setExisting('gone');
+          return;
+        }
+        setPacket(loaded);
+        setMeetingCode(loaded.robbieCode);
+        setTitle(loaded.title ?? '');
+        setDescription(loaded.description ?? '');
+        setLocation(loaded.location ?? '');
+        setScheduledFor(loaded.scheduledFor ? toLocalDateTimeInput(loaded.scheduledFor) : '');
+        setChairUserId(loaded.chairUserId ?? null);
+        setExisting(loaded.startedAt ? 'called to order' : 'ready');
+      })
+      .catch((err: unknown) => {
+        if (!canceled) {
+          setExisting({ error: err instanceof Error ? err.message : "Couldn't load the meeting" });
+        }
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [existingCode]);
+
+  // Cancel the meeting asks first, with Keep it focused; answering returns focus to the button
+  useEffect(() => {
+    if (confirmingCancel) keepRef.current?.focus();
+  }, [confirmingCancel]);
 
   // Meetings are scheduled in the organization selected in the header, by its secretaries and
   // above. Once the packet exists it belongs to that organization, whatever the header shows.
@@ -134,11 +205,19 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     }
     setIsSaving(true);
     setError(null);
+    setDetailsSaved(false);
     try {
-      // The first time, creating the packet claims the code; after Edit the details, save them
-      setPacket(
-        packet ? await updatePacket(packet.id, changedDetails()) : await create(organization.id),
-      );
+      // The first time, creating the packet claims the code; after Edit the details (or when
+      // changing a meeting), save them. The answer to a save leaves out the linked documents'
+      // titles, so the agenda and files already loaded are kept.
+      if (packet) {
+        const saved = await updatePacket(packet.id, changedDetails());
+        setPacket({ ...saved, attachments: packet.attachments, agendaItems: packet.agendaItems });
+        setChanged(true);
+        setDetailsSaved(changing);
+      } else {
+        setPacket(await create(organization.id));
+      }
       setStep('agenda');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to schedule the meeting');
@@ -152,7 +231,49 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
   const presidingName =
     chairUserId == null ? null : (presiders?.find((m) => m.userId === chairUserId)?.name ?? null);
 
+  const meetingName = title.trim() || 'The meeting';
+
+  /**
+   * Close after changing a meeting. A meeting already open (before the call to order) gets the
+   * schedule's agenda; the server refuses once it has been called to order, and says so.
+   */
+  const finishChange = async () => {
+    if (!changed) {
+      onBack(undefined);
+      return;
+    }
+    setIsSaving(true);
+    let status = `${meetingName} is changed.`;
+    try {
+      const { live } = await meetingPackets.reloadAgenda(meetingCode);
+      if (live) status += " The open meeting's agenda now matches.";
+    } catch (err) {
+      if (err instanceof Error) status += ` ${err.message}`;
+    } finally {
+      setIsSaving(false);
+    }
+    onBack(status);
+  };
+
+  const handleCancelMeeting = async () => {
+    if (!packet) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deletePacket(packet.id);
+      onBack(`${meetingName} is canceled.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't cancel the meeting");
+      setConfirmingCancel(false);
+      setIsSaving(false);
+    }
+  };
+
   const handleFinish = async () => {
+    if (changing) {
+      await finishChange();
+      return;
+    }
     if (packet) {
       setIsSaving(true);
       try {
@@ -167,6 +288,35 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     else onBack();
   };
 
+  if (changing && existing !== 'ready') {
+    const message =
+      existing === 'loading'
+        ? 'Loading the meeting...'
+        : existing === 'gone'
+          ? 'This meeting is no longer on the schedule.'
+          : existing === 'called to order'
+            ? `${meetingName} has been called to order. Its agenda is changed in the meeting.`
+            : existing.error;
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <div className="card p-6 text-center">
+          <h2 ref={headingRef} tabIndex={-1} className="card-title mb-2 focus:outline-none">
+            Change the meeting
+          </h2>
+          <p
+            role={typeof existing === 'object' ? 'alert' : undefined}
+            className="text-ink-muted mb-4"
+          >
+            {message}
+          </p>
+          <button type="button" onClick={() => onBack(undefined)} className="btn-secondary">
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!organization) {
     return (
       <div className="max-w-md mx-auto py-12">
@@ -175,7 +325,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
             Meetings are scheduled in an organization, by its secretaries and admins. Choose an
             organization where you have one of those roles.
           </p>
-          <button onClick={onBack} className="btn-secondary">
+          <button type="button" onClick={() => onBack()} className="btn-secondary">
             Back
           </button>
         </div>
@@ -187,11 +337,18 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
     <div className="mx-auto max-w-2xl">
       <div className="card overflow-hidden">
         <div className="flex items-center gap-3 border-b border-rule px-6 py-4">
-          <button type="button" onClick={onBack} aria-label="Back" className="btn-ghost btn-sm">
+          <button
+            type="button"
+            onClick={() => (changing ? void finishChange() : onBack())}
+            aria-label="Back"
+            className="btn-ghost btn-sm"
+          >
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="min-w-0 flex-1">
-            <h2 className="card-title">Schedule a meeting</h2>
+            <h2 ref={headingRef} tabIndex={-1} className="card-title focus:outline-none">
+              {changing ? 'Change the meeting' : 'Schedule a meeting'}
+            </h2>
             <p className="text-sm text-ink-muted">
               {organization.name}:{' '}
               {step === 'details' ? 'step 1 of 2, the details' : 'step 2 of 2, the agenda'}
@@ -317,16 +474,64 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 ) : (
                   <>
-                    Next: build the agenda
+                    {changing ? 'Next: the agenda' : 'Next: build the agenda'}
                     <ArrowRight className="h-5 w-5" aria-hidden="true" />
                   </>
                 )}
               </button>
+
+              {changing && packet && (
+                <div className="border-t border-rule pt-4">
+                  {confirmingCancel ? (
+                    <div role="group" aria-labelledby="cancelMeetingQuestion" className="space-y-3">
+                      <p id="cancelMeetingQuestion" className="text-sm text-ink">
+                        {`Cancel ${meetingName}? Its agenda and attached files are deleted.`}
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void handleCancelMeeting()}
+                          disabled={isSaving}
+                          className="btn-danger btn-sm"
+                        >
+                          Yes, cancel it
+                        </button>
+                        <button
+                          ref={keepRef}
+                          type="button"
+                          onClick={() => {
+                            setConfirmingCancel(false);
+                            // Back to the button that asked
+                            requestAnimationFrame(() => cancelRef.current?.focus());
+                          }}
+                          className="btn-secondary btn-sm"
+                        >
+                          Keep it
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      ref={cancelRef}
+                      type="button"
+                      onClick={() => setConfirmingCancel(true)}
+                      className="btn-ghost btn-sm text-gavel"
+                    >
+                      Cancel the meeting
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           ) : (
             packet && (
               <>
-                <JoinInfoCard code={meetingCode} />
+                {detailsSaved && (
+                  <p role="status" className="text-sm text-ink-muted">
+                    The details are saved.
+                  </p>
+                )}
+                {!changing && <JoinInfoCard code={meetingCode} />}
 
                 <div className="rounded-lg bg-surface-2 p-4">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -356,7 +561,13 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                   </p>
                 </div>
 
-                <PacketBuilder packet={packet} onPacketUpdate={setPacket} />
+                <PacketBuilder
+                  packet={packet}
+                  onPacketUpdate={(updated) => {
+                    setPacket(updated);
+                    setChanged(true);
+                  }}
+                />
 
                 <div className="flex gap-3 border-t border-rule pt-6">
                   <button
@@ -374,7 +585,7 @@ export function MeetingScheduler({ onBack, onJoinMeeting }: MeetingSchedulerProp
                   >
                     {isSaving ? (
                       <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                    ) : presiding ? (
+                    ) : presiding && !changing ? (
                       <>
                         <Check className="h-5 w-5" aria-hidden="true" />
                         Start meeting

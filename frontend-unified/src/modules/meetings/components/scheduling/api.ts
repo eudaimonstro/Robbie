@@ -11,6 +11,11 @@ async function serverMessage(response: Response, fallback: string): Promise<stri
   return typeof body?.error === 'string' ? body.error : fallback;
 }
 
+/** A failed response as an HttpError with the server's message (a refusal says why) */
+async function failure(response: Response, fallback: string): Promise<HttpError> {
+  return new HttpError(await serverMessage(response, fallback), response.status);
+}
+
 /**
  * The meeting packet for a meeting code, or null when the meeting has none (a packet is made
  * when a meeting is scheduled or linked, never by reading)
@@ -55,7 +60,8 @@ export async function createPacket(
 }
 
 /**
- * Update packet metadata
+ * Update packet metadata (secretary and above). A refusal is an HttpError with the server's
+ * message.
  */
 export async function updatePacket(
   packetId: string,
@@ -76,9 +82,20 @@ export async function updatePacket(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to update packet');
+    throw await failure(response, "Couldn't save the meeting");
   }
   return response.json();
+}
+
+/**
+ * Cancel a scheduled meeting: delete its packet, agenda and files (secretary and above). The
+ * server refuses (409) a meeting already called to order.
+ */
+export async function deletePacket(packetId: string): Promise<void> {
+  const response = await apiFetch(`/packets/${packetId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw await failure(response, "Couldn't cancel the meeting");
+  }
 }
 
 /**
@@ -94,7 +111,7 @@ export async function createAgendaItem(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to create agenda item');
+    throw await failure(response, 'Failed to create agenda item');
   }
   return response.json();
 }
@@ -112,7 +129,7 @@ export async function updateAgendaItem(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Failed to update agenda item');
+    throw await failure(response, 'Failed to update agenda item');
   }
   return response.json();
 }
@@ -125,7 +142,7 @@ export async function deleteAgendaItem(itemId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete agenda item');
+    throw await failure(response, 'Failed to delete agenda item');
   }
 }
 
@@ -139,7 +156,7 @@ export async function reorderAgendaItems(itemIds: string[]): Promise<void> {
     body: JSON.stringify({ itemIds }),
   });
   if (!response.ok) {
-    throw new Error('Failed to reorder agenda items');
+    throw await failure(response, 'Failed to reorder agenda items');
   }
 }
 
@@ -192,7 +209,7 @@ export async function linkDocument(
     }),
   });
   if (!response.ok) {
-    throw new Error('Failed to link document');
+    throw await failure(response, 'Failed to link document');
   }
   return response.json();
 }
@@ -205,7 +222,7 @@ export async function deleteAttachment(attachmentId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete attachment');
+    throw await failure(response, 'Failed to delete attachment');
   }
 }
 
