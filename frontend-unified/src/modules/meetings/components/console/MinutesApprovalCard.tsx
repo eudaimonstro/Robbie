@@ -1,9 +1,9 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { CheckCircle } from 'lucide-react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import type { MeetingDispatch } from '../../types/socket';
+import { LazyMarkdown } from '../../../../components/LazyMarkdown';
 import {
   agendaNamesTheApproval,
   minutesBody,
@@ -83,7 +83,7 @@ export function MinutesApprovalCard({
       {minutes ? (
         <div className="max-h-80 overflow-y-auto rounded-lg border border-rule bg-surface-2 p-4">
           <div className="document-content text-sm">
-            <ReactMarkdown>{minutesBody(minutes)}</ReactMarkdown>
+            <LazyMarkdown>{minutesBody(minutes)}</LazyMarkdown>
           </div>
         </div>
       ) : (

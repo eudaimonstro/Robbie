@@ -33,11 +33,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # The server closes its sockets and the database pool on SIGTERM, within 10 seconds. An init
-    # process passes SIGTERM on while app-start is still migrating (a shell as PID 1 ignores it,
-    # so docker stop would wait out the grace period and kill it)
+    # The server closes its sockets, writes the live meetings' last changes and closes the
+    # database pool on SIGTERM, in a second or two (10 at most). An init process passes SIGTERM
+    # on while app-start is still migrating (a shell as PID 1 ignores it, so docker stop would
+    # wait out the grace period and kill it)
     init: true
     stop_grace_period: 15s
+    # The box has 1.9 GiB for the app, Postgres, Caddy and the system. Node's heap is capped at
+    # 384 MB (app-start); the rest is buffers, compression and Node itself. A 150-phone meeting
+    # peaks near 400 MB. Past the limit the container restarts rather than pushing the whole box
+    # into swap, and phones join again by themselves.
+    mem_limit: 768m
     logging: *logging
 
   db:
@@ -55,6 +61,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Default settings (128 MB of shared buffers) and at most 10 connections from the app's one
+    # pool, plus the backups
+    mem_limit: 512m
     logging: *logging
 
   backup:
@@ -98,6 +107,7 @@ services:
       - caddy_config:/config
     depends_on:
       - app
+    mem_limit: 256m
     logging: *logging
 
 volumes:
