@@ -1,10 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { bylawyerRouter, MEETING_STAYS_LINKED } from '../bylawyer/bylawyerRouter.js';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { initialState } from '@robbie-bylawyer/shared/reducer';
+import {
+  bylawyerRouter,
+  MEETING_IS_OPEN,
+  MEETING_STAYS_LINKED,
+} from '../bylawyer/bylawyerRouter.js';
+import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
-import { resetDatabase } from './db.js';
+import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call, runHandler } from './helpers.js';
 import { describeRules } from './rules.js';
+
+beforeAll(async () => {
+  // Unlinking looks for the code's live meeting
+  await initializeStorage();
+  await resetLiveMeetings();
+});
 
 describeRules('Bylawyer router rules', [
   {
@@ -172,6 +184,22 @@ describe('live meetings', () => {
     });
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: MEETING_STAYS_LINKED });
+  });
+
+  it('stay linked while their meeting is open, so canceling it closes it', async () => {
+    // Opened on the console (the first join stores the live meeting), not called to order
+    await getStorage().getOrCreateMeeting(f.emptyPacket.code, initialState);
+    try {
+      const res = await call('delete', `/api/bylawyer/link-meeting/${f.emptyPacket.code}`, {
+        cookie: f.users.secretary.cookie,
+      });
+      expect(res.status).toBe(409);
+      expect(res.body).toEqual({ error: MEETING_IS_OPEN });
+      expect(await prisma.meetingPacket.count({ where: { id: f.emptyPacket.id } })).toBe(1);
+      expect(await getStorage().getMeeting(f.emptyPacket.code)).not.toBeNull();
+    } finally {
+      await resetLiveMeetings();
+    }
   });
 
   it("unlink only their own organization's packet", async () => {

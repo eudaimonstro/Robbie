@@ -243,7 +243,7 @@ When a bylaw amendment motion passes in Robbie:
 
 **Linking Flow:**
 
-1. Link a Robbie meeting to a Bylawyer organization via `POST /api/bylawyer/link-meeting` (secretary). This gives the meeting code a packet in the organization (or uses the one it has there; 409 if the code is another organization's), the only record of the link.
+1. A meeting scheduled in an organization is linked to it by its packet. The API can still link a code via `POST /api/bylawyer/link-meeting` (secretary): this gives the meeting code a packet in the organization (or uses the one it has there; 409 if the code is another organization's), the only record of the link. `DELETE /api/bylawyer/link-meeting/{code}` deletes a bare packet, and refuses (409) one with an agenda or attachments, one called to order, and one whose meeting is open ("This meeting is open. Cancel it from Live Meetings instead."). The web app has no Link or Unlink: the console's More shows the meeting's organization, and a meeting is canceled from Live Meetings.
 2. When creating a bylawAmendment motion in Robbie, select the document and section
 3. After the motion passes, it's automatically synced to Bylawyer. The sync skips a document outside the meeting's organization and a target section outside the document's current version.
 

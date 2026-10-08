@@ -7,6 +7,7 @@
 
 import { Router, type Router as RouterType, type RequestHandler } from 'express';
 import { prisma } from '../db/prisma.js';
+import { getStorage } from '../db/meetingStorage.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { logger } from '../middleware/logger.js';
 import { validate, type RouteParams } from '../middleware/validate.js';
@@ -167,14 +168,32 @@ bylawyerRouter.post(
 export const MEETING_STAYS_LINKED = 'A meeting that has been called to order stays linked';
 
 /**
+ * The answer when an open meeting is unlinked: deleting its packet would leave the people in it
+ * a meeting without one. Canceling it (Live Meetings) closes it.
+ */
+export const MEETING_IS_OPEN = 'This meeting is open. Cancel it from Live Meetings instead.';
+
+/**
  * DELETE /api/bylawyer/link-meeting/:meetingCode
- * Unlink a live meeting by deleting its packet, which must have no agenda or attachments, and
- * must not have been called to order (its minutes would go with it)
+ * Unlink a live meeting by deleting its packet, which must have no agenda or attachments, must
+ * not have been called to order (its minutes would go with it), and must not be open (canceling
+ * is the way to end a meeting people are in)
  */
 const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
     const organizationId = req.org!.id;
+
+    if (await getStorage().getMeeting(meetingCode)) {
+      const packet = await prisma.meetingPacket.findFirst({
+        where: { robbieCode: meetingCode, organizationId },
+        select: { startedAt: true },
+      });
+      if (!packet) return res.status(404).json({ error: 'Not found' });
+      return res
+        .status(409)
+        .json({ error: packet.startedAt ? MEETING_STAYS_LINKED : MEETING_IS_OPEN });
+    }
 
     // One statement, so an item added or a call to order meanwhile can't be deleted with the
     // packet. It names the organization too: the code may have been unlinked and linked
