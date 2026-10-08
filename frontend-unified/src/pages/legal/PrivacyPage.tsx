@@ -27,6 +27,11 @@ export default function PrivacyPage() {
           depends on the kind of vote. Anyone with a document's public share link can read that
           document. Robbie doesn't sell your information or show ads.
         </p>
+        <p>
+          Robbie gives information to the authorities when the law requires it: it reports child
+          sexual abuse material, with the account that uploaded it, to the National Center for
+          Missing &amp; Exploited Children.
+        </p>
       </LegalSection>
       <LegalSection heading="Your organization controls its content">
         <p>
@@ -49,7 +54,9 @@ export default function PrivacyPage() {
       <LegalSection heading="How long it is kept">
         <p>
           Sign-in codes expire after 15 minutes, and sessions 30 days after they were last used.
-          Everything else is kept while your account or your organization exists.
+          Everything else is kept while your account or your organization exists. Content removed
+          after a report of illegal material, and the record of who uploaded it, is kept for at
+          least a year where the law requires it to be preserved.
         </p>
       </LegalSection>
       <LegalSection heading="Deleting your account">
