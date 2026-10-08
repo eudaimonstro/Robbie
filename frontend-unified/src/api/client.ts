@@ -486,39 +486,6 @@ export const minutes = {
     request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),
 };
 
-// Meetings
-export const meetings = {
-  list: (orgId: string) => request<Meeting[]>(`/organizations/${orgId}/meetings`),
-  get: (id: string) => request<Meeting>(`/meetings/${id}`),
-  create: (orgId: string, data: MeetingCreate) =>
-    request<Meeting>(`/organizations/${orgId}/meetings`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  update: (id: string, data: MeetingUpdate) =>
-    request<Meeting>(`/meetings/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  delete: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
-};
-
-// Votes
-export const votes = {
-  list: (meetingId: string) => request<Vote[]>(`/meetings/${meetingId}/votes`),
-  get: (id: string) => request<Vote>(`/votes/${id}`),
-  create: (meetingId: string, data: VoteCreate) =>
-    request<Vote>(`/meetings/${meetingId}/votes`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  update: (id: string, data: Partial<VoteCreate>) =>
-    request<Vote>(`/votes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-};
-
 // Search the current version of each of an organization's documents, from 2 characters. Not
 // cached: the results follow edits.
 export const search = {
@@ -818,53 +785,6 @@ export interface MinutesRecord {
    * so a save is refused (409)
    */
   beforeMeeting: boolean;
-}
-
-export interface Meeting {
-  id: string;
-  organizationId: string;
-  title: string;
-  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate: string;
-  location: string | null;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  notes: string | null;
-  createdAt: string;
-}
-
-export interface MeetingCreate {
-  title: string;
-  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate: string;
-  location?: string;
-  notes?: string;
-}
-
-export interface MeetingUpdate {
-  title?: string;
-  meetingType?: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate?: string;
-  location?: string;
-  status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  notes?: string;
-}
-
-export interface Vote {
-  id: string;
-  meetingId: string;
-  amendmentId: string;
-  yeaCount: number;
-  nayCount: number;
-  abstainCount: number;
-  result: 'passed' | 'failed' | 'tabled';
-  recordedAt: string;
-}
-
-export interface VoteCreate {
-  amendmentId: string;
-  yeaCount: number;
-  nayCount: number;
-  abstainCount: number;
 }
 
 export interface DiffResult {

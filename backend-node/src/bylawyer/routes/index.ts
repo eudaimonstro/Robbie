@@ -9,7 +9,6 @@ export { documentsRouter } from './documents.js';
 export { versionsRouter } from './versions.js';
 export { sectionsRouter } from './sections.js';
 export { amendmentsRouter } from './amendments.js';
-export { meetingsRouter } from './meetings.js';
 export { publicRouter } from './public.js';
 export { robbieRouter } from './robbie.js';
 

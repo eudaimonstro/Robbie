@@ -259,12 +259,9 @@ export default function HomePage() {
                 ))}
               </div>
             )}
-            <div className="px-4 py-2 border-t border-rule flex justify-between">
+            <div className="px-4 py-2 border-t border-rule">
               <Link to="/meetings" className="text-sm text-gavel hover:underline">
                 All scheduled meetings
-              </Link>
-              <Link to="/bylawyer-meetings" className="text-sm text-gavel hover:underline">
-                Meeting records
               </Link>
             </div>
           </div>

@@ -19,7 +19,6 @@ import {
   versionsRouter,
   sectionsRouter,
   amendmentsRouter,
-  meetingsRouter as bylawyerMeetingsRouter,
   publicRouter,
   robbieRouter,
   packetsRouter,
@@ -146,7 +145,6 @@ app.use('/api', documentsRouter);
 app.use('/api', versionsRouter);
 app.use('/api', sectionsRouter);
 app.use('/api', amendmentsRouter);
-app.use('/api', bylawyerMeetingsRouter);
 app.use('/api/robbie', robbieRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);

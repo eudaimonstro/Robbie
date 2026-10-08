@@ -15,7 +15,6 @@ const protectedRoutes: Array<[string, string]> = [
   ['get', `/api/versions/${ID}/tree`],
   ['get', `/api/sections/${ID}`],
   ['get', `/api/amendments/${ID}`],
-  ['get', `/api/organizations/${ID}/meetings`],
   ['get', '/api/packets/ABC123'],
   ['get', `/api/agenda-items/${ID}`],
   ['get', `/api/attachments/${ID}`],

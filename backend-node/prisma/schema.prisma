@@ -31,7 +31,6 @@ model Organization {
   timeZone       String @default("America/Chicago")
 
   documents Document[]
-  meetings  Meeting[]
   members   OrganizationMember[]
   invites   OrganizationInvite[]
   packets   MeetingPacket[]
@@ -149,7 +148,6 @@ model Amendment {
 
   document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
   changes  AmendmentChange[]
-  votes    Vote[]
 
   @@unique([robbieMeetingCode, robbieMotionId])
   @@index([documentId, status])
@@ -167,61 +165,6 @@ model AmendmentChange {
   newTitle        String?
   position        Int        @default(0)
 
-  amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
-}
-
-// Meeting type enum
-enum MeetingType {
-  regular
-  special
-  annual
-  emergency
-}
-
-// Meeting status enum
-enum MeetingStatus {
-  scheduled
-  in_progress
-  completed
-  cancelled
-}
-
-// Vote result enum
-enum VoteResult {
-  passed
-  failed
-  tabled
-}
-
-// Meeting where votes occur
-model Meeting {
-  id             String        @id @default(uuid())
-  organizationId String
-  title          String        @default("Meeting")
-  scheduledDate  DateTime
-  meetingType    MeetingType   @default(regular)
-  location       String?
-  status         MeetingStatus @default(scheduled)
-  notes          String?
-  createdAt      DateTime      @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  votes        Vote[]
-}
-
-// Vote on an amendment
-model Vote {
-  id           String     @id @default(uuid())
-  meetingId    String
-  amendmentId  String
-  yeaCount     Int        @default(0)
-  nayCount     Int        @default(0)
-  abstainCount Int        @default(0)
-  result       VoteResult
-  requires     String?
-  recordedAt   DateTime   @default(now())
-
-  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
 }
 

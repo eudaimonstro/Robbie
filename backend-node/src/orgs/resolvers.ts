@@ -55,22 +55,6 @@ export async function orgOfAmendmentChange(id: string): Promise<string | null> {
   return change?.amendment.document.organizationId ?? null;
 }
 
-export async function orgOfMeeting(id: string): Promise<string | null> {
-  const meeting = await prisma.meeting.findUnique({
-    where: { id },
-    select: { organizationId: true },
-  });
-  return meeting?.organizationId ?? null;
-}
-
-export async function orgOfVote(id: string): Promise<string | null> {
-  const vote = await prisma.vote.findUnique({
-    where: { id },
-    select: { meeting: { select: { organizationId: true } } },
-  });
-  return vote?.meeting.organizationId ?? null;
-}
-
 export async function orgOfPacket(id: string): Promise<string | null> {
   const packet = await prisma.meetingPacket.findUnique({
     where: { id },

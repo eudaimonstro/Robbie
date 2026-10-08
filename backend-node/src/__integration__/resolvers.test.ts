@@ -6,7 +6,6 @@ import {
   orgOfAmendmentChange,
   orgOfAttachment,
   orgOfDocument,
-  orgOfMeeting,
   orgOfMinutes,
   orgOfOrganization,
   orgOfPacket,
@@ -14,7 +13,6 @@ import {
   orgOfSection,
   orgOfSlug,
   orgOfVersion,
-  orgOfVote,
 } from '../orgs/resolvers.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -37,8 +35,6 @@ describe('resolvers', () => {
     expect(await orgOfSection(f.child)).toBe(a);
     expect(await orgOfAmendment(f.draft)).toBe(a);
     expect(await orgOfAmendmentChange(f.change)).toBe(a);
-    expect(await orgOfMeeting(f.meeting)).toBe(a);
-    expect(await orgOfVote(f.vote)).toBe(a);
     expect(await orgOfPacket(f.packet.id)).toBe(a);
     expect(await orgOfPacketCode('ORGA01')).toBe(a);
     expect(await orgOfAgendaItem(f.item)).toBe(a);
@@ -68,8 +64,6 @@ describe('resolvers', () => {
       orgOfSection,
       orgOfAmendment,
       orgOfAmendmentChange,
-      orgOfMeeting,
-      orgOfVote,
       orgOfPacket,
       orgOfAgendaItem,
       orgOfAttachment,

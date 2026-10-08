@@ -63,7 +63,6 @@ describe('demo seed', () => {
       { changeType: 'modify', targetSectionId: quorum?.id },
     ]);
 
-    expect(await prisma.meeting.count({ where: { organizationId: org.id } })).toBe(1);
     const packet = await prisma.meetingPacket.findUniqueOrThrow({
       where: { robbieCode: DEMO_MEETING_CODE },
       include: { agendaItems: true },
