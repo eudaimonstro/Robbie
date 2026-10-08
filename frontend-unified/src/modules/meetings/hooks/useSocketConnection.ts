@@ -372,7 +372,11 @@ export function useSocketConnection(
           if (response.success) {
             resolve(true);
           } else {
-            setTemporaryError(response.error || 'Action failed');
+            // Counts changed on another screen: the screen that sent them counts again from the
+            // meeting's new counts (AttendancePanel), or says so itself (HeadcountForm)
+            if (response.errorCode !== 'HEADCOUNT_CHANGED') {
+              setTemporaryError(response.error || 'Action failed');
+            }
             resolve(false);
           }
         });

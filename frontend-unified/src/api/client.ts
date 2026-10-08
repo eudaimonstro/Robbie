@@ -604,6 +604,12 @@ export interface RosterMember {
   /** Sent to admins only */
   email?: string;
   orgRole: OrgRole;
+  /**
+   * The addition by email they joined by, and the name it gave (to those who mark people
+   * present): someone counted in the room before they signed in is found counted twice by it
+   */
+  inviteId?: string;
+  inviteName?: string | null;
 }
 
 /**

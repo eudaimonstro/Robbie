@@ -44,28 +44,29 @@ export type InviteStatus = 'waiting' | 'counted';
 
 export interface InviteRow {
   inviteId: string;
-  /** Their name, or for an admin their email: what goes into the headcount names */
+  /** The name they were added with: what goes into the headcount's names (none: unnamed) */
+  name: string | null;
+  /** What the roster shows: the name, or for an admin the email (never in the minutes) */
   label: string;
   status: InviteStatus;
-  /** False when the chair has neither name nor email: they go into the headcount unnamed */
-  markable: boolean;
 }
 
 /**
  * People added by email who haven't signed in (the roster gives those who would vote): no
- * account, so the chair counts them in the room by name, in the headcount. One whose name is
- * among the headcount's names is counted.
+ * account, so the chair counts them in the room, in the headcount (by name when they have one).
+ * The meeting keeps which pending additions are counted (headcountInvites), so two with the
+ * same name, or without one, stay apart.
  */
-export function inviteRows(roster: MeetingRoster, headcountNames: string[]): InviteRow[] {
-  const inRoom = new Set(headcountNames);
+export function inviteRows(roster: MeetingRoster, headcountInvites: string[]): InviteRow[] {
+  const counted = new Set(headcountInvites);
   return roster.invites
     .map((invite) => {
-      const label = invite.name?.trim() || invite.email || '';
+      const name = invite.name?.trim() || null;
       return {
         inviteId: invite.id,
-        label: label || 'Someone added by email',
-        status: (label && inRoom.has(label) ? 'counted' : 'waiting') as InviteStatus,
-        markable: !!label,
+        name,
+        label: name ?? invite.email ?? 'Someone added by email',
+        status: (counted.has(invite.id) ? 'counted' : 'waiting') as InviteStatus,
       };
     })
     .sort((a, b) => byName.compare(a.label, b.label));
@@ -75,35 +76,97 @@ export function inviteRows(roster: MeetingRoster, headcountNames: string[]): Inv
 export interface Headcount {
   headcount: number;
   headcountNames: string[];
+  headcountInvites?: string[];
 }
 
-/** The headcount with one more person, by name */
+/** A new headcount: the count, the names and the pending additions counted */
+export interface HeadcountChange {
+  count: number;
+  names: string[];
+  invites: string[];
+}
+
+/** The headcount with someone added by email counted in the room (null: they already are) */
 export function countedInRoom(
-  { headcount, headcountNames }: Headcount,
-  name: string,
-): { count: number; names: string[] } {
-  return { count: headcount + 1, names: [...headcountNames, name] };
+  { headcount, headcountNames, headcountInvites = [] }: Headcount,
+  invite: { inviteId: string; name: string | null },
+): HeadcountChange | null {
+  if (headcountInvites.includes(invite.inviteId)) return null;
+  return {
+    count: headcount + 1,
+    names: invite.name ? [...headcountNames, invite.name] : headcountNames,
+    invites: [...headcountInvites, invite.inviteId],
+  };
 }
 
-/** The headcount with one person fewer, by name (never fewer than the names left) */
+/** One occurrence of a name gone from the names */
+const withoutName = (names: string[], name: string | null) => {
+  if (!name) return names;
+  const at = names.indexOf(name);
+  return at === -1 ? names : names.filter((_, i) => i !== at);
+};
+
+/**
+ * The headcount with one person fewer: someone added by email (by their addition, and their
+ * name), or a name (null: not counted). Never fewer than the names and additions left.
+ */
 export function takenOutOfRoom(
-  { headcount, headcountNames }: Headcount,
-  name: string,
-): { count: number; names: string[] } {
-  const at = headcountNames.indexOf(name);
-  const names = at === -1 ? headcountNames : headcountNames.filter((_, i) => i !== at);
-  return { count: Math.max(names.length, headcount - 1), names };
+  { headcount, headcountNames, headcountInvites = [] }: Headcount,
+  who: { inviteId: string; name: string | null } | { name: string },
+): HeadcountChange | null {
+  if ('inviteId' in who) {
+    if (!headcountInvites.includes(who.inviteId)) return null;
+    const invites = headcountInvites.filter((id) => id !== who.inviteId);
+    const names = withoutName(headcountNames, who.name);
+    return { count: Math.max(names.length, invites.length, headcount - 1), names, invites };
+  }
+  if (!headcountNames.includes(who.name)) return null;
+  const names = withoutName(headcountNames, who.name);
+  return {
+    count: Math.max(names.length, headcountInvites.length, headcount - 1),
+    names,
+    invites: headcountInvites,
+  };
+}
+
+/** A name as compared for people counted twice: any case and spacing */
+const sameName = (name: string | null | undefined) =>
+  name?.trim().replace(/\s+/g, ' ').toLowerCase() ?? '';
+
+/** Someone counted in the room who is here as a member too, and how to take them out */
+export interface CountedTwice {
+  /** The member's name */
+  name: string;
+  /** What to take out of the headcount: their addition, or the name counted */
+  who: { inviteId: string; name: string | null } | { name: string };
 }
 
 /**
- * Names in the headcount of people now here on a device: someone counted in the room before
- * they signed in, counted twice until the chair takes them out of the headcount
+ * People in the headcount who are now here as members (on a device, or marked present): counted
+ * in the room before they signed in, so counted twice until the chair takes them out. Found by
+ * the addition they joined by, or by name (theirs, or the addition's), in any case and spacing.
  */
-export function countedTwice(members: Member[], headcountNames: string[]): string[] {
-  const inRoom = new Set(headcountNames);
-  return members
-    .filter((m) => m.role !== 'guest' && m.present && m.presentBy !== 'chair' && inRoom.has(m.name))
-    .map((m) => m.name);
+export function countedTwice(
+  members: Member[],
+  roster: MeetingRoster | null,
+  { headcountNames, headcountInvites = [] }: Headcount,
+): CountedTwice[] {
+  const joinedBy = new Map(
+    (roster?.members ?? []).map((m) => [m.userId, { id: m.inviteId, name: m.inviteName }]),
+  );
+  const found: CountedTwice[] = [];
+  for (const member of members) {
+    if (member.role === 'guest' || !member.present) continue;
+    const invite = joinedBy.get(member.id);
+    if (invite?.id && headcountInvites.includes(invite.id)) {
+      found.push({ name: member.name, who: { inviteId: invite.id, name: invite.name ?? null } });
+      continue;
+    }
+    const names = [sameName(member.name), sameName(invite?.name)].filter(Boolean);
+    const counted = headcountNames.find((n) => names.includes(sameName(n)));
+    if (counted) found.push({ name: member.name, who: { name: counted } });
+  }
+  return found;
 }
 
 /**

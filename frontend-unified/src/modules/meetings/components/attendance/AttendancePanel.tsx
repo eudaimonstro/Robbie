@@ -1,5 +1,9 @@
-import { useId, useMemo, useState } from 'react';
-import { generateTimestamp, type AttendanceSummary } from '@robbie-bylawyer/shared/utils';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  generateTimestamp,
+  headcountBaseOf,
+  type AttendanceSummary,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import type { MeetingRoster } from '../../../../api/client';
 import { PresenceBadge } from '../../../../components/ui/Badge';
@@ -9,6 +13,7 @@ import {
   inviteRows,
   rosterRows,
   takenOutOfRoom,
+  type HeadcountChange,
   type InviteRow,
   type RosterRow,
   type RosterStatus,
@@ -34,14 +39,19 @@ type Entry = { kind: 'member'; row: RosterRow } | { kind: 'invite'; row: InviteR
 const nameOf = (entry: Entry) => (entry.kind === 'member' ? entry.row.name : entry.row.label);
 const byName = new Intl.Collator(undefined, { sensitivity: 'base' });
 
-/** How long a change to the headcount may take to come back before the buttons free up anyway */
-const HEADCOUNT_WAIT_MS = 5000;
+/** How many times a tap counts again after another screen changed the counts first */
+const TRIES = 3;
+/** How long to wait for the meeting's new counts after such a refusal */
+const FRESH_COUNTS_MS = 3000;
+
+/** The meeting's counts in one string, to see whether they moved */
+const countsKey = (state: MeetingState) => JSON.stringify(headcountBaseOf(state));
 
 /**
- * The chair's attendance panel: the three numbers, the organization's voting members with how
- * each is here (and Mark present or Mark absent), the people added by email who haven't signed
- * in (counted in the room by name), the headcount of people without an account and the proxies
- * held, and the guests
+ * The chair's attendance panel: the three numbers, then the roster (the main thing the chair
+ * does here: find a name, Mark present), with the organization's voting members and the people
+ * added by email who haven't signed in (counted in the room), then the headcount of people
+ * without an account and the proxies held, and the guests
  */
 export function AttendancePanel({
   state,
@@ -54,12 +64,13 @@ export function AttendancePanel({
 }: AttendancePanelProps) {
   const findId = useId();
   const [find, setFind] = useState('');
-  // A headcount change sent and not yet back: SET_HEADCOUNT replaces the count and the names, so
-  // the next one waits for it, or two quick taps would lose one
-  const [sent, setSent] = useState<{ count: number; names: string[] } | null>(null);
-  const headcountNow = `${state.headcount}|${state.headcountNames.join('\n')}`;
-  // Waiting until the meeting shows it (or the server refused it, or it took too long)
-  const waiting = sent !== null && `${sent.count}|${sent.names.join('\n')}` !== headcountNow;
+  // A tap's change on its way: the next waits for it
+  const [busy, setBusy] = useState(false);
+  // The meeting as it is now, for a change counted again after a refusal
+  const latest = useRef(state);
+  useEffect(() => {
+    latest.current = state;
+  }, [state]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!roster) return [];
@@ -67,18 +78,18 @@ export function AttendancePanel({
       kind: 'member' as const,
       row,
     }));
-    const invites = inviteRows(roster, state.headcountNames).map((row) => ({
+    const invites = inviteRows(roster, state.headcountInvites ?? []).map((row) => ({
       kind: 'invite' as const,
       row,
     }));
     return [...members, ...invites].sort((a, b) => byName.compare(nameOf(a), nameOf(b)));
-  }, [roster, state.members, state.headcountNames]);
+  }, [roster, state.members, state.headcountInvites]);
   const query = find.trim().toLowerCase();
   const shown = query
     ? entries.filter((entry) => nameOf(entry).toLowerCase().includes(query))
     : entries;
   const guests = state.members.filter((m) => m.role === 'guest' && m.present);
-  const twice = countedTwice(state.members, state.headcountNames);
+  const twice = countedTwice(state.members, roster, state);
 
   const markPresent = (row: RosterRow) =>
     dispatch({ type: 'MARK_PRESENT', userId: row.userId, timestamp: generateTimestamp() });
@@ -89,18 +100,40 @@ export function AttendancePanel({
       excused: false,
       timestamp: generateTimestamp(),
     });
-  /** Replace the headcount (the proxies held stay as they are) and wait for it to come back */
-  const setHeadcount = async (next: { count: number; names: string[] }) => {
-    setSent(next);
-    // Another console's change at the same moment would leave it waiting: not for long
-    setTimeout(() => setSent((current) => (current === next ? null : current)), HEADCOUNT_WAIT_MS);
-    const taken = await dispatch({
-      type: 'SET_HEADCOUNT',
-      count: next.count,
-      names: next.names,
-      timestamp: generateTimestamp(),
-    });
-    if (taken === false) setSent(null);
+
+  /**
+   * Change the headcount (the proxies held stay as they are), made from the meeting's counts as
+   * this screen has them. Another screen may have changed them first: the server refuses it
+   * (HEADCOUNT_CHANGED), the meeting's new counts arrive, and the change is made again from
+   * them, so no tap on either screen is lost.
+   */
+  const changeHeadcount = async (make: (now: MeetingState) => HeadcountChange | null) => {
+    setBusy(true);
+    try {
+      for (let tries = 0; tries < TRIES; tries++) {
+        const now = latest.current;
+        const next = make(now);
+        if (!next) return;
+        const taken = await dispatch({
+          type: 'SET_HEADCOUNT',
+          count: next.count,
+          names: next.names,
+          invites: next.invites,
+          base: headcountBaseOf(now),
+          timestamp: generateTimestamp(),
+        });
+        if (taken !== false) return;
+        // Refused: wait for the meeting's counts to move on, then count again from them
+        const before = countsKey(now);
+        const until = Date.now() + FRESH_COUNTS_MS;
+        while (countsKey(latest.current) === before && Date.now() < until) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        if (countsKey(latest.current) === before) return;
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -117,34 +150,23 @@ export function AttendancePanel({
       </p>
 
       {!readOnly &&
-        twice.map((name) => (
+        twice.map(({ name, who }) => (
           <div
             key={name}
             role="status"
             className="space-y-2 rounded-lg bg-caution-tint px-3 py-2 text-sm text-caution-ink"
           >
-            <p>{name} is counted in the room and is now here on a device.</p>
+            <p>{name} is counted in the room and is now here as a member.</p>
             <button
               type="button"
               className="btn-secondary btn-sm"
-              disabled={waiting}
-              onClick={() => void setHeadcount(takenOutOfRoom(state, name))}
+              disabled={busy}
+              onClick={() => void changeHeadcount((now) => takenOutOfRoom(now, who))}
             >
               Take {name} out of the headcount
             </button>
           </div>
         ))}
-
-      {/* Keyed on what the meeting has, so a change from another console resets the form */}
-      {!readOnly && (
-        <HeadcountForm
-          key={`${headcountNow}|${state.proxiesHeld ?? 0}`}
-          headcount={state.headcount}
-          names={state.headcountNames}
-          proxiesHeld={state.proxiesHeld ?? 0}
-          dispatch={dispatch}
-        />
-      )}
 
       <div className="space-y-2">
         <label htmlFor={findId} className="label">
@@ -195,12 +217,14 @@ export function AttendancePanel({
                       <span className="block text-xs text-ink-muted">Added, not yet signed in</span>
                     )}
                   </div>
-                  {!readOnly && entry.row.markable && (
+                  {!readOnly && (
                     <InviteAction
                       row={entry.row}
-                      disabled={waiting}
-                      onCount={() => void setHeadcount(countedInRoom(state, entry.row.label))}
-                      onTakeOut={() => void setHeadcount(takenOutOfRoom(state, entry.row.label))}
+                      disabled={busy}
+                      onCount={() => void changeHeadcount((now) => countedInRoom(now, entry.row))}
+                      onTakeOut={() =>
+                        void changeHeadcount((now) => takenOutOfRoom(now, entry.row))
+                      }
                     />
                   )}
                 </li>
@@ -209,6 +233,18 @@ export function AttendancePanel({
           </ul>
         )}
       </div>
+
+      {!readOnly && (
+        <HeadcountForm
+          headcount={state.headcount}
+          names={state.headcountNames}
+          proxiesHeld={state.proxiesHeld ?? 0}
+          invitesCounted={(state.headcountInvites ?? []).length}
+          base={headcountBaseOf(state)}
+          eligible={eligible}
+          dispatch={dispatch}
+        />
+      )}
 
       {guests.length > 0 && (
         <div className="space-y-2">
