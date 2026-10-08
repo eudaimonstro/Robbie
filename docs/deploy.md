@@ -205,7 +205,7 @@ docker compose build app && docker compose up -d --wait
 ## Backups
 
 - **What and when:** each day after `BACKUP_HOUR_UTC` (9:00 UTC, 3 or 4 a.m. in Chicago) the `backup` service writes `robbie-<stamp>.dump` (the database) and `uploads-<stamp>.tar.gz` (meeting attachments) to `/opt/robbie/deploy/backups/`, owned by `deploy`, and deletes those older than `BACKUP_KEEP_DAYS` (14). `<stamp>` is the time in UTC, such as `2026-10-08T0900Z`.
-- **Check them:** `ls -lh /opt/robbie/deploy/backups` shows a pair for each recent day; `docker compose logs backup` shows each run.
+- **Check them:** `ls -lh /opt/robbie/deploy/backups` shows a pair for each recent day; `docker compose logs backup` shows each run. A failed run says `Backup failed`, deletes no old backup, and tries again 10 minutes later.
 - **Copy them off the server** (a failed server takes its backups with it). From your workstation, over Tailscale, at least weekly and after every meeting:
 
   ```bash
