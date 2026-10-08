@@ -268,11 +268,15 @@ export function voteResultView(vote: VoteResult): ResultView {
   };
 }
 
-/** An election's ballots by candidate, most first: "Carmen Diaz 9, Ray Castillo 5" */
+/**
+ * An election's ballots by candidate, most first, a name written in on paper marked so:
+ * "Carmen Diaz 9, Ray Castillo 5, Dan Ortiz (write-in) 1"
+ */
 export function electionTally(election: Election): string {
+  const writeIns = new Set(election.candidates.filter((c) => c.writeIn).map((c) => c.name));
   return Object.entries(election.ballotResults)
     .sort(([, a], [, b]) => b - a)
-    .map(([name, votes]) => `${name} ${votes}`)
+    .map(([name, votes]) => `${name}${writeIns.has(name) ? ' (write-in)' : ''} ${votes}`)
     .join(', ');
 }
 
