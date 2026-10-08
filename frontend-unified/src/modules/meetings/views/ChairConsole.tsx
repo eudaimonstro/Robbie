@@ -22,6 +22,7 @@ import { ActionToolbar } from '../components/console/ActionToolbar';
 import { AdjournDialog } from '../components/console/AdjournDialog';
 import { ElectionCard } from '../components/console/ElectionCard';
 import { SetAsideDialog } from '../components/console/SetAsideDialog';
+import { NoQuorumDialog } from '../components/console/NoQuorumDialog';
 import { FloorMotionDialog, FloorSecondForm } from '../components/console/FloorBusiness';
 import { ChairScriptLine } from '../components/console/ChairScriptLine';
 import { ConsoleAgenda } from '../components/console/ConsoleAgenda';
@@ -124,6 +125,15 @@ export function ChairConsole() {
         <div ref={nowRef} className="space-y-4 xl:col-span-8">
           {!adjourned && <JoinInfoCard code={meetingCode} compact={!beforeMeeting} />}
           <CurrentItemLine item={state.currentAgendaItem} packet={packet} />
+          {state.meetingActive && !attendance.hasQuorum && (
+            <p
+              role="status"
+              className="rounded-lg bg-caution-tint px-4 py-3 font-semibold text-caution-ink"
+            >
+              No quorum: {attendance.present} present, {attendance.quorum} needed. Business done now
+              is not valid.
+            </p>
+          )}
           <QuestionCard question={question} empty={empty}>
             <ActionToolbar
               actions={actions}
@@ -213,6 +223,12 @@ export function ChairConsole() {
         agenda={state.agenda}
         onAdjourn={() => confirming && confirm(confirming)}
         onKeepGoing={keepGoing}
+      />
+      <NoQuorumDialog
+        isOpen={confirming?.id === 'open-vote' && stillInOrder}
+        attendance={`${attendance.present} present, ${attendance.quorum} needed`}
+        onOpen={() => confirming && confirm(confirming)}
+        onWait={keepGoing}
       />
       <SetAsideDialog
         isOpen={confirming?.id === 'set-aside' && stillInOrder}

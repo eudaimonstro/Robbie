@@ -15,6 +15,7 @@ import {
   BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
+  attendanceSummary,
   awaitingRuling,
   canChairVoteDecide,
   isRuleSuspended,
@@ -94,6 +95,9 @@ type NewMotion = Pick<
   Extract<MeetingAction, { type: 'MAKE_MOTION' }>,
   'motionType' | 'text' | keyof MotionDetails
 >;
+
+/** What a meeting without a quorum may still do (RONR 40:6): adjourn, or recess to find one */
+const NO_QUORUM_NEEDED: ReadonlySet<string> = new Set(['adjourn', 'recess']);
 
 /** The error code for each kind of reason a motion is out of order */
 const OUT_OF_ORDER_CODES: Record<OutOfOrder['kind'], ActionErrorCode> = {
@@ -516,6 +520,19 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // A privileged motion made during an election waits for the election's ballot to close
       if (state.currentElection?.votingInProgress) {
         return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
+      }
+      // Without a quorum the meeting can only adjourn or recess (RONR 40:6): anything else is put
+      // only once the chair confirms it, knowing it is not valid business
+      if (
+        !attendanceSummary(state).hasQuorum &&
+        !NO_QUORUM_NEEDED.has(state.currentMotion.type) &&
+        !action.confirmedWithoutQuorum
+      ) {
+        return {
+          valid: false,
+          error: 'There is no quorum. Business done now is not valid. Open the vote anyway?',
+          errorCode: 'NO_QUORUM',
+        };
       }
       return { valid: true };
 

@@ -152,6 +152,9 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
+          {!attendance.hasQuorum && (
+            <p className="text-display-line font-semibold text-caution-ink">No quorum</p>
+          )}
           {state.recess ? (
             <div className="space-y-6">
               <p className="font-serif-soft text-display-question font-semibold text-ink">

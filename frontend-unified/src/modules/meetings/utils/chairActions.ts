@@ -1,6 +1,7 @@
 import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import {
+  attendanceSummary,
   awaitingRuling,
   calculateTimerEnd,
   fitMotionText,
@@ -105,7 +106,16 @@ function shortened(text: string, length = 48): string {
   return text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
 }
 
+/** What a meeting without a quorum may still vote on: adjourning, or a recess to find one */
+const NO_QUORUM_NEEDED = new Set(['adjourn', 'recess']);
+
+/**
+ * Open the vote. Without a quorum (anything but adjourning or a recess) it asks the chair first,
+ * and the vote is opened as confirmed, which the server requires.
+ */
 function openVote(state: MeetingState, tone: Tone): ChairAction {
+  const withoutQuorum =
+    !attendanceSummary(state).hasQuorum && !NO_QUORUM_NEEDED.has(state.currentMotion?.type ?? '');
   return {
     id: 'open-vote',
     label: 'Open the vote',
@@ -113,8 +123,10 @@ function openVote(state: MeetingState, tone: Tone): ChairAction {
     make: () => ({
       type: 'OPEN_VOTING',
       voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
+      ...(withoutQuorum && { confirmedWithoutQuorum: true }),
       timestamp: generateTimestamp(),
     }),
+    ...(withoutQuorum && { confirm: true }),
   };
 }
 

@@ -133,9 +133,11 @@ describe('handleDispatchAction', () => {
   });
 
   it('warns when a vote opens without a quorum, guests not counted', async () => {
+    // The chair confirmed opening it without a quorum (the validator requires that)
     await dispatch(socketOf({ userId: 1, role: 'chair' }), {
       type: 'OPEN_VOTING',
       voteTimerEnd: null,
+      confirmedWithoutQuorum: true,
       timestamp: '',
     });
     expect(applyAction.mock.calls[0][1]).toMatchObject({ withoutQuorum: true });

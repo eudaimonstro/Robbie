@@ -587,3 +587,30 @@ describe('a division of the assembly', () => {
     });
   });
 });
+
+describe('a vote without a quorum', () => {
+  // Quorum 10 with seven in the room
+  const thin = () => inSession({ quorum: 10 });
+
+  it('is opened only once the chair confirms it, and the minutes say it has no effect (sim 25)', () => {
+    let s = moved(thin(), 'alice', 'mainMotion', 'Spend reserves on a new roof', 'ben');
+    expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toEqual({
+      valid: false,
+      error: 'There is no quorum. Business done now is not valid. Open the vote anyway?',
+      errorCode: 'NO_QUORUM',
+    });
+    s = vote(s, { alice: 'yea' }, { confirmedWithoutQuorum: true });
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      disposition: 'carried',
+      quorumPresent: false,
+    });
+    expect(minutesOf(s)).toContain(
+      'Carried, 1 to 0. No quorum was present: the action has no effect unless a meeting with a quorum ratifies it.',
+    );
+  });
+
+  it('to adjourn or recess needs no confirming', () => {
+    const s = moved(thin(), 'alice', 'adjourn', 'I move that we adjourn', 'ben');
+    expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toBeNull();
+  });
+});

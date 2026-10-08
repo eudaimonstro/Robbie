@@ -157,6 +157,22 @@ describe('chairActions', () => {
     expect(withdraw.make()).toMatchObject({ type: 'WITHDRAW_MOTION', fromFloor: true });
   });
 
+  it('asks before opening a vote without a quorum, except to adjourn or recess', () => {
+    const present = (id: number) => ({
+      id,
+      name: `M${id}`,
+      role: 'member' as const,
+      present: true,
+    });
+    const thin = { ...adopted, quorum: 10, members: [present(3), present(4)] };
+    const [open] = chairActions({ ...thin, currentMotion: motion('mainMotion') }, 2);
+    expect(open).toMatchObject({ id: 'open-vote', confirm: true });
+    expect(open.make()).toMatchObject({ type: 'OPEN_VOTING', confirmedWithoutQuorum: true });
+    const [adjourning] = chairActions({ ...thin, currentMotion: motion('adjourn') }, 2);
+    expect(adjourning.confirm).toBeUndefined();
+    expect(adjourning.make()).not.toHaveProperty('confirmedWithoutQuorum');
+  });
+
   it("puts the mover's request to withdraw by unanimous consent, an appeal by a vote", () => {
     const request = { ...adopted, currentMotion: motion('withdrawMotion', { secondedBy: null }) };
     expect(chairActions(request, 2).map((a) => [a.id, a.tone])).toEqual([

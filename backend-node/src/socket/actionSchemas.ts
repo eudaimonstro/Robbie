@@ -248,6 +248,7 @@ export const ACTION_SCHEMAS = {
   OPEN_VOTING: z.strictObject({
     type: z.literal('OPEN_VOTING'),
     voteTimerEnd: timerEnd,
+    confirmedWithoutQuorum: z.boolean().optional(),
     timestamp,
   }),
   CAST_VOTE: z.strictObject({
