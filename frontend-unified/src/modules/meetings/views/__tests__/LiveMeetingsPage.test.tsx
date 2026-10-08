@@ -86,6 +86,8 @@ describe('LiveMeetingsPage', () => {
     };
     schedule.list.mockResolvedValueOnce([
       meeting(),
+      // Opened on the console, not yet called to order: it has its live state, so it opens
+      meeting({ id: 'p3', robbieCode: 'OPEN01', title: 'Special meeting', open: true }),
       // Called to order before: it has its live state, so it opens
       meeting({
         id: 'p2',
@@ -105,6 +107,7 @@ describe('LiveMeetingsPage', () => {
       '/settings#attendance',
     );
     expect(screen.getByRole('link', { name: 'Join Board meeting' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Start Special meeting' })).toBeTruthy();
   });
 
   it("lists the organization's schedule: Start for the presiding officer, Join for others", async () => {

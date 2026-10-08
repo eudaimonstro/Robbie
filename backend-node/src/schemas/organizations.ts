@@ -28,7 +28,14 @@ export const createOrganizationBody = z
   .refine((body) => body.quorumPercent === undefined || body.quorumCount === undefined, {
     message: ONE_QUORUM,
     path: ['quorumCount'],
-  });
+  })
+  .refine(
+    (body) =>
+      body.quorumCount === undefined ||
+      body.eligibleVoters === undefined ||
+      body.quorumCount <= body.eligibleVoters,
+    { message: "The quorum can't be more people than the voting members", path: ['quorumCount'] },
+  );
 
 // The name, the description, the attendance settings and the time zone change here; zod drops
 // any other field. Setting the quorum one way clears the other (see PUT /organizations/:id).

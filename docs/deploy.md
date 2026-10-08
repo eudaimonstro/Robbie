@@ -206,6 +206,10 @@ docker compose build app && docker compose up -d --wait
 
 Known `npm audit` findings, the overrides that fix the others, and how to check again before an upgrade are in [`security/dependency-audit.md`](security/dependency-audit.md).
 
+### Release notes
+
+- **Onboarding (October 2026):** a meeting opens only once its organization has set its voting members and quorum. Every organization made before this release has neither (its old quorum was a silent 3), so before its next meeting an admin opens **Settings**, **Attendance** and sets them from the bylaws; only an admin can. A meeting already open when you upgrade goes on.
+
 ## Rollback
 
 1. Set `ROBBIE_IMAGE=robbie:previous` in `.env` (the image you tagged before upgrading), or the `:sha-<7 characters>` tag of the build you want, then:

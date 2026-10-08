@@ -209,7 +209,7 @@ function NextMeeting({
               <p className="mt-1 text-sm text-ink-muted">{next.chair.name} presiding</p>
             )}
           </div>
-          {quorumSet || inSession ? (
+          {quorumSet || inSession || next.open ? (
             <Link
               to={`/meetings/${next.robbieCode}`}
               aria-label={`${action} ${title}`}

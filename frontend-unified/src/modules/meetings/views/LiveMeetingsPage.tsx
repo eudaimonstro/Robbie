@@ -246,7 +246,8 @@ function ScheduleRow({
   // The presiding officer starts a meeting not yet called to order; everyone else joins it.
   // Starting only opens it: the chair calls the meeting to order from the console.
   const action = meeting.endedAt ? 'Open' : presiding && !meeting.startedAt ? 'Start' : 'Join';
-  const closed = !quorumSet && !meeting.startedAt;
+  // As the server decides: a meeting already open (a live state) goes on
+  const closed = !quorumSet && !meeting.startedAt && !meeting.open;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">

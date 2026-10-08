@@ -148,7 +148,17 @@ packetsRouter.get(
           orderBy: { endedAt: 'desc' },
         }),
       ]);
-      res.json([...upcoming, ...past]);
+      // Whether each has a live meeting (opened, maybe not yet called to order): one opens
+      // whatever the organization's settings, as the join does
+      const open = new Set(
+        (
+          await prisma.liveMeeting.findMany({
+            where: { code: { in: [...upcoming, ...past].map((p) => p.robbieCode) } },
+            select: { code: true },
+          })
+        ).map((meeting) => meeting.code),
+      );
+      res.json([...upcoming, ...past].map((p) => ({ ...p, open: open.has(p.robbieCode) })));
     } catch (error) {
       logger.error({ err: error }, 'Error listing packets');
       res.status(500).json({ error: 'Failed to list meeting packets' });

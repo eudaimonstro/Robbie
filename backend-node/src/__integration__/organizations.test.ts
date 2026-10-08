@@ -124,6 +124,8 @@ describe('organizations', () => {
       { name: 'Both', eligibleVoters: 40, quorumPercent: 20, quorumCount: 10 },
       { name: 'Zero', eligibleVoters: 0, quorumCount: 10 },
       { name: 'Over', eligibleVoters: 40, quorumPercent: 101 },
+      // A quorum of more people than vote
+      { name: 'More', eligibleVoters: 40, quorumCount: 41 },
     ]) {
       const res = await call('post', '/api/organizations', { cookie: ann.cookie, body });
       expect(res.status, JSON.stringify(body)).toBe(400);
@@ -252,6 +254,19 @@ describe('organizations', () => {
       cookie: f.users.viewer.cookie,
     });
     expect(read.body).toMatchObject({ eligibleVoters: 142, quorumPercent: null, quorumCount: 25 });
+  });
+
+  it('refuse a quorum of more people than the voting members, either way it is changed', async () => {
+    // The fixture: 20 voting members, a quorum of 3
+    const put = (body: object) =>
+      call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
+    const more = await put({ quorumCount: 21 });
+    expect(more.status).toBe(400);
+    expect(more.body).toEqual({
+      error: "The quorum can't be more people than the 20 voting members",
+    });
+    expect((await put({ eligibleVoters: 2 })).status).toBe(400);
+    expect((await put({ eligibleVoters: 30, quorumCount: 25 })).status).toBe(200);
   });
 
   it('refuse attendance settings out of range, or the quorum set both ways', async () => {

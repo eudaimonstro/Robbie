@@ -588,6 +588,8 @@ export interface ScheduledMeeting {
   description: string | null;
   /** Where the meeting is held */
   location: string | null;
+  /** It has a live meeting (opened, maybe not yet called to order): it opens whatever happens */
+  open?: boolean;
   scheduledFor: string | null;
   /** The presiding officer, who chairs the live meeting; null when the admins run it */
   chairUserId: number | null;

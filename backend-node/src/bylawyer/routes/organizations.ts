@@ -167,6 +167,18 @@ organizationsRouter.put(
   async (req, res) => {
     try {
       const { name, description, eligibleVoters, quorumPercent, quorumCount, timeZone } = req.body;
+      // A quorum of people can't be more than vote, whichever of the two changes
+      const current = await prisma.organization.findUniqueOrThrow({
+        where: { id: req.params.id },
+        select: { eligibleVoters: true, quorumPercent: true, quorumCount: true },
+      });
+      const voters = eligibleVoters ?? current.eligibleVoters;
+      const count = quorumCount ?? (quorumPercent !== undefined ? null : current.quorumCount);
+      if (voters !== null && count !== null && count > voters) {
+        return res
+          .status(400)
+          .json({ error: `The quorum can't be more people than the ${voters} voting members` });
+      }
       const data: Prisma.OrganizationUpdateInput = {
         name,
         description,
