@@ -79,4 +79,23 @@ curl -fsS -D - -o /dev/null "$base$bundle" | grep -qi '^cache-control:.*immutabl
 api=$(curl -s -w ' %{http_code}' "$base/api/organizations")
 [[ "$api" == *'"error"'*' 401' ]] || fail "the API answered $api"
 
+echo "== A backup restores the database and the uploads"
+sql() { compose exec -T db psql -U robbie -d robbie -tAc "$1"; }
+sql "CREATE TABLE smoke_check (note text); INSERT INTO smoke_check VALUES ('before the backup')"
+compose exec -T app sh -c 'mkdir -p /data/uploads/SMOKE && echo budget > /data/uploads/SMOKE/budget.txt'
+compose run --rm backup once
+dump=$(cd "$BACKUP_DIR" && ls robbie-*.dump | tail -n 1)
+uploads=$(cd "$BACKUP_DIR" && ls uploads-*.tar.gz | tail -n 1)
+[ -O "$BACKUP_DIR/$dump" ] || fail "the backup is not BACKUP_OWNER's"
+sql "DROP TABLE smoke_check"
+compose exec -T app rm -rf /data/uploads/SMOKE
+compose stop app
+compose run --rm --entrypoint /bin/sh backup /scripts/restore.sh "$dump" "$uploads"
+compose up -d --no-build --wait --wait-timeout 180 app
+[ "$(sql 'SELECT note FROM smoke_check')" = 'before the backup' ] || fail "the database"
+[ "$(compose exec -T app cat /data/uploads/SMOKE/budget.txt)" = budget ] || fail "the uploads"
+migrations=$(find "$here/../backend-node/prisma/migrations" -mindepth 1 -maxdepth 1 -type d | wc -l)
+[ "$(sql 'SELECT count(*) FROM _prisma_migrations')" -eq "$migrations" ] || fail "the migrations"
+curl -fsS "$base/api/health" | grep -q '"status":"healthy"' || fail "the health check after"
+
 echo "Smoke test passed"

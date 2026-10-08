@@ -1,6 +1,6 @@
-# Robbie in production (docs/deploy.md): the app, its database and Caddy for HTTPS. Run every
-# command from this directory: docker compose up -d, docker compose logs -f app. The settings
-# are in .env, copied from .env.production.example.
+# Robbie in production (docs/deploy.md): the app, its database, nightly backups and Caddy for
+# HTTPS. Run every command from this directory: docker compose up -d, docker compose logs -f
+# app. The settings are in .env, copied from .env.production.example.
 name: robbie
 
 x-logging: &logging
@@ -49,6 +49,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    logging: *logging
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/scripts/backup.sh']
+    command: ['loop']
+    environment:
+      PGHOST: db
+      PGUSER: robbie
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATABASE: robbie
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-9}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_OWNER: ${BACKUP_OWNER:-}
+    volumes:
+      - ./backup.sh:/scripts/backup.sh:ro
+      - ./restore.sh:/scripts/restore.sh:ro
+      - uploads:/data/uploads
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
     logging: *logging
 
   caddy:

@@ -65,3 +65,6 @@ backend-node/src/generated/
 e2e/test-results/
 e2e/playwright-report/
 .playwright-mcp/
+
+# Production backups, on the server (deploy/backup.sh)
+deploy/backups/
