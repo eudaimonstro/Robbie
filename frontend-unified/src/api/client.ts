@@ -289,10 +289,16 @@ export const organizations = {
 export const members = {
   /** The members, and for admins the pending additions */
   list: (orgId: string) => request<MemberList>(`/organizations/${orgId}/members`, {}, false),
-  add: (orgId: string, email: string, role: OrgRole) =>
+  add: (orgId: string, email: string, role: OrgRole, name?: string) =>
     request<AddMemberResult>(`/organizations/${orgId}/members`, {
       method: 'POST',
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ email, role, ...(name && { name }) }),
+    }),
+  /** Many people at once with one role (at most 500), emailing nobody */
+  addBulk: (orgId: string, people: Array<{ email: string; name?: string }>, role: OrgRole) =>
+    request<BulkAddResult>(`/organizations/${orgId}/members/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ people, role }),
     }),
   changeRole: (orgId: string, userId: number, role: OrgRole) =>
     request<{ member: OrgMember }>(`/organizations/${orgId}/members/${userId}`, {
@@ -511,9 +517,9 @@ export interface Organization {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  /** How many voting members it has (the quorum's base); null counts the roster's members */
+  /** How many voting members it has (the quorum's base); null until set */
   eligibleVoters?: number | null;
-  /** The quorum: a percentage of the voting members, or a number of people; one is set */
+  /** The quorum: a percentage of the voting members, or a number of people; null until set */
   quorumPercent?: number | null;
   quorumCount?: number | null;
   /** Where its meetings are held, as an IANA name: the minutes give times there */
@@ -526,14 +532,18 @@ export interface OrganizationCreate {
   slug?: string;
   /** The creator's time zone; the server uses America/Chicago without one */
   timeZone?: string;
+  /** How many voting members it has, and its quorum one way: a meeting opens once both are set */
+  eligibleVoters?: number;
+  quorumPercent?: number;
+  quorumCount?: number;
 }
 
 export interface OrganizationUpdate {
   name?: string;
   description?: string;
   isActive?: boolean;
-  /** null counts the roster's voting members */
-  eligibleVoters?: number | null;
+  /** How many voting members it has (once set, never unset) */
+  eligibleVoters?: number;
   /** Setting one of these clears the other */
   quorumPercent?: number;
   quorumCount?: number;
@@ -557,6 +567,8 @@ export interface OrgMember {
 export interface PendingInvite {
   id: string;
   email: string;
+  /** The name whoever added them gave, shown until they sign in */
+  name?: string | null;
   role: OrgRole;
   createdAt: string;
 }
@@ -594,10 +606,27 @@ export interface RosterMember {
   orgRole: OrgRole;
 }
 
+/**
+ * Someone added by email who hasn't signed in yet and would vote (member and above): sent to
+ * secretaries and above and the presiding officer, who count them in the room by name
+ */
+export interface RosterInvite {
+  id: string;
+  name: string | null;
+  /** Sent to admins only */
+  email?: string;
+  role: OrgRole;
+}
+
 /** A live meeting's organization: its members, and additions waiting for a first sign-in */
 export interface MeetingRoster {
   members: RosterMember[];
-  invites: Array<{ email: string; role: OrgRole }>;
+  invites: RosterInvite[];
+}
+
+/** What a bulk addition did with each person: added (had an account), invited, updated, member */
+export interface BulkAddResult {
+  results: Array<{ email: string; status: 'added' | 'invited' | 'updated' | 'member' }>;
 }
 
 export type AddMemberResult =
@@ -740,6 +769,8 @@ export interface AmendmentPreview {
   amendmentId: string;
   amendmentTitle: string;
   sections: PreviewSection[];
+  /** The sections an open amendment changes that are no longer in the document, by label */
+  missing?: string[];
 }
 
 /** What the import saves: the reviewed sections and the version's details */
@@ -934,6 +965,8 @@ export interface SessionUser {
 export interface Me {
   user: SessionUser;
   termsAccepted: boolean;
+  /** For a user without a name: the name given when they were added by email */
+  suggestedName?: string;
 }
 
 export const auth = {

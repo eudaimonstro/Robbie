@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Settings,
   Building2,
@@ -23,12 +23,23 @@ import { AttendanceSettingsCard } from '../components/AttendanceSettingsCard';
 import { TimeZoneCard } from '../components/TimeZoneCard';
 import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
 import { formatDate } from '../../../utils/dates';
+import { scrollBehavior } from '../../../utils/motion';
 
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
 
 export default function SettingsPage() {
   const { currentOrganization, refreshOrganizations } = useOrganization();
+  // A link to one card (/settings#attendance, /settings#members) brings it into view once the
+  // organization's cards are there
+  const organizationId = currentOrganization?.id;
+  useEffect(() => {
+    const target = window.location.hash.slice(1);
+    if (!target || !organizationId) return;
+    document
+      .getElementById(target)
+      ?.scrollIntoView?.({ behavior: scrollBehavior(), block: 'start' });
+  }, [organizationId]);
   // The organization's name and description are the admins'; deleting it is the owners'
   const isAdmin = useCan('admin');
   const isOwner = useCan('owner');
@@ -202,14 +213,20 @@ export default function SettingsPage() {
               </dl>
             </SettingsCard>
 
-            {/* Voting members and the quorum every meeting starts from; keyed like MembersCard */}
-            <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
+            {/* Voting members and the quorum every meeting starts from; keyed like MembersCard.
+                /settings#attendance comes here (the setup checklist, a meeting that can't open) */}
+            <div id="attendance" className="scroll-mt-4">
+              <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
+            </div>
 
             {/* The time zone the minutes give times in, beside the attendance settings */}
             <TimeZoneCard key={`time-zone-${currentOrganization.id}`} />
 
-            {/* Keyed so a switch starts the card afresh, without the previous members */}
-            <MembersCard key={currentOrganization.id} />
+            {/* Keyed so a switch starts the card afresh, without the previous members.
+                /settings#members comes here (the setup checklist) */}
+            <div id="members" className="scroll-mt-4">
+              <MembersCard key={currentOrganization.id} />
+            </div>
 
             {/* Danger zone: last of the organization's settings */}
             <div className="card border-gavel/30">

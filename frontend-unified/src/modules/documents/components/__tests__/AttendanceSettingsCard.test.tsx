@@ -28,6 +28,9 @@ describe('AttendanceSettingsCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     orgState.isAdmin = true;
+    orgState.currentOrganization.eligibleVoters = 142;
+    orgState.currentOrganization.quorumPercent = 20;
+    orgState.currentOrganization.quorumCount = null;
     api.update.mockResolvedValue({});
   });
 
@@ -35,7 +38,7 @@ describe('AttendanceSettingsCard', () => {
     orgState.isAdmin = false;
     render(<AttendanceSettingsCard />);
     expect(screen.getByText('142')).toBeTruthy();
-    expect(screen.getByText('20% of the voting members')).toBeTruthy();
+    expect(screen.getByText('20% of the 142 voting members (29 people)')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Edit attendance' })).toBeNull();
   });
 
@@ -51,13 +54,29 @@ describe('AttendanceSettingsCard', () => {
     expect(orgState.refreshOrganizations).toHaveBeenCalled();
   });
 
-  it('counts the members list when no number of voting members is given', async () => {
+  it('asks for them when they are not set, as with the old default of 3 people', async () => {
+    orgState.currentOrganization.eligibleVoters = null;
+    orgState.currentOrganization.quorumPercent = null;
+    orgState.currentOrganization.quorumCount = 3;
     render(<AttendanceSettingsCard />);
+    expect(screen.getAllByText('Not set')).toHaveLength(2);
+    expect(
+      screen.getByText(
+        'Set the voting members and the quorum from your bylaws: no meeting can open until they are set.',
+      ),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Edit attendance' }));
-    fireEvent.change(screen.getByLabelText('Voting members'), { target: { value: '' } });
+    // Nothing guessed
+    expect((screen.getByLabelText('Voting members') as HTMLInputElement).value).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      screen.getByText('Give the number of voting members: a whole number, 1 or more'),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Voting members'), { target: { value: '60' } });
+    fireEvent.change(screen.getByLabelText('Quorum percentage'), { target: { value: '25' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(api.update).toHaveBeenCalledWith('o1', { eligibleVoters: null, quorumPercent: 20 }),
+      expect(api.update).toHaveBeenCalledWith('o1', { eligibleVoters: 60, quorumPercent: 25 }),
     );
   });
 

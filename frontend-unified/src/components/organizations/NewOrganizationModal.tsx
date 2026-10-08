@@ -6,8 +6,13 @@ import { useOrganization } from '../../context/OrganizationContext';
 import { useToast } from '../../context/ToastContext';
 import { showsOneOrganizationsRecord } from '../../utils/organizationPages';
 import { browserTimeZone } from '../../utils/timeZones';
+import { QuorumFields, quorumDraftOf, readQuorumDraft } from './QuorumFields';
 
-/** Create an organization with the signed-in user as its owner, and switch to it */
+/**
+ * Create an organization with the signed-in user as its owner, and switch to it. It asks for the
+ * voting members and quorum too: a meeting can't open without them, and a guess would show
+ * "Quorum met" to the room on the wrong number.
+ */
 export function NewOrganizationModal({
   isOpen,
   onClose,
@@ -21,12 +26,14 @@ export function NewOrganizationModal({
   const { showToast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [quorum, setQuorum] = useState(quorumDraftOf(null));
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const close = () => {
     setName('');
     setDescription('');
+    setQuorum(quorumDraftOf(null));
     setError(null);
     onClose();
   };
@@ -34,6 +41,11 @@ export function NewOrganizationModal({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    const settings = readQuorumDraft(quorum);
+    if ('problem' in settings) {
+      setError(settings.problem);
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -43,6 +55,7 @@ export function NewOrganizationModal({
         name: name.trim(),
         description: description.trim() || undefined,
         timeZone: browserTimeZone(),
+        ...settings.body,
       });
       await refreshOrganizations();
       // A document, amendment or meeting page belongs to the organization being left
@@ -71,7 +84,7 @@ export function NewOrganizationModal({
             id="newOrgName"
             className="input"
             maxLength={200}
-            placeholder="e.g., Maple Grove HOA"
+            placeholder="e.g. Oak Hollow HOA"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -88,6 +101,9 @@ export function NewOrganizationModal({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </div>
+        <div className="mb-4">
+          <QuorumFields value={quorum} onChange={setQuorum} />
         </div>
         {error && (
           <p role="alert" className="mb-4 text-sm text-gavel">
