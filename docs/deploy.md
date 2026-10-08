@@ -216,12 +216,18 @@ docker compose build app && docker compose up -d --wait
 
 ## Restore
 
-CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`), so the procedure below is the tested one. It replaces the database and the uploaded files.
+CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`), so the procedure below is the tested one. It replaces the database and the uploaded files, but only once the whole backup has been read: `restore.sh` checks both files, restores the database into a scratch database (`robbie_restore`) and unpacks the files into a scratch folder, then swaps them in. A backup that fails to restore leaves the database and the files as they were, and says so.
 
-1. Stop the app:
+0. Back up what is there now, in case the restore is the mistake:
 
    ```bash
-   cd /opt/robbie/deploy && docker compose stop app
+   cd /opt/robbie/deploy && docker compose run --rm backup once
+   ```
+
+1. Stop the app and the backup service (a backup running during the restore would hold the database open, and the restore would refuse to swap it):
+
+   ```bash
+   docker compose stop app backup
    ```
 
 2. Restore, naming the two files in `backups/` (leave out the uploads file to restore only the database):
@@ -230,10 +236,10 @@ CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`
    docker compose run --rm --entrypoint /bin/sh backup /scripts/restore.sh robbie-<stamp>.dump uploads-<stamp>.tar.gz
    ```
 
-3. Start the app, then check `curl -s https://robbie.scouch.dev/api/health`, sign in, and open a document and a meeting's attachment:
+3. Start the app and the backup service, then check `curl -s https://robbie.scouch.dev/api/health`, sign in, and open a document and a meeting's attachment:
 
    ```bash
-   docker compose up -d --no-build --wait app
+   docker compose up -d --no-build --wait app backup
    ```
 
 **Onto a new server:**
