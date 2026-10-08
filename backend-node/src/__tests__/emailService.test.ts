@@ -7,7 +7,31 @@ import {
   captureMemberEmailsForTests,
   sendAddedToOrganization,
   sendSignInCode,
+  signInCodeEmail,
 } from '../auth/emailService.js';
+
+describe('signInCodeEmail', () => {
+  const email = signInCodeEmail('482913');
+
+  it('puts the code first in the subject, where a phone shows it without opening the mail', () => {
+    expect(email.subject).toBe('482913 is your Robbie code');
+  });
+
+  it('says what the code is for and how long it works, in the text and the page', () => {
+    for (const body of [email.text, email.html]) {
+      expect(body).toContain('482913');
+      expect(body).toContain('15 minutes');
+      expect(body).toMatch(/didn.t ask for/);
+    }
+  });
+
+  it("is on the brand: paper and ink, no gradient and no old tagline", () => {
+    expect(email.html).toContain('#F7F3EC');
+    expect(email.html).toContain('#8B2E25');
+    expect(email.html).not.toMatch(/gradient|#4f46e5|Parliamentary Procedure Made Easy/i);
+    expect(email.text).not.toContain('Parliamentary Procedure Made Easy');
+  });
+});
 
 describe('sendSignInCode', () => {
   afterEach(() => {
@@ -100,6 +124,30 @@ describe('addedToOrganizationEmail', () => {
     );
     expect(email.text).toContain('https://robbie.example');
     expect(email).not.toHaveProperty('html');
+  });
+
+  it('says what Robbie is, what to do, and how to sign in, so it reads as no phishing does', () => {
+    const { text } = addedToOrganizationEmail(
+      {
+        to: 'bo@example.org',
+        organization: 'Maple Grove HOA',
+        addedBy: 'Pat Lindqvist',
+        addedByEmail: 'pat@example.org',
+      },
+      'https://robbie.example',
+    );
+    // What Robbie is, for this organization
+    expect(text).toContain(
+      'Robbie is where "Maple Grove HOA" keeps its bylaws and minutes and runs its meetings.',
+    );
+    // What to do: nothing yet, or sign in with this address; no password
+    expect(text).toContain("You don't need to do anything now.");
+    expect(text).toContain('sign in with this email address (bo@example.org)');
+    expect(text).toContain('no password');
+    // Whom to ask, and what to do about a stranger's addition
+    expect(text).toContain('Questions? Write to pat@example.org.');
+    expect(text).toMatch(/If you don't know "Maple Grove HOA"/);
+    expect(text).not.toContain('Parliamentary Procedure Made Easy');
   });
 
   it('names an adder without a name by their email', () => {
