@@ -9,6 +9,8 @@ import { useMeetingOrganization } from '../context/OrganizationBridge';
 import { MeetingScheduler } from '../components/scheduling';
 import { meetingPath } from '../utils/meetingLinks';
 import { JoinMeetingScreen } from './JoinMeetingScreen';
+import { QuorumNotSet } from '../../../components/organizations/QuorumNotSet';
+import { quorumIsSet } from '../../../utils/quorum';
 
 /** The schedule as loaded, for the organization it belongs to */
 type Loaded =
@@ -170,6 +172,8 @@ export function LiveMeetingsPage() {
                       meeting={meeting}
                       timeZone={currentOrganization?.timeZone}
                       presiding={meeting.chairUserId !== null && meeting.chairUserId === user?.id}
+                      quorumSet={quorumIsSet(currentOrganization)}
+                      canSetQuorum={atLeast(currentOrganization.role, 'admin')}
                       onChange={
                         // Changed until the call to order; after it, in the meeting
                         canSchedule && !meeting.startedAt
@@ -198,6 +202,7 @@ export function LiveMeetingsPage() {
                     meeting={meeting}
                     timeZone={currentOrganization?.timeZone}
                     presiding={false}
+                    quorumSet
                   />
                 ))}
               </ul>
@@ -219,12 +224,21 @@ function ScheduleRow({
   meeting,
   timeZone,
   presiding,
+  quorumSet,
+  canSetQuorum = false,
   onChange,
 }: {
   meeting: ScheduledMeeting;
   /** The organization's: a meeting's time is the time in the room */
   timeZone?: string;
   presiding: boolean;
+  /**
+   * Whether the organization set its voting members and quorum: until then the server won't
+   * open a meeting not yet called to order, so it has no way in, only the way to set them
+   */
+  quorumSet: boolean;
+  /** An admin, who sets them */
+  canSetQuorum?: boolean;
   onChange?: () => void;
 }) {
   const title = meeting.title || 'Untitled meeting';
@@ -232,6 +246,7 @@ function ScheduleRow({
   // The presiding officer starts a meeting not yet called to order; everyone else joins it.
   // Starting only opens it: the chair calls the meeting to order from the console.
   const action = meeting.endedAt ? 'Open' : presiding && !meeting.startedAt ? 'Start' : 'Join';
+  const closed = !quorumSet && !meeting.startedAt;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
@@ -245,6 +260,7 @@ function ScheduleRow({
           </span>
           {meeting.chair?.name && <span>{`, ${meeting.chair.name} presiding`}</span>}
         </p>
+        {closed && <QuorumNotSet canSet={canSetQuorum} className="mt-1" />}
       </div>
       <div className="flex items-center gap-3">
         {inSession && <span className="badge-present">In session</span>}
@@ -260,13 +276,15 @@ function ScheduleRow({
             Change
           </button>
         )}
-        <Link
-          to={meetingPath(meeting.robbieCode)}
-          aria-label={`${action} ${title}`}
-          className={action === 'Start' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
-        >
-          {action}
-        </Link>
+        {!closed && (
+          <Link
+            to={meetingPath(meeting.robbieCode)}
+            aria-label={`${action} ${title}`}
+            className={action === 'Start' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+          >
+            {action}
+          </Link>
+        )}
       </div>
     </li>
   );

@@ -14,6 +14,9 @@ const socket = vi.hoisted(() => ({
   leaveMeeting: vi.fn(),
 }));
 const provider = vi.hoisted(() => ({ codes: [] as string[] }));
+const bridge = vi.hoisted(() => ({
+  currentOrganization: null as null | { id: string; role: string },
+}));
 
 vi.mock('../context/SocketContext', () => ({
   SocketProvider: ({ meetingCode, children }: { meetingCode: string; children: ReactNode }) => {
@@ -25,7 +28,7 @@ vi.mock('../context/SocketContext', () => ({
 vi.mock('../context/OrganizationBridge', () => ({
   MeetingOrganizationProvider: ({ children }: { children: ReactNode }) => children,
   useMeetingOrganization: () => ({
-    currentOrganization: null,
+    currentOrganization: bridge.currentOrganization,
     availableOrganizations: [],
     loading: false,
   }),
@@ -143,5 +146,26 @@ describe('MeetingsModule while not connected', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
     // The code box says it; a toast would say it twice
     expect(toast.showToast).not.toHaveBeenCalled();
+  });
+
+  it("says a meeting can't open until the quorum is set, with the way to set it for an admin", () => {
+    const message =
+      "The meeting can't open yet: the organization's voting members and quorum aren't set. An admin sets them in Settings.";
+    socket.error = message;
+    socket.joinError = { message, code: 'QUORUM_NOT_SET' };
+    bridge.currentOrganization = { id: 'o1', role: 'admin' };
+    const { unmount } = renderAt('/meetings/DEMO');
+    expect(screen.getByRole('alert').textContent).toBe(message);
+    expect(screen.getByRole('link', { name: 'Set them in Settings' }).getAttribute('href')).toBe(
+      '/settings#attendance',
+    );
+    expect(screen.getByRole('link', { name: 'Live Meetings' })).toBeTruthy();
+    expect(toast.showToast).not.toHaveBeenCalled();
+    unmount();
+
+    bridge.currentOrganization = { id: 'o1', role: 'member' };
+    renderAt('/meetings/DEMO');
+    expect(screen.queryByRole('link', { name: 'Set them in Settings' })).toBeNull();
+    bridge.currentOrganization = null;
   });
 });
