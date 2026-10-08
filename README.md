@@ -2,6 +2,16 @@
 
 A combined organizational governance platform featuring real-time parliamentary procedure management and bylaws version control.
 
+## Try it
+
+Run a whole HOA meeting on your own machine. You need Docker and Node 24, and `npm install` done once.
+
+```bash
+npm run demo
+```
+
+It starts its own Postgres (Docker container `robbie-demo-pg`), builds the app, seeds the Maple Grove HOA demo and serves it at http://localhost:3301. Sign in with the code `000000`, each person in a separate browser profile or private window: Dana (`dana@maplegrove.example`) chairs from **Live Meetings**, **Start**; Alice and Ben (`alice@`, `ben@maplegrove.example`) take part as homeowners on phones; Morgan (`morgan@maplegrove.example`) opens the TV at http://localhost:3301/meetings/MAPLE1/display; Pat (`pat@maplegrove.example`) publishes the minutes afterward. [docs/demo.md](docs/demo.md) walks through the meeting step by step (the roadmap's acceptance scenario, `docs/mvp-roadmap.md`). Ctrl-C stops the server; `npm run demo -- --stop` stops the database too, `-- --reset` starts over and `-- --remove` deletes the demo's data.
+
 ## Applications
 
 ### Robbie - Parliamentary Procedure
