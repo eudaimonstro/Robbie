@@ -246,6 +246,80 @@ describe('describeQuestion', () => {
     ).toMatchObject({ text: 'Recess for ten minutes', awaitingSecond: true });
   });
 
+  it("states a bylaw amendment's threshold plainly, from its organization's rule", () => {
+    const bylaw = motion('bylawAmendment', {
+      text: 'Amend Section 4.2',
+      secondedBy: 'Ben Whitaker',
+      bylawAmendment: {
+        documentId: 'd',
+        changeType: 'delete',
+        targetSectionLabel: 'Section 4.2 "Quorum"',
+        voteRequired: { fraction: '2/3', of: 'members', members: 142 },
+      },
+    });
+    expect(
+      describeQuestion({ ...active, currentMotion: bylaw, motionStack: [bylaw] })?.requirement,
+    ).toBe('Two thirds of all 142 voting members: 95 votes needed');
+    // Without a rule of its own, two thirds of the votes cast, as before
+    const plain = motion('bylawAmendment', { bylawAmendment: undefined });
+    expect(
+      describeQuestion({ ...active, currentMotion: plain, motionStack: [plain] })?.requirement,
+    ).toBe('Two thirds');
+  });
+
+  it('shows a ballot for two seats, its winners, and the seat still open after a declaration', () => {
+    const two = election({
+      seats: 2,
+      candidates: [
+        { name: 'Alice Brennan', id: 3 },
+        { name: 'Ben Whitaker', id: 4 },
+        { name: 'Carl Moss', id: 5 },
+      ],
+    });
+    expect(describeQuestion({ ...active, currentElection: two })).toMatchObject({
+      kind: 'Election for Director, 2 seats',
+      text: 'Alice Brennan, Ben Whitaker, Carl Moss',
+      byline: 'Ballot in progress: vote for up to 2',
+    });
+    const closed = {
+      ...two,
+      votingInProgress: false,
+      ballotResults: { 'Alice Brennan': 14, 'Ben Whitaker': 12, 'Carl Moss': 8 },
+      winners: ['Alice Brennan', 'Ben Whitaker'],
+      elected: 'Alice Brennan',
+    };
+    expect(describeQuestion({ ...active, currentElection: closed })?.text).toBe(
+      'Alice Brennan and Ben Whitaker have the vote required',
+    );
+    // Alice declared; a tie left the other seat for the next ballot
+    const waiting = {
+      ...closed,
+      seats: 1,
+      candidates: closed.candidates.slice(1),
+      winners: [],
+      elected: null,
+    };
+    expect(
+      describeQuestion({
+        ...active,
+        currentElection: waiting,
+        electedOfficers: [
+          {
+            position: 'Director',
+            name: 'Alice Brennan',
+            memberId: 3,
+            electedAt: '',
+            electionId: 7,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      kind: 'Election for Director',
+      text: 'One seat is still open',
+      byline: 'Candidates: Ben Whitaker, Carl Moss',
+    });
+  });
+
   it('is null once the meeting is adjourned, whatever was left in the state', () => {
     expect(
       describeQuestion({
@@ -343,6 +417,38 @@ describe('currentResult', () => {
     });
   });
 
+  it('stamps a voice vote the chair declared, without a count', () => {
+    const log = [
+      { time: '8:00:00 PM', message: 'Chair puts the question: "Buy a new grill"' },
+      { time: '8:01:00 PM', message: 'Voice vote: the ayes have it. CARRIED.' },
+    ];
+    expect(currentResult({ ...active, meetingLog: log }, parseVoteResult(log))).toMatchObject({
+      outcome: 'carried',
+      subject: 'Buy a new grill',
+      tally: 'By voice vote',
+    });
+  });
+
+  it('stamps an election by acclamation', () => {
+    const state: MeetingState = {
+      ...active,
+      electedOfficers: [
+        { position: 'Treasurer', name: 'Ann Lee', memberId: 0, electedAt: '', acclamation: true },
+      ],
+      meetingLog: [
+        {
+          time: '8:01:00 PM',
+          message: 'Chair declares Ann Lee elected as Treasurer, by acclamation.',
+        },
+      ],
+    };
+    expect(currentResult(state, null)).toMatchObject({
+      outcome: 'elected',
+      subject: 'Ann Lee, Treasurer',
+      tally: 'By acclamation',
+    });
+  });
+
   it('stamps nothing when the ballot closes with a winner: ELECTED waits for the declaration', () => {
     const state = {
       ...active,
@@ -365,7 +471,15 @@ describe('currentResult', () => {
     const declared: MeetingState = {
       ...active,
       electedOfficers: [
-        { position: 'Director', name: 'Carmen Diaz', memberId: 5, electedAt: '8:30:00 PM' },
+        {
+          position: 'Director',
+          name: 'Carmen Diaz',
+          memberId: 5,
+          electedAt: '8:30:00 PM',
+          ballots: [{ 'Carmen Diaz': 9, 'Ray Castillo': 5 }],
+          ballotTotals: [{ cast: 14, writeIns: ['Ray Castillo'] }],
+          electionId: 7,
+        },
       ],
       meetingLog: [
         { time: '7:45:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' },

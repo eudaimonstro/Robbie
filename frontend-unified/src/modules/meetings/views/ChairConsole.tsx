@@ -41,6 +41,7 @@ const NO_QUORUM_ASKS: Record<string, string> = {
   'open-vote': 'Open the vote',
   adopted: 'Adopt it',
   'adopt-agenda': 'Adopt the agenda',
+  'next-ballot': 'Open the ballot',
 };
 
 /**

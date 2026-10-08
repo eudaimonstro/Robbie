@@ -9,11 +9,16 @@ import {
   applyTextAmendment,
   bylawChangeView,
   describeTextAmendment,
+  joinNames,
+  motionThreshold,
+  remainingNominees,
+  thresholdText,
+  winnersOf,
   type BylawChangeView,
 } from '@robbie-bylawyer/shared/utils';
 import type { VoteResult } from '../hooks/useVoteResults';
 import { formatClockTime } from '../../../utils/dates';
-import { DECLARED_LINE, latestDecision } from './decisions';
+import { latestDecision } from './decisions';
 
 /** Whatever is before the assembly, in the one shape the question card draws */
 export interface QuestionView {
@@ -41,6 +46,21 @@ const REQUIREMENTS = { majority: 'Majority', '2/3': 'Two thirds', plurality: 'Pl
 
 function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string | null {
   return Object.hasOwn(REQUIREMENTS, vote) ? REQUIREMENTS[vote as keyof typeof REQUIREMENTS] : null;
+}
+
+/**
+ * The vote a motion needs, plainly: "Majority", "Two thirds", or for a bylaw amendment under
+ * its organization's rule "Two thirds of all 142 voting members: 95 votes needed"; null when the
+ * chair rules on it
+ */
+export function motionRequirement(motion: Motion): string | null {
+  if (motion.vote === 'none') return null;
+  return thresholdText(motionThreshold(motion));
+}
+
+/** "Election for Director", or with several seats to fill "Election for Director, 2 seats" */
+function electionKind(position: string, seats: number): string {
+  return seats > 1 ? `Election for ${position}, ${seats} seats` : `Election for ${position}`;
 }
 
 /**
@@ -90,15 +110,12 @@ function beneathLine(motion: Motion): string {
   return `${plainMotionName(motion.name, motion.type)}: ${motion.text}`;
 }
 
-/** Who stands for the position nominations are (or were) open for, declined nominees left out */
+/**
+ * Who stands for the position nominations are (or were) open for: declined nominees, and anyone
+ * already elected to it in this meeting, left out
+ */
 export function nomineesFor(state: MeetingState, position: string): string[] {
-  return [
-    ...new Set(
-      state.nominations
-        .filter((n) => n.position === position && !n.declined)
-        .map((n) => n.nomineeName),
-    ),
-  ];
+  return remainingNominees(state, position);
 }
 
 /**
@@ -116,7 +133,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       kind: motion.name,
       text: motion.text,
       byline: `${moverLine(motion)}, awaiting a second`,
-      requirement: requirementOf(motion.vote),
+      requirement: motionRequirement(motion),
       awaitingSecond: true,
       beneath: [...state.motionStack].reverse().map(beneathLine),
       ...bylawTextOf(motion),
@@ -135,7 +152,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
         : moverLine(motion),
       // An appeal's vote needs no majority for the chair: a tie sustains the ruling
       requirement:
-        motion.type === 'appeal' ? 'A tie sustains the chair' : requirementOf(motion.vote),
+        motion.type === 'appeal' ? 'A tie sustains the chair' : motionRequirement(motion),
       awaitingSecond: false,
       beneath: state.motionStack
         .filter((m) => m.id !== motion.id)
@@ -149,30 +166,42 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
 
   const election = state.currentElection;
   if (election?.votingInProgress) {
+    const seats = election.seats ?? 1;
     return {
-      kind: `Election for ${election.position}`,
+      kind: electionKind(election.position, seats),
       text: election.candidates.map((c) => c.name).join(', ') || 'No candidates',
-      byline: 'Ballot in progress',
+      byline: seats > 1 ? `Ballot in progress: vote for up to ${seats}` : 'Ballot in progress',
       requirement: requirementOf(election.requiredVotes),
       awaitingSecond: false,
       beneath: [],
-      key: `election-${election.id}`,
+      key: `election-${election.id}-${(election.ballots ?? []).length}`,
     };
   }
 
   // The ballot closed: its count, and who has the vote required, until the chair declares them
-  // elected (the stamp says ELECTED only then)
+  // elected (the stamp says ELECTED only then); once they are, the seats still open
   if (election) {
+    const winners = winnersOf(election);
+    const seats = election.seats ?? 1;
+    const declaredHere = state.electedOfficers.filter((o) => o.electionId === election.id).length;
     return {
-      kind: `Election for ${election.position}`,
-      text: election.elected
-        ? `${election.elected} has the vote required`
-        : 'Nobody has the vote required',
-      byline: `Ballot: ${electionTally(election) || 'no ballots'}`,
+      kind: electionKind(election.position, seats),
+      text:
+        winners.length > 0
+          ? `${joinNames(winners)} ${winners.length > 1 ? 'have' : 'has'} the vote required`
+          : declaredHere > 0
+            ? seats === 1
+              ? 'One seat is still open'
+              : `${seats} seats are still open`
+            : 'Nobody has the vote required',
+      byline:
+        winners.length === 0 && declaredHere > 0
+          ? `Candidates: ${election.candidates.map((c) => c.name).join(', ')}`
+          : `Ballot: ${electionTally(election) || 'no ballots'}`,
       requirement: requirementOf(election.requiredVotes),
       awaitingSecond: false,
       beneath: [],
-      key: `election-closed-${election.id}-${(election.ballots ?? []).length}`,
+      key: `election-closed-${election.id}-${(election.ballots ?? []).length}-${winners.length}`,
     };
   }
 
@@ -182,7 +211,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
     const nominees = nomineesFor(state, position);
     const open = state.nominationsOpen;
     return {
-      kind: `Election for ${position}`,
+      kind: electionKind(position, state.openSeats ?? 1),
       text: open ? 'Nominations are open' : 'Nominations are closed',
       byline:
         nominees.length > 0
@@ -247,29 +276,36 @@ export function electionTally(election: Election): string {
     .join(', ');
 }
 
-// The reducer's line for a ballot closed with a winner ("Voting closed for Director. Results:
-// Carmen Diaz: 9 vote(s), Ray Castillo: 5 vote(s). Carmen Diaz elected."), before the chair's
-// declaration
-const BALLOT_CLOSED = /^Voting closed for (.+?)\. Results: (.*vote\(s\))\. .+ elected\.$/;
-const BALLOT_COUNT = /(.+?): (\d+) vote\(s\)(?:, |$)/g;
-
 /**
- * The election the chair declared at this entry of the log, with its tally from the closed
- * ballot: the election has left the state by then, but the room still reads it
+ * The declaration at this entry of the log: who the election has elected so far (several seats
+ * stamp ELECTED at each declaration, naming everyone elected yet), with the tally of the ballot
+ * that elected the last of them, or "By acclamation". It comes from the record, not the log line.
  */
 function declaredResult(state: MeetingState, index: number): ResultView | null {
-  const log = state.meetingLog;
-  const declared = DECLARED_LINE.exec(log[index].message);
-  if (!declared) return null;
-  const [, name, position] = declared;
-  const closed = log
-    .slice(0, index)
-    .map((entry) => BALLOT_CLOSED.exec(entry.message))
-    .findLast((match) => match?.[1] === position);
-  const tally = closed
-    ? [...closed[2].matchAll(BALLOT_COUNT)].map(([, who, votes]) => `${who} ${votes}`).join(', ')
-    : null;
-  return { outcome: 'elected', subject: `${name}, ${position}`, tally, key: `declared-${index}` };
+  const last = state.electedOfficers.at(-1);
+  if (!last) return null;
+  const together =
+    last.electionId !== undefined
+      ? state.electedOfficers.filter(
+          (o) => o.electionId === last.electionId && o.position === last.position,
+        )
+      : [last];
+  const ballot = last.ballots?.at(-1);
+  const writeIns = new Set(last.ballotTotals?.at(-1)?.writeIns ?? []);
+  const tally = last.acclamation
+    ? 'By acclamation'
+    : ballot
+      ? Object.entries(ballot)
+          .sort(([, a], [, b]) => b - a)
+          .map(([name, votes]) => `${name}${writeIns.has(name) ? ' (write-in)' : ''} ${votes}`)
+          .join(', ')
+      : null;
+  return {
+    outcome: 'elected',
+    subject: `${joinNames(together.map((o) => o.name))}, ${last.position}`,
+    tally,
+    key: `declared-${index}`,
+  };
 }
 
 /**
@@ -283,16 +319,18 @@ function declaredResult(state: MeetingState, index: number): ResultView | null {
 export function currentResult(state: MeetingState, vote: VoteResult | null): ResultView | null {
   if (state.meetingStage === 'adjourned') return null;
   const election = state.currentElection;
-  const questionPending =
-    state.votingOpen ||
-    !!state.pendingSecond ||
-    !!state.currentMotion ||
-    !!election ||
-    // Nominations open, or closed with the ballot still to open
-    state.nominationsOpen ||
-    !!state.currentNominationPosition;
-  if (questionPending) return null;
+  const motionPending = state.votingOpen || !!state.pendingSecond || !!state.currentMotion;
+  if (motionPending || state.nominationsOpen || election?.votingInProgress) return null;
   const decision = latestDecision(state.meetingLog);
+  // A declaration stands while its election waits for the next one or the next ballot: each
+  // seat filled is stamped as it is declared. An election for another office is the question.
+  if (decision?.kind === 'declared') {
+    const inHand = election?.position ?? state.currentNominationPosition;
+    const declaredFor = state.electedOfficers.at(-1)?.position;
+    return inHand && inHand !== declaredFor ? null : declaredResult(state, decision.index);
+  }
+  // Otherwise an election in hand (nominations closed, a closed ballot) is the question
+  if (election || state.currentNominationPosition) return null;
   switch (decision?.kind) {
     case 'vote':
       return vote ? voteResultView(vote) : null;
@@ -304,8 +342,6 @@ export function currentResult(state: MeetingState, vote: VoteResult | null): Res
         tally: 'By unanimous consent',
         key: `consent-${decision.index}`,
       };
-    case 'declared':
-      return election ? null : declaredResult(state, decision.index);
     default:
       return null;
   }

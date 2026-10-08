@@ -550,7 +550,14 @@ describe('ChairConsole', () => {
       socket.state = {
         ...active,
         electedOfficers: [
-          { position: 'Director', name: 'Carmen Diaz', memberId: 5, electedAt: '8:30:00 PM' },
+          {
+            position: 'Director',
+            name: 'Carmen Diaz',
+            memberId: 5,
+            electedAt: '8:30:00 PM',
+            ballots: [{ 'Carmen Diaz': 9, 'Ray Castillo': 5 }],
+            electionId: 7,
+          },
         ],
         meetingLog: [
           {

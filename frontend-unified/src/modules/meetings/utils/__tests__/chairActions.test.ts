@@ -397,6 +397,60 @@ describe('chairActions', () => {
     });
   });
 
+  it('declares the winners of a ballot for two seats in turn, then opens the next ballot', () => {
+    const closed = {
+      id: 1,
+      position: 'Director',
+      candidates: [
+        { name: 'Alice Brennan', id: 3 },
+        { name: 'Ben Whitaker', id: 4 },
+        { name: 'Carl Moss', id: 5 },
+      ],
+      requiredVotes: '2/3' as const,
+      votingInProgress: false,
+      seats: 2,
+      ballotResults: { 'Alice Brennan': 9, 'Ben Whitaker': 8, 'Carl Moss': 1 },
+      votersWhoVoted: [],
+      winners: ['Ben Whitaker', 'Alice Brennan'],
+      elected: 'Ben Whitaker',
+    };
+    expect(chairActions({ ...adopted, currentElection: closed }, 2)[0]).toMatchObject({
+      label: 'Declare Ben Whitaker elected',
+    });
+    const waiting = { ...closed, seats: 1, winners: [], elected: null };
+    const [next] = chairActions({ ...adopted, quorum: 0, currentElection: waiting }, 2);
+    expect(next).toMatchObject({
+      id: 'next-ballot',
+      label: 'Open the next ballot',
+      tone: 'primary',
+    });
+    expect(next.make()).toMatchObject({
+      type: 'START_ELECTION',
+      position: 'Director',
+      requiredVotes: '2/3',
+    });
+    // Without a quorum it asks first
+    expect(chairActions({ ...adopted, quorum: 5, currentElection: waiting }, 2)[0]).toMatchObject({
+      confirm: true,
+    });
+  });
+
+  it('records a division called from the floor right after a voice vote is declared', () => {
+    const declared = { ...adopted, voiceVote: { motionId: 1, passed: true } };
+    const division = chairActions(declared, 2).at(-1);
+    expect(division).toMatchObject({
+      id: 'floor-division',
+      label: 'Division called from the floor',
+    });
+    expect(division?.make()).toMatchObject({ type: 'REQUEST_DIVISION', fromFloor: true });
+    // Also once an adjournment carried by voice, before the chair declares it
+    expect(ids({ ...declared, adjournmentCarried: true })).toEqual([
+      'declare-adjourned',
+      'floor-division',
+    ]);
+    expect(ids(adopted)).not.toContain('floor-division');
+  });
+
   it("recognizes the first person waiting while debate is open, or ends the speaker's turn", () => {
     const carl = { id: 5, name: 'Carl Moss', role: 'member' as const, present: true };
     const pending = {

@@ -110,20 +110,26 @@ describe('the script during an election', () => {
     expect(during({ nominationsOpen: true, currentNominationPosition: 'Director' })).toBe(
       '"Nominations are open for Director. Are there any further nominations?"',
     );
+    const nomination = {
+      id: 1,
+      position: 'Director',
+      nomineeName: 'Carmen Diaz',
+      nomineeId: 5,
+      nominatedBy: 'Alice Brennan',
+      nominatorId: 3,
+      timestamp: '8:00:00 PM',
+      declined: false,
+    };
+    // A lone nominee may be elected by acclamation (RONR 46:40)
+    expect(during({ currentNominationPosition: 'Director', nominations: [nomination] })).toBe(
+      '"Nominations for Director are closed. Carmen Diaz, being the only nominee, is elected by acclamation."',
+    );
     expect(
       during({
         currentNominationPosition: 'Director',
         nominations: [
-          {
-            id: 1,
-            position: 'Director',
-            nomineeName: 'Carmen Diaz',
-            nomineeId: 5,
-            nominatedBy: 'Alice Brennan',
-            nominatorId: 3,
-            timestamp: '8:00:00 PM',
-            declined: false,
-          },
+          nomination,
+          { ...nomination, id: 2, nomineeName: 'Ray Castillo', nomineeId: 6 },
         ],
       }),
     ).toBe('"Nominations for Director are closed. The ballot will now be taken."');

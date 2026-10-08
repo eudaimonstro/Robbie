@@ -11,6 +11,8 @@ import {
   addVotes,
   canChairVoteDecide,
   generateTimestamp,
+  motionThreshold,
+  votesNeeded,
   votingMethodNow,
 } from '@robbie-bylawyer/shared/utils';
 import { TimerLine } from '../TimerLine';
@@ -75,7 +77,21 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
   const method = votingMethodNow(state);
   const floor = state.floorVotes ?? NO_VOTES;
   const combined = addVotes(state.votes, floor);
-  const requirement = state.currentMotion?.vote ?? 'majority';
+  const motion = state.currentMotion;
+  const requirement = motion
+    ? motionThreshold(motion)
+    : { fraction: 'majority' as const, of: 'cast' as const };
+  // Of all the voting members: the yes votes the question needs, whoever abstains
+  const needed = votesNeeded(requirement);
+  // The chair may declare a voice vote's result without a count on a question decided by a
+  // majority of the votes cast (a vote of two thirds, or of all the members, is counted, and so
+  // is a bylaw amendment), as the server rules
+  const declarable =
+    method === 'voice' &&
+    !!motion &&
+    motion.type !== 'bylawAmendment' &&
+    requirement.of === 'cast' &&
+    requirement.fraction === 'majority';
   const iVoted = me !== null && state.voters.includes(me.id);
   const myVote = me ? state.voterChoices[me.id] : undefined;
   const floorEntered = floor.yea + floor.nay + floor.abstain > 0;
@@ -97,6 +113,7 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
   const tallyLocked = !!chair && method !== 'ballot' && state.voters.includes(chair.id);
   // A voice vote is counted only in the room: the server refuses to close it on no count
   const closeBlocked = method === 'voice' && !floorEntered;
+  // The bottom button closes a counted vote; a voice vote declared above needs no count
 
   return (
     <section className="card space-y-5 p-5" aria-labelledby="vote-heading">
@@ -119,11 +136,39 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
         />
       )}
 
+      {needed !== null && (
+        <p className="text-sm font-medium tabular-nums text-ink">
+          {`${needed} yes votes needed: ${combined.yea} so far`}
+        </p>
+      )}
+
       {method === 'voice' ? (
         <div className="space-y-2">
           <p className="text-sm text-ink-muted">
-            Counted in the room. Enter the count below, or just the clear result.
+            {declarable
+              ? 'Answered aloud in the room. Declare what you heard, or enter a count below.'
+              : 'Counted in the room: enter the count below.'}
           </p>
+          {declarable && (
+            <div className="flex flex-wrap gap-2">
+              {(['ayes', 'noes'] as const).map((side) => (
+                <button
+                  key={side}
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={() =>
+                    dispatch({
+                      type: 'CLOSE_VOTING',
+                      declared: side,
+                      timestamp: generateTimestamp(),
+                    })
+                  }
+                >
+                  {side === 'ayes' ? 'The ayes have it' : 'The noes have it'}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Someone in the room doubts it: the vote is counted, on devices and by hand */}
           <button
             type="button"

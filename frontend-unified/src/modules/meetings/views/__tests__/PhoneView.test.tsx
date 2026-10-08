@@ -325,6 +325,29 @@ describe('PhoneView', () => {
     expect(screen.getByText('You asked to speak: 1 of 1 waiting.')).toBeTruthy();
   });
 
+  it('lets a member call for a division right after the chair declares a voice vote, not a guest', () => {
+    const declared = {
+      ...active,
+      voiceVote: { motionId: 1, passed: true },
+      meetingLog: [{ time: '8:00:00 PM', message: 'Voice vote: the ayes have it. CARRIED.' }],
+    };
+    renderAs(ben, declared);
+    expect(
+      screen.getByText(
+        'The chair declared the voice vote carried. If you doubt it, call for a division: the vote is counted.',
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Call for a division' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'REQUEST_DIVISION' }),
+    );
+    // The next business is still at hand
+    expect(screen.getByRole('button', { name: 'Ask to speak' })).toBeTruthy();
+    cleanup();
+    renderAs(sam, declared);
+    expect(screen.queryByRole('button', { name: 'Call for a division' })).toBeNull();
+  });
+
   it('says debate is closed once it is, with no hand to raise', () => {
     const closed = { ...motion, debateClosed: true };
     renderAs(ben, { ...active, currentMotion: closed, motionStack: [closed] });

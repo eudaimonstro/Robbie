@@ -164,4 +164,155 @@ describe('ElectionPanel', () => {
       expect.objectContaining({ type: 'DECLARE_ELECTED', candidateName: 'Carmen Diaz' }),
     );
   });
+
+  describe('two seats', () => {
+    const three = election({
+      seats: 2,
+      candidates: [
+        { name: 'Alice Brennan', id: 3 },
+        { name: 'Ben Whitaker', id: 4 },
+        { name: 'Carl Moss', id: 5 },
+      ],
+      ballotResults: { 'Alice Brennan': 0, 'Ben Whitaker': 0, 'Carl Moss': 0 },
+    });
+
+    it('lets a phone choose up to two names, and casts them as one ballot', () => {
+      render(
+        <ElectionPanel
+          state={{ ...base, currentElection: three }}
+          dispatch={dispatch}
+          currentUser={alice}
+        />,
+      );
+      const ballot = screen.getByRole('group', { name: 'Your ballot' });
+      expect(within(ballot).getByText('Choose up to 2')).toBeTruthy();
+      const cast = within(ballot).getByRole('button', { name: 'Cast my ballot' });
+      expect(cast.hasAttribute('disabled')).toBe(true);
+      fireEvent.click(within(ballot).getByLabelText('Carl Moss'));
+      fireEvent.click(within(ballot).getByLabelText('Alice Brennan'));
+      // A third name can't be marked
+      expect((within(ballot).getByLabelText('Ben Whitaker') as HTMLInputElement).disabled).toBe(
+        true,
+      );
+      fireEvent.click(cast);
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'CAST_BALLOT',
+        candidateNames: ['Alice Brennan', 'Carl Moss'],
+        voterId: alice.id,
+      });
+    });
+
+    it('takes the paper ballots: their number, marks, a name written in, blank and spoiled', () => {
+      render(
+        <ElectionPanel
+          state={{ ...base, quorum: 1, currentElection: three }}
+          dispatch={dispatch}
+          currentUser={dana}
+          isChair
+        />,
+      );
+      const paper = screen.getByRole('form', { name: 'Paper ballots' });
+      const fill = (label: string, value: string) =>
+        fireEvent.change(within(paper).getByLabelText(label), { target: { value } });
+      fill('Paper ballots counted, not counting blank ones', '15');
+      fill('Alice Brennan in the room', '10');
+      fill('Ben Whitaker in the room', '9');
+      fill('Carl Moss in the room', '6');
+      fireEvent.click(within(paper).getByRole('button', { name: 'Add a name written in' }));
+      fill('Name written in', 'Dan Ortiz');
+      fill('Votes', '1');
+      fill('Blank ballots', '1');
+      fill('Spoiled ballots', '1');
+      fireEvent.click(within(paper).getByRole('button', { name: 'Enter the paper ballots' }));
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SET_FLOOR_BALLOTS',
+          counts: { 'Alice Brennan': 10, 'Ben Whitaker': 9, 'Carl Moss': 6 },
+          writeIns: { 'Dan Ortiz': 1 },
+          blank: 1,
+          illegal: 1,
+          ballots: 15,
+        }),
+      );
+    });
+
+    it('declares each winner, then opens the next ballot for the seat still open', () => {
+      const closed = {
+        ...three,
+        votingInProgress: false,
+        ballotResults: { 'Alice Brennan': 14, 'Ben Whitaker': 12, 'Carl Moss': 8 },
+        winners: ['Alice Brennan', 'Ben Whitaker'],
+        elected: 'Alice Brennan',
+      };
+      const { unmount } = render(
+        <ElectionPanel
+          state={{ ...base, currentElection: closed }}
+          dispatch={dispatch}
+          currentUser={dana}
+          isChair
+        />,
+      );
+      expect(
+        screen.getByText('Alice Brennan and Ben Whitaker have the vote required.'),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Declare Ben Whitaker elected' }));
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'DECLARE_ELECTED', candidateName: 'Ben Whitaker' }),
+      );
+      unmount();
+
+      const waiting = {
+        ...closed,
+        seats: 1,
+        candidates: closed.candidates.slice(1),
+        winners: [],
+        elected: null,
+      };
+      render(
+        <ElectionPanel
+          state={{
+            ...base,
+            quorum: 1,
+            currentElection: waiting,
+            electedOfficers: [
+              {
+                position: 'Director',
+                name: 'Alice Brennan',
+                memberId: 3,
+                electedAt: '',
+                electionId: 7,
+              },
+            ],
+          }}
+          dispatch={dispatch}
+          currentUser={dana}
+          isChair
+        />,
+      );
+      expect(
+        screen.getByText(
+          'Alice Brennan is elected. One seat is still open: Ben Whitaker, Carl Moss.',
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Open the next ballot' }));
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'START_ELECTION',
+          position: 'Director',
+          requiredVotes: 'majority',
+        }),
+      );
+    });
+  });
+
+  it('declares a lone nominee elected by acclamation, asking first without a quorum', () => {
+    render(<ElectionPanel state={base} dispatch={dispatch} currentUser={dana} isChair />);
+    fireEvent.click(screen.getByRole('button', { name: 'Declare elected by acclamation' }));
+    expect(dispatch).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'There is no quorum' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Declare them elected anyway' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ELECT_BY_ACCLAMATION', confirmedWithoutQuorum: true }),
+    );
+  });
 });
