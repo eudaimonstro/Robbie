@@ -192,6 +192,8 @@ Old images pile up on the disk: `docker image prune` removes the ones no contain
 docker compose build app && docker compose up -d --wait
 ```
 
+Known `npm audit` findings, the overrides that fix the others, and how to check again before an upgrade are in [`security/dependency-audit.md`](security/dependency-audit.md).
+
 ## Rollback
 
 1. Set `ROBBIE_IMAGE=robbie:previous` in `.env` (the image you tagged before upgrading), or the `:sha-<7 characters>` tag of the build you want, then:
