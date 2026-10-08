@@ -223,6 +223,35 @@ describe('MeetingScheduler', () => {
     expect(api.updatePacket).not.toHaveBeenCalled();
   });
 
+  it("doesn't clear a date left half typed, and says so", async () => {
+    await schedule();
+    const date = screen.getByLabelText('Date and time') as HTMLInputElement;
+    // A browser holds a partly typed date as an empty value, flagged as bad input
+    Object.defineProperty(date, 'validity', { value: { badInput: true }, configurable: true });
+    next();
+    expect(screen.getByRole('alert').textContent).toBe('Finish the date or clear it.');
+    expect(date.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(date);
+    expect(api.createPacket).not.toHaveBeenCalled();
+
+    Object.defineProperty(date, 'validity', { value: { badInput: false }, configurable: true });
+    fireEvent.change(date, { target: { value: '2026-11-03T19:00' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    next();
+    await screen.findByText('Agenda builder');
+  });
+
+  it('moves the focus to the heading at each step, never to the page', async () => {
+    await schedule();
+    next();
+    await screen.findByText('Agenda builder');
+    const heading = screen.getByRole('heading', { name: 'Schedule a meeting' });
+    expect(document.activeElement).toBe(heading);
+    heading.blur();
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    expect(document.activeElement).toBe(heading);
+  });
+
   it('leaves an empty place and description out of a new meeting', async () => {
     await schedule();
     next();
@@ -556,6 +585,7 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep it' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
     expect(screen.queryByRole('button', { name: 'Yes, cancel it' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel the meeting' }));
     expect(api.deletePacket).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel the meeting' }));
@@ -576,6 +606,7 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
       "A meeting that has been called to order can't be canceled",
     );
     expect(onBack).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel the meeting' }));
   });
 
   it('offers no changes to a meeting already called to order', async () => {

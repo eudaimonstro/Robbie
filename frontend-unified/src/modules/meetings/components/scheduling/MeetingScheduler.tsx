@@ -82,6 +82,10 @@ export function MeetingScheduler({
   const [error, setError] = useState<string | null>(null);
   // Next was pressed without a title: the meeting needs one, and a saved one is kept
   const [titleMissing, setTitleMissing] = useState(false);
+  // Next was pressed with a date partly typed: the browser holds it as no date at all, which
+  // would clear the meeting's date
+  const [dateUnfinished, setDateUnfinished] = useState(false);
+  const dateRef = useRef<HTMLInputElement>(null);
   // Changing a meeting: something was saved (the details or the agenda), the details just were,
   // and Cancel the meeting is asking
   const [changed, setChanged] = useState(false);
@@ -94,12 +98,12 @@ export function MeetingScheduler({
   const keepRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  // The form's heading takes focus when it opens (and once a meeting being changed has loaded),
-  // so a screen reader starts there
+  // The form's heading takes focus when it opens (once a meeting being changed has loaded) and
+  // at each step, so a screen reader starts there and the focus never drops to the page
   const opened = existing === 'ready';
   useEffect(() => {
     headingRef.current?.focus();
-  }, [opened]);
+  }, [opened, step]);
 
   // Changing a meeting: its packet fills in the details, and holds the agenda and files
   useEffect(() => {
@@ -132,9 +136,16 @@ export function MeetingScheduler({
     };
   }, [existingCode]);
 
-  // Cancel the meeting asks first, with Keep it focused; answering returns focus to the button
+  // Cancel the meeting asks first, with Keep it focused; Keep it, or a refusal, returns the
+  // focus to the button
+  const refocusCancel = useRef(false);
   useEffect(() => {
-    if (confirmingCancel) keepRef.current?.focus();
+    if (confirmingCancel) {
+      keepRef.current?.focus();
+    } else if (refocusCancel.current) {
+      refocusCancel.current = false;
+      cancelRef.current?.focus();
+    }
   }, [confirmingCancel]);
 
   // Meetings are scheduled in the organization selected in the header, by its secretaries and
@@ -227,6 +238,11 @@ export function MeetingScheduler({
       setTitleMissing(true);
       return;
     }
+    if (dateRef.current?.validity.badInput) {
+      setDateUnfinished(true);
+      dateRef.current.focus();
+      return;
+    }
     setIsSaving(true);
     setError(null);
     setDetailsSaved(false);
@@ -314,6 +330,7 @@ export function MeetingScheduler({
       onBack(`${meetingName} is canceled.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't cancel the meeting");
+      refocusCancel.current = true;
       setConfirmingCancel(false);
       setIsSaving(false);
     }
@@ -448,12 +465,23 @@ export function MeetingScheduler({
                   Date and time
                 </label>
                 <input
+                  ref={dateRef}
                   id="meetingDate"
                   type="datetime-local"
                   className="input"
                   value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
+                  onChange={(e) => {
+                    setScheduledFor(e.target.value);
+                    setDateUnfinished(false);
+                  }}
+                  aria-invalid={dateUnfinished || undefined}
+                  aria-describedby={dateUnfinished ? 'meetingDateUnfinished' : undefined}
                 />
+                {dateUnfinished && (
+                  <p id="meetingDateUnfinished" role="alert" className="mt-1 text-sm text-gavel">
+                    Finish the date or clear it.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -547,9 +575,8 @@ export function MeetingScheduler({
                           ref={keepRef}
                           type="button"
                           onClick={() => {
+                            refocusCancel.current = true;
                             setConfirmingCancel(false);
-                            // Back to the button that asked
-                            requestAnimationFrame(() => cancelRef.current?.focus());
                           }}
                           className="btn-secondary btn-sm"
                         >
