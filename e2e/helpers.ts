@@ -1,5 +1,5 @@
 import { expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
-import { WEB_PORT } from './env';
+import { BASE_URL } from './env';
 
 /**
  * The demo's people (backend-node/src/demo/demoSeed.ts): named, past the terms step, and signed in
@@ -57,7 +57,7 @@ export async function personPage(
   options: BrowserContextOptions = {},
 ): Promise<Page> {
   const context = await browser.newContext({
-    baseURL: `http://localhost:${WEB_PORT}`,
+    baseURL: BASE_URL,
     ...options,
   });
   const page = await context.newPage();

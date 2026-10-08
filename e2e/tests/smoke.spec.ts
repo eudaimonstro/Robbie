@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PEOPLE, signIn } from '../helpers';
+import { PEOPLE, signIn, signInThroughPage } from '../helpers';
 
 test('Pat signs in, opens the bylaws and finds the annual meeting on the schedule', async ({
   page,
@@ -22,4 +22,27 @@ test('a meeting link opened signed out goes to sign-in and keeps the link', asyn
   await page.goto('/meetings/MAPLE1');
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fmeetings%2FMAPLE1$/);
   await expect(page.getByLabel('Email')).toBeVisible();
+});
+
+test('the app runs under the content security policy production sends', async ({ page }) => {
+  const violations: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) {
+      violations.push(message.text());
+    }
+  });
+
+  const response = await page.goto('/sign-in');
+  expect(response?.headers()['content-security-policy']).toContain("default-src 'self'");
+  await signInThroughPage(page, PEOPLE.pat);
+
+  // The pages with the most moving parts: the fonts and icons, the QR code, the socket
+  await page.goto('/');
+  await expect(page.getByText('Welcome to Maple Grove HOA')).toBeVisible();
+  await page.goto('/meetings/MAPLE1/display');
+  await expect(page.getByRole('img', { name: 'Scan to join' })).toBeVisible();
+  await page.goto('/minutes');
+  await expect(page.getByRole('link', { name: /2025 Annual Meeting/ })).toBeVisible();
+
+  expect(violations).toEqual([]);
 });
