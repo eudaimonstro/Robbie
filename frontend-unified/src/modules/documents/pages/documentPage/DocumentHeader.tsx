@@ -34,7 +34,10 @@ export function DocumentHeader({
     <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2 text-sm text-ink-muted mb-1">
-          <Link to="/" className="shrink-0 inline-flex items-center max-md:min-h-11 hover:text-gavel">
+          <Link
+            to="/"
+            className="shrink-0 inline-flex items-center max-md:min-h-11 hover:text-gavel"
+          >
             {organizationName}
           </Link>
           <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />

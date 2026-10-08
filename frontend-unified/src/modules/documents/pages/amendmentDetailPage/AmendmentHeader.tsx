@@ -48,7 +48,10 @@ export function AmendmentHeader({
           {organizationName}
         </Link>
         <ChevronRight className="w-4 h-4" aria-hidden="true" />
-        <Link to={`/documents/${document.id}`} className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
+        <Link
+          to={`/documents/${document.id}`}
+          className="inline-flex items-center max-md:min-h-11 hover:text-gavel"
+        >
           {document.title}
         </Link>
         <ChevronRight className="w-4 h-4" aria-hidden="true" />

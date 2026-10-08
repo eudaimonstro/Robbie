@@ -175,7 +175,10 @@ export default function DocumentDiffPage() {
             {currentOrganization?.name}
           </Link>
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
-          <Link to={`/documents/${documentId}`} className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
+          <Link
+            to={`/documents/${documentId}`}
+            className="inline-flex items-center max-md:min-h-11 hover:text-gavel"
+          >
             {document.title}
           </Link>
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
