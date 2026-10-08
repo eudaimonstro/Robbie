@@ -5,7 +5,8 @@ Robbie runs on one small Linux server with Docker Compose: the app (the API, the
 ```
 phones, laptops, the TV ──HTTPS──▶ caddy :443 ──▶ app :3001 ──▶ db :5432 (not published)
                                                     │
-                                                    └─ uploads volume ◀── backup (nightly) ──▶ deploy/backups/
+                                                    ├─ uploads volume ◀── backup (nightly) ──▶ deploy/backups/
+                                                    └─ preserved volume (reported files; never backed up)
 ```
 
 CI builds the image on every pull request and publishes it from `main` as `ghcr.io/eudaimonstro/robbie:main` and `ghcr.io/eudaimonstro/robbie:sha-<first 7 characters of the commit>`. The server only pulls it: don't build on the server except in the fallback under "Upgrades".
@@ -144,6 +145,14 @@ There is no demo seed in production: **never run `dist/scripts/seedDemo.js` on t
 
 From the server, `docker compose exec app node dist/scripts/addOrgMember.js --org <slug> --email <email> --role <role>` also adds a member (roles: viewer, member, secretary, admin, owner; the slug is the organization's name in lowercase, with dashes for spaces and punctuation, such as `maple-grove-hoa`).
 
+## Before launch
+
+Before anyone outside the HOA can sign up:
+
+- **The mailboxes:** `privacy@`, `abuse@` and `copyright@robbie.scouch.dev` exist and reach you. The Terms and the Privacy Policy give them (`frontend-unified/src/pages/legal/legalContact.ts`), and a report to `abuse@` may be child sexual abuse material that has to be acted on promptly (see "Handling a report"), so read it daily.
+- **The DMCA agent:** register a designated agent with the US Copyright Office at [dmca.copyright.gov](https://dmca.copyright.gov) (a small fee; the registration lapses unless renewed every 3 years, so put the renewal date in a calendar). Then fill in `DMCA_AGENT` in `legalContact.ts` with exactly what you registered (the name, the postal address one line per entry, the phone, and `copyright@robbie.scouch.dev`), and release it. Until then the Terms give only the email, and the safe harbor of 17 U.S.C. 512(c) doesn't apply.
+- **The terms reviewed:** a lawyer reviews the Terms and the Privacy Policy, and the reviewed text replaces the draft (removing the "Draft" note and bumping `TERMS_VERSION`).
+
 ## Upgrades
 
 Never within a day of a meeting.
@@ -215,6 +224,7 @@ Known `npm audit` findings, the overrides that fix the others, and how to check 
   ```
 
 - **On demand:** `docker compose run --rm backup once`.
+- **Not backed up:** the `preserved` volume (files removed after a report; see "Handling a report"). Reported material must not spread into backups or off the server, so the backup service never mounts it. Never delete that volume (`docker compose down -v` would), and carry it over by hand only if the server is replaced while a preserved folder is less than a year old.
 
 ## Restore
 
@@ -312,6 +322,72 @@ CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`
 - Robbie drafts the minutes at the adjournment. The secretary edits them under **Minutes** and publishes them; the next meeting approves them.
 - A bylaw amendment the meeting adopted is already a new version of the bylaws.
 - A backup, copied off the server.
+
+## Handling a report
+
+Reports come to `abuse@robbie.scouch.dev` (illegal or abusive content) and `copyright@robbie.scouch.dev` (copyright notices), as the Terms say. Uploaded files are the only content people can't see outside their organization, so most reports name a file: a meeting's attachment. Everything here runs on the server, from `/opt/robbie/deploy`, with `handleReport.js` in the app's image (its working directory is `/app/backend-node`). It never prints or opens a file's contents.
+
+**Find the attachment's id.** A link to the file ends in `/api/attachments/<id>/download`. Otherwise list the recent uploads with their organization and meeting, and match the report's description (this reads only the records, never the files):
+
+```bash
+docker compose exec -T db psql -U robbie -d robbie <<'SQL'
+SELECT a.id, a."displayName", a."uploadedBy", a."uploadedAt", p."robbieCode", o.name AS organization
+FROM "Attachment" a
+LEFT JOIN "MeetingAgendaItem" i ON i.id = a."agendaItemId"
+JOIN "MeetingPacket" p ON p.id = COALESCE(a."meetingPacketId", i."packetId")
+JOIN "Organization" o ON o.id = p."organizationId"
+WHERE a.type = 'uploaded_file'
+ORDER BY a."uploadedAt" DESC
+LIMIT 20;
+SQL
+```
+
+**The script:**
+
+```bash
+# Preserve the file and its record in /data/preserved, then remove it from Robbie. Check first with --dry-run.
+docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>" --dry-run
+docker compose exec app node dist/scripts/handleReport.js --attachment <id> --note "<the report: who, when, what>"
+
+# Suspend an account (no sign-in; every session ends, and open meeting connections close within a minute), or lift it
+docker compose exec app node dist/scripts/handleReport.js --suspend <email>
+docker compose exec app node dist/scripts/handleReport.js --unsuspend <email>
+```
+
+With the app stopped, `docker compose run --rm app node dist/scripts/handleReport.js ...` does the same (it starts the database if it isn't running).
+
+`--attachment` copies the file into its own folder in the `preserved` volume (`/data/preserved/<time>-<id>/`, readable only by the app's user), writes `manifest.json` beside it (the attachment's id, display name, file name, type, size, SHA-256, who uploaded it and when, the organization, the meeting, the agenda item, when it was preserved, the date to keep it until, and your note), checks the copy's SHA-256 against the original's, and only then deletes the attachment and the original file. It prints the folder. To read a manifest (records only, never the file):
+
+```bash
+docker compose exec app ls /data/preserved
+docker compose exec app cat /data/preserved/<folder>/manifest.json
+```
+
+Keep every preserved folder and its manifest at least until the manifest's `keepUntil`, a year after it was preserved; afterwards delete it only when no report or request about it is open: `docker compose exec app rm -r /data/preserved/<folder>`. The nightly backups leave the `preserved` volume out (see "Backups"). Robbie records who uploaded a file (`uploadedBy`) from this release on; files uploaded earlier show `null`, and Robbie keeps no IP addresses.
+
+### Child sexual abuse material
+
+1. **Don't open, download, view or forward the file**, and don't ask the person reporting it to send it. Work only from the report and the records. Possessing or distributing it is a crime; the steps below keep the one copy the law requires, on the server.
+2. **Preserve and remove it** right away: find its id, then `--attachment <id> --note "CSAM report from <who>, received <date>"` (a `--dry-run` first to check it's the right file).
+3. **Suspend the uploader:** `--suspend <uploadedBy from the manifest>`. Under the Terms the account is closed: it stays suspended.
+4. **Report it to NCMEC's CyberTipline** at [report.cybertip.org](https://report.cybertip.org) as soon as reasonably possible, as 18 U.S.C. 2258A requires once you know of it. Give what the manifest records: the uploader's email and account, when it was uploaded, the file's name, type, size and SHA-256, and the organization and meeting it was in, plus how you learned of it. Don't upload the file from the server; if NCMEC or law enforcement wants it, follow their directions. Keep the report's confirmation number with the folder's name in your own records, off the server.
+5. **Keep the preserved folder and manifest at least a year** (18 U.S.C. 2258A(h), as amended by the REPORT Act), longer if law enforcement asks, and let no one else at it: it is on the server only, readable only by the app's user, and never in a backup. Never copy it off the server except as law enforcement directs.
+6. **The older uploads backups still hold the file.** Take a new backup now (`docker compose run --rm backup once`), then delete the `uploads-*.tar.gz` files taken while the file was there, on the server and in every copy off it (your workstation's `~/robbie-backups/`). The preserved copy is the one the law requires; other copies are only a risk. If you ever restore one of those older backups, run `--attachment` for it again.
+7. **Don't tell the user why** beyond what the Terms say: the account was closed for breaking them. Telling them more can warn someone under investigation. Answer law enforcement's questions and legal process through your lawyer.
+
+### Copyright notices
+
+1. **Check the notice** has what 17 U.S.C. 512(c)(3) asks for (the Terms list it): a signature; the copyrighted work; the material and where it is in Robbie; the sender's contact details; the good-faith statement; and the statement that it is accurate, under penalty of perjury, from the owner or someone authorized to act for them. If the work, the material and a way to reach the sender are there but something else is missing, write back asking for it. A notice without those three isn't one.
+2. **Remove the material promptly:** `--attachment <id> --note "DMCA notice from <who>, dated <date>"`. Don't suspend the uploader for a first notice.
+3. **Tell the uploader** (the manifest's `uploadedBy`): what was removed and why, with the notice's substance, and that they can send a counter-notice to `copyright@robbie.scouch.dev` if it was removed by mistake or misidentification.
+4. **A counter-notice** must have the uploader's signature; the material and where it was before it was removed; a statement under penalty of perjury that they believe in good faith it was removed by mistake or misidentification; their name, address and phone; and their consent to the federal district court for their address (or, outside the US, any district where Robbie may be found) and to accept service from the person who sent the notice. Send a copy to the person who sent the notice promptly, saying the material comes back in 10 business days. Then, 10 to 14 business days after the counter-notice arrived, unless that person has told you meanwhile that they have gone to court, put it back: tell the uploader they may upload it again (there is no restore command; the preserved copy stays on the server).
+5. **Repeat infringers:** keep a log off the server (date, sender, account, attachment id, outcome). An account with three notices that stood (no successful counter-notice) is suspended for good with `--suspend`; a flagrant case sooner. That is the repeat-infringer policy the Terms promise, and the safe harbor depends on applying it.
+
+### Other abuse
+
+- **Malware**, or a file that harms people (threats, harassment, someone's private information): preserve and remove it the same way, without opening it, and suspend the uploader if it was deliberate. Telling the organization's owner what was removed, and why, is usually right.
+- **Anything else illegal:** preserve and remove it, and ask your lawyer before reporting it or answering anyone about it.
+- **A request from law enforcement** for records or files: through your lawyer, and only with legal process (a subpoena, a court order or a warrant), except an emergency involving danger of death or serious injury.
 
 ## Troubleshooting
 
