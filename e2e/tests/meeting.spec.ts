@@ -1,12 +1,5 @@
-import {
-  test,
-  expect,
-  type Browser,
-  type BrowserContextOptions,
-  type Page,
-  type TestInfo,
-} from '@playwright/test';
-import { PEOPLE, PHONE, personPage } from '../helpers';
+import { test, expect, type Browser, type BrowserContextOptions } from '@playwright/test';
+import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
 
 test('a scheduled meeting runs from the phones to the display, and its minutes are published', async ({
   browser,
@@ -283,24 +276,4 @@ async function scheduleMeeting(browser: Browser, title: string): Promise<string>
   await expect(pat.locator(`[href="/meetings/${code}"]`)).toBeVisible();
   await pat.close();
   return code;
-}
-
-/** A screenshot attached to the report (CI uploads it); never compared */
-async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  const file = testInfo.outputPath(`${name}.png`);
-  await page.screenshot({ path: file, fullPage: true });
-  await testInfo.attach(name, { path: file, contentType: 'image/png' });
-}
-
-/**
- * The visible parts of a result stamp: its word and its caption (the subject and the tally).
- * The stamp also writes the result into a hidden live region inside the same figure for screen
- * readers, so a bare getByText would match it as well.
- */
-function visibleStamp(page: Page, word: string) {
-  const figure = page.getByRole('figure', { name: new RegExp(`^${word}\\b`) });
-  return {
-    word: figure.getByText(word, { exact: true }).and(figure.locator(':not([role="status"])')),
-    caption: figure.locator('figcaption'),
-  };
 }

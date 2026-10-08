@@ -1,4 +1,10 @@
-import { expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
+import {
+  expect,
+  type Browser,
+  type BrowserContextOptions,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 import { BASE_URL } from './env';
 
 /**
@@ -63,4 +69,24 @@ export async function personPage(
   const page = await context.newPage();
   await signInThroughPage(page, email);
   return page;
+}
+
+/** A screenshot attached to the report (CI uploads it); never compared */
+export async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+  const file = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path: file, fullPage: true });
+  await testInfo.attach(name, { path: file, contentType: 'image/png' });
+}
+
+/**
+ * The visible parts of a result stamp: its word and its caption (the subject and the tally).
+ * The stamp also writes the result into a hidden live region inside the same figure for screen
+ * readers, so a bare getByText would match it as well.
+ */
+export function visibleStamp(page: Page, word: string) {
+  const figure = page.getByRole('figure', { name: new RegExp(`^${word}\\b`) });
+  return {
+    word: figure.getByText(word, { exact: true }).and(figure.locator(':not([role="status"])')),
+    caption: figure.locator('figcaption'),
+  };
 }
