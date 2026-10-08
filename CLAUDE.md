@@ -41,6 +41,7 @@ robbie-bylawyer/
 │               ├── hooks/      # useQuorumStatus, useRoster, usePacket, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
 ├── mobile/              # @robbie-bylawyer/mobile - React Native + Expo
+├── deploy/              # Production: compose.yaml (app, db, backup, caddy), Caddyfile, settings, backup/restore, smoke.sh
 └── features/            # Feature specifications for Bylawyer
 ```
 
@@ -72,11 +73,11 @@ npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint, then the palette check
 npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes, and no emoji in frontend-unified/src or shared's constants, reducer and utils
-npm run e2e              # Playwright: builds, starts the API (3101) and the web build (4173) on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke and header tests, screenshots in both palettes and a four-browser meeting scenario
+npm run e2e              # Playwright: builds, starts the API (3101), which serves the web build as production does, on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke tests (with a CSP check), the header tests, screenshots in both palettes, the bylaws import, the meeting scenarios and the whole annual meeting
 npm run format:check     # Prettier
 ```
 
-`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101 or 4173, so stop stale ones first. Screenshots land in `e2e/test-results/`. The meeting scenario (`e2e/tests/meeting.spec.ts`) schedules a meeting and runs a vote with Dana chairing, Alice and Ben on phones, Pat's display and Sam as a guest, each in a browser context of their own (`personPage` in `e2e/helpers.ts`), all closed in a `finally`.
+`npm run e2e` locally: start the throwaway Postgres once (`docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine`) and install Chromium (`npx playwright install chromium`). The harness defaults to port 55432 and never reads `DATABASE_URL`; it migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo on every run. Locally it reuses a server already listening on 3101, so stop a stale one first. Screenshots land in `e2e/test-results/`. The meeting scenario (`e2e/tests/meeting.spec.ts`) schedules a meeting and runs a vote with Dana chairing, Alice and Ben on phones, Pat's display and Sam as a guest, each in a browser context of their own (`personPage` in `e2e/helpers.ts`), all closed in a `finally`. The annual meeting (`e2e/tests/annual-meeting.spec.ts`) runs the demo's own `MAPLE1` and reseeds the demo before and after itself (`resetDemo` in `e2e/demo.ts`).
 
 The web tokens test (`frontend-unified/src/styles/__tests__/tokens.test.ts`) imports `index.css?raw`; that works because `vitest.config.ts` sets `test.css.include` to that one stylesheet (every other CSS import stays an empty module).
 
@@ -94,9 +95,12 @@ npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces 
 ### Docker
 
 ```bash
-docker compose up -d     # Start PostgreSQL database
-docker compose down      # Stop database
+docker compose up -d     # Development: start PostgreSQL (docker-compose.yml)
+docker compose down      # Development: stop it
+docker build -t robbie:local . && SMOKE_PORT=3201 bash deploy/smoke.sh robbie:local   # The production image: start it from deploy/compose.yaml and check serving, refusals, backup and restore
 ```
+
+Production is `docs/deploy.md`: one server, `deploy/compose.yaml` run from `deploy/`, images from CI (`ghcr.io/eudaimonstro/robbie:main` and `:sha-<7 hex>`, published from green `main`). The image keeps the monorepo layout, migrates on start (`deploy/app-start.sh`) and runs as `node` with `NODE_ENV=production`; `dotenv` and `prisma` are runtime dependencies of backend-node for that reason.
 
 ## Architecture
 
@@ -204,7 +208,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 
 **API Endpoints (all on port 3001):**
 
-- `GET /api/health` - Health check
+- `GET /api/health` - Health check: 200 when the database answers, 503 otherwise
 - `GET/POST /api/organizations` - The user's organizations (each with their `role`) / create one (creator is owner; takes `timeZone`, an IANA name, default `America/Chicago`)
 - `GET/POST/PUT/DELETE /api/organizations/{id}/members[/{userId}]` - Members; add by email; change role; remove or leave
 - `DELETE /api/organizations/{id}/invites/{inviteId}` - Cancel a pending addition
@@ -254,6 +258,8 @@ APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
 ```
 
+In production (`NODE_ENV=production`) the server refuses to start without `DATABASE_URL`, an email provider, `EMAIL_FROM`, or `APP_URL`/`CLIENT_ORIGIN`, or with `ENABLE_TEST_AUTH=true`, and warns without `TRUST_PROXY` (`startupCheck` in `backend-node/src/startupCheck.ts`). `deploy/.env.production.example` documents every variable. `GET /api/health` is 200 only when the database answers `SELECT 1` within 2 seconds, else 503. The per-IP sign-in limits are 100 code requests and 200 verifications per 15 minutes (a room on one Wi-Fi).
+
 No variable sets meeting roles: the chair, admins, members and guests of a live meeting come from the organization at every join (see Key Conventions, Live meetings).
 
 ### Frontend Unified
@@ -264,7 +270,7 @@ Uses Vite proxy to backend on port 3001 (no env var needed for dev). The REST cl
 VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to a different origin
 ```
 
-`vite.config.ts` proxies `/api` and `/socket.io` to `API_PROXY_TARGET` (default `http://localhost:3001`) in both `vite` and `vite preview`; the Playwright harness points it at its own API.
+`vite.config.ts` proxies `/api` and `/socket.io` to `API_PROXY_TARGET` (default `http://localhost:3001`) in both `vite` and `vite preview`. In production and in the Playwright harness the API serves the built web app itself (`serveWebApp` in `backend-node/src/webApp.ts`: hashed bundles cached for a year, `index.html` never cached, 404 for a missing file), under Helmet's CSP without `upgrade-insecure-requests` (`middleware/securityHeaders.ts`).
 
 ## Key Conventions
 

@@ -258,6 +258,8 @@ Other work:
 
 Target: one VPS running Docker Compose. Single node is accepted for v1, so in-memory room state (`roomManager.ts`) and the per-process rate limiter are fine. No Redis adapter.
 
+**Done 2026-10-07 (Phase D, `docs/superpowers/specs/2026-10-07-ship-design.md`):** a multi-stage image serving the API, the sockets and the web app on one origin; `deploy/compose.yaml` with Postgres, Caddy and a backup service (nightly `pg_dump` and an uploads tarball, restore tested in CI); migrations on start; production refuses to start without its database, email provider, `EMAIL_FROM` or `APP_URL`, or with test sign-in; `/api/health` checks the database; logs rotate; CI builds and smoke-tests the image, audits production dependencies and publishes to GHCR from `main`; the runbook is `docs/deploy.md`. Remaining: the first deploy to the VPS itself (the host preparation below), and an admin "send test email" action (the runbook uses `dist/scripts/sendTestEmail.js`).
+
 - Multi-stage Dockerfile for the backend that also serves the built frontend. Same-origin `/api` and Socket.io, so no CORS is needed in production.
 - `docker-compose.prod.yml` with `app` and `postgres` services. Postgres is not exposed publicly, data lives on a named volume, and uploads are on a named volume mounted at `UPLOAD_DIR`.
 - Reverse proxy with automatic TLS (Caddy recommended) in front of `app`. It must pass WebSocket upgrades through and set `trust proxy` in Express so IP-based rate limits see real client IPs.
@@ -315,7 +317,7 @@ Host prep before the first deploy:
 - DNS is on Cloudflare. The root domain serves GitHub Pages through Cloudflare's proxy.
 - `A robbie -> 157.245.128.187` exists in Cloudflare as DNS-only (gray cloud), verified resolving on 2026-10-05. Caddy gets its Let's Encrypt certificate directly over HTTP-01, which requires ufw to allow 80/443.
 - Optionally switch to proxied later. That requires SSL/TLS mode Full (strict), a Cloudflare Origin Certificate or Caddy's Cloudflare DNS plugin for the origin certificate, and ufw limiting 80/443 to Cloudflare IP ranges so the origin can't be reached directly.
-- Production config: `CLIENT_ORIGIN=https://robbie.scouch.dev`. The mobile `app.config.js` API and socket URLs change from Railway to `https://robbie.scouch.dev`.
+- Production config: leave `CLIENT_ORIGIN` unset. The web app is served from the API's own origin and React Native sends no `Origin`, so no other origin needs to call the API (`deploy/.env.production.example`). The mobile `app.config.js` API and socket URLs change from Railway to `https://robbie.scouch.dev`.
 
 **Email: Resend** (decided 2026-10-05).
 
