@@ -385,9 +385,10 @@ describe('chairActions', () => {
         },
       },
     ];
-    const next = [['close-nominations'], [], ['declare-elected']];
+    // A result awaiting its declaration is declared, not set aside
+    const next = [['close-nominations', 'set-aside'], ['set-aside'], ['declare-elected']];
     elections.forEach((election, index) => {
-      expect(ids({ ...adopted, ...election })).toEqual([...next[index], 'set-aside', 'adjourn']);
+      expect(ids({ ...adopted, ...election })).toEqual([...next[index], 'adjourn']);
       // Only adjourn, recess and a point of order are in order: the chair records them
       expect(floorActions({ ...adopted, ...election }).map((a) => a.id)).toEqual(['floor-motion']);
     });
@@ -433,6 +434,24 @@ describe('chairActions', () => {
     expect(chairActions({ ...adopted, quorum: 5, currentElection: waiting }, 2)[0]).toMatchObject({
       confirm: true,
     });
+  });
+
+  it('reopens nominations for a seat still open with nobody left on the ballot', () => {
+    const empty = {
+      id: 1,
+      position: 'Director',
+      candidates: [],
+      requiredVotes: 'majority' as const,
+      votingInProgress: false,
+      seats: 1,
+      ballotResults: {},
+      votersWhoVoted: [],
+      winners: [],
+      elected: null,
+    };
+    const [reopen] = chairActions({ ...adopted, currentElection: empty }, 2);
+    expect(reopen).toMatchObject({ label: 'Reopen nominations for Director', tone: 'primary' });
+    expect(reopen.make()).toMatchObject({ type: 'OPEN_NOMINATIONS', position: 'Director' });
   });
 
   it('records a division called from the floor right after a voice vote is declared', () => {

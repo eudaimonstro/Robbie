@@ -1,6 +1,6 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_NAME_LENGTH, MAX_POSITION_LENGTH } from '@robbie-bylawyer/shared/constants';
-import { MAX_SEATS, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { MAX_SEATS, generateId, generateTimestamp, winnersOf } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
 interface NominationsPanelProps {
@@ -67,8 +67,14 @@ export function NominationsPanel({
 
   // Nominations closed with the ballot still to open (or seats left after an acclamation): the
   // chair may reopen them for the same position, which keeps its seats
-  const inHand =
-    !state.nominationsOpen && !state.currentElection && state.currentNominationPosition;
+  // (or seats still open between ballots, with nobody awaiting the declaration)
+  const election = state.currentElection;
+  const between = !!election && !election.votingInProgress && winnersOf(election).length === 0;
+  const inHand = state.nominationsOpen
+    ? null
+    : between
+      ? election.position
+      : !election && state.currentNominationPosition;
   const reopen = () =>
     inHand &&
     dispatch({ type: 'OPEN_NOMINATIONS', position: inHand, timestamp: generateTimestamp() });
@@ -104,7 +110,7 @@ export function NominationsPanel({
   const canOpen =
     isChair &&
     !state.nominationsOpen &&
-    !state.currentElection &&
+    (!election || between) &&
     !state.currentMotion &&
     !state.pendingSecond &&
     state.meetingStage !== 'adjourned';

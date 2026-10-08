@@ -257,9 +257,17 @@ describe('describeQuestion', () => {
         voteRequired: { fraction: '2/3', of: 'members', members: 142 },
       },
     });
-    expect(
-      describeQuestion({ ...active, currentMotion: bylaw, motionStack: [bylaw] })?.requirement,
-    ).toBe('Two thirds of all 142 voting members: 95 votes needed');
+    const question = describeQuestion({ ...active, currentMotion: bylaw, motionStack: [bylaw] });
+    expect(question?.requirement).toBe('Two thirds of all 142 voting members: 95 votes needed');
+    // With nobody present the 95 votes can't be found
+    expect(question?.outOfReach).toBe("Only 0 present: this can't pass");
+    const full = describeQuestion({
+      ...active,
+      headcount: 120,
+      currentMotion: bylaw,
+      motionStack: [bylaw],
+    });
+    expect(full?.outOfReach).toBeUndefined();
     // Without a rule of its own, two thirds of the votes cast, as before
     const plain = motion('bylawAmendment', { bylawAmendment: undefined });
     expect(

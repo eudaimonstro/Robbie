@@ -95,9 +95,10 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
     await form.getByRole('button', { name: 'Move', exact: true }).click();
     await ben.getByRole('button', { name: 'Second', exact: true }).click();
 
-    // Everyone reads the vote it needs, in plain words
+    // Everyone reads the vote it needs, in plain words, and that it is out of reach tonight
     for (const page of [dana, alice, ben, tv]) {
       await expect(page.getByText(NEEDED).first()).toBeVisible();
+      await expect(page.getByText("Only 29 present: this can't pass").first()).toBeVisible();
     }
 
     await dana.getByRole('button', { name: 'Open the vote' }).click();

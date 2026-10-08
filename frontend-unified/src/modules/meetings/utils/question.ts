@@ -7,6 +7,8 @@ import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/typ
 import {
   amendInsertedWords,
   applyTextAmendment,
+  attendanceSummary,
+  votesNeeded,
   bylawChangeView,
   describeTextAmendment,
   joinNames,
@@ -30,6 +32,8 @@ export interface QuestionView {
   byline: string | null;
   /** The vote it needs: "Majority", "Two thirds", "Plurality"; null when the chair rules */
   requirement: string | null;
+  /** The vote needed is out of reach of those present: "Only 29 present: this can't pass" */
+  outOfReach?: string;
   /** Moved and waiting for a second */
   awaitingSecond: boolean;
   /** Questions pending beneath it, the nearest first */
@@ -56,6 +60,19 @@ function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string
 export function motionRequirement(motion: Motion): string | null {
   if (motion.vote === 'none') return null;
   return thresholdText(motionThreshold(motion));
+}
+
+/**
+ * When a share of all the voting members needs more yes votes than there are people present:
+ * "Only 29 present: this can't pass"
+ */
+function outOfReach(state: MeetingState, motion: Motion): Pick<QuestionView, 'outOfReach'> {
+  if (motion.vote === 'none') return {};
+  const needed = votesNeeded(motionThreshold(motion));
+  const { present } = attendanceSummary(state);
+  return needed !== null && needed > present
+    ? { outOfReach: `Only ${present} present: this can't pass` }
+    : {};
 }
 
 /** "Election for Director", or with several seats to fill "Election for Director, 2 seats" */
@@ -134,6 +151,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       text: motion.text,
       byline: `${moverLine(motion)}, awaiting a second`,
       requirement: motionRequirement(motion),
+      ...outOfReach(state, motion),
       awaitingSecond: true,
       beneath: [...state.motionStack].reverse().map(beneathLine),
       ...bylawTextOf(motion),
@@ -153,6 +171,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       // An appeal's vote needs no majority for the chair: a tie sustains the ruling
       requirement:
         motion.type === 'appeal' ? 'A tie sustains the chair' : motionRequirement(motion),
+      ...outOfReach(state, motion),
       awaitingSecond: false,
       beneath: state.motionStack
         .filter((m) => m.id !== motion.id)

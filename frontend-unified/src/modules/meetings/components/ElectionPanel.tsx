@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react';
 import {
   acclamationCandidates,
   attendanceSummary,
+  countBallot,
   generateId,
   generateTimestamp,
   joinNames,
@@ -46,6 +47,7 @@ export function ElectionPanel({
   // Opening the ballot or declaring by acclamation without a quorum asks first (the server
   // requires the confirmation)
   const [asking, setAsking] = useState<Asking>(null);
+  const [confirmingAcclaim, setConfirmingAcclaim] = useState(false);
   const election = state.currentElection;
   const position = state.currentNominationPosition;
   const nominees = position ? nomineesFor(state, position) : [];
@@ -96,18 +98,47 @@ export function ElectionPanel({
 
   // Declaring by acclamation, and the no-quorum question, for the chair before any ballot and
   // between ballots
-  const acclamation = isChair && acclaimable && (
-    <div className="space-y-2">
-      <p className="text-sm text-ink-muted">
-        {acclaimable.names.length === 1
-          ? 'With one nominee, the chair may declare them elected without a ballot.'
-          : 'With no more nominees than seats, the chair may declare them elected without a ballot.'}
-      </p>
-      <button type="button" className="btn-secondary" onClick={() => ask('acclamation')}>
-        Declare elected by acclamation
-      </button>
-    </div>
-  );
+  const acclamation =
+    isChair &&
+    acclaimable &&
+    (confirmingAcclaim ? (
+      // Some bylaws require a ballot even with one nominee: the chair confirms first
+      <div role="group" aria-label="Declare elected by acclamation" className="space-y-2">
+        <p className="text-sm text-ink">
+          {`Declare ${joinNames(acclaimable.names)} elected without a ballot, if your bylaws allow it?`}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            onClick={() => {
+              setConfirmingAcclaim(false);
+              ask('acclamation');
+            }}
+          >
+            Declare elected
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => setConfirmingAcclaim(false)}
+          >
+            Hold a ballot instead
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-2">
+        <p className="text-sm text-ink-muted">
+          {acclaimable.names.length === 1
+            ? 'With one nominee, the chair may declare them elected without a ballot, if your bylaws allow it.'
+            : 'With no more nominees than seats, the chair may declare them elected without a ballot, if your bylaws allow it.'}
+        </p>
+        <button type="button" className="btn-secondary" onClick={() => setConfirmingAcclaim(true)}>
+          Declare elected by acclamation
+        </button>
+      </div>
+    ));
   const noQuorum = (
     <NoQuorumDialog
       isOpen={asking !== null}
@@ -174,6 +205,7 @@ export function ElectionPanel({
   const seats = election.seats ?? 1;
 
   if (election.votingInProgress) {
+    const nothingCast = countBallot(election).totals.cast === 0;
     const ballot =
       canVote &&
       (voted ? (
@@ -233,9 +265,16 @@ export function ElectionPanel({
               election={election}
               dispatch={dispatch}
             />
+            {/* A ballot nobody cast decides nothing: the server refuses to close it */}
+            {nothingCast && (
+              <p className="text-sm text-ink-muted">
+                No ballots yet: wait for the phones, or enter the paper ballots.
+              </p>
+            )}
             <button
               type="button"
               className="btn-primary w-full"
+              disabled={nothingCast}
               onClick={() => dispatch({ type: 'CLOSE_ELECTION', timestamp: generateTimestamp() })}
             >
               Close the ballot
@@ -283,9 +322,11 @@ export function ElectionPanel({
           <p className="text-sm text-ink">
             {`${joinNames(declaredHere.map((o) => o.name))} ${declaredHere.length > 1 ? 'are' : 'is'} elected. `}
             {seats === 1 ? 'One seat is still open' : `${seats} seats are still open`}
-            {`: ${election.candidates.map((c) => c.name).join(', ')}.`}
+            {election.candidates.length > 0
+              ? `: ${election.candidates.map((c) => c.name).join(', ')}.`
+              : ', and nobody is left to vote for. Reopen nominations, or set the election aside.'}
           </p>
-          {isChair && (
+          {isChair && election.candidates.length > 0 && (
             <button type="button" className="btn-primary" onClick={() => ask('ballot')}>
               Open the next ballot
             </button>

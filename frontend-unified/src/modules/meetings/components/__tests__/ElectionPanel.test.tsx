@@ -122,10 +122,27 @@ describe('ElectionPanel', () => {
     expect(screen.queryByRole('button', { name: 'Vote for Carmen Diaz' })).toBeNull();
   });
 
-  it('takes the paper ballots by candidate, and closes the ballot', () => {
+  it('closes no ballot nobody has cast', () => {
     render(
       <ElectionPanel
         state={{ ...base, currentElection: election() }}
+        dispatch={dispatch}
+        currentUser={dana}
+        isChair
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Close the ballot' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    expect(
+      screen.getByText('No ballots yet: wait for the phones, or enter the paper ballots.'),
+    ).toBeTruthy();
+  });
+
+  it('takes the paper ballots by candidate, and closes the ballot', () => {
+    render(
+      <ElectionPanel
+        state={{ ...base, currentElection: election({ votersWhoVoted: [3] }) }}
         dispatch={dispatch}
         currentUser={dana}
         isChair
@@ -308,6 +325,14 @@ describe('ElectionPanel', () => {
   it('declares a lone nominee elected by acclamation, asking first without a quorum', () => {
     render(<ElectionPanel state={base} dispatch={dispatch} currentUser={dana} isChair />);
     fireEvent.click(screen.getByRole('button', { name: 'Declare elected by acclamation' }));
+    // Some bylaws require a ballot even then: the chair confirms
+    const confirm = screen.getByRole('group', { name: 'Declare elected by acclamation' });
+    expect(
+      within(confirm).getByText(
+        'Declare Carmen Diaz elected without a ballot, if your bylaws allow it?',
+      ),
+    ).toBeTruthy();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Declare elected' }));
     expect(dispatch).not.toHaveBeenCalled();
     const dialog = screen.getByRole('dialog', { name: 'There is no quorum' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Declare them elected anyway' }));

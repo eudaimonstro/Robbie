@@ -222,6 +222,16 @@ export function nextBallot(
   };
 }
 
+/** Nominations again for the seats an election still has open, with nobody left to vote for */
+function reopenNominations(position: string): ChairAction {
+  return {
+    id: 'reopen-nominations',
+    label: `Reopen nominations for ${position}`,
+    tone: 'primary',
+    make: () => ({ type: 'OPEN_NOMINATIONS', position, timestamp: generateTimestamp() }),
+  };
+}
+
 /** Sets the election aside: it asks first, and the election card offers it too */
 export function setAsideElection(): ChairAction {
   return {
@@ -420,9 +430,15 @@ function actionsInOrder(state: MeetingState, presidingId: number | null): ChairA
             },
           ]
         : election
-          ? [nextBallot(state, election)]
+          ? // With nobody left on the ballot, the open seats need nominations again
+            [
+              election.candidates.length > 0
+                ? nextBallot(state, election)
+                : reopenNominations(election.position),
+            ]
           : [];
-    return [...next, setAsideElection(), adjourn('secondary')];
+    // A result awaiting its declaration is declared, not set aside (the server refuses it)
+    return [...next, ...(winner ? [] : [setAsideElection()]), adjourn('secondary')];
   }
 
   if (!state.agendaAdopted) {
