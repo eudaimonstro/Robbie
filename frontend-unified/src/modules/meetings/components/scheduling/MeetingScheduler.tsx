@@ -14,12 +14,7 @@ import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2, MapPin } from '
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
 import { createPacket, deletePacket, getPacket, updatePacket } from './api';
-import {
-  HttpError,
-  meetingPackets,
-  members as membersApi,
-  type OrgMember,
-} from '../../../../api/client';
+import { meetingPackets, members as membersApi, type OrgMember } from '../../../../api/client';
 import { formatMeetingTime, toLocalDateTimeInput } from '../../../../utils/dates';
 import { useSession } from '../../../../context/SessionContext';
 import { useMeetingOrganization } from '../../context/OrganizationBridge';
@@ -35,19 +30,6 @@ interface MeetingSchedulerProps {
 }
 
 type Step = 'details' | 'agenda';
-
-/** How many generated codes to try when one is already taken */
-const CODE_ATTEMPTS = 3;
-
-/** A random 6-character meeting code, without characters that look alike (0 and O, 1 and I) */
-function generateMeetingCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
 
 /** What the open meeting takes from the packet's agenda: its items' ids and titles, in order */
 const agendaKey = (packet: MeetingPacket) =>
@@ -66,7 +48,9 @@ export function MeetingScheduler({
   const changing = existingCode !== undefined;
   const [existing, setExisting] = useState<Existing>(changing ? 'loading' : 'ready');
   const [step, setStep] = useState<Step>('details');
-  const [meetingCode, setMeetingCode] = useState(() => existingCode ?? generateMeetingCode());
+  // The meeting's code: a new meeting's is the server's random one unless the secretary types
+  // one (4-8 letters or digits) before it is created
+  const [meetingCode, setMeetingCode] = useState(() => existingCode ?? '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -216,20 +200,15 @@ export function MeetingScheduler({
     return changes;
   };
 
-  /** Create the packet, with a fresh code if a generated one is already taken */
+  /** Create the packet: with the code typed, or the server's random one */
   const create = async (orgId: string): Promise<MeetingPacket> => {
-    let code = meetingCode;
-    for (let attempt = 1; ; attempt++) {
-      try {
-        return await createPacket(orgId, { robbieCode: code, ...details() });
-      } catch (err) {
-        if (!(err instanceof HttpError && err.status === 409) || attempt >= CODE_ATTEMPTS) {
-          throw err;
-        }
-        code = generateMeetingCode();
-        setMeetingCode(code);
-      }
-    }
+    const code = meetingCode.trim();
+    const created = await createPacket(orgId, {
+      ...(code && { robbieCode: code }),
+      ...details(),
+    });
+    setMeetingCode(created.robbieCode);
+    return created;
   };
 
   const handleProceedToAgenda = async () => {
@@ -430,9 +409,32 @@ export function MeetingScheduler({
               }}
               className="space-y-4"
             >
-              <p className="text-sm text-ink-muted">
-                Meeting code <span className="meeting-code text-ink">{meetingCode}</span>
-              </p>
+              {packet ? (
+                <p className="text-sm text-ink-muted">
+                  Meeting code <span className="meeting-code text-ink">{meetingCode}</span>
+                </p>
+              ) : (
+                <div>
+                  <label htmlFor="meetingCode" className="label">
+                    Meeting code (optional)
+                  </label>
+                  <input
+                    id="meetingCode"
+                    type="text"
+                    className="input meeting-code"
+                    value={meetingCode}
+                    maxLength={8}
+                    autoComplete="off"
+                    onChange={(e) =>
+                      setMeetingCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-ink-muted">
+                    Leave it empty for a random code, which is harder to guess. Or choose 4 to 8
+                    letters or digits.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="meetingTitle" className="label">
@@ -535,7 +537,7 @@ export function MeetingScheduler({
                   )}
                   {(presiders ?? []).map((member) => (
                     <option key={member.userId} value={String(member.userId)}>
-                      {member.name ?? member.email}
+                      {member.name ?? member.email ?? 'A member without a name'}
                     </option>
                   ))}
                 </select>
