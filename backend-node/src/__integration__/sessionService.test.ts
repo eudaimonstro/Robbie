@@ -8,6 +8,7 @@ import {
   deleteUserSessions,
   findSession,
   findSessionById,
+  liveSessionIds,
 } from '../auth/sessionService.js';
 import { hashSecret } from '../auth/tokens.js';
 import { resetAccounts } from './db.js';
@@ -39,6 +40,31 @@ describe('sessionService', () => {
     const { token } = await createSession(userId, 'web', start);
     expect(await findSession('not-a-token')).toBeNull();
     expect(await findSession(token, new Date(start.getTime() + SESSION_LIFETIME_MS))).toBeNull();
+  });
+
+  it("refuses a suspended user's sessions, by token or by id", async () => {
+    const { token, sessionId } = await createSession(userId, 'web');
+    await prisma.user.update({ where: { id: userId }, data: { suspendedAt: new Date() } });
+    expect(await findSession(token)).toBeNull();
+    expect(await findSessionById(sessionId)).toBeNull();
+  });
+
+  it('tells which sessions are still signed in', async () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const live = await createSession(userId, 'web', start);
+    const signedOut = await createSession(userId, 'web', start);
+    const old = await createSession(userId, 'web', new Date(start.getTime() - SESSION_LIFETIME_MS));
+    await deleteSession(signedOut.sessionId);
+    const ben = await prisma.user.create({
+      data: { email: 'ben@example.org', suspendedAt: start },
+    });
+    const suspended = await createSession(ben.id, 'mobile', start);
+
+    const ids = [live, signedOut, old, suspended].map((s) => s.sessionId);
+    expect(await liveSessionIds(ids, new Date(start.getTime() + HOUR))).toEqual(
+      new Set([live.sessionId]),
+    );
+    expect(await liveSessionIds([])).toEqual(new Set());
   });
 
   it('finds a session by its id without extending it, until it is signed out or expires', async () => {

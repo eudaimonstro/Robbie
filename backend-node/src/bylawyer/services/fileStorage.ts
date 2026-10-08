@@ -18,6 +18,11 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads')
 // backslash.
 const MEETING_DIR_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
+/** The uploads directory, absolute */
+export function uploadRoot(): string {
+  return path.resolve(UPLOAD_DIR);
+}
+
 /**
  * Resolve a path inside the uploads directory, refusing one that leaves it (through "..",
  * an absolute path, and so on).

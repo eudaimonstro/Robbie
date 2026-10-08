@@ -280,12 +280,25 @@ export async function handleJoinMeeting(
  * again as on a join. Then count it as connected again, which ends its grace period; if the
  * grace period ran out meanwhile, the member is present again.
  *
+ * A recovered socket in no meeting has its session checked too.
+ *
  * Until the checks pass the socket is in no meeting, so an action it sends meanwhile is refused
  * ("Not in a meeting"). A socket whose check fails is closed rather than left half recovered.
  */
 export async function handleRecoveredSocket(socket: TypedSocket, io: TypedServer): Promise<void> {
   const meetingCode = socket.data.meetingCode;
-  if (!meetingCode) return;
+  if (!meetingCode) {
+    // In no meeting, there is only the session to check: signed out, expired or suspended
+    // while the socket was away, it is closed
+    try {
+      const session = await findSessionById(socket.data.sessionId);
+      if (!session || !hasAcceptedTerms(session.termsVersion)) socket.disconnect(true);
+    } catch (error) {
+      socket.disconnect(true);
+      throw error;
+    }
+    return;
+  }
   socket.data.meetingCode = null;
 
   // The disconnect handler needs the meeting to clear the socket's place in it

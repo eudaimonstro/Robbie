@@ -16,6 +16,7 @@ import {
 } from '../../schemas/attachments.js';
 import { meetingCode, uuidParam } from '../../schemas/common.js';
 import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fileStorage.js';
+import { orgStorageLimitMb, orgStorageUsed, storageFullMessage } from '../services/storageQuota.js';
 import fs from 'fs';
 import { logger } from '../../middleware/logger.js';
 import { fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
@@ -139,35 +140,65 @@ attachmentsRouter.post(
         return res.status(400).json({ error: 'X-Robbie-Code does not match the meeting' });
       }
 
+      // The organization's storage limit. A cheap check first, so a full organization's upload
+      // writes nothing; then again, with the row created, under a lock on the organization, so
+      // two uploads at once can't both take the last of it.
+      const organizationId = req.org!.id;
+      const limitMb = orgStorageLimitMb();
+      const limitBytes = limitMb * 1024 * 1024;
+      if ((await orgStorageUsed(prisma, organizationId)) + buffer.length > limitBytes) {
+        return res.status(413).json({ error: storageFullMessage(limitMb) });
+      }
+
       // Store the file
       const result = await storeFile(packetCode, filename, mimeType, buffer);
       if (!result.success) {
         return res.status(400).json({ error: result.error });
       }
 
-      // Next position: after the highest one, not at the count (after a delete, the count is
-      // a position already taken)
-      const { _max } = await prisma.attachment.aggregate({
-        where: packetId ? { meetingPacketId: packetId } : { agendaItemId },
-        _max: { position: true },
-      });
-      const nextPosition = (_max.position ?? -1) + 1;
+      let attachment;
+      try {
+        attachment = await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${organizationId}))`;
+          const used = await orgStorageUsed(tx, organizationId);
+          if (used + result.file.sizeBytes > limitBytes) return null;
 
-      // Create attachment record
-      const attachment = await prisma.attachment.create({
-        data: {
-          type: 'uploaded_file',
-          filename: result.file.filename,
-          mimeType: result.file.mimeType,
-          sizeBytes: result.file.sizeBytes,
-          storagePath: result.file.storagePath,
-          displayName: (displayName as string) || result.file.filename,
-          description: description as string | undefined,
-          position: nextPosition,
-          meetingPacketId: packetId,
-          agendaItemId,
-        },
-      });
+          // Next position: after the highest one, not at the count (after a delete, the count
+          // is a position already taken)
+          const { _max } = await tx.attachment.aggregate({
+            where: packetId ? { meetingPacketId: packetId } : { agendaItemId },
+            _max: { position: true },
+          });
+          const nextPosition = (_max.position ?? -1) + 1;
+
+          return tx.attachment.create({
+            data: {
+              type: 'uploaded_file',
+              filename: result.file.filename,
+              mimeType: result.file.mimeType,
+              sizeBytes: result.file.sizeBytes,
+              storagePath: result.file.storagePath,
+              displayName: (displayName as string) || result.file.filename,
+              description: description as string | undefined,
+              position: nextPosition,
+              meetingPacketId: packetId,
+              agendaItemId,
+              // Who uploaded it, for a report about the file (src/abuse/reportHandling.ts)
+              uploadedBy: req.user!.email,
+            },
+          });
+        });
+      } catch (error) {
+        // No record, so no file: one left behind would count toward nothing and never be removed
+        await deleteFile(result.file.storagePath).catch((err) =>
+          logger.error({ err, storagePath: result.file.storagePath }, 'Failed to remove a file'),
+        );
+        throw error;
+      }
+      if (!attachment) {
+        await deleteFile(result.file.storagePath);
+        return res.status(413).json({ error: storageFullMessage(limitMb) });
+      }
 
       res.status(201).json(attachment);
     } catch (error) {

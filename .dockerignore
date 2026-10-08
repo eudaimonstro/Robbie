@@ -9,6 +9,8 @@
 **/.env.*
 backend-node/src/generated
 backend-node/uploads
+# Files a local handleReport preserved: reported material never goes into an image
+backend-node/preserved
 frontend-unified/vite.config.js
 frontend-unified/vite.config.d.ts
 e2e

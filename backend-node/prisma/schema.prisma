@@ -325,7 +325,11 @@ model User {
   termsVersion    String?
   termsAcceptedAt DateTime?
 
-  memberships      OrganizationMember[]
+  // Set by the operator's handleReport script: a suspended user can't sign in, and their
+  // sessions are refused (docs/deploy.md, "Handling a report")
+  suspendedAt DateTime?
+
+  memberships     OrganizationMember[]
   invitesSent      OrganizationInvite[]
   amendments       Amendment[]
   chairing         MeetingPacket[]

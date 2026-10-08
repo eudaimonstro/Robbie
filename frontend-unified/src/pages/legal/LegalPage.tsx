@@ -2,9 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Scale } from 'lucide-react';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
-
-/** Where to write about an account or its data. The owner confirms the mailbox before launch. */
-export const CONTACT_EMAIL = 'privacy@robbie.scouch.dev';
+import { DMCA_AGENT, PRIVACY_EMAIL, type DmcaAgent } from './legalContact';
 
 /**
  * A public page for one of the documents users accept. Each change to either document replaces
@@ -50,11 +48,27 @@ export function LegalSection({ heading, children }: { heading: string; children:
   );
 }
 
-/** The contact address as a mail link */
-export function ContactLink() {
+/** A contact address (legalContact.ts) as a mail link; the privacy address by default */
+export function ContactLink({ email = PRIVACY_EMAIL }: { email?: string }) {
   return (
-    <a href={`mailto:${CONTACT_EMAIL}`} className="text-gavel underline">
-      {CONTACT_EMAIL}
+    <a href={`mailto:${email}`} className="text-gavel underline">
+      {email}
     </a>
+  );
+}
+
+/** The DMCA agent's details: only those filled in (legalContact.ts), and always the email */
+export function DmcaAgentDetails({ agent = DMCA_AGENT }: { agent?: DmcaAgent }) {
+  return (
+    <address className="not-italic pl-4 border-l-2 border-rule">
+      {agent.name && <div>{agent.name}</div>}
+      {agent.postalAddress.map((line) => (
+        <div key={line}>{line}</div>
+      ))}
+      {agent.phone && <div>Phone: {agent.phone}</div>}
+      <div>
+        Email: <ContactLink email={agent.email} />
+      </div>
+    </address>
   );
 }

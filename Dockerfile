@@ -34,6 +34,7 @@ RUN apt-get update \
 ENV NODE_ENV=production \
   PORT=3001 \
   UPLOAD_DIR=/data/uploads \
+  PRESERVE_DIR=/data/preserved \
   CHECKPOINT_DISABLE=1
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -49,8 +50,11 @@ COPY --from=build /app/frontend-unified/dist frontend-unified/dist
 COPY backend-node/prisma backend-node/prisma
 COPY backend-node/prisma.config.ts backend-node/
 COPY --chmod=755 deploy/app-start.sh /usr/local/bin/app-start
-# A named volume mounted here starts with this owner, so the server can write uploads
-RUN mkdir -p /data/uploads && chown node:node /data/uploads
+# Named volumes mounted here start with this owner and mode, so the server can write uploads and
+# handleReport.js can preserve reported files (readable by node alone)
+RUN mkdir -p /data/uploads /data/preserved \
+  && chown node:node /data/uploads /data/preserved \
+  && chmod 700 /data/preserved
 USER node
 WORKDIR /app/backend-node
 EXPOSE 3001

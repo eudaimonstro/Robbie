@@ -191,8 +191,8 @@ export async function uploadAttachment(
     body: file,
   });
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to upload file');
+    // The server's reason, such as the organization's storage being full (413)
+    throw await failure(response, 'Failed to upload file');
   }
   return response.json();
 }

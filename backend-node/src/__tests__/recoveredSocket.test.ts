@@ -142,6 +142,24 @@ describe('handleRecoveredSocket', () => {
     expect(socket.disconnect).toHaveBeenCalledWith(true);
   });
 
+  it('closes a socket in no meeting whose session ended while it was away', async () => {
+    session.current = null;
+    const socket = recovered({ meetingCode: null });
+
+    await handleRecoveredSocket(socket as never, io as never);
+
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+  });
+
+  it('keeps a socket in no meeting whose session is live', async () => {
+    const socket = recovered({ meetingCode: null });
+
+    await handleRecoveredSocket(socket as never, io as never);
+
+    expect(socket.disconnect).not.toHaveBeenCalled();
+    expect(socket.data.meetingCode).toBeNull();
+  });
+
   it('closes a display whose meeting was canceled while it was away', async () => {
     organization.canceled = true;
     const socket = recovered({ display: true });

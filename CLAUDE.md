@@ -91,6 +91,7 @@ npm run db:migrate       # Create/apply migrations in development (prisma migrat
 npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
 npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces it); its people sign in with code 000000 when ENABLE_TEST_AUTH=true. It has this year's annual meeting (MAPLE1, at the clubhouse) and last year's (MAPLE25, adjourned, with the minutes Pat published), so MAPLE1 has minutes to approve; Maple Grove keeps America/Chicago time
+npm run report -- --attachment <id> --kind <csam|copyright|other> --note <text>   # handleReport (src/scripts/handleReport.ts; in the image, node dist/scripts/handleReport.js): preserve a reported file in PRESERVE_DIR with a manifest, then remove it (--missing-ok for a file already gone); --record-report <folder> --reported-at <date> --report-id <n> records the CyberTipline report (kept a year from it); --restore <folder> --note <text> puts a copyright removal back (never CSAM); --suspend/--unsuspend <email>; --dry-run for each (docs/deploy.md, "Handling a report")
 ```
 
 ### Docker
@@ -112,7 +113,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 **Robbie Features:**
 
 - Socket.io for real-time meeting state synchronization
-- Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile)
+- Email-code sign-in for the whole app, with server-side sessions (`session` cookie for web, bearer token for mobile). A suspended user (`User.suspendedAt`, set by `handleReport --suspend`) is refused quietly: a code request answers as usual but sends nothing (it waits about as long as a send, and fails as a send would when sending is failing), verify answers as for a wrong code, and `findSession`/`findSessionById` refuse their sessions (so `authenticate`, the socket handshake and a recovered socket do). Every minute the server closes sockets whose session ended elsewhere (`disconnectSocketsWithoutSession`, `socket/sessionSockets.ts`), since the script runs in its own process
 - Organization membership with roles (viewer, member, secretary, admin, owner); acceptance of the current Terms of Service (`TERMS_VERSION` in shared) before using the API or socket
 - Meeting storage in PostgreSQL. A live meeting is created from its packet (its scheduled meeting), so meetings need the database; the in-memory storage mode can't run one.
 - Meeting roles from the organization at every join: the packet's presiding officer is the chair, secretaries and above are admins, members are members, everyone else is a non-voting guest
@@ -226,6 +227,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `POST /api/meetings/{id}/votes` - Record a vote
 - `PUT /api/organizations/{id}` - Name, description, time zone (`timeZone`, an IANA name; the minutes give times there), and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
 - `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` (canceling the meeting) also deletes its uploaded files, refuses (409) a meeting already called to order, whose minutes would go with it, and closes one already open (`closeCanceledMeeting`, `socket/meetingLifecycle.ts`): the room is sent `ERROR` with code `MEETING_CANCELED`, its sockets leave it (still signed in), and its live state is deleted, so the screens say "This meeting was canceled." with the way back to Live Meetings
+- `POST /api/attachments/upload?packetId=|agendaItemId=` - An uploaded file (raw body: PDF, DOC, DOCX, TXT or RTF, at most 10 MB) on a packet or agenda item (secretary), recording who uploaded it (`uploadedBy`); 413 when the organization's files would pass `ORG_STORAGE_LIMIT_MB` (checked under a per-organization advisory lock)
 - `GET /api/packets/{code}/roster` - The meeting's organization's members, for marking people present (emails and pending additions for admins only)
 - `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
@@ -257,9 +259,12 @@ PORT=3001
 CLIENT_ORIGIN=http://localhost:5173
 APP_URL=http://localhost:5173   # links in emails; falls back to CLIENT_ORIGIN, then http://localhost:5173 (production refuses to start without one of the two)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/robbie
+UPLOAD_DIR=./uploads            # meeting attachments (/data/uploads in the image)
+PRESERVE_DIR=                   # where handleReport preserves reported files; default: "preserved" beside UPLOAD_DIR (/data/preserved in the image). Never served, never backed up, never inside UPLOAD_DIR
+ORG_STORAGE_LIMIT_MB=500        # each organization's uploaded files together; an upload past it is 413 "This organization has used its 500 MB of storage for files. Remove some files to add more."
 ```
 
-In production (`NODE_ENV=production`) the server refuses to start without `DATABASE_URL`, an email provider, `EMAIL_FROM`, or `APP_URL`/`CLIENT_ORIGIN`, or with `ENABLE_TEST_AUTH=true`, and warns without `TRUST_PROXY` (`startupCheck` in `backend-node/src/startupCheck.ts`). `deploy/.env.production.example` documents every variable. `GET /api/health` is 200 only when the database answers `SELECT 1` within 2 seconds, else 503. The per-IP sign-in limits are 300 code requests and 600 verifications per 15 minutes (a room on one Wi-Fi).
+In production (`NODE_ENV=production`) the server refuses to start without `DATABASE_URL`, an email provider, `EMAIL_FROM`, or `APP_URL`/`CLIENT_ORIGIN`, or with `ENABLE_TEST_AUTH=true` or an `ORG_STORAGE_LIMIT_MB` that isn't a whole number above 0, and warns without `TRUST_PROXY` (`startupCheck` in `backend-node/src/startupCheck.ts`). `deploy/.env.production.example` documents every variable. `GET /api/health` is 200 only when the database answers `SELECT 1` within 2 seconds, else 503. The per-IP sign-in limits are 300 code requests and 600 verifications per 15 minutes (a room on one Wi-Fi).
 
 No variable sets meeting roles: the chair, admins, members and guests of a live meeting come from the organization at every join (see Key Conventions, Live meetings).
 

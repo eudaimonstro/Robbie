@@ -24,9 +24,12 @@ services:
       # Caddy is the one proxy in front (it replaces any X-Forwarded-For a client sends)
       TRUST_PROXY: '1'
       UPLOAD_DIR: /data/uploads
+      # Files preserved after a report, by handleReport.js (docs/deploy.md, "Handling a report")
+      PRESERVE_DIR: /data/preserved
       DATABASE_URL: postgresql://robbie:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/robbie
     volumes:
       - uploads:/data/uploads
+      - preserved:/data/preserved
     depends_on:
       db:
         condition: service_healthy
@@ -100,6 +103,9 @@ services:
 volumes:
   pgdata:
   uploads:
+  # Reported material and its manifests: the app only. Never mounted into the backup service, so
+  # never in a backup, and never deleted within a year of each report (docs/deploy.md)
+  preserved:
   # Caddy's certificates and account: keep them, or Let's Encrypt's rate limits may bite
   caddy_data:
   caddy_config:

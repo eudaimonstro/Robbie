@@ -1,7 +1,10 @@
 import { prisma } from '../db/prisma.js';
 import { acceptPendingInvites } from '../orgs/membershipService.js';
-import { sendSignInCode } from './emailService.js';
+import { randomInt } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { canSendEmail, sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
+import { normalizeEmail } from './normalizeEmail.js';
 import type { SessionUser } from './sessionService.js';
 
 export const CODE_LIFETIME_MS = 15 * 60 * 1000;
@@ -24,9 +27,7 @@ export class SignInError extends Error {
   }
 }
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export { normalizeEmail };
 
 // Test sign-in: outside production, ENABLE_TEST_AUTH=true makes a fixed code sign in any email
 function isTestCode(code: string): boolean {
@@ -37,7 +38,33 @@ function isTestCode(code: string): boolean {
   );
 }
 
-/** Email a new sign-in code. The answer is the same whether or not the email has an account. */
+/** Whether the account with this (normalized) email is suspended (see handleReport) */
+/**
+ * How long a suspended account's code request waits before answering, in milliseconds: about
+ * as long as a send to the email provider takes, so the answer's timing doesn't single it out
+ */
+export const SUSPENDED_ANSWER_DELAY_MS = { min: 150, max: 700 };
+
+// Whether the latest send to the email provider failed: a suspended account's request fails
+// too then, as anyone's would
+let lastSendFailed = false;
+
+/** Stand in for a send to a suspended account: as long, and failing when sends are failing */
+async function answerAsASendWould(): Promise<void> {
+  await sleep(randomInt(SUSPENDED_ANSWER_DELAY_MS.min, SUSPENDED_ANSWER_DELAY_MS.max + 1));
+  if (!canSendEmail() || lastSendFailed) throw new Error('Sending is failing');
+}
+
+async function isSuspended(email: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { email }, select: { suspendedAt: true } });
+  return Boolean(user?.suspendedAt);
+}
+
+/**
+ * Email a new sign-in code. The answer is the same whether or not the email has an account, and
+ * for a suspended account, which goes through the same steps but is never sent the code: its
+ * answer waits about as long as a send, and fails when sends are failing.
+ */
 export async function requestSignInCode(rawEmail: string, now: Date = new Date()): Promise<void> {
   const email = normalizeEmail(rawEmail);
   if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
@@ -62,7 +89,17 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
   });
 
   try {
-    await sendSignInCode(email, code);
+    if (await isSuspended(email)) {
+      await answerAsASendWould();
+    } else {
+      try {
+        await sendSignInCode(email, code);
+        lastSendFailed = false;
+      } catch (error) {
+        lastSendFailed = true;
+        throw error;
+      }
+    }
   } catch {
     await prisma.signInCode.delete({ where: { id: record.id } });
     throw new SignInError(502, "We couldn't send the email. Try again.");
@@ -78,7 +115,7 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
   });
 }
 
-/** Check a code and return the user, created on first sign-in */
+/** Check a code and return the user, created on first sign-in. A suspended user is refused. */
 export async function verifySignInCode(
   rawEmail: string,
   rawCode: string,
@@ -128,6 +165,9 @@ export async function verifySignInCode(
     });
     if (consumed.count === 0) throw new SignInError(401, WRONG_CODE);
   }
+
+  // A suspended account gets the answer a wrong code gets, so the refusal doesn't confirm it
+  if (await isSuspended(email)) throw new SignInError(401, WRONG_CODE);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.upsert({
