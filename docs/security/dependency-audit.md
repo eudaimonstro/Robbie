@@ -10,11 +10,11 @@ The root `package.json` forces these versions. Each is scoped to the package tha
 
 | Override                                 | Replaces | Advisory                                                  | Ships in                                      |
 | ---------------------------------------- | -------- | --------------------------------------------------------- | --------------------------------------------- |
-| `compression` ^1.8.2                     | 1.8.1    | the advisory on 1.8.1 (moderate)                          | development only (`@expo/cli`)                |
+| `compression` ^1.8.2                     | 1.8.1    | GHSA-vc2v-76pw-4v95 (high)                                | development only (`@expo/cli`)                |
 | `shell-quote` ^1.12.0                    | 1.9.0    | command injection in `quote()` (critical)                 | development only                              |
 | `prisma` > `mysql2` ^3.24.5              | 3.15.3   | GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3 (high, moderate) | server image (the Prisma CLI runs migrations) |
 | `@prisma/config` > `deepmerge-ts` ^8.0.2 | 7.1.5    | GHSA-ggr8-5vv4-36mx (high)                                | server image (Prisma's config loader)         |
-| `xcode` > `uuid` ^11.1.1                 | 7.0.3    | uuid below 11.1.1 (moderate)                              | development only (Expo's iOS config plugins)  |
+| `xcode` > `uuid` ^11.1.1                 | 7.0.3    | GHSA-w5hq-g745-h8pq (moderate)                            | development only (Expo's iOS config plugins)  |
 
 Adding an override takes two steps. `npm install` alone keeps the version already in the lockfile, and `npm ls` then reports it as invalid, which is most likely what an earlier attempt ran into when "forcing overrides broke the tree". Run `npm update <package>` after editing `overrides` so npm resolves it again, then check `npm ls <package>`.
 
