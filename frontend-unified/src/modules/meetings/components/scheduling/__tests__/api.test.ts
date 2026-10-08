@@ -29,9 +29,12 @@ describe('scheduling API', () => {
     expect(getAttachmentDownloadUrl('a1')).toBe('/api/attachments/a1/download');
   });
 
-  it('keeps its own error message', async () => {
-    mockFetch(500, { error: 'boom' });
-    await expect(getPacket('DEMO')).rejects.toThrow('Failed to get meeting packet');
+  it('keeps its own error message when the server gives none', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('oops', { status: 500 })),
+    );
+    await expect(getPacket('DEMO')).rejects.toThrow("Couldn't load the meeting");
   });
 
   it('reports a lost session on a 401', async () => {
@@ -55,6 +58,14 @@ describe('scheduling API', () => {
   it('reads a meeting without a packet as having none', async () => {
     mockFetch(404, { error: 'Not found' });
     expect(await getPacket('DEMO')).toBeNull();
+  });
+
+  it("reads a packet, with the server's message for a refusal", async () => {
+    mockFetch(403, { error: 'You need the viewer role for this' });
+    await expect(getPacket('MAPLE1')).rejects.toMatchObject({
+      message: 'You need the viewer role for this',
+      status: 403,
+    });
   });
 
   it("creates a packet in an organization, with the server's message for a taken code", async () => {

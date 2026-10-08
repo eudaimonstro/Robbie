@@ -30,7 +30,7 @@ export async function getPacket(robbieCode: string): Promise<MeetingPacket | nul
   const response = await apiFetch(`/packets/${robbieCode}`);
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new Error('Failed to get meeting packet');
+    throw await failure(response, "Couldn't load the meeting");
   }
   return response.json();
 }
