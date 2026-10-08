@@ -54,6 +54,11 @@ jobs:
       - name: Apply database migrations
         run: npm run db:deploy -w backend-node
 
+      - name: Audit the production dependencies
+        # Fails on critical findings; the high ones it prints are accepted in
+        # docs/superpowers/specs/2026-10-07-ship-design.md (Dependencies)
+        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=critical
+
       - name: Format check
         run: npm run format:check
 
@@ -181,3 +186,25 @@ jobs:
             e2e/test-results
             e2e/playwright-report
           retention-days: 14
+
+  image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: robbie:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start it from compose, check it, and restore a backup into it
+        run: bash deploy/smoke.sh robbie:ci
