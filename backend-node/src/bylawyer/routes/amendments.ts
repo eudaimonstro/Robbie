@@ -16,6 +16,7 @@ import {
 } from '../../schemas/amendments.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
+import { sectionLabel } from '@robbie-bylawyer/shared/utils';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfAmendment, orgOfAmendmentChange, orgOfDocument } from '../../orgs/resolvers.js';
 import { canEditAmendment, roleNeeded } from '../../orgs/roles.js';
@@ -470,20 +471,25 @@ amendmentsRouter.post(
         req.body.target_section_id || req.body.targetSectionId,
         req.body.parent_section_id || req.body.parentSectionId,
       ].filter((id): id is string => Boolean(id));
+      let sections: Array<{ id: string; numberLabel: string | null; title: string | null }> = [];
       if (sectionIds.length > 0) {
         const document = await prisma.document.findUnique({
           where: { id: amendment.documentId },
           select: { currentVersionId: true },
         });
-        const found = document?.currentVersionId
-          ? await prisma.section.count({
+        sections = document?.currentVersionId
+          ? await prisma.section.findMany({
               where: { id: { in: sectionIds }, versionId: document.currentVersionId },
+              select: { id: true, numberLabel: true, title: true },
             })
-          : 0;
-        if (found !== new Set(sectionIds).size) {
+          : [];
+        if (sections.length !== new Set(sectionIds).size) {
           return res.status(404).json({ error: 'Section not found' });
         }
       }
+      // The section named as it is now, which outlives its id once a version is applied
+      const targetSectionId = req.body.target_section_id || req.body.targetSectionId;
+      const target = sections.find((s) => s.id === targetSectionId);
 
       const change = await prisma.$transaction(async (tx) => {
         if (!(await lockDraft(tx, req.params.id))) {
@@ -497,7 +503,8 @@ amendmentsRouter.post(
           data: {
             amendmentId: req.params.id,
             changeType: req.body.change_type || req.body.changeType,
-            targetSectionId: req.body.target_section_id || req.body.targetSectionId,
+            targetSectionId,
+            targetLabel: target ? sectionLabel(target) : null,
             newContent: req.body.new_content || req.body.newContent,
             newNumberLabel: req.body.new_number_label || req.body.newNumberLabel,
             newTitle: req.body.new_title || req.body.newTitle,

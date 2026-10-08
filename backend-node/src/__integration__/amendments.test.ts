@@ -283,6 +283,12 @@ describe('amendment changes', () => {
       (await addChange({ targetSectionId: f.section, parentSectionId: f.section })).status,
     ).toBe(201);
   });
+
+  it('keep the section they name as it is named now', async () => {
+    const res = await addChange({ changeType: 'modify', targetSectionId: f.section });
+    expect(res.body).toMatchObject({ targetSectionId: f.section, targetLabel: '1 "Name"' });
+    expect((await addChange({})).body).toMatchObject({ targetLabel: null });
+  });
 });
 
 describe('amendment status changes', () => {

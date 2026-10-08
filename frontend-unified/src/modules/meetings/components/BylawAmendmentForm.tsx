@@ -27,6 +27,9 @@ const KINDS: Array<{ value: BylawChangeType; label: string }> = [
   { value: 'renumber', label: 'Renumber' },
 ];
 
+/** How near the limit the wording gets before the form says how much room is left */
+const WARN_WITHIN = 1000;
+
 /** Where the motion comes from: a proposed amendment as drafted, or a change written here */
 type Source = 'proposed' | 'new';
 
@@ -386,7 +389,16 @@ export function BylawAmendmentForm({ meetingCode, onSubmit, onCancel }: BylawAme
                   maxLength={MAX_BYLAW_TEXT_LENGTH}
                   rows={6}
                   className="input resize-y"
+                  aria-describedby={
+                    newContent.length > MAX_BYLAW_TEXT_LENGTH - WARN_WITHIN ? id('room') : undefined
+                  }
                 />
+                {newContent.length > MAX_BYLAW_TEXT_LENGTH - WARN_WITHIN && (
+                  <p id={id('room')} className="mt-1 text-sm text-caution-ink" aria-live="polite">
+                    {MAX_BYLAW_TEXT_LENGTH - newContent.length} characters left of{' '}
+                    {MAX_BYLAW_TEXT_LENGTH.toLocaleString('en-US')}
+                  </p>
+                )}
               </div>
             </>
           )}

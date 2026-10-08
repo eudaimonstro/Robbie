@@ -128,7 +128,11 @@ describe('BylawAmendmentForm', () => {
     // Unchanged, there is nothing to move
     expect(move).toHaveProperty('disabled', true);
 
+    // Near the limit, it says how much room is left
+    fireEvent.change(wording, { target: { value: 'x'.repeat(9500) } });
+    expect(screen.getByText('500 characters left of 10,000')).toBeTruthy();
     fireEvent.change(wording, { target: { value: FIFTEEN } });
+    expect(screen.queryByText(/characters left/)).toBeNull();
     fireEvent.click(move);
     expect(onSubmit).toHaveBeenCalledWith(
       'I move to amend the bylaws by modifying Section 4.2 "Quorum"',
