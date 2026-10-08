@@ -17,7 +17,7 @@ vi.mock('../../../../../api/client', () => ({
   sections: {},
 }));
 // The same function each render, as the provider's is: a new one would reload the document
-const toast = vi.hoisted(() => ({ showToast: () => {} }));
+const toast = vi.hoisted(() => ({ showToast: vi.fn() }));
 vi.mock('../../../../../context/ToastContext', () => ({ useToast: () => toast }));
 
 const { useDocumentData } = await import('../useDocumentData');
@@ -117,5 +117,23 @@ describe('useDocumentData', () => {
     await act(() => result.current.handleCreateVersion({} as never));
     expect(result.current.selectedVersion?.id).toBe('q3');
     expect(api.getTree.mock.calls.map(([id]) => id)).toEqual(['q1', 'q2', 'q3', 'q3']);
+  });
+
+  it("says a document that isn't there is missing, and a failed load failed, without a toast", async () => {
+    api.getDocument.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
+    const missing = renderHook(() => useDocumentData('A'));
+    await waitFor(() => expect(missing.result.current.loading).toBe(false));
+    expect(missing.result.current.loadError).toBe('missing');
+
+    api.getDocument.mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }));
+    const failed = renderHook(() => useDocumentData('A'));
+    await waitFor(() => expect(failed.result.current.loading).toBe(false));
+    expect(failed.result.current.loadError).toBe('failed');
+    expect(toast.showToast).not.toHaveBeenCalled();
+
+    // Try again
+    await act(() => failed.result.current.reload());
+    expect(failed.result.current.loadError).toBeNull();
+    expect(failed.result.current.doc?.id).toBe('A');
   });
 });

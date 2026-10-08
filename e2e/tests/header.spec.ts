@@ -17,13 +17,13 @@ test('the header fits at phone, tablet and laptop widths', async ({ page }, test
     // Load the page at this width, so the sidebar isn't caught sliding
     await page.setViewportSize({ width, height });
     await page.goto('/');
-    await expect(page.getByText('Welcome to Maple Grove HOA')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Maple Grove HOA' })).toBeVisible();
     const header = page.locator('header').first();
     await expect(header.getByRole('button', { name: /Maple Grove HOA/ })).toBeVisible();
     await expectInside(header, width);
 
-    // The dashboard's join button stays on one line (on phones it goes under the title)
-    const join = await page.getByRole('link', { name: 'Join Live Meeting' }).boundingBox();
+    // Home's join button for the next meeting stays on one line (on phones, the full width)
+    const join = await page.getByRole('link', { name: 'Join 2026 Annual Meeting' }).boundingBox();
     expect(join?.height, `the join button's height at ${width}px`).toBeLessThanOrEqual(44);
     expect(join!.x + join!.width, `the join button at ${width}px`).toBeLessThanOrEqual(width);
 

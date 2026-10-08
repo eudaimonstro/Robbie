@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { toString as renderQrCode } from 'qrcode';
 
 interface QrCodeProps {
   /** What the code holds: a meeting's join link (see joinUrl) */
@@ -21,12 +20,19 @@ export function QrCode({ value, label, size = 200, className = '' }: QrCodeProps
 
   useEffect(() => {
     let canceled = false;
-    renderQrCode(value, {
-      type: 'svg',
-      margin: 4,
-      errorCorrectionLevel: 'M',
-      color: { dark: '#15130f', light: '#ffffff' },
-    })
+    // The QR library loads with the first code drawn (the console's join card, the display), so
+    // a phone never downloads it
+    import('qrcode')
+      .then((module) => {
+        // A CommonJS package: bundled, its functions are on the default export
+        const qr = 'default' in module && module.default ? module.default : module;
+        return qr.toString(value, {
+          type: 'svg',
+          margin: 4,
+          errorCorrectionLevel: 'M',
+          color: { dark: '#15130f', light: '#ffffff' },
+        });
+      })
       .then((svg) => {
         if (!canceled) {
           setDrawn({ value, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });

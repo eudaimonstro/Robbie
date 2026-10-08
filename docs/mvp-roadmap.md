@@ -16,6 +16,10 @@ Decisions made on 2026-10-06, when the owner handed over product decisions:
 - **One design language for the whole app.** The token and utility system in `frontend-unified/src/styles/index.css` already exists and the documents side uses it; the live meeting screens (chair console, phone view, display view) are designed fresh on it, and the rest of the meetings module moves off raw palette classes.
 - **The wire protocol stays.** `JOIN_MEETING { meetingCode }` does not change; the server derives the role from the organization and the meeting's packet. That is what keeps the mobile app working without new features.
 
+Later decisions:
+
+- **2026-10-08: the Expo app is retired from the MVP.** Phones use the web app. The Expo app is no longer maintained and doesn't speak the slim update protocol (live updates that carry only what changed, `StateUpdatePayload.tails`); batch F takes it out of the workspaces.
+
 ## The acceptance scenario
 
 Maple Grove HOA, annual meeting, in the clubhouse. This is what a Playwright test and the demo seed reproduce.

@@ -3,6 +3,18 @@ import { dateString } from './common.js';
 
 const changeTypeEnum = z.enum(['add', 'modify', 'delete', 'renumber']);
 
+const statusEnum = z.enum(['draft', 'proposed', 'passed', 'failed', 'tabled', 'withdrawn']);
+
+/** An organization's amendments, of the statuses given as a comma list (all when left out) */
+export const organizationAmendmentsQuery = z.object({
+  status: z
+    .string()
+    .max(100)
+    .transform((value) => value.split(',').map((status) => status.trim()))
+    .pipe(z.array(statusEnum).min(1))
+    .optional(),
+});
+
 export const createAmendmentBody = z.object({
   title: z.string().min(1).max(500),
   description: z.string().max(5000).optional(),

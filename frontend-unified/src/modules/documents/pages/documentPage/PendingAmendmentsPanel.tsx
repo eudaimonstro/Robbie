@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Amendment } from '../../../../api/client';
 import { StatusBadge } from '../../../../components/ui/Badge';
+import { count } from '../../../../utils/plural';
 
 interface PendingAmendmentsPanelProps {
   amendments: Amendment[];
@@ -12,11 +13,11 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
     <div className="w-full xl:w-80 shrink-0">
       <div className="card sticky top-6">
         <div className="px-4 py-3 border-b border-rule">
-          <h3 className="font-semibold text-ink text-sm">Pending Amendments</h3>
+          <h3 className="label-caps">Pending amendments</h3>
         </div>
 
         {amendments.length === 0 ? (
-          <div className="p-4 text-center text-sm text-ink-muted">No pending amendments</div>
+          <div className="p-4 text-center text-sm text-ink-muted">No pending amendments.</div>
         ) : (
           <div className="divide-y divide-rule">
             {amendments.map((amendment) => (
@@ -25,15 +26,19 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
                 to={`/amendments/${amendment.id}`}
                 className="block px-4 py-3 hover:bg-surface-2 transition-colors"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sm text-ink truncate">{amendment.title}</span>
-                  <StatusBadge status={amendment.status} />
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="min-w-0 font-medium text-sm text-ink truncate">
+                    {amendment.title}
+                  </span>
+                  <span className="shrink-0">
+                    <StatusBadge status={amendment.status} />
+                  </span>
                 </div>
                 {amendment.description && (
                   <p className="text-xs text-ink-muted line-clamp-2">{amendment.description}</p>
                 )}
                 <p className="text-xs text-ink-muted mt-1">
-                  {amendment.changes?.length || 0} change(s)
+                  {count(amendment.changes?.length ?? 0, 'change')}
                 </p>
               </Link>
             ))}
@@ -43,9 +48,9 @@ export function PendingAmendmentsPanel({ amendments, documentId }: PendingAmendm
         <div className="px-4 py-2 border-t border-rule">
           <Link
             to={`/documents/${documentId}/amendments`}
-            className="text-sm text-gavel hover:underline"
+            className="inline-flex items-center text-sm text-gavel hover:underline max-md:min-h-11"
           >
-            View all amendments
+            All amendments to this document
           </Link>
         </div>
       </div>

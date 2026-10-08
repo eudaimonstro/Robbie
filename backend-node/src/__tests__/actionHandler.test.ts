@@ -8,6 +8,7 @@ const stored = vi.hoisted(() => ({ state: null as unknown as MeetingState }));
 vi.mock('../db/meetingStorage.js', () => ({
   getStorage: () => ({
     getMeeting: async () => ({ id: 1, code: 'TEST01', state: stored.state, stateVersion: 1 }),
+    peekMeeting: async () => ({ id: 1, code: 'TEST01', state: stored.state, stateVersion: 1 }),
   }),
 }));
 // Apply with the real reducer, as the state manager does
@@ -16,9 +17,13 @@ const applyAction = vi.hoisted(() =>
     success: true,
     state: meetingReducer(stored.state, action),
     stateVersion: 2,
+    changed: true,
   })),
 );
-vi.mock('../socket/stateManager.js', () => ({ applyAction }));
+vi.mock('../socket/stateManager.js', () => ({
+  applyAction,
+  DEFERRED_WRITES: new Set(['CAST_VOTE', 'CAST_BALLOT', 'RAISE_HAND', 'LOWER_HAND']),
+}));
 vi.mock('../bylawyer/bylawSyncService.js', () => ({
   checkAndSyncBylawAmendment: async () => null,
 }));
@@ -28,6 +33,7 @@ vi.mock('../bylawyer/services/meetingMinutes.js', () => ({
 }));
 
 const { handleDispatchAction } = await import('../socket/actionHandler.js');
+const { forgetBroadcasts } = await import('../socket/statePublisher.js');
 const { roomManager } = await import('../socket/roomManager.js');
 
 const question = {
@@ -82,6 +88,8 @@ async function dispatch(socket: ReturnType<typeof socketOf>, action: unknown) {
 
 describe('handleDispatchAction', () => {
   beforeEach(() => {
+    // Each test's first update goes out at once
+    forgetBroadcasts();
     applyAction.mockClear();
     stored.state = {
       ...initialState,

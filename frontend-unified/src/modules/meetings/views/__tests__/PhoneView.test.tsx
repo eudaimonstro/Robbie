@@ -593,9 +593,11 @@ describe('PhoneView', () => {
     expect(openMenu).toHaveBeenCalled();
   });
 
-  it('leaves the meeting from the header', () => {
+  it('leaves the meeting from the header, once the member confirms during the meeting', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByRole('button', { name: 'Leave meeting' }));
+    expect(socket.leaveMeeting).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
     expect(socket.leaveMeeting).toHaveBeenCalled();
   });
 

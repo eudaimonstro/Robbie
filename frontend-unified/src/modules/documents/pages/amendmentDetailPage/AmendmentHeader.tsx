@@ -44,56 +44,59 @@ export function AmendmentHeader({
   return (
     <div className="mb-6">
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-1">
-        <Link to="/" className="hover:text-gavel">
+        <Link to="/" className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
           {organizationName}
         </Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link to={`/documents/${document.id}`} className="hover:text-gavel">
+        <ChevronRight className="w-4 h-4" aria-hidden="true" />
+        <Link
+          to={`/documents/${document.id}`}
+          className="inline-flex items-center max-md:min-h-11 hover:text-gavel"
+        >
           {document.title}
         </Link>
-        <ChevronRight className="w-4 h-4" />
+        <ChevronRight className="w-4 h-4" aria-hidden="true" />
         <span>Amendment</span>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="page-title">{amendment.title}</h2>
           <StatusBadge status={amendment.status} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canEdit && (
             <button onClick={onEdit} className="btn-ghost btn-sm">
-              <Edit2 className="w-4 h-4 mr-1" />
+              <Edit2 className="w-4 h-4" aria-hidden="true" />
               Edit
             </button>
           )}
           {canWithdraw && (
             <button onClick={onWithdraw} className="btn-ghost btn-sm text-ink-muted">
-              <XCircle className="w-4 h-4 mr-1" />
+              <XCircle className="w-4 h-4" aria-hidden="true" />
               Withdraw
             </button>
           )}
           {canPropose && (
             <button onClick={onPropose} className="btn-primary btn-sm">
-              <Send className="w-4 h-4 mr-1" />
+              <Send className="w-4 h-4" aria-hidden="true" />
               Propose
             </button>
           )}
           {canVote && (
             <>
               <button onClick={onFail} className="btn-danger btn-sm">
-                <XCircle className="w-4 h-4 mr-1" />
-                Mark Failed
+                <XCircle className="w-4 h-4" aria-hidden="true" />
+                Mark failed
               </button>
               <button onClick={onPass} className="btn-success btn-sm">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Mark Passed
+                <CheckCircle className="w-4 h-4" aria-hidden="true" />
+                Mark passed
               </button>
             </>
           )}
           {canApply && (
             <button onClick={onApply} className="btn-primary btn-sm">
-              <RotateCcw className="w-4 h-4 mr-1" />
-              Apply to Document
+              <RotateCcw className="w-4 h-4" aria-hidden="true" />
+              Apply to the document
             </button>
           )}
         </div>

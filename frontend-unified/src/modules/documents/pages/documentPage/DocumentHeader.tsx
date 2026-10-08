@@ -33,14 +33,17 @@ export function DocumentHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm text-ink-muted mb-1">
-          <Link to="/" className="hover:text-gavel">
+        <div className="flex min-w-0 items-center gap-2 text-sm text-ink-muted mb-1">
+          <Link
+            to="/"
+            className="shrink-0 inline-flex items-center max-md:min-h-11 hover:text-gavel"
+          >
             {organizationName}
           </Link>
-          <ChevronRight className="w-4 h-4" />
-          <span>{doc.title}</span>
+          <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">{doc.title}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="page-title">{doc.title}</h2>
           <DocumentTypeBadge type={doc.docType} />
         </div>
@@ -50,14 +53,15 @@ export function DocumentHeader({
         {versions.length > 0 && (
           <>
             <select
+              aria-label="Version"
               value={selectedVersion?.id || ''}
               onChange={(e) => onVersionChange(e.target.value)}
-              className="select w-auto text-sm py-1.5"
+              className="select w-full sm:w-auto text-sm py-1.5"
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
                   Version {v.versionNumber}
-                  {v.id === doc.currentVersionId ? ' (Current)' : ''}
+                  {v.id === doc.currentVersionId ? ' (current)' : ''}
                   {v.effectiveDate && ` - ${formatCalendarDate(v.effectiveDate)}`}
                 </option>
               ))}
@@ -66,7 +70,7 @@ export function DocumentHeader({
             <ExportDropdown documentId={doc.id} selectedVersion={selectedVersion} />
 
             <Link to={`/documents/${doc.id}/diff`} className="btn-secondary btn-sm">
-              <GitCompare className="w-4 h-4 mr-2" />
+              <GitCompare className="w-4 h-4" aria-hidden="true" />
               Compare
             </Link>
           </>
@@ -74,20 +78,20 @@ export function DocumentHeader({
 
         {canShare && (
           <button onClick={onShare} className="btn-secondary btn-sm">
-            <Share2 className="w-4 h-4 mr-2" />
+            <Share2 className="w-4 h-4" aria-hidden="true" />
             Share
           </button>
         )}
 
         <Link to="/meetings" className="btn-secondary btn-sm">
-          <Users className="w-4 h-4 mr-2" />
+          <Users className="w-4 h-4" aria-hidden="true" />
           Meetings
         </Link>
 
         {canDraft && (
           <button onClick={onProposeAmendment} className="btn-primary btn-sm">
-            <Edit className="w-4 h-4 mr-2" />
-            Propose Amendment
+            <Edit className="w-4 h-4" aria-hidden="true" />
+            Propose amendment
           </button>
         )}
       </div>

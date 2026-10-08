@@ -28,6 +28,37 @@ export function formatLongDate(value: string | null | undefined): string {
 }
 
 /**
+ * The day of a stored instant ("Oct 8, 2026"): when a document, version or amendment was made.
+ * Given the organization's time zone, the day it was there, as the minutes count days; without
+ * one, the viewer's. (A calendar date stored as midnight UTC is formatCalendarDate's.)
+ */
+export function formatDate(value: string | null | undefined, timeZone?: string): string {
+  return instant(value, timeZone, false);
+}
+
+/** A stored instant's day and time ("Oct 8, 2026, 3:14 PM"), as formatDate, without seconds */
+export function formatDateTime(value: string | null | undefined, timeZone?: string): string {
+  return instant(value, timeZone, true);
+}
+
+function instant(
+  value: string | null | undefined,
+  timeZone: string | undefined,
+  withTime: boolean,
+): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    ...(timeZone ? { timeZone } : {}),
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}),
+  });
+}
+
+/**
  * The value for a `datetime-local` input ("2026-10-06T19:00") showing a stored instant in the
  * viewer's time zone. (Slicing the ISO string would show the UTC time instead.)
  */
@@ -49,11 +80,12 @@ export function fromLocalDateTimeInput(value: string): string {
 }
 
 /**
- * A meeting's day and time for display, in the viewer's time zone ("Tue, Oct 20, 7:00 PM"):
- * unlike a calendar date, a meeting is an instant
+ * A meeting's day and time for display ("Tue, Oct 20, 7:00 PM"): unlike a calendar date, a
+ * meeting is an instant. Given the organization's time zone, the time in the room; without one,
+ * the viewer's.
  */
-export function formatMeetingTime(value: string | null | undefined): string {
-  return meetingTime(value, false);
+export function formatMeetingTime(value: string | null | undefined, timeZone?: string): string {
+  return meetingTime(value, false, timeZone);
 }
 
 /**

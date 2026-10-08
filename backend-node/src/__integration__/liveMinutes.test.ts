@@ -5,6 +5,8 @@ import { prisma } from '../db/prisma.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { liveSockets, type FakeSocket } from './liveSockets.js';
+import { forgetBroadcasts } from '../socket/statePublisher.js';
+import { syncMeetingRoles } from '../socket/meetingRoles.js';
 
 const live = liveSockets();
 const stateOf = async (code: string): Promise<MeetingState> =>
@@ -128,6 +130,9 @@ describe('minutes in a live meeting', () => {
     expect(joined.state?.previousMinutesId).toBe(f.minutes);
 
     live.broadcasts.length = 0;
+    // The room was sent the text when the meeting opened; later updates leave it out while it
+    // is the same. Forgotten, the next update carries it again, and is split by role.
+    forgetBroadcasts(f.packet.code);
     await act(secretary, { type: 'START_MEETING' });
     const updates = live.broadcasts.filter((b) => b.event === 'STATE_UPDATE');
     const stateIn = (b: (typeof updates)[number]) => (b.payload as { state: MeetingState }).state;
@@ -140,6 +145,54 @@ describe('minutes in a live meeting', () => {
     expect(updates[1].room).toBe(guest.id);
     expect(stateIn(updates[1]).minutesFromPreviousMeeting).toBe('');
     expect(stateIn(updates[1]).previousMinutesId).toBe(f.minutes);
+  });
+
+  /** The whole states the server sent this socket itself (not the room's updates) */
+  const ownUpdates = (socket: FakeSocket) =>
+    (socket.emit as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .filter(([event]) => event === 'STATE_UPDATE')
+      .map(([, payload]) => payload as { state: MeetingState; baseVersion?: number });
+
+  it('are sent whole to a guest made a member mid-meeting, who never had their text', async () => {
+    const { secretary } = await openMeeting();
+    const guest = live.connect(f.users.viewer);
+    expect((await live.join(guest, f.packet.code)).state?.minutesFromPreviousMeeting).toBe('');
+    await act(secretary, { type: 'START_MEETING' });
+
+    // The organization makes the viewer a member; the meeting's roles follow
+    await prisma.organizationMember.update({
+      where: {
+        organizationId_userId: { organizationId: f.orgA.id, userId: f.users.viewer.id },
+      },
+      data: { role: 'member' },
+    });
+    await syncMeetingRoles(live.io as never, f.packet.code);
+
+    expect(guest.data.role).toBe('member');
+    const [whole] = ownUpdates(guest);
+    expect(whole.baseVersion).toBeUndefined();
+    expect(whole.state.minutesFromPreviousMeeting).toContain('Minutes of the September meeting');
+    expect(whole.state.members.length).toBeGreaterThan(0);
+  });
+
+  it('are taken from a member made a guest, who is sent the whole state as a guest', async () => {
+    const { secretary, member } = await openMeeting();
+    await act(secretary, { type: 'START_MEETING' });
+
+    await prisma.organizationMember.update({
+      where: {
+        organizationId_userId: { organizationId: f.orgA.id, userId: f.users.member.id },
+      },
+      data: { role: 'viewer' },
+    });
+    await syncMeetingRoles(live.io as never, f.packet.code);
+
+    expect(member.data.role).toBe('guest');
+    const [whole] = ownUpdates(member);
+    expect(whole.baseVersion).toBeUndefined();
+    expect(whole.state.minutesFromPreviousMeeting).toBe('');
+    expect(whole.state.previousMinutesId).toBe(f.minutes);
+    expect(whole.state.members.find((m) => m.id === f.users.member.id)?.role).toBe('guest');
   });
 
   it('approved as read, they keep no corrections', async () => {

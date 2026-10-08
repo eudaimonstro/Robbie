@@ -1,5 +1,15 @@
-import { useState } from 'react';
-import { Settings, Building2, UserCircle, Trash2, Sun, Moon, Monitor, LogOut } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import {
+  Settings,
+  Building2,
+  UserCircle,
+  Trash2,
+  Sun,
+  Moon,
+  Monitor,
+  LogOut,
+  type LucideIcon,
+} from 'lucide-react';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -12,6 +22,7 @@ import { MembersCard } from '../components/MembersCard';
 import { AttendanceSettingsCard } from '../components/AttendanceSettingsCard';
 import { TimeZoneCard } from '../components/TimeZoneCard';
 import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
+import { formatDate } from '../../../utils/dates';
 
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
@@ -35,7 +46,7 @@ export default function SettingsPage() {
       await setName(displayName.trim());
       showToast('success', 'Name updated');
     } catch (err) {
-      showToast('error', messageOf(err, 'Failed to update your name'));
+      showToast('error', messageOf(err, "Couldn't change your name"));
     } finally {
       setSavingName(false);
     }
@@ -67,7 +78,7 @@ export default function SettingsPage() {
       setEditModalOpen(false);
       showToast('success', 'Organization updated');
     } catch (err) {
-      showToast('error', messageOf(err, 'Failed to update organization'));
+      showToast('error', messageOf(err, "Couldn't save the organization"));
     } finally {
       setSaving(false);
     }
@@ -86,7 +97,7 @@ export default function SettingsPage() {
     } catch (err) {
       // The last owner can't leave: "An organization needs at least one owner"
       setLeaveDialogOpen(false);
-      showToast('error', messageOf(err, 'Failed to leave the organization'));
+      showToast('error', messageOf(err, "Couldn't leave the organization"));
     } finally {
       setLeaving(false);
     }
@@ -102,7 +113,7 @@ export default function SettingsPage() {
       await refreshOrganizations();
       showToast('success', 'Organization deleted');
     } catch (err) {
-      showToast('error', messageOf(err, 'Failed to delete organization'));
+      showToast('error', messageOf(err, "Couldn't delete the organization"));
     } finally {
       setDeleting(false);
     }
@@ -124,167 +135,149 @@ export default function SettingsPage() {
         <p className="text-ink-muted mt-1">Your name, your organization and its members</p>
       </div>
 
-      {/* Your name */}
-      <div className="card mb-6">
-        <div className="px-6 py-4 border-b border-rule">
-          <h3 className="font-semibold text-ink flex items-center gap-2">
-            <UserCircle className="w-5 h-5" />
-            Your name
-          </h3>
-        </div>
-        <form onSubmit={handleSaveName} className="p-6">
-          <label htmlFor="displayName" className="label">
-            Your name
-          </label>
-          <input
-            type="text"
-            id="displayName"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="input"
-            minLength={2}
-            maxLength={100}
-            required
-          />
-          <p className="text-sm text-ink-muted mt-1">Shown to others in meetings.</p>
-          <div className="flex justify-end mt-4">
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={savingName || displayName.trim() === user?.name}
-            >
-              {savingName ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {currentOrganization ? (
-        <div className="space-y-6">
-          {/* Organization */}
-          <div className="card">
-            <div className="px-6 py-4 border-b border-rule">
-              <h3 className="font-semibold text-ink flex items-center gap-2">
-                <Building2 className="w-5 h-5" />
-                Organization
-              </h3>
+      <div className="space-y-6">
+        {/* Your name */}
+        <SettingsCard title="Your name" Icon={UserCircle}>
+          <form onSubmit={handleSaveName} className="p-4 sm:p-6">
+            <label htmlFor="displayName" className="label">
+              Your name
+            </label>
+            <input
+              type="text"
+              id="displayName"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="input"
+              minLength={2}
+              maxLength={100}
+              required
+            />
+            <p className="text-sm text-ink-muted mt-1">Shown to others in meetings.</p>
+            <div className="flex justify-end mt-4">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingName || displayName.trim() === user?.name}
+              >
+                {savingName ? 'Saving...' : 'Save'}
+              </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-ink-muted">Organization Name</p>
-                  <p className="font-medium text-ink">{currentOrganization.name}</p>
-                </div>
-                {isAdmin && (
+          </form>
+        </SettingsCard>
+
+        {/* Yours too, so it comes before the organization's settings */}
+        <AppearanceCard />
+
+        {currentOrganization ? (
+          <>
+            {/* Organization */}
+            <SettingsCard
+              title="Organization"
+              Icon={Building2}
+              action={
+                isAdmin && (
                   <button onClick={openEditModal} className="btn-secondary btn-sm">
                     Edit
                   </button>
-                )}
-              </div>
-              {currentOrganization.description && (
+                )
+              }
+            >
+              <dl className="p-4 sm:p-6 space-y-4">
                 <div>
-                  <p className="text-sm text-ink-muted">Description</p>
-                  <p className="text-ink">{currentOrganization.description}</p>
+                  <dt className="text-sm text-ink-muted">Name</dt>
+                  <dd className="font-medium text-ink">{currentOrganization.name}</dd>
                 </div>
-              )}
-              <div>
-                <p className="text-sm text-ink-muted">Created</p>
-                <p className="text-ink">
-                  {new Date(currentOrganization.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Voting members and the quorum every meeting starts from; keyed like MembersCard */}
-          <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
-
-          {/* The time zone the minutes give times in, beside the attendance settings */}
-          <TimeZoneCard key={`time-zone-${currentOrganization.id}`} />
-
-          {/* Keyed so a switch starts the card afresh, without the previous members */}
-          <MembersCard key={currentOrganization.id} />
-
-          {/* Danger Zone */}
-          <div className="card border-gavel/30">
-            <div className="px-6 py-4 border-b border-gavel/30 bg-gavel-tint rounded-t-lg">
-              <h3 className="font-semibold text-ink">Danger Zone</h3>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium text-ink">Leave Organization</p>
-                  <p className="text-sm text-ink-muted">
-                    You lose access to its documents and meetings. Its last owner can't leave.
-                  </p>
-                </div>
-                <button onClick={() => setLeaveDialogOpen(true)} className="btn-secondary btn-sm">
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Leave
-                </button>
-              </div>
-              {isOwner && (
-                <div className="flex items-center justify-between gap-4">
+                {currentOrganization.description && (
                   <div>
-                    <p className="font-medium text-ink">Delete Organization</p>
+                    <dt className="text-sm text-ink-muted">Description</dt>
+                    <dd className="text-ink">{currentOrganization.description}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-sm text-ink-muted">Created</dt>
+                  <dd className="text-ink">
+                    {formatDate(currentOrganization.createdAt, currentOrganization.timeZone)}
+                  </dd>
+                </div>
+              </dl>
+            </SettingsCard>
+
+            {/* Voting members and the quorum every meeting starts from; keyed like MembersCard */}
+            <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
+
+            {/* The time zone the minutes give times in, beside the attendance settings */}
+            <TimeZoneCard key={`time-zone-${currentOrganization.id}`} />
+
+            {/* Keyed so a switch starts the card afresh, without the previous members */}
+            <MembersCard key={currentOrganization.id} />
+
+            {/* Danger zone: last of the organization's settings */}
+            <div className="card border-gavel/30">
+              <div className="px-4 py-4 sm:px-6 border-b border-gavel/30 bg-gavel-tint rounded-t-xl">
+                <h3 className="card-title">Danger zone</h3>
+              </div>
+              <div className="p-4 sm:p-6 space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-ink">Leave the organization</p>
                     <p className="text-sm text-ink-muted">
-                      Permanently delete this organization and all its data
+                      You lose access to its documents and meetings. Its last owner can&apos;t
+                      leave.
                     </p>
                   </div>
-                  <button onClick={() => setDeleteDialogOpen(true)} className="btn-danger btn-sm">
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
+                  <button onClick={() => setLeaveDialogOpen(true)} className="btn-secondary btn-sm">
+                    <LogOut className="w-4 h-4" aria-hidden="true" />
+                    Leave
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <AppearanceCard />
-
-          {/* App Info */}
-          <div className="card">
-            <div className="px-6 py-4 border-b border-rule">
-              <h3 className="font-semibold text-ink flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                About Robbie
-              </h3>
-            </div>
-            <div className="p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-ink-muted">Version</span>
-                <span className="text-sm text-ink">1.0.0</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-ink-muted">Environment</span>
-                <span className="text-sm text-ink">Development</span>
-              </div>
-              <div className="pt-3 border-t border-rule">
-                <p className="text-sm text-ink-muted">
-                  Robbie runs meetings by Robert's Rules of Order and keeps your organization's
-                  bylaws, with every version and amendment.
-                </p>
+                {isOwner && (
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink">Delete the organization</p>
+                      <p className="text-sm text-ink-muted">
+                        Deletes the organization and everything in it, for good.
+                      </p>
+                    </div>
+                    <button onClick={() => setDeleteDialogOpen(true)} className="btn-danger btn-sm">
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
+          </>
+        ) : (
           <NoOrganizations />
-          <AppearanceCard />
-        </div>
-      )}
+        )}
+
+        {/* About */}
+        <SettingsCard title="About Robbie" Icon={Settings}>
+          <div className="p-4 sm:p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-ink-muted">Version</span>
+              <span className="text-sm text-ink">1.0.0</span>
+            </div>
+            <div className="pt-3 border-t border-rule">
+              <p className="text-sm text-ink-muted">
+                Robbie runs meetings by Robert&apos;s Rules of Order and keeps your
+                organization&apos;s bylaws, with every version and amendment.
+              </p>
+            </div>
+          </div>
+        </SettingsCard>
+      </div>
 
       {/* Edit Modal */}
       <Modal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        title="Edit Organization"
+        title="Edit the organization"
       >
         <form onSubmit={handleEditOrganization}>
           <div className="mb-4">
             <label htmlFor="orgName" className="label">
-              Organization Name
+              Name
             </label>
             <input
               type="text"
@@ -313,7 +306,7 @@ export default function SettingsPage() {
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={!editName.trim() || saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </form>
@@ -324,7 +317,7 @@ export default function SettingsPage() {
         isOpen={leaveDialogOpen}
         onClose={() => setLeaveDialogOpen(false)}
         onConfirm={handleLeave}
-        title="Leave Organization"
+        title="Leave the organization?"
         message={`Leave ${currentOrganization?.name}? You lose access to its documents and meetings until someone adds you again.`}
         confirmText="Leave organization"
         variant="danger"
@@ -344,6 +337,32 @@ export default function SettingsPage() {
   );
 }
 
+/** A settings card: its title at the one card size, an icon, and an action beside it */
+function SettingsCard({
+  title,
+  Icon,
+  action,
+  children,
+}: {
+  title: string;
+  Icon: LucideIcon;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 border-b border-rule">
+        <h3 className="card-title flex items-center gap-2">
+          <Icon className="w-5 h-5" aria-hidden="true" />
+          {title}
+        </h3>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 const THEMES = [
   { value: 'light', label: 'Light', Icon: Sun },
   { value: 'dark', label: 'Dark', Icon: Moon },
@@ -354,38 +373,33 @@ const THEMES = [
 function AppearanceCard() {
   const { theme, setTheme } = useTheme();
   return (
-    <div className="card">
-      <div className="px-6 py-4 border-b border-rule">
-        <h3 className="font-semibold text-ink flex items-center gap-2">
-          <Sun className="w-5 h-5" />
-          Appearance
-        </h3>
-      </div>
-      <div className="p-6">
-        <div className="flex items-center justify-between">
+    <SettingsCard title="Appearance" Icon={Sun}>
+      <div className="p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-medium text-ink">Theme</p>
-            <p className="text-sm text-ink-muted">Choose your preferred color scheme</p>
+            <p className="text-sm text-ink-muted">Light, dark, or as your device is set</p>
           </div>
           <div className="flex gap-1 p-1 bg-surface-2 rounded-lg">
             {THEMES.map(({ value, label, Icon }) => (
               <button
                 key={value}
                 onClick={() => setTheme(value)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                aria-pressed={theme === value}
+                className={`flex items-center gap-1.5 px-3 py-1.5 max-md:min-h-11 text-sm rounded-md transition-colors ${
                   theme === value
                     ? 'bg-surface text-ink shadow-xs'
                     : 'text-ink-muted hover:text-ink'
                 }`}
                 aria-label={`${label} theme`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" aria-hidden="true" />
                 {label}
               </button>
             ))}
           </div>
         </div>
       </div>
-    </div>
+    </SettingsCard>
   );
 }

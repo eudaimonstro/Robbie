@@ -73,6 +73,15 @@ describe('ImportBylawsPage', () => {
     api.saveVersion.mockResolvedValue({ id: 'v2', versionNumber: 2, sectionCount: 5 });
   });
 
+  it("tells a document that isn't there from one that didn't load, and tries again", async () => {
+    api.getDocument.mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }));
+    renderPage();
+    expect(await screen.findByText("Couldn't load the document.")).toBeTruthy();
+    expect(screen.queryByText('Document not found.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { name: 'Import the bylaws' })).toBeTruthy();
+  });
+
   it('reads pasted bylaws into articles and sections, takes a fix, and saves them', async () => {
     await readPasted(TEXT);
     expect(screen.getByText('2 articles, 3 sections')).toBeTruthy();

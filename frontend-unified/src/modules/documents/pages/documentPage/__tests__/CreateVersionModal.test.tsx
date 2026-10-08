@@ -11,11 +11,11 @@ function renderModal() {
 describe('CreateVersionModal', () => {
   it('submits the effective date and notes', async () => {
     const onSubmit = renderModal();
-    fireEvent.change(screen.getByLabelText(/Effective Date/), { target: { value: '2026-04-01' } });
-    fireEvent.change(screen.getByLabelText(/Version Notes/), {
+    fireEvent.change(screen.getByLabelText(/Effective date/), { target: { value: '2026-04-01' } });
+    fireEvent.change(screen.getByLabelText(/Notes/), {
       target: { value: 'Adopted at the annual meeting' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Create Version' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create version' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
@@ -27,7 +27,7 @@ describe('CreateVersionModal', () => {
 
   it('leaves the effective date out when none is entered', async () => {
     const onSubmit = renderModal();
-    fireEvent.click(screen.getByRole('button', { name: 'Create Version' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create version' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({ effectiveDate: undefined, notes: undefined }),

@@ -40,6 +40,25 @@ describe('useAmendmentData', () => {
       await pending;
     });
   });
+
+  it("tells a failed first load from an amendment that isn't there, without a toast", async () => {
+    const showToast = vi.spyOn(toast, 'showToast');
+    api.getAmendment.mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }));
+    const failed = renderHook(() => useAmendmentData('am-1'));
+    await waitFor(() => expect(failed.result.current.loading).toBe(false));
+    expect(failed.result.current.loadError).toBe('failed');
+
+    api.getAmendment.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
+    const missing = renderHook(() => useAmendmentData('am-2'));
+    await waitFor(() => expect(missing.result.current.loading).toBe(false));
+    expect(missing.result.current.loadError).toBe('missing');
+    expect(showToast).not.toHaveBeenCalled();
+
+    // Try again
+    await act(() => failed.result.current.fetchAmendment());
+    expect(failed.result.current.loadError).toBeNull();
+    expect(failed.result.current.amendment?.id).toBe('am-1');
+  });
 });
 
 describe('getSectionLabel', () => {

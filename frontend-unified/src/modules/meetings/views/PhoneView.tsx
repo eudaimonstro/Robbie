@@ -73,6 +73,7 @@ export function PhoneView() {
       item={stageLabel(state)}
       guest={guest}
       onLeave={leaveMeeting}
+      confirmLeave={state.meetingActive && !guest}
       onMenu={openMenu ?? undefined}
     />
   );

@@ -135,3 +135,28 @@ describe('design tokens', () => {
     expect(css).not.toContain('--color-meeting-');
   });
 });
+
+describe('focus and tap targets', () => {
+  /** The @apply line of a utility */
+  const utility = (name: string) => {
+    const match = css.match(new RegExp(`@utility ${name} \\{[^}]*?@apply ([^;]*);`));
+    expect(match, `@utility ${name}`).not.toBeNull();
+    return match![1];
+  };
+
+  it('has one focus style: a 2px gavel ring, offset 2px, that no color fades into', () => {
+    expect(block(':focus-visible')).toContain('outline: 2px solid var(--gavel);');
+    expect(block(':focus-visible')).toContain('outline-offset: 2px;');
+    // At rest too, so transition-colors has no other color to start the ring from
+    expect(css).toMatch(/border-color: var\(--rule\);\s*outline-color: var\(--gavel\);/);
+    for (const name of ['btn', 'input', 'input-error']) {
+      expect(utility(name)).not.toMatch(/ring|outline-hidden|outline-none/);
+    }
+  });
+
+  it('makes buttons, small ones too, and fields 44px tall on phones', () => {
+    for (const name of ['btn', 'btn-sm', 'input', 'tab']) {
+      expect(utility(name)).toContain('max-md:min-h-11');
+    }
+  });
+});

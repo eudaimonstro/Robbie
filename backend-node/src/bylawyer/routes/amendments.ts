@@ -7,18 +7,24 @@ import {
   AmendmentConflictError,
 } from '../services/amendmentService.js';
 import { validate, type RouteParams } from '../../middleware/validate.js';
-import { uuidParam, docIdParam } from '../../schemas/common.js';
+import { uuidParam, docIdParam, orgIdParam } from '../../schemas/common.js';
 import {
   createAmendmentBody,
   updateAmendmentBody,
   createAmendmentChangeBody,
   applyAmendmentQuery,
+  organizationAmendmentsQuery,
 } from '../../schemas/amendments.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { sectionLabel } from '@robbie-bylawyer/shared/utils';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
-import { orgOfAmendment, orgOfAmendmentChange, orgOfDocument } from '../../orgs/resolvers.js';
+import {
+  orgOfAmendment,
+  orgOfAmendmentChange,
+  orgOfDocument,
+  orgOfOrganization,
+} from '../../orgs/resolvers.js';
 import { canEditAmendment, roleNeeded } from '../../orgs/roles.js';
 
 export const amendmentsRouter: RouterType = Router();
@@ -26,6 +32,7 @@ export const amendmentsRouter: RouterType = Router();
 const byDocument = fromParam('docId', orgOfDocument);
 const byAmendment = fromParam('id', orgOfAmendment);
 const byChange = fromParam('id', orgOfAmendmentChange);
+const byOrganization = fromParam('orgId', orgOfOrganization);
 const NEEDS_SECRETARY = roleNeeded('secretary');
 
 /**
@@ -56,6 +63,34 @@ async function transition(
   if (count === 0) return null;
   return prisma.amendment.findUniqueOrThrow({ where: { id }, include: { changes: true } });
 }
+
+/**
+ * GET /api/organizations/:orgId/amendments?status=draft,proposed
+ * The amendments to all of the organization's documents, newest first, with their changes: of
+ * the statuses listed, or all of them
+ */
+amendmentsRouter.get(
+  '/organizations/:orgId/amendments',
+  validate({ params: orgIdParam, query: organizationAmendmentsQuery }),
+  requireRole('viewer', byOrganization),
+  async (req, res) => {
+    try {
+      const statuses = (req.query as { status?: AmendmentStatus[] }).status;
+      const amendments = await prisma.amendment.findMany({
+        where: {
+          document: { organizationId: req.org!.id },
+          ...(statuses ? { status: { in: statuses } } : {}),
+        },
+        include: { changes: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json(amendments);
+    } catch (error) {
+      logger.error({ err: error }, "Failed to list the organization's amendments");
+      res.status(500).json({ error: 'Failed to list amendments' });
+    }
+  },
+);
 
 // List amendments for a document
 amendmentsRouter.get(

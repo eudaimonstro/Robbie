@@ -22,7 +22,7 @@ const applyAction = vi.hoisted(() =>
     ) => {
       const validation = validator?.(stored.state, _action) ?? { valid: true };
       return validation.valid
-        ? { success: true, state: stored.state, stateVersion: 2 }
+        ? { success: true, state: stored.state, stateVersion: 2, changed: true }
         : { success: false, error: validation.error };
     },
   ),
@@ -31,6 +31,7 @@ vi.mock('../socket/stateManager.js', () => ({ applyAction }));
 
 const { PRESENCE_GRACE_MS, roomManager } = await import('../socket/roomManager.js');
 const { handleDisconnect } = await import('../socket/disconnectHandler.js');
+const { forgetBroadcasts } = await import('../socket/statePublisher.js');
 const { actionRateLimiter, joinRateLimiter } = await import('../socket/rateLimiter.js');
 
 function fakeSocket(id: string, userId = 1) {
@@ -47,6 +48,7 @@ describe('handleDisconnect', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    forgetBroadcasts();
     applyAction.mockClear();
     emit.mockClear();
     stored.state = { ...initialState, members: [member] };

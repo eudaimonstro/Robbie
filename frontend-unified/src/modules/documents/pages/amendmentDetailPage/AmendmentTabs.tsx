@@ -4,7 +4,7 @@ import type { Amendment } from '../../../../api/client';
 import { AmendmentPreview } from './AmendmentPreview';
 
 const tabClass = (current: boolean) =>
-  `rounded-md px-3 py-1.5 text-sm font-medium ${current ? 'bg-gavel-tint text-ink' : 'text-ink-muted hover:bg-surface-2 hover:text-ink'}`;
+  `rounded-md px-3 py-1.5 max-md:min-h-11 text-sm font-medium ${current ? 'bg-gavel-tint text-ink' : 'text-ink-muted hover:bg-surface-2 hover:text-ink'}`;
 
 /**
  * An amendment's changes and, while it is a draft or proposed, a Preview of the document as it

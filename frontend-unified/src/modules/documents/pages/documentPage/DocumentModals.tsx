@@ -41,7 +41,7 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create New Version">
+    <Modal isOpen={isOpen} onClose={handleClose} title="New version">
       <form onSubmit={handleSubmit}>
         <p className="text-sm text-ink-muted mb-4">
           Create a new version to make changes to the document. The current version will be
@@ -49,7 +49,7 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
         </p>
         <div className="mb-4">
           <label htmlFor="versionEffectiveDate" className="label">
-            Effective Date (optional)
+            Effective date (optional)
           </label>
           <input
             id="versionEffectiveDate"
@@ -61,14 +61,14 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
         </div>
         <div className="mb-4">
           <label htmlFor="versionNotes" className="label">
-            Version Notes (optional)
+            Notes (optional)
           </label>
           <textarea
             id="versionNotes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             className="textarea h-24"
-            placeholder="Describe what changes this version includes..."
+            placeholder="What this version changes"
           />
         </div>
         <div className="flex justify-end gap-3">
@@ -76,7 +76,7 @@ export function CreateVersionModal({ isOpen, onClose, onSubmit }: CreateVersionM
             Cancel
           </button>
           <button type="submit" className="btn-primary" disabled={creating}>
-            {creating ? 'Creating...' : 'Create Version'}
+            {creating ? 'Creating...' : 'Create version'}
           </button>
         </div>
       </form>
@@ -119,11 +119,11 @@ export function CreateAmendmentModal({ isOpen, onClose, onSubmit }: CreateAmendm
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Propose Amendment">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Propose an amendment">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label htmlFor="amendmentTitle" className="label">
-            Amendment Title
+            Title
           </label>
           <input
             type="text"
@@ -131,20 +131,20 @@ export function CreateAmendmentModal({ isOpen, onClose, onSubmit }: CreateAmendm
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="input"
-            placeholder="e.g., Update membership dues"
+            placeholder="e.g. Lower the quorum"
             autoFocus
           />
         </div>
         <div className="mb-6">
           <label htmlFor="amendmentDescription" className="label">
-            Description / Rationale
+            Why (optional)
           </label>
           <textarea
             id="amendmentDescription"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="textarea h-24"
-            placeholder="Explain the purpose and rationale for this amendment..."
+            placeholder="What the change does, and why"
           />
         </div>
         <div className="flex justify-end gap-3">
@@ -152,7 +152,7 @@ export function CreateAmendmentModal({ isOpen, onClose, onSubmit }: CreateAmendm
             Cancel
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim() || creating}>
-            {creating ? 'Creating...' : 'Create Amendment'}
+            {creating ? 'Creating...' : 'Create amendment'}
           </button>
         </div>
       </form>

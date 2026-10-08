@@ -13,6 +13,10 @@ import {
   VersionCreate,
 } from '../../../../api/client';
 import { useToast } from '../../../../context/ToastContext';
+import { isNotFound } from '../../../../utils/httpErrors';
+
+/** Why the document isn't shown: it isn't there (or isn't the user's), or the load failed */
+export type DocumentLoadError = 'missing' | 'failed';
 
 interface UseDocumentDataReturn {
   doc: Document | null;
@@ -21,6 +25,10 @@ interface UseDocumentDataReturn {
   sectionTree: SectionTree[];
   amendments: Amendment[];
   loading: boolean;
+  /** The first load failed, and why: the page says so, rather than a toast */
+  loadError: DocumentLoadError | null;
+  /** Load the document again (Try again) */
+  reload: () => Promise<void>;
   setSelectedVersion: (version: Version | null) => void;
   handleVersionChange: (versionId: string) => Promise<void>;
   handleSaveSection: (
@@ -67,6 +75,7 @@ export function useDocumentData(
   const [sectionTree, setSectionTree] = useState<SectionTree[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<DocumentLoadError | null>(null);
   // Identifies the newest fetch, so a slow response for a document no longer shown is ignored
   const latestFetch = useRef(0);
   // The version asked for, as the last render had it: a reload reads it, so it shows the version
@@ -86,6 +95,7 @@ export function useDocumentData(
     setSectionTree([]);
     setAmendments([]);
     setLoading(true);
+    setLoadError(null);
   }
 
   const fetchDocument = useCallback(async () => {
@@ -95,6 +105,7 @@ export function useDocumentData(
 
     try {
       setLoading(true);
+      setLoadError(null);
       const [fetchedDoc, vers, amends] = await Promise.all([
         documentsApi.get(documentId),
         versionsApi.list(documentId),
@@ -118,12 +129,12 @@ export function useDocumentData(
       }
     } catch (err) {
       if (isStale()) return;
-      showToast('error', 'Failed to load document');
-      console.error(err);
+      // The page says it, with Try again for a failure: a toast as well would say it twice
+      setLoadError(isNotFound(err) ? 'missing' : 'failed');
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [documentId, showToast]);
+  }, [documentId]);
 
   const showVersion = useCallback(
     async (version: Version) => {
@@ -133,7 +144,7 @@ export function useDocumentData(
         const tree = await versionsApi.getTree(version.id);
         if (pickId === latestPick.current) setSectionTree(tree);
       } catch {
-        showToast('error', 'Failed to load version');
+        showToast('error', "Couldn't load that version. Try again.");
       }
     },
     [showToast],
@@ -255,6 +266,8 @@ export function useDocumentData(
     sectionTree,
     amendments,
     loading,
+    loadError,
+    reload: fetchDocument,
     setSelectedVersion,
     handleVersionChange,
     handleSaveSection,

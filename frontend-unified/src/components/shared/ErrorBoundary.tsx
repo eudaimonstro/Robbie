@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
               className="btn-primary inline-flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              Try Again
+              Try again
             </button>
           </div>
         </div>

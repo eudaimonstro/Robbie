@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   formatCalendarDate,
   formatClockTime,
+  formatDate,
+  formatDateTime,
   formatLongDate,
   formatMeetingTime,
   formatMeetingTimeWithYear,
@@ -116,5 +118,28 @@ describe('formatLongDate', () => {
     expect(formatLongDate('2026-03-15T00:00:00.000Z')).toBe('March 15, 2026');
     expect(formatLongDate(null)).toBe('');
     expect(formatLongDate('not a date')).toBe('');
+  });
+});
+
+describe('formatDate and formatDateTime', () => {
+  // 03:30 UTC on Oct 9 is still Oct 8 in Chicago, and already Oct 9 in Paris
+  const instant = '2026-10-09T03:30:00.000Z';
+
+  it("give an instant's day, and time, in the organization's time zone", () => {
+    expect(formatDate(instant, 'America/Chicago')).toBe('Oct 8, 2026');
+    expect(formatDate(instant, 'Europe/Paris')).toBe('Oct 9, 2026');
+    expect(formatDateTime(instant, 'America/Chicago')).toBe('Oct 8, 2026, 10:30 PM');
+    expect(formatDateTime(instant, 'Europe/Paris')).toBe('Oct 9, 2026, 5:30 AM');
+  });
+
+  it("use the viewer's time zone without one, and never show seconds", () => {
+    expect(formatDate(instant)).toBe('Oct 8, 2026');
+    expect(formatDateTime(instant)).toBe('Oct 8, 2026, 10:30 PM');
+  });
+
+  it('return an empty string for missing or invalid values', () => {
+    expect(formatDate(null)).toBe('');
+    expect(formatDateTime(undefined)).toBe('');
+    expect(formatDateTime('not a date')).toBe('');
   });
 });

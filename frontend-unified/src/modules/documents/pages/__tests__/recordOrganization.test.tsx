@@ -79,8 +79,8 @@ describe('a record of another organization than the header shows', () => {
     expect(await screen.findByText('Header: Beta')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Beta' })).toBeTruthy();
     // A viewer of Beta, whatever they are in Alpha
-    expect(screen.queryByRole('button', { name: /Propose Amendment/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Add Section/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Propose amendment/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Add section/ })).toBeNull();
   });
 
   it("switches the amendment page to its document's organization and role", async () => {
@@ -101,12 +101,14 @@ describe('a record of another organization than the header shows', () => {
 
     expect(await screen.findByText('Header: Beta')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Beta' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Mark Passed/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Mark passed/ })).toBeNull();
   });
 
   it('leaves the selection alone when the user is not in the organization', async () => {
     api.listOrganizations.mockResolvedValue([alpha]);
-    api.getDocument.mockRejectedValue(new Error('Document not found'));
+    api.getDocument.mockRejectedValue(
+      Object.assign(new Error('Document not found'), { status: 404 }),
+    );
     renderAt('/documents/d1', '/documents/:documentId', <DocumentPage />);
 
     expect(await screen.findByText('Document not found')).toBeTruthy();

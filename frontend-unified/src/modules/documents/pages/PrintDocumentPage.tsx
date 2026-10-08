@@ -51,7 +51,7 @@ export default function PrintDocumentPage() {
   }, [documentId, versionId]);
 
   if (error) return <p className="p-8 text-center text-ink-muted">{error}</p>;
-  if (!loaded) return <LoadingPage />;
+  if (!loaded) return <LoadingPage label="Loading the document..." />;
 
   const { doc, version, sections } = loaded;
   return (

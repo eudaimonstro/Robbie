@@ -297,12 +297,12 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(alice.getByText(/^The meeting was adjourned at /)).toBeVisible();
 
     // After: the bylaws are version 2 with the new quorum (applied a moment after the vote
-    // closed; documentPage/DocumentHeader.tsx lists versions in an unlabeled select)
+    // closed; documentPage/DocumentHeader.tsx lists the versions in its Version select)
     await pat.goto('/');
     await pat.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: BYLAWS }).click();
     await expect(async () => {
       await pat.reload();
-      await expect(pat.locator('option', { hasText: 'Version 2 (Current)' })).toHaveCount(1, {
+      await expect(pat.locator('option', { hasText: 'Version 2 (current)' })).toHaveCount(1, {
         timeout: 2_000,
       });
     }).toPass({ timeout: 30_000 });
@@ -362,20 +362,20 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(alice.getByRole('article')).not.toContainText('Ben Whitaker');
 
     // The bylaws' public share link shows version 2 to someone signed out
-    // (documents/components/ShareModal.tsx; its link field has no label)
+    // (documents/components/ShareModal.tsx)
     await pat.goto('/');
     await pat.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: BYLAWS }).click();
     await pat.getByRole('button', { name: 'Share' }).click();
-    const share = pat.getByRole('dialog', { name: 'Share Document' });
-    await share.getByRole('button', { name: 'Enable Sharing' }).click();
-    await expect(share.getByText('Sharing Enabled')).toBeVisible();
+    const share = pat.getByRole('dialog', { name: 'Share document' });
+    await share.getByRole('button', { name: 'Turn on sharing' }).click();
+    await expect(share.getByText('Sharing on')).toBeVisible();
     const link = await share.getByRole('textbox').inputValue();
     expect(link).toMatch(/\/share\/[^/]+$/);
     const reader = await (await browser.newContext({ baseURL: BASE_URL })).newPage();
     await reader.goto(new URL(link).pathname);
     await expect(reader.getByText('You are viewing a shared document (read-only)')).toBeVisible();
     await expect(reader.getByRole('heading', { name: BYLAWS })).toBeVisible();
-    await expect(reader.locator('option', { hasText: 'Version 2 (Current)' })).toHaveCount(1);
+    await expect(reader.locator('option', { hasText: 'Version 2 (current)' })).toHaveCount(1);
     await expect(reader.getByText(/fifteen percent \(15%\)/).first()).toBeVisible();
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
