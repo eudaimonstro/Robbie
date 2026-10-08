@@ -8,8 +8,26 @@ import { normalizeEmail } from './normalizeEmail.js';
 import type { SessionUser } from './sessionService.js';
 
 export const CODE_LIFETIME_MS = 15 * 60 * 1000;
-export const MAX_CODES_PER_HOUR = 5;
+/** Wrong guesses a code takes before it stops working; a new code starts again */
 export const MAX_ATTEMPTS = 5;
+
+/**
+ * Codes an email can be sent in an hour from one network address: the limit that applies to
+ * the person themselves, so someone asking for codes for their email elsewhere can't lock them
+ * out
+ */
+export const MAX_CODES_PER_EMAIL_FROM_ADDRESS = 5;
+/** Codes an email can be sent in an hour from all addresses: caps guessing at 100 an hour */
+export const MAX_CODES_PER_EMAIL = 20;
+/**
+ * Sign-in emails one network address can have sent in an hour, to any addresses: room for a
+ * clubhouse of homeowners on the venue's Wi-Fi, not for spraying the email provider's quota
+ */
+export const MAX_EMAILS_PER_ADDRESS = 200;
+const HOUR_MS = 60 * 60 * 1000;
+
+const TOO_MANY_CODES = 'Too many codes requested. Try again in an hour.';
+const TOO_MANY_FROM_ADDRESS = 'Too many sign-in emails from this network. Try again in an hour.';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_PATTERN = /^\d{6}$/;
@@ -60,22 +78,40 @@ async function isSuspended(email: string): Promise<boolean> {
   return Boolean(user?.suspendedAt);
 }
 
+/** A network address as the codes record it: its hash, not the address */
+export function addressKey(address: string): string {
+  return hashSecret(`address:${address}`);
+}
+
 /**
  * Email a new sign-in code. The answer is the same whether or not the email has an account, and
  * for a suspended account, which goes through the same steps but is never sent the code: its
  * answer waits about as long as a send, and fails when sends are failing.
+ *
+ * `from` is the requester's network address, for the hourly limits: per email from that
+ * address, per email from all addresses, and per address to all emails. A failed send isn't
+ * counted (its code is removed).
  */
-export async function requestSignInCode(rawEmail: string, now: Date = new Date()): Promise<void> {
+export async function requestSignInCode(
+  rawEmail: string,
+  from: string = 'unknown',
+  now: Date = new Date(),
+): Promise<void> {
   const email = normalizeEmail(rawEmail);
   if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
     throw new SignInError(400, 'Enter a valid email address');
   }
 
-  const recent = await prisma.signInCode.count({
-    where: { email, createdAt: { gt: new Date(now.getTime() - 60 * 60 * 1000) } },
-  });
-  if (recent >= MAX_CODES_PER_HOUR) {
-    throw new SignInError(429, 'Too many codes requested. Try again in an hour.');
+  const requestedFrom = addressKey(from);
+  const hourAgo = { gt: new Date(now.getTime() - HOUR_MS) };
+  const [fromAddress, forEmail, toAnyone] = await Promise.all([
+    prisma.signInCode.count({ where: { email, requestedFrom, createdAt: hourAgo } }),
+    prisma.signInCode.count({ where: { email, createdAt: hourAgo } }),
+    prisma.signInCode.count({ where: { requestedFrom, createdAt: hourAgo } }),
+  ]);
+  if (toAnyone >= MAX_EMAILS_PER_ADDRESS) throw new SignInError(429, TOO_MANY_FROM_ADDRESS);
+  if (fromAddress >= MAX_CODES_PER_EMAIL_FROM_ADDRESS || forEmail >= MAX_CODES_PER_EMAIL) {
+    throw new SignInError(429, TOO_MANY_CODES);
   }
 
   const code = newSignInCode();
@@ -85,6 +121,7 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
       codeHash: hashSecret(code),
       createdAt: now,
       expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
+      requestedFrom,
     },
   });
 

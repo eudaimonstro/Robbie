@@ -23,10 +23,11 @@ import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessi
 
 export const authRouter = Router();
 
-// Per-IP limits on top of the per-email limits in signInService (5 codes an hour, 5 attempts per
-// code), which are the guard against guessing. These only slow one machine spraying many
-// addresses: at a meeting every homeowner on the venue's Wi-Fi shares one public address, so
-// they allow a room. Tests sign in many times from one address, so they are off under test.
+// Per-IP limits on requests, on top of signInService's hourly limits on codes (per email from an
+// address, per email, and emails sent per address) and its 5 attempts per code, which are the
+// guard against guessing. These only slow one machine spraying many addresses: at a meeting
+// every homeowner on the venue's Wi-Fi shares one public address, so they allow a room. Tests
+// sign in many times from one address, so they are off under test.
 export const SIGN_IN_WINDOW_MS = 15 * 60 * 1000;
 export const REQUEST_CODE_LIMIT_PER_IP = 300;
 export const VERIFY_LIMIT_PER_IP = 600;
@@ -74,7 +75,7 @@ authRouter.post(
   validate({ body: requestCodeBody }),
   async (req, res) => {
     try {
-      await requestSignInCode(req.body.email);
+      await requestSignInCode(req.body.email, req.ip);
       res.json({ success: true });
     } catch (error) {
       sendError(res, error, 'Failed to send a sign-in code');

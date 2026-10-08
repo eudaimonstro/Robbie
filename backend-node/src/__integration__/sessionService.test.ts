@@ -131,7 +131,16 @@ describe('sessionService', () => {
     const past = new Date(Date.now() - SESSION_LIFETIME_MS - HOUR);
     await createSession(userId, 'web', past);
     await prisma.signInCode.create({
-      data: { email: 'ann@example.org', codeHash: 'x', expiresAt: past },
+      data: { email: 'ann@example.org', codeHash: 'x', expiresAt: past, createdAt: past },
+    });
+    // Expired, but asked for within the hour: it still counts toward the hourly limits
+    const recent = await prisma.signInCode.create({
+      data: {
+        email: 'ann@example.org',
+        codeHash: 'z',
+        createdAt: new Date(Date.now() - HOUR / 2),
+        expiresAt: new Date(Date.now() - HOUR / 4),
+      },
     });
     const live = await createSession(userId, 'mobile');
     const liveCode = await prisma.signInCode.create({
@@ -141,5 +150,6 @@ describe('sessionService', () => {
     expect(await deleteExpiredSessionsAndCodes()).toBe(2);
     expect(await findSession(live.token)).not.toBeNull();
     expect(await prisma.signInCode.findUnique({ where: { id: liveCode.id } })).not.toBeNull();
+    expect(await prisma.signInCode.findUnique({ where: { id: recent.id } })).not.toBeNull();
   });
 });
