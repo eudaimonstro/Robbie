@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { amendments as amendmentsApi, type PreviewSection } from '../../../../api/client';
 import { scrollBehavior } from '../../../../utils/motion';
+import { WordDiff } from '../../components/WordDiff';
 
 type Change = 'changed' | 'removed' | 'added';
 
@@ -58,7 +59,7 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
       <ChangeSummary sections={sections} />
       <p className="mt-2 text-sm text-ink-muted">
         The document as it would read if this amendment were adopted: added sections are marked,
-        removed ones struck through, and changed ones can show their old text.
+        removed ones struck through, and changed ones can show the words that change.
       </p>
       {sections.length === 0 ? (
         <p className="mt-4 text-ink-muted">The document has no current version to preview.</p>
@@ -131,7 +132,8 @@ function ChangeSummary({ sections }: { sections: PreviewSection[] }) {
 const CONTENT = 'document-content [&>:last-child]:mb-0';
 
 function PreviewNode({ section, depth }: { section: PreviewSection; depth: number }) {
-  const [showOld, setShowOld] = useState(false);
+  // A changed section shows its new text, or the words that change, old and new in one
+  const [showChanges, setShowChanges] = useState(false);
   const heading = [section.numberLabel, section.title].filter(Boolean).join(' ');
   const change = changeOf(section);
   const frame =
@@ -170,14 +172,24 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
             <button
               type="button"
               className="btn-ghost btn-sm"
-              aria-expanded={showOld}
-              onClick={() => setShowOld((shown) => !shown)}
+              aria-pressed={showChanges}
+              onClick={() => setShowChanges((shown) => !shown)}
             >
-              {showOld ? 'Hide the old text' : 'Show the old text'}
+              {showChanges ? 'Show the new text' : 'Show what changed'}
             </button>
           )}
         </div>
-        {section.content &&
+        {showChanges && old ? (
+          <div className="mt-2 space-y-1">
+            {oldHeading !== heading && (
+              <div className="text-sm">
+                <WordDiff before={oldHeading} after={heading} />
+              </div>
+            )}
+            <WordDiff before={old.content ?? ''} after={section.content ?? ''} />
+          </div>
+        ) : (
+          section.content &&
           (change === 'removed' ? (
             <div className={`${CONTENT} mt-2 text-ink-muted line-through`}>
               <ReactMarkdown>{section.content}</ReactMarkdown>
@@ -186,19 +198,7 @@ function PreviewNode({ section, depth }: { section: PreviewSection; depth: numbe
             <div className={`${CONTENT} mt-2`}>
               <ReactMarkdown>{section.content}</ReactMarkdown>
             </div>
-          ))}
-        {showOld && old && (
-          <div className="mt-3 border-l-2 border-rule pl-3">
-            <p className="label-caps">Before</p>
-            {oldHeading && oldHeading !== heading && (
-              <p className="mt-1 font-document text-ink-muted">{oldHeading}</p>
-            )}
-            {old.content && (
-              <div className={`${CONTENT} mt-1 text-ink-muted`}>
-                <ReactMarkdown>{old.content}</ReactMarkdown>
-              </div>
-            )}
-          </div>
+          ))
         )}
       </section>
       {section.children.length > 0 && (
