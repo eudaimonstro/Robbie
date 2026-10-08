@@ -97,6 +97,16 @@ app.use(function jsonBodies(req, res, next) {
   jsonParser(req, res, next);
 });
 
+/**
+ * API answers carry members, minutes and documents: no browser or proxy keeps them (the
+ * clubhouse's shared computer). The web app's files keep their own caching (webApp).
+ */
+export const noStore: express.RequestHandler = function noStore(_req, res, next) {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+};
+app.use('/api', noStore);
+
 // Health check (before other routes to avoid conflicts): healthy only when the database answers
 app.get(
   '/api/health',

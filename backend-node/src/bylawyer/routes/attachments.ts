@@ -23,6 +23,7 @@ import { meetingCode, uuidParam } from '../../schemas/common.js';
 import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fileStorage.js';
 import { orgStorageLimitMb, orgStorageUsed, storageFullMessage } from '../services/storageQuota.js';
 import fs from 'fs';
+import { pipeline } from 'stream';
 import { logger } from '../../middleware/logger.js';
 import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
@@ -385,24 +386,27 @@ attachmentsRouter.get(
         });
       }
 
-      const fullPath = getFullPath(attachment.storagePath);
-
-      // Check file exists
-      if (!fs.existsSync(fullPath)) {
+      // Open the file before answering: one deleted meanwhile, or that can't be opened (too
+      // many open files), is a 404 here, not a stream error later
+      const file = await fs.promises
+        .open(getFullPath(attachment.storagePath), 'r')
+        .catch(() => null);
+      const stat = file ? await file.stat().catch(() => null) : null;
+      if (!file || !stat?.isFile()) {
+        await file?.close();
         return res.status(404).json({ error: 'File not found on disk' });
       }
 
-      // Set headers
+      // res.attachment writes any file name (RFC 5987 filename*, with an ASCII fallback)
+      res.attachment(attachment.filename || 'download');
       res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${attachment.filename || 'download'}"`,
-      );
-      res.setHeader('Content-Length', attachment.sizeBytes || 0);
+      res.setHeader('Content-Length', stat.size);
 
-      // Stream file
-      const readStream = fs.createReadStream(fullPath);
-      readStream.pipe(res);
+      // A read that fails part way ends the response; handled here, since an unhandled stream
+      // error would end the process, and every live meeting with it
+      pipeline(file.createReadStream(), res, (err) => {
+        if (err) logger.warn({ err, attachmentId: id }, 'Failed to send a file');
+      });
     } catch (error) {
       logger.error({ err: error }, 'Error downloading file');
       res.status(500).json({ error: 'Failed to download file' });

@@ -28,7 +28,7 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
-import { logger } from '../middleware/logger.js';
+import { emailForLog, logger } from '../middleware/logger.js';
 
 // Email configuration
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Robbie <noreply@robbie.app>';
@@ -236,7 +236,7 @@ export async function sendSignInCode(email: string, code: string): Promise<void>
       text: generateEmailText(code),
       html: generateEmailHtml(code),
     });
-    logger.info({ to: email, messageId }, 'Sign-in email sent');
+    logger.info({ to: emailForLog(email), messageId }, 'Sign-in email sent');
   } catch (error) {
     logger.error({ err: error }, 'Failed to send sign-in email');
     throw new Error('Failed to send sign-in email', { cause: error });
@@ -339,14 +339,14 @@ export async function sendAddedToOrganization(email: AddedToOrganizationEmail): 
 
   if (emailProvider === 'development') {
     logger.debug(
-      { to: email.to, organization: email.organization },
+      { to: emailForLog(email.to), organization: email.organization },
       'Added-to-organization email (no email provider configured)',
     );
     return;
   }
 
   const messageId = await deliver({ to: email.to, ...addedToOrganizationEmail(email, appUrl()) });
-  logger.info({ to: email.to, messageId }, 'Added-to-organization email sent');
+  logger.info({ to: emailForLog(email.to), messageId }, 'Added-to-organization email sent');
 }
 
 /**

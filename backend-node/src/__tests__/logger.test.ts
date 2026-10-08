@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { redactUrl } from '../middleware/logger.js';
+import { emailForLog, redactUrl, requestId } from '../middleware/logger.js';
 
 describe('redactUrl', () => {
   it("hides a share link's token in the API's URLs", () => {
@@ -24,5 +24,21 @@ describe('redactUrl', () => {
     expect(redactUrl('/meetings/ABC123')).toBe('/meetings/ABC123');
     expect(redactUrl('/share')).toBe('/share');
     expect(redactUrl(undefined)).toBeUndefined();
+  });
+});
+
+describe('requestId', () => {
+  it("keeps a client's plain request id, and replaces anything else", () => {
+    expect(requestId('req-42_abc')).toBe('req-42_abc');
+    for (const header of ['x'.repeat(65), 'a\nforged log line', 'a b', '', undefined, ['a', 'b']]) {
+      expect(requestId(header)).toMatch(/^[0-9a-f-]{36}$/);
+    }
+  });
+});
+
+describe('emailForLog', () => {
+  it('keeps only the domain', () => {
+    expect(emailForLog('ann@example.org')).toBe('*@example.org');
+    expect(emailForLog('nobody')).toBe('*');
   });
 });

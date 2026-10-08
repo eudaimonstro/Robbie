@@ -46,6 +46,14 @@ describe('auth routes', () => {
     expect(sessionCookie(res)).toBeUndefined();
   });
 
+  it('tells browsers and proxies not to keep API answers', async () => {
+    const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie);
+    expect(me.headers['cache-control']).toBe('no-store');
+    const orgs = await request(app).get('/api/organizations').set('Cookie', cookie);
+    expect(orgs.headers['cache-control']).toBe('no-store');
+  });
+
   it('knows who is signed in, by cookie or bearer token', async () => {
     const web = await signIn('ann@example.org');
     const me = await request(app).get('/api/auth/me').set('Cookie', sessionCookie(web)!);

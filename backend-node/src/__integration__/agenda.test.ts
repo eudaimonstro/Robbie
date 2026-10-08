@@ -334,4 +334,30 @@ describe('agenda items and attachments across packets', () => {
       expect(text).not.toContain('secretary@example.org');
     }
   });
+
+  it("answer a file that can't be read with an error, and keep serving", async () => {
+    // A directory where the file should be: it opens, and reading it would fail
+    const storagePath = `${f.packet.code}/not-a-file`;
+    fs.mkdirSync(getFullPath(storagePath), { recursive: true });
+    const broken = await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        displayName: 'Broken',
+        filename: 'broken.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        storagePath,
+        meetingPacketId: f.packet.id,
+      },
+    });
+    const cookie = f.users.viewer.cookie;
+    const res = await call('get', `/api/attachments/${broken.id}/download`, { cookie });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'File not found on disk' });
+    fs.rmSync(getFullPath(storagePath), { recursive: true });
+
+    const good = await call('get', `/api/attachments/${f.upload}/download`, { cookie });
+    expect(good.status).toBe(200);
+    expect(good.headers['content-disposition']).toMatch(/^attachment; filename=/);
+  });
 });

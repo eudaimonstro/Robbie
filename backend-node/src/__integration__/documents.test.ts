@@ -123,6 +123,20 @@ describe('share links', () => {
     expect(version.body.sections[0].children[0]).not.toHaveProperty('annotation');
   });
 
+  it('answer a malformed token, version or search with 400, not 500', async () => {
+    const bad = [
+      `/api/share/${'x'.repeat(101)}`,
+      '/api/share/not%20a%20token',
+      `/api/share/${f.shareToken}/versions/not-a-uuid`,
+      `/api/share/${f.shareToken}/search?q=a&q=b`,
+      `/api/share/${f.shareToken}/search?q=${'x'.repeat(201)}`,
+    ];
+    for (const path of bad) expect((await call('get', path)).status, path).toBe(400);
+    const search = await call('get', `/api/share/${f.shareToken}/search?q=name`);
+    expect(search.status).toBe(200);
+    expect(search.body.results).toHaveLength(2);
+  });
+
   it('still show annotations to members', async () => {
     const tree = await call('get', `/api/versions/${f.v2}/tree`, {
       cookie: f.users.viewer.cookie,

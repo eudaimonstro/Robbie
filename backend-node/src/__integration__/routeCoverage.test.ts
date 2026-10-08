@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import express from 'express';
-import { app } from '../app.js';
+import { app, noStore } from '../app.js';
 import { authenticate } from '../auth/authenticate.js';
 import { authRouter } from '../auth/authRoutes.js';
 import { requireTerms } from '../auth/terms.js';
@@ -40,6 +40,8 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   // Every JSON body but the larger ones (LARGE_JSON_ROUTES), which their routes read after
   // the role check, as the Word document import reads its file
   'jsonBodies',
+  // No caching of API answers
+  noStore,
   // Everything under /api after the public routers, with each user's writes limited
   authenticate,
   requireTerms,
