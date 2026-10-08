@@ -687,10 +687,37 @@ amendmentsRouter.get(
       const service = new AmendmentService();
       const previewTree = await service.previewAmendment(amendment);
 
+      // Changes to a section no longer in the current version (a new version left it out)
+      // show nowhere in the tree: they are named, so the page can say so
+      const document = await prisma.document.findUnique({
+        where: { id: amendment.documentId },
+        select: { currentVersionId: true },
+      });
+      const current = new Set(
+        document?.currentVersionId
+          ? (
+              await prisma.section.findMany({
+                where: { versionId: document.currentVersionId },
+                select: { id: true },
+              })
+            ).map((section) => section.id)
+          : [],
+      );
+      // (only an open amendment's: a decided one names the version it was decided on)
+      const open = amendment.status === 'draft' || amendment.status === 'proposed';
+      const missing = [
+        ...new Set(
+          (open ? amendment.changes : [])
+            .filter((change) => change.targetSectionId && !current.has(change.targetSectionId))
+            .map((change) => change.targetLabel ?? 'A section'),
+        ),
+      ];
+
       res.json({
         amendmentId: amendment.id,
         amendmentTitle: amendment.title,
         sections: previewTree,
+        missing,
       });
     } catch (error) {
       logger.error({ err: error }, 'Failed to preview amendment');

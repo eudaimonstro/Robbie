@@ -33,6 +33,8 @@ import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { recordAudit } from '../services/audit.js';
 import { currentVersionOnly, versionDeleteProblem } from '../services/versionRules.js';
+import { remapOpenAmendments } from '../services/amendmentService.js';
+import { matchSections } from '../services/sectionMatch.js';
 
 export const versionsRouter: RouterType = Router();
 
@@ -194,10 +196,16 @@ async function nextVersionNumber(
   return (last?.versionNumber ?? 0) + 1;
 }
 
-/** The current version's sections as rows of a new version: new ids, the same tree */
-function copiedRows(sections: Section[], versionId: string): Prisma.SectionCreateManyInput[] {
+/**
+ * The current version's sections as rows of a new version: new ids, the same tree, and which
+ * new id each old section has
+ */
+function copiedRows(
+  sections: Section[],
+  versionId: string,
+): { rows: Prisma.SectionCreateManyInput[]; idMap: Record<string, string> } {
   const ids = new Map(sections.map((section) => [section.id, randomUUID()]));
-  return sections.map((section) => ({
+  const rows = sections.map((section) => ({
     id: ids.get(section.id)!,
     versionId,
     parentId: section.parentId ? (ids.get(section.parentId) ?? null) : null,
@@ -207,12 +215,14 @@ function copiedRows(sections: Section[], versionId: string): Prisma.SectionCreat
     content: section.content,
     annotation: section.annotation,
   }));
+  return { rows, idMap: Object.fromEntries(ids) };
 }
 
 /**
  * POST /api/documents/:docId/versions
  * A new current version, starting as a copy of the current one: the version, its sections and
- * the document's current version in one transaction, under the document's lock
+ * the document's current version in one transaction, under the document's lock. The
+ * document's draft and proposed amendments follow their sections to the copy.
  */
 versionsRouter.post(
   '/documents/:docId/versions',
@@ -243,7 +253,9 @@ versionsRouter.post(
       });
       if (doc.currentVersionId) {
         const current = await tx.section.findMany({ where: { versionId: doc.currentVersionId } });
-        await tx.section.createMany({ data: copiedRows(current, created.id) });
+        const { rows, idMap } = copiedRows(current, created.id);
+        await tx.section.createMany({ data: rows });
+        await remapOpenAmendments(tx, documentId, created.id, current, idMap);
       }
       await tx.document.update({
         where: { id: documentId },
@@ -292,7 +304,8 @@ versionsRouter.post(
 /**
  * POST /api/documents/:docId/versions/import
  * A new version from parsed sections, made current: the version and every section in one
- * transaction, so a failed import leaves nothing behind.
+ * transaction, so a failed import leaves nothing behind. The document's draft and proposed
+ * amendments are pointed at the imported sections that match theirs (matchSections).
  * Body: { effectiveDate?, notes?, sections: ImportedSection[] }
  */
 versionsRouter.post(
@@ -323,6 +336,24 @@ versionsRouter.post(
         });
         const rows = importedRows(created.id, sections);
         await tx.section.createMany({ data: rows });
+        const doc = await tx.document.findUnique({
+          where: { id: documentId },
+          select: { currentVersionId: true },
+        });
+        if (doc?.currentVersionId) {
+          const replaced = await tx.section.findMany({
+            where: { versionId: doc.currentVersionId },
+          });
+          const imported = rows.map((row) => ({
+            id: row.id!,
+            parentId: row.parentId ?? null,
+            position: row.position ?? 0,
+            numberLabel: row.numberLabel ?? null,
+            title: row.title ?? null,
+          }));
+          const idMap = matchSections(replaced, imported);
+          await remapOpenAmendments(tx, documentId, created.id, replaced, idMap);
+        }
         await tx.document.update({
           where: { id: documentId },
           data: { currentVersionId: created.id },

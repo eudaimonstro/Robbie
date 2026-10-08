@@ -201,6 +201,59 @@ describe('importing parsed sections', () => {
     ]);
   });
 
+  it("points the document's open amendments at the imported sections that match theirs", async () => {
+    // Beside the fixture's "1 Name" and its "1.1": a section with neither label nor title, and
+    // one the import leaves out
+    const untitled = await prisma.section.create({
+      data: { versionId: f.v2, position: 1, content: 'Preamble.' },
+    });
+    const gone = await prisma.section.create({
+      data: { versionId: f.v2, position: 2, numberLabel: '9', title: 'Gone', content: 'Old.' },
+    });
+    const changes = await Promise.all(
+      [f.child, untitled.id, gone.id].map((targetSectionId) =>
+        prisma.amendmentChange.create({
+          data: { amendmentId: f.proposed, changeType: 'modify', targetSectionId, newContent: 'X' },
+        }),
+      ),
+    );
+
+    const res = await importSections({
+      sections: [
+        {
+          // Renumbered: found by its title
+          numberLabel: 'Article 1',
+          title: 'Name',
+          content: 'The name is A.',
+          children: [{ numberLabel: '1.1', title: '', content: 'The short name.', children: [] }],
+        },
+        { numberLabel: '', title: '', content: 'A new preamble.', children: [] },
+        { numberLabel: '2', title: 'Members', content: 'Owners.', children: [] },
+      ],
+    });
+    expect(res.status).toBe(201);
+    const sections = await prisma.section.findMany({ where: { versionId: res.body.id } });
+    const idOf = (content: string) => sections.find((s) => s.content === content)!.id;
+
+    const changeOf = (id: string) => prisma.amendmentChange.findUniqueOrThrow({ where: { id } });
+    expect((await changeOf(f.change)).targetSectionId).toBe(idOf('The name is A.'));
+    expect((await changeOf(changes[0].id)).targetSectionId).toBe(idOf('The short name.'));
+    expect((await changeOf(changes[1].id)).targetSectionId).toBe(idOf('A new preamble.'));
+    // No longer in the bylaws: it keeps the section it was written against, by name too
+    expect(await changeOf(changes[2].id)).toMatchObject({
+      targetSectionId: gone.id,
+      targetLabel: '9 "Gone"',
+    });
+    const preview = await call('get', `/api/amendments/${f.proposed}/preview`, {
+      cookie: f.users.member.cookie,
+    });
+    expect(preview.body.missing).toEqual(['9 "Gone"']);
+    const draft = await call('get', `/api/amendments/${f.draft}/preview`, {
+      cookie: f.users.member.cookie,
+    });
+    expect(draft.body.missing).toEqual([]);
+  });
+
   it('leaves the old versions as they were', async () => {
     await importSections(imported);
     expect(await prisma.section.count({ where: { versionId: f.v2 } })).toBe(2);
