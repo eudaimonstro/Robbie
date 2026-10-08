@@ -1,0 +1,21 @@
+# The image is built from the monorepo (Dockerfile); keep out what it builds or never needs
+.git
+.github
+.claude
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+backend-node/src/generated
+backend-node/uploads
+frontend-unified/vite.config.js
+frontend-unified/vite.config.d.ts
+e2e
+docs
+features
+spec.md
+deploy/backups
+# The lockfile check needs every workspace's manifest, mobile's too, and nothing else of it
+mobile/*
+!mobile/package.json
