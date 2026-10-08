@@ -48,8 +48,12 @@ const APP_MIDDLEWARE: Array<string | ((...args: never[]) => unknown)> = [
   requireTerms,
   // The JSON 404 for unknown /api paths
   '<anonymous>',
-  errorHandler,
+  // The web app (serveWebApp): the hashed bundles and the 404 for a missing one, then the files
+  // at the root (its routes' index.html is the catch-all route)
   'serveStatic',
+  '<anonymous>',
+  'serveStatic',
+  errorHandler,
 ];
 
 /** A mounted router's layers, or null if the handle isn't a router */

@@ -1,5 +1,4 @@
 import express from 'express';
-import helmet from 'helmet';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,6 +29,8 @@ import {
 } from './bylawyer/routes/index.js';
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
+import { securityHeaders } from './middleware/securityHeaders.js';
+import { serveWebApp } from './webApp.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { membersRouter } from './orgs/memberRoutes.js';
 
@@ -56,8 +57,8 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
 /** Origins allowed to make cross-origin requests (Socket.io uses the same list) */
 export { allowedOrigins };
 
-// Security headers
-app.use(helmet());
+// Security headers, with the Content Security Policy the web app is served under
+app.use(securityHeaders());
 
 // Request logging
 app.use(httpLogger);
@@ -158,14 +159,10 @@ app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Global error handler (must be after all routes)
+// The built web app on the API's origin (production and the e2e harness; development uses
+// Vite). From src/ under tsx and from dist/ under node alike, it is the monorepo's
+// frontend-unified/dist, and the image keeps that layout.
+serveWebApp(app, path.join(__dirname, '../../frontend-unified/dist'));
+
+// Global error handler (must be after all routes, the web app's included)
 app.use(errorHandler);
-
-// Static file serving for production builds
-const unifiedDist = path.join(__dirname, '../../frontend-unified/dist');
-
-// Serve unified frontend at root
-app.use(express.static(unifiedDist));
-app.get('/{*splat}', (_req, res) => {
-  res.sendFile(path.join(unifiedDist, 'index.html'));
-});
