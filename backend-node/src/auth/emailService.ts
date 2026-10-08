@@ -114,7 +114,7 @@ async function deliver(message: OutgoingEmail): Promise<string | undefined> {
 }
 
 // Log provider on startup. Production without a provider is refused by the server's start-up
-// check (signInStartupCheck), which logs that error.
+// check (startupCheck), which logs that error.
 logger.info({ emailProvider }, 'Email service initialized');
 
 /**
