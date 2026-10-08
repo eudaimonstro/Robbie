@@ -1,11 +1,17 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { MAX_FLOOR_NAME_LENGTH, MOTIONS, motionWords } from '@robbie-bylawyer/shared/constants';
+import { MAX_FLOOR_NAME_LENGTH, motionWords } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
 import type { MeetingDispatch } from '../../types/socket';
 import { FORM_MOTIONS } from '../../utils/motionWords';
+import {
+  EMPTY_DRAFT,
+  MotionWordsFields,
+  motionFromDraft,
+  type MotionDraft,
+} from '../MotionWordsFields';
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the
@@ -83,7 +89,6 @@ function FloorMotionForm({
   onDone,
 }: Omit<FloorMotionDialogProps, 'isOpen' | 'onClose'> & { onDone: () => void }) {
   const kindId = useId();
-  const textId = useId();
   const whoId = useId();
   const kinds = useMemo(
     () =>
@@ -97,7 +102,8 @@ function FloorMotionForm({
   const [kind, setKind] = useState(() =>
     kinds.includes('mainMotion') ? 'mainMotion' : (kinds[0] ?? 'mainMotion'),
   );
-  const [text, setText] = useState('');
+  const [draft, setDraft] = useState<MotionDraft>(EMPTY_DRAFT);
+  const [problem, setProblem] = useState<string | null>(null);
   const [who, setWho] = useState('');
   const [mover, setMover] = useState<Member | null>(null);
   const [sending, setSending] = useState(false);
@@ -108,21 +114,25 @@ function FloorMotionForm({
   const matches = mover
     ? []
     : members.filter((m) => !query || m.name.toLowerCase().includes(query)).slice(0, 6);
-  const phrase = MOTIONS[kind]?.phrase ?? '';
-  // A main motion needs its words; another motion has its standard phrase to fall back on
-  const words = text.trim() || (kind === 'mainMotion' ? '' : phrase);
-  const ready = words !== '' && (mover !== null || who.trim() !== '');
+  const made = motionFromDraft(kind, draft, state);
+  const ready = mover !== null || who.trim() !== '';
 
   // Closes once the server has recorded it; refused, it stays open with what was typed
   const record = async (e: FormEvent) => {
     e.preventDefault();
     if (!ready || sending) return;
+    if ('problem' in made) {
+      setProblem(made.problem);
+      return;
+    }
+    setProblem(null);
     setSending(true);
     setRefused(false);
     const recorded = await dispatch({
       type: 'MAKE_FLOOR_MOTION',
       motionType: kind,
-      text: words,
+      text: made.text,
+      ...made.details,
       moverName: mover ? '' : who.trim(),
       ...(mover ? { moverMemberId: mover.id } : {}),
       // The server gives the motion its ID
@@ -144,7 +154,11 @@ function FloorMotionForm({
           id={kindId}
           className="select"
           value={kind}
-          onChange={(e) => setKind(e.target.value)}
+          onChange={(e) => {
+            setKind(e.target.value);
+            setDraft(EMPTY_DRAFT);
+            setProblem(null);
+          }}
         >
           {kinds.map((key) => (
             <option key={key} value={key}>
@@ -153,20 +167,7 @@ function FloorMotionForm({
           ))}
         </select>
       </div>
-      <div>
-        <label htmlFor={textId} className="label">
-          The motion
-        </label>
-        <textarea
-          id={textId}
-          className="textarea"
-          rows={3}
-          maxLength={500}
-          placeholder={phrase || 'I move that...'}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </div>
+      <MotionWordsFields type={kind} state={state} draft={draft} onChange={setDraft} />
       <div className="space-y-2">
         <label htmlFor={whoId} className="label">
           Who moved it
@@ -217,6 +218,11 @@ function FloorMotionForm({
           )
         )}
       </div>
+      {problem && (
+        <p role="alert" className="text-sm text-gavel">
+          {problem}
+        </p>
+      )}
       {refused && <Refused fallback="The motion was not recorded. Try again." />}
       <div className="flex justify-end gap-3 border-t border-rule pt-4">
         <button type="button" className="btn-ghost" onClick={onDone}>

@@ -282,11 +282,20 @@ describe('PhoneView', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));
     expect(screen.getByText('Take a short break')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(/^Recess/));
-    const recess = screen.getByLabelText(/^Recess/).closest('div')!;
+    fireEvent.click(screen.getByRole('radio', { name: /^Recess/ }));
+    const recess = screen.getByRole('form', { name: 'Recess' });
+    fireEvent.change(within(recess).getByLabelText('Until (optional)'), {
+      target: { value: '20:15' },
+    });
     fireEvent.click(within(recess).getByRole('button', { name: 'Move' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'MAKE_MOTION', motionType: 'recess', moverId: 3 }),
+      expect.objectContaining({
+        type: 'MAKE_MOTION',
+        motionType: 'recess',
+        moverId: 3,
+        text: 'Recess until 8:15 PM',
+        recessUntil: '8:15 PM',
+      }),
     );
   });
 

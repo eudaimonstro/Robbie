@@ -1,17 +1,15 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { MOTIONS, motionWords } from '@robbie-bylawyer/shared/constants';
-import {
-  fitMotionText,
-  generateId,
-  generateTimestamp,
-  getValidMotions,
-} from '@robbie-bylawyer/shared/utils';
-import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import { motionWords } from '@robbie-bylawyer/shared/constants';
+import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
+import type { MeetingState, Member, MotionDetails } from '@robbie-bylawyer/shared/types';
 import { AgendaAmendmentForm } from '../AgendaAmendmentForm';
 import { BylawAmendmentForm } from '../BylawAmendmentForm';
-import { SuspendRulesForm } from '../SuspendRulesForm';
-import { TakeFromTableForm } from '../TakeFromTableForm';
-import { ReconsiderForm } from '../ReconsiderForm';
+import {
+  EMPTY_DRAFT,
+  MotionWordsFields,
+  motionFromDraft,
+  type MotionDraft,
+} from '../MotionWordsFields';
 import { FORM_MOTIONS } from '../../utils/motionWords';
 import { electionUnderway } from '../../utils/chairActions';
 import { useSocket } from '../../context/SocketContext';
@@ -29,17 +27,7 @@ interface MotionPanelProps {
 }
 
 /** The motions that open a form of their own before they are made */
-type FormMotion =
-  'amendAgenda' | 'bylawAmendment' | 'suspendRules' | 'takeFromTable' | 'reconsider';
-
-type MotionDetails = Pick<
-  Extract<MeetingAction, { type: 'MAKE_MOTION' }>,
-  | 'agendaAmendment'
-  | 'ruleSuspension'
-  | 'bylawAmendment'
-  | 'tabledMotionId'
-  | 'reconsideredMotionId'
->;
+type FormMotion = 'amendAgenda' | 'bylawAmendment';
 
 const MAX_MOTION_LENGTH = 500;
 
@@ -64,12 +52,6 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
   }, [state, me.id]);
   const mainInOrder = !othersOnly && validMotions.some((m) => m.key === 'mainMotion');
   const others = validMotions.map((m) => m.key).filter((key) => key !== 'mainMotion');
-  // Every decided motion is recorded now; only some can be reconsidered (records from before the
-  // flag existed were all of motions that can)
-  const reconsiderable = useMemo(
-    () => state.completedMotions.filter((m) => m.reconsiderable !== false),
-    [state.completedMotions],
-  );
 
   // True once the server has the motion; refused, whatever was typed stays for another try
   const move = async (
@@ -116,39 +98,10 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
             onSubmit={(text, agendaAmendment) => move('amendAgenda', text, { agendaAmendment })}
             onCancel={cancel}
           />
-        ) : form === 'bylawAmendment' ? (
+        ) : (
           <BylawAmendmentForm
             meetingCode={state.meetingCode || ''}
             onSubmit={(text, bylawAmendment) => move('bylawAmendment', text, { bylawAmendment })}
-            onCancel={cancel}
-          />
-        ) : form === 'suspendRules' ? (
-          <SuspendRulesForm
-            onSubmit={(purpose, specificAction, scope, rule) =>
-              move(
-                'suspendRules',
-                fitMotionText(
-                  `I move to suspend the rules (${rule}) for the following purpose: `,
-                  `${purpose}. Specific action: ${specificAction}`,
-                ),
-                { ruleSuspension: { rule, purpose, specificAction, scope } },
-              )
-            }
-            onCancel={cancel}
-          />
-        ) : form === 'takeFromTable' ? (
-          <TakeFromTableForm
-            tabledMotions={state.tabledMotions}
-            onSubmit={(text, tabledMotionId) => move('takeFromTable', text, { tabledMotionId })}
-            onCancel={cancel}
-          />
-        ) : (
-          <ReconsiderForm
-            completedMotions={reconsiderable}
-            currentUserId={me.id}
-            onSubmit={(text, reconsideredMotionId) =>
-              move('reconsider', text, { reconsideredMotionId })
-            }
             onCancel={cancel}
           />
         )}
@@ -158,10 +111,11 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
 
   const list = (
     <OtherMotions
+      state={state}
       motions={others}
       sending={sending}
-      onMove={async (key, text) => {
-        if (!FORM_MOTIONS.includes(key)) return move(key, text);
+      onMove={async (key, text, details) => {
+        if (!FORM_MOTIONS.includes(key)) return move(key, text, details);
         setRefused(false);
         setForm(key as FormMotion);
         return true;
@@ -222,22 +176,26 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
 }
 
 /**
- * The other motions in order, each with a line on what it does. Choosing one opens its words
- * (its standard phrase if left empty) and Move; a motion with details of its own opens its form.
+ * The other motions in order, each with a line on what it does. Choosing one opens what it needs:
+ * its words (its standard phrase if left empty), what an amendment changes, when a postponement
+ * is to, who a referral goes to, and Move; a motion with a form of its own opens that form.
  */
 function OtherMotions({
+  state,
   motions,
   sending,
   onMove,
 }: {
+  state: MeetingState;
   motions: string[];
   sending: boolean;
   /** True once the motion is made (or its form opened): the choice is cleared then */
-  onMove: (key: string, text: string) => Promise<boolean>;
+  onMove: (key: string, text: string, details?: MotionDetails) => Promise<boolean>;
 }) {
   const groupId = useId();
   const [chosen, setChosen] = useState<string | null>(null);
-  const [text, setText] = useState('');
+  const [draft, setDraft] = useState<MotionDraft>(EMPTY_DRAFT);
+  const [problem, setProblem] = useState<string | null>(null);
   if (motions.length === 0) {
     return <p className="text-sm text-ink-muted">No other motion is in order now.</p>;
   }
@@ -248,7 +206,7 @@ function OtherMotions({
       {motions.map((key) => {
         const words = motionWords(key);
         const selected = chosen === key;
-        const phrase = MOTIONS[key]?.phrase ?? '';
+        const ownForm = FORM_MOTIONS.includes(key);
         return (
           <div
             key={key}
@@ -262,7 +220,8 @@ function OtherMotions({
                 checked={selected}
                 onChange={() => {
                   setChosen(key);
-                  setText('');
+                  setDraft(EMPTY_DRAFT);
+                  setProblem(null);
                 }}
                 className="mt-1 accent-gavel"
               />
@@ -273,35 +232,35 @@ function OtherMotions({
             </label>
             {selected && (
               <form
-                className="space-y-2 px-3 pb-3"
+                aria-label={words.name}
+                className="space-y-3 px-3 pb-3"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  if (await onMove(key, text.trim() || phrase)) {
+                  if (ownForm) {
+                    await onMove(key, '');
+                    return;
+                  }
+                  const made = motionFromDraft(key, draft, state);
+                  if ('problem' in made) {
+                    setProblem(made.problem);
+                    return;
+                  }
+                  setProblem(null);
+                  if (await onMove(key, made.text, made.details)) {
                     setChosen(null);
-                    setText('');
+                    setDraft(EMPTY_DRAFT);
                   }
                 }}
               >
-                {!FORM_MOTIONS.includes(key) && (
-                  <>
-                    <label htmlFor={`${groupId}-text`} className="sr-only">
-                      {`Words for ${words.name.toLowerCase()}`}
-                    </label>
-                    <input
-                      id={`${groupId}-text`}
-                      className="input"
-                      maxLength={MAX_MOTION_LENGTH}
-                      placeholder={phrase}
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                    />
-                  </>
+                {!ownForm && (
+                  <MotionWordsFields type={key} state={state} draft={draft} onChange={setDraft} />
                 )}
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                  disabled={sending || (!FORM_MOTIONS.includes(key) && !text.trim() && !phrase)}
-                >
+                {problem && (
+                  <p role="alert" className="text-sm text-gavel">
+                    {problem}
+                  </p>
+                )}
+                <button type="submit" className="btn-primary w-full" disabled={sending}>
                   Move
                 </button>
               </form>
