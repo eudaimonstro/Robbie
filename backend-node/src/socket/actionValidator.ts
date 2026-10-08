@@ -12,6 +12,7 @@ import {
   MOTIONS,
 } from '@robbie-bylawyer/shared/constants';
 import {
+  BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
   canChairVoteDecide,
@@ -19,6 +20,7 @@ import {
   isSecondaryAmendmentInOrder,
   moverCanClaimFloor,
   wasMotionDefeated,
+  wordingFixedBy,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
 import { checkPermission, isServerOnly } from './permissionGuard.js';
@@ -165,6 +167,10 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       error: `${definition.name} needs details this request did not include`,
       errorCode: 'INVALID_ACTION',
     };
+  }
+  // A bylaw amendment's words are the text the room sees and the sync applies
+  if (wordingFixedBy(state, action.motionType)) {
+    return { valid: false, error: BYLAW_WORDING_FIXED, errorCode: 'INVALID_ACTION' };
   }
   // A secondary amendment is in order only on a pending primary amendment; its numeric
   // precedence can't express that, so it is checked by type instead
@@ -576,7 +582,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (motionToModify.type === 'bylawAmendment') {
         return {
           valid: false,
-          error: "A bylaw amendment's words come from its text: withdraw it and move it again",
+          error: BYLAW_WORDING_FIXED,
           errorCode: 'INVALID_ACTION',
         };
       }

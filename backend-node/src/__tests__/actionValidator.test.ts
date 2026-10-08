@@ -656,6 +656,55 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('changing the words of a pending bylaw amendment', () => {
+    const bylaw = {
+      ...createMotion(),
+      type: 'bylawAmendment',
+      category: 'main' as const,
+      precedence: 1,
+      bylawAmendment: { documentId: 'd', changeType: 'delete' as const },
+    };
+    const state = () => ({
+      ...activeMeetingState(),
+      currentMotion: { ...bylaw, secondedBy: 'Member 3' },
+      motionStack: [{ ...bylaw, secondedBy: 'Member 3' }],
+    });
+    it.each(['amend', 'divideQuestion'])('refuses %s', (motionType) => {
+      const result = validateAction(state(), {
+        type: 'MAKE_MOTION',
+        motionType,
+        text: 'Strike 15 and insert 10',
+        mover: 'Member 3',
+        moverId: 3,
+        motionId: 9,
+        timestamp: '',
+        ...(motionType === 'divideQuestion' && { dividedParts: ['a', 'b'] }),
+      });
+      expect(result).toMatchObject({
+        valid: false,
+        errorCode: 'INVALID_ACTION',
+        error: "A bylaw amendment's words come from its text: withdraw it and move it again",
+      });
+    });
+
+    it('refuses amending an amendment of one', () => {
+      const amendment = { ...createMotion({ id: 5 }), type: 'amend', precedence: 3 };
+      const result = validateAction(
+        { ...state(), currentMotion: amendment, motionStack: [bylaw, amendment] },
+        {
+          type: 'MAKE_MOTION',
+          motionType: 'amendAmendment',
+          text: 'x',
+          mover: 'Member 3',
+          moverId: 3,
+          motionId: 9,
+          timestamp: '',
+        },
+      );
+      expect(result).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
+    });
+  });
+
   describe('MODIFY_MOTION', () => {
     it('refuses new words for a bylaw amendment, whose words come from its text', () => {
       const motion = {

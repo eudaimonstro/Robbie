@@ -27,6 +27,8 @@ export { applyMotionOutcome } from './motionOutcomeHelper.js';
 
 export {
   getValidMotions,
+  wordingFixedBy,
+  BYLAW_WORDING_FIXED,
   normalizeMotionText,
   isSimilarMotionSubject,
   wasMotionDefeated,

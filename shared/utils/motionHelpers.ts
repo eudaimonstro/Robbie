@@ -129,6 +129,28 @@ export function isSecondaryAmendmentInOrder(state: MeetingState): boolean {
   );
 }
 
+/** Why a bylaw amendment's words can't be changed in the meeting */
+export const BYLAW_WORDING_FIXED =
+  "A bylaw amendment's words come from its text: withdraw it and move it again";
+
+/**
+ * Whether this motion would change a pending bylaw amendment's words: amending it, amending an
+ * amendment of it, or dividing it. Its words are the text the room sees and the sync applies,
+ * so until amendments carry structured text these are out of order on it.
+ */
+export function wordingFixedBy(state: MeetingState, motionType: string): boolean {
+  const current = state.currentMotion;
+  if (!current) return false;
+  if (motionType === 'amend' || motionType === 'divideQuestion') {
+    return current.type === 'bylawAmendment';
+  }
+  if (motionType === 'amendAmendment') {
+    const amended = state.motionStack[state.motionStack.length - 2];
+    return current.type === 'amend' && amended?.type === 'bylawAmendment';
+  }
+  return false;
+}
+
 export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
   const currentPrecedence = state.currentMotion?.precedence || 0;
   const hasAmendment = state.motionStack.some((m) => m.type === 'amend');
@@ -155,6 +177,7 @@ export function getValidMotions(state: MeetingState, currentUserId?: number): Va
   }
   Object.entries(MOTIONS).forEach(([key, motion]) => {
     if ((key === 'adoptAgenda' || key === 'amendAgenda') && state.agendaAdopted) return;
+    if (wordingFixedBy(state, key)) return;
     if (key === 'adoptAgenda' && isAgendaAdoptionPending) return;
     if (key === 'mainMotion' && currentPrecedence > 0) return;
     // Amendment depth enforcement (unless suspended)
