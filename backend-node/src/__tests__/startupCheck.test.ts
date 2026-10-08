@@ -88,4 +88,18 @@ describe('startupCheck', () => {
         .warnings,
     ).toEqual(['Test sign-in is enabled: the code 123456 signs in any email']);
   });
+
+  it('checks the storage limit: refused in production, the default elsewhere', () => {
+    const reason =
+      'ORG_STORAGE_LIMIT_MB is "lots", not a whole number of megabytes above 0, such as 500.';
+    expect(startupCheck({ ...PRODUCTION, ORG_STORAGE_LIMIT_MB: 'lots' }, 'resend').error).toBe(
+      reason,
+    );
+    expect(startupCheck({ ...PRODUCTION, ORG_STORAGE_LIMIT_MB: '250' }, 'resend')).toEqual({
+      warnings: [],
+    });
+    expect(startupCheck({ ORG_STORAGE_LIMIT_MB: 'lots' }, 'development').warnings).toEqual([
+      `${reason} Using the default, 500.`,
+    ]);
+  });
 });

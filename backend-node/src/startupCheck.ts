@@ -1,4 +1,5 @@
 import type { EmailProvider } from './auth/emailService.js';
+import { isValidOrgStorageLimit } from './bylawyer/services/storageQuota.js';
 
 /** Problems with the server's configuration, checked once when it starts */
 export interface StartupCheck {
@@ -9,8 +10,13 @@ export interface StartupCheck {
 
 export function startupCheck(env: NodeJS.ProcessEnv, emailProvider: EmailProvider): StartupCheck {
   const check: StartupCheck = { warnings: [] };
+  const badStorageLimit = !isValidOrgStorageLimit(env.ORG_STORAGE_LIMIT_MB)
+    ? `ORG_STORAGE_LIMIT_MB is "${env.ORG_STORAGE_LIMIT_MB}", not a whole number of megabytes ` +
+      'above 0, such as 500.'
+    : null;
 
   if (env.NODE_ENV !== 'production') {
+    if (badStorageLimit) check.warnings.push(`${badStorageLimit} Using the default, 500.`);
     if (env.ENABLE_TEST_AUTH === 'true') {
       const code = env.TEST_VERIFICATION_CODE || '000000';
       check.warnings.push(`Test sign-in is enabled: the code ${code} signs in any email`);
@@ -50,6 +56,7 @@ export function startupCheck(env: NodeJS.ProcessEnv, emailProvider: EmailProvide
   if (env.ENABLE_TEST_AUTH === 'true') {
     errors.push('ENABLE_TEST_AUTH=true would let a fixed code sign in any email. Remove it.');
   }
+  if (badStorageLimit) errors.push(badStorageLimit);
   if (errors.length > 0) check.error = errors.join(' ');
 
   // Behind Caddy without it, req.ip is Caddy's address for everyone (trustProxy.ts)
