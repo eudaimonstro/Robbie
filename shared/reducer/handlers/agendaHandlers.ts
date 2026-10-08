@@ -74,8 +74,9 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       );
       return {
         ...state,
-        // The open forum of the item before ends with it
+        // The open forum of the item before ends with it, and the time to appeal a ruling
         ...(!state.currentMotion && FORUM_ENDS),
+        lastChairRuling: null,
         // The updated entry, so its status reads 'active' here as in the agenda
         currentAgendaItem: updatedAgenda.find((a) => a.id === typedAction.id) ?? null,
         agenda: updatedAgenda,
@@ -104,6 +105,7 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         ...(!state.currentMotion && FORUM_ENDS),
+        lastChairRuling: null,
         currentAgendaItem:
           state.currentAgendaItem?.id === typedAction.id ? null : state.currentAgendaItem,
         agenda: updatedAgenda,

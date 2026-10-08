@@ -141,13 +141,16 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
   if (awaitingRuling(state)) {
     return out('The chair rules on the point of order first', 'point-pending');
   }
-  if (state.votingOpen) {
-    return out('No motion can be made while a vote is in progress', 'voting');
+  if (state.votingOpen || state.currentElection?.votingInProgress) {
+    return out('No motion can be made while a vote or a ballot is open', 'voting');
   }
   if (state.pendingSecond) {
     return out('Another motion is waiting for a second', 'awaiting-second');
   }
   if (type === 'appeal') {
+    if (state.motionStack.some((m) => m.type === 'appeal')) {
+      return out('An appeal is pending: the meeting decides it first', 'precedence');
+    }
     return state.lastChairRuling
       ? null
       : out('An appeal is made at once, after a ruling of the chair', 'precedence');
@@ -286,4 +289,23 @@ export function motionTextFromDetails(type: string, details: MotionDetails): str
     default:
       return null;
   }
+}
+
+/**
+ * How the open vote is counted now: a voice vote on which a member called for a division is
+ * counted (on devices and in the room), for that vote only
+ */
+export function votingMethodNow(state: MeetingState): MeetingState['votingMethod'] {
+  return state.votingMethod === 'voice' && state.divisionCalled ? 'standard' : state.votingMethod;
+}
+
+/**
+ * Why the pending motion can't be put to the meeting, when it is one Robbie no longer offers
+ * (from a live meeting saved before the motions were trimmed); null otherwise
+ */
+export function pendingNotOffered(state: MeetingState): string | null {
+  const motion = state.currentMotion;
+  if (!motion || motion.vote === 'none' || motion.type === 'withdrawMotion') return null;
+  if (isOffered(motion.type)) return null;
+  return `${named(motion.type)} isn't offered in Robbie any more: the mover withdraws it, or a point of order has it ruled out of order`;
 }

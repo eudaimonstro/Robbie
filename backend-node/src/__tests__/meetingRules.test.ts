@@ -556,7 +556,7 @@ describe('a division of the assembly', () => {
       errorCode: 'VOTING_METHOD',
     });
     s = act(s, 'carl', { type: 'REQUEST_DIVISION' });
-    expect(s.votingMethod).toBe('standard');
+    expect(s.divisionCalled).toBe(true);
     expect(s.floorVotes).toEqual({ yea: 0, nay: 0, abstain: 0 });
     expect(s.meetingLog.at(-1)?.message).toBe(
       'Carl Moss calls for a division: the vote is counted.',
@@ -741,5 +741,206 @@ describe('words that come from what a motion does', () => {
     ).toMatchObject({
       errorCode: 'MOTION_PRECEDENCE_VIOLATION',
     });
+  });
+});
+
+describe('review fixes', () => {
+  /** An election under way with its ballot open, Ben the one nominee */
+  const ballotOpen = () => {
+    let s = act(inSession(), 'dana', { type: 'OPEN_NOMINATIONS', position: 'Treasurer' });
+    s = act(s, 'alice', {
+      type: 'NOMINATE',
+      position: 'Treasurer',
+      nomineeName: 'Ben Whitaker',
+      nomineeId: 4,
+      nominationId: 1,
+    });
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    return act(s, 'dana', {
+      type: 'START_ELECTION',
+      electionId: 1,
+      position: 'Treasurer',
+      requiredVotes: 'majority',
+    });
+  };
+
+  it('takes only a point of order while a ballot is open, so adjourning never strands it (simD)', () => {
+    const s = ballotOpen();
+    expect(s.currentElection?.votingInProgress).toBe(true);
+    expect(
+      refusal(s, 'carl', {
+        type: 'MAKE_MOTION',
+        motionType: 'adjourn',
+        text: 'Adjourn',
+        motionId: 1,
+      }),
+    ).toMatchObject({ errorCode: 'VOTING_IN_PROGRESS' });
+    expect(
+      refusal(s, 'carl', { type: 'MAKE_MOTION', motionType: 'pointOrder', text: 'x', motionId: 1 }),
+    ).toBeNull();
+    // An adjournment that carried is declared even if a ballot were open: it is left unfinished
+    const carried = { ...s, adjournmentCarried: true };
+    const ended = act(carried, 'dana', { type: 'END_MEETING' });
+    expect(ended.meetingStage).toBe('adjourned');
+    expect(ended.unfinishedAtAdjournment).toEqual([
+      expect.objectContaining({ kind: 'election', position: 'Treasurer' }),
+    ]);
+  });
+
+  it('opens no ballot while a motion is pending, and asks no consent during a ballot', () => {
+    let s = act(inSession(), 'dana', { type: 'OPEN_NOMINATIONS', position: 'Treasurer' });
+    s = act(s, 'alice', {
+      type: 'NOMINATE',
+      position: 'Treasurer',
+      nomineeName: 'Ben Whitaker',
+      nomineeId: 4,
+      nominationId: 1,
+    });
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    s = moved(s, 'carl', 'recess', 'Recess', 'eve');
+    expect(
+      refusal(s, 'dana', {
+        type: 'START_ELECTION',
+        electionId: 1,
+        position: 'Treasurer',
+        requiredVotes: 'majority',
+      }),
+    ).toMatchObject({ errorCode: 'INVALID_STATE' });
+  });
+
+  it('takes no second appeal on a pending one (simB A2)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Ban dogs from the pool', 'ben');
+    s = move(s, 'carl', 'pointOrder', 'Out of scope');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    s = moved(s, 'alice', 'appeal', 'I appeal', 'ben');
+    expect(
+      refusal(s, 'eve', {
+        type: 'MAKE_MOTION',
+        motionType: 'appeal',
+        text: 'I appeal too',
+        motionId: 1,
+      }),
+    ).toMatchObject({ error: 'An appeal is pending: the meeting decides it first' });
+  });
+
+  it('offers an appeal only before the meeting moves on (simB A3, simC I)', () => {
+    const ruled = () => {
+      let s = moved(inSession(), 'alice', 'mainMotion', 'Ban dogs from the pool', 'ben');
+      s = move(s, 'carl', 'pointOrder', 'Speaker is off topic');
+      return act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'overrule' });
+    };
+    const appeal = {
+      type: 'MAKE_MOTION',
+      motionType: 'appeal',
+      text: 'I appeal',
+      motionId: 1,
+    } as const;
+    expect(refusal(ruled(), 'carl', appeal)).toBeNull();
+    let s = act(ruled(), 'ben', { type: 'RAISE_HAND', stance: 'pro' });
+    const ben = s.members.find((m) => m.name === 'Ben Whitaker')!;
+    s = act(s, 'dana', {
+      type: 'RECOGNIZE_SPEAKER',
+      member: ben,
+      stance: 'pro',
+      speakerTimerEnd: null,
+    });
+    expect(refusal(s, 'carl', appeal)).not.toBeNull();
+    // An out of order ruling, then the next item: too late
+    let t = moved(inSession(), 'alice', 'mainMotion', 'Ban dogs from the pool', 'ben');
+    t = move(t, 'carl', 'pointOrder', 'Not in the call');
+    t = act(t, 'dana', { type: 'CHAIR_RULING', ruling: 'sustain', outOfOrder: true });
+    t = act(t, 'dana', { type: 'COMPLETE_AGENDA_ITEM', id: 102 });
+    expect(t.lastChairRuling).toBeNull();
+    expect(refusal(t, 'alice', appeal)).not.toBeNull();
+  });
+
+  it('a division counts one vote and leaves the meeting voting by voice (simB D, simG)', () => {
+    let s = act(inSession(), 'dana', { type: 'SET_VOTING_METHOD', method: 'voice' });
+    s = moved(s, 'alice', 'mainMotion', 'Buy a grill', 'ben');
+    s = act(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null });
+    s = act(s, 'carl', { type: 'REQUEST_DIVISION' });
+    expect(s.votingMethod).toBe('voice');
+    s = act(s, 'alice', { type: 'CAST_VOTE', vote: 'yea', voterId: 0 });
+    s = act(s, 'dana', { type: 'SET_FLOOR_TALLY', yea: 5, nay: 4, abstain: 0 });
+    s = act(s, 'dana', { type: 'CLOSE_VOTING' });
+    expect(s.votingMethod).toBe('voice');
+    expect(s.completedMotions.at(-1)).toMatchObject({ division: true, method: 'standard' });
+    // The next vote is by voice again: no device votes
+    s = moved(s, 'alice', 'mainMotion', 'Buy a smoker', 'ben');
+    s = act(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null });
+    expect(refusal(s, 'alice', { type: 'CAST_VOTE', vote: 'yea', voterId: 0 })).toMatchObject({
+      errorCode: 'VOTING_METHOD',
+    });
+  });
+
+  it('asks the quorum confirmation before adopting by consent, the agenda, or a ballot (simB E)', () => {
+    let s = moved(inSession({ quorum: 50 }), 'alice', 'mainMotion', 'Spend the reserves', 'ben');
+    s = act(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    expect(refusal(s, 'dana', { type: 'UNANIMOUS_CONSENT_PASSED' })).toMatchObject({
+      errorCode: 'NO_QUORUM',
+    });
+    const adopted = act(s, 'dana', {
+      type: 'UNANIMOUS_CONSENT_PASSED',
+      confirmedWithoutQuorum: true,
+    });
+    expect(adopted.completedMotions.at(-1)).toMatchObject({
+      disposition: 'unanimous',
+      quorumPresent: false,
+    });
+    // Adjourning needs no quorum
+    let t = moved(inSession({ quorum: 50 }), 'alice', 'adjourn', 'Adjourn', 'ben');
+    t = act(t, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' });
+    expect(refusal(t, 'dana', { type: 'UNANIMOUS_CONSENT_PASSED' })).toBeNull();
+    const started = act(gathered({ quorum: 50 }), 'dana', { type: 'START_MEETING' });
+    expect(refusal(started, 'dana', { type: 'ADOPT_AGENDA' })).toMatchObject({
+      errorCode: 'NO_QUORUM',
+    });
+    expect(
+      refusal(started, 'dana', { type: 'ADOPT_AGENDA', confirmedWithoutQuorum: true }),
+    ).toBeNull();
+  });
+
+  it('opens no vote while a motion waits for a second (simF)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Buy a grill', 'ben');
+    s = move(s, 'carl', 'amend', '', {
+      textAmendment: { form: 'insert', insert: 'gas', after: 'a' },
+    });
+    expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toMatchObject({
+      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+    });
+  });
+
+  it('puts no motion Robbie no longer offers to the meeting, from a state saved earlier (simF old)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Hire a landscaper', 'ben');
+    const lay = {
+      ...s.currentMotion!,
+      id: 99,
+      type: 'layOnTable',
+      name: 'Lay on the Table',
+      text: 'Lay on the table',
+      precedence: 8,
+      category: 'subsidiary' as const,
+      debatable: false,
+    };
+    s = { ...s, currentMotion: lay, motionStack: [...s.motionStack, lay] };
+    for (const action of [
+      { type: 'OPEN_VOTING', voteTimerEnd: null } as const,
+      { type: 'REQUEST_UNANIMOUS_CONSENT' } as const,
+    ]) {
+      expect(refusal(s, 'dana', action)).toMatchObject({
+        errorCode: 'MOTION_NOT_OFFERED',
+        error:
+          "Lay on the table isn't offered in Robbie any more: the mover withdraws it, or a point of order has it ruled out of order",
+      });
+    }
+  });
+
+  it("doesn't leave a request to withdraw as unfinished business at the adjournment", () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Buy a pizza oven', 'ben');
+    s = act(s, 'alice', { type: 'WITHDRAW_MOTION', motionId: 1 });
+    s = act(s, 'dana', { type: 'END_MEETING' });
+    expect(s.unfinishedAtAdjournment.map((r) => r.kind === 'motion' && r.text)).toEqual([
+      'Buy a pizza oven',
+    ]);
   });
 });

@@ -665,7 +665,8 @@ export type MeetingAction =
   | { type: 'YIELD_FLOOR'; yieldedBy?: number; timestamp: string }
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
-  | { type: 'ADOPT_AGENDA'; at?: string; timestamp: string }
+  // Without a quorum, adopting needs the chair's confirmation (confirmedWithoutQuorum)
+  | { type: 'ADOPT_AGENDA'; confirmedWithoutQuorum?: boolean; at?: string; timestamp: string }
   // objectorId is set by the server from the signed-in user
   | { type: 'AGENDA_OBJECTION'; objectorId?: number; timestamp: string }
   | { type: 'CALL_AGENDA_ITEM'; id: number; timestamp: string }
@@ -684,7 +685,12 @@ export type MeetingAction =
       floorObjector?: string;
       timestamp: string;
     }
-  | { type: 'UNANIMOUS_CONSENT_PASSED'; at?: string; timestamp: string }
+  | {
+      type: 'UNANIMOUS_CONSENT_PASSED';
+      confirmedWithoutQuorum?: boolean;
+      at?: string;
+      timestamp: string;
+    }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
   | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
   | { type: 'SET_MEETING_STAGE'; stage: MeetingStage; timestamp: string }
@@ -727,6 +733,7 @@ export type MeetingAction =
       electionId: number;
       position: string;
       requiredVotes: 'majority' | 'plurality' | '2/3';
+      confirmedWithoutQuorum?: boolean;
       timestamp: string;
     }
   | { type: 'CAST_BALLOT'; candidateName: string; voterId: number }

@@ -416,7 +416,21 @@ describe('business from the floor', () => {
         timestamp: '',
       });
 
-    it.each(elections)('waits for the election to end: %s', (_, election) => {
+    // Nominations, open or closed; a ballot takes only a point of order (below)
+    const nominating = elections.slice(0, 2);
+
+    it('takes only a point of order while the ballot is open', () => {
+      const balloting = { ...inSession, ...elections[2][1] };
+      for (const motionType of ['mainMotion', 'adjourn', 'recess']) {
+        expect(move(balloting, motionType), motionType).toMatchObject({
+          valid: false,
+          errorCode: 'VOTING_IN_PROGRESS',
+        });
+      }
+      expect(move(balloting, 'pointOrder')).toEqual({ valid: true });
+    });
+
+    it.each(nominating)('waits for the election to end: %s', (_, election) => {
       const electing = { ...inSession, ...election };
       const refused = {
         valid: false,
@@ -429,7 +443,7 @@ describe('business from the floor', () => {
       expect(floorMotion({}, electing)).toEqual(refused);
     });
 
-    it.each(elections)('allows privileged and incidental motions: %s', (_, election) => {
+    it.each(nominating)('allows privileged and incidental motions: %s', (_, election) => {
       const electing = { ...inSession, ...election };
       for (const motionType of ['adjourn', 'recess', 'pointOrder']) {
         expect(move(electing, motionType), motionType).toEqual({ valid: true });

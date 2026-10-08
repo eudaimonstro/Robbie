@@ -286,7 +286,12 @@ export const ACTION_SCHEMAS = {
     itemId: id,
   }),
   REMOVE_AGENDA_ITEM: z.strictObject({ type: z.literal('REMOVE_AGENDA_ITEM'), id }),
-  ADOPT_AGENDA: clocked('ADOPT_AGENDA'),
+  ADOPT_AGENDA: z.strictObject({
+    type: z.literal('ADOPT_AGENDA'),
+    confirmedWithoutQuorum: z.boolean().optional(),
+    at: timestamp.optional(),
+    timestamp,
+  }),
   AGENDA_OBJECTION: z.strictObject({
     type: z.literal('AGENDA_OBJECTION'),
     objectorId: optionalId,
@@ -320,7 +325,12 @@ export const ACTION_SCHEMAS = {
     floorObjector: optionalName,
     timestamp,
   }),
-  UNANIMOUS_CONSENT_PASSED: clocked('UNANIMOUS_CONSENT_PASSED'),
+  UNANIMOUS_CONSENT_PASSED: z.strictObject({
+    type: z.literal('UNANIMOUS_CONSENT_PASSED'),
+    confirmedWithoutQuorum: z.boolean().optional(),
+    at: timestamp.optional(),
+    timestamp,
+  }),
   SET_VOTING_METHOD: z.strictObject({
     type: z.literal('SET_VOTING_METHOD'),
     method: z.enum(['standard', 'voice', 'ballot', 'rollcall']),
@@ -404,6 +414,7 @@ export const ACTION_SCHEMAS = {
     electionId: id,
     position: text(MAX_TITLE_LENGTH),
     requiredVotes: z.enum(['majority', 'plurality', '2/3']),
+    confirmedWithoutQuorum: z.boolean().optional(),
     timestamp,
   }),
   CAST_BALLOT: z.strictObject({

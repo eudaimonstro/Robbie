@@ -32,6 +32,8 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         floorVotes: { yea: 0, nay: 0, abstain: 0 },
         proxyVotes: [], // Reset proxy votes for new vote
         divisionCalled: false,
+        // An appeal from a ruling comes before anything else happens
+        lastChairRuling: null,
         meetingLog: logEntries,
       };
     }
@@ -39,7 +41,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
     case 'CAST_VOTE': {
       const typedAction = action as Extract<MeetingAction, { type: 'CAST_VOTE' }>;
       // A voice vote is counted in the room, not on devices
-      if (state.votingMethod === 'voice') return state;
+      if (state.votingMethod === 'voice' && !state.divisionCalled) return state;
 
       // Check if voter is chair
       const voter = state.members.find((m) => m.id === typedAction.voterId);
@@ -92,7 +94,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         : state.members.find((m) => m.id === typedAction.requesterId)?.name;
       return {
         ...state,
-        votingMethod: 'standard',
+        // For this vote only: the meeting's way of voting is unchanged
         floorVotes: NO_VOTES,
         divisionCalled: true,
         meetingLog: log(typedAction.timestamp, logDivisionCalled(caller ?? null)),
@@ -167,7 +169,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         reconsiderable: decided.reconsidered,
         deviceVotes: state.votes,
         floorVotes,
-        method: state.votingMethod,
+        method: state.divisionCalled ? 'standard' : state.votingMethod,
         ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
         // The change a bylaw amendment proposed: the text adopted (or not), for the sync and
         // the minutes
@@ -183,7 +185,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
 
       // Both parts, so the room can check the chair's count
       const partsLog =
-        floorCounted(floorVotes) && state.votingMethod !== 'voice'
+        floorCounted(floorVotes) && (state.votingMethod !== 'voice' || state.divisionCalled)
           ? ` On devices ${state.votes.yea} to ${state.votes.nay}, in the room ${floorVotes.yea} to ${floorVotes.nay}.`
           : '';
 

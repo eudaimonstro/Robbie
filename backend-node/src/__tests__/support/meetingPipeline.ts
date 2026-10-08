@@ -124,11 +124,11 @@ export function gathered(fields: Partial<MeetingState> = {}): MeetingState {
   return { ...state, ...fields };
 }
 
-/** Called to order, the agenda adopted, and New business called */
+/** Called to order, the agenda adopted (confirmed by the chair if there is no quorum), and New business called */
 export function inSession(fields: Partial<MeetingState> = {}): MeetingState {
   let state = gathered(fields);
   state = act(state, 'dana', { type: 'START_MEETING' });
-  state = act(state, 'dana', { type: 'ADOPT_AGENDA' });
+  state = act(state, 'dana', { type: 'ADOPT_AGENDA', confirmedWithoutQuorum: true });
   return act(state, 'dana', { type: 'CALL_AGENDA_ITEM', id: 102 });
 }
 

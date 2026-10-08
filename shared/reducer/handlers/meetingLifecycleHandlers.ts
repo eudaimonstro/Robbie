@@ -71,15 +71,15 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       // Adjourning ends the business under way: an election, the motions pending and the one
       // awaiting a second are left unfinished, and the record says so
       const position = state.currentElection?.position ?? state.currentNominationPosition;
-      // Questions postponed to later in the meeting and not taken up are left unfinished too
+      // Questions postponed to later in the meeting and not taken up are left unfinished too; a
+      // mover's request to withdraw is not business of its own
       const postponed = (state.postponedMotions ?? []).flatMap((p) => p.motions.slice(0, 1));
+      const pending = state.motionStack.filter((m) => m.type !== 'withdrawMotion');
       const unfinished = [
         ...(position ? [`the election for ${position}`] : []),
-        ...[
-          ...state.motionStack,
-          ...(state.pendingSecond ? [state.pendingSecond] : []),
-          ...postponed,
-        ].map((m) => `the motion "${m.text}"`),
+        ...[...pending, ...(state.pendingSecond ? [state.pendingSecond] : []), ...postponed].map(
+          (m) => `the motion "${m.text}"`,
+        ),
       ];
       // The same business, for the minutes: each motion with its mover and seconder, and the
       // election with the count of each ballot already closed
@@ -97,7 +97,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
               },
             ]
           : []),
-        ...state.motionStack.map((m) => ({
+        ...pending.map((m) => ({
           kind: 'motion' as const,
           id: m.id,
           name: m.name,
@@ -168,6 +168,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         recess: null,
         adjournmentCarried: false,
         postponedMotions: [],
+        lastChairRuling: null,
         // What this adjournment left unfinished, replacing an earlier one's: the minutes say when
         // the meeting last adjourned, and a meeting called to order again after adjourning has
         // only the log to show what the earlier adjournment left

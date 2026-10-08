@@ -21,6 +21,7 @@ import {
   floorOpenForDebate,
   motionOutOfOrder,
   moverClaimsFloor,
+  pendingNotOffered,
   textAmendmentProblem,
   wasMotionDefeated,
   type OutOfOrder,
@@ -98,6 +99,31 @@ type NewMotion = Pick<
 
 /** What a meeting without a quorum may still do (RONR 40:6): adjourn, or recess to find one */
 const NO_QUORUM_NEEDED: ReadonlySet<string> = new Set(['adjourn', 'recess']);
+
+/**
+ * Without a quorum the meeting can only adjourn or recess (RONR 40:6): anything else (a vote, an
+ * adoption by consent, the agenda, a ballot) goes ahead only once the chair confirms it, knowing
+ * it is not valid business. Null when it may go ahead.
+ */
+function quorumConfirmed(
+  state: MeetingState,
+  confirmed: boolean | undefined,
+  question: string,
+): ValidationResult | null {
+  if (attendanceSummary(state).hasQuorum || confirmed) return null;
+  if (state.currentMotion && NO_QUORUM_NEEDED.has(state.currentMotion.type)) return null;
+  return {
+    valid: false,
+    error: `There is no quorum. Business done now is not valid. ${question}`,
+    errorCode: 'NO_QUORUM',
+  };
+}
+
+/** A pending motion Robbie no longer offers, from a live meeting saved earlier, isn't put */
+function notOffered(state: MeetingState): ValidationResult | null {
+  const reason = pendingNotOffered(state);
+  return reason ? { valid: false, error: reason, errorCode: 'MOTION_NOT_OFFERED' } : null;
+}
 
 /** The error code for each kind of reason a motion is out of order */
 const OUT_OF_ORDER_CODES: Record<OutOfOrder['kind'], ActionErrorCode> = {
@@ -399,8 +425,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
       // The console offers no Adjourn while a vote or an election's ballot is open: the vote is
-      // closed (or the election set aside) first, so no ballot is left undecided
-      if (state.votingOpen || state.currentElection?.votingInProgress) {
+      // closed (or the election set aside) first, so no ballot is left undecided. An adjournment
+      // that carried is declared whatever is open: what is left is unfinished business.
+      if (
+        state.votingOpen ||
+        (state.currentElection?.votingInProgress && !state.adjournmentCarried)
+      ) {
         return {
           valid: false,
           error: 'Close the vote before adjourning',
@@ -514,20 +544,21 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (state.currentElection?.votingInProgress) {
         return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
       }
-      // Without a quorum the meeting can only adjourn or recess (RONR 40:6): anything else is put
-      // only once the chair confirms it, knowing it is not valid business
-      if (
-        !attendanceSummary(state).hasQuorum &&
-        !NO_QUORUM_NEEDED.has(state.currentMotion.type) &&
-        !action.confirmedWithoutQuorum
-      ) {
+      // A motion awaiting a second is settled first: the vote would decide the question beneath
+      // it, and the motion would then be seconded onto what is left
+      if (state.pendingSecond) {
         return {
           valid: false,
-          error: 'There is no quorum. Business done now is not valid. Open the vote anyway?',
-          errorCode: 'NO_QUORUM',
+          error: 'A motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
         };
       }
-      return { valid: true };
+      return (
+        notOffered(state) ??
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Open the vote anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'CAST_VOTE': {
       const notVoting = checkVoterPresent(state, action.voterId);
@@ -535,7 +566,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.votingMethod === 'voice') {
+      if (state.votingMethod === 'voice' && !state.divisionCalled) {
         return {
           valid: false,
           error: 'This is a voice vote: the chair counts it in the room',
@@ -579,7 +610,11 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // A voice vote is counted only in the room: closing it with nothing entered would decide
       // the question on no votes at all
       const floor = state.floorVotes ?? NO_VOTES;
-      if (state.votingMethod === 'voice' && floor.yea + floor.nay + floor.abstain === 0) {
+      if (
+        state.votingMethod === 'voice' &&
+        !state.divisionCalled &&
+        floor.yea + floor.nay + floor.abstain === 0
+      ) {
         return {
           valid: false,
           error: 'Enter the show of hands before closing',
@@ -882,7 +917,11 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'AGENDA_ALREADY_ADOPTED',
         };
       }
-      return { valid: true };
+      return (
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Adopt the agenda anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'AGENDA_OBJECTION':
       if (state.agendaAdopted) {
@@ -963,6 +1002,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
+      if (state.currentElection?.votingInProgress) {
+        return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
+      }
+      {
+        const refused = notOffered(state);
+        if (refused) return refused;
+      }
       if (state.unanimousConsentPending) {
         return {
           valid: false,
@@ -1001,7 +1047,11 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_CONSENT_PENDING',
         };
       }
-      return { valid: true };
+      return (
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Adopt it anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'APPROVE_MINUTES':
       if (state.minutesApproved) {
@@ -1130,7 +1180,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'START_ELECTION':
+    case 'START_ELECTION': {
       if (state.currentElection) {
         return {
           valid: false,
@@ -1138,6 +1188,20 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ELECTION_IN_PROGRESS',
         };
       }
+      // A motion made during the election (adjourn, recess, a point of order) is settled first
+      if (state.currentMotion || state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Settle the pending motion first',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      const confirmation = quorumConfirmed(
+        state,
+        action.confirmedWithoutQuorum,
+        'Open the ballot anyway?',
+      );
+      if (confirmation) return confirmation;
       // A ballot on a motion and a ballot for an office at once would mix up the voting
       if (state.votingOpen) {
         return {
@@ -1156,6 +1220,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+    }
 
     case 'SET_ASIDE_ELECTION':
       if (!isElectionUnderway(state)) {
@@ -1491,7 +1556,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.votingMethod === 'voice') {
+      if (state.votingMethod === 'voice' && !state.divisionCalled) {
         return {
           valid: false,
           error: 'This is a voice vote: the chair counts it in the room',

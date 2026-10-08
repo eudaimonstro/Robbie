@@ -33,6 +33,8 @@ export {
   motionOutOfOrder,
   motionTextFromDetails,
   pendingMainMotion,
+  pendingNotOffered,
+  votingMethodNow,
   type OutOfOrder,
 } from './motionRules.js';
 

@@ -323,6 +323,7 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         motionStack: [...state.motionStack, ...motions],
         currentMotion: motions.at(-1) ?? state.currentMotion,
         postponedMotions: postponed.filter((p) => p !== question),
+        lastChairRuling: null,
         meetingLog: log(typedAction.timestamp, logTakenUp(motions[0].text)),
       };
     }

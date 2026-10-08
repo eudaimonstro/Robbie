@@ -58,6 +58,8 @@ export const speakerHandler: ActionHandler = (state, action, log) => {
         currentMotion: updatedMotion,
         motionStack: updatedStack,
         recognizedSpeaker: typedAction.member,
+        // An appeal from a ruling comes before debate goes on
+        lastChairRuling: null,
         lastSpeakerStance: typedAction.stance,
         debatePositions: updatedDebatePositions,
         speakerTimerEnd: typedAction.speakerTimerEnd,

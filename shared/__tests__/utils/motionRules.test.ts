@@ -76,7 +76,9 @@ describe('motionOutOfOrder', () => {
     const main = motion('mainMotion');
     const voting = pending([main], { votingOpen: true });
     expect(offered(voting)).toEqual(['pointOrder']);
-    expect(reason(voting, 'adjourn')).toBe('No motion can be made while a vote is in progress');
+    expect(reason(voting, 'adjourn')).toBe(
+      'No motion can be made while a vote or a ballot is open',
+    );
     const awaiting = pending([], { pendingSecond: motion('mainMotion', { secondedBy: null }) });
     expect(offered(awaiting)).toEqual(['pointOrder']);
     expect(reason(awaiting, 'recess')).toBe('Another motion is waiting for a second');
