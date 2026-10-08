@@ -13,15 +13,11 @@ const CLIENT_ERROR_CODES: Record<number, string> = {
 export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   const requestId = (req as unknown as Record<string, unknown>).id as string | undefined;
 
+  // A route's answer: the same shape as the answers handlers send themselves
   if (err instanceof ApiError) {
-    return res.status(err.statusCode).json({
-      error: {
-        code: err.code,
-        message: err.message,
-        details: err.details,
-        requestId,
-      },
-    });
+    return res
+      .status(err.statusCode)
+      .json({ error: err.message, ...(err.code !== undefined && { code: err.code }) });
   }
 
   if (err instanceof ZodError) {

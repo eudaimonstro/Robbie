@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   save: vi.fn(),
   publish: vi.fn(),
   regenerate: vi.fn(),
+  revisions: vi.fn(),
 }));
 vi.mock('../../../../api/client', async (importOriginal) => ({
   HttpError: (await importOriginal<typeof import('../../../../api/client')>()).HttpError,
@@ -111,6 +112,7 @@ describe('MinutesPage', () => {
     vi.clearAllMocks();
     org.isSecretary = true;
     api.get.mockResolvedValue(record());
+    api.revisions.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -517,6 +519,31 @@ describe('MinutesPage', () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByLabelText('Minutes text')).toBeNull();
+  });
+
+  it('shows the secretary what published minutes said before each change', async () => {
+    api.get.mockResolvedValue(record({ status: 'published' }));
+    api.revisions.mockResolvedValue([
+      {
+        id: 'r1',
+        body: 'Twenty members were present.',
+        editedAt: '2026-10-22T15:30:00.000Z',
+        editedBy: { id: 2, name: 'Pat Lee' },
+      },
+    ]);
+    renderAt();
+    const changes = await screen.findByRole('region', { name: 'Changes since publishing' });
+    expect(api.revisions).toHaveBeenCalledWith('m1');
+    expect(within(changes).getByText(/Changed by Pat Lee on/)).toBeTruthy();
+    expect(within(changes).getByText('Twenty members were present.')).toBeTruthy();
+  });
+
+  it("doesn't ask a member for the changes, nor a secretary for a draft's", async () => {
+    org.isSecretary = false;
+    api.get.mockResolvedValue(record({ status: 'published' }));
+    renderAt();
+    await heading();
+    expect(api.revisions).not.toHaveBeenCalled();
   });
 
   it("says when the minutes aren't there, as a draft is for a member", async () => {

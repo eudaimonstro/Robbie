@@ -1,23 +1,35 @@
+/**
+ * An error a route answers with: thrown from a handler or a middleware (Express 5 passes a
+ * rejected one on), the error handler sends `{ error: message }` with its status, and its code
+ * when it has one: the shape route handlers answer with.
+ */
 export class ApiError extends Error {
   constructor(
     public statusCode: number,
-    public code: string,
     message: string,
-    public details?: unknown,
+    public code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
   }
 
-  static notFound(resource: string) {
-    return new ApiError(404, 'NOT_FOUND', `${resource} not found`);
+  static badRequest(message: string, code?: string) {
+    return new ApiError(400, message, code);
   }
 
-  static conflict(message: string) {
-    return new ApiError(409, 'CONFLICT', message);
+  static forbidden(message: string, code?: string) {
+    return new ApiError(403, message, code);
   }
 
-  static badRequest(message: string, details?: unknown) {
-    return new ApiError(400, 'BAD_REQUEST', message, details);
+  static notFound(message = 'Not found') {
+    return new ApiError(404, message);
+  }
+
+  static conflict(message: string, code?: string) {
+    return new ApiError(409, message, code);
+  }
+
+  static tooManyRequests(message: string) {
+    return new ApiError(429, message);
   }
 }

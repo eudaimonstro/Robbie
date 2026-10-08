@@ -58,6 +58,13 @@ describeRules('minutes rules', [
     min: 'secretary',
     ok: 409,
   },
+  {
+    method: 'get',
+    route: '/minutes/:id/revisions',
+    path: (f) => `/api/minutes/${f.minutes}/revisions`,
+    min: 'secretary',
+    ok: 200,
+  },
 ]);
 
 describe('minutes', () => {
@@ -352,5 +359,35 @@ describe('minutes', () => {
     });
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: NO_MEETING_RECORD });
+  });
+
+  it('keep the text members had read before each change to published minutes', async () => {
+    const before = (await prisma.minutes.findUniqueOrThrow({ where: { id: f.minutes } })).body;
+    const edit = (body: string, role: OrgRole = 'secretary') =>
+      call('put', `/api/minutes/${f.minutes}`, { cookie: as(role), body: { body } });
+    expect((await edit('# Corrected once')).status).toBe(200);
+    // The same text again is no change
+    expect((await edit('# Corrected once', 'admin')).status).toBe(200);
+    expect((await edit('# Corrected twice', 'admin')).status).toBe(200);
+
+    const res = await call('get', `/api/minutes/${f.minutes}/revisions`, {
+      cookie: as('secretary'),
+    });
+    expect(res.status).toBe(200);
+    // The latest change first: the text it replaced, who made it and when
+    expect(res.body).toMatchObject([
+      { body: '# Corrected once', editedBy: { id: f.users.admin.id, name: 'A admin' } },
+      { body: before, editedBy: { id: f.users.secretary.id, name: 'A secretary' } },
+    ]);
+    expect(res.body[0].editedAt).toBeTruthy();
+  });
+
+  it('keep no revisions of a draft', async () => {
+    const put = await call('put', `/api/minutes/${f.draftMinutes}`, {
+      cookie: as('secretary'),
+      body: { body: '# Draft, edited' },
+    });
+    expect(put.status).toBe(200);
+    expect(await prisma.minutesRevision.count()).toBe(0);
   });
 });

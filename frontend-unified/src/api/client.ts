@@ -484,6 +484,8 @@ export const minutes = {
   publish: (id: string) => request<MinutesRecord>(`/minutes/${id}/publish`, { method: 'POST' }),
   regenerate: (id: string) =>
     request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),
+  // Secretaries: what published minutes said before each change
+  revisions: (id: string) => request<MinutesRevision[]>(`/minutes/${id}/revisions`, {}, false),
 };
 
 // Search the current version of each of an organization's documents, from 2 characters. Not
@@ -755,6 +757,15 @@ export interface MinutesSummary {
 }
 
 /** A meeting's minutes, with who did what and the meeting they are of */
+/** Published minutes' text before a change: who changed it, and when */
+export interface MinutesRevision {
+  id: string;
+  /** The text the change replaced (Markdown) */
+  body: string;
+  editedAt: string;
+  editedBy: { id: number; name: string | null } | null;
+}
+
 export interface MinutesRecord {
   id: string;
   organizationId: string;

@@ -28,6 +28,9 @@ import {
 import { logger } from '../../middleware/logger.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
+import { ApiError } from '../../middleware/apiError.js';
+import { recordAudit } from '../services/audit.js';
+import { currentVersionOnly, versionDeleteProblem } from '../services/versionRules.js';
 
 export const versionsRouter: RouterType = Router();
 
@@ -163,90 +166,84 @@ versionsRouter.get(
   },
 );
 
-// Create version
+/**
+ * Hold the document's row until the transaction ends, so versions of one document are numbered
+ * one at a time (applying an amendment takes the same lock)
+ */
+async function lockDocument(tx: Prisma.TransactionClient, documentId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "Document" WHERE id = ${documentId} FOR UPDATE`;
+}
+
+/** The next version number of a document, under its lock */
+async function nextVersionNumber(
+  tx: Prisma.TransactionClient,
+  documentId: string,
+): Promise<number> {
+  const last = await tx.version.findFirst({
+    where: { documentId },
+    orderBy: { versionNumber: 'desc' },
+    select: { versionNumber: true },
+  });
+  return (last?.versionNumber ?? 0) + 1;
+}
+
+/** The current version's sections as rows of a new version: new ids, the same tree */
+function copiedRows(sections: Section[], versionId: string): Prisma.SectionCreateManyInput[] {
+  const ids = new Map(sections.map((section) => [section.id, randomUUID()]));
+  return sections.map((section) => ({
+    id: ids.get(section.id)!,
+    versionId,
+    parentId: section.parentId ? (ids.get(section.parentId) ?? null) : null,
+    position: section.position,
+    numberLabel: section.numberLabel,
+    title: section.title,
+    content: section.content,
+    annotation: section.annotation,
+  }));
+}
+
+/**
+ * POST /api/documents/:docId/versions
+ * A new current version, starting as a copy of the current one: the version, its sections and
+ * the document's current version in one transaction, under the document's lock
+ */
 versionsRouter.post(
   '/documents/:docId/versions',
   validate({ params: docIdParam, body: createVersionBody }),
   requireRole('secretary', byDocument),
   async (req, res) => {
-    try {
-      const doc = await prisma.document.findUnique({
-        where: { id: req.params.docId },
+    const documentId = req.params.docId;
+    const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
+    const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
+
+    const version = await prisma.$transaction(async (tx) => {
+      await lockDocument(tx, documentId);
+      const doc = await tx.document.findUnique({
+        where: { id: documentId },
+        select: { currentVersionId: true },
       });
+      if (!doc) throw ApiError.notFound('Document not found');
 
-      if (!doc) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      // Get next version number
-      const lastVersion = await prisma.version.findFirst({
-        where: { documentId: req.params.docId },
-        orderBy: { versionNumber: 'desc' },
-      });
-      const versionNumber = (lastVersion?.versionNumber || 0) + 1;
-
-      const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
-      const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
-
-      // Create new version
-      const newVersion = await prisma.version.create({
+      const created = await tx.version.create({
         data: {
-          documentId: req.params.docId,
-          versionNumber,
+          documentId,
+          versionNumber: await nextVersionNumber(tx, documentId),
           effectiveDate: effectiveDateInput ? new Date(effectiveDateInput) : null,
           adoptedAt: adoptedAtInput ? new Date(adoptedAtInput) : null,
           notes: req.body.notes,
         },
       });
-
-      // Clone sections from current version if exists
       if (doc.currentVersionId) {
-        const oldSections = await prisma.section.findMany({
-          where: { versionId: doc.currentVersionId },
-        });
-
-        if (oldSections.length > 0) {
-          const idMap: Record<string, string> = {};
-
-          // First pass: create all sections without parent references
-          for (const section of oldSections) {
-            const newSection = await prisma.section.create({
-              data: {
-                versionId: newVersion.id,
-                parentId: null,
-                position: section.position,
-                numberLabel: section.numberLabel,
-                title: section.title,
-                content: section.content,
-                annotation: section.annotation,
-              },
-            });
-            idMap[section.id] = newSection.id;
-          }
-
-          // Second pass: fix parent references
-          for (const section of oldSections) {
-            if (section.parentId) {
-              await prisma.section.update({
-                where: { id: idMap[section.id] },
-                data: { parentId: idMap[section.parentId] },
-              });
-            }
-          }
-        }
+        const current = await tx.section.findMany({ where: { versionId: doc.currentVersionId } });
+        await tx.section.createMany({ data: copiedRows(current, created.id) });
       }
-
-      // Update document's current version
-      await prisma.document.update({
-        where: { id: req.params.docId },
-        data: { currentVersionId: newVersion.id },
+      await tx.document.update({
+        where: { id: documentId },
+        data: { currentVersionId: created.id },
       });
-
-      res.status(201).json(newVersion);
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to create version');
-      res.status(500).json({ error: 'Failed to create version' });
-    }
+      return created;
+    });
+    res.status(201).json(version);
   },
 );
 
@@ -302,15 +299,11 @@ versionsRouter.post(
       const documentId = req.params.docId;
       const { effectiveDate, notes, sections } = req.body as ImportVersionBody;
       const version = await prisma.$transaction(async (tx) => {
-        const last = await tx.version.findFirst({
-          where: { documentId },
-          orderBy: { versionNumber: 'desc' },
-          select: { versionNumber: true },
-        });
+        await lockDocument(tx, documentId);
         const created = await tx.version.create({
           data: {
             documentId,
-            versionNumber: (last?.versionNumber ?? 0) + 1,
+            versionNumber: await nextVersionNumber(tx, documentId),
             effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
             notes: notes?.trim() || null,
           },
@@ -440,82 +433,79 @@ versionsRouter.get(
   },
 );
 
-// Update version
+/**
+ * PUT /api/versions/:id
+ * The current version's dates and notes. An earlier version is the record (409).
+ */
 versionsRouter.put(
   '/versions/:id',
   validate({ params: uuidParam, body: updateVersionBody }),
   requireRole('secretary', byVersion),
+  currentVersionOnly('id'),
   async (req, res) => {
-    try {
-      const version = await prisma.version.findUnique({
-        where: { id: req.params.id },
-      });
+    const version = await prisma.version.findUnique({ where: { id: req.params.id } });
+    if (!version) throw ApiError.notFound('Version not found');
 
-      if (!version) {
-        return res.status(404).json({ error: 'Version not found' });
-      }
-
-      const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
-      const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
-
-      const updated = await prisma.version.update({
-        where: { id: req.params.id },
-        data: {
-          effectiveDate: effectiveDateInput ? new Date(effectiveDateInput) : version.effectiveDate,
-          adoptedAt: adoptedAtInput ? new Date(adoptedAtInput) : version.adoptedAt,
-          notes: req.body.notes ?? version.notes,
-        },
-      });
-
-      res.json(updated);
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to update version');
-      res.status(500).json({ error: 'Failed to update version' });
-    }
+    const effectiveDateInput = req.body.effective_date ?? req.body.effectiveDate;
+    const adoptedAtInput = req.body.adopted_at ?? req.body.adoptedAt;
+    const updated = await prisma.version.update({
+      where: { id: req.params.id },
+      data: {
+        effectiveDate: effectiveDateInput ? new Date(effectiveDateInput) : version.effectiveDate,
+        adoptedAt: adoptedAtInput ? new Date(adoptedAtInput) : version.adoptedAt,
+        notes: req.body.notes ?? version.notes,
+      },
+    });
+    res.json(updated);
   },
 );
 
-// Delete version
+/**
+ * DELETE /api/versions/:id
+ * Delete an earlier version (admin): never the current one, and never one an adopted amendment
+ * made (409). The audit record keeps who deleted it and what it was.
+ */
 versionsRouter.delete(
   '/versions/:id',
   validate({ params: uuidParam }),
-  requireRole('secretary', byVersion),
+  requireRole('admin', byVersion),
   async (req, res) => {
-    try {
-      const version = await prisma.version.findUnique({
-        where: { id: req.params.id },
+    const versionId = req.params.id;
+    await prisma.$transaction(async (tx) => {
+      const found = await tx.version.findUnique({
+        where: { id: versionId },
+        select: { documentId: true },
       });
-
-      if (!version) {
-        return res.status(404).json({ error: 'Version not found' });
-      }
-
-      // Update document's current version if needed
-      const doc = await prisma.document.findFirst({
-        where: { currentVersionId: version.id },
+      if (!found) throw ApiError.notFound('Version not found');
+      await lockDocument(tx, found.documentId);
+      const version = await tx.version.findUniqueOrThrow({
+        where: { id: versionId },
+        include: {
+          document: { select: { title: true, currentVersionId: true } },
+          _count: { select: { sections: true } },
+        },
       });
+      const problem = await versionDeleteProblem(version, version.document.currentVersionId);
+      if (problem) throw ApiError.conflict(problem);
 
-      if (doc) {
-        const otherVersion = await prisma.version.findFirst({
-          where: {
-            documentId: doc.id,
-            id: { not: version.id },
+      await tx.version.delete({ where: { id: versionId } });
+      await recordAudit(
+        {
+          organizationId: req.org!.id,
+          actorId: req.user!.id,
+          action: 'version.delete',
+          targetId: versionId,
+          details: {
+            documentId: version.documentId,
+            title: version.document.title,
+            versionNumber: version.versionNumber,
+            sections: version._count.sections,
           },
-          orderBy: { versionNumber: 'desc' },
-        });
-
-        await prisma.document.update({
-          where: { id: doc.id },
-          data: { currentVersionId: otherVersion?.id || null },
-        });
-      }
-
-      await prisma.version.delete({ where: { id: req.params.id } });
-      res.status(204).send();
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to delete version');
-      res.status(500).json({ error: 'Failed to delete version' });
-    }
+        },
+        tx,
+      );
+    });
+    res.status(204).send();
   },
 );
 
@@ -544,10 +534,10 @@ versionsRouter.get(
       content += '---\n\n';
       content += renderMarkdown(version.sections);
 
-      const filename = `${docTitle.replace(/ /g, '_')}_v${version.versionNumber}.md`;
-
-      res.setHeader('Content-Type', 'text/markdown');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // res.attachment writes the name for any title: an ASCII fallback, and the whole name
+      // encoded as RFC 5987 filename* (a curly apostrophe or a quote used to make this a 500)
+      res.attachment(`${docTitle.replace(/ /g, '_')}_v${version.versionNumber}.md`);
+      res.type('text/markdown');
       res.send(content);
     } catch (error) {
       logger.error({ err: error }, 'Failed to export version');

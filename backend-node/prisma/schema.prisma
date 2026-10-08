@@ -30,6 +30,11 @@ model Organization {
   // Where its meetings are held, as an IANA name: the minutes give times there
   timeZone       String @default("America/Chicago")
 
+  // Who created it: only the organizations a user created count toward their limit, not those
+  // someone else made them an owner of
+  createdById Int?
+  createdBy   User? @relation("OrganizationsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+
   documents Document[]
   members   OrganizationMember[]
   invites   OrganizationInvite[]
@@ -85,6 +90,7 @@ model Version {
   document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   sections Section[]
 
+  @@unique([documentId, versionNumber])
   @@index([documentId, effectiveDate])
 }
 
@@ -272,12 +278,15 @@ model User {
   // sessions are refused (docs/deploy.md, "Handling a report")
   suspendedAt DateTime?
 
-  memberships     OrganizationMember[]
-  invitesSent      OrganizationInvite[]
-  amendments       Amendment[]
-  chairing         MeetingPacket[]
-  minutesUpdated   Minutes[]            @relation("MinutesUpdatedBy")
-  minutesPublished Minutes[]            @relation("MinutesPublishedBy")
+  memberships          OrganizationMember[]
+  invitesSent          OrganizationInvite[]
+  amendments           Amendment[]
+  chairing             MeetingPacket[]
+  minutesUpdated       Minutes[]            @relation("MinutesUpdatedBy")
+  minutesPublished     Minutes[]            @relation("MinutesPublishedBy")
+  minutesRevisions     MinutesRevision[]
+  organizationsCreated Organization[]       @relation("OrganizationsCreated")
+  auditEntries         AuditEntry[]
 }
 
 // A signed-in device. Only the SHA-256 hash of the session token is stored.
@@ -296,15 +305,18 @@ model Session {
 
 // An emailed 6-digit code. Only its SHA-256 hash is stored.
 model SignInCode {
-  id         String    @id @default(uuid())
-  email      String
-  codeHash   String
-  expiresAt  DateTime
-  attempts   Int       @default(0)
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id            String    @id @default(uuid())
+  email         String
+  codeHash      String
+  expiresAt     DateTime
+  attempts      Int       @default(0)
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  // The SHA-256 hash of the address that asked for it, for the per-address limits
+  requestedFrom String?
 
   @@index([email, createdAt])
+  @@index([requestedFrom, createdAt])
 }
 
 // Roles in an organization, lowest first. Each role can do everything the roles before it can.
@@ -372,11 +384,47 @@ model Minutes {
   approvedAtPacketId String?
   corrections        String?
 
-  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  packet           MeetingPacket  @relation("MeetingMinutes", fields: [packetId], references: [id], onDelete: Cascade)
-  approvedAtPacket MeetingPacket? @relation("MinutesApprovedAt", fields: [approvedAtPacketId], references: [id], onDelete: SetNull)
-  updatedBy        User?          @relation("MinutesUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  publishedBy      User?          @relation("MinutesPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packet           MeetingPacket     @relation("MeetingMinutes", fields: [packetId], references: [id], onDelete: Cascade)
+  approvedAtPacket MeetingPacket?    @relation("MinutesApprovedAt", fields: [approvedAtPacketId], references: [id], onDelete: SetNull)
+  revisions        MinutesRevision[]
+  updatedBy        User?             @relation("MinutesUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  publishedBy      User?             @relation("MinutesPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+}
+
+// Published minutes as they were before a secretary changed them: the text members had read,
+// who changed it and when. Kept as long as the minutes.
+model MinutesRevision {
+  id         String   @id @default(uuid())
+  minutesId  String
+  // The text before the change
+  body       String
+  editedById Int?
+  editedAt   DateTime @default(now())
+
+  minutes  Minutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  editedBy User?   @relation(fields: [editedById], references: [id], onDelete: SetNull)
+
+  @@index([minutesId, editedAt])
+}
+
+// An append-only record of what was deleted from an organization's records (a document, a
+// version, the organization itself), and by whom. No foreign key to the organization: the record
+// outlasts what it describes.
+model AuditEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  actorId        Int?
+  // What was done, as "document.delete"
+  action         String
+  targetId       String
+  // What the target was (its title, version number, counts), as it was before
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
 }

@@ -168,7 +168,9 @@ minutesRouter.get(
  * PUT /api/minutes/:id
  * The secretary's text. The last save wins, and its author is named. Approved minutes are the
  * record and stay as they are; published minutes before a meeting that hasn't adjourned stay as
- * the meeting has them, since the meeting makes any corrections.
+ * the meeting has them, since the meeting makes any corrections. A change to published minutes
+ * keeps the text it replaced as a revision (who changed it, and when), since members have read
+ * it.
  * Body: { body }
  */
 minutesRouter.put(
@@ -188,17 +190,51 @@ minutesRouter.put(
       if (await lockedBeforeMeeting(req.org!.id, { id, status })) {
         return res.status(409).json({ error: MINUTES_BEFORE_MEETING });
       }
-      // One statement, so minutes approved in the meantime aren't changed
-      const updated = await prisma.minutes.updateMany({
-        where: { id, status: { not: 'approved' } },
-        data: { body: req.body.body, updatedById: req.user!.id },
+      // Under the row's lock, so minutes approved meanwhile aren't changed, and each revision
+      // keeps the text its change replaced
+      const body: string = req.body.body;
+      const saved = await prisma.$transaction(async (tx) => {
+        const [current] = await tx.$queryRaw<Array<{ status: string; body: string }>>`
+          SELECT status::text AS status, body FROM "Minutes" WHERE id = ${id} FOR UPDATE`;
+        if (!current || current.status === 'approved') return false;
+        if (current.status === 'published' && current.body !== body) {
+          await tx.minutesRevision.create({
+            data: { minutesId: id, body: current.body, editedById: req.user!.id },
+          });
+        }
+        await tx.minutes.update({ where: { id }, data: { body, updatedById: req.user!.id } });
+        return true;
       });
-      if (updated.count === 0) return res.status(409).json({ error: MINUTES_APPROVED });
+      if (!saved) return res.status(409).json({ error: MINUTES_APPROVED });
       res.json(await readMinutes(id));
     } catch (error) {
       logger.error({ err: error }, 'Failed to save minutes');
       res.status(500).json({ error: 'Failed to save the minutes' });
     }
+  },
+);
+
+/**
+ * GET /api/minutes/:id/revisions
+ * What published minutes said before each change, the latest change first: the text it
+ * replaced, who made it and when (secretary)
+ */
+minutesRouter.get(
+  '/minutes/:id/revisions',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byMinutes),
+  async (req, res) => {
+    const revisions = await prisma.minutesRevision.findMany({
+      where: { minutesId: req.params.id },
+      select: {
+        id: true,
+        body: true,
+        editedAt: true,
+        editedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { editedAt: 'desc' },
+    });
+    res.json(revisions);
   },
 );
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma } from '../db/prisma.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -39,7 +40,7 @@ describeRules('document rules', [
     method: 'delete',
     route: '/documents/:id',
     path: (f) => `/api/documents/${f.doc}`,
-    min: 'secretary',
+    min: 'admin',
     ok: 204,
   },
   {
@@ -127,5 +128,30 @@ describe('share links', () => {
       cookie: f.users.viewer.cookie,
     });
     expect(tree.body[0].annotation).toBe('Internal note');
+  });
+});
+
+describe('deleting a document', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    f = await seedFixture();
+  });
+
+  it('leaves a record of who deleted it, and what it held', async () => {
+    const res = await call('delete', `/api/documents/${f.doc}`, {
+      cookie: f.users.admin.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(await prisma.document.count({ where: { id: f.doc } })).toBe(0);
+    expect(await prisma.auditEntry.findMany()).toMatchObject([
+      {
+        organizationId: f.orgA.id,
+        actorId: f.users.admin.id,
+        action: 'document.delete',
+        targetId: f.doc,
+        details: { title: 'Bylaws', versions: 2, amendments: 4 },
+      },
+    ]);
   });
 });
