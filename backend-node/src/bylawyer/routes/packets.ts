@@ -33,6 +33,12 @@ export const CODE_IN_USE = 'That meeting code is already in use';
 export const CHAIR_NOT_MEMBER =
   'The presiding officer must be a member of the organization with the member role or above';
 
+/**
+ * The answer when a meeting called to order is deleted: its record (the minutes, which go with
+ * the packet) stays
+ */
+export const MEETING_HELD = "A meeting that has been called to order can't be canceled";
+
 /** Whether a user may preside over the organization's meetings: member role or above */
 async function canPreside(organizationId: string, userId: number): Promise<boolean> {
   const membership = await prisma.organizationMember.findUnique({
@@ -240,7 +246,8 @@ packetsRouter.put(
 
 /**
  * DELETE /api/packets/:id
- * Delete packet and all its contents
+ * Delete packet and all its contents (canceling the meeting). A meeting already called to order
+ * is refused (409): its minutes would go with it.
  */
 packetsRouter.delete(
   '/packets/:id',
@@ -256,6 +263,9 @@ packetsRouter.delete(
 
       if (!packet) {
         return res.status(404).json({ error: 'Packet not found' });
+      }
+      if (packet.startedAt) {
+        return res.status(409).json({ error: MEETING_HELD });
       }
 
       // The uploaded files of the packet and its agenda items, which the cascade leaves on disk

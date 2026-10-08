@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
-import { CHAIR_NOT_MEMBER, packetsRouter } from '../bylawyer/routes/packets.js';
+import { CHAIR_NOT_MEMBER, MEETING_HELD, packetsRouter } from '../bylawyer/routes/packets.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -131,6 +131,20 @@ describe('packets', () => {
     });
     expect(res.status).toBe(204);
     expect(files.map((file) => fs.existsSync(file))).toEqual([false, false]);
+  });
+
+  it('are not deleted once called to order, with their minutes', async () => {
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: new Date('2026-10-01T19:00:00Z') },
+    });
+    const res = await call('delete', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe(MEETING_HELD);
+    expect(await prisma.meetingPacket.findUnique({ where: { id: f.packet.id } })).not.toBeNull();
+    expect(await prisma.minutes.findUnique({ where: { id: f.draftMinutes } })).not.toBeNull();
   });
 
   it('are not created by reading a code', async () => {
