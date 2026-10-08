@@ -8,6 +8,7 @@ import type {
   MinutesContext,
   MinutesEntry,
   Officer,
+  RecessRecord,
   UnfinishedBusinessRecord,
   Votes,
 } from '../types/index.js';
@@ -27,6 +28,9 @@ interface Placed {
 }
 
 const byName = (a: string, b: string) => a.localeCompare(b);
+
+/** Motions on the agenda itself, made before it is adopted */
+const AGENDA_MOTIONS = new Set(['adoptAgenda', 'amendAgenda']);
 
 /**
  * What a member typed, as literal text in the minutes' Markdown: on one line (newlines and runs
@@ -70,14 +74,26 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
       order: placed.length,
     });
   };
-  for (const motion of state.completedMotions) add({ kind: 'motion', motion }, motion);
+  // A ruling comes before what it decided at the same moment (a motion ruled out of order)
   for (const ruling of state.chairRulings ?? []) add({ kind: 'ruling', ruling }, ruling);
+  // A motion on the agenda before any item was called opens the proceedings instead
+  const onTheAgenda = (motion: CompletedMotion) =>
+    AGENDA_MOTIONS.has(motion.type) && motion.agendaItemId === undefined;
+  for (const motion of state.completedMotions) {
+    if (!onTheAgenda(motion)) add({ kind: 'motion', motion }, motion);
+  }
   for (const officer of state.electedOfficers) add({ kind: 'election', officer }, officer);
   for (const setAside of state.electionsSetAside ?? []) {
     add({ kind: 'setAside', setAside }, setAside);
   }
   if (state.minutesApproval) {
     add({ kind: 'minutes', approval: state.minutesApproval }, state.minutesApproval);
+  }
+  for (const recess of state.recesses ?? []) {
+    add(
+      { kind: 'recess', recess },
+      { agendaItemId: recess.agendaItemId, decidedAt: recess.startedAt },
+    );
   }
   // By the server's clock; anything recorded without it comes first, in the order it was kept
   placed.sort((a, b) => (a.decidedAt ?? '').localeCompare(b.decidedAt ?? '') || a.order - b.order);
@@ -102,6 +118,13 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
       .filter((p) => p.agendaItemId === undefined || !agendaIds.has(p.agendaItemId))
       .map((p) => p.entry),
     unfinished: state.unfinishedAtAdjournment ?? [],
+    postponedToNextMeeting: state.completedMotions.filter(
+      (m) => m.disposition === 'postponed' && m.postponedTo?.kind !== 'later',
+    ),
+    agenda: {
+      adoption: state.agendaAdoption ?? null,
+      motions: state.completedMotions.filter(onTheAgenda),
+    },
   };
 }
 
@@ -185,7 +208,9 @@ function voteText(motion: CompletedMotion): string {
       ? ' by ballot'
       : motion.method === 'rollcall'
         ? ' on a roll call'
-        : '';
+        : motion.division
+          ? ' on a division'
+          : '';
   if (counted(device) && counted(floor)) {
     return `${result}${how}${required}, on devices ${device.yea} to ${device.nay} and in the room ${floor.yea} to ${floor.nay}: ${total.yea} to ${total.nay}${abstaining}.`;
   }
@@ -197,17 +222,42 @@ function voteText(motion: CompletedMotion): string {
 
 function quorumNote(motion: CompletedMotion): string {
   if (motion.quorumPresent === undefined) return '';
-  return motion.quorumPresent ? ' A quorum was present.' : ' No quorum was present.';
+  // RONR 40:6: business done without a quorum is void unless a later meeting ratifies it
+  if (motion.quorumPresent) return ' A quorum was present.';
+  return motion.passed
+    ? ' No quorum was present: the action has no effect unless a meeting with a quorum ratifies it.'
+    : ' No quorum was present.';
+}
+
+/** ', with the amendment "..." pending' for a motion that left the floor with amendments on it */
+function pendingText(motion: CompletedMotion): string {
+  const pending = motion.pendingAmendments ?? [];
+  if (pending.length === 0) return '';
+  const listed = pending.map((text) => `"${md(text)}"`).join(' and ');
+  return `, with the ${pending.length > 1 ? 'amendments' : 'amendment'} ${listed} pending`;
 }
 
 function outcomeText(motion: CompletedMotion): string {
   switch (motion.disposition) {
     case 'withdrawn':
-      return 'Withdrawn by the mover.';
+      return motion.withPermission
+        ? "Withdrawn by the mover, with the meeting's permission."
+        : 'Withdrawn by the mover.';
     case 'no-second':
       return 'Died for lack of a second.';
     case 'unanimous':
       return `Adopted by unanimous consent.${quorumNote(motion)}`;
+    case 'postponed': {
+      const to = motion.postponedTo;
+      const when = !to || to.kind === 'next-meeting' ? 'the next meeting' : md(to.when);
+      return `Postponed to ${when}${pendingText(motion)}.`;
+    }
+    case 'postponed-indefinitely':
+      return 'Postponed indefinitely.';
+    case 'referred':
+      return `Referred to ${md(motion.referredTo ?? 'a committee')}${pendingText(motion)}.`;
+    case 'out-of-order':
+      return 'Ruled out of order by the chair.';
     default:
       return `${voteText(motion)}${quorumNote(motion)}`;
   }
@@ -266,7 +316,8 @@ function bylawText(motion: CompletedMotion): string | null {
 }
 
 function motionText(motion: CompletedMotion): string {
-  const text = `"${sentence(md(motion.text))}"`;
+  // A motion amended was moved in its first words and decided in its last
+  const text = `"${sentence(md(motion.originalText ?? motion.text))}"`;
   const moved =
     motion.mover === PUT_BY_CHAIR
       ? `The chair put the question: ${text}`
@@ -274,13 +325,24 @@ function motionText(motion: CompletedMotion): string {
         ? `${md(motion.mover)} moved: ${text}`
         : `Moved: ${text}`;
   const seconded = motion.seconder ? ` Seconded by ${md(motion.seconder)}.` : '';
-  const decided = `**${md(plainMotionName(motion.name, motion.type))}.** ${moved}${seconded} ${outcomeText(motion)}`;
+  const amended = motion.originalText ? ` As amended: "${sentence(md(motion.text))}"` : '';
+  const decided = `**${md(plainMotionName(motion.name, motion.type))}.** ${moved}${seconded}${amended} ${outcomeText(motion)}`;
   const changed = bylawText(motion);
   return changed ? `${decided}\n\n${changed}` : decided;
 }
 
+/** "The meeting recessed at 8:02 PM and resumed at 8:15 PM." */
+function recessText(recess: RecessRecord, zone: string): string {
+  const began = recess.startedAt ? ` at ${clockTime(recess.startedAt, zone)}` : '';
+  const ended = recess.endedAt ? ` and resumed at ${clockTime(recess.endedAt, zone)}` : '';
+  return `The meeting recessed${began}${ended}.`;
+}
+
 function rulingText(ruling: ChairRulingRecord): string {
   const why = ruling.explanation ? ` ${sentence(md(ruling.explanation))}` : '';
+  if (ruling.raisedBy) {
+    return `**Point of order.** ${md(ruling.raisedBy)} raised a point of order: "${sentence(md(ruling.motionText))}" The chair ruled: ${md(ruling.ruling)}${why}`;
+  }
   return `**Ruling of the chair.** On "${sentence(md(ruling.motionText))}" the chair ruled: ${md(ruling.ruling)}${why}`;
 }
 
@@ -332,7 +394,8 @@ function unfinishedText(record: UnfinishedBusinessRecord): string {
     : record.awaitingSecond
       ? ' and awaiting a second'
       : '';
-  return `the motion "${md(record.text)}" (${md(plainMotionName(record.name))}, ${moved}${seconded})`;
+  const postponed = record.postponed ? ', postponed to later in the meeting' : '';
+  return `the motion "${md(record.text)}" (${md(plainMotionName(record.name))}, ${moved}${seconded}${postponed})`;
 }
 
 /** "The meeting adjourned at 8:42 PM with the following unfinished: ..." */
@@ -355,8 +418,10 @@ function approvalText(approval: MinutesApprovalRecord): string {
     : 'The minutes of the previous meeting were approved as read.';
 }
 
-function entryText(entry: MinutesEntry): string {
+function entryText(entry: MinutesEntry, zone: string): string {
   switch (entry.kind) {
+    case 'recess':
+      return recessText(entry.recess, zone);
     case 'motion':
       return motionText(entry.motion);
     case 'ruling':
@@ -445,6 +510,11 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   const adjourned = !!context.adjournedAt || minutes.unfinished.length > 0;
   const last = minutes.items.length - 1;
   paragraph('## Proceedings');
+  // The agenda's adoption opens the proceedings: without objection, or on a motion
+  for (const motion of minutes.agenda.motions) paragraph(motionText(motion));
+  if (minutes.agenda.adoption?.how === 'consent') {
+    paragraph('The agenda was adopted without objection.');
+  }
   minutes.items.forEach((item, index) => {
     if (item.entries.length === 0) {
       // The call to order and the adjournment, with nothing under them: the opening paragraph
@@ -458,11 +528,11 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
     if (item.entries.length === 0) {
       paragraph(item.status === 'pending' ? 'Not taken up.' : 'No action was taken.');
     }
-    for (const entry of item.entries) paragraph(entryText(entry));
+    for (const entry of item.entries) paragraph(entryText(entry, zone));
   });
   if (minutes.otherEntries.length > 0) {
     if (minutes.items.length > 0) paragraph('### Other business');
-    for (const entry of minutes.otherEntries) paragraph(entryText(entry));
+    for (const entry of minutes.otherEntries) paragraph(entryText(entry, zone));
   }
   if (minutes.items.length === 0 && minutes.otherEntries.length === 0) {
     paragraph('No business was recorded.');
@@ -471,6 +541,18 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   if (adjourned) {
     paragraph('## Adjournment');
     paragraph(adjournmentText(minutes, context.adjournedAt, zone));
+  }
+  // For the next meeting's agenda, as unfinished business
+  if (minutes.postponedToNextMeeting.length > 0) {
+    paragraph('## Postponed to the next meeting');
+    for (const motion of minutes.postponedToNextMeeting) {
+      const by =
+        motion.mover && motion.mover !== PUT_BY_CHAIR ? `, moved by ${md(motion.mover)}` : '';
+      lines.push(
+        `- "${sentence(md(motion.text))}" (${md(plainMotionName(motion.name, motion.type))}${by})`,
+      );
+    }
+    lines.push('');
   }
   return `${lines.join('\n').trimEnd()}\n`;
 }

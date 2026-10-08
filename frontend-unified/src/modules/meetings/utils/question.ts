@@ -1,6 +1,16 @@
-import { LOG_MEETING_ADJOURNED, PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MEETING_ADJOURNED,
+  PUT_BY_CHAIR,
+  plainMotionName,
+} from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
-import { bylawChangeView, type BylawChangeView } from '@robbie-bylawyer/shared/utils';
+import {
+  amendInsertedWords,
+  applyTextAmendment,
+  bylawChangeView,
+  describeTextAmendment,
+  type BylawChangeView,
+} from '@robbie-bylawyer/shared/utils';
 import type { VoteResult } from '../hooks/useVoteResults';
 import { formatClockTime } from '../../../utils/dates';
 import { DECLARED_LINE, latestDecision } from './decisions';
@@ -21,6 +31,8 @@ export interface QuestionView {
   beneath: string[];
   /** For a bylaw amendment, the section and its text as it reads now and as it would read */
   bylawText?: BylawChangeView;
+  /** For an amendment, the words beneath it as they would read if it is adopted */
+  reads?: { label: string; text: string };
   /** Changes when the question does, so the card crossfades */
   key: string;
 }
@@ -35,9 +47,36 @@ function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string
  * Who brought the motion: "Moved by Alice Brennan", "Moved from the floor by Carmen Diaz", or
  * "Put by the chair" for a question the chair puts from the agenda (it has no mover)
  */
-export function moverLine(motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'>): string {
+export function moverLine(
+  motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'> & { type?: string },
+): string {
   if (motion.putByChair) return PUT_BY_CHAIR;
+  // A point of order is raised, not moved
+  if (motion.type === 'pointOrder') {
+    return motion.fromFloor
+      ? `Raised from the floor by ${motion.mover}`
+      : `Raised by ${motion.mover}`;
+  }
   return motion.fromFloor ? `Moved from the floor by ${motion.mover}` : `Moved by ${motion.mover}`;
+}
+
+/**
+ * What an amendment would make of the words beneath it: the motion as it would read, or for an
+ * amendment of an amendment, the amendment as it would read
+ */
+function readsOf(motion: Motion, beneath: Motion | undefined): Pick<QuestionView, 'reads'> {
+  if (!beneath || !motion.textAmendment) return {};
+  if (motion.type === 'amend') {
+    const text = applyTextAmendment(beneath.text, motion.textAmendment);
+    return text ? { reads: { label: 'If adopted, the motion reads', text } } : {};
+  }
+  if (motion.type === 'amendAmendment' && beneath.textAmendment) {
+    const change = amendInsertedWords(beneath.textAmendment, motion.textAmendment);
+    return change
+      ? { reads: { label: 'If adopted, the amendment reads', text: describeTextAmendment(change) } }
+      : {};
+  }
+  return {};
 }
 
 /** The text a bylaw amendment puts before the meeting, for the question card */
@@ -48,7 +87,7 @@ function bylawTextOf(motion: Motion): Pick<QuestionView, 'bylawText'> {
 }
 
 function beneathLine(motion: Motion): string {
-  return `${motion.name}: ${motion.text}`;
+  return `${plainMotionName(motion.name, motion.type)}: ${motion.text}`;
 }
 
 /** Who stands for the position nominations are (or were) open for, declined nominees left out */
@@ -70,7 +109,8 @@ export function nomineesFor(state: MeetingState, position: string): string[] {
 export function describeQuestion(state: MeetingState): QuestionView | null {
   if (state.meetingStage === 'adjourned') return null;
 
-  if (state.pendingSecond) {
+  // A point of order raised while a motion awaits a second comes first: the chair rules on it
+  if (state.pendingSecond && state.currentMotion?.vote !== 'none') {
     const motion = state.pendingSecond;
     return {
       kind: motion.name,
@@ -80,6 +120,7 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       awaitingSecond: true,
       beneath: [...state.motionStack].reverse().map(beneathLine),
       ...bylawTextOf(motion),
+      ...readsOf(motion, state.motionStack.at(-1)),
       key: `second-${motion.id}`,
     };
   }
@@ -92,13 +133,16 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       byline: motion.secondedBy
         ? `${moverLine(motion)}, seconded by ${motion.secondedBy}`
         : moverLine(motion),
-      requirement: requirementOf(motion.vote),
+      // An appeal's vote needs no majority for the chair: a tie sustains the ruling
+      requirement:
+        motion.type === 'appeal' ? 'A tie sustains the chair' : requirementOf(motion.vote),
       awaitingSecond: false,
       beneath: state.motionStack
         .filter((m) => m.id !== motion.id)
         .reverse()
         .map(beneathLine),
       ...bylawTextOf(motion),
+      ...readsOf(motion, state.motionStack.at(-2)),
       key: `motion-${motion.id}`,
     };
   }
@@ -113,6 +157,22 @@ export function describeQuestion(state: MeetingState): QuestionView | null {
       awaitingSecond: false,
       beneath: [],
       key: `election-${election.id}`,
+    };
+  }
+
+  // The ballot closed: its count, and who has the vote required, until the chair declares them
+  // elected (the stamp says ELECTED only then)
+  if (election) {
+    return {
+      kind: `Election for ${election.position}`,
+      text: election.elected
+        ? `${election.elected} has the vote required`
+        : 'Nobody has the vote required',
+      byline: `Ballot: ${electionTally(election) || 'no ballots'}`,
+      requirement: requirementOf(election.requiredVotes),
+      awaitingSecond: false,
+      beneath: [],
+      key: `election-closed-${election.id}-${(election.ballots ?? []).length}`,
     };
   }
 
@@ -151,7 +211,7 @@ export function stageLabel(state: MeetingState): string {
   return state.currentAgendaItem?.title ?? 'In session';
 }
 
-export type StampOutcome = 'carried' | 'failed' | 'elected' | 'adopted';
+export type StampOutcome = 'carried' | 'failed' | 'elected' | 'adopted' | 'sustained' | 'overruled';
 
 /** A decision for the stamp: what it was, about what, and the tally */
 export interface ResultView {
@@ -163,8 +223,16 @@ export interface ResultView {
 }
 
 export function voteResultView(vote: VoteResult): ResultView {
+  const outcome: StampOutcome =
+    vote.outcome === 'SUSTAINED'
+      ? 'sustained'
+      : vote.outcome === 'OVERTURNED'
+        ? 'overruled'
+        : vote.passed
+          ? 'carried'
+          : 'failed';
   return {
-    outcome: vote.passed ? 'carried' : 'failed',
+    outcome,
     subject: vote.motionText || null,
     tally: vote.tally,
     key: `vote-${vote.timestamp}-${vote.tally}`,
@@ -205,28 +273,21 @@ function declaredResult(state: MeetingState, index: number): ResultView | null {
 }
 
 /**
- * The result the room should see, until the next question comes up: an election just decided
- * (and then declared), the last vote, or a motion adopted by unanimous consent, whichever was
- * latest. A ruling of the chair, a motion that died for lack of a second or was withdrawn, and an
- * election set aside each take the last result down. Null while a question is pending, before
- * anything is decided, and once the meeting is adjourned.
+ * The result the room should see, until the next question comes up: an election the chair
+ * declared, the last vote, or a motion adopted by unanimous consent, whichever was latest. A
+ * ruling of the chair, a motion that died for lack of a second or was withdrawn, and an election
+ * set aside each take the last result down. Null while a question is pending (an election's
+ * closed ballot too, until the chair declares the result), before anything is decided, and once
+ * the meeting is adjourned.
  */
 export function currentResult(state: MeetingState, vote: VoteResult | null): ResultView | null {
   if (state.meetingStage === 'adjourned') return null;
   const election = state.currentElection;
-  if (election && !election.votingInProgress && election.elected) {
-    return {
-      outcome: 'elected',
-      subject: `${election.elected}, ${election.position}`,
-      tally: electionTally(election),
-      key: `election-${election.id}`,
-    };
-  }
   const questionPending =
     state.votingOpen ||
     !!state.pendingSecond ||
     !!state.currentMotion ||
-    !!election?.votingInProgress ||
+    !!election ||
     // Nominations open, or closed with the ballot still to open
     state.nominationsOpen ||
     !!state.currentNominationPosition;

@@ -104,6 +104,9 @@ describe('enrichAction', () => {
       SET_HEADCOUNT: {},
       WITHDRAW_MOTION: { requesterId: SPOOF_ID },
       MODIFY_MOTION: { requesterId: SPOOF_ID },
+      TAKE_UP_POSTPONED: {},
+      RESUME_MEETING: {},
+      REQUEST_DIVISION: { requesterId: SPOOF_ID },
       START_ROLL_CALL: {},
       RESPOND_ROLL_CALL: { memberId: SPOOF_ID },
       COMPLETE_ROLL_CALL: {},
@@ -170,6 +173,7 @@ describe('enrichAction', () => {
         CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
         WITHDRAW_MOTION: { id: 'requesterId' },
         MODIFY_MOTION: { id: 'requesterId' },
+        REQUEST_DIVISION: { id: 'requesterId' },
         RAISE_HAND: { member: true },
         LOWER_HAND: { member: true },
         YIELD_FLOOR: { id: 'yieldedBy' },
@@ -315,11 +319,13 @@ describe('the clock on decisions', () => {
     vi.setSystemTime(new Date('2026-10-20T19:42:00Z'));
     try {
       expect([...CLOCKED_ACTIONS].sort()).toEqual([
+        'ADOPT_AGENDA',
         'APPROVE_MINUTES',
         'CHAIR_RULING',
         'CLOSE_VOTING',
         'DECLARE_ELECTED',
         'DECLINE_SECOND',
+        'RESUME_MEETING',
         'SET_ASIDE_ELECTION',
         'UNANIMOUS_CONSENT_PASSED',
         'WITHDRAW_MOTION',

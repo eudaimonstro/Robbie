@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { generateTimestamp, votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type { MeetingDispatch } from '../../types/socket';
-import { TimerLine } from '../TimerLine';
 
 interface VoteBlockProps {
   state: MeetingState;
@@ -15,16 +14,18 @@ type Choice = (typeof CHOICES)[number];
 /** How long a vote the server took stays shown as tapped while its update is on the way */
 const CONFIRMING_MS = 3000;
 
+/** The choices in a homeowner's words, on every kind of vote */
+const LABELS = { yea: 'Yes', nay: 'No', abstain: 'Abstain' } as const;
+
 /**
- * The vote on a phone: three 56px buttons, and the votes of members whose proxy this member
- * holds. A secret ballot's choices never reach the phone, so "Vote recorded" comes from voters.
+ * The vote on a phone: three 56px buttons (Yes, No, Abstain), and the votes of members whose
+ * proxy this member holds. A secret ballot's choices never reach the phone, so "Vote recorded"
+ * comes from voters. The voting time is the chair's guide, not shown here: the vote closes when
+ * the chair closes it.
  */
 export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
-  const method = state.votingMethod;
-  const labels =
-    method === 'rollcall'
-      ? { yea: 'Aye', nay: 'No', abstain: 'Abstain' }
-      : { yea: 'Yea', nay: 'Nay', abstain: 'Abstain' };
+  const method = votingMethodNow(state);
+  const labels = LABELS;
   const myVote = state.voterChoices[me.id];
   const voted = state.voters.includes(me.id);
   // The vote tapped, until the meeting's state shows it: "Sending" until the server answers,
@@ -74,12 +75,10 @@ export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
             : 'Your vote'}
       </p>
       {method === 'ballot' && <p className="text-sm text-ink-muted">Nobody sees how you voted.</p>}
-      {state.voteTimerEnd && (
-        <TimerLine
-          endTime={state.voteTimerEnd}
-          totalSeconds={state.voteTimeLimit}
-          label="Voting time"
-        />
+      {state.currentMotion?.type === 'appeal' && (
+        <p className="text-sm text-ink-muted">
+          Yes keeps the chair&apos;s ruling; No overturns it.
+        </p>
       )}
       <div role="group" aria-label="Your vote" className="grid grid-cols-3 gap-2">
         {CHOICES.map((choice) => (

@@ -11,7 +11,7 @@ import {
   addVotes,
   canChairVoteDecide,
   generateTimestamp,
-  isRuleSuspended,
+  votingMethodNow,
 } from '@robbie-bylawyer/shared/utils';
 import { TimerLine } from '../TimerLine';
 
@@ -35,7 +35,8 @@ const CHOICE_LABELS = { yea: 'Yea', nay: 'Nay', abstain: 'Abstain' } as const;
 /**
  * The vote panel: how the vote is taken, then, while it is open, the device votes, the chair's
  * count of the room, the two together, the chair's deciding vote, an admin's own vote, and
- * Close the vote
+ * Close the vote. The voting time is advisory, shown to the chair alone: the vote closes when the
+ * chair closes it.
  */
 export function VoteControl({ state, dispatch, me }: VoteControlProps) {
   const methodId = useId();
@@ -70,33 +71,30 @@ export function VoteControl({ state, dispatch, me }: VoteControlProps) {
 }
 
 function OpenVote({ state, dispatch, me }: VoteControlProps) {
-  const method = state.votingMethod;
+  // A division counts this voice vote, on devices and in the room
+  const method = votingMethodNow(state);
   const floor = state.floorVotes ?? NO_VOTES;
   const combined = addVotes(state.votes, floor);
   const requirement = state.currentMotion?.vote ?? 'majority';
   const iVoted = me !== null && state.voters.includes(me.id);
   const myVote = me ? state.voterChoices[me.id] : undefined;
   const floorEntered = floor.yea + floor.nay + floor.abstain > 0;
-  // With the restriction suspended, the chair votes like anyone (the server's rule)
-  const chairRestricted = !isRuleSuspended(state, 'chair-voting-restriction');
 
   // The chair votes only when that would change the result, judged on the devices and the room
   // together, as the server judges it; on a secret ballot the chair votes like anyone
   const chairMayDecide =
     me?.role === 'chair' &&
-    chairRestricted &&
     (method === 'standard' || method === 'rollcall') &&
     !iVoted &&
     canChairVoteDecide(combined, requirement);
   const ownVote =
     me !== null &&
     method !== 'voice' &&
-    (me.role === 'admin' || (me.role === 'chair' && (method === 'ballot' || !chairRestricted)));
+    (me.role === 'admin' || (me.role === 'chair' && method === 'ballot'));
   // The server judged the chair's vote on the count in the room as it stood, so once the chair
   // has voted (outside a secret ballot) the count can no longer change
   const chair = state.members.find((m) => m.role === 'chair');
-  const tallyLocked =
-    !!chair && method !== 'ballot' && chairRestricted && state.voters.includes(chair.id);
+  const tallyLocked = !!chair && method !== 'ballot' && state.voters.includes(chair.id);
   // A voice vote is counted only in the room: the server refuses to close it on no count
   const closeBlocked = method === 'voice' && !floorEntered;
 
@@ -111,18 +109,36 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
         </span>
       </div>
 
+      {/* A guide for the chair only: the vote closes when the chair closes it */}
       {state.voteTimerEnd && (
         <TimerLine
           endTime={state.voteTimerEnd}
           totalSeconds={state.voteTimeLimit}
           label="Voting time"
+          expired="Time is up. Close the vote when the room has voted."
         />
       )}
 
       {method === 'voice' ? (
-        <p className="text-sm text-ink-muted">
-          Counted in the room. Enter the count below, or just the clear result.
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-ink-muted">
+            Counted in the room. Enter the count below, or just the clear result.
+          </p>
+          {/* Someone in the room doubts it: the vote is counted, on devices and by hand */}
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() =>
+              dispatch({
+                type: 'REQUEST_DIVISION',
+                fromFloor: true,
+                timestamp: generateTimestamp(),
+              })
+            }
+          >
+            Division called from the floor
+          </button>
+        </div>
       ) : method === 'ballot' ? (
         <p className="text-ink">
           <span className="animate-count-pulse font-serif-soft text-page font-semibold tabular-nums">

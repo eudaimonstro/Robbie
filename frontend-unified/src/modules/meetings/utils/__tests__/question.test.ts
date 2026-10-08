@@ -52,6 +52,58 @@ describe('describeQuestion', () => {
     expect(describeQuestion(active)).toBeNull();
   });
 
+  it('says on an appeal that a tie sustains the chair', () => {
+    const appeal = motion('appeal', { text: 'I appeal', secondedBy: 'Ben' });
+    expect(
+      describeQuestion({ ...active, currentMotion: appeal, motionStack: [appeal] })?.requirement,
+    ).toBe('A tie sustains the chair');
+  });
+
+  it('says who raised a point of order', () => {
+    const point = motion('pointOrder', { text: 'Not germane', mover: 'Ben Whitaker' });
+    expect(
+      describeQuestion({ ...active, currentMotion: point, motionStack: [point] })?.byline,
+    ).toBe('Raised by Ben Whitaker');
+  });
+
+  it('says how the motion would read if a pending amendment is adopted, and an amendment of it', () => {
+    const main = motion('mainMotion', { text: 'Resurface the pool for $40,000' });
+    const amendment = motion('amend', {
+      id: 2,
+      text: 'Strike \u201c$40,000\u201d and insert \u201c$35,000\u201d',
+      textAmendment: { form: 'strikeInsert', strike: '$40,000', insert: '$35,000' },
+    });
+    const pending = { ...active, currentMotion: amendment, motionStack: [main, amendment] };
+    expect(describeQuestion(pending)?.reads).toEqual({
+      label: 'If adopted, the motion reads',
+      text: 'Resurface the pool for $35,000',
+    });
+    // Awaiting a second, it reads the same
+    expect(
+      describeQuestion({
+        ...active,
+        pendingSecond: amendment,
+        currentMotion: main,
+        motionStack: [main],
+      })?.reads,
+    ).toEqual({ label: 'If adopted, the motion reads', text: 'Resurface the pool for $35,000' });
+    const secondary = motion('amendAmendment', {
+      id: 3,
+      textAmendment: { form: 'strikeInsert', strike: '35', insert: '38' },
+    });
+    expect(
+      describeQuestion({
+        ...active,
+        pendingSecond: secondary,
+        currentMotion: amendment,
+        motionStack: [main, amendment],
+      })?.reads,
+    ).toEqual({
+      label: 'If adopted, the amendment reads',
+      text: 'Strike \u201c$40,000\u201d and insert \u201c$38,000\u201d',
+    });
+  });
+
   it('puts the text of a bylaw amendment, as it reads and would read, with the question', () => {
     const bylawAmendment = {
       documentId: 'doc',
@@ -137,7 +189,7 @@ describe('describeQuestion', () => {
       byline: 'Moved by Ben Whitaker, seconded by Alice Brennan',
       requirement: 'Two thirds',
       awaitingSecond: false,
-      beneath: ['Main Motion: Resurface the pool this spring'],
+      beneath: ['Main motion: Resurface the pool this spring'],
       key: 'motion-2',
     });
   });
@@ -216,6 +268,18 @@ describe('currentResult', () => {
     ],
   });
 
+  it("stamps an appeal's result as the chair sustained or overruled", () => {
+    const sustained = voted("Vote: Yea 3, Nay 1. Chair's decision SUSTAINED.");
+    expect(currentResult(sustained, parseVoteResult(sustained.meetingLog))).toMatchObject({
+      outcome: 'sustained',
+      tally: '3 to 1',
+    });
+    const overruled = voted("Vote: Yea 1, Nay 3. Chair's decision OVERTURNED.");
+    expect(currentResult(overruled, parseVoteResult(overruled.meetingLog))).toMatchObject({
+      outcome: 'overruled',
+    });
+  });
+
   it('stamps the last vote with both parts', () => {
     const state = voted('Vote: Yea 11, Nay 2. CARRIED. On devices 2 to 0, in the room 9 to 2.');
     expect(currentResult(state, parseVoteResult(state.meetingLog))).toMatchObject({
@@ -279,7 +343,7 @@ describe('currentResult', () => {
     });
   });
 
-  it('stamps an election when the ballot is closed with a winner', () => {
+  it('stamps nothing when the ballot closes with a winner: ELECTED waits for the declaration', () => {
     const state = {
       ...active,
       currentElection: election({
@@ -288,11 +352,12 @@ describe('currentResult', () => {
         elected: 'Carmen Diaz',
       }),
     };
-    expect(currentResult(state, null)).toEqual({
-      outcome: 'elected',
-      subject: 'Carmen Diaz, Director',
-      tally: 'Carmen Diaz 9, Ray Castillo 5',
-      key: 'election-7',
+    expect(currentResult(state, null)).toBeNull();
+    // The question card says who has the vote required, with the count
+    expect(describeQuestion(state)).toMatchObject({
+      kind: 'Election for Director',
+      text: 'Carmen Diaz has the vote required',
+      byline: 'Ballot: Carmen Diaz 9, Ray Castillo 5',
     });
   });
 

@@ -66,7 +66,7 @@ describe('validating floor votes', () => {
       expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
     });
 
-    it('is taken while the chair voting restriction is suspended, since the chair votes freely', () => {
+    it('is refused even with the chair voting restriction suspended in an older saved state', () => {
       const suspension = {
         id: 1,
         rule: 'chair-voting-restriction' as const,
@@ -76,7 +76,7 @@ describe('validating floor votes', () => {
         suspendedAt: '',
         motionId: 9,
       };
-      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(true);
+      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(false);
     });
   });
 
@@ -228,37 +228,32 @@ describe('validating floor votes', () => {
   });
 
   describe('a motion to reconsider', () => {
-    it("is refused for a vote on a motion that can't be reconsidered", () => {
+    it("is refused: Robbie doesn't offer reconsider", () => {
       const record = {
         id: 5,
-        type: 'recess',
-        name: 'Recess',
-        text: 'Recess',
+        type: 'mainMotion',
+        name: 'Main Motion',
+        text: 'Paint the clubhouse',
         passed: true,
         voterChoices: {},
         timestamp: '20:15',
         reconsidered: false,
+        reconsiderable: true,
       };
-      const reconsider = (reconsiderable: boolean) =>
-        validateAction(
-          {
-            ...initialState,
-            meetingActive: true,
-            completedMotions: [{ ...record, reconsiderable }],
-          },
-          {
-            type: 'MAKE_MOTION',
-            motionType: 'reconsider',
-            text: 'Reconsider the recess',
-            mover: 'Member 2',
-            moverId: 2,
-            motionId: 9,
-            reconsideredMotionId: 5,
-            timestamp: '',
-          },
-        );
-      expect(reconsider(false)).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
-      expect(reconsider(true).valid).toBe(true);
+      const result = validateAction(
+        { ...initialState, meetingActive: true, agendaAdopted: true, completedMotions: [record] },
+        {
+          type: 'MAKE_MOTION',
+          motionType: 'reconsider',
+          text: 'Reconsider the vote on painting the clubhouse',
+          mover: 'Member 2',
+          moverId: 2,
+          motionId: 9,
+          reconsideredMotionId: 5,
+          timestamp: '',
+        },
+      );
+      expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_NOT_OFFERED' });
     });
   });
 });

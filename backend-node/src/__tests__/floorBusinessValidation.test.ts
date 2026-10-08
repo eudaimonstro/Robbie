@@ -22,6 +22,7 @@ const sam = person(9, 'Sam Guest', { role: 'guest' });
 const inSession: MeetingState = {
   ...initialState,
   meetingActive: true,
+  agendaAdopted: true,
   members: [dana, eve, alice, carmen, away, sam],
 };
 
@@ -142,10 +143,10 @@ describe('business from the floor', () => {
         valid: false,
         errorCode: 'UNKNOWN_MOTION_TYPE',
       });
-      // A special motion without its details
+      // A motion Robbie doesn't offer
       expect(floorMotion({ motionType: 'takeFromTable', tabledMotionId: 42 })).toMatchObject({
         valid: false,
-        errorCode: 'INVALID_ACTION',
+        errorCode: 'MOTION_NOT_OFFERED',
       });
       // Renewing a motion defeated this meeting
       const defeated = {
@@ -192,7 +193,7 @@ describe('business from the floor', () => {
       });
     });
 
-    it('refuses the mover seconding their own motion, unless that rule is suspended', () => {
+    it('refuses the mover seconding their own motion, whatever a saved state suspended', () => {
       expect(second({ seconderMemberId: alice.id })).toEqual({
         valid: false,
         error: 'The mover cannot second their own motion',
@@ -212,7 +213,7 @@ describe('business from the floor', () => {
           },
         ],
       };
-      expect(second({ seconderMemberId: alice.id }, suspended)).toEqual({ valid: true });
+      expect(second({ seconderMemberId: alice.id }, suspended)).toMatchObject({ valid: false });
     });
 
     it('needs a seconder the meeting has present, who is not the chair or a guest', () => {
@@ -351,11 +352,36 @@ describe('business from the floor', () => {
       });
     });
 
-    it('is held for a mover on a device', () => {
+    it('is held only for a mover waiting to speak (RONR 42:9)', () => {
       const ben = person(6, 'Ben Whitaker');
+      const bens = question({ ...active, mover: 'Ben Whitaker', moverId: ben.id });
+      // Ben moved it but hasn't asked to speak: Alice is recognized
+      expect(recognize(bens)).toEqual({ valid: true });
+      // Ben is waiting too: he speaks first
       expect(
-        recognize(question({ ...active, mover: 'Ben Whitaker', moverId: ben.id })),
-      ).toMatchObject({ valid: false, errorCode: 'MOVER_SPEAKS_FIRST' });
+        validateAction(
+          {
+            ...inSession,
+            currentMotion: bens,
+            motionStack: [bens],
+            speakerQueue: [
+              { member: alice, stance: 'pro' },
+              { member: ben, stance: 'con' },
+            ],
+          },
+          {
+            type: 'RECOGNIZE_SPEAKER',
+            member: alice,
+            stance: 'pro',
+            speakerTimerEnd: null,
+            timestamp: '',
+          },
+        ),
+      ).toMatchObject({
+        valid: false,
+        errorCode: 'MOVER_SPEAKS_FIRST',
+        error: 'Ben Whitaker moved it and asked to speak: recognize them first',
+      });
     });
   });
 
@@ -390,22 +416,36 @@ describe('business from the floor', () => {
         timestamp: '',
       });
 
-    it.each(elections)('waits for the election to end: %s', (_, election) => {
+    // Nominations, open or closed; a ballot takes only a point of order (below)
+    const nominating = elections.slice(0, 2);
+
+    it('takes only a point of order while the ballot is open', () => {
+      const balloting = { ...inSession, ...elections[2][1] };
+      for (const motionType of ['mainMotion', 'adjourn', 'recess']) {
+        expect(move(balloting, motionType), motionType).toMatchObject({
+          valid: false,
+          errorCode: 'VOTING_IN_PROGRESS',
+        });
+      }
+      expect(move(balloting, 'pointOrder')).toEqual({ valid: true });
+    });
+
+    it.each(nominating)('waits for the election to end: %s', (_, election) => {
       const electing = { ...inSession, ...election };
       const refused = {
         valid: false,
         error: 'Finish or set aside the election first',
         errorCode: 'ELECTION_IN_PROGRESS',
       };
-      for (const motionType of ['mainMotion', 'bylawAmendment', 'layOnTable', 'reconsider']) {
+      for (const motionType of ['mainMotion', 'bylawAmendment', 'amend', 'previousQuestion']) {
         expect(move(electing, motionType), motionType).toEqual(refused);
       }
       expect(floorMotion({}, electing)).toEqual(refused);
     });
 
-    it.each(elections)('allows privileged and incidental motions: %s', (_, election) => {
+    it.each(nominating)('allows privileged and incidental motions: %s', (_, election) => {
       const electing = { ...inSession, ...election };
-      for (const motionType of ['adjourn', 'recess', 'pointOrder', 'pointInfo']) {
+      for (const motionType of ['adjourn', 'recess', 'pointOrder']) {
         expect(move(electing, motionType), motionType).toEqual({ valid: true });
       }
       expect(floorMotion({ motionType: 'adjourn' }, electing)).toEqual({ valid: true });

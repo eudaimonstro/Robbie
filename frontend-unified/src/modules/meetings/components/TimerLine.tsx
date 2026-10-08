@@ -7,13 +7,21 @@ interface TimerLineProps {
   totalSeconds: number;
   label: string;
   size?: 'panel' | 'display';
+  /** What it says once time is up */
+  expired?: string;
 }
 
 /**
  * The brief's timer: a 2px line in caution that shortens as time runs out, with the time left in
  * tabular numerals beneath it
  */
-export function TimerLine({ endTime, totalSeconds, label, size = 'panel' }: TimerLineProps) {
+export function TimerLine({
+  endTime,
+  totalSeconds,
+  label,
+  size = 'panel',
+  expired = 'Time is up',
+}: TimerLineProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -39,7 +47,7 @@ export function TimerLine({ endTime, totalSeconds, label, size = 'panel' }: Time
       <p
         className={`mt-1 tabular-nums text-ink-muted ${size === 'display' ? 'text-display-label' : 'text-sm'}`}
       >
-        {remaining === 0 ? 'Time is up' : `${time} left`}
+        {remaining === 0 ? expired : `${time} left`}
       </p>
     </div>
   );

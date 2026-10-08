@@ -59,7 +59,8 @@ describe('the live meetings in memory', () => {
     const written = await row('MEM001');
     expect(written.version).toBe(opened.stateVersion + 3);
     expect(written.state.votingOpen).toBe(false);
-    expect(written.state.meetingLog.at(-1)?.message).toMatch(/Yea 1, Nay 1/);
+    // The votes deferred before the decision went into the table with it
+    expect(written.state.voterChoices).toEqual({ 1: 'yea', 2: 'nay' });
   });
 
   it('carries on when an earlier write landed though its answer was lost', async () => {
@@ -82,7 +83,8 @@ describe('the live meetings in memory', () => {
     expect(closed).toMatchObject({ success: true, stateVersion: opened.stateVersion + 3 });
     const written = await row('MEM006');
     expect(written.version).toBe(opened.stateVersion + 3);
-    expect(written.state.meetingLog.at(-1)?.message).toMatch(/Yea 1, Nay 1/);
+    // The votes deferred before the decision went into the table with it
+    expect(written.state.voterChoices).toEqual({ 1: 'yea', 2: 'nay' });
   });
 
   it('writes what is waiting when the server shuts down', async () => {

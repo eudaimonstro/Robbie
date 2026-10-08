@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
 import type { MeetingAction, MeetingState, Motion, Member } from '../../types/index.js';
-import { isRuleSuspended } from '../../utils/ruleSuspensionHelper.js';
 
 // Mock members for testing (initialState now starts with empty members array)
 const mockMembers: Member[] = [
@@ -454,8 +453,8 @@ describe('meetingReducer', () => {
       expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
     });
 
-    it('should allow mover to withdraw the current motion', () => {
-      const motion = createMockMotion({ moverId: 2, mover: 'Bob' });
+    it("puts the mover's request to withdraw a stated motion to the meeting", () => {
+      const motion = createMockMotion({ moverId: 2, mover: 'Bob', text: 'Paint it' });
       const stateWithMotion: MeetingState = {
         ...initialState,
         meetingActive: true,
@@ -466,32 +465,21 @@ describe('meetingReducer', () => {
       const state = meetingReducer(stateWithMotion, {
         type: 'WITHDRAW_MOTION',
         requesterId: 2,
+        motionId: 5,
         timestamp: '10:07:00',
       });
 
-      expect(state.currentMotion).toBeNull();
-      expect(state.motionStack).toHaveLength(0);
-      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('withdrawn');
-    });
-
-    it('should not allow non-mover to withdraw a motion', () => {
-      const stateWithPending: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        pendingSecond: createMockMotion({ moverId: 1 }),
-      };
-
-      const state = meetingReducer(stateWithPending, {
-        type: 'WITHDRAW_MOTION',
-        requesterId: 99, // Different user
-        timestamp: '10:06:00',
+      expect(state.currentMotion).toMatchObject({
+        id: 5,
+        type: 'withdrawMotion',
+        text: 'Permission to withdraw "Paint it"',
+        mover: 'Bob',
       });
-
-      // Motion should still be pending - withdrawal rejected
-      expect(state.pendingSecond).not.toBeNull();
+      expect(state.motionStack).toHaveLength(2);
+      expect(state.meetingLog.at(-1)?.message).toBe('Bob asks to withdraw the motion "Paint it".');
     });
 
-    it('should reset debate state when current motion is withdrawn', () => {
+    it('withdraws the motion when the meeting grants the request, and ends its debate', () => {
       const motion = createMockMotion({ moverId: 1 });
       const stateWithDebate: MeetingState = {
         ...initialState,
@@ -503,15 +491,24 @@ describe('meetingReducer', () => {
         ],
         debatePositions: { 2: 'pro' },
       };
-
-      const state = meetingReducer(stateWithDebate, {
+      const asked = meetingReducer(stateWithDebate, {
         type: 'WITHDRAW_MOTION',
         requesterId: 1,
+        motionId: 5,
         timestamp: '10:08:00',
       });
+      const granted = meetingReducer(
+        { ...asked, unanimousConsentPending: true, consentMotionId: 5 },
+        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:09:00' },
+      );
 
-      expect(state.speakerQueue).toHaveLength(0);
-      expect(state.debatePositions).toEqual({});
+      expect(granted.motionStack).toHaveLength(0);
+      expect(granted.speakerQueue).toHaveLength(0);
+      expect(granted.debatePositions).toEqual({});
+      expect(granted.completedMotions.at(-1)).toMatchObject({
+        disposition: 'withdrawn',
+        withPermission: true,
+      });
     });
   });
 
@@ -963,22 +960,20 @@ describe('meetingReducer', () => {
       expect(state.speakerQueue.length).toBe(1);
     });
 
-    it('should reject raising hand with opposite stance after speaking (side-switching)', () => {
+    it('lets a member who spoke for the motion ask to speak against it (RONR allows it)', () => {
       const member = mockMembers[0];
       const stateWithPreviousStance: MeetingState = {
         ...initialState,
-        debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
+        debatePositions: { [member.id]: 'pro' },
       };
 
       const state = meetingReducer(stateWithPreviousStance, {
         type: 'RAISE_HAND',
         member,
-        stance: 'con', // Trying to switch to con
+        stance: 'con',
       });
 
-      // Should reject - return unchanged state
-      expect(state).toBe(stateWithPreviousStance);
-      expect(state.speakerQueue.length).toBe(0);
+      expect(state.speakerQueue).toEqual([{ member, stance: 'con' }]);
     });
 
     it('should allow raising hand with same stance after speaking', () => {
@@ -1054,7 +1049,7 @@ describe('meetingReducer', () => {
       expect(state.lastSpeakerStance).toBe('pro');
     });
 
-    it('should reject recognition of non-mover when mover has not spoken on debatable motion', () => {
+    it('should reject recognition of non-mover when the mover has asked to speak and not spoken', () => {
       const mover = mockMembers[0];
       const otherMember = mockMembers[1];
       const motion = {
@@ -1085,7 +1080,11 @@ describe('meetingReducer', () => {
         members: mockMembers,
         currentMotion: motion,
         motionStack: [motion],
-        speakerQueue: [{ member: otherMember, stance: 'con' }],
+        // The mover has asked to speak, and so claims the first chance
+        speakerQueue: [
+          { member: mover, stance: 'pro' },
+          { member: otherMember, stance: 'con' },
+        ],
       };
 
       // Try to recognize someone who is NOT the mover
@@ -1630,186 +1629,6 @@ describe('meetingReducer', () => {
 
       expect(state.suspendedRules).toHaveLength(1);
       expect(state.suspendedRules[0].rule).toBe('debate-rules');
-    });
-  });
-
-  describe('single-action rule suspensions', () => {
-    const suspension = (id: number, scope: 'single-action' | 'meeting-remainder') => ({
-      id,
-      rule: 'debate-rules' as const,
-      purpose: 'Allow debate',
-      specificAction: 'Debate the pending motion',
-      scope,
-      suspendedAt: '10:00:00',
-      actionCompleted: false,
-      motionId: 99,
-    });
-    const closeVoteOn = (suspendedRules: MeetingState['suspendedRules']) => {
-      const motion = createMockMotion({ vote: 'majority' });
-      return meetingReducer(
-        {
-          ...initialState,
-          meetingActive: true,
-          votingOpen: true,
-          currentMotion: motion,
-          motionStack: [motion],
-          votes: { yea: 3, nay: 1, abstain: 0 },
-          suspendedRules,
-        },
-        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
-      );
-    };
-
-    it('end once the next question is decided', () => {
-      const state = closeVoteOn([suspension(1, 'single-action')]);
-      expect(isRuleSuspended(state, 'debate-rules')).toBe(false);
-      expect(state.meetingLog.at(-1)?.message).toContain('[RULE RESTORED] debate-rules');
-    });
-
-    it('leave suspensions for the rest of the meeting in place', () => {
-      const state = closeVoteOn([suspension(1, 'meeting-remainder')]);
-      expect(isRuleSuspended(state, 'debate-rules')).toBe(true);
-    });
-
-    it('stay in force when the vote being closed is the one that suspended the rule', () => {
-      const motion = createMockMotion({
-        type: 'suspendRules',
-        vote: '2/3',
-        ruleSuspension: {
-          rule: 'debate-rules',
-          purpose: 'Allow debate',
-          specificAction: 'Debate the pending motion',
-          scope: 'single-action',
-        },
-      });
-      const state = meetingReducer(
-        {
-          ...initialState,
-          meetingActive: true,
-          votingOpen: true,
-          currentMotion: motion,
-          motionStack: [motion],
-          votes: { yea: 3, nay: 0, abstain: 0 },
-        },
-        { type: 'CLOSE_VOTING', timestamp: '10:15:00' },
-      );
-      expect(isRuleSuspended(state, 'debate-rules')).toBe(true);
-    });
-  });
-
-  describe('reconsider', () => {
-    // A limit-debate motion (not debatable) was adopted, moved by Alice
-    const completed = {
-      id: 10,
-      type: 'limitDebate',
-      name: 'Limit Debate',
-      text: 'Limit debate to 2 minutes',
-      mover: 'Alice',
-      moverId: 5,
-      passed: true,
-      voterChoices: { 6: 'yea' as const },
-      timestamp: '10:00:00',
-      reconsidered: false,
-    };
-    const reconsider = createMockMotion({
-      id: 20,
-      type: 'reconsider',
-      vote: 'majority',
-      mover: 'Bob',
-      moverId: 6,
-      reconsideredMotionId: 10,
-    });
-    const pending: MeetingState = {
-      ...initialState,
-      meetingActive: true,
-      currentMotion: reconsider,
-      motionStack: [reconsider],
-      completedMotions: [completed],
-    };
-
-    const byVote = () =>
-      meetingReducer(
-        { ...pending, votingOpen: true, votes: { yea: 3, nay: 1, abstain: 0 } },
-        { type: 'CLOSE_VOTING', timestamp: '10:20:00' },
-      );
-
-    it('brings the motion back as it was', () => {
-      const motion = byVote().currentMotion;
-      expect(motion).toMatchObject({
-        type: 'limitDebate',
-        text: 'Limit debate to 2 minutes',
-        debatable: false,
-        mover: 'Alice',
-        moverId: 5,
-      });
-    });
-
-    it('gives the same result each time (the reducer stays pure)', () => {
-      expect(byVote().currentMotion).toEqual(byVote().currentMotion);
-    });
-
-    it('brings a bylaw amendment back with its change, decided again with it', () => {
-      const bylawAmendment = {
-        documentId: 'doc-1',
-        changeType: 'modify' as const,
-        targetSectionId: 'sec-1',
-        newContent: 'New text',
-      };
-      const amendment = createMockMotion({
-        id: 30,
-        type: 'bylawAmendment',
-        vote: '2/3',
-        bylawAmendment,
-      });
-      // Adopted, then reconsidered
-      const adopted = meetingReducer(
-        {
-          ...initialState,
-          meetingActive: true,
-          votingOpen: true,
-          currentMotion: amendment,
-          motionStack: [amendment],
-          votes: { yea: 5, nay: 1, abstain: 0 },
-        },
-        { type: 'CLOSE_VOTING', timestamp: '10:00:00' },
-      );
-      const reconsiderIt = createMockMotion({
-        id: 40,
-        type: 'reconsider',
-        vote: 'majority',
-        reconsideredMotionId: 30,
-      });
-      const restored = meetingReducer(
-        {
-          ...adopted,
-          votingOpen: true,
-          currentMotion: reconsiderIt,
-          motionStack: [reconsiderIt],
-          votes: { yea: 4, nay: 1, abstain: 0 },
-        },
-        { type: 'CLOSE_VOTING', timestamp: '10:10:00' },
-      );
-      expect(restored.currentMotion).toMatchObject({ type: 'bylawAmendment', bylawAmendment });
-
-      // Voted on again, it fails: the new record has the change, for the sync
-      const again = meetingReducer(
-        { ...restored, votingOpen: true, votes: { yea: 1, nay: 5, abstain: 0 } },
-        { type: 'CLOSE_VOTING', timestamp: '10:20:00' },
-      );
-      expect(again.completedMotions.at(-1)).toMatchObject({
-        id: 40,
-        passed: false,
-        bylawAmendment,
-      });
-    });
-
-    it('brings the motion back when adopted by unanimous consent', () => {
-      const state = meetingReducer(
-        { ...pending, unanimousConsentPending: true },
-        { type: 'UNANIMOUS_CONSENT_PASSED', timestamp: '10:20:00' },
-      );
-      expect(state.currentMotion?.text).toBe('Limit debate to 2 minutes');
-      expect(state.completedMotions[0].reconsidered).toBe(true);
     });
   });
 

@@ -66,7 +66,12 @@ describe('the log line for each decision', () => {
   });
 
   it('records a withdrawal', () => {
-    const line = lastLine(pending(motion('mainMotion', 'Paint it')), {
+    const awaiting = {
+      ...initialState,
+      meetingActive: true,
+      pendingSecond: motion('mainMotion', 'Paint it'),
+    };
+    const line = lastLine(awaiting, {
       type: 'WITHDRAW_MOTION',
       requesterId: 2,
       timestamp: '10:00:00',

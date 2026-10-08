@@ -1,12 +1,14 @@
-import type { CompletedMotion, MeetingAction } from '../../types/index.js';
-import { LOG_QUORUM_WARNING, logRollCallVote } from '../../constants/logMessages.js';
+import type { CompletedMotion, MeetingAction, Votes } from '../../types/index.js';
 import {
-  applyMotionOutcome,
-  processOutcomeResult,
-  restoreReconsideredMotion,
-} from '../../utils/motionOutcomeHelper.js';
+  LOG_QUORUM_WARNING,
+  logDivisionCalled,
+  logRollCallVote,
+} from '../../constants/logMessages.js';
 import { NO_VOTES, addVotes, calculateVoteResult } from '../../utils/voteCalculator.js';
+import { decide } from './decisions.js';
 import { decisionContext, quorumNow } from './records.js';
+
+const floorCounted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
 import type { ActionHandler } from './types.js';
 
 export const votingHandler: ActionHandler = (state, action, log) => {
@@ -29,6 +31,9 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         voterChoices: {},
         floorVotes: { yea: 0, nay: 0, abstain: 0 },
         proxyVotes: [], // Reset proxy votes for new vote
+        divisionCalled: false,
+        // An appeal from a ruling comes before anything else happens
+        lastChairRuling: null,
         meetingLog: logEntries,
       };
     }
@@ -36,7 +41,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
     case 'CAST_VOTE': {
       const typedAction = action as Extract<MeetingAction, { type: 'CAST_VOTE' }>;
       // A voice vote is counted in the room, not on devices
-      if (state.votingMethod === 'voice') return state;
+      if (state.votingMethod === 'voice' && !state.divisionCalled) return state;
 
       // Check if voter is chair
       const voter = state.members.find((m) => m.id === typedAction.voterId);
@@ -80,6 +85,22 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'REQUEST_DIVISION': {
+      const typedAction = action as Extract<MeetingAction, { type: 'REQUEST_DIVISION' }>;
+      // A member doubts the voice vote: it is retaken as a counted vote, on devices and by the
+      // chair's count of the room
+      const caller = typedAction.fromFloor
+        ? null
+        : state.members.find((m) => m.id === typedAction.requesterId)?.name;
+      return {
+        ...state,
+        // For this vote only: the meeting's way of voting is unchanged
+        floorVotes: NO_VOTES,
+        divisionCalled: true,
+        meetingLog: log(typedAction.timestamp, logDivisionCalled(caller ?? null)),
+      };
+    }
+
     case 'SET_FLOOR_TALLY': {
       const typedAction = action as Extract<MeetingAction, { type: 'SET_FLOOR_TALLY' }>;
       return {
@@ -98,7 +119,6 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       );
       const { yea, nay } = voteCalc;
       const isBallot = state.votingMethod === 'ballot';
-      const newStack = state.motionStack.slice(0, -1);
 
       // Special handling for Appeal. The question is "Shall the decision of the chair be
       // sustained?" (YEA = sustain). RONR: a majority or a tie sustains the chair, so the
@@ -130,99 +150,42 @@ export const votingHandler: ActionHandler = (state, action, log) => {
             ]
           : state.defeatedMotions;
 
-      // Apply motion outcome if passed (Appeals don't have outcomes to apply)
-      const outcome =
-        passed && !isAppeal
-          ? applyMotionOutcome(state, typedAction.timestamp)
-          : {
-              tabledMotions: state.tabledMotions,
-              agendaAdopted: state.agendaAdopted,
-              agendaObjection: state.agendaObjection,
-              agenda: state.agenda,
-              newSuspension: null,
-              restoredMotion: null,
-              objectionKilledMotion: null,
-              reconsideredMotionId: null,
-              dividedParts: null,
-              dividedMainMotion: null,
-            };
-
-      // Handle reconsider: bring the motion back as it was
-      const restored = outcome.reconsideredMotionId
-        ? restoreReconsideredMotion(state, outcome.reconsideredMotionId)
-        : null;
-      const reconsideredMotion = restored?.motion ?? null;
-      const updatedCompletedMotions = restored?.completedMotions ?? state.completedMotions;
-
-      const reconsideredLog = reconsideredMotion
-        ? `\n[RECONSIDERED] Motion brought back for new vote: "${reconsideredMotion.text}"`
-        : '';
-
-      // Handle divide the question
-      let dividedQuestionParts = state.dividedQuestionParts;
-      let divideLog = '';
-      let workingStack = newStack;
-      if (outcome.dividedParts && outcome.dividedMainMotion) {
-        workingStack = workingStack.filter((m) => m.id !== outcome.dividedMainMotion!.id);
-
-        const firstPart = outcome.dividedParts[0];
-        const firstPartMotion = {
-          ...outcome.dividedMainMotion,
-          id: firstPart.id,
-          text: firstPart.text,
-          status: 'active' as const,
-          moverHasSpoken: false,
-        };
-        workingStack = [...workingStack, firstPartMotion];
-        dividedQuestionParts = outcome.dividedParts.slice(1);
-
-        divideLog = `\n[DIVIDED] Original motion split into ${outcome.dividedParts.length} parts. Now considering: "${firstPart.text}"`;
-      }
-
-      const processed = processOutcomeResult(
-        outcome,
-        state.suspendedRules,
-        workingStack,
-        reconsideredMotion,
-      );
-
       // Record every decided motion, with both parts of its vote, who moved and seconded it,
       // and where and when it was decided. A secret ballot keeps no record of who voted which
       // way, in person or by proxy.
       const decided = state.currentMotion;
-      const record: CompletedMotion | null = decided
-        ? {
-            id: decided.id,
-            type: decided.type,
-            name: decided.name,
-            text: decided.text,
-            mover: decided.mover,
-            moverId: decided.moverId,
-            passed,
-            voterChoices: isBallot ? {} : state.voterChoices,
-            timestamp: typedAction.timestamp,
-            reconsidered: false,
-            reconsiderable: decided.reconsidered,
-            deviceVotes: state.votes,
-            floorVotes,
-            method: state.votingMethod,
-            ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
-            // The change a bylaw amendment proposed: the text adopted (or not), for the sync,
-            // the minutes and a reconsideration
-            ...(decided.bylawAmendment ? { bylawAmendment: decided.bylawAmendment } : {}),
-            disposition: passed ? 'carried' : 'failed',
-            quorumPresent: quorumNow(state),
-            ...decisionContext(state, typedAction.at),
-          }
-        : null;
-      const completedMotions = record
-        ? [...updatedCompletedMotions, record]
-        : updatedCompletedMotions;
+      if (!decided) return { ...state, votingOpen: false, voteTimerEnd: null };
+      const record: CompletedMotion = {
+        id: decided.id,
+        type: decided.type,
+        name: decided.name,
+        text: decided.text,
+        mover: decided.mover,
+        moverId: decided.moverId,
+        passed,
+        voterChoices: isBallot ? {} : state.voterChoices,
+        timestamp: typedAction.timestamp,
+        reconsidered: false,
+        reconsiderable: decided.reconsidered,
+        deviceVotes: state.votes,
+        floorVotes,
+        method: state.divisionCalled ? 'standard' : state.votingMethod,
+        ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
+        // The change a bylaw amendment proposed: the text adopted (or not), for the sync and
+        // the minutes
+        ...(decided.bylawAmendment ? { bylawAmendment: decided.bylawAmendment } : {}),
+        // The words it was moved with, when amendments changed them: text is what was decided
+        ...(decided.originalText ? { originalText: decided.originalText } : {}),
+        ...(state.divisionCalled ? { division: true as const } : {}),
+        disposition: passed ? 'carried' : 'failed',
+        quorumPresent: quorumNow(state),
+        ...decisionContext(state, typedAction.at),
+      };
+      const outcome = decide(state, passed, record, typedAction.timestamp, typedAction.at);
 
       // Both parts, so the room can check the chair's count
-      const floorCounted = floorVotes.yea + floorVotes.nay + floorVotes.abstain > 0;
       const partsLog =
-        floorCounted && state.votingMethod !== 'voice'
+        floorCounted(floorVotes) && (state.votingMethod !== 'voice' || state.divisionCalled)
           ? ` On devices ${state.votes.yea} to ${state.votes.nay}, in the room ${floorVotes.yea} to ${floorVotes.nay}.`
           : '';
 
@@ -230,27 +193,13 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         ...state,
         votingOpen: false,
         voteTimerEnd: null,
+        divisionCalled: false,
         ...(isBallot && { voterChoices: {}, proxyVotes: [] }),
-        currentMotion: processed.finalCurrentMotion,
-        motionStack: processed.finalStack,
         defeatedMotions,
-        completedMotions,
-        suspendedRules: processed.suspendedRules,
-        tabledMotions: outcome.tabledMotions,
-        agendaAdopted: outcome.agendaAdopted,
-        agendaObjection: outcome.agendaObjection,
-        agenda: outcome.agenda,
-        lastChairRuling: isAppeal ? null : state.lastChairRuling,
-        debatePositions: {},
-        // Debate on the decided question is over; none of it carries to the next one
-        speakerQueue: [],
-        recognizedSpeaker: null,
-        speakerTimerEnd: null,
-        lastSpeakerStance: null,
-        dividedQuestionParts,
+        ...outcome.state,
         meetingLog: log(
           typedAction.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${partsLog}${processed.suspensionLog}${processed.restoredLog}${processed.objectionLog}${reconsideredLog}${divideLog}`,
+          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${partsLog}${outcome.log}`,
         ),
       };
     }

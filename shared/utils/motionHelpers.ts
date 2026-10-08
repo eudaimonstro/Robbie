@@ -1,28 +1,33 @@
 import { MOTIONS } from '../constants/motions.js';
-import { isRuleSuspended } from './ruleSuspensionHelper.js';
-import type {
-  BylawAmendment,
-  MeetingState,
-  Member,
-  Motion,
-  MotionDefinition,
-} from '../types/index.js';
+import { motionOutOfOrder, OFFERED_MOTIONS } from './motionRules.js';
+import type { BylawAmendment, MeetingState, MotionDefinition } from '../types/index.js';
 
 export interface ValidMotion extends MotionDefinition {
   key: string;
 }
 
 /**
- * Whether the mover of a motion can claim the first chance to speak on it (RONR), which the
- * chair keeps for them until they have spoken. Only someone on a device can ask for the floor,
- * so a question put by the chair, a motion moved from the floor by a typed name or by a member
- * in the room without a device, gives no one that claim.
+ * Whether the mover has claimed the first chance to speak on their motion (RONR 42:9): they are
+ * waiting to speak and haven't yet. The chair recognizes them first then; a mover who doesn't
+ * ask to speak claims nothing, and the chair recognizes whoever is waiting.
  */
-export function moverCanClaimFloor(motion: Motion, members: readonly Member[]): boolean {
-  if (!motion.moverId) return false;
-  if (!motion.fromFloor) return true;
-  const mover = members.find((m) => m.id === motion.moverId);
-  return !!mover && mover.present && mover.presentBy !== 'chair';
+export function moverClaimsFloor(state: MeetingState): boolean {
+  const motion = state.currentMotion;
+  if (!motion || !motion.debatable || motion.moverHasSpoken || !motion.moverId) return false;
+  return state.speakerQueue.some((entry) => entry.member.id === motion.moverId);
+}
+
+/**
+ * Whether someone may ask for the floor now: in session, nothing being voted on, and either
+ * nothing pending (an open forum, a report's questions) or a debatable question whose debate is
+ * open. Members may change sides as they please (RONR doesn't forbid it).
+ */
+export function floorOpenForDebate(state: MeetingState): boolean {
+  if (!state.meetingActive || state.recess || state.adjournmentCarried) return false;
+  if (state.votingOpen || state.currentElection?.votingInProgress) return false;
+  const motion = state.currentMotion;
+  if (!motion) return !state.pendingSecond;
+  return motion.debatable && !motion.debateClosed && motion.vote !== 'none';
 }
 
 /**
@@ -96,47 +101,13 @@ export function wasMotionDefeated(
   return state.defeatedMotions.some((dm) => dm.type === motionType);
 }
 
-/**
- * Get all motions that are currently valid/in-order based on meeting state
- *
- * Applies Robert's Rules precedence and availability logic:
- * - Main motions only when no other motion is pending
- * - Subsidiary motions only when there's a motion to apply them to
- * - Privileged motions always available when precedence allows
- * - Incidental motions always in order
- *
- * Also enforces:
- * - Amendment depth limits (primary and secondary only)
- * - Renewal prohibitions (defeated motions can't be renewed same session)
- * - Special rules (appeal only after chair ruling, objection before debate, etc.)
- * - Rule suspension overrides when applicable
- *
- * @param state - Current meeting state
- * @param currentUserId - Optional user ID for checking reconsider eligibility
- * @returns Array of valid motions with their definitions
- */
-/**
- * A secondary amendment (amend the amendment) applies only to a primary amendment, and is in
- * order only while that amendment is the immediately pending question (RONR §12). Its numeric
- * precedence can't express this, so it is checked by type. With the amendment-depth rule
- * suspended, a secondary amendment may itself be amended.
- */
-export function isSecondaryAmendmentInOrder(state: MeetingState): boolean {
-  const pending = state.currentMotion?.type;
-  return (
-    pending === 'amend' ||
-    (pending === 'amendAmendment' && isRuleSuspended(state, 'amendment-depth'))
-  );
-}
-
 /** Why a bylaw amendment's words can't be changed in the meeting */
 export const BYLAW_WORDING_FIXED =
   "A bylaw amendment's words come from its text: withdraw it and move it again";
 
 /**
- * Whether this motion would change a pending bylaw amendment's words: amending it, amending an
- * amendment of it, or dividing it. Its words are the text the room sees and the sync applies,
- * so until amendments carry structured text these are out of order on it.
+ * Whether this motion would change a pending bylaw amendment's words: amending it, or amending
+ * an amendment of it. Its words are the text the room sees and the sync applies.
  */
 export function wordingFixedBy(state: MeetingState, motionType: string): boolean {
   const current = state.currentMotion;
@@ -151,118 +122,22 @@ export function wordingFixedBy(state: MeetingState, motionType: string): boolean
   return false;
 }
 
-export function getValidMotions(state: MeetingState, currentUserId?: number): ValidMotion[] {
-  const currentPrecedence = state.currentMotion?.precedence || 0;
-  const hasAmendment = state.motionStack.some((m) => m.type === 'amend');
-  const hasSecondaryAmendment = state.motionStack.some((m) => m.type === 'amendAmendment');
-  const isAgendaAdoptionPending = state.currentMotion?.type === 'adoptAgenda';
-  const validMotions: ValidMotion[] = [];
-
-  // Check if motion precedence is suspended
-  const precedenceSuspended = isRuleSuspended(state, 'motion-precedence');
-  // Check if amendment depth limit is suspended
-  const amendmentDepthSuspended = isRuleSuspended(state, 'amendment-depth');
-
-  // Use the exported wasMotionDefeated for checking defeated motions
-  const wasDefeated = (motionType: string) => wasMotionDefeated(state, motionType);
-
-  // When agenda objection exists and no current motion, prioritize agenda motions
-  // but don't block privileged motions (they're always in order)
-  if (!state.agendaAdopted && state.agendaObjection && !state.currentMotion) {
-    validMotions.push({ key: 'adoptAgenda', ...MOTIONS.adoptAgenda });
-    validMotions.push({ key: 'amendAgenda', ...MOTIONS.amendAgenda });
-  }
-  if (isAgendaAdoptionPending) {
-    validMotions.push({ key: 'amendAgenda', ...MOTIONS.amendAgenda });
-  }
-  Object.entries(MOTIONS).forEach(([key, motion]) => {
-    if ((key === 'adoptAgenda' || key === 'amendAgenda') && state.agendaAdopted) return;
-    if (wordingFixedBy(state, key)) return;
-    if (key === 'adoptAgenda' && isAgendaAdoptionPending) return;
-    if (key === 'mainMotion' && currentPrecedence > 0) return;
-    // Amendment depth enforcement (unless suspended)
-    if (
-      !amendmentDepthSuspended &&
-      key === 'amendAmendment' &&
-      (!hasAmendment || hasSecondaryAmendment)
+/**
+ * The motions in order now, of those Robbie offers (motionOutOfOrder says why the others are
+ * not), in the order a phone lists them. A motion of the agenda's defeated this meeting isn't
+ * offered again; a main motion or a bylaw amendment is refused by the server only when it renews
+ * a defeated one's subject or change.
+ *
+ * @param _currentUserId - kept for the mobile app, which passes it
+ */
+export function getValidMotions(state: MeetingState, _currentUserId?: number): ValidMotion[] {
+  return OFFERED_MOTIONS.filter((key) => motionOutOfOrder(state, key) === null)
+    .filter(
+      (key) =>
+        MOTIONS[key].category !== 'main' ||
+        key === 'mainMotion' ||
+        key === 'bylawAmendment' ||
+        !wasMotionDefeated(state, key),
     )
-      return;
-    if (
-      !amendmentDepthSuspended &&
-      key === 'amend' &&
-      state.currentMotion?.type === 'amendAmendment'
-    )
-      return;
-    // Renewal rule: For other main motions (like adoptAgenda, takeFromTable), block if that
-    // specific type was defeated. Main motions and bylaw amendments stay available; the
-    // validator blocks only one that renews a defeated motion's subject or change.
-    if (
-      motion.category === 'main' &&
-      key !== 'mainMotion' &&
-      key !== 'bylawAmendment' &&
-      wasDefeated(key)
-    )
-      return;
-    // Appeal: Only available immediately after a chair ruling
-    if (key === 'appeal' && !state.lastChairRuling) return;
-    // Objection to Consideration: Only for main motions before debate begins
-    if (key === 'objectionConsideration') {
-      const hasMainMotion = state.currentMotion?.category === 'main';
-      const debateStarted = state.currentMotion?.moverHasSpoken || state.recognizedSpeaker !== null;
-      const isActive = state.currentMotion?.status === 'active';
-      if (!hasMainMotion || debateStarted || !isActive) return;
-    }
-    // Reconsider: Only available to voters on prevailing side
-    if (key === 'reconsider') {
-      if (!currentUserId) return; // Need user ID to check eligibility
-      const hasReconsiderableMotions = state.completedMotions.some((cm) => {
-        if (cm.reconsidered) return false; // Already reconsidered
-        if (cm.reconsiderable === false) return false; // Its motion can't be reconsidered
-        const userVote = cm.voterChoices[currentUserId];
-        if (!userVote || userVote === 'abstain') return false; // Didn't vote or abstained
-        // Prevailing side: if motion passed, yea voters can reconsider; if failed, nay voters can
-        const onPrevailingSide = cm.passed ? userVote === 'yea' : userVote === 'nay';
-        return onPrevailingSide;
-      });
-      if (!hasReconsiderableMotions) return;
-    }
-
-    // Motion availability rules per Robert's Rules:
-    // - Incidental: Always in order (no fixed precedence)
-    // - Subsidiary: Only when there's a motion to apply them to (currentPrecedence >= 1)
-    // - Privileged: Always available when precedence is higher than current
-    // - Main: Only when nothing is pending (new business), except reconsider, which may
-    //   interrupt; adoptAgenda is offered by the agenda block above
-    // - When motion-precedence suspended: Allow all motions regardless of precedence
-
-    if (motion.category === 'incidental') {
-      validMotions.push({ key, ...motion });
-    } else if (key === 'amendAmendment') {
-      if (isSecondaryAmendmentInOrder(state)) {
-        validMotions.push({ key, ...motion });
-      }
-    } else if (motion.category === 'subsidiary' && currentPrecedence >= 1) {
-      // Allow if precedence suspended OR precedence is higher
-      if (precedenceSuspended || motion.precedence > currentPrecedence) {
-        validMotions.push({ key, ...motion });
-      }
-    } else if (motion.category === 'privileged') {
-      // Allow if precedence suspended OR precedence is higher
-      if (precedenceSuspended || motion.precedence > currentPrecedence) {
-        validMotions.push({ key, ...motion });
-      }
-    } else if (motion.category === 'main') {
-      if (key === 'adoptAgenda') return;
-      // Eligibility was checked above, and reconsider may be made while other business is pending
-      if (key === 'reconsider') {
-        validMotions.push({ key, ...motion });
-        return;
-      }
-      // New business waits until no motion is pending and any agenda objection is resolved
-      if (state.currentMotion || (state.agendaObjection && !state.agendaAdopted)) return;
-      if (key === 'takeFromTable' && state.tabledMotions.length === 0) return;
-      validMotions.push({ key, ...motion });
-    }
-  });
-  return validMotions;
+    .map((key) => ({ key, ...MOTIONS[key] }));
 }

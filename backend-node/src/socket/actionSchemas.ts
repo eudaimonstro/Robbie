@@ -136,8 +136,30 @@ const bylawAmendment = z.strictObject({
   parentSectionLabel: text(MAX_BYLAW_LABEL_LENGTH + MAX_BYLAW_TITLE_LENGTH + 3).optional(),
 });
 
+/** An amendment's change to the words of the motion it amends */
+const words = text(MAX_MOTION_TEXT_LENGTH);
+const textAmendment = z.discriminatedUnion('form', [
+  z.strictObject({ form: z.literal('insert'), insert: words, after: words.optional() }),
+  z.strictObject({ form: z.literal('strike'), strike: words }),
+  z.strictObject({ form: z.literal('strikeInsert'), strike: words, insert: words }),
+  z.strictObject({ form: z.literal('substitute'), insert: words }),
+]);
+
+/** A time in words: "8:30 PM", "after the treasurer's report" */
+const MAX_WHEN_LENGTH = 100;
+
+/** When a question is postponed to */
+const postponement = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('next-meeting') }),
+  z.strictObject({ kind: z.literal('later'), when: text(MAX_WHEN_LENGTH) }),
+]);
+
 /** The details some motions carry (MotionDetails) */
 const motionDetails = {
+  textAmendment: textAmendment.optional(),
+  postponeTo: postponement.optional(),
+  referTo: text(MAX_TITLE_LENGTH).optional(),
+  recessUntil: text(MAX_WHEN_LENGTH).optional(),
   agendaAmendment: agendaAmendment.optional(),
   ruleSuspension: ruleSuspension.partial().optional(),
   bylawAmendment: bylawAmendment.optional(),
@@ -226,6 +248,7 @@ export const ACTION_SCHEMAS = {
   OPEN_VOTING: z.strictObject({
     type: z.literal('OPEN_VOTING'),
     voteTimerEnd: timerEnd,
+    confirmedWithoutQuorum: z.boolean().optional(),
     timestamp,
   }),
   CAST_VOTE: z.strictObject({
@@ -263,7 +286,12 @@ export const ACTION_SCHEMAS = {
     itemId: id,
   }),
   REMOVE_AGENDA_ITEM: z.strictObject({ type: z.literal('REMOVE_AGENDA_ITEM'), id }),
-  ADOPT_AGENDA: timed('ADOPT_AGENDA'),
+  ADOPT_AGENDA: z.strictObject({
+    type: z.literal('ADOPT_AGENDA'),
+    confirmedWithoutQuorum: z.boolean().optional(),
+    at: timestamp.optional(),
+    timestamp,
+  }),
   AGENDA_OBJECTION: z.strictObject({
     type: z.literal('AGENDA_OBJECTION'),
     objectorId: optionalId,
@@ -293,9 +321,16 @@ export const ACTION_SCHEMAS = {
     type: z.literal('OBJECT_TO_CONSENT'),
     objector: optionalName,
     objectorId: optionalId,
+    fromFloor: z.boolean().optional(),
+    floorObjector: optionalName,
     timestamp,
   }),
-  UNANIMOUS_CONSENT_PASSED: clocked('UNANIMOUS_CONSENT_PASSED'),
+  UNANIMOUS_CONSENT_PASSED: z.strictObject({
+    type: z.literal('UNANIMOUS_CONSENT_PASSED'),
+    confirmedWithoutQuorum: z.boolean().optional(),
+    at: timestamp.optional(),
+    timestamp,
+  }),
   SET_VOTING_METHOD: z.strictObject({
     type: z.literal('SET_VOTING_METHOD'),
     method: z.enum(['standard', 'voice', 'ballot', 'rollcall']),
@@ -346,6 +381,7 @@ export const ACTION_SCHEMAS = {
   CHAIR_RULING: z.strictObject({
     type: z.literal('CHAIR_RULING'),
     ruling: z.enum(['sustain', 'overrule', 'allow', 'deny']),
+    outOfOrder: z.boolean().optional(),
     explanation: text(MAX_RULING_EXPLANATION_LENGTH).optional(),
     at: timestamp.optional(),
     timestamp,
@@ -378,6 +414,7 @@ export const ACTION_SCHEMAS = {
     electionId: id,
     position: text(MAX_TITLE_LENGTH),
     requiredVotes: z.enum(['majority', 'plurality', '2/3']),
+    confirmedWithoutQuorum: z.boolean().optional(),
     timestamp,
   }),
   CAST_BALLOT: z.strictObject({
@@ -400,7 +437,7 @@ export const ACTION_SCHEMAS = {
   SET_ASIDE_ELECTION: clocked('SET_ASIDE_ELECTION'),
   ASK_INQUIRY: z.strictObject({
     type: z.literal('ASK_INQUIRY'),
-    inquiryType: z.enum(['parliamentary', 'information']),
+    inquiryType: z.enum(['parliamentary', 'information', 'privilege']),
     question: text(MAX_SHORT_TEXT_LENGTH),
     askedBy: optionalName,
     askerId: optionalId,
@@ -443,6 +480,8 @@ export const ACTION_SCHEMAS = {
   WITHDRAW_MOTION: z.strictObject({
     type: z.literal('WITHDRAW_MOTION'),
     requesterId: optionalId,
+    fromFloor: z.boolean().optional(),
+    motionId: optionalId,
     at: timestamp.optional(),
     timestamp,
   }),
@@ -450,6 +489,18 @@ export const ACTION_SCHEMAS = {
     type: z.literal('MODIFY_MOTION'),
     requesterId: optionalId,
     newText: text(MAX_MOTION_TEXT_LENGTH),
+    timestamp,
+  }),
+  TAKE_UP_POSTPONED: z.strictObject({
+    type: z.literal('TAKE_UP_POSTPONED'),
+    motionId: id,
+    timestamp,
+  }),
+  RESUME_MEETING: clocked('RESUME_MEETING'),
+  REQUEST_DIVISION: z.strictObject({
+    type: z.literal('REQUEST_DIVISION'),
+    requesterId: optionalId,
+    fromFloor: z.boolean().optional(),
     timestamp,
   }),
   START_ROLL_CALL: timed('START_ROLL_CALL'),

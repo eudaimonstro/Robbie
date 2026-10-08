@@ -10,6 +10,8 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   NOMINATE: 'nominationId',
   START_ELECTION: 'electionId',
   ASK_INQUIRY: 'inquiryId',
+  // The request to withdraw a motion already stated, put to the meeting
+  WITHDRAW_MOTION: 'motionId',
 };
 
 /**
@@ -26,6 +28,8 @@ export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<Meeti
   'DECLARE_ELECTED',
   'SET_ASIDE_ELECTION',
   'APPROVE_MINUTES',
+  'RESUME_MEETING',
+  'ADOPT_AGENDA',
 ]);
 
 /** The fields of an action that say who is acting, which the server sets from the socket */
@@ -110,6 +114,9 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   SET_HEADCOUNT: NONE,
   WITHDRAW_MOTION: { id: 'requesterId' },
   MODIFY_MOTION: { id: 'requesterId' },
+  TAKE_UP_POSTPONED: NONE,
+  RESUME_MEETING: NONE,
+  REQUEST_DIVISION: { id: 'requesterId' },
   START_ROLL_CALL: NONE,
   RESPOND_ROLL_CALL: { id: 'memberId' },
   COMPLETE_ROLL_CALL: NONE,

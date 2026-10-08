@@ -35,15 +35,21 @@ const WORDS: Record<string, MotionWords> = {
     explanation: 'Keep the meeting from taking up this motion at all',
   },
   pointInfo: {
-    name: 'Point of information',
+    name: 'Request for information',
     explanation: 'Ask a question about the business at hand',
   },
-  pointOrder: { name: 'Point of order', explanation: 'Say the rules are not being followed' },
+  pointOrder: {
+    name: 'Point of order',
+    explanation: 'Say the rules are not being followed; the chair rules on it',
+  },
   suspendRules: {
     name: 'Suspend the rules',
     explanation: 'Set a rule aside for one purpose',
   },
-  withdrawMotion: { name: 'Withdraw a motion', explanation: 'Take back a motion you made' },
+  withdrawMotion: {
+    name: 'Permission to withdraw',
+    explanation: 'The mover asks to take back a motion already stated',
+  },
   divideQuestion: {
     name: 'Divide the question',
     explanation: 'Vote on the parts of the motion separately',
@@ -52,23 +58,26 @@ const WORDS: Record<string, MotionWords> = {
     name: 'Lay on the table',
     explanation: 'Set the question aside to take up later',
   },
-  previousQuestion: { name: 'Close debate', explanation: 'Stop debate and vote now' },
+  previousQuestion: {
+    name: 'Close debate',
+    explanation: 'Stop debate and vote now (two thirds)',
+  },
   limitDebate: {
     name: 'Limit or extend debate',
     explanation: 'Change how long or how often people may speak',
   },
   postponeDefinite: {
-    name: 'Postpone to a set time',
-    explanation: 'Put the question off to a later time or meeting',
+    name: 'Postpone',
+    explanation: 'Put the question off to later or to the next meeting',
   },
   referCommittee: {
-    name: 'Refer to a committee',
-    explanation: 'Send the question to a committee to study',
+    name: 'Refer to a committee or the board',
+    explanation: 'Send the question to a committee or the board to study',
   },
-  amend: { name: 'Amend', explanation: 'Change the wording of the motion' },
+  amend: { name: 'Amend', explanation: 'Change the words of the motion' },
   amendAmendment: {
     name: 'Amend the amendment',
-    explanation: 'Change the wording of the amendment',
+    explanation: 'Change the words the amendment would insert',
   },
   postponeIndefinitely: {
     name: 'Postpone indefinitely',

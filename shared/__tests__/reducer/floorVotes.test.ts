@@ -154,7 +154,7 @@ describe('the record of a vote', () => {
     expect(closed.proxyVotes).toEqual([]);
   });
 
-  it("isn't offered for reconsideration when its motion can't be reconsidered", () => {
+  it('is never offered for reconsideration, which Robbie hides', () => {
     const record = {
       id: 5,
       type: 'recess',
@@ -171,9 +171,8 @@ describe('the record of a vote', () => {
         1,
       ).map((m) => m.key);
     expect(offered(false)).not.toContain('reconsider');
-    expect(offered(true)).toContain('reconsider');
-    // A record made before the flag existed was of a motion that can be reconsidered
-    expect(offered(undefined)).toContain('reconsider');
+    expect(offered(true)).not.toContain('reconsider');
+    expect(offered(undefined)).not.toContain('reconsider');
   });
 });
 

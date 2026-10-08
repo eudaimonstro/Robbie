@@ -1,4 +1,10 @@
-import { test, expect, type Browser, type BrowserContextOptions } from '@playwright/test';
+import {
+  test,
+  expect,
+  type Browser,
+  type BrowserContextOptions,
+  type Page,
+} from '@playwright/test';
 import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
 
 test('a scheduled meeting runs from the phones to the display, and its minutes are published', async ({
@@ -60,6 +66,8 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     // from agenda" button would match the name too.)
     await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
     await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
+    // No quorum: Dana confirms adopting it anyway
+    await noQuorum(dana, 'Adopt the agenda anyway');
     // The server has adopted it before Alice moves: her phone may offer a motion a moment sooner
     await expect(dana.getByRole('button', { name: 'Adopt the agenda' })).toHaveCount(0);
 
@@ -70,21 +78,26 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(dana.getByText('Moved by Alice Brennan, seconded by Ben Whitaker')).toBeVisible();
     await expect(pat.getByText('I move that we resurface the pool this spring')).toBeVisible();
 
-    // The vote opens. Sam, a viewer in the organization, follows as a guest and has no vote.
+    // Without a quorum the console and the display say so, and the vote opens only once Dana
+    // confirms it (the minutes will say it has no effect unless ratified). Sam, a viewer in the
+    // organization, follows as a guest and has no vote.
+    await expect(dana.getByText(/^No quorum: 7 present, 29 needed\./)).toBeVisible();
+    await expect(pat.getByText('No quorum', { exact: true })).toBeVisible();
     await dana.getByRole('button', { name: 'Open the vote' }).click();
+    await noQuorum(dana, 'Open the vote anyway');
     const sam = await open(PEOPLE.sam, PHONE);
     await sam.goto(`/meetings/${code}`);
     await expect(sam.getByText('Guest', { exact: true })).toBeVisible();
     // A guest asks to speak only while a motion is debated, not during the vote
     await expect(
-      sam.getByText('You can ask to speak once a motion is being debated.'),
+      sam.getByText('You can ask to speak while the floor is open for debate.'),
     ).toBeVisible();
     await expect(sam.getByRole('button', { name: 'Ask to speak' })).toHaveCount(0);
     await expect(sam.getByRole('button', { name: /^Vote / })).toHaveCount(0);
 
     // The phones vote; Dana enters the show of hands and closes the vote
-    await alice.getByRole('button', { name: 'Vote yea' }).click();
-    await ben.getByRole('button', { name: 'Vote yea' }).click();
+    await alice.getByRole('button', { name: 'Vote yes' }).click();
+    await ben.getByRole('button', { name: 'Vote yes' }).click();
     await expect(dana.getByText('2 voted on devices')).toBeVisible();
     await expect(pat.getByText('2 votes received')).toBeVisible();
     await dana.getByLabel('Yea in the room').fill('9');
@@ -123,11 +136,14 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(
       pat.getByText('Moved from the floor by Carmen Diaz, seconded by a member in the room'),
     ).toBeVisible();
-    await expect(alice.getByText('I move that we add a lifeguard on weekends')).toBeVisible();
+    await expect(
+      alice.getByText('I move that we add a lifeguard on weekends', { exact: true }),
+    ).toBeVisible();
 
     // Adopted without objection, and the meeting adjourns once Dana confirms it
     await dana.getByRole('button', { name: 'Ask for unanimous consent' }).click();
     await dana.getByRole('button', { name: 'No objection: adopted' }).click();
+    await noQuorum(dana, 'Adopt it anyway');
     await dana.getByRole('button', { name: 'Adjourn', exact: true }).click();
     const adjourn = dana.getByRole('dialog', { name: 'Adjourn the meeting?' });
     await adjourn.getByRole('button', { name: 'Adjourn', exact: true }).click();
@@ -150,7 +166,7 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     const minutes = pat.getByRole('region', { name: 'Preview' });
     await expect(
       minutes.getByText(
-        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\./,
+        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\. No quorum was present: the action has no effect unless a meeting with a quorum ratifies it\./,
       ),
     ).toBeVisible();
     await expect(
@@ -201,12 +217,17 @@ test('an election nobody was nominated for is set aside, and the chair goes on',
     await alice.goto(`/meetings/${code}`);
     await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
     await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
+    // No quorum: Dana confirms adopting it anyway
+    await noQuorum(dana, 'Adopt the agenda anyway');
     await expect(dana.getByRole('button', { name: 'Adopt the agenda' })).toHaveCount(0);
 
     // Nominations open and close with nobody nominated: no ballot to open
     await dana.getByLabel('Open nominations for').fill('Treasurer');
     await dana.getByRole('button', { name: 'Open nominations' }).click();
-    await dana.getByRole('button', { name: 'Close nominations' }).click();
+    await dana
+      .getByRole('toolbar', { name: "The chair's actions" })
+      .getByRole('button', { name: 'Close nominations' })
+      .click();
     await expect(
       dana.getByText(/^Nobody has been nominated\. Open nominations again/),
     ).toBeVisible();
@@ -238,6 +259,8 @@ test('the console is a read-only record once the meeting adjourns', async ({ bro
     await dana.goto(`/meetings/${code}`);
     await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
     await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
+    // No quorum: Dana confirms adopting it anyway
+    await noQuorum(dana, 'Adopt the agenda anyway');
     // An election is under way when the meeting adjourns
     await dana.getByLabel('Open nominations for').fill('Director');
     await dana.getByRole('button', { name: 'Open nominations' }).click();
@@ -261,6 +284,127 @@ test('the console is a read-only record once the meeting adjourns', async ({ bro
     await Promise.all(opened.map((context) => context.close()));
   }
 });
+
+test('an amendment moved from a phone is adopted, the motion carries as amended, and a point of order is ruled well taken', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const before = new Set(browser.contexts());
+  try {
+    const code = await scheduleMeeting(browser, 'Special meeting on the dues');
+    const tv = await personPage(browser, PEOPLE.pat, { viewport: { width: 1920, height: 1080 } });
+    await tv.goto(`/meetings/${code}/display`);
+    await expect(tv.getByText('Join at')).toBeVisible();
+    const dana = await personPage(browser, PEOPLE.dana, {
+      viewport: { width: 1440, height: 1000 },
+    });
+    await dana.goto(`/meetings/${code}`);
+    const alice = await personPage(browser, PEOPLE.alice, PHONE);
+    const ben = await personPage(browser, PEOPLE.ben, PHONE);
+    for (const phone of [alice, ben]) {
+      await phone.goto(`/meetings/${code}`);
+      await expect(phone.getByText('The meeting has not been called to order yet.')).toBeVisible();
+    }
+    // Thirty people in the room without an account: a quorum
+    await dana.getByLabel('Headcount').fill('30');
+    await dana.getByRole('button', { name: 'Save the headcount' }).click();
+    await expect(tv.getByText('Quorum met')).toBeVisible();
+    const toolbar = dana.getByRole('toolbar', { name: "The chair's actions" });
+    await toolbar.getByRole('button', { name: 'Call to order', exact: true }).click();
+    await toolbar.getByRole('button', { name: 'Adopt the agenda' }).click();
+    await expect(toolbar.getByRole('button', { name: 'Adopt the agenda' })).toHaveCount(0);
+
+    // Alice moves, Ben seconds
+    await alice.getByLabel('Motion text').fill('Raise the annual dues to $300');
+    await alice.getByRole('button', { name: 'Move', exact: true }).click();
+    await ben.getByRole('button', { name: 'Second', exact: true }).click();
+    const tvQuestion = tv.getByRole('region', { name: 'The question' });
+    await expect(
+      tvQuestion.getByText('Raise the annual dues to $300', { exact: true }),
+    ).toBeVisible();
+
+    // Ben moves to amend from his phone, striking $300 and inserting $250; Alice seconds
+    await ben.locator('summary', { hasText: 'Other motions' }).click();
+    await ben.getByRole('radio', { name: /^Amend\s*Change the words of the motion/ }).check();
+    const amend = ben.getByRole('form', { name: 'Amend' });
+    await amend.getByLabel('Words to strike').fill('$300');
+    await amend.getByLabel('Words to insert in their place').fill('$250');
+    await expect(amend.getByText('Raise the annual dues to $250', { exact: true })).toBeVisible();
+    await amend.getByRole('button', { name: 'Move' }).click();
+    await alice.getByRole('button', { name: 'Second', exact: true }).click();
+    await expect(tvQuestion.getByText('If adopted, the motion reads')).toBeVisible();
+    await expect(
+      tvQuestion.getByText('Raise the annual dues to $250', { exact: true }),
+    ).toBeVisible();
+
+    // Alice raises a point of order; Dana rules it well taken, and the amendment is pending again
+    await alice.locator('summary', { hasText: 'Other motions' }).click();
+    await alice.getByRole('radio', { name: /^Point of order/ }).check();
+    const point = alice.getByRole('form', { name: 'Point of order' });
+    await point.getByLabel('What is out of order').fill('Members are speaking out of turn');
+    await point.getByRole('button', { name: 'Move' }).click();
+    await expect(tvQuestion.getByText('Raised by Alice Brennan')).toBeVisible();
+    await toolbar.getByRole('button', { name: 'Rule the point well taken' }).click();
+    await expect(tvQuestion.getByText('If adopted, the motion reads')).toBeVisible();
+
+    // The amendment carries: the motion now reads $250, which is put, stamped and minuted
+    const voteOnIt = async () => {
+      await toolbar.getByRole('button', { name: 'Open the vote' }).click();
+      for (const phone of [alice, ben]) {
+        await phone.getByRole('button', { name: 'Vote yes' }).click();
+      }
+      await expect(dana.getByText('2 voted on devices')).toBeVisible();
+      await dana.getByRole('button', { name: 'Close the vote' }).click();
+    };
+    await voteOnIt();
+    await expect(
+      tvQuestion.getByText('Raise the annual dues to $250', { exact: true }),
+    ).toBeVisible();
+    await expect(tvQuestion.getByText('Main Motion', { exact: true })).toBeVisible();
+    await voteOnIt();
+    const stamp = visibleStamp(tv, 'Carried');
+    await expect(stamp.word).toBeVisible();
+    await expect(
+      stamp.caption.getByText('Raise the annual dues to $250', { exact: true }),
+    ).toBeVisible();
+
+    // Dana adjourns; the minutes give the motion as moved and as amended, and the point of order
+    await toolbar.getByRole('button', { name: 'Adjourn', exact: true }).click();
+    await dana
+      .getByRole('dialog', { name: 'Adjourn the meeting?' })
+      .getByRole('button', { name: 'Adjourn', exact: true })
+      .click();
+    await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
+    const pat = await personPage(browser, PEOPLE.pat, { viewport: { width: 1280, height: 900 } });
+    const draft = pat.getByRole('link', { name: /Special meeting on the dues/ }).first();
+    await expect(async () => {
+      await pat.goto('/minutes');
+      await expect(draft).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await draft.click();
+    const minutes = pat.getByRole('region', { name: 'Preview' });
+    await expect(minutes).toContainText(
+      'Alice Brennan moved: "Raise the annual dues to $300." Seconded by Ben Whitaker. As amended: "Raise the annual dues to $250." Carried, 2 to 0.',
+    );
+    await expect(minutes).toContainText(
+      'Ben Whitaker moved: "Strike \u201c$300\u201d and insert \u201c$250\u201d." Seconded by Alice Brennan. Carried, 2 to 0.',
+    );
+    await expect(minutes).toContainText(
+      'Alice Brennan raised a point of order: "Members are speaking out of turn." The chair ruled: The point is well taken.',
+    );
+  } finally {
+    const opened = browser.contexts().filter((context) => !before.has(context));
+    await Promise.all(opened.map((context) => context.close()));
+  }
+});
+
+/** Without a quorum the console asks first: the chair goes ahead anyway */
+async function noQuorum(dana: Page, goAhead: string): Promise<void> {
+  await dana
+    .getByRole('dialog', { name: 'There is no quorum' })
+    .getByRole('button', { name: goAhead })
+    .click();
+}
 
 /** Pat schedules a meeting with Dana presiding; its code */
 async function scheduleMeeting(browser: Browser, title: string): Promise<string> {

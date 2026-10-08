@@ -15,17 +15,6 @@ export {
 } from './voteCalculator.js';
 
 export {
-  isRuleSuspended,
-  markSingleActionComplete,
-  getRuleName,
-  getRuleDescription,
-  getActiveSuspensions,
-  getRuleWarning,
-} from './ruleSuspensionHelper.js';
-
-export { applyMotionOutcome } from './motionOutcomeHelper.js';
-
-export {
   getValidMotions,
   wordingFixedBy,
   BYLAW_WORDING_FIXED,
@@ -33,9 +22,29 @@ export {
   isSimilarMotionSubject,
   wasMotionDefeated,
   type ValidMotion,
-  isSecondaryAmendmentInOrder,
-  moverCanClaimFloor,
+  floorOpenForDebate,
+  moverClaimsFloor,
 } from './motionHelpers.js';
+
+export {
+  OFFERED_MOTIONS,
+  awaitingRuling,
+  isOffered,
+  motionOutOfOrder,
+  motionTextFromDetails,
+  pendingMainMotion,
+  pendingNotOffered,
+  votingMethodNow,
+  type OutOfOrder,
+} from './motionRules.js';
+
+export {
+  amendInsertedWords,
+  applyTextAmendment,
+  describeTextAmendment,
+  insertsWords,
+  textAmendmentProblem,
+} from './textAmendment.js';
 
 export {
   attendanceSummary,

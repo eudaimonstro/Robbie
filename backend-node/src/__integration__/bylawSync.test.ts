@@ -73,48 +73,6 @@ describe('bylaw sync', () => {
     });
   });
 
-  it('applies a bylaw amendment that failed and carries on reconsideration', async () => {
-    const change = rename(f.doc, f.section);
-    const failed = decided(change, { passed: false, disposition: 'failed' });
-    const first = states(failed);
-    expect(
-      await checkAndSyncBylawAmendment(f.packet.code, closeVoting, first.before, first.after),
-    ).toMatchObject({ success: true, applied: false });
-    // Reconsidered and carried, under the reconsider motion's id
-    const before = { ...states().before, completedMotions: [{ ...failed, reconsidered: true }] };
-    const after = {
-      ...initialState,
-      completedMotions: [{ ...failed, reconsidered: true }, decided(change, { id: 50 })],
-    } as MeetingState;
-    const result = await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after);
-    expect(result).toMatchObject({ success: true, applied: true });
-    const section = await prisma.section.findFirstOrThrow({
-      where: { version: { document: { id: f.doc } }, content: 'The name is A Prime.' },
-    });
-    expect(section).toBeTruthy();
-  });
-
-  it("doesn't record a reversal it can't apply: one applied, then failed on reconsideration", async () => {
-    const change = rename(f.doc, f.section);
-    const carried = decided(change);
-    const first = states(carried);
-    await checkAndSyncBylawAmendment(f.packet.code, closeVoting, first.before, first.after);
-    const before = { ...states().before, completedMotions: [{ ...carried, reconsidered: true }] };
-    const after = {
-      ...initialState,
-      completedMotions: [
-        { ...carried, reconsidered: true },
-        decided(change, { id: 50, passed: false, disposition: 'failed' }),
-      ],
-    } as MeetingState;
-    expect(
-      await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
-    ).toMatchObject({
-      success: false,
-    });
-    expect(await prisma.amendment.count({ where: { robbieMeetingCode: f.packet.code } })).toBe(1);
-  });
-
   it('adds a section under the section the motion names', async () => {
     const { before, after } = states(
       decided({
@@ -375,6 +333,19 @@ describe('bylaw sync', () => {
     }
     const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
     expect(doc.currentVersionId).toBe(f.v2);
+  });
+
+  it('leaves alone a bylaw amendment postponed, referred, withdrawn or ruled out of order', async () => {
+    for (const disposition of ['postponed', 'referred', 'withdrawn', 'out-of-order'] as const) {
+      const { before, after } = states(
+        decided(rename(f.doc, f.section), { passed: false, disposition }),
+      );
+      expect(
+        await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+        disposition,
+      ).toBeNull();
+    }
+    expect(await prisma.amendment.count({ where: { robbieMeetingCode: f.packet.code } })).toBe(0);
   });
 
   it('skips a meeting without a packet', async () => {

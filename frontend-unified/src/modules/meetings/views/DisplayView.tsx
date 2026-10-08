@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MeetingState, SpeakerQueueEntry } from '@robbie-bylawyer/shared/types';
 import type { AttendanceSummary } from '@robbie-bylawyer/shared/utils';
+import { votingMethodNow } from '@robbie-bylawyer/shared/utils';
 import { useSocket } from '../context/SocketContext';
 import { useMeetingOrganization } from '../context/OrganizationBridge';
 import { useRoster } from '../hooks/useRoster';
@@ -152,7 +153,23 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
-          {minutes ? (
+          {!attendance.hasQuorum && (
+            <p className="text-display-line font-semibold text-caution-ink">No quorum</p>
+          )}
+          {state.recess ? (
+            <div className="space-y-6">
+              <p className="font-serif-soft text-display-question font-semibold text-ink">
+                In recess
+              </p>
+              {state.recess.until && (
+                <p className="text-display-line text-ink-muted">Until {state.recess.until}</p>
+              )}
+            </div>
+          ) : state.adjournmentCarried ? (
+            <p className="font-serif-soft text-display-question font-semibold text-ink">
+              The meeting has voted to adjourn
+            </p>
+          ) : minutes ? (
             <MinutesOnDisplay state={state} />
           ) : result ? (
             <Stamp
@@ -167,6 +184,9 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           )}
           {state.unanimousConsentPending && (
             <p className="text-display-line text-ink">The chair asks: is there any objection?</p>
+          )}
+          {state.votingOpen && !result && (
+            <p className="text-display-line text-ink">{howToVote(state)}</p>
           )}
           {ruling && !result && (
             <p className="text-display-line text-ink-muted">The chair rules: {ruling.ruling}</p>
@@ -257,18 +277,35 @@ function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueu
   );
 }
 
+/** How the room votes now, in one line from the back of the room */
+function howToVote(state: MeetingState): string {
+  switch (votingMethodNow(state)) {
+    case 'voice':
+      return 'Answer aloud when the chair asks.';
+    case 'ballot':
+      return 'Vote on your phone. Nobody sees how you voted.';
+    default:
+      return 'Vote on your phone, or raise your hand when the chair asks.';
+  }
+}
+
 /** The vote in progress: votes received, and the count in the room once the chair enters it */
 function VoteBand({ state }: { state: MeetingState }) {
   const election = state.currentElection;
   if (state.votingOpen) {
     const floor = state.floorVotes;
     const floorEntered = floor.yea + floor.nay + floor.abstain > 0;
-    const voice = state.votingMethod === 'voice';
+    const voice = votingMethodNow(state) === 'voice';
     return (
       <div className="space-y-2 text-right">
         <p className={LABEL}>Voting now</p>
         {voice ? (
           <p className="text-display-line text-ink">Voice vote</p>
+        ) : state.divisionCalled ? (
+          <p className="text-display-line tabular-nums text-ink">
+            Division: <span className="animate-count-pulse">{state.voters.length}</span> votes
+            received
+          </p>
         ) : (
           <p className="text-display-line tabular-nums text-ink">
             <span className="animate-count-pulse">{state.voters.length}</span> votes received

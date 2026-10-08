@@ -15,12 +15,16 @@ import {
   BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
+  attendanceSummary,
+  awaitingRuling,
   canChairVoteDecide,
-  isRuleSuspended,
-  isSecondaryAmendmentInOrder,
-  moverCanClaimFloor,
+  floorOpenForDebate,
+  motionOutOfOrder,
+  moverClaimsFloor,
+  pendingNotOffered,
+  textAmendmentProblem,
   wasMotionDefeated,
-  wordingFixedBy,
+  type OutOfOrder,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
 import { checkPermission, isServerOnly } from './permissionGuard.js';
@@ -93,30 +97,66 @@ type NewMotion = Pick<
   'motionType' | 'text' | keyof MotionDetails
 >;
 
+/** What a meeting without a quorum may still do (RONR 40:6): adjourn, or recess to find one */
+const NO_QUORUM_NEEDED: ReadonlySet<string> = new Set(['adjourn', 'recess']);
+
 /**
- * Whether a motion is in order now: the meeting in session, nothing waiting for a second or
- * being voted on, the motion known, with the details it needs, ranking above the pending
- * question, and not renewing a defeated one. The same for every way a motion is made.
+ * Without a quorum the meeting can only adjourn or recess (RONR 40:6): anything else (a vote, an
+ * adoption by consent, the agenda, a ballot) goes ahead only once the chair confirms it, knowing
+ * it is not valid business. Null when it may go ahead.
+ */
+function quorumConfirmed(
+  state: MeetingState,
+  confirmed: boolean | undefined,
+  question: string,
+): ValidationResult | null {
+  if (attendanceSummary(state).hasQuorum || confirmed) return null;
+  if (state.currentMotion && NO_QUORUM_NEEDED.has(state.currentMotion.type)) return null;
+  return {
+    valid: false,
+    error: `There is no quorum. Business done now is not valid. ${question}`,
+    errorCode: 'NO_QUORUM',
+  };
+}
+
+/** A pending motion Robbie no longer offers, from a live meeting saved earlier, isn't put */
+function notOffered(state: MeetingState): ValidationResult | null {
+  const reason = pendingNotOffered(state);
+  return reason ? { valid: false, error: reason, errorCode: 'MOTION_NOT_OFFERED' } : null;
+}
+
+/** The error code for each kind of reason a motion is out of order */
+const OUT_OF_ORDER_CODES: Record<OutOfOrder['kind'], ActionErrorCode> = {
+  unknown: 'UNKNOWN_MOTION_TYPE',
+  'not-offered': 'MOTION_NOT_OFFERED',
+  'not-in-session': 'MEETING_NOT_ACTIVE',
+  adjourning: 'ADJOURNMENT_CARRIED',
+  recess: 'IN_RECESS',
+  'point-pending': 'POINT_OF_ORDER_PENDING',
+  voting: 'VOTING_IN_PROGRESS',
+  'awaiting-second': 'MOTION_PRECEDENCE_VIOLATION',
+  election: 'ELECTION_IN_PROGRESS',
+  agenda: 'AGENDA_NOT_ADOPTED',
+  'agenda-adopted': 'AGENDA_ALREADY_ADOPTED',
+  'debate-closed': 'DEBATE_CLOSED',
+  precedence: 'MOTION_PRECEDENCE_VIOLATION',
+};
+
+/** The chair rules on a point of order before anything else happens */
+const POINT_PENDING: ValidationResult = {
+  valid: false,
+  error: 'The chair rules on the point of order first',
+  errorCode: 'POINT_OF_ORDER_PENDING',
+};
+
+/**
+ * Whether a motion is in order now (motionOutOfOrder in shared, which the screens use too), with
+ * the words and details it needs, and not renewing a defeated one. The same for every way a
+ * motion is made.
  */
 function validateMotionInOrder(state: MeetingState, action: NewMotion): ValidationResult {
   if (!state.meetingActive) {
     return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
-  }
-  // A motion made during a vote would become the pending question and take over the votes
-  // already cast, and one made while another awaits a second would replace it
-  if (state.votingOpen) {
-    return {
-      valid: false,
-      error: 'No motion can be made while a vote is in progress',
-      errorCode: 'VOTING_IN_PROGRESS',
-    };
-  }
-  if (state.pendingSecond) {
-    return {
-      valid: false,
-      error: 'Another motion is waiting for a second',
-      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-    };
   }
   // Validate motion text length
   if (action.text && action.text.length > 500) {
@@ -134,33 +174,26 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       errorCode: 'UNKNOWN_MOTION_TYPE',
     };
   }
-  // An election holds the floor until it is finished or set aside: only a privileged motion
-  // (adjourn, recess) or an incidental one (a point of order, an inquiry) may interrupt it
-  if (
-    isElectionUnderway(state) &&
-    definition.category !== 'privileged' &&
-    definition.category !== 'incidental'
-  ) {
+  const outOfOrder = motionOutOfOrder(state, action.motionType);
+  if (outOfOrder) {
     return {
       valid: false,
-      error: 'Finish or set aside the election first',
-      errorCode: 'ELECTION_IN_PROGRESS',
+      error: outOfOrder.reason,
+      errorCode: OUT_OF_ORDER_CODES[outOfOrder.kind],
     };
   }
   // Motions whose effect depends on details: without them the motion could be adopted and
   // then do nothing
   const missingDetails =
-    (action.motionType === 'takeFromTable' &&
-      !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
-    (action.motionType === 'reconsider' &&
-      !state.completedMotions.some(
-        (m) => m.id === action.reconsideredMotionId && m.reconsiderable !== false,
-      )) ||
-    (action.motionType === 'suspendRules' &&
-      !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
     (action.motionType === 'bylawAmendment' &&
       !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
-    (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
+    (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action) ||
+    (action.motionType === 'postponeDefinite' &&
+      !(
+        action.postponeTo?.kind === 'next-meeting' ||
+        (action.postponeTo?.kind === 'later' && action.postponeTo.when.trim())
+      )) ||
+    (action.motionType === 'referCommittee' && !action.referTo?.trim());
   if (missingDetails) {
     return {
       valid: false,
@@ -168,30 +201,11 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       errorCode: 'INVALID_ACTION',
     };
   }
-  // A bylaw amendment's words are the text the room sees and the sync applies
-  if (wordingFixedBy(state, action.motionType)) {
-    return { valid: false, error: BYLAW_WORDING_FIXED, errorCode: 'INVALID_ACTION' };
-  }
-  // A secondary amendment is in order only on a pending primary amendment; its numeric
-  // precedence can't express that, so it is checked by type instead
-  if (action.motionType === 'amendAmendment') {
-    if (!isSecondaryAmendmentInOrder(state)) {
-      return {
-        valid: false,
-        error: 'Amend the Amendment is only in order while an amendment is pending',
-        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-      };
-    }
-  } else if (state.currentMotion) {
-    // Check precedence if there's a current motion
-    const currentDef = MOTIONS[state.currentMotion.type];
-    if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
-      return {
-        valid: false,
-        error: `Cannot make ${definition.name} while ${currentDef.name} is pending`,
-        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-      };
-    }
+  // An amendment says what it changes, and the words it strikes or inserts after are there: what
+  // is adopted is applied to the words beneath it
+  const amendmentProblem = textAmendmentCheck(state, action);
+  if (amendmentProblem) {
+    return { valid: false, error: amendmentProblem, errorCode: 'INVALID_ACTION' };
   }
   // Block renewal of substantially similar defeated motions (by subject matter for main motions)
   if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
@@ -202,6 +216,21 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
     };
   }
   return { valid: true };
+}
+
+/** Why an amendment can't apply to the words it amends, or null (or for another motion) */
+function textAmendmentCheck(state: MeetingState, action: NewMotion): string | null {
+  if (action.motionType !== 'amend' && action.motionType !== 'amendAmendment') return null;
+  const change = action.textAmendment;
+  if (!change) return 'Say what the amendment changes: words to insert, strike or replace';
+  const pending = state.currentMotion;
+  if (!pending) return null;
+  if (action.motionType === 'amend') return textAmendmentProblem(pending.text, change);
+  // A secondary amendment changes the words the primary amendment inserts
+  if (!pending.textAmendment || pending.textAmendment.form === 'strike') {
+    return 'The amendment inserts no words to amend';
+  }
+  return textAmendmentProblem(pending.textAmendment.insert, change);
 }
 
 /** A person the chair names from the floor as mover or seconder: a member present, not a guest */
@@ -264,6 +293,62 @@ function checkFloorName(name: unknown, required: boolean): ValidationResult {
   return { valid: true };
 }
 
+/**
+ * What waits while a point of order is before the chair: the business it interrupted, and its
+ * vote. Only the ruling (CHAIR_RULING) settles it; the chair can still adjourn.
+ */
+const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'SECOND_MOTION',
+  'SECOND_FROM_FLOOR',
+  'DECLINE_SECOND',
+  'OPEN_VOTING',
+  'CAST_VOTE',
+  'SET_FLOOR_TALLY',
+  'CLOSE_VOTING',
+  'REQUEST_UNANIMOUS_CONSENT',
+  'UNANIMOUS_CONSENT_PASSED',
+  'OBJECT_TO_CONSENT',
+  'WITHDRAW_MOTION',
+  'MODIFY_MOTION',
+  'RAISE_HAND',
+  'RECOGNIZE_SPEAKER',
+  'CALL_AGENDA_ITEM',
+  'COMPLETE_AGENDA_ITEM',
+  'OPEN_NOMINATIONS',
+  'CLOSE_NOMINATIONS',
+  'START_ELECTION',
+  'CLOSE_ELECTION',
+  'DECLARE_ELECTED',
+]);
+
+/** What can happen in a recess: the chair resumes or adjourns; the room's count is kept */
+const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'RESUME_MEETING',
+  'END_MEETING',
+  'MARK_PRESENT',
+  'MARK_ABSENT',
+  'SET_HEADCOUNT',
+  'SET_QUORUM',
+  'LOWER_HAND',
+  'ASK_INQUIRY',
+  'ANSWER_INQUIRY',
+  'SET_SPEAKER_TIME_LIMIT',
+  'SET_VOTE_TIME_LIMIT',
+  'SET_VOTING_METHOD',
+  'SET_AUTO_YIELD',
+  'SET_MEMBER_ROLE',
+]);
+
+/** What can happen once an adjournment has carried: the chair declares the meeting adjourned */
+const ADJOURNING_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'END_MEETING',
+  'MARK_PRESENT',
+  'MARK_ABSENT',
+  'SET_HEADCOUNT',
+  'LOWER_HAND',
+  'SET_MEMBER_ROLE',
+]);
+
 /** Business from the floor is recorded by the chair or an admin presiding */
 const NOT_PRESIDING: ValidationResult = {
   valid: false,
@@ -302,6 +387,28 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     };
   }
 
+  // In a recess nothing happens but the chair resuming (or adjourning) and the count of the
+  // room; once an adjournment has carried, only the chair's declaring it
+  if (state.recess && !isServerOnly(action.type) && !IN_RECESS_ALLOWED.has(action.type)) {
+    return {
+      valid: false,
+      error: 'The meeting is in recess: the chair resumes it first',
+      errorCode: 'IN_RECESS',
+    };
+  }
+  if (
+    state.adjournmentCarried &&
+    !isServerOnly(action.type) &&
+    !ADJOURNING_ALLOWED.has(action.type)
+  ) {
+    return {
+      valid: false,
+      error: 'The meeting has voted to adjourn: the chair declares it adjourned',
+      errorCode: 'ADJOURNMENT_CARRIED',
+    };
+  }
+  if (awaitingRuling(state) && WAITS_FOR_RULING.has(action.type)) return POINT_PENDING;
+
   switch (action.type) {
     case 'START_MEETING':
       if (state.meetingActive) {
@@ -318,8 +425,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
       }
       // The console offers no Adjourn while a vote or an election's ballot is open: the vote is
-      // closed (or the election set aside) first, so no ballot is left undecided
-      if (state.votingOpen || state.currentElection?.votingInProgress) {
+      // closed (or the election set aside) first, so no ballot is left undecided. An adjournment
+      // that carried is declared whatever is open: what is left is unfinished business.
+      if (
+        state.votingOpen ||
+        (state.currentElection?.votingInProgress && !state.adjournmentCarried)
+      ) {
         return {
           valid: false,
           error: 'Close the vote before adjourning',
@@ -369,12 +480,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_PENDING_SECOND',
         };
       }
-      // RONR: the mover can't second their own motion (unless that rule is suspended)
-      if (
-        action.seconderId !== undefined &&
-        action.seconderId === state.pendingSecond.moverId &&
-        !isRuleSuspended(state, 'mover-cannot-second')
-      ) {
+      // RONR: the mover can't second their own motion
+      if (action.seconderId !== undefined && action.seconderId === state.pendingSecond.moverId) {
         return {
           valid: false,
           error: 'You cannot second your own motion',
@@ -402,11 +509,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           'seconder',
         );
         if (!seconder.valid) return seconder;
-        // RONR: the mover can't second their own motion (unless that rule is suspended)
-        if (
-          action.seconderMemberId === state.pendingSecond.moverId &&
-          !isRuleSuspended(state, 'mover-cannot-second')
-        ) {
+        // RONR: the mover can't second their own motion
+        if (action.seconderMemberId === state.pendingSecond.moverId) {
           return {
             valid: false,
             error: 'The mover cannot second their own motion',
@@ -440,7 +544,21 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (state.currentElection?.votingInProgress) {
         return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
       }
-      return { valid: true };
+      // A motion awaiting a second is settled first: the vote would decide the question beneath
+      // it, and the motion would then be seconded onto what is left
+      if (state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'A motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
+      return (
+        notOffered(state) ??
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Open the vote anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'CAST_VOTE': {
       const notVoting = checkVoterPresent(state, action.voterId);
@@ -448,7 +566,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.votingMethod === 'voice') {
+      if (state.votingMethod === 'voice' && !state.divisionCalled) {
         return {
           valid: false,
           error: 'This is a voice vote: the chair counts it in the room',
@@ -457,16 +575,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       // A member who has voted may change the vote until the result is announced (RONR); the
       // reducer moves the count from the old choice to the new one
-      // Chair voting restriction (unless suspended): the chair votes only when the vote would
+      // The chair votes only when the vote would
       // change the result. That is checked here, not taken from the client's flag.
       {
         const voter = state.members.find((m) => m.id === action.voterId);
         // On a secret ballot the chair votes like any member (RONR)
-        if (
-          voter?.role === 'chair' &&
-          state.votingMethod !== 'ballot' &&
-          !isRuleSuspended(state, 'chair-voting-restriction')
-        ) {
+        if (voter?.role === 'chair' && state.votingMethod !== 'ballot') {
           // Judge on everyone else's votes, on devices and in the room, leaving out a vote the
           // chair already cast
           const previous = state.voterChoices[action.voterId];
@@ -496,7 +610,11 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // A voice vote is counted only in the room: closing it with nothing entered would decide
       // the question on no votes at all
       const floor = state.floorVotes ?? NO_VOTES;
-      if (state.votingMethod === 'voice' && floor.yea + floor.nay + floor.abstain === 0) {
+      if (
+        state.votingMethod === 'voice' &&
+        !state.divisionCalled &&
+        floor.yea + floor.nay + floor.abstain === 0
+      ) {
         return {
           valid: false,
           error: 'Enter the show of hands before closing',
@@ -511,15 +629,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
       // The chair's deciding vote was judged on the tally as it stood: a tally entered after
-      // it could leave the chair's vote cast where it no longer decides anything (unless the
-      // chair voting restriction is suspended, and the chair votes like anyone)
+      // it could leave the chair's vote cast where it no longer decides anything
       const chair = state.members.find((m) => m.role === 'chair');
-      if (
-        chair &&
-        state.votingMethod !== 'ballot' &&
-        !isRuleSuspended(state, 'chair-voting-restriction') &&
-        state.voters.includes(chair.id)
-      ) {
+      if (chair && state.votingMethod !== 'ballot' && state.voters.includes(chair.id)) {
         return {
           valid: false,
           error: 'The floor tally must be entered before the chair votes',
@@ -551,16 +663,10 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'WITHDRAW_MOTION': {
+      // The motion awaiting a second, or else the immediately pending one
       const motionToWithdraw = state.pendingSecond || state.currentMotion;
       if (!motionToWithdraw) {
         return { valid: false, error: 'No motion to withdraw', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      if (motionToWithdraw.moverId !== action.requesterId) {
-        return {
-          valid: false,
-          error: 'Only the motion maker can withdraw their motion',
-          errorCode: 'NOT_MOTION_MAKER',
-        };
       }
       if (state.votingOpen) {
         return {
@@ -569,8 +675,82 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'VOTING_IN_PROGRESS',
         };
       }
+      if (motionToWithdraw.type === 'withdrawMotion') {
+        return {
+          valid: false,
+          error: 'The request to withdraw is before the meeting',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      // The mover asks on their phone; the chair records the request of a mover in the room,
+      // whoever they are (one recorded by a typed name has no account to ask from)
+      if (action.fromFloor) {
+        if (!isPresiding(state, action.requesterId)) return NOT_PRESIDING;
+      } else if (motionToWithdraw.moverId !== action.requesterId) {
+        return {
+          valid: false,
+          error: 'Only the motion maker can withdraw their motion',
+          errorCode: 'NOT_MOTION_MAKER',
+        };
+      }
+      // Once stated, the request is put to the meeting as a question of its own
+      if (!state.pendingSecond && action.motionId === undefined) {
+        return {
+          valid: false,
+          error: 'The request to withdraw needs an id',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       return { valid: true };
     }
+
+    case 'TAKE_UP_POSTPONED': {
+      if (!state.meetingActive) {
+        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+      }
+      // Taken up when the floor is clear, as new business is
+      if (
+        state.currentMotion ||
+        state.pendingSecond ||
+        state.votingOpen ||
+        isElectionUnderway(state)
+      ) {
+        return {
+          valid: false,
+          error: 'Settle the pending business first',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
+      const postponed = (state.postponedMotions ?? []).some(
+        (p) => p.motions[0]?.id === action.motionId,
+      );
+      if (!postponed) {
+        return {
+          valid: false,
+          error: 'That motion is not postponed to later in this meeting',
+          errorCode: 'ITEM_NOT_FOUND',
+        };
+      }
+      return { valid: true };
+    }
+
+    case 'REQUEST_DIVISION':
+      // On a voice vote, before the chair announces it
+      if (!state.votingOpen || state.votingMethod !== 'voice') {
+        return {
+          valid: false,
+          error: 'A division is called on a voice vote, before the result is announced',
+          errorCode: 'VOTING_METHOD',
+        };
+      }
+      if (action.fromFloor && !isPresiding(state, action.requesterId)) return NOT_PRESIDING;
+      return { valid: true };
+
+    case 'RESUME_MEETING':
+      if (!state.recess) {
+        return { valid: false, error: 'The meeting is not in recess', errorCode: 'INVALID_STATE' };
+      }
+      return { valid: true };
 
     case 'MODIFY_MOTION': {
       const motionToModify = state.pendingSecond || state.currentMotion;
@@ -583,6 +763,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return {
           valid: false,
           error: BYLAW_WORDING_FIXED,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      // A motion worded from its details (an amendment's change, a postponement, a referral, a
+      // recess, a request to withdraw) is changed only by making it again: its words are what
+      // adoption applies
+      if (
+        motionToModify.textAmendment ||
+        motionToModify.postponeTo ||
+        motionToModify.referTo ||
+        motionToModify.recessUntil ||
+        motionToModify.type === 'withdrawMotion'
+      ) {
+        return {
+          valid: false,
+          error: 'Its words come from what it does: withdraw it and move it again',
           errorCode: 'INVALID_ACTION',
         };
       }
@@ -625,36 +821,31 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'RAISE_HAND': {
-      if (!state.currentMotion) {
-        return { valid: false, error: 'No motion on the floor', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      if (!state.currentMotion.debatable) {
+      // In session with nothing pending (an open forum, questions on a report), or while a
+      // debatable question's debate is open; members may change sides (RONR doesn't forbid it)
+      if (state.currentMotion?.debateClosed) {
         return {
           valid: false,
-          error: 'Current motion is not debatable',
-          errorCode: 'MOTION_NOT_DEBATABLE',
+          error: 'Debate is closed: the question is put to the vote',
+          errorCode: 'DEBATE_CLOSED',
         };
       }
-      // Check if already in queue
+      if (!floorOpenForDebate(state)) {
+        return {
+          valid: false,
+          error: state.votingOpen
+            ? 'A vote is in progress'
+            : state.currentMotion
+              ? 'The question before the meeting is not debatable'
+              : state.pendingSecond
+                ? 'The motion is waiting for a second'
+                : 'The meeting is not in session',
+          errorCode: state.currentMotion ? 'MOTION_NOT_DEBATABLE' : 'NO_CURRENT_MOTION',
+        };
+      }
       const alreadyInQueue = state.speakerQueue.some((e) => e.member.id === action.member.id);
       if (alreadyInQueue) {
         return { valid: false, error: 'Already in speaker queue', errorCode: 'ALREADY_IN_QUEUE' };
-      }
-      // Check for side-switching (member already spoke with different stance)
-      if (action.stance !== 'neutral') {
-        const previousStance = state.debatePositions[action.member.id];
-        if (previousStance && previousStance !== action.stance) {
-          const debateRulesSuspended = state.suspendedRules.some(
-            (s) => s.rule === 'debate-rules' && !s.actionCompleted,
-          );
-          if (!debateRulesSuspended) {
-            return {
-              valid: false,
-              error: `You already spoke ${previousStance} on this motion. Cannot switch to ${action.stance}.`,
-              errorCode: 'CANNOT_SWITCH_SIDES',
-            };
-          }
-        }
       }
       return { valid: true };
     }
@@ -668,6 +859,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'RECOGNIZE_SPEAKER': {
+      if (state.currentMotion?.debateClosed) {
+        return {
+          valid: false,
+          error: 'Debate is closed: the question is put to the vote',
+          errorCode: 'DEBATE_CLOSED',
+        };
+      }
       const speakerInQueue = state.speakerQueue.some((e) => e.member.id === action.member.id);
       if (!speakerInQueue) {
         return { valid: false, error: 'Member is not in speaker queue', errorCode: 'NOT_IN_QUEUE' };
@@ -679,25 +877,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'SPEAKER_HAS_FLOOR',
         };
       }
-      // Enforce motion-maker-priority: mover speaks first unless rule is suspended
-      if (
-        state.currentMotion &&
-        state.currentMotion.debatable &&
-        !state.currentMotion.moverHasSpoken &&
-        moverCanClaimFloor(state.currentMotion, state.members)
-      ) {
-        const isMover = state.currentMotion.moverId === action.member.id;
-        const prioritySuspended = state.suspendedRules.some(
-          (s) => s.rule === 'motion-maker-priority' && !s.actionCompleted,
-        );
-        if (!isMover && !prioritySuspended) {
-          const mover = state.members.find((m) => m.id === state.currentMotion?.moverId);
-          return {
-            valid: false,
-            error: `Motion maker (${mover?.name || 'the mover'}) must speak first`,
-            errorCode: 'MOVER_SPEAKS_FIRST',
-          };
-        }
+      // The mover speaks first if they have asked to (RONR 42:9); otherwise anyone waiting
+      if (moverClaimsFloor(state) && state.currentMotion?.moverId !== action.member.id) {
+        return {
+          valid: false,
+          error: `${state.currentMotion?.mover ?? 'The mover'} moved it and asked to speak: recognize them first`,
+          errorCode: 'MOVER_SPEAKS_FIRST',
+        };
       }
       return { valid: true };
     }
@@ -731,7 +917,11 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'AGENDA_ALREADY_ADOPTED',
         };
       }
-      return { valid: true };
+      return (
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Adopt the agenda anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'AGENDA_OBJECTION':
       if (state.agendaAdopted) {
@@ -789,6 +979,36 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.currentMotion) {
         return { valid: false, error: 'No motion on the floor', errorCode: 'NO_CURRENT_MOTION' };
       }
+      // Asked on the question before the meeting: not while a vote is open or a motion waits
+      // for a second, and not on an appeal, which the members decide by a vote
+      if (state.votingOpen) {
+        return {
+          valid: false,
+          error: 'A vote is in progress',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'A motion is waiting for a second',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
+      if (state.currentMotion.type === 'appeal') {
+        return {
+          valid: false,
+          error: 'An appeal is decided by a vote',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      if (state.currentElection?.votingInProgress) {
+        return { valid: false, error: 'A ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
+      }
+      {
+        const refused = notOffered(state);
+        if (refused) return refused;
+      }
       if (state.unanimousConsentPending) {
         return {
           valid: false,
@@ -806,17 +1026,32 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NO_CONSENT_PENDING',
         };
       }
+      // An objection from the floor is recorded by the chair for someone in the room
+      if (action.fromFloor) {
+        if (!isPresiding(state, action.objectorId)) return NOT_PRESIDING;
+        const name = checkFloorName(action.floorObjector, false);
+        if (!name.valid) return name;
+      }
       return { valid: true };
 
     case 'UNANIMOUS_CONSENT_PASSED':
-      if (!state.unanimousConsentPending) {
+      // Only the question the chair asked about is adopted without objection
+      if (
+        !state.unanimousConsentPending ||
+        !state.currentMotion ||
+        (state.consentMotionId != null && state.consentMotionId !== state.currentMotion.id)
+      ) {
         return {
           valid: false,
           error: 'No unanimous consent request pending',
           errorCode: 'NO_CONSENT_PENDING',
         };
       }
-      return { valid: true };
+      return (
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Adopt it anyway?') ?? {
+          valid: true,
+        }
+      );
 
     case 'APPROVE_MINUTES':
       if (state.minutesApproved) {
@@ -945,7 +1180,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'START_ELECTION':
+    case 'START_ELECTION': {
       if (state.currentElection) {
         return {
           valid: false,
@@ -953,6 +1188,20 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ELECTION_IN_PROGRESS',
         };
       }
+      // A motion made during the election (adjourn, recess, a point of order) is settled first
+      if (state.currentMotion || state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Settle the pending motion first',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      const confirmation = quorumConfirmed(
+        state,
+        action.confirmedWithoutQuorum,
+        'Open the ballot anyway?',
+      );
+      if (confirmation) return confirmation;
       // A ballot on a motion and a ballot for an office at once would mix up the voting
       if (state.votingOpen) {
         return {
@@ -971,6 +1220,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+    }
 
     case 'SET_ASIDE_ELECTION':
       if (!isElectionUnderway(state)) {
@@ -1163,13 +1413,27 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'CHAIR_RULING':
-      // A ruling pops the pending motion; during a vote that would leave the vote open with
-      // nothing to decide, and closing it would then drop the motion underneath undecided
-      if (state.votingOpen) {
+      // The chair rules on a point of order, which takes no vote. A motion is decided by a vote
+      // or by unanimous consent, never by a ruling, which would take it off the floor with no
+      // record of its fate.
+      if (!awaitingRuling(state)) {
         return {
           valid: false,
-          error: 'The chair cannot rule while a vote is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
+          error: 'There is no point of order to rule on',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      // Out of order: the point is well taken, about a motion awaiting a second or beneath it
+      if (
+        action.outOfOrder &&
+        (action.ruling !== 'sustain' ||
+          state.currentMotion?.type !== 'pointOrder' ||
+          (!state.pendingSecond && state.motionStack.length < 2))
+      ) {
+        return {
+          valid: false,
+          error: 'Only a point of order well taken rules a pending motion out of order',
+          errorCode: 'INVALID_ACTION',
         };
       }
       if (
@@ -1292,7 +1556,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
-      if (state.votingMethod === 'voice') {
+      if (state.votingMethod === 'voice' && !state.divisionCalled) {
         return {
           valid: false,
           error: 'This is a voice vote: the chair counts it in the room',
@@ -1657,8 +1921,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_PREVIOUS_MINUTES':
     case 'ADD_COMMITTEE_REPORT':
-    case 'SUSPEND_RULE_APPROVED':
       return { valid: true };
+
+    case 'SUSPEND_RULE_APPROVED':
+      return {
+        valid: false,
+        error:
+          "Suspend the rules isn't offered in Robbie: the meeting follows its rules as they are",
+        errorCode: 'MOTION_NOT_OFFERED',
+      };
 
     default: {
       // Every action type needs a case above; this fails to compile if one is missing

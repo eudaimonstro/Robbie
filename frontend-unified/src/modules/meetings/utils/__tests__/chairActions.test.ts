@@ -45,14 +45,16 @@ describe('chairActions', () => {
     expect(next[0].make()).toMatchObject({ type: 'CALL_AGENDA_ITEM', id: 1 });
   });
 
-  it('completes the current item, or puts it to a vote as put by the chair', () => {
+  it('completes the current item, or puts a question the chair words, as put by the chair', () => {
     const state: MeetingState = {
       ...adopted,
       currentAgendaItem: { id: 2, title: "Treasurer's report", status: 'active' },
     };
     const actions = chairActions(state, 2);
-    expect(actions.map((a) => a.id)).toEqual(['complete-item', 'put-item', 'adjourn']);
+    expect(actions.map((a) => a.id)).toEqual(['complete-item', 'put-question', 'adjourn']);
     expect(actions.map((a) => a.tone)).toEqual(['primary', 'secondary', 'secondary']);
+    // The console asks for the words first
+    expect(actions[1]).toMatchObject({ label: 'Put a question', confirm: true });
     expect(actions[1].make()).toMatchObject({
       type: 'MAKE_MOTION',
       motionType: 'mainMotion',
@@ -64,7 +66,7 @@ describe('chairActions', () => {
     expect(chairActions(state, null).map((a) => a.id)).toEqual(['complete-item', 'adjourn']);
   });
 
-  it('leaves the approval of the minutes to their card until they are approved', () => {
+  it('approves the minutes as read, the next step until they are approved', () => {
     const state: MeetingState = {
       ...adopted,
       currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
@@ -72,10 +74,15 @@ describe('chairActions', () => {
     };
     const tones = (s: MeetingState) => chairActions(s, 2).map((a) => [a.id, a.tone]);
     expect(tones(state)).toEqual([
+      ['approve-minutes', 'primary'],
       ['complete-item', 'secondary'],
-      ['put-item', 'secondary'],
+      ['put-question', 'secondary'],
       ['adjourn', 'secondary'],
     ]);
+    expect(chairActions(state, 2)[0]).toMatchObject({ label: 'Approve as read' });
+    expect(chairActions(state, 2)[0].make()).toEqual(
+      expect.objectContaining({ type: 'APPROVE_MINUTES' }),
+    );
     expect(tones({ ...state, minutesApproved: true })[0]).toEqual(['complete-item', 'primary']);
   });
 
@@ -108,7 +115,7 @@ describe('chairActions', () => {
     expect(actions.map((a) => [a.id, a.tone])).toEqual([
       ['adjourn', 'primary'],
       ['complete-item', 'secondary'],
-      ['put-item', 'secondary'],
+      ['put-question', 'secondary'],
     ]);
     expect(actions[0].make()).toMatchObject({ type: 'END_MEETING' });
     // Adjourning asks first, wherever it is offered
@@ -118,7 +125,7 @@ describe('chairActions', () => {
       chairActions(state, 2)
         .filter((a) => a.confirm)
         .map((a) => a.id),
-    ).toEqual(['adjourn']);
+    ).toEqual(['adjourn', 'put-question']);
   });
 
   it('offers no adjournment while a question is pending, a vote is open or a ballot runs (the ballot can be set aside)', () => {
@@ -145,21 +152,62 @@ describe('chairActions', () => {
           elected: null,
         },
       }),
-    ).toEqual(['set-aside']);
+    ).toEqual(['close-ballot', 'set-aside']);
   });
 
   it('declares no second while a motion waits for one', () => {
-    expect(ids({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })).toEqual([
-      'no-second',
+    const awaiting = { ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) };
+    expect(ids(awaiting)).toEqual(['no-second', 'floor-withdraw']);
+    // The chair records the mover in the room taking it back
+    const withdraw = chairActions(awaiting, 2)[1];
+    expect(withdraw.label).toBe('The mover withdraws it');
+    expect(withdraw.make()).toMatchObject({ type: 'WITHDRAW_MOTION', fromFloor: true });
+  });
+
+  it('asks before opening a vote without a quorum, except to adjourn or recess', () => {
+    const present = (id: number) => ({
+      id,
+      name: `M${id}`,
+      role: 'member' as const,
+      present: true,
+    });
+    const thin = { ...adopted, quorum: 10, members: [present(3), present(4)] };
+    const [open] = chairActions({ ...thin, currentMotion: motion('mainMotion') }, 2);
+    expect(open).toMatchObject({ id: 'open-vote', confirm: true });
+    expect(open.make()).toMatchObject({ type: 'OPEN_VOTING', confirmedWithoutQuorum: true });
+    const [adjourning] = chairActions({ ...thin, currentMotion: motion('adjourn') }, 2);
+    expect(adjourning.confirm).toBeUndefined();
+    expect(adjourning.make()).not.toHaveProperty('confirmedWithoutQuorum');
+  });
+
+  it("puts the mover's request to withdraw by unanimous consent, an appeal by a vote", () => {
+    const request = { ...adopted, currentMotion: motion('withdrawMotion', { secondedBy: null }) };
+    expect(chairActions(request, 2).map((a) => [a.id, a.tone])).toEqual([
+      ['consent', 'primary'],
+      ['open-vote', 'secondary'],
     ]);
+    expect(chairActions({ ...request, unanimousConsentPending: true }, 2)[0].label).toBe(
+      'No objection: withdrawn',
+    );
+    expect(ids({ ...adopted, currentMotion: motion('appeal') })).toEqual(['open-vote']);
   });
 
   it('opens the vote or asks for unanimous consent on a seconded motion', () => {
     const state = { ...adopted, currentMotion: motion('mainMotion') };
     const actions = chairActions(state, 2);
-    expect(actions.map((a) => a.label)).toEqual(['Open the vote', 'Ask for unanimous consent']);
+    expect(actions.map((a) => a.label)).toEqual([
+      'Open the vote',
+      'Ask for unanimous consent',
+      'The mover asks to withdraw it',
+    ]);
     expect(actions[0].make()).toMatchObject({ type: 'OPEN_VOTING' });
-    expect(ids({ ...state, unanimousConsentPending: true })).toEqual(['adopted', 'open-vote']);
+    expect(ids({ ...state, unanimousConsentPending: true })).toEqual([
+      'adopted',
+      'floor-objection',
+    ]);
+    const [, objection] = chairActions({ ...state, unanimousConsentPending: true }, 2);
+    expect(objection.label).toBe('Objection from the floor');
+    expect(objection.make()).toMatchObject({ type: 'OBJECT_TO_CONSENT', fromFloor: true });
   });
 
   it('gives the chair a ruling on a call for the orders of the day', () => {
@@ -172,13 +220,108 @@ describe('chairActions', () => {
   it('rules on a point of order', () => {
     const state = { ...adopted, currentMotion: motion('pointOrder', { secondedBy: null }) };
     expect(chairActions(state, 2).map((a) => a.label)).toEqual([
-      'Sustain the point',
-      'Overrule the point',
+      'Rule the point well taken',
+      'Rule the point not well taken',
     ]);
+  });
+
+  it('rules on a point of order raised during a vote or while a motion awaits a second', () => {
+    const point = motion('pointOrder', { secondedBy: null });
+    const main = motion('mainMotion');
+    const voting = {
+      ...adopted,
+      currentMotion: point,
+      motionStack: [main, point],
+      votingOpen: true,
+    };
+    expect(ids(voting)).toEqual(['sustain', 'out-of-order', 'overrule']);
+    expect(chairActions(voting, 2)[1]).toMatchObject({ label: 'Rule the motion out of order' });
+    expect(chairActions(voting, 2)[1].make()).toMatchObject({
+      type: 'CHAIR_RULING',
+      ruling: 'sustain',
+      outOfOrder: true,
+    });
+    const awaiting = {
+      ...adopted,
+      currentMotion: point,
+      motionStack: [point],
+      pendingSecond: motion('mainMotion', { secondedBy: null }),
+    };
+    expect(ids(awaiting)).toEqual(['sustain', 'out-of-order', 'overrule']);
+    // Nothing is recorded from the floor until the chair rules
+    expect(floorActions(awaiting)).toEqual([]);
   });
 
   it('leaves closing a vote to the vote panel, and an election to the election panel', () => {
     expect(ids({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual([]);
+  });
+
+  it('declares the meeting adjourned once an adjournment carries, and nothing else', () => {
+    const pending = { ...adopted, currentMotion: motion('mainMotion'), adjournmentCarried: true };
+    const actions = chairActions(pending, 2);
+    expect(actions.map((a) => a.label)).toEqual(['Declare the meeting adjourned']);
+    expect(actions[0]).toMatchObject({ tone: 'primary' });
+    expect(actions[0].confirm).toBeUndefined();
+    expect(actions[0].make()).toMatchObject({ type: 'END_MEETING' });
+  });
+
+  it('resumes the meeting from a recess, or adjourns it', () => {
+    const recess = { ...adopted, recess: { since: '8:02 PM', until: '8:15 PM' } };
+    expect(ids(recess)).toEqual(['resume', 'adjourn']);
+    expect(chairActions(recess, 2)[0].make()).toMatchObject({ type: 'RESUME_MEETING' });
+  });
+
+  it('takes up a question postponed to later in the meeting when the floor is clear', () => {
+    const postponed = {
+      ...adopted,
+      postponedMotions: [{ motions: [motion('mainMotion', { id: 9 })], when: '8:30 PM' }],
+    };
+    const takeUp = chairActions(postponed, 2).find((a) => a.id === 'take-up-9');
+    expect(takeUp?.label).toBe('Take up: Approve the pool contract');
+    expect(takeUp?.make()).toMatchObject({ type: 'TAKE_UP_POSTPONED', motionId: 9 });
+  });
+
+  it('puts nothing to a vote or consent while a ballot is open, or a motion no longer offered', () => {
+    const balloting = {
+      ...adopted,
+      currentMotion: motion('recess'),
+      currentElection: {
+        id: 1,
+        position: 'Treasurer',
+        candidates: [{ name: 'Ben', id: 4 }],
+        requiredVotes: 'majority' as const,
+        votingInProgress: true,
+        ballotResults: {},
+        votersWhoVoted: [],
+        elected: null,
+      },
+    };
+    expect(ids(balloting)).toEqual(['floor-withdraw']);
+    const old = { ...adopted, currentMotion: motion('layOnTable') };
+    expect(ids(old)).toEqual(['floor-withdraw']);
+  });
+
+  it('asks before adopting by consent or adopting the agenda without a quorum', () => {
+    const present = (id: number) => ({
+      id,
+      name: `M${id}`,
+      role: 'member' as const,
+      present: true,
+    });
+    const thin = { ...adopted, quorum: 10, members: [present(3)] };
+    const [adopted_] = chairActions(
+      { ...thin, currentMotion: motion('mainMotion'), unanimousConsentPending: true },
+      2,
+    );
+    expect(adopted_).toMatchObject({ id: 'adopted', confirm: true });
+    expect(adopted_.make()).toMatchObject({ confirmedWithoutQuorum: true });
+    const [adoptAgenda] = chairActions({ ...thin, agendaAdopted: false }, 2);
+    expect(adoptAgenda).toMatchObject({ id: 'adopt-agenda', confirm: true });
+    expect(adoptAgenda.make()).toMatchObject({ confirmedWithoutQuorum: true });
+    // With a quorum, no asking
+    expect(
+      chairActions({ ...thin, quorum: 1, agendaAdopted: false }, 2)[0].confirm,
+    ).toBeUndefined();
   });
 
   describe('business from the floor', () => {
@@ -201,27 +344,30 @@ describe('chairActions', () => {
     it('records a second from the floor while a motion waits for one', () => {
       expect(
         floor({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) }),
-      ).toEqual(['floor-second']);
+      ).toEqual(['floor-second', 'floor-motion']);
       expect(
         floorActions({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })[0]
           .label,
       ).toBe('Seconded from the floor');
     });
 
-    it('records nothing before the call to order, after the adjournment or while a question is up', () => {
+    it('records nothing before the call to order or after the adjournment', () => {
       expect(floor(initialState)).toEqual([]);
       expect(floor({ ...adopted, meetingStage: 'adjourned', meetingActive: false })).toEqual([]);
-      expect(floor({ ...adopted, currentMotion: motion('mainMotion') })).toEqual([]);
-      expect(floor({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual(
-        [],
-      );
+    });
+
+    it('records a motion from the floor while a question is up: an amendment, a point of order in a vote, adjourning in an election', () => {
+      const pending = { ...adopted, currentMotion: motion('mainMotion') };
+      pending.motionStack = [pending.currentMotion];
+      expect(floor(pending)).toEqual(['floor-motion']);
+      expect(floor({ ...pending, votingOpen: true })).toEqual(['floor-motion']);
       expect(
         floor({ ...adopted, nominationsOpen: true, currentNominationPosition: 'Treasurer' }),
-      ).toEqual([]);
+      ).toEqual(['floor-motion']);
     });
   });
 
-  it('leaves an election to the election card, but for setting it aside and adjourning, from nominations to the declaration', () => {
+  it("offers an election's next step, setting it aside and adjourning, from nominations to the declaration", () => {
     const elections: Partial<MeetingState>[] = [
       { nominationsOpen: true, currentNominationPosition: 'Director' },
       // Nominations closed, the ballot still to open
@@ -239,10 +385,47 @@ describe('chairActions', () => {
         },
       },
     ];
-    for (const election of elections) {
-      expect(ids({ ...adopted, ...election })).toEqual(['set-aside', 'adjourn']);
-      expect(floorActions({ ...adopted, ...election })).toEqual([]);
-    }
+    const next = [['close-nominations'], [], ['declare-elected']];
+    elections.forEach((election, index) => {
+      expect(ids({ ...adopted, ...election })).toEqual([...next[index], 'set-aside', 'adjourn']);
+      // Only adjourn, recess and a point of order are in order: the chair records them
+      expect(floorActions({ ...adopted, ...election }).map((a) => a.id)).toEqual(['floor-motion']);
+    });
+    expect(chairActions({ ...adopted, ...elections[2] }, 2)[0]).toMatchObject({
+      label: 'Declare Carmen Diaz elected',
+      tone: 'primary',
+    });
+  });
+
+  it("recognizes the first person waiting while debate is open, or ends the speaker's turn", () => {
+    const carl = { id: 5, name: 'Carl Moss', role: 'member' as const, present: true };
+    const pending = {
+      ...adopted,
+      currentMotion: motion('mainMotion'),
+      speakerQueue: [{ member: carl, stance: 'con' as const }],
+    };
+    pending.motionStack = [pending.currentMotion];
+    const actions = chairActions(pending, 2);
+    expect(actions.map((a) => [a.id, a.tone])).toEqual([
+      ['recognize', 'primary'],
+      ['open-vote', 'secondary'],
+      ['consent', 'secondary'],
+      ['floor-withdraw', 'secondary'],
+    ]);
+    expect(actions[0].label).toBe('Recognize Carl Moss');
+    expect(actions[0].make()).toMatchObject({ type: 'RECOGNIZE_SPEAKER', member: carl });
+    const speaking = { ...pending, speakerQueue: [], recognizedSpeaker: carl };
+    expect(chairActions(speaking, 2)[0]).toMatchObject({
+      label: "End Carl Moss's turn",
+      tone: 'secondary',
+    });
+    // In an open forum too, before the item's own steps
+    const forum = {
+      ...adopted,
+      currentAgendaItem: { id: 2, title: 'Homeowner forum', status: 'active' as const },
+      speakerQueue: [{ member: carl, stance: 'neutral' as const }],
+    };
+    expect(ids(forum).slice(0, 2)).toEqual(['recognize', 'complete-item']);
   });
 
   it('sets the election aside after asking first', () => {
@@ -263,10 +446,12 @@ describe('chairActions', () => {
     };
     expect(ids({ ...nominating, pendingSecond: motion('recess', { secondedBy: null }) })).toEqual([
       'no-second',
+      'floor-withdraw',
     ]);
     expect(ids({ ...nominating, currentMotion: motion('recess') })).toEqual([
       'open-vote',
       'consent',
+      'floor-withdraw',
     ]);
     expect(ids({ ...nominating, currentMotion: motion('pointOrder') })).toEqual([
       'sustain',

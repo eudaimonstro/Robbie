@@ -70,7 +70,44 @@ export interface Motion {
   fromFloor?: boolean;
   /** Put to the meeting by the chair from the agenda: mover is PUT_BY_CHAIR and moverId 0 */
   putByChair?: boolean;
+  /** An amendment's change to the words of the motion beneath it (amend, amendAmendment) */
+  textAmendment?: TextAmendment;
+  /** When a motion to postpone puts the question off to */
+  postponeTo?: Postponement;
+  /** Who a motion to refer sends the question to: "the board", "the landscaping committee" */
+  referTo?: string;
+  /** When a recess ends, as the mover gave it ("8:15 PM"), if they gave one */
+  recessUntil?: string;
+  /** The words as first moved, once an amendment has changed them */
+  originalText?: string;
+  /** Debate on this question was closed (close debate adopted): it is put to the vote */
+  debateClosed?: boolean;
+  /** For an appeal: the ruling appealed from, with what it removed */
+  appealOf?: ChairRulingNote;
 }
+
+/** A ruling of the chair, as an appeal from it needs it */
+export interface ChairRulingNote {
+  ruling: string;
+  motionText: string;
+  timestamp: string;
+  /** What a ruling of out of order removed, to put back if an appeal reverses it */
+  removed?: { motion: Motion; awaitingSecond: boolean };
+}
+
+/**
+ * An amendment's change to the words of the motion it amends (RONR 12): insert words (after
+ * the words given, or at the end), strike words, strike words and insert others in their place,
+ * or replace the whole text. The words struck, or inserted after, appear exactly once.
+ */
+export type TextAmendment =
+  | { form: 'insert'; insert: string; after?: string }
+  | { form: 'strike'; strike: string }
+  | { form: 'strikeInsert'; strike: string; insert: string }
+  | { form: 'substitute'; insert: string };
+
+/** When a question is postponed to: the next meeting, or later in this one ("8:30 PM") */
+export type Postponement = { kind: 'next-meeting' } | { kind: 'later'; when: string };
 
 /** The details some motions need, with the motion that names them */
 export interface MotionDetails {
@@ -80,6 +117,10 @@ export interface MotionDetails {
   tabledMotionId?: number;
   reconsideredMotionId?: number;
   dividedParts?: string[];
+  textAmendment?: TextAmendment;
+  postponeTo?: Postponement;
+  referTo?: string;
+  recessUntil?: string;
 }
 
 export interface AgendaAmendment {
@@ -222,13 +263,35 @@ export interface CompletedMotion {
   readonly agendaItemId?: number;
   /** Whether a quorum was present when it was decided, on a vote or by unanimous consent */
   readonly quorumPresent?: boolean;
+  /** The words as first moved, when amendments changed them (text is as decided) */
+  readonly originalText?: string;
+  /** Postponed: to when */
+  readonly postponedTo?: Postponement;
+  /** Referred: to whom */
+  readonly referredTo?: string;
+  /** Amendments pending on it when it left the floor (postponed or referred), by their words */
+  readonly pendingAmendments?: string[];
+  /** The vote was retaken as a counted vote after a member called for a division */
+  readonly division?: true;
+  /** Withdrawn once stated, with the meeting's permission (by unanimous consent or a vote) */
+  readonly withPermission?: true;
 }
 
 /**
  * How a motion was disposed of: carried or failed on a vote, adopted by unanimous consent,
- * withdrawn by its mover, or dead for want of a second
+ * withdrawn by its mover, dead for want of a second, postponed (to a later time, or
+ * indefinitely), referred, or ruled out of order by the chair
  */
-export type Disposition = 'carried' | 'failed' | 'unanimous' | 'withdrawn' | 'no-second';
+export type Disposition =
+  | 'carried'
+  | 'failed'
+  | 'unanimous'
+  | 'withdrawn'
+  | 'no-second'
+  | 'postponed'
+  | 'postponed-indefinitely'
+  | 'referred'
+  | 'out-of-order';
 
 /** A ruling of the chair on a point that takes no vote, as the minutes record it */
 export interface ChairRulingRecord {
@@ -237,6 +300,10 @@ export interface ChairRulingRecord {
   readonly explanation?: string;
   /** The point ruled on */
   readonly motionText: string;
+  /** Who raised the point */
+  readonly raisedBy?: string;
+  /** The motion the chair ruled out of order with it, by its words */
+  readonly outOfOrder?: string;
   readonly timestamp: string;
   readonly decidedAt?: string;
   readonly agendaItemId?: number;
@@ -277,6 +344,8 @@ export type UnfinishedBusinessRecord =
       readonly seconder?: string;
       /** Made, but not yet seconded */
       readonly awaitingSecond?: true;
+      /** Postponed to later in the meeting and not taken up again */
+      readonly postponed?: true;
       readonly agendaItemId?: number;
     }
   | {
@@ -335,7 +404,8 @@ export interface Officer {
   readonly decidedAt?: string;
 }
 
-export type InquiryType = 'parliamentary' | 'information';
+/** A question to the chair: about the rules, for information, or a question of privilege */
+export type InquiryType = 'parliamentary' | 'information' | 'privilege';
 
 export interface Inquiry {
   id: number;
@@ -385,6 +455,27 @@ export interface PendingProxyRequest {
   readonly declineReason?: string;
 }
 
+/** A recess, as the minutes record it */
+export interface RecessRecord {
+  /** When it began and ended, by the server's clock (ISO) */
+  readonly startedAt?: string;
+  readonly endedAt?: string;
+  readonly agendaItemId?: number;
+}
+
+/** A question postponed to later in this meeting: its main motion and what adhered to it */
+export interface PostponedQuestion {
+  readonly motions: Motion[];
+  /** "8:30 PM", "after the treasurer's report" */
+  readonly when: string;
+}
+
+/** How the agenda was adopted, as the minutes record it */
+export interface AgendaAdoptionRecord {
+  readonly how: 'consent' | 'motion';
+  readonly decidedAt?: string;
+}
+
 export interface RollCallRecord {
   memberId: number;
   memberName: string;
@@ -425,6 +516,8 @@ export interface MeetingState {
   votingOpen: boolean;
   votingMethod: VotingMethod;
   unanimousConsentPending: boolean;
+  /** The question the chair asked unanimous consent on; the request ends when it changes */
+  consentMotionId?: number | null;
   speakerQueue: SpeakerQueueEntry[];
   recognizedSpeaker: Member | null;
   lastSpeakerStance: DebateStance | null;
@@ -466,7 +559,20 @@ export interface MeetingState {
   /** Business left unfinished when the meeting last adjourned */
   unfinishedAtAdjournment: UnfinishedBusinessRecord[];
   suspendedRules: RuleSuspension[];
-  lastChairRuling: { ruling: string; motionText: string; timestamp: string } | null;
+  /** The latest ruling, while an appeal from it is in order (at once, before anything else) */
+  lastChairRuling: ChairRulingNote | null;
+  /** The meeting is in recess: since when (the chair's clock), and until when if set */
+  recess?: { since: string; until: string | null } | null;
+  /** The recesses taken, for the minutes */
+  recesses?: RecessRecord[];
+  /** A motion to adjourn carried: the chair declares the meeting adjourned next */
+  adjournmentCarried?: boolean;
+  /** Questions postponed to later in this meeting, for the chair to take up */
+  postponedMotions?: PostponedQuestion[];
+  /** How the agenda was adopted, once it is */
+  agendaAdoption?: AgendaAdoptionRecord | null;
+  /** A member called for a division on the open vote: it is counted, not by voice */
+  divisionCalled?: boolean;
   nominations: Nomination[];
   nominationsOpen: boolean;
   currentNominationPosition: string | null;
@@ -528,7 +634,14 @@ export type MeetingAction =
     }
   // `at` (ISO) is set by the server on the decisions the minutes record (CLOCKED_ACTIONS)
   | { type: 'DECLINE_SECOND'; at?: string; timestamp: string }
-  | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
+  | {
+      type: 'OPEN_VOTING';
+      voteTimerEnd: number | null;
+      timestamp: string;
+      withoutQuorum?: boolean;
+      /** The chair confirmed opening the vote with no quorum present */
+      confirmedWithoutQuorum?: boolean;
+    }
   | {
       type: 'CAST_VOTE';
       vote: 'yea' | 'nay' | 'abstain';
@@ -552,7 +665,8 @@ export type MeetingAction =
   | { type: 'YIELD_FLOOR'; yieldedBy?: number; timestamp: string }
   | { type: 'ADD_AGENDA_ITEM'; title: string; itemId: number }
   | { type: 'REMOVE_AGENDA_ITEM'; id: number }
-  | { type: 'ADOPT_AGENDA'; timestamp: string }
+  // Without a quorum, adopting needs the chair's confirmation (confirmedWithoutQuorum)
+  | { type: 'ADOPT_AGENDA'; confirmedWithoutQuorum?: boolean; at?: string; timestamp: string }
   // objectorId is set by the server from the signed-in user
   | { type: 'AGENDA_OBJECTION'; objectorId?: number; timestamp: string }
   | { type: 'CALL_AGENDA_ITEM'; id: number; timestamp: string }
@@ -561,8 +675,22 @@ export type MeetingAction =
   | { type: 'SET_SPEAKER_TIME_LIMIT'; seconds: number }
   | { type: 'SET_VOTE_TIME_LIMIT'; seconds: number }
   | { type: 'REQUEST_UNANIMOUS_CONSENT'; timestamp: string }
-  | { type: 'OBJECT_TO_CONSENT'; objector: string; objectorId?: number; timestamp: string }
-  | { type: 'UNANIMOUS_CONSENT_PASSED'; at?: string; timestamp: string }
+  // objector and objectorId are set by the server from the signed-in user; an objection from
+  // the floor is recorded by the chair, with the objector's name if given (floorObjector)
+  | {
+      type: 'OBJECT_TO_CONSENT';
+      objector: string;
+      objectorId?: number;
+      fromFloor?: boolean;
+      floorObjector?: string;
+      timestamp: string;
+    }
+  | {
+      type: 'UNANIMOUS_CONSENT_PASSED';
+      confirmedWithoutQuorum?: boolean;
+      at?: string;
+      timestamp: string;
+    }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
   | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
   | { type: 'SET_MEETING_STAGE'; stage: MeetingStage; timestamp: string }
@@ -578,6 +706,8 @@ export type MeetingAction =
   | {
       type: 'CHAIR_RULING';
       ruling: 'sustain' | 'overrule' | 'allow' | 'deny';
+      /** Sustaining a point of order, the chair rules the motion it was about out of order */
+      outOfOrder?: boolean;
       explanation?: string;
       at?: string;
       timestamp: string;
@@ -603,6 +733,7 @@ export type MeetingAction =
       electionId: number;
       position: string;
       requiredVotes: 'majority' | 'plurality' | '2/3';
+      confirmedWithoutQuorum?: boolean;
       timestamp: string;
     }
   | { type: 'CAST_BALLOT'; candidateName: string; voterId: number }
@@ -670,8 +801,25 @@ export type MeetingAction =
       scheduledFor: string | null;
       timestamp: string;
     }
-  | { type: 'WITHDRAW_MOTION'; requesterId: number; at?: string; timestamp: string }
+  // The mover withdraws a motion awaiting a second, or asks to withdraw the pending one (the
+  // request is put to the meeting as motionId). requesterId is set by the server; with fromFloor
+  // the chair records the request of a mover in the room.
+  | {
+      type: 'WITHDRAW_MOTION';
+      requesterId: number;
+      fromFloor?: boolean;
+      motionId?: number;
+      at?: string;
+      timestamp: string;
+    }
   | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
+  // The chair takes up a question postponed to later in the meeting (its main motion's id)
+  | { type: 'TAKE_UP_POSTPONED'; motionId: number; timestamp: string }
+  // The chair ends a recess
+  | { type: 'RESUME_MEETING'; at?: string; timestamp: string }
+  // A member calls for a division on a voice vote: it is counted instead (RONR 29). With fromFloor
+  // the chair records it for someone in the room. requesterId is set by the server.
+  | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
   | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
@@ -776,7 +924,8 @@ export type MinutesEntry =
   | { kind: 'ruling'; ruling: ChairRulingRecord }
   | { kind: 'election'; officer: Officer }
   | { kind: 'setAside'; setAside: ElectionSetAsideRecord }
-  | { kind: 'minutes'; approval: MinutesApprovalRecord };
+  | { kind: 'minutes'; approval: MinutesApprovalRecord }
+  | { kind: 'recess'; recess: RecessRecord };
 
 /** An agenda item, with what was decided under it in the order it happened */
 export interface MinutesItem {
@@ -803,6 +952,10 @@ export interface MeetingMinutes {
   items: MinutesItem[];
   /** What was decided outside any agenda item, in order */
   otherEntries: MinutesEntry[];
+  /** Questions postponed to the next meeting, for its agenda */
+  postponedToNextMeeting: CompletedMotion[];
+  /** How the agenda was adopted, and any motion on it, before the first item */
+  agenda: { adoption: AgendaAdoptionRecord | null; motions: CompletedMotion[] };
   /** The business the meeting adjourned with unfinished, in order */
   unfinished: UnfinishedBusinessRecord[];
 }

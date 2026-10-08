@@ -87,11 +87,31 @@ describe('PhoneView', () => {
     renderAs(ben, voting);
     expect(screen.getByRole('heading', { name: 'Special meeting' })).toBeTruthy();
     expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
-    for (const name of ['Vote yea', 'Vote nay', 'Vote abstain']) {
+    for (const name of ['Vote yes', 'Vote no', 'Vote abstain']) {
       expect(screen.getByRole('button', { name }).className).toContain('btn-lg');
     }
     expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
     expect(screen.queryByLabelText('Motion text')).toBeNull();
+  });
+
+  it('says aloud a motion awaiting your second, and that you have the floor, with a buzz', () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+    const { rerender } = renderAs(ben, {
+      ...active,
+      pendingSecond: { ...motion, secondedBy: null },
+    });
+    const announcer = screen.getByTestId('phone-announcer');
+    expect(announcer.textContent).toBe('A motion awaits a second: Resurface the pool this spring');
+    socket.state = {
+      ...active,
+      currentMotion: motion,
+      motionStack: [motion],
+      recognizedSpeaker: ben,
+    };
+    rerender(<PhoneView />);
+    expect(announcer.textContent).toBe('You have the floor');
+    expect(vibrate).toHaveBeenCalledWith(200);
   });
 
   it('says aloud when a vote or a ballot opens, from a region already on the page', () => {
@@ -102,7 +122,7 @@ describe('PhoneView', () => {
     });
     const announcer = screen.getByTestId('phone-announcer');
     expect(announcer.getAttribute('role')).toBe('status');
-    expect(announcer.textContent).toBe('');
+    expect(announcer.textContent).toBe('Debate is open: Resurface the pool this spring');
 
     socket.state = voting;
     rerender(<PhoneView />);
@@ -128,7 +148,7 @@ describe('PhoneView', () => {
 
   it('votes, and says the vote was recorded', () => {
     renderAs(ben, voting);
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
     expect(socket.dispatch).toHaveBeenCalledWith({ type: 'CAST_VOTE', vote: 'yea', voterId: 4 });
   });
 
@@ -278,15 +298,92 @@ describe('PhoneView', () => {
     expect(categories.every((c) => c === 'privileged' || c === 'incidental')).toBe(true);
   });
 
+  it('lets the mover withdraw their motion, at once while it awaits a second, by asking once stated', () => {
+    socket.dispatch.mockResolvedValue(true);
+    renderAs(alice, { ...active, pendingSecond: { ...motion, secondedBy: null } });
+    fireEvent.click(screen.getByRole('button', { name: 'Withdraw my motion' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'WITHDRAW_MOTION', requesterId: 3 }),
+    );
+    cleanup();
+    renderAs(alice, { ...active, currentMotion: motion, motionStack: [motion] });
+    expect(screen.getByText(/the chair asks the meeting's permission/)).toBeTruthy();
+    cleanup();
+    // Nobody else sees it
+    renderAs(ben, { ...active, currentMotion: motion, motionStack: [motion] });
+    expect(screen.queryByRole('button', { name: 'Withdraw my motion' })).toBeNull();
+  });
+
+  it('lets a member ask to speak in an open forum, with nothing pending', () => {
+    renderAs(alice, active);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'RAISE_HAND', stance: 'neutral' }),
+    );
+    cleanup();
+    renderAs(alice, { ...active, speakerQueue: [{ member: alice, stance: 'neutral' }] });
+    expect(screen.getByText('You asked to speak: 1 of 1 waiting.')).toBeTruthy();
+  });
+
+  it('says debate is closed once it is, with no hand to raise', () => {
+    const closed = { ...motion, debateClosed: true };
+    renderAs(ben, { ...active, currentMotion: closed, motionStack: [closed] });
+    expect(
+      screen.getByText('Debate is closed. The chair puts the question to the vote.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+  });
+
+  it('raises a point of order during a vote, while a motion awaits a second, and during consent', () => {
+    socket.dispatch.mockResolvedValue(true);
+    for (const state of [
+      voting,
+      { ...active, pendingSecond: { ...motion, secondedBy: null } },
+      { ...active, currentMotion: motion, motionStack: [motion], unanimousConsentPending: true },
+    ]) {
+      renderAs(ben, state);
+      fireEvent.click(screen.getByText('Point of order', { selector: 'summary' }));
+      fireEvent.change(screen.getByLabelText('What is out of order'), {
+        target: { value: 'Guests are voting' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Raise the point of order' }));
+      expect(socket.dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'MAKE_MOTION',
+          motionType: 'pointOrder',
+          text: 'Guests are voting',
+        }),
+      );
+      cleanup();
+    }
+  });
+
+  it("tells the room the chair is asking about a mover's request to withdraw", () => {
+    const request = { ...motion, id: 2, type: 'withdrawMotion', mover: 'Alice Brennan' };
+    renderAs(ben, { ...active, currentMotion: request, motionStack: [motion, request] });
+    expect(
+      screen.getByText('Alice Brennan asks to withdraw the motion. The chair asks the room.'),
+    ).toBeTruthy();
+  });
+
   it('makes another motion in plain words, each saying what it does', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));
     expect(screen.getByText('Take a short break')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(/^Recess/));
-    const recess = screen.getByLabelText(/^Recess/).closest('div')!;
+    fireEvent.click(screen.getByRole('radio', { name: /^Recess/ }));
+    const recess = screen.getByRole('form', { name: 'Recess' });
+    fireEvent.change(within(recess).getByLabelText('Until (optional)'), {
+      target: { value: '20:15' },
+    });
     fireEvent.click(within(recess).getByRole('button', { name: 'Move' }));
     expect(socket.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'MAKE_MOTION', motionType: 'recess', moverId: 3 }),
+      expect.objectContaining({
+        type: 'MAKE_MOTION',
+        motionType: 'recess',
+        moverId: 3,
+        text: 'Recess until 8:15 PM',
+        recessUntil: '8:15 PM',
+      }),
     );
   });
 
@@ -360,14 +457,17 @@ describe('PhoneView', () => {
     expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
   });
 
-  it('lets a guest ask to speak only while a debatable motion is pending', () => {
+  it('lets a guest ask to speak while the floor is open: in debate, or with nothing pending', () => {
     const { unmount } = renderAs(sam, voting);
     expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
-    expect(screen.getByText('You can ask to speak once a motion is being debated.')).toBeTruthy();
+    expect(
+      screen.getByText('You can ask to speak while the floor is open for debate.'),
+    ).toBeTruthy();
     unmount();
 
+    // An open forum: nothing pending
     renderAs(sam, active);
-    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ask to speak' })).toBeTruthy();
     cleanup();
 
     renderAs(sam, { ...active, currentMotion: motion, motionStack: [motion] });

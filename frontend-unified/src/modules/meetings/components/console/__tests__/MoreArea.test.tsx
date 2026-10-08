@@ -6,9 +6,6 @@ import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 const api = vi.hoisted(() => ({ meetingPackets: { reloadAgenda: vi.fn() } }));
 vi.mock('../../../../../api/client', () => api);
 vi.mock('../../chair', () => ({
-  ProxyManagementPanel: () => <p>Proxies</p>,
-  OrderOfBusinessPanel: () => <p>Order of business</p>,
-  CommitteeReportsPanel: () => null,
   MeetingDocumentsPanel: () => <p>Documents</p>,
 }));
 vi.mock('../../MeetingOrganizationPanel', () => ({

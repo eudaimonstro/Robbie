@@ -171,9 +171,9 @@ describe('ChairConsole', () => {
       expect(screen.queryByPlaceholderText('Enter your answer...')).not.toBeNull();
     });
 
-    it('lets the admin restore a suspended rule', () => {
+    it('shows nothing of a rule suspended in a state saved before suspensions went', () => {
       render(<ChairConsole />);
-      expect(screen.queryByRole('button', { name: /restore/i })).not.toBeNull();
+      expect(screen.queryByRole('button', { name: /restore/i })).toBeNull();
     });
   });
 
@@ -472,7 +472,7 @@ describe('ChairConsole', () => {
         within(screen.getByRole('toolbar'))
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Set the election aside']);
+      ).toEqual(['Close the ballot', 'Set the election aside', 'A motion from the floor']);
       const headings = screen.getAllByRole('heading').map((h) => h.textContent);
       expect(headings.indexOf('Election for Director')).toBeLessThan(
         headings.indexOf('Attendance'),
@@ -531,7 +531,7 @@ describe('ChairConsole', () => {
         within(toolbar)
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Set the election aside', 'Adjourn']);
+      ).toEqual(['Set the election aside', 'A motion from the floor', 'Adjourn']);
       fireEvent.click(within(toolbar).getByRole('button', { name: 'Set the election aside' }));
       expect(screen.getByRole('dialog', { name: 'Set the election aside?' })).toBeTruthy();
     });

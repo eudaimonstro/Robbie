@@ -12,7 +12,6 @@ import {
   setAsideElection,
 } from '../utils/chairActions';
 import { adjournedAt, currentResult, describeQuestion } from '../utils/question';
-import { ActiveSuspensionsBanner } from '../components/ActiveSuspensionsBanner';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
 import { InquiryPanel } from '../components/InquiryPanel';
@@ -22,6 +21,8 @@ import { ActionToolbar } from '../components/console/ActionToolbar';
 import { AdjournDialog } from '../components/console/AdjournDialog';
 import { ElectionCard } from '../components/console/ElectionCard';
 import { SetAsideDialog } from '../components/console/SetAsideDialog';
+import { NoQuorumDialog } from '../components/console/NoQuorumDialog';
+import { PutQuestionDialog } from '../components/console/PutQuestionDialog';
 import { FloorMotionDialog, FloorSecondForm } from '../components/console/FloorBusiness';
 import { ChairScriptLine } from '../components/console/ChairScriptLine';
 import { ConsoleAgenda } from '../components/console/ConsoleAgenda';
@@ -34,6 +35,13 @@ import { VoteControl } from '../components/console/VoteControl';
 import Modal from '../../../components/ui/Modal';
 import { scrollBehavior } from '../../../utils/motion';
 import type { ChairAction } from '../utils/chairActions';
+
+/** What the chair is about to do without a quorum, by the action that asks first */
+const NO_QUORUM_ASKS: Record<string, string> = {
+  'open-vote': 'Open the vote',
+  adopted: 'Adopt it',
+  'adopt-agenda': 'Adopt the agenda',
+};
 
 /**
  * The chair console (docs/design-brief.md, "The three screens"), for the chair and admins: a top
@@ -112,18 +120,20 @@ export function ChairConsole() {
         meetingCode={meetingCode}
         onJoinInfo={() => setJoinInfoOpen(true)}
       />
-      {!adjourned && (
-        <ActiveSuspensionsBanner
-          state={state}
-          currentUser={presiding ?? undefined}
-          dispatch={dispatch}
-        />
-      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div ref={nowRef} className="space-y-4 xl:col-span-8">
           {!adjourned && <JoinInfoCard code={meetingCode} compact={!beforeMeeting} />}
           <CurrentItemLine item={state.currentAgendaItem} packet={packet} />
+          {state.meetingActive && !attendance.hasQuorum && (
+            <p
+              role="status"
+              className="rounded-lg bg-caution-tint px-4 py-3 font-semibold text-caution-ink"
+            >
+              No quorum: {attendance.present} present, {attendance.quorum} needed. Business done now
+              is not valid.
+            </p>
+          )}
           <QuestionCard question={question} empty={empty}>
             <ActionToolbar
               actions={actions}
@@ -147,6 +157,10 @@ export function ChairConsole() {
             )}
             <ChairScriptLine state={state} />
           </QuestionCard>
+          {/* Who is waiting to speak, right under the question: recognizing is the next step */}
+          {!adjourned && (
+            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
+          )}
           <MinutesApprovalCard state={state} dispatch={dispatch} />
           {result && !adjourned && (
             <section aria-label="The result" className="card p-6">
@@ -159,9 +173,6 @@ export function ChairConsole() {
             </section>
           )}
           {!adjourned && <VoteControl state={state} dispatch={dispatch} me={currentUser} />}
-          {!adjourned && (
-            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
-          )}
         </div>
 
         <div className="space-y-4 xl:col-span-4">
@@ -213,6 +224,25 @@ export function ChairConsole() {
         agenda={state.agenda}
         onAdjourn={() => confirming && confirm(confirming)}
         onKeepGoing={keepGoing}
+      />
+      <PutQuestionDialog
+        isOpen={confirming?.id === 'put-question' && stillInOrder}
+        item={state.currentAgendaItem?.title ?? null}
+        onPut={(text) => {
+          if (!confirming) return;
+          const put = confirming.make();
+          if (put.type === 'MAKE_MOTION') dispatch({ ...put, text });
+          setConfirming(null);
+        }}
+        onClose={keepGoing}
+      />
+      <NoQuorumDialog
+        isOpen={!!confirming && NO_QUORUM_ASKS[confirming.id] !== undefined && stillInOrder}
+        attendance={`${attendance.present} present, ${attendance.quorum} needed`}
+        question={`${NO_QUORUM_ASKS[confirming?.id ?? ''] ?? 'Go ahead'} anyway?`}
+        confirmText={`${NO_QUORUM_ASKS[confirming?.id ?? ''] ?? 'Go ahead'} anyway`}
+        onOpen={() => confirming && confirm(confirming)}
+        onWait={keepGoing}
       />
       <SetAsideDialog
         isOpen={confirming?.id === 'set-aside' && stillInOrder}

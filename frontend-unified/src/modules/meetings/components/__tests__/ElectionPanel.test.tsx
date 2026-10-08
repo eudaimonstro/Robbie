@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { Election, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { ElectionPanel } from '../ElectionPanel';
@@ -55,12 +55,32 @@ describe('ElectionPanel', () => {
     expect(screen.getByText('Candidates: Carmen Diaz')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Vote required'), { target: { value: '2/3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Open the ballot' }));
+    // Without a quorum it asks first, and the ballot is opened as confirmed
+    expect(dispatch).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'There is no quorum' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open the ballot anyway' }));
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'START_ELECTION',
         position: 'Director',
         requiredVotes: '2/3',
+        confirmedWithoutQuorum: true,
       }),
+    );
+  });
+
+  it('opens the ballot at once with a quorum present', () => {
+    render(
+      <ElectionPanel
+        state={{ ...base, quorum: 1 }}
+        dispatch={dispatch}
+        currentUser={dana}
+        isChair
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open the ballot' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.not.objectContaining({ confirmedWithoutQuorum: true }),
     );
   });
 

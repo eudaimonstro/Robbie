@@ -7,7 +7,8 @@ export interface VoteResult {
   /** Device and floor votes together */
   yea: number;
   nay: number;
-  outcome: 'CARRIED' | 'FAILED';
+  /** An appeal's vote sustains the chair's ruling or overturns it */
+  outcome: 'CARRIED' | 'FAILED' | 'SUSTAINED' | 'OVERTURNED';
   passed: boolean;
   /** The question put, from the chair's "puts the question" line before the vote */
   motionText: string;
@@ -37,7 +38,7 @@ export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | nul
 
   const yea = parseInt(match[1], 10);
   const nay = parseInt(match[2], 10);
-  const outcome = match[3] as 'CARRIED' | 'FAILED';
+  const outcome = match[3].replace("Chair's decision ", '') as VoteResult['outcome'];
 
   const partsMatch = entry.message.match(PARTS);
   const parts = partsMatch
@@ -61,7 +62,7 @@ export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | nul
     yea,
     nay,
     outcome,
-    passed: outcome === 'CARRIED',
+    passed: outcome === 'CARRIED' || outcome === 'SUSTAINED',
     motionText,
     timestamp: entry.time,
     parts,

@@ -43,6 +43,9 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   SET_FLOOR_BALLOTS: PRESIDING,
   DECLARE_ELECTED: PRESIDING,
   SET_ASIDE_ELECTION: PRESIDING,
+  // The chair takes up a question postponed to later in the meeting, and ends a recess
+  TAKE_UP_POSTPONED: PRESIDING,
+  RESUME_MEETING: PRESIDING,
   SUSPEND_RULE_APPROVED: PRESIDING,
   RESTORE_RULE: PRESIDING,
   ANSWER_INQUIRY: PRESIDING,
@@ -96,6 +99,8 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   WITHDRAW_MOTION: TAKING_PART,
   MODIFY_MOTION: TAKING_PART,
   RESPOND_ROLL_CALL: TAKING_PART,
+  // A member doubts a voice vote (the chair records one from the floor, which the validator checks)
+  REQUEST_DIVISION: TAKING_PART,
 
   // Actions guests may take too: asking for the floor, and asking a question
   RAISE_HAND: EVERYONE,

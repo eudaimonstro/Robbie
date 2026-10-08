@@ -110,7 +110,7 @@ describe('the meeting record', () => {
     ]);
   });
 
-  it('keeps a withdrawn motion, awaiting a second or seconded, but only its mover can withdraw it', () => {
+  it("keeps a withdrawn motion, awaiting a second or seconded (with the meeting's permission)", () => {
     const awaiting = meetingReducer(
       { ...inSession, pendingSecond: awaitingSecond() },
       { type: 'WITHDRAW_MOTION', requesterId: 2, at: AT, timestamp: '7:22:00 PM' },
@@ -121,11 +121,16 @@ describe('the meeting record', () => {
     expect(awaiting.completedMotions[0]).not.toHaveProperty('seconder');
 
     const pending = { ...inSession, currentMotion: motion(), motionStack: [motion()] };
-    const seconded = meetingReducer(pending, {
+    const asked = meetingReducer(pending, {
       type: 'WITHDRAW_MOTION',
       requesterId: 2,
+      motionId: 70,
       timestamp: '7:23:00 PM',
     });
+    const seconded = meetingReducer(
+      { ...asked, unanimousConsentPending: true, consentMotionId: 70 },
+      { type: 'UNANIMOUS_CONSENT_PASSED', at: AT, timestamp: '7:23:30 PM' },
+    );
     expect(seconded.currentMotion).toBeNull();
     expect(seconded.completedMotions).toEqual([
       expect.objectContaining({
@@ -133,15 +138,9 @@ describe('the meeting record', () => {
         disposition: 'withdrawn',
         seconder: 'Cy',
         reconsiderable: false,
+        withPermission: true,
       }),
     ]);
-
-    const refused = meetingReducer(pending, {
-      type: 'WITHDRAW_MOTION',
-      requesterId: 3,
-      timestamp: '',
-    });
-    expect(refused).toBe(pending);
   });
 
   it('keeps a motion adopted by unanimous consent, with the quorum', () => {
@@ -193,6 +192,7 @@ describe('the meeting record', () => {
         ruling: 'The point is well taken.',
         explanation: 'Debate must be on the motion',
         motionText: 'The speaker is off the subject',
+        raisedBy: point.mover,
         timestamp: '7:25:00 PM',
         agendaItemId: 3,
         decidedAt: AT,

@@ -52,6 +52,19 @@ export function logMotionWithdrawn(mover: string): string {
   return `${mover}${LOG_MOTION_WITHDRAWN}`;
 }
 
+/** The mover asks to withdraw a motion already stated */
+export function logWithdrawalAsked(mover: string, text: string): string {
+  return `${mover} asks to withdraw the motion "${text}".`;
+}
+
+/** The chair takes up a question postponed to later in the meeting */
+export function logTakenUp(text: string): string {
+  return `The chair takes up the motion postponed earlier: "${text}"`;
+}
+
+/** The chair ends a recess */
+export const LOG_MEETING_RESUMED = 'The meeting resumes.';
+
 export function logMotionModified(mover: string, newText: string): string {
   return `${mover} modifies motion to: "${newText}"`;
 }
@@ -76,6 +89,11 @@ export function logVoteResultWithExtras(
   reconsideredLog: string,
 ): string {
   return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`;
+}
+
+/** A division called on a voice vote: by a member, or from the floor */
+export function logDivisionCalled(caller: string | null): string {
+  return `${caller ?? 'A member in the room'} calls for a division: the vote is counted.`;
 }
 
 // Speaker management
@@ -103,7 +121,7 @@ export function logAgendaItemCompleted(title: string | undefined): string {
 export const LOG_UNANIMOUS_CONSENT_REQUESTED = 'Chair: "Is there any objection?"';
 
 export function logUnanimousConsentObjection(objector: string): string {
-  return `${objector} objects. Motion requires a vote.`;
+  return `${objector} objects. The question is put to a vote.`;
 }
 
 /** How the line for a motion adopted by unanimous consent begins */

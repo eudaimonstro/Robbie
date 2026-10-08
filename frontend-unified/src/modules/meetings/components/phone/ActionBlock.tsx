@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { floorOpenForDebate, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
 import { nomineesFor } from '../../utils/question';
@@ -9,6 +9,9 @@ import { UnanimousConsentSection } from '../participant';
 import { VoteBlock } from './VoteBlock';
 import { DebateBlock } from './DebateBlock';
 import { MotionPanel } from './MotionPanel';
+import { WithdrawMine } from './WithdrawMine';
+import { ForumHand } from './ForumHand';
+import { RaisePointOfOrder } from './RaisePointOfOrder';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
@@ -41,14 +44,53 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
     case 'adjourned':
       // The phone shows only the adjournment then (PhoneView)
       return null;
-    case 'voice-vote':
+    case 'adjourning':
       return (
         <Note>
-          <p>This is a voice vote: answer aloud in the room.</p>
+          <p>The meeting has voted to adjourn. The chair declares it adjourned.</p>
         </Note>
       );
+    case 'recess':
+      return (
+        <Note>
+          <p>
+            {state.recess?.until
+              ? `The meeting is in recess until ${state.recess.until}.`
+              : 'The meeting is in recess.'}
+          </p>
+          <p>The chair resumes it.</p>
+        </Note>
+      );
+    case 'ruling':
+      return (
+        <Note>
+          <p>The chair is ruling on a point of order.</p>
+        </Note>
+      );
+    case 'voice-vote':
+      return (
+        <div className="space-y-3">
+          <Note>
+            <p>This is a voice vote: answer aloud in the room.</p>
+            <p>If you doubt how it sounds, call for a division: the vote is counted instead.</p>
+          </Note>
+          <button
+            type="button"
+            className="btn-secondary btn-lg w-full"
+            onClick={() => dispatch({ type: 'REQUEST_DIVISION', timestamp: generateTimestamp() })}
+          >
+            Call for a division
+          </button>
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'vote':
-      return <VoteBlock state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <VoteBlock state={state} dispatch={dispatch} me={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'ballot':
       return <ElectionPanel state={state} dispatch={dispatch} currentUser={me} />;
     case 'nominate':
@@ -57,22 +99,40 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       return <ElectionWaiting state={state} />;
     case 'second':
       return state.pendingSecond?.moverId === me.id ? (
-        <Note>
-          <p>You moved this. Another member must second it.</p>
-        </Note>
+        <div className="space-y-3">
+          <Note>
+            <p>You moved this. Another member must second it.</p>
+          </Note>
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
       ) : (
-        <button
-          type="button"
-          className="btn-primary btn-lg w-full"
-          onClick={() =>
-            dispatch({ type: 'SECOND_MOTION', seconder: me.name, timestamp: generateTimestamp() })
-          }
-        >
-          Second
-        </button>
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="btn-primary btn-lg w-full"
+            onClick={() =>
+              dispatch({ type: 'SECOND_MOTION', seconder: me.name, timestamp: generateTimestamp() })
+            }
+          >
+            Second
+          </button>
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
       );
     case 'consent':
-      return <UnanimousConsentSection state={state} dispatch={dispatch} currentUser={me} />;
+      return (
+        <div className="space-y-3">
+          <UnanimousConsentSection state={state} dispatch={dispatch} currentUser={me} />
+          <RaisePointOfOrder state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
+    case 'withdraw-request':
+      return (
+        <Note>
+          <p>{state.currentMotion?.mover} asks to withdraw the motion. The chair asks the room.</p>
+        </Note>
+      );
     case 'agenda':
       return (
         <div className="space-y-3">
@@ -90,7 +150,29 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
         </div>
       );
     case 'debate':
-      return <DebateBlock state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <DebateBlock state={state} dispatch={dispatch} me={me} />
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
+    case 'debate-closed':
+      return (
+        <div className="space-y-3">
+          <Note>
+            <p>Debate is closed. The chair puts the question to the vote.</p>
+          </Note>
+          <details className="rounded-lg border border-rule">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink">
+              Other motions
+            </summary>
+            <div className="border-t border-rule p-4">
+              <MotionPanel state={state} dispatch={dispatch} me={me} othersOnly />
+            </div>
+          </details>
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'minutes':
       return (
         <Note>
@@ -98,7 +180,13 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
         </Note>
       );
     case 'motion':
-      return <MotionPanel state={state} dispatch={dispatch} me={me} />;
+      return (
+        <div className="space-y-3">
+          <ForumHand state={state} dispatch={dispatch} me={me} />
+          <MotionPanel state={state} dispatch={dispatch} me={me} />
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
   }
 }
 
@@ -138,6 +226,17 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
       </Note>
     );
   }
+  if (moment === 'recess') {
+    return (
+      <Note>
+        <p>
+          {state.recess?.until
+            ? `The meeting is in recess until ${state.recess.until}.`
+            : 'The meeting is in recess.'}
+        </p>
+      </Note>
+    );
+  }
   const waiting = state.speakerQueue.some((entry) => entry.member.id === me.id);
   return (
     <div className="space-y-3">
@@ -153,9 +252,9 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
         >
           Withdraw the request
         </button>
-      ) : moment !== 'debate' ? (
+      ) : !floorOpenForDebate(state) ? (
         <p className="text-sm text-ink-muted">
-          You can ask to speak once a motion is being debated.
+          You can ask to speak while the floor is open for debate.
         </p>
       ) : (
         <button

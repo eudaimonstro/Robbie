@@ -7,6 +7,7 @@ import {
 } from '../../constants/logMessages.js';
 import type { ActionHandler } from './types.js';
 import { moveItem } from '../../utils/moveItem.js';
+import { FORUM_ENDS } from './motionHandlers.js';
 
 export const agendaHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -43,6 +44,11 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
         ...state,
         agendaAdopted: true,
         agendaObjection: false,
+        // Without objection, as the minutes say
+        agendaAdoption: {
+          how: 'consent',
+          ...(typedAction.at ? { decidedAt: typedAction.at } : {}),
+        },
         meetingLog: log(typedAction.timestamp, LOG_AGENDA_ADOPTED),
       };
     }
@@ -68,6 +74,9 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       );
       return {
         ...state,
+        // The open forum of the item before ends with it, and the time to appeal a ruling
+        ...(!state.currentMotion && FORUM_ENDS),
+        lastChairRuling: null,
         // The updated entry, so its status reads 'active' here as in the agenda
         currentAgendaItem: updatedAgenda.find((a) => a.id === typedAction.id) ?? null,
         agenda: updatedAgenda,
@@ -95,6 +104,8 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
       const completed = state.agenda.find((a) => a.id === typedAction.id);
       return {
         ...state,
+        ...(!state.currentMotion && FORUM_ENDS),
+        lastChairRuling: null,
         currentAgendaItem:
           state.currentAgendaItem?.id === typedAction.id ? null : state.currentAgendaItem,
         agenda: updatedAgenda,

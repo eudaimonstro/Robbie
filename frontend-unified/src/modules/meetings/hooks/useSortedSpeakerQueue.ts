@@ -10,7 +10,7 @@ import { sortSpeakerQueue } from '@robbie-bylawyer/shared/utils';
 /**
  * The speaker queue in the order the chair will call it (`sortSpeakerQueue` in shared, which
  * the mobile app uses too): the mover first if they haven't spoken, then alternating for and
- * against unless 'pro-con-alternation' is suspended, then the order hands went up.
+ * against in turn, then the order hands went up.
  *
  * @example
  * ```tsx

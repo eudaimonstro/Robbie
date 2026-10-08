@@ -199,7 +199,14 @@ export type ActionErrorCode =
   | 'REQUEST_NOT_FOUND'
   | 'REQUEST_NOT_PENDING'
   // Roll call errors
-  | 'ROLL_CALL_NOT_IN_PROGRESS';
+  | 'ROLL_CALL_NOT_IN_PROGRESS'
+  // Meeting rules
+  | 'MOTION_NOT_OFFERED'
+  | 'IN_RECESS'
+  | 'POINT_OF_ORDER_PENDING'
+  | 'ADJOURNMENT_CARRIED'
+  | 'NO_QUORUM'
+  | 'DEBATE_CLOSED';
 
 // Auth-related types
 export interface AuthPayload {

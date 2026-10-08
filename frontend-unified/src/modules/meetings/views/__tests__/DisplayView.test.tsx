@@ -90,6 +90,26 @@ describe('DisplayView', () => {
     expect(screen.queryByText('Connecting to the meeting...')).toBeNull();
   });
 
+  it('says plainly when there is no quorum, how to vote, a recess, and a second awaited', () => {
+    // Six present, quorum 29
+    socket.state = { ...inSession, currentMotion: motion, motionStack: [motion], votingOpen: true };
+    const { unmount } = render(<DisplayView />);
+    expect(screen.getByText('No quorum')).toBeTruthy();
+    expect(
+      screen.getByText('Vote on your phone, or raise your hand when the chair asks.'),
+    ).toBeTruthy();
+    unmount();
+    socket.state = { ...inSession, quorum: 3, recess: { since: '8:02 PM', until: '8:15 PM' } };
+    const recess = render(<DisplayView />);
+    expect(screen.getByText('In recess')).toBeTruthy();
+    expect(screen.getByText('Until 8:15 PM')).toBeTruthy();
+    expect(screen.queryByText('No quorum')).toBeNull();
+    recess.unmount();
+    socket.state = { ...inSession, pendingSecond: { ...motion, secondedBy: null } };
+    render(<DisplayView />);
+    expect(screen.getByText('Awaiting a second').className).toContain('text-display-label');
+  });
+
   it('shows where to join before the meeting: the link, the code, the QR code and attendance', () => {
     socket.state = scheduled;
     render(<DisplayView />);

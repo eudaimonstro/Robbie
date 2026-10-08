@@ -1,10 +1,16 @@
 import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import {
+  attendanceSummary,
+  awaitingRuling,
   calculateTimerEnd,
   fitMotionText,
+  floorOpenForDebate,
+  pendingNotOffered,
+  sortSpeakerQueue,
   generateId,
   generateTimestamp,
+  getValidMotions,
 } from '@robbie-bylawyer/shared/utils';
 import { minutesItemUnderWay } from './minutesApproval';
 
@@ -39,14 +45,35 @@ function ruling(id: string, label: string, kind: Ruling, tone: Tone): ChairActio
   };
 }
 
-/** The chair's rulings on a motion that takes no vote */
-function rulings(motionType: string): ChairAction[] {
+/**
+ * The chair's rulings on a point of order (or a request saved before they were questions): well
+ * taken, well taken with the motion it is about ruled out of order (the one awaiting a second, or
+ * the one beneath the point), or not well taken
+ */
+function rulings(state: MeetingState, motionType: string): ChairAction[] {
   switch (motionType) {
-    case 'pointOrder':
+    case 'pointOrder': {
+      const about = state.pendingSecond ?? state.motionStack.at(-2);
       return [
-        ruling('sustain', 'Sustain the point', 'sustain', 'primary'),
-        ruling('overrule', 'Overrule the point', 'overrule', 'secondary'),
+        ruling('sustain', 'Rule the point well taken', 'sustain', 'primary'),
+        ...(about
+          ? [
+              {
+                id: 'out-of-order',
+                label: 'Rule the motion out of order',
+                tone: 'secondary' as const,
+                make: (): MeetingAction => ({
+                  type: 'CHAIR_RULING',
+                  ruling: 'sustain',
+                  outOfOrder: true,
+                  timestamp: generateTimestamp(),
+                }),
+              },
+            ]
+          : []),
+        ruling('overrule', 'Rule the point not well taken', 'overrule', 'secondary'),
       ];
+    }
     case 'questionPrivilege':
     case 'withdrawMotion':
       return [
@@ -61,7 +88,81 @@ function rulings(motionType: string): ChairAction[] {
   }
 }
 
+/** The chair records the mover's withdrawing (or asking to withdraw) a motion, for the mover in the room */
+function withdrawFromFloor(label: string): ChairAction {
+  return {
+    id: 'floor-withdraw',
+    label,
+    tone: 'secondary',
+    make: () => ({
+      type: 'WITHDRAW_MOTION',
+      requesterId: 0,
+      fromFloor: true,
+      motionId: generateId(),
+      timestamp: generateTimestamp(),
+    }),
+  };
+}
+
+/**
+ * The speaker queue's next step: recognize the first person waiting (in the order the chair calls
+ * them: the mover if they asked, then for and against in turn), or end the turn of the one who
+ * has the floor
+ */
+function speakerActions(state: MeetingState): { recognize?: ChairAction; endTurn?: ChairAction } {
+  const speaker = state.recognizedSpeaker;
+  if (speaker) {
+    return {
+      endTurn: {
+        id: 'end-turn',
+        label: `End ${speaker.name}'s turn`,
+        tone: 'secondary',
+        make: () => ({ type: 'YIELD_FLOOR', timestamp: generateTimestamp() }),
+      },
+    };
+  }
+  const [first] = floorOpenForDebate(state) ? sortSpeakerQueue(state) : [];
+  if (!first) return {};
+  return {
+    recognize: {
+      id: 'recognize',
+      label: `Recognize ${first.member.name}`,
+      tone: 'primary',
+      make: () => ({
+        type: 'RECOGNIZE_SPEAKER',
+        member: first.member,
+        stance: first.stance,
+        speakerTimerEnd: calculateTimerEnd(state.speakerTimeLimit),
+        timestamp: generateTimestamp(),
+      }),
+    },
+  };
+}
+
+/** A motion's words for a button: the first few, with an ellipsis */
+function shortened(text: string, length = 48): string {
+  return text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
+}
+
+/** What a meeting without a quorum may still vote on: adjourning, or a recess to find one */
+const NO_QUORUM_NEEDED = new Set(['adjourn', 'recess']);
+
+/**
+ * Open the vote. Without a quorum (anything but adjourning or a recess) it asks the chair first,
+ * and the vote is opened as confirmed, which the server requires.
+ */
+/**
+ * Whether doing business now needs the chair to confirm there is no quorum: anything but
+ * adjourning or a recess, as the server rules
+ */
+export function withoutQuorum(state: MeetingState): boolean {
+  return (
+    !attendanceSummary(state).hasQuorum && !NO_QUORUM_NEEDED.has(state.currentMotion?.type ?? '')
+  );
+}
+
 function openVote(state: MeetingState, tone: Tone): ChairAction {
+  const unconfirmed = withoutQuorum(state);
   return {
     id: 'open-vote',
     label: 'Open the vote',
@@ -69,8 +170,10 @@ function openVote(state: MeetingState, tone: Tone): ChairAction {
     make: () => ({
       type: 'OPEN_VOTING',
       voteTimerEnd: calculateTimerEnd(state.voteTimeLimit),
+      ...(unconfirmed && { confirmedWithoutQuorum: true }),
       timestamp: generateTimestamp(),
     }),
+    ...(unconfirmed && { confirm: true }),
   };
 }
 
@@ -126,6 +229,34 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
+  // An adjournment carried: the chair declares the meeting adjourned, and nothing else is in order
+  if (state.adjournmentCarried) {
+    return [
+      {
+        id: 'declare-adjourned',
+        label: 'Declare the meeting adjourned',
+        tone: 'primary',
+        make: () => ({ type: 'END_MEETING', timestamp: generateTimestamp() }),
+      },
+    ];
+  }
+  // In a recess the chair resumes the meeting (or adjourns one nobody returns to)
+  if (state.recess) {
+    return [
+      {
+        id: 'resume',
+        label: 'Resume the meeting',
+        tone: 'primary',
+        make: () => ({ type: 'RESUME_MEETING', timestamp: generateTimestamp() }),
+      },
+      adjourn('secondary'),
+    ];
+  }
+
+  // A point of order waits for nothing: during a vote, or with a motion awaiting a second
+  const motion = state.currentMotion;
+  if (motion && motion.vote === 'none') return rulings(state, motion.type);
+
   if (state.votingOpen) return [];
 
   if (state.pendingSecond) {
@@ -136,42 +267,112 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         tone: 'secondary',
         make: () => ({ type: 'DECLINE_SECOND', timestamp: generateTimestamp() }),
       },
+      withdrawFromFloor('The mover withdraws it'),
     ];
   }
 
-  const motion = state.currentMotion;
   if (motion && state.unanimousConsentPending) {
-    const actions: ChairAction[] = [
+    // Someone in the room without a phone objects aloud: the chair records it, and puts the
+    // question to a vote
+    return [
       {
         id: 'adopted',
-        label: 'No objection: adopted',
+        label:
+          motion.type === 'withdrawMotion' ? 'No objection: withdrawn' : 'No objection: adopted',
         tone: 'primary',
-        make: () => ({ type: 'UNANIMOUS_CONSENT_PASSED', timestamp: generateTimestamp() }),
+        make: () => ({
+          type: 'UNANIMOUS_CONSENT_PASSED',
+          ...(withoutQuorum(state) && { confirmedWithoutQuorum: true }),
+          timestamp: generateTimestamp(),
+        }),
+        ...(withoutQuorum(state) && { confirm: true }),
+      },
+      {
+        id: 'floor-objection',
+        label: 'Objection from the floor',
+        tone: 'secondary',
+        make: () => ({
+          type: 'OBJECT_TO_CONSENT',
+          objector: '',
+          fromFloor: true,
+          timestamp: generateTimestamp(),
+        }),
       },
     ];
-    if (motion.vote !== 'none') actions.push(openVote(state, 'secondary'));
-    return actions;
   }
   if (motion) {
-    if (motion.vote === 'none') return rulings(motion.type);
+    // A motion Robbie no longer offers, from a meeting saved earlier: the mover withdraws it
+    if (pendingNotOffered(state)) return [withdrawFromFloor('The mover asks to withdraw it')];
+    // While a ballot is open nothing is put to a vote or to consent (the server refuses both)
+    if (state.currentElection?.votingInProgress) {
+      return [withdrawFromFloor('The mover asks to withdraw it')];
+    }
+    const consent: ChairAction = {
+      id: 'consent',
+      label: 'Ask for unanimous consent',
+      tone: 'secondary',
+      make: () => ({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() }),
+    };
+    // The mover's request to withdraw is granted without objection, as a rule
+    if (motion.type === 'withdrawMotion') {
+      return [{ ...consent, tone: 'primary' }, openVote(state, 'secondary')];
+    }
+    // While debate goes on, recognizing the next speaker is the chair's next step
+    const { recognize, endTurn } = speakerActions(state);
+    const debating = !!recognize || !!endTurn;
+    const debate = [...(recognize ? [recognize] : []), ...(endTurn ? [endTurn] : [])];
+    // An appeal is decided by a vote
+    if (motion.type === 'appeal')
+      return [...debate, openVote(state, debating ? 'secondary' : 'primary')];
     return [
-      openVote(state, 'primary'),
-      {
-        id: 'consent',
-        label: 'Ask for unanimous consent',
-        tone: 'secondary',
-        make: () => ({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: generateTimestamp() }),
-      },
+      ...debate,
+      openVote(state, debating ? 'secondary' : 'primary'),
+      consent,
+      withdrawFromFloor('The mover asks to withdraw it'),
     ];
   }
 
-  // The election card runs the rest of an election (a privileged or incidental motion made
-  // meanwhile is put first, above). Nothing else comes up until it is decided or set aside, and
-  // nobody adjourns while the ballot is open.
+  // An election's next step, which the election card has too (opening the ballot, which asks
+  // the vote required, is the card's). A privileged or incidental motion made meanwhile is put
+  // first, above. Nothing else comes up until it is decided or set aside, and nobody adjourns
+  // while the ballot is open.
   if (electionUnderway(state)) {
-    return state.currentElection?.votingInProgress
-      ? [setAsideElection()]
-      : [setAsideElection(), adjourn('secondary')];
+    const election = state.currentElection;
+    if (election?.votingInProgress) {
+      return [
+        {
+          id: 'close-ballot',
+          label: 'Close the ballot',
+          tone: 'primary',
+          make: () => ({ type: 'CLOSE_ELECTION', timestamp: generateTimestamp() }),
+        },
+        setAsideElection(),
+      ];
+    }
+    const next: ChairAction[] = state.nominationsOpen
+      ? [
+          {
+            id: 'close-nominations',
+            label: 'Close nominations',
+            tone: 'primary',
+            make: () => ({ type: 'CLOSE_NOMINATIONS', timestamp: generateTimestamp() }),
+          },
+        ]
+      : election?.elected
+        ? [
+            {
+              id: 'declare-elected',
+              label: `Declare ${election.elected} elected`,
+              tone: 'primary',
+              make: () => ({
+                type: 'DECLARE_ELECTED',
+                candidateName: election.elected!,
+                timestamp: generateTimestamp(),
+              }),
+            },
+          ]
+        : [];
+    return [...next, setAsideElection(), adjourn('secondary')];
   }
 
   if (!state.agendaAdopted) {
@@ -182,7 +383,12 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         id: 'adopt-agenda',
         label: 'Adopt the agenda',
         tone: 'primary',
-        make: () => ({ type: 'ADOPT_AGENDA', timestamp: generateTimestamp() }),
+        make: () => ({
+          type: 'ADOPT_AGENDA',
+          ...(withoutQuorum(state) && { confirmedWithoutQuorum: true }),
+          timestamp: generateTimestamp(),
+        }),
+        ...(withoutQuorum(state) && { confirm: true }),
       },
       {
         id: 'agenda-objection',
@@ -195,27 +401,54 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
 
+  // A question postponed to later in the meeting, which the chair takes up when its time comes
+  const takeUp = (state.postponedMotions ?? []).map((question): ChairAction => ({
+    id: `take-up-${question.motions[0].id}`,
+    label: `Take up: ${shortened(question.motions[0].text)}`,
+    tone: 'secondary',
+    make: () => ({
+      type: 'TAKE_UP_POSTPONED',
+      motionId: question.motions[0].id,
+      timestamp: generateTimestamp(),
+    }),
+  }));
+
+  // Someone asked for the floor with nothing pending (an open forum, questions on a report)
+  const { recognize, endTurn } = speakerActions(state);
+  const forum = [...(recognize ? [recognize] : []), ...(endTurn ? [endTurn] : [])];
+
   const item = state.currentAgendaItem;
   if (item) {
     // At the last item (often "Adjournment") the expected next step is to adjourn, which
     // completes the item too; before it, completing the item is
     const last = !state.agenda.some((i) => i.status === 'pending' && i.id !== item.id);
-    // While the minutes are to be approved, their card has the expected next step
+    // While the minutes are to be approved, approving them as read is the next step
     const approving = minutesItemUnderWay(state) && !state.minutesApproved;
-    const actions: ChairAction[] = last ? [adjourn('primary')] : [];
+    const busy = approving || forum.length > 0;
+    const actions: ChairAction[] = [...forum];
+    if (approving) {
+      actions.push({
+        id: 'approve-minutes',
+        label: 'Approve as read',
+        tone: recognize ? 'secondary' : 'primary',
+        make: () => ({ type: 'APPROVE_MINUTES', timestamp: generateTimestamp() }),
+      });
+    }
+    if (last) actions.push(adjourn(busy ? 'secondary' : 'primary'));
     actions.push({
       id: 'complete-item',
       label: 'Complete the item',
-      tone: last || approving ? 'secondary' : 'primary',
+      tone: last || busy ? 'secondary' : 'primary',
       make: () => ({ type: 'COMPLETE_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() }),
     });
     if (presidingId !== null) {
       actions.push({
-        id: 'put-item',
-        label: 'Put the item to a vote',
+        id: 'put-question',
+        label: 'Put a question',
         tone: 'secondary',
-        // Recorded as put by the chair, with no mover and no second to wait for; the server
-        // checks that the one sending it presides
+        // The console asks for the question's words (a report needs no vote); recorded as put
+        // by the chair, with no mover and no second to wait for, and the server checks that the
+        // one sending it presides
         make: () => ({
           type: 'MAKE_MOTION',
           motionType: 'mainMotion',
@@ -226,8 +459,10 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
           putByChair: true,
           timestamp: generateTimestamp(),
         }),
+        confirm: true,
       });
     }
+    actions.push(...takeUp);
     if (!last) actions.push(adjourn('secondary'));
     return actions;
   }
@@ -235,29 +470,33 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
   const next = state.agenda.find((i) => i.status === 'pending');
   if (next) {
     return [
+      ...forum,
       {
         id: 'call-next',
         label: `Call the next item: ${next.title}`,
-        tone: 'primary',
+        tone: forum.length > 0 ? 'secondary' : 'primary',
         make: () => ({ type: 'CALL_AGENDA_ITEM', id: next.id, timestamp: generateTimestamp() }),
       },
+      ...takeUp,
       adjourn('secondary'),
     ];
   }
-  return [adjourn('primary')];
+  return [...forum, ...takeUp, adjourn(forum.length > 0 ? 'secondary' : 'primary')];
 }
 
 /**
- * What the chair can record for people in the room, many of them without a phone: a motion when
- * nothing is pending, or a second for the motion waiting for one. They sit in the toolbar
- * beside the chair's own actions.
+ * What the chair can record for people in the room, many of them without a phone: a second for
+ * the motion waiting for one, and a motion of any kind in order now (an amendment, close debate,
+ * a point of order during a vote). They sit in the toolbar beside the chair's own actions.
  */
 export function floorActions(state: MeetingState): FloorAction[] {
   if (!state.meetingActive || state.meetingStage === 'adjourned') return [];
-  if (state.votingOpen || electionUnderway(state)) return [];
-  if (state.pendingSecond) {
-    return [{ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' }];
+  const actions: FloorAction[] = [];
+  if (state.pendingSecond && !awaitingRuling(state)) {
+    actions.push({ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' });
   }
-  if (state.currentMotion || state.unanimousConsentPending) return [];
-  return [{ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' }];
+  if (getValidMotions(state).length > 0) {
+    actions.push({ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' });
+  }
+  return actions;
 }
