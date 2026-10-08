@@ -115,7 +115,8 @@ function BeforeMeeting({
             <p className="meeting-code text-display-number text-ink">{meetingCode}</p>
           </div>
           {/* For the owners who won't scan anything: the headcount is how they count */}
-          <p className="text-display-line text-ink">
+          {/* Smaller on a short screen (a 720p projector), where the attendance must still fit */}
+          <p className="text-display-line text-ink [@media(max-height:900px)]:text-display-label">
             No phone? You still count: the chair will count you in the room.
           </p>
         </div>

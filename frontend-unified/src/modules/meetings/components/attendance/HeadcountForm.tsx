@@ -66,19 +66,37 @@ export function HeadcountForm({ headcount, names, proxiesHeld, dispatch }: Headc
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div>
-        <label htmlFor={countId} className="label">
-          Headcount
-        </label>
-        <p className="mb-1 text-xs text-ink-muted">People in the room without an account</p>
-        <input
-          id={countId}
-          className="input tabular-nums"
-          inputMode="numeric"
-          value={count}
-          onChange={(e) => setCount(e.target.value)}
-        />
+      {/* The two counts side by side, so the roster stays near the top of the console */}
+      <div className="grid grid-cols-2 items-end gap-3">
+        <div>
+          <label htmlFor={countId} className="label">
+            Headcount
+          </label>
+          <input
+            id={countId}
+            className="input tabular-nums"
+            inputMode="numeric"
+            value={count}
+            onChange={(e) => setCount(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor={proxiesId} className="label">
+            Proxies and absentee ballots held
+          </label>
+          <input
+            id={proxiesId}
+            className="input tabular-nums"
+            inputMode="numeric"
+            value={proxies}
+            onChange={(e) => setProxies(e.target.value)}
+          />
+        </div>
       </div>
+      <p className="text-xs text-ink-muted">
+        The headcount is people in the room without an account. Paper proxies and absentee ballots
+        handed in for owners who aren&apos;t here count toward quorum too.
+      </p>
       {/* Closed unless there are names already, so the console's agenda stays above the fold */}
       <details open={names.length > 0} className="group">
         <summary className="cursor-pointer text-sm font-medium text-ink hover:text-gavel">
@@ -97,21 +115,6 @@ export function HeadcountForm({ headcount, names, proxiesHeld, dispatch }: Headc
           />
         </div>
       </details>
-      <div>
-        <label htmlFor={proxiesId} className="label">
-          Proxies and absentee ballots held
-        </label>
-        <p className="mb-1 text-xs text-ink-muted">
-          Paper ones handed in for owners who aren&apos;t here: they count toward quorum
-        </p>
-        <input
-          id={proxiesId}
-          className="input tabular-nums"
-          inputMode="numeric"
-          value={proxies}
-          onChange={(e) => setProxies(e.target.value)}
-        />
-      </div>
       {problem && (
         <p role="alert" className="text-sm text-gavel">
           {problem}

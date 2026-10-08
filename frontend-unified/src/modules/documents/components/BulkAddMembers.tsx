@@ -144,32 +144,30 @@ export function BulkAddMembers({
             className="max-h-72 divide-y divide-rule overflow-y-auto rounded-lg border border-rule bg-surface scrollbar-thin"
           >
             {lines.map((line) => (
-              <li
-                key={line.line}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
-              >
-                <span className="w-8 shrink-0 tabular-nums text-ink-muted">{line.line}</span>
+              <li key={line.line} className="flex items-start gap-3 px-3 py-2 text-sm">
+                <span className="w-6 shrink-0 tabular-nums text-ink-muted">{line.line}</span>
+                {/* Name over email (or the line over its problem), so a phone keeps both */}
                 {'email' in line ? (
                   <>
-                    <span className="min-w-0 flex-1 truncate text-ink">
-                      {line.name || <span className="text-ink-muted">No name</span>}{' '}
-                      <span className="text-ink-muted">{line.email}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-ink">
+                        {line.name || <span className="text-ink-muted">No name</span>}
+                      </span>
+                      <span className="block truncate text-ink-muted">{line.email}</span>
                     </span>
                     <span
-                      className={
-                        outcomeOf(line) === 'add'
-                          ? 'text-xs text-carried'
-                          : 'text-xs text-ink-muted'
-                      }
+                      className={`max-w-[45%] shrink-0 text-right text-xs ${
+                        outcomeOf(line) === 'add' ? 'text-carried' : 'text-ink-muted'
+                      }`}
                     >
                       {OUTCOME_WORDS[outcomeOf(line)]}
                     </span>
                   </>
                 ) : (
-                  <>
-                    <span className="min-w-0 flex-1 truncate text-ink-muted">{line.text}</span>
-                    <span className="text-xs font-medium text-gavel">{line.problem}</span>
-                  </>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-ink-muted">{line.text}</span>
+                    <span className="block text-xs font-medium text-gavel">{line.problem}</span>
+                  </span>
                 )}
               </li>
             ))}
