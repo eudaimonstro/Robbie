@@ -20,7 +20,7 @@ import type {
 import type { AmendmentStatus, ChangeType, Prisma } from '../generated/prisma/client.js';
 import { NO_VOTES } from '@robbie-bylawyer/shared/utils';
 import { prisma } from '../db/prisma.js';
-import { AmendmentService } from './services/amendmentService.js';
+import { AmendmentConflictError, AmendmentService } from './services/amendmentService.js';
 import { logger } from '../middleware/logger.js';
 
 interface SyncResult {
@@ -139,26 +139,9 @@ export async function checkAndSyncBylawAmendment(
     }
   }
 
-  // The section changed, or the one an added section goes under, must still be in the
-  // document's current version (the motion was checked when it was made; the bylaws may have
-  // changed since)
-  const sectionId = change.changeType === 'add' ? change.parentSectionId : change.targetSectionId;
-  if (sectionId) {
-    const section = document.currentVersionId
-      ? await prisma.section.findFirst({
-          where: { id: sectionId, versionId: document.currentVersionId },
-          select: { id: true },
-        })
-      : null;
-    if (!section) {
-      logger.warn(
-        { meetingCode, documentId: change.documentId, sectionId },
-        "Motion's section is not in the document's current version, skipping sync",
-      );
-      return null;
-    }
-  }
-
+  // The section may have left the current version since the motion was made (another
+  // amendment applied): the decision is still recorded, and the apply below leaves it passed
+  // but unapplied, with the reason, for a secretary
   return syncMotionToBylawyer(meetingCode, record, appliedTo, earlier);
 }
 
@@ -242,11 +225,40 @@ async function decideProposedAmendment(
     });
     if (decided.count === 0) return null;
     // What is applied is the text adopted, which is the text moved until the meeting can amend
-    // it: the amendment's change is replaced with it
-    await tx.amendmentChange.deleteMany({ where: { amendmentId } });
-    await tx.amendmentChange.create({ data: { amendmentId, ...changeData(change) } });
+    // it. The amendment's own change keeps its section: another amendment applied since the
+    // motion was made has moved it to the current version's id
+    const adopted = changeData(change);
+    const existing = await tx.amendmentChange.findMany({ where: { amendmentId } });
+    if (existing.length === 1 && existing[0].changeType === adopted.changeType) {
+      const { targetSectionId: _moved, changeType: _same, position: _first, ...text } = adopted;
+      await tx.amendmentChange.update({ where: { id: existing[0].id }, data: text });
+    } else {
+      await tx.amendmentChange.deleteMany({ where: { amendmentId } });
+      await tx.amendmentChange.create({ data: { amendmentId, ...adopted } });
+    }
     return amendmentId;
   });
+}
+
+/** Say on a passed amendment why the meeting's decision wasn't applied */
+async function recordNotApplied(amendmentId: string, error: unknown): Promise<void> {
+  const why =
+    error instanceof AmendmentConflictError
+      ? 'the bylaws changed after it was moved, and its section is no longer in the current version'
+      : 'it could not be applied';
+  const note = `Adopted at the meeting but not applied: ${why}. A secretary applies the change to the current version.`;
+  try {
+    const amendment = await prisma.amendment.findUnique({
+      where: { id: amendmentId },
+      select: { description: true },
+    });
+    await prisma.amendment.update({
+      where: { id: amendmentId },
+      data: { description: amendment?.description ? `${amendment.description}\n\n${note}` : note },
+    });
+  } catch (err) {
+    logger.error({ err, amendmentId }, 'Could not record why an amendment was not applied');
+  }
 }
 
 /**
@@ -305,8 +317,10 @@ async function syncMotionToBylawyer(
         await new AmendmentService().applyAmendment(amendment);
         applied = true;
       } catch (applyError) {
-        // Log but don't fail: the amendment is recorded, and a secretary can apply it
+        // Don't fail: the amendment is recorded as passed, and says why it wasn't applied, so a
+        // secretary sees it on the Amendments page and applies the change by hand
         logger.error({ err: applyError }, 'Failed to auto-apply amendment');
+        await recordNotApplied(amendmentId, applyError);
       }
     }
 

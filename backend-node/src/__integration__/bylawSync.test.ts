@@ -4,6 +4,7 @@ import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
+import { AmendmentService } from '../bylawyer/services/amendmentService.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { liveSockets, type FakeSocket } from './liveSockets.js';
@@ -138,7 +139,7 @@ describe('bylaw sync', () => {
     expect(added.parent).toMatchObject({ numberLabel: '1', title: 'Name' });
   });
 
-  it('skips an added section whose parent is not in the current version', async () => {
+  it('records an added section whose parent left the current version as passed, not applied', async () => {
     const { before, after } = states(
       decided({
         documentId: f.doc,
@@ -147,7 +148,76 @@ describe('bylaw sync', () => {
         newTitle: 'X',
       }),
     );
-    expect(await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after)).toBeNull();
+    expect(
+      await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+    ).toMatchObject({ success: true, applied: false });
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+    });
+    expect(amendment).toMatchObject({ status: 'passed', resultingVersionId: null });
+    expect(amendment.description).toContain('not applied');
+  });
+
+  /** Another amendment to the name, applied: the document's current version moves on */
+  async function applyAnother() {
+    const other = await prisma.amendment.create({
+      data: {
+        documentId: f.doc,
+        title: 'Another',
+        status: 'passed',
+        changes: {
+          create: {
+            changeType: 'modify',
+            targetSectionId: f.section,
+            newContent: 'The name is B.',
+          },
+        },
+      },
+      include: { changes: true },
+    });
+    await new AmendmentService().applyAmendment(other);
+  }
+
+  it('records a motion decided after the bylaws changed under it: passed, not applied, and why', async () => {
+    // Moved against version 2, then another amendment made version 3, then it carried
+    await applyAnother();
+    const { before, after } = votedStates(f.doc, f.section);
+    expect(
+      await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+    ).toMatchObject({ success: true, applied: false });
+    const amendment = await prisma.amendment.findFirstOrThrow({
+      where: { robbieMeetingCode: f.packet.code },
+      include: { changes: true },
+    });
+    expect(amendment).toMatchObject({ status: 'passed', resultingVersionId: null });
+    expect(amendment.description).toBe(
+      'Adopted at the meeting but not applied: the bylaws changed after it was moved, and its section is no longer in the current version. A secretary applies the change to the current version.',
+    );
+    expect(amendment.changes[0]).toMatchObject({ newContent: 'The name is A Prime.' });
+  });
+
+  it('applies a proposed amendment decided after another was applied, at its section now', async () => {
+    await prisma.amendmentChange.create({
+      data: {
+        amendmentId: f.proposed,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    // Moved against version 2 (the motion names version 2's section), then version 3 was made
+    await applyAnother();
+    const { before, after } = states(
+      decided({ ...rename(f.doc, f.section), amendmentId: f.proposed }),
+    );
+    expect(
+      await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+    ).toMatchObject({ success: true, amendmentId: f.proposed, applied: true });
+    const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
+    const name = await prisma.section.findFirstOrThrow({
+      where: { versionId: doc.currentVersionId!, numberLabel: '1' },
+    });
+    expect(name.content).toBe('The name is A Prime.');
   });
 
   it('marks the proposed amendment it moved passed, with the text adopted, and applies it', async () => {
@@ -296,14 +366,13 @@ describe('bylaw sync', () => {
     expect(sectionB.content).toBe('The name is B.');
   });
 
-  it("skips a motion whose section is not in the document's current version", async () => {
-    for (const targetSectionId of [f.sectionB, f.oldSection]) {
-      const { before, after } = votedStates(f.doc, targetSectionId);
+  it("doesn't apply a motion whose section isn't in the document's current version", async () => {
+    for (const [index, targetSectionId] of [f.sectionB, f.oldSection].entries()) {
+      const { before, after } = states(decided(rename(f.doc, targetSectionId), { id: 41 + index }));
       expect(
         await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
-      ).toBeNull();
+      ).toMatchObject({ applied: false });
     }
-    expect(await prisma.amendment.count({ where: { robbieMeetingCode: f.packet.code } })).toBe(0);
     const doc = await prisma.document.findUniqueOrThrow({ where: { id: f.doc } });
     expect(doc.currentVersionId).toBe(f.v2);
   });
