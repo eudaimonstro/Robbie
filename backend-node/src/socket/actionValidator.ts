@@ -571,6 +571,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!motionToModify) {
         return { valid: false, error: 'No motion to modify', errorCode: 'NO_CURRENT_MOTION' };
       }
+      // A bylaw amendment's words come from the change it carries, which is what the room sees
+      // and what is applied: the mover withdraws it and moves it again instead
+      if (motionToModify.type === 'bylawAmendment') {
+        return {
+          valid: false,
+          error: "A bylaw amendment's words come from its text: withdraw it and move it again",
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       if (motionToModify.moverId !== action.requesterId) {
         return {
           valid: false,

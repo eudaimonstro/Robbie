@@ -19,6 +19,7 @@ import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHand
 import { applyAction } from './stateManager.js';
 import { recordMeetingTimes } from './meetingPacket.js';
 import { afterAttendanceAction, prepareAttendanceAction } from './attendanceActions.js';
+import { prepareBylawMotion } from './bylawMotion.js';
 import { emitState } from './statePublisher.js';
 import { checkAndSyncBylawAmendment } from '../bylawyer/bylawSyncService.js';
 import {
@@ -197,6 +198,14 @@ export async function handleDispatchAction(
     }
     enrichedAction = prepared.action;
 
+    // A bylaw amendment carries the text the room votes on, from the bylaws themselves
+    const bylawMotion = await prepareBylawMotion(meetingCode, meeting.state, enrichedAction);
+    if ('error' in bylawMotion) {
+      reject(socket, data.clientSequence, callback, bylawMotion.error, bylawMotion.errorCode);
+      return;
+    }
+    enrichedAction = bylawMotion.action;
+
     // Pre-validate action before applying
     const validation = validateAction(meeting.state, enrichedAction);
     if (!validation.valid) {
@@ -277,11 +286,13 @@ export async function handleDispatchAction(
       enrichedAction.type === 'UNANIMOUS_CONSENT_PASSED'
     ) {
       try {
+        // The states either side of the action as it was applied in the meeting's queue, not
+        // the state read before it waited there
         const syncResult = await checkAndSyncBylawAmendment(
           meetingCode,
           enrichedAction,
-          meeting.state, // Previous state (before action was applied)
-          result.state, // New state (after action was applied)
+          result.previousState,
+          result.state,
         );
         if (syncResult) {
           logger.info({ syncResult }, 'Bylaw sync result');

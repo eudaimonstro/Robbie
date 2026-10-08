@@ -656,6 +656,31 @@ describe('actionValidator', () => {
     });
   });
 
+  describe('MODIFY_MOTION', () => {
+    it('refuses new words for a bylaw amendment, whose words come from its text', () => {
+      const motion = {
+        ...createMotion(),
+        type: 'bylawAmendment',
+        bylawAmendment: { documentId: 'd', changeType: 'delete' as const },
+      };
+      const state = { ...activeMeetingState(), pendingSecond: motion };
+      const result = validateAction(state, {
+        type: 'MODIFY_MOTION',
+        requesterId: 2,
+        newText: 'Fix a typo in 3.2',
+        timestamp: '',
+      });
+      expect(result).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
+      // Any other motion's mover can still change its words before debate
+      expect(
+        validateAction(
+          { ...state, pendingSecond: createMotion() },
+          { type: 'MODIFY_MOTION', requesterId: 2, newText: 'Paint it blue', timestamp: '' },
+        ).valid,
+      ).toBe(true);
+    });
+  });
+
   describe('SECOND_MOTION', () => {
     it('should allow seconding when motion is pending', () => {
       const state: MeetingState = {
