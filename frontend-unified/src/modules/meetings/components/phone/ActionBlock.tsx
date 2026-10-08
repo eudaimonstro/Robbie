@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import { floorOpenForDebate, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import {
+  floorOpenForDebate,
+  generateTimestamp,
+  joinNames,
+  winnersOf,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
 import { nomineesFor } from '../../utils/question';
@@ -24,8 +29,34 @@ function Note({ children }: { children: ReactNode }) {
   return <div className="space-y-1 text-ink-muted">{children}</div>;
 }
 
-/** The one thing the phone asks of its owner now */
+/**
+ * The one thing the phone asks of its owner now; right after the chair declares a voice vote's
+ * result, a member may also call for a division (RONR 29:7), until other business comes up
+ */
 export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
+  if (state.voiceVote && !state.votingOpen && me.role !== 'guest') {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2 rounded-lg border border-rule p-4">
+          <p className="text-sm text-ink">
+            {`The chair declared the voice vote ${state.voiceVote.passed ? 'carried' : 'failed'}. If you doubt it, call for a division: the vote is counted.`}
+          </p>
+          <button
+            type="button"
+            className="btn-secondary w-full"
+            onClick={() => dispatch({ type: 'REQUEST_DIVISION', timestamp: generateTimestamp() })}
+          >
+            Call for a division
+          </button>
+        </div>
+        <MomentAction state={state} dispatch={dispatch} me={me} />
+      </div>
+    );
+  }
+  return <MomentAction state={state} dispatch={dispatch} me={me} />;
+}
+
+function MomentAction({ state, dispatch, me }: ActionBlockProps) {
   const moment = phoneMoment(state);
   if (me.role === 'guest') {
     return <GuestBlock state={state} dispatch={dispatch} me={me} moment={moment} />;
@@ -192,17 +223,22 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
 
 /**
  * Between the steps of an election, while the chair has the next one: nominations closed with the
- * ballot still to open, or a winner awaiting the declaration
+ * ballot still to open, winners awaiting the declaration, or a seat still open for another ballot
  */
 function ElectionWaiting({ state }: { state: MeetingState }) {
   const election = state.currentElection;
   const position = election?.position ?? state.currentNominationPosition ?? '';
   const nominees = election ? election.candidates.map((c) => c.name) : nomineesFor(state, position);
+  const winners = election ? winnersOf(election) : [];
   return (
     <div className="space-y-2">
       <p className="label-caps">{`Election for ${position}`}</p>
-      {election?.elected ? (
-        <p className="text-ink">{election.elected} has the vote required.</p>
+      {winners.length > 0 ? (
+        <p className="text-ink">
+          {`${joinNames(winners)} ${winners.length > 1 ? 'have' : 'has'} the vote required.`}
+        </p>
+      ) : election && nominees.length > 0 ? (
+        <p className="text-ink">Candidates for the next ballot: {nominees.join(', ')}</p>
       ) : nominees.length > 0 ? (
         <p className="text-ink">Nominated: {nominees.join(', ')}</p>
       ) : (

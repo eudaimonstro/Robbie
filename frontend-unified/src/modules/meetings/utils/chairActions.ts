@@ -11,6 +11,7 @@ import {
   generateId,
   generateTimestamp,
   getValidMotions,
+  winnersOf,
 } from '@robbie-bylawyer/shared/utils';
 import { minutesItemUnderWay } from './minutesApproval';
 
@@ -196,6 +197,41 @@ export function electionUnderway(state: MeetingState): boolean {
   return state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
 }
 
+/**
+ * The next ballot of an election with seats still open, among the candidates not yet elected,
+ * by the vote it has required. Without a quorum it asks first.
+ */
+export function nextBallot(
+  state: MeetingState,
+  election: NonNullable<MeetingState['currentElection']>,
+): ChairAction {
+  const unconfirmed = !attendanceSummary(state).hasQuorum;
+  return {
+    id: 'next-ballot',
+    label: 'Open the next ballot',
+    tone: 'primary',
+    make: () => ({
+      type: 'START_ELECTION',
+      electionId: generateId(),
+      position: election.position,
+      requiredVotes: election.requiredVotes,
+      ...(unconfirmed && { confirmedWithoutQuorum: true }),
+      timestamp: generateTimestamp(),
+    }),
+    ...(unconfirmed && { confirm: true }),
+  };
+}
+
+/** Nominations again for the seats an election still has open, with nobody left to vote for */
+function reopenNominations(position: string): ChairAction {
+  return {
+    id: 'reopen-nominations',
+    label: `Reopen nominations for ${position}`,
+    tone: 'primary',
+    make: () => ({ type: 'OPEN_NOMINATIONS', position, timestamp: generateTimestamp() }),
+  };
+}
+
 /** Sets the election aside: it asks first, and the election card offers it too */
 export function setAsideElection(): ChairAction {
   return {
@@ -218,6 +254,25 @@ export function setAsideElection(): ChairAction {
  * @param presidingId - who puts an agenda item to a vote: the chair, or the admin presiding
  */
 export function chairActions(state: MeetingState, presidingId: number | null): ChairAction[] {
+  const actions = actionsInOrder(state, presidingId);
+  // Right after the chair declares a voice vote's result, someone in the room may call for a
+  // division (RONR 29:7): the chair records it, and the vote is counted
+  if (state.voiceVote && !state.votingOpen && state.meetingStage !== 'adjourned') {
+    return [...actions, divisionFromFloor()];
+  }
+  return actions;
+}
+
+function divisionFromFloor(): ChairAction {
+  return {
+    id: 'floor-division',
+    label: 'Division called from the floor',
+    tone: 'secondary',
+    make: () => ({ type: 'REQUEST_DIVISION', fromFloor: true, timestamp: generateTimestamp() }),
+  };
+}
+
+function actionsInOrder(state: MeetingState, presidingId: number | null): ChairAction[] {
   if (state.meetingStage === 'adjourned') return [];
   if (!state.meetingActive) {
     return [
@@ -349,6 +404,9 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         setAsideElection(),
       ];
     }
+    // The winners of a closed ballot are declared one at a time; with seats still open after
+    // them, the next ballot
+    const [winner] = election ? winnersOf(election) : [];
     const next: ChairAction[] = state.nominationsOpen
       ? [
           {
@@ -358,21 +416,29 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
             make: () => ({ type: 'CLOSE_NOMINATIONS', timestamp: generateTimestamp() }),
           },
         ]
-      : election?.elected
+      : winner
         ? [
             {
               id: 'declare-elected',
-              label: `Declare ${election.elected} elected`,
+              label: `Declare ${winner} elected`,
               tone: 'primary',
               make: () => ({
                 type: 'DECLARE_ELECTED',
-                candidateName: election.elected!,
+                candidateName: winner,
                 timestamp: generateTimestamp(),
               }),
             },
           ]
-        : [];
-    return [...next, setAsideElection(), adjourn('secondary')];
+        : election
+          ? // With nobody left on the ballot, the open seats need nominations again
+            [
+              election.candidates.length > 0
+                ? nextBallot(state, election)
+                : reopenNominations(election.position),
+            ]
+          : [];
+    // A result awaiting its declaration is declared, not set aside (the server refuses it)
+    return [...next, ...(winner ? [] : [setAsideElection()]), adjourn('secondary')];
   }
 
   if (!state.agendaAdopted) {

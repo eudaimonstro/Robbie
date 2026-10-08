@@ -22,12 +22,17 @@ function ballotOpen(state: MeetingState): boolean {
   return state.votingOpen && state.votingMethod === 'ballot';
 }
 
+/** Who presides, and so sees the tellers' count of an open election's paper ballots */
+const presides = (role: MeetingRole) => role === 'chair' || role === 'admin';
+
 /**
  * The state as a client in this role may see it. A secret ballot stays secret: while one is
  * open, the running totals, each member's choice and each proxy's choice stay on the server,
  * and only who has voted (`voters`, for the count of ballots received) and the chair's own
  * tellers' count go out; the record of a decided ballot keeps no choices. An election's running
- * count stays on the server while its ballot is open. The previous meeting's minutes are for
+ * count stays on the server while its ballot is open, and the tellers' count of its paper
+ * ballots goes only to the chair and admins who enter it (not to members, guests or the
+ * display, which joins as a guest) until the ballot closes. The previous meeting's minutes are for
  * members: a guest (a display too) is told only that there are minutes to approve
  * (`previousMinutesId`), not what they say. Every state sent to a client goes through here.
  */
@@ -38,10 +43,15 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
   );
   const openElection = !!state.currentElection?.votingInProgress;
   const hideMinutes = role === 'guest' && !!state.minutesFromPreviousMeeting;
-  if (!openBallot && !ballotChoices && !openElection && !hideMinutes) return state;
+  // What a declared voice vote's division would put back stays on the server
+  const voiceUndo = !!state.voiceVote?.undo;
+  if (!openBallot && !ballotChoices && !openElection && !hideMinutes && !voiceUndo) return state;
   return {
     ...state,
     ...(hideMinutes && { minutesFromPreviousMeeting: '' }),
+    ...(voiceUndo && {
+      voiceVote: { motionId: state.voiceVote!.motionId, passed: state.voiceVote!.passed },
+    }),
     ...(openBallot && {
       votes: NO_VOTES,
       voterChoices: {},
@@ -53,7 +63,17 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
       ),
     }),
     ...(openElection && {
-      currentElection: { ...state.currentElection!, ballotResults: {} },
+      currentElection: {
+        ...state.currentElection!,
+        ballotResults: {},
+        ...(!presides(role) && {
+          floorBallots: {},
+          floorWriteIns: {},
+          floorBlank: 0,
+          floorIllegal: 0,
+          floorBallotCount: 0,
+        }),
+      },
     }),
   };
 }
@@ -75,10 +95,13 @@ export function publicUpdate(update: StateUpdatePayload, role: MeetingRole): Sta
   };
 }
 
-/** The sockets in a room whose role is guest now (the server's own sockets: one process) */
-function guestSockets(io: TypedServer, room: string): string[] {
+/** The sockets in a room whose role is one of these now (the server's own sockets: one process) */
+function socketsWithRole(io: TypedServer, room: string, roles: MeetingRole[]): string[] {
   const ids = io.sockets.adapter.rooms.get(room) ?? new Set<string>();
-  return [...ids].filter((id) => io.sockets.sockets.get(id)?.data.role === 'guest');
+  return [...ids].filter((id) => {
+    const role = io.sockets.sockets.get(id)?.data.role;
+    return !!role && roles.includes(role);
+  });
 }
 
 /**
@@ -180,19 +203,28 @@ export function slimUpdate(
 }
 
 /**
- * Send an update to everyone in the meeting, each audience's copy serialized once: while the
- * previous minutes' text is in the update, guests are sent the state without it, by role at the
- * time of sending
+ * Send an update to everyone in the meeting, each audience's copy serialized once, by role at
+ * the time of sending: while the previous minutes' text is in the update, guests are sent the
+ * state without it; while an election's ballot is open, only the chair and admins are sent the
+ * tellers' count of its paper ballots
  */
 function deliver(io: TypedServer, meetingCode: string, update: StateUpdatePayload): void {
   const room = `meeting:${meetingCode}`;
-  if (!update.state.minutesFromPreviousMeeting) {
+  const hideMinutes = !!update.state.minutesFromPreviousMeeting;
+  const hidePaper = !!update.state.currentElection?.votingInProgress;
+  if (!hideMinutes && !hidePaper) {
     io.to(room).emit('STATE_UPDATE', publicUpdate(update, 'member'));
     return;
   }
-  const guests = guestSockets(io, room);
-  io.to(room).except(guests).emit('STATE_UPDATE', publicUpdate(update, 'member'));
+  const guests = hideMinutes ? socketsWithRole(io, room, ['guest']) : [];
+  const presiding = hidePaper ? socketsWithRole(io, room, ['chair', 'admin']) : [];
+  io.to(room)
+    .except([...guests, ...presiding])
+    .emit('STATE_UPDATE', publicUpdate(update, 'member'));
   if (guests.length > 0) io.to(guests).emit('STATE_UPDATE', publicUpdate(update, 'guest'));
+  if (presiding.length > 0) {
+    io.to(presiding).emit('STATE_UPDATE', publicUpdate(update, 'chair'));
+  }
 }
 
 function send(

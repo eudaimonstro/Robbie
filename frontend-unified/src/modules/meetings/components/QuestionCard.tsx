@@ -77,6 +77,17 @@ export function QuestionCard({
                 ))}
             </div>
           )}
+          {question.outOfReach && (
+            <p
+              className={
+                display
+                  ? 'text-display-label font-semibold uppercase tracking-[0.08em] text-caution-ink'
+                  : 'text-sm font-semibold text-caution-ink'
+              }
+            >
+              {question.outOfReach}
+            </p>
+          )}
           {question.bylawText && <BylawText text={question.bylawText} size={size} />}
           {question.beneath.length > 0 && (
             <div>

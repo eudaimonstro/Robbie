@@ -251,7 +251,14 @@ describe('DisplayView', () => {
     const declared: MeetingState = {
       ...inSession,
       electedOfficers: [
-        { position: 'Director', name: 'Carmen Diaz', memberId: 5, electedAt: '8:30:00 PM' },
+        {
+          position: 'Director',
+          name: 'Carmen Diaz',
+          memberId: 5,
+          electedAt: '8:30:00 PM',
+          ballots: [{ 'Carmen Diaz': 9, 'Ray Castillo': 5 }],
+          electionId: 7,
+        },
       ],
       meetingLog: [
         {
@@ -273,6 +280,58 @@ describe('DisplayView', () => {
     render(<DisplayView />);
     expect(screen.queryByText('Elected')).toBeNull();
     expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
+  });
+
+  it('stamps ELECTED at each declaration of two directors, naming everyone elected yet', () => {
+    const officer = (name: string) => ({
+      position: 'Director',
+      name,
+      memberId: 0,
+      electedAt: '8:30:00 PM',
+      ballots: [{ 'Alice Brennan': 14, 'Ben Whitaker': 12, 'Carl Moss': 8 }],
+      ballotTotals: [{ cast: 20 }],
+      electionId: 9,
+    });
+    const election = {
+      id: 9,
+      position: 'Director',
+      candidates: [
+        { name: 'Ben Whitaker', id: 4 },
+        { name: 'Carl Moss', id: 5 },
+      ],
+      requiredVotes: 'majority' as const,
+      votingInProgress: false,
+      seats: 1,
+      ballotResults: { 'Alice Brennan': 14, 'Ben Whitaker': 12, 'Carl Moss': 8 },
+      votersWhoVoted: [],
+      winners: ['Ben Whitaker'],
+      elected: 'Ben Whitaker',
+    };
+    // Alice is declared; Ben awaits his declaration
+    socket.state = {
+      ...inSession,
+      currentElection: election,
+      electedOfficers: [officer('Alice Brennan')],
+      meetingLog: [
+        { time: '8:30:00 PM', message: 'Chair declares Alice Brennan elected as Director.' },
+      ],
+    };
+    const { unmount } = render(<DisplayView />);
+    expect(screen.getByText('Elected')).toBeTruthy();
+    expect(screen.getByText('Alice Brennan, Director')).toBeTruthy();
+    expect(screen.getByText('Alice Brennan 14, Ben Whitaker 12, Carl Moss 8')).toBeTruthy();
+    unmount();
+
+    socket.state = {
+      ...inSession,
+      electedOfficers: [officer('Alice Brennan'), officer('Ben Whitaker')],
+      meetingLog: [
+        { time: '8:30:00 PM', message: 'Chair declares Alice Brennan elected as Director.' },
+        { time: '8:31:00 PM', message: 'Chair declares Ben Whitaker elected as Director.' },
+      ],
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Alice Brennan and Ben Whitaker, Director')).toBeTruthy();
   });
 
   it('says when the meeting adjourned, how much it decided, and where the minutes will be', () => {

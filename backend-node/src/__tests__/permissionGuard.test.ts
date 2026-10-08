@@ -29,6 +29,7 @@ describe('permissionGuard', () => {
         'START_ELECTION',
         'CLOSE_ELECTION',
         'DECLARE_ELECTED',
+        'ELECT_BY_ACCLAMATION',
         'SET_ASIDE_ELECTION',
         'SUSPEND_RULE_APPROVED',
         'RESTORE_RULE',

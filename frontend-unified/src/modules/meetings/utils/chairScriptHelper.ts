@@ -1,5 +1,10 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
-import { votingMethodNow } from '@robbie-bylawyer/shared/utils';
+import {
+  acclamationCandidates,
+  joinNames,
+  votingMethodNow,
+  winnersOf,
+} from '@robbie-bylawyer/shared/utils';
 import { nomineesFor } from './question';
 
 export interface ChairScript {
@@ -96,6 +101,15 @@ export function getChairScript(state: MeetingState): ChairScript | null {
         note: 'Open nominations again, or set the election aside.',
       };
     }
+    // No more nominees than seats: they may be declared elected without a ballot (RONR 46:40)
+    const acclaimed = acclamationCandidates(state);
+    if (acclaimed) {
+      const names = joinNames(acclaimed.names);
+      return {
+        text: `"Nominations for ${position} are closed. ${names}, ${acclaimed.names.length > 1 ? 'having been the only nominees, are' : 'being the only nominee, is'} elected by acclamation."`,
+        note: 'Declare elected by acclamation in the election card, or open the ballot if the bylaws require one.',
+      };
+    }
     return {
       text: `"Nominations for ${position} are closed. The ballot will now be taken."`,
       note: 'Open the ballot in the election card.',
@@ -105,10 +119,21 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   if (election?.votingInProgress) {
     return { text: VOTE_SCRIPTS.ballot, note: 'Enter the paper ballots, then close the ballot.' };
   }
-  if (election?.elected) {
+  const winners = election ? winnersOf(election) : [];
+  if (election && winners.length > 0) {
     return {
-      text: `"${election.elected}, having received the vote required, is elected ${election.position}."`,
-      note: 'Declare the result in the election card.',
+      text: `"${joinNames(winners)}, having received the vote required, ${winners.length > 1 ? 'are' : 'is'} elected ${election.position}."`,
+      note:
+        winners.length > 1
+          ? 'Declare each of them elected in the election card.'
+          : 'Declare the result in the election card.',
+    };
+  }
+  if (election) {
+    const seats = election.seats ?? 1;
+    return {
+      text: `"${seats === 1 ? 'One seat remains' : `${seats} seats remain`} to be filled. The ballot will now be taken again."`,
+      note: 'Open the next ballot in the election card.',
     };
   }
 
@@ -125,9 +150,16 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   // followed by any outcome notes.
   const lastLog = state.meetingLog[state.meetingLog.length - 1];
   const outcomeMatch = lastLog?.message.match(
-    /^(?:Vote: Yea \d+, Nay \d+\. (CARRIED|FAILED)\.|Motion (CARRIED) by unanimous consent\.)/,
+    /^(?:(?:Vote: Yea \d+, Nay \d+|Voice vote: the (?:ayes|noes) have it)\. (CARRIED|FAILED)\.|Motion (CARRIED) by unanimous consent\.)/,
   );
   const voteOutcome = outcomeMatch?.[1] ?? outcomeMatch?.[2];
+  // A voice vote the chair declared: a member may still call for a division
+  if (state.voiceVote && !state.votingOpen) {
+    return {
+      text: `"The ${state.voiceVote.passed ? 'ayes' : 'noes'} have it, and the motion ${state.voiceVote.passed ? 'is adopted' : 'is lost'}."`,
+      note: 'If a member calls for a division, record it: the vote is counted.',
+    };
+  }
 
   if (voteOutcome === 'CARRIED' && !state.votingOpen && !state.currentMotion) {
     if (state.currentAgendaItem) {

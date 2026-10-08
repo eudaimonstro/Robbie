@@ -168,6 +168,11 @@ export interface BylawAmendment {
   parentSectionId?: string;
   /** That section's number and title (set by the server) */
   parentSectionLabel?: string;
+  /**
+   * The vote it needs, from the organization's setting when it was moved (set by the server);
+   * absent on motions made before the setting existed, which need two thirds of the votes cast
+   */
+  voteRequired?: VoteThreshold;
 }
 
 export interface CommitteeReport {
@@ -275,6 +280,8 @@ export interface CompletedMotion {
   readonly division?: true;
   /** Withdrawn once stated, with the meeting's permission (by unanimous consent or a vote) */
   readonly withPermission?: true;
+  /** A voice vote the chair declared without a count: the ayes, or the noes, have it */
+  readonly declared?: 'ayes' | 'noes';
 }
 
 /**
@@ -318,12 +325,28 @@ export interface MinutesApprovalRecord {
   readonly agendaItemId?: number;
 }
 
+/**
+ * A closed ballot's totals, beside its counts by name: the ballots cast (on devices, and paper
+ * ballots not counting blanks: RONR 45:31 counts illegal ballots, not blank ones), the blank and
+ * illegal paper ballots, and the names written in on paper
+ */
+export interface BallotTotals {
+  readonly cast: number;
+  readonly blank?: number;
+  readonly illegal?: number;
+  readonly writeIns?: readonly string[];
+}
+
 /** An election the chair set aside (SET_ASIDE_ELECTION), as the minutes record it */
 export interface ElectionSetAsideRecord {
   /** The office, or null when none was named */
   readonly position: string | null;
   /** Each ballot closed before it was set aside, devices and paper together; counts only */
   readonly ballots?: ReadonlyArray<Record<string, number>>;
+  /** Each of those ballots' totals, in the same order (records made before them have none) */
+  readonly ballotTotals?: readonly BallotTotals[];
+  /** The seats still open, when more than one */
+  readonly seats?: number;
   readonly timestamp: string;
   readonly decidedAt?: string;
   readonly agendaItemId?: number;
@@ -353,6 +376,9 @@ export type UnfinishedBusinessRecord =
       readonly position: string;
       /** Each ballot closed before the adjournment; counts only */
       readonly ballots?: ReadonlyArray<Record<string, number>>;
+      readonly ballotTotals?: readonly BallotTotals[];
+      /** The seats still open, when more than one or when some of the election's were filled */
+      readonly seats?: number;
       readonly agendaItemId?: number;
     };
 
@@ -373,19 +399,40 @@ export interface Nomination {
 export interface Election {
   id: number;
   position: string;
-  candidates: Array<{ name: string; id: number }>;
+  /** Who is on the ballot; a name written in on paper joins from the next ballot, as a write-in */
+  candidates: Array<{ name: string; id: number; writeIn?: boolean }>;
   requiredVotes: 'majority' | 'plurality' | '2/3';
   votingInProgress: boolean;
   /**
-   * Ballots cast on devices, by candidate name; once someone is elected, the device and floor
+   * The seats this election still fills (one when absent): a ballot marks up to this many names,
+   * and each declaration fills one
+   */
+  seats?: number;
+  /**
+   * Ballots cast on devices, by candidate name; once the ballot closes, the device and floor
    * ballots together
    */
   ballotResults: Record<string, number>;
   votersWhoVoted: number[];
   /** The tellers' count of paper ballots, by candidate name, entered by the chair */
   floorBallots?: Record<string, number>;
+  /** Paper votes for names written in, by name */
+  floorWriteIns?: Record<string, number>;
+  /** Blank paper ballots (not counted as cast) and illegal ones (counted, for nobody) */
+  floorBlank?: number;
+  floorIllegal?: number;
+  /** How many paper ballots were counted, blanks left out; entered when there are several seats */
+  floorBallotCount?: number;
   /** Each closed ballot's count, devices and paper together, the first ballot first */
   ballots?: Array<Record<string, number>>;
+  /** Each closed ballot's totals, in the same order */
+  ballotTotals?: BallotTotals[];
+  /**
+   * Who has the vote required on the closed ballot, the most votes first, awaiting the chair's
+   * declaration (one per open seat at most)
+   */
+  winners?: string[];
+  /** The first of the winners (kept for states saved before winners existed) */
   elected: string | null;
   isRunoff?: boolean;
   runoffRound?: number;
@@ -400,6 +447,14 @@ export interface Officer {
   readonly ballots?: ReadonlyArray<Record<string, number>>;
   /** The vote the election required; records made before it was kept have none */
   readonly requiredVotes?: Election['requiredVotes'];
+  /** Each ballot's totals, beside ballots */
+  readonly ballotTotals?: readonly BallotTotals[];
+  /** The election it came from: officers elected together share it */
+  readonly electionId?: number;
+  /** Declared elected without a ballot, as the only nominee or no more nominees than seats */
+  readonly acclamation?: true;
+  /** Written in on paper ballots, not nominated */
+  readonly writeIn?: true;
   readonly agendaItemId?: number;
   readonly decidedAt?: string;
 }
@@ -453,6 +508,13 @@ export interface PendingProxyRequest {
   readonly status: ProxyRequestStatus;
   readonly respondedAt?: string;
   readonly declineReason?: string;
+}
+
+/** A voice vote declared by the chair, open to a division (MeetingState.voiceVote) */
+export interface VoiceVoteResult {
+  motionId: number;
+  passed: boolean;
+  undo?: Partial<MeetingState>;
 }
 
 /** A recess, as the minutes record it */
@@ -573,6 +635,23 @@ export interface MeetingState {
   agendaAdoption?: AgendaAdoptionRecord | null;
   /** A member called for a division on the open vote: it is counted, not by voice */
   divisionCalled?: boolean;
+  /**
+   * A voice vote the chair just declared without a count, while a member may still call for a
+   * division (until other business comes up). `undo` is what deciding it changed, kept on the
+   * server to put back if a division is called; clients don't receive it.
+   */
+  voiceVote?: VoiceVoteResult | null;
+  /** The seats to fill for the position nominations are (or were) open for; one when absent */
+  openSeats?: number | null;
+  /**
+   * The election those seats belong to, when some were filled (by acclamation, or a ballot before
+   * nominations were reopened): its id and closed ballots, so it stays one election
+   */
+  continuingElection?: {
+    id: number;
+    ballots?: Array<Record<string, number>>;
+    ballotTotals?: BallotTotals[];
+  } | null;
   nominations: Nomination[];
   nominationsOpen: boolean;
   currentNominationPosition: string | null;
@@ -649,7 +728,8 @@ export type MeetingAction =
       isChairDecidingVote?: boolean;
       timestamp?: string;
     }
-  | { type: 'CLOSE_VOTING'; at?: string; timestamp: string }
+  // declared: the chair announces a voice vote's result without a count ("The ayes have it")
+  | { type: 'CLOSE_VOTING'; declared?: 'ayes' | 'noes'; at?: string; timestamp: string }
   // The chair's count of the room: replaces the floor tally (a correction is a new entry)
   | { type: 'SET_FLOOR_TALLY'; yea: number; nay: number; abstain: number; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
@@ -712,7 +792,8 @@ export type MeetingAction =
       at?: string;
       timestamp: string;
     }
-  | { type: 'OPEN_NOMINATIONS'; position: string; timestamp: string }
+  // seats: how many to elect (one when absent)
+  | { type: 'OPEN_NOMINATIONS'; position: string; seats?: number; timestamp: string }
   | {
       type: 'NOMINATE';
       position: string;
@@ -736,11 +817,30 @@ export type MeetingAction =
       confirmedWithoutQuorum?: boolean;
       timestamp: string;
     }
-  | { type: 'CAST_BALLOT'; candidateName: string; voterId: number }
+  // One ballot on a device: candidateNames marks up to the seats (candidateName, one name)
+  | { type: 'CAST_BALLOT'; candidateName?: string; candidateNames?: string[]; voterId: number }
   | { type: 'CLOSE_ELECTION'; timestamp: string }
-  // The tellers' count of paper ballots by candidate name: replaces the floor ballots
-  | { type: 'SET_FLOOR_BALLOTS'; counts: Record<string, number>; timestamp: string }
+  // The tellers' count of paper ballots: marks by candidate name, names written in, blank and
+  // illegal ballots, and with several seats the paper ballots counted. Replaces the last entry.
+  | {
+      type: 'SET_FLOOR_BALLOTS';
+      counts: Record<string, number>;
+      writeIns?: Record<string, number>;
+      blank?: number;
+      illegal?: number;
+      ballots?: number;
+      timestamp: string;
+    }
   | { type: 'DECLARE_ELECTED'; candidateName: string; at?: string; timestamp: string }
+  // The chair declares the remaining nominees elected without a ballot, when they are no more
+  // than the open seats (electionId is set by the server)
+  | {
+      type: 'ELECT_BY_ACCLAMATION';
+      electionId: number;
+      confirmedWithoutQuorum?: boolean;
+      at?: string;
+      timestamp: string;
+    }
   // The chair sets aside an election that can't go on (no nominee, a mistyped position): its
   // nominations close and its ballot, with any result not yet declared, is dropped
   | { type: 'SET_ASIDE_ELECTION'; at?: string; timestamp: string }
@@ -906,6 +1006,20 @@ export interface CategoryInfo {
 // Vote calculation types
 export type VoteRequirement = 'majority' | '2/3' | 'none';
 
+/**
+ * The vote a question needs: a majority or two thirds, of the votes cast (abstentions don't
+ * count) or of all the voting members (RONR 44:9), whose number `members` gives
+ */
+export interface VoteThreshold {
+  fraction: 'majority' | '2/3';
+  of: 'cast' | 'members';
+  members?: number;
+}
+
+/** What an organization's bylaw amendments need (Organization.bylawAmendmentVote) */
+export type BylawAmendmentVote =
+  'twoThirdsCast' | 'majorityCast' | 'majorityMembers' | 'twoThirdsMembers';
+
 export interface VoteCalculationResult {
   passed: boolean;
   yea: number;
@@ -914,6 +1028,8 @@ export interface VoteCalculationResult {
   total: number;
   threshold: number;
   requirement: VoteRequirement;
+  /** The yes votes needed to carry, when it is of all the voting members */
+  needed?: number;
 }
 
 // Meeting Minutes types
@@ -922,7 +1038,8 @@ export interface VoteCalculationResult {
 export type MinutesEntry =
   | { kind: 'motion'; motion: CompletedMotion }
   | { kind: 'ruling'; ruling: ChairRulingRecord }
-  | { kind: 'election'; officer: Officer }
+  // One election: officer is the first chosen, officers everyone it chose, in order
+  | { kind: 'election'; officer: Officer; officers?: Officer[] }
   | { kind: 'setAside'; setAside: ElectionSetAsideRecord }
   | { kind: 'minutes'; approval: MinutesApprovalRecord }
   | { kind: 'recess'; recess: RecessRecord };

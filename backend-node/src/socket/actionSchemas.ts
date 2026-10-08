@@ -22,6 +22,7 @@ import {
   MAX_POSITION_LENGTH,
   MOTIONS,
 } from '@robbie-bylawyer/shared/constants';
+import { MAX_SEATS } from '@robbie-bylawyer/shared/utils';
 import {
   MAX_CORRECTIONS_LENGTH,
   MAX_FLOOR_COUNT,
@@ -258,7 +259,12 @@ export const ACTION_SCHEMAS = {
     isChairDecidingVote: z.boolean().optional(),
     timestamp: timestamp.optional(),
   }),
-  CLOSE_VOTING: clocked('CLOSE_VOTING'),
+  CLOSE_VOTING: z.strictObject({
+    type: z.literal('CLOSE_VOTING'),
+    declared: z.enum(['ayes', 'noes']).optional(),
+    at: timestamp.optional(),
+    timestamp,
+  }),
   SET_FLOOR_TALLY: z.strictObject({
     type: z.literal('SET_FLOOR_TALLY'),
     yea: count,
@@ -389,6 +395,7 @@ export const ACTION_SCHEMAS = {
   OPEN_NOMINATIONS: z.strictObject({
     type: z.literal('OPEN_NOMINATIONS'),
     position: text(MAX_TITLE_LENGTH),
+    seats: z.number().int().min(1).max(MAX_SEATS).optional(),
     timestamp,
   }),
   NOMINATE: z.strictObject({
@@ -419,18 +426,30 @@ export const ACTION_SCHEMAS = {
   }),
   CAST_BALLOT: z.strictObject({
     type: z.literal('CAST_BALLOT'),
-    candidateName: text(MAX_CANDIDATE_LENGTH),
+    candidateName: text(MAX_CANDIDATE_LENGTH).optional(),
+    candidateNames: z.array(text(MAX_CANDIDATE_LENGTH)).min(1).max(MAX_SEATS).optional(),
     voterId: optionalId,
   }),
   CLOSE_ELECTION: timed('CLOSE_ELECTION'),
   SET_FLOOR_BALLOTS: z.strictObject({
     type: z.literal('SET_FLOOR_BALLOTS'),
     counts: ballotCounts,
+    writeIns: ballotCounts.optional(),
+    blank: count.optional(),
+    illegal: count.optional(),
+    ballots: count.optional(),
     timestamp,
   }),
   DECLARE_ELECTED: z.strictObject({
     type: z.literal('DECLARE_ELECTED'),
     candidateName: text(MAX_CANDIDATE_LENGTH),
+    at: timestamp.optional(),
+    timestamp,
+  }),
+  ELECT_BY_ACCLAMATION: z.strictObject({
+    type: z.literal('ELECT_BY_ACCLAMATION'),
+    electionId: id,
+    confirmedWithoutQuorum: z.boolean().optional(),
     at: timestamp.optional(),
     timestamp,
   }),

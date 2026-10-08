@@ -237,7 +237,7 @@ describe('floor ballots in elections', () => {
     });
     expect(closed.currentElection?.elected).toBe('Ann');
     expect(closed.meetingLog.at(-1)?.message).toBe(
-      'Voting closed for Director. Results: Ann: 9 vote(s), Bo: 5 vote(s). Ann elected.',
+      'Voting closed for Director. Results: Ann: 9 vote(s), Bo: 5 vote(s). 14 ballot(s) cast. Ann has the vote required.',
     );
   });
 
@@ -248,13 +248,15 @@ describe('floor ballots in elections', () => {
         election({
           ballotResults: { Ann: 0, Bo: 0 },
           votersWhoVoted: [],
-          floorBallots: { Carmen: 18, Ann: 9 },
+          floorBallots: { Ann: 9 },
+          floorWriteIns: { Carmen: 18 },
         }),
       ),
       { type: 'CLOSE_ELECTION', timestamp: '20:30' },
     );
     expect(closed.currentElection).toMatchObject({
       elected: 'Carmen',
+      winners: ['Carmen'],
       votingInProgress: false,
       ballotResults: { Carmen: 18, Ann: 9, Bo: 0 },
     });
@@ -272,7 +274,10 @@ describe('floor ballots in elections', () => {
         electedAt: '20:31',
         // The ballot that elected them, and the vote it took, for the minutes
         ballots: [{ Carmen: 18, Ann: 9, Bo: 0 }],
+        ballotTotals: [{ cast: 27, writeIns: ['Carmen'] }],
         requiredVotes: 'majority',
+        electionId: 1,
+        writeIn: true,
       },
     ]);
     expect(declared.currentElection).toBeNull();
@@ -281,6 +286,11 @@ describe('floor ballots in elections', () => {
   it('start again empty on a runoff', () => {
     const tied = election({ floorBallots: { Ann: 1 } });
     const closed = meetingReducer(inElection(tied), { type: 'CLOSE_ELECTION', timestamp: '20:30' });
-    expect(closed.currentElection).toMatchObject({ isRunoff: true, floorBallots: {} });
+    // Ann 4 to Bo 4: nobody has a majority, and the next ballot keeps both
+    expect(closed.currentElection).toMatchObject({
+      votingInProgress: true,
+      floorBallots: {},
+      ballots: [{ Ann: 4, Bo: 4 }],
+    });
   });
 });

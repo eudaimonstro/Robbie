@@ -92,6 +92,11 @@ export function logVoteResultWithExtras(
 }
 
 /** A division called on a voice vote: by a member, or from the floor */
+/** A voice vote's result declared without a count: "Voice vote: the ayes have it. CARRIED." */
+export function logVoiceVoteDeclared(declared: 'ayes' | 'noes', result: string): string {
+  return `Voice vote: the ${declared} have it. ${result}.`;
+}
+
 export function logDivisionCalled(caller: string | null): string {
   return `${caller ?? 'A member in the room'} calls for a division: the vote is counted.`;
 }

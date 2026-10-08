@@ -9,6 +9,10 @@ export {
   calculateVoteResult,
   getChairVotingOptions,
   canChairVoteDecide,
+  motionThreshold,
+  thresholdFromSetting,
+  thresholdText,
+  votesNeeded,
   addVotes,
   completedMotionVotes,
   NO_VOTES,
@@ -93,3 +97,17 @@ export {
 } from './bylawAmendment.js';
 
 export { fitMotionText } from './motionText.js';
+
+export {
+  MAX_SEATS,
+  acclamationCandidates,
+  ballotsNotMinuted,
+  countBallot,
+  electionHistory,
+  electedTo,
+  joinNames,
+  remainingNominees,
+  seatsOpen,
+  winnersOf,
+  type BallotCount,
+} from './elections.js';

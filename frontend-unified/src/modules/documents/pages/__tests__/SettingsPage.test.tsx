@@ -60,6 +60,7 @@ vi.mock('../../components/AttendanceSettingsCard', () => ({
   AttendanceSettingsCard: () => <p>Attendance settings</p>,
 }));
 vi.mock('../../components/TimeZoneCard', () => ({ TimeZoneCard: () => <p>Time zone</p> }));
+vi.mock('../../components/BylawVoteCard', () => ({ BylawVoteCard: () => <p>Bylaw amendments</p> }));
 vi.mock('../../../../components/organizations/NoOrganizations', () => ({
   NoOrganizations: () => <p>No organizations yet</p>,
 }));

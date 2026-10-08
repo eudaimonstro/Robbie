@@ -18,8 +18,14 @@ import {
   attendanceSummary,
   awaitingRuling,
   canChairVoteDecide,
+  acclamationCandidates,
+  countBallot,
+  electedTo,
   floorOpenForDebate,
   motionOutOfOrder,
+  motionThreshold,
+  remainingNominees,
+  winnersOf,
   moverClaimsFloor,
   pendingNotOffered,
   textAmendmentProblem,
@@ -319,11 +325,14 @@ const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingActi
   'START_ELECTION',
   'CLOSE_ELECTION',
   'DECLARE_ELECTED',
+  'ELECT_BY_ACCLAMATION',
 ]);
 
 /** What can happen in a recess: the chair resumes or adjourns; the room's count is kept */
 const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
   'RESUME_MEETING',
+  // A division on the voice vote that carried the recess
+  'REQUEST_DIVISION',
   'END_MEETING',
   'MARK_PRESENT',
   'MARK_ABSENT',
@@ -342,6 +351,8 @@ const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAct
 /** What can happen once an adjournment has carried: the chair declares the meeting adjourned */
 const ADJOURNING_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
   'END_MEETING',
+  // A division on the voice vote that carried the adjournment
+  'REQUEST_DIVISION',
   'MARK_PRESENT',
   'MARK_ABSENT',
   'SET_HEADCOUNT',
@@ -355,6 +366,127 @@ const NOT_PRESIDING: ValidationResult = {
   error: 'Only the chair records business from the floor',
   errorCode: 'PERMISSION_DENIED',
 };
+
+/**
+ * Whether the chair may declare the open voice vote's result without a count: only on a voice
+ * vote not divided, on a question decided by a majority of the votes cast, and never on a bylaw
+ * amendment, whose record is counted (a vote of two thirds, or of all the members, is counted)
+ */
+function voiceResultDeclarable(state: MeetingState): ValidationResult {
+  if (state.votingMethod !== 'voice' || state.divisionCalled) {
+    return {
+      valid: false,
+      error: 'Only a voice vote is declared without a count',
+      errorCode: 'VOTING_METHOD',
+    };
+  }
+  const motion = state.currentMotion;
+  const threshold = motion ? motionThreshold(motion) : null;
+  const counted = (what: string): ValidationResult => ({
+    valid: false,
+    error: `${what} is counted: enter the count in the room`,
+    errorCode: 'VOTING_METHOD',
+  });
+  if (threshold?.of === 'members') return counted('A vote of all the voting members');
+  if (threshold?.fraction === '2/3') return counted('A vote of two thirds');
+  if (motion?.type === 'bylawAmendment') return counted('A bylaw amendment');
+  return { valid: true };
+}
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+type BallotAction = Extract<MeetingAction, { type: 'CAST_BALLOT' }>;
+type PaperAction = Extract<MeetingAction, { type: 'SET_FLOOR_BALLOTS' }>;
+type OpenElection = NonNullable<MeetingState['currentElection']>;
+
+/**
+ * Why a device ballot can't be counted, or null: it marks one name or more, no more than the
+ * seats, each once, and each a candidate on this ballot (a name written in is paper only)
+ */
+function ballotProblem(election: OpenElection, action: BallotAction): ValidationResult | null {
+  const names = action.candidateNames ?? (action.candidateName ? [action.candidateName] : []);
+  const seats = election.seats ?? 1;
+  if (names.length === 0) {
+    return { valid: false, error: 'Mark a name on the ballot', errorCode: 'INVALID_ACTION' };
+  }
+  if (names.length > seats) {
+    return {
+      valid: false,
+      error: seats === 1 ? 'Mark one name' : `Mark up to ${seats} names`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  if (new Set(names).size !== names.length) {
+    return { valid: false, error: 'Mark each name once', errorCode: 'INVALID_ACTION' };
+  }
+  const candidates = new Set(election.candidates.map((c) => c.name));
+  if (names.some((name) => !candidates.has(name))) {
+    return {
+      valid: false,
+      error: 'Vote for a candidate on the ballot',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  return null;
+}
+
+/**
+ * Why the tellers' count of paper ballots doesn't add up, or null: marks are for the candidates
+ * on the ballot, and names written in are not theirs. With several seats the paper ballots
+ * counted are entered (a ballot marks several names, so the marks can't give it), each
+ * candidate has no more marks than the legal ballots, and all marks fit on them.
+ */
+function paperBallotProblem(
+  election: OpenElection,
+  action: PaperAction,
+  elected: string[],
+): ValidationResult | null {
+  const candidates = new Set(election.candidates.map((c) => c.name));
+  if (Object.keys(action.counts).some((name) => !candidates.has(name))) {
+    return {
+      valid: false,
+      error: 'Enter a name not on the ballot as a write-in',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  const writeIns = Object.keys(action.writeIns ?? {});
+  // Elected to one seat, nobody is elected to another by a name written in
+  const again = writeIns.find((name) => elected.some((e) => sameName(e, name)));
+  if (again) {
+    return {
+      valid: false,
+      error: `${again} has already been elected ${election.position}`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  if (writeIns.some((name) => [...candidates].some((c) => sameName(c, name)))) {
+    return {
+      valid: false,
+      error: 'A candidate on the ballot is not a write-in: count them as a candidate',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  const seats = election.seats ?? 1;
+  if (seats === 1) return null;
+  const marks = [...Object.values(action.counts), ...Object.values(action.writeIns ?? {})];
+  const legal = (action.ballots ?? 0) - (action.illegal ?? 0);
+  const total = marks.reduce((sum, count) => sum + count, 0);
+  if ((total > 0 || (action.illegal ?? 0) > 0) && !action.ballots) {
+    return {
+      valid: false,
+      error: 'Enter how many paper ballots were counted',
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  if (legal < 0 || marks.some((count) => count > legal) || total > legal * seats) {
+    return {
+      valid: false,
+      error: `The marks don't fit on ${action.ballots ?? 0} paper ballots of up to ${seats} names`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
+  return null;
+}
 
 /**
  * Validate an action before applying it to the reducer
@@ -590,7 +722,10 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           const othersVotes = addVotes(deviceVotes, state.floorVotes);
           const decides =
             action.isChairDecidingVote &&
-            canChairVoteDecide(othersVotes, state.currentMotion?.vote ?? 'majority');
+            canChairVoteDecide(
+              othersVotes,
+              state.currentMotion ? motionThreshold(state.currentMotion) : 'majority',
+            );
           if (!decides) {
             return {
               valid: false,
@@ -607,6 +742,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
+      if (action.declared) return voiceResultDeclarable(state);
       // A voice vote is counted only in the room: closing it with nothing entered would decide
       // the question on no votes at all
       const floor = state.floorVotes ?? NO_VOTES;
@@ -735,11 +871,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'REQUEST_DIVISION':
-      // On a voice vote, before the chair announces it
-      if (!state.votingOpen || state.votingMethod !== 'voice') {
+      // On a voice vote, before the chair announces it, or right after the chair declares its
+      // result (RONR 29:7), before other business
+      if (!state.voiceVote && (!state.votingOpen || state.votingMethod !== 'voice')) {
         return {
           valid: false,
-          error: 'A division is called on a voice vote, before the result is announced',
+          error: 'A division is called on a voice vote, before other business comes up',
           errorCode: 'VOTING_METHOD',
         };
       }
@@ -1082,6 +1219,21 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NOMINATIONS_ALREADY_OPEN',
         };
       }
+      // One election at a time: the one in hand is finished or set aside first. With seats still
+      // open after a ballot and nobody awaiting the declaration, its nominations reopen.
+      {
+        const election = state.currentElection;
+        const inHand = election?.position ?? state.currentNominationPosition;
+        const between =
+          !!election && !election.votingInProgress && winnersOf(election).length === 0;
+        if ((election && !between) || (inHand && inHand !== action.position)) {
+          return {
+            valid: false,
+            error: `Finish the election for ${inHand}, or set it aside`,
+            errorCode: 'ELECTION_IN_PROGRESS',
+          };
+        }
+      }
       // An election takes the floor once the question before the meeting is settled
       if (state.currentMotion || state.pendingSecond) {
         return {
@@ -1115,9 +1267,19 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'WRONG_POSITION',
         };
       }
+      // Elected to one seat, a nominee isn't nominated for the next
+      const nomineeName = action.nomineeId
+        ? (state.members.find((m) => m.id === action.nomineeId)?.name ?? action.nomineeName)
+        : action.nomineeName;
+      if (electedTo(state, action.position).some((name) => sameName(name, nomineeName))) {
+        return {
+          valid: false,
+          error: `${nomineeName} has already been elected ${action.position}`,
+          errorCode: 'ALREADY_NOMINATED',
+        };
+      }
       // Check if already nominated. A nominee from outside the meeting has no member ID (0),
       // so they are told apart by name.
-      const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
       const alreadyNominated = state.nominations.some(
         (n) =>
           n.position === action.position &&
@@ -1181,11 +1343,33 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'START_ELECTION': {
-      if (state.currentElection) {
+      const open = state.currentElection;
+      // The next ballot of an election with seats still open, once its winners are declared
+      if (
+        open &&
+        (open.votingInProgress ||
+          winnersOf(open).length > 0 ||
+          (open.seats ?? 1) < 1 ||
+          open.candidates.length === 0)
+      ) {
         return {
           valid: false,
-          error: 'An election is already in progress',
+          error: open.votingInProgress
+            ? 'The ballot is already open'
+            : winnersOf(open).length > 0
+              ? 'Declare the result of this ballot first'
+              : open.candidates.length === 0
+                ? 'No candidates are left: reopen nominations, or set the election aside'
+                : 'An election is already in progress',
           errorCode: 'ELECTION_IN_PROGRESS',
+        };
+      }
+      const position = open?.position ?? state.currentNominationPosition;
+      if (position && action.position !== position) {
+        return {
+          valid: false,
+          error: `The election in hand is for ${position}`,
+          errorCode: 'WRONG_POSITION',
         };
       }
       // A motion made during the election (adjourn, recess, a point of order) is settled first
@@ -1212,7 +1396,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       // A ballot with no candidate can't elect anyone, and nothing would end it: the chair
       // reopens nominations or sets the election aside
-      if (!state.nominations.some((n) => n.position === action.position && !n.declined)) {
+      if (!open && remainingNominees(state, action.position).length === 0) {
         return {
           valid: false,
           error: 'Nobody has been nominated',
@@ -1222,9 +1406,54 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
+    case 'ELECT_BY_ACCLAMATION': {
+      if (!state.meetingActive) {
+        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+      }
+      if (state.currentMotion || state.pendingSecond || state.votingOpen) {
+        return {
+          valid: false,
+          error: 'Settle the pending motion first',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      if (state.nominationsOpen) {
+        return {
+          valid: false,
+          error: 'Close nominations first',
+          errorCode: 'NOMINATIONS_ALREADY_OPEN',
+        };
+      }
+      if (state.currentElection?.votingInProgress) {
+        return { valid: false, error: 'The ballot is open', errorCode: 'VOTING_IN_PROGRESS' };
+      }
+      // RONR 46:40: only when there are no more nominees than seats, and nobody awaits a
+      // declaration from a ballot
+      if (!acclamationCandidates(state)) {
+        return {
+          valid: false,
+          error: 'Only nominees who are no more than the open seats are elected without a ballot',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      return (
+        quorumConfirmed(state, action.confirmedWithoutQuorum, 'Declare them elected anyway?') ?? {
+          valid: true,
+        }
+      );
+    }
+
     case 'SET_ASIDE_ELECTION':
       if (!isElectionUnderway(state)) {
         return { valid: false, error: 'No election to set aside', errorCode: 'NO_ELECTION' };
+      }
+      // Someone has the vote required: the chair declares the result, which can't be set aside
+      if (
+        state.currentElection &&
+        !state.currentElection.votingInProgress &&
+        winnersOf(state.currentElection).length > 0
+      ) {
+        return { valid: false, error: 'Declare the result first', errorCode: 'INVALID_STATE' };
       }
       return { valid: true };
 
@@ -1248,7 +1477,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ALREADY_VOTED_ELECTION',
         };
       }
-      return { valid: true };
+      return ballotProblem(state.currentElection, action) ?? { valid: true };
     }
 
     case 'SET_FLOOR_BALLOTS': {
@@ -1266,10 +1495,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         typeof action.counts === 'object' && action.counts !== null && !Array.isArray(action.counts)
           ? Object.entries(action.counts)
           : null;
+      const writeIns =
+        action.writeIns === undefined
+          ? []
+          : typeof action.writeIns === 'object' &&
+              action.writeIns !== null &&
+              !Array.isArray(action.writeIns)
+            ? Object.entries(action.writeIns)
+            : null;
       if (
         !counts ||
-        counts.length > 100 ||
-        counts.some(([name, count]) => !name.trim() || name.length > 200 || !isCount(count))
+        !writeIns ||
+        counts.length + writeIns.length > 100 ||
+        [...counts, ...writeIns].some(
+          ([name, count]) => !name.trim() || name.length > 200 || !isCount(count),
+        ) ||
+        ![action.blank ?? 0, action.illegal ?? 0, action.ballots ?? 0].every(isCount)
       ) {
         return {
           valid: false,
@@ -1277,7 +1518,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
-      return { valid: true };
+      return (
+        paperBallotProblem(
+          state.currentElection,
+          action,
+          electedTo(state, state.currentElection.position),
+        ) ?? { valid: true }
+      );
     }
 
     case 'CLOSE_ELECTION':
@@ -1291,13 +1538,45 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ELECTION_VOTING_NOT_OPEN',
         };
       }
-      return { valid: true };
-
-    case 'DECLARE_ELECTED':
-      if (!state.currentElection) {
-        return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
+      // A ballot nobody cast decides nothing, as a voice vote with no count doesn't
+      if (countBallot(state.currentElection).totals.cast === 0) {
+        return {
+          valid: false,
+          error: 'No ballots have been cast: enter the paper ballots, or set the election aside',
+          errorCode: 'INVALID_STATE',
+        };
       }
       return { valid: true };
+
+    case 'DECLARE_ELECTED': {
+      const election = state.currentElection;
+      if (!election) {
+        return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
+      }
+      // The result of a closed ballot, and only for who has the vote required on it
+      if (election.votingInProgress) {
+        return {
+          valid: false,
+          error: 'Close the ballot before declaring the result',
+          errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (electedTo(state, election.position).some((n) => sameName(n, action.candidateName))) {
+        return {
+          valid: false,
+          error: `${action.candidateName} has already been elected ${election.position}`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      if (!winnersOf(election).includes(action.candidateName)) {
+        return {
+          valid: false,
+          error: `${action.candidateName} does not have the vote required`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
+      return { valid: true };
+    }
 
     case 'ASK_INQUIRY':
       if (!state.meetingActive) {
