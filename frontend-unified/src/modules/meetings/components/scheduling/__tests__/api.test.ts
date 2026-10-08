@@ -55,6 +55,24 @@ describe('scheduling API', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/pdf');
   });
 
+  it("gives the server's reason for a refused upload, or its own", async () => {
+    const file = new File(['%PDF'], 'agenda.pdf', { type: 'application/pdf' });
+    const full =
+      'This organization has used its 500 MB of storage for files. Remove some files to add more.';
+    mockFetch(413, { error: full });
+    await expect(uploadAttachment('DEMO', file, { packetId: 'p1' })).rejects.toMatchObject({
+      message: full,
+      status: 413,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>Too large</html>', { status: 413 })),
+    );
+    await expect(uploadAttachment('DEMO', file, { packetId: 'p1' })).rejects.toThrow(
+      'Failed to upload file',
+    );
+  });
+
   it('reads a meeting without a packet as having none', async () => {
     mockFetch(404, { error: 'Not found' });
     expect(await getPacket('DEMO')).toBeNull();

@@ -306,6 +306,18 @@ describe('PacketBuilder', () => {
     expect(api.deleteAttachment).toHaveBeenCalledWith('a1');
   });
 
+  it("shows the server's reason when an upload is refused", async () => {
+    const full =
+      'This organization has used its 500 MB of storage for files. Remove some files to add more.';
+    api.uploadAttachment.mockRejectedValue(new HttpError(full, 413));
+    render(<Harness initial={scheduled()} />);
+    const file = new File(['%PDF'], 'minutes-2025.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByLabelText('Attach files to the meeting'), {
+      target: { files: [file] },
+    });
+    expect((await screen.findByRole('alert')).textContent).toBe(full);
+  });
+
   it("links one of the organization's documents to an agenda item", async () => {
     api.listDocuments.mockResolvedValue([
       { id: 'd1', title: 'Bylaws of Maple Grove', docType: 'bylaws', organizationId: 'org-1' },
