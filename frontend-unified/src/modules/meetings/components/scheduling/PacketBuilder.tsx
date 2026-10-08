@@ -5,27 +5,54 @@
  * a refusal is shown with the server's message, and a reorder the server refuses is put back.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Plus, Clock, FileText, Loader2, X } from 'lucide-react';
-import type { MeetingPacket, AgendaItemChanges, Attachment } from './types';
+import type { MeetingPacket, AgendaItem, AgendaItemChanges, Attachment } from './types';
 import { AgendaItemEditor } from './AgendaItemEditor';
 import { AttachmentUploader } from './AttachmentUploader';
 import { createAgendaItem, updateAgendaItem, deleteAgendaItem, reorderAgendaItems } from './api';
 
+/** A change to the packet, made to the latest one (another save may have landed meanwhile) */
+export type PacketUpdater = (prev: MeetingPacket) => MeetingPacket;
+
 interface PacketBuilderProps {
   packet: MeetingPacket;
-  onPacketUpdate: (packet: MeetingPacket) => void;
+  onPacketUpdate: (update: PacketUpdater) => void;
 }
 
 /** The message of a failed save */
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback;
 
+/**
+ * The items in the order of these ids, numbered again; an item added meanwhile goes at the end
+ * and an id removed meanwhile is skipped
+ */
+function inOrder(items: AgendaItem[], ids: string[]): AgendaItem[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const listed = ids.flatMap((id) => byId.get(id) ?? []);
+  const added = items.filter((item) => !ids.includes(item.id));
+  return [...listed, ...added].map((item, index) => ({ ...item, position: index }));
+}
+
+/** The agenda items, with this one changed */
+const withItem = (
+  packet: MeetingPacket,
+  itemId: string,
+  change: (item: AgendaItem) => AgendaItem,
+): MeetingPacket => ({
+  ...packet,
+  agendaItems: packet.agendaItems.map((item) => (item.id === itemId ? change(item) : item)),
+});
+
 export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
   const [newItemTitle, setNewItemTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A reorder is being saved: the next waits for it, so each is put back on its own if refused
+  const [isMoving, setIsMoving] = useState(false);
+  const movingRef = useRef(false);
 
   const handleAddItem = async () => {
     const title = newItemTitle.trim();
@@ -35,13 +62,8 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     setError(null);
     try {
       const newItem = await createAgendaItem(packet.id, { title });
-      onPacketUpdate({
-        ...packet,
-        agendaItems: [
-          ...packet.agendaItems,
-          { ...newItem, attachments: newItem.attachments ?? [] },
-        ],
-      });
+      const added = { ...newItem, attachments: newItem.attachments ?? [] };
+      onPacketUpdate((prev) => ({ ...prev, agendaItems: [...prev.agendaItems, added] }));
       setNewItemTitle('');
     } catch (err) {
       setError(messageOf(err, "Couldn't add the agenda item"));
@@ -50,22 +72,26 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     }
   };
 
+  // Each answer changes only its own item, in the agenda as it is when the answer arrives: the
+  // item keeps its place (a move may have been saved meanwhile), and one removed stays removed
   const handleUpdateItem = useCallback(
     async (itemId: string, updates: AgendaItemChanges) => {
       setError(null);
       try {
         const updated = await updateAgendaItem(itemId, updates);
-        onPacketUpdate({
-          ...packet,
-          agendaItems: packet.agendaItems.map((item) =>
-            item.id === itemId ? { ...item, ...updated, attachments: item.attachments } : item,
-          ),
-        });
+        onPacketUpdate((prev) =>
+          withItem(prev, itemId, (item) => ({
+            ...item,
+            ...updated,
+            position: item.position,
+            attachments: item.attachments,
+          })),
+        );
       } catch (err) {
         setError(messageOf(err, "Couldn't save the agenda item"));
       }
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
   const handleDeleteItem = useCallback(
@@ -73,80 +99,85 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
       setError(null);
       try {
         await deleteAgendaItem(itemId);
-        onPacketUpdate({
-          ...packet,
-          agendaItems: packet.agendaItems.filter((item) => item.id !== itemId),
-        });
+        onPacketUpdate((prev) => ({
+          ...prev,
+          agendaItems: prev.agendaItems.filter((item) => item.id !== itemId),
+        }));
       } catch (err) {
         setError(messageOf(err, "Couldn't remove the agenda item"));
       }
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
   const handleItemAttachmentAdded = useCallback(
     (itemId: string, attachment: Attachment) => {
-      onPacketUpdate({
-        ...packet,
-        agendaItems: packet.agendaItems.map((item) =>
-          item.id === itemId ? { ...item, attachments: [...item.attachments, attachment] } : item,
-        ),
-      });
+      onPacketUpdate((prev) =>
+        withItem(prev, itemId, (item) => ({
+          ...item,
+          attachments: [...item.attachments, attachment],
+        })),
+      );
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
   const handleItemAttachmentRemoved = useCallback(
     (itemId: string, attachmentId: string) => {
-      onPacketUpdate({
-        ...packet,
-        agendaItems: packet.agendaItems.map((item) =>
-          item.id === itemId
-            ? { ...item, attachments: item.attachments.filter((a) => a.id !== attachmentId) }
-            : item,
-        ),
-      });
+      onPacketUpdate((prev) =>
+        withItem(prev, itemId, (item) => ({
+          ...item,
+          attachments: item.attachments.filter((a) => a.id !== attachmentId),
+        })),
+      );
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
   const handlePacketAttachmentAdded = useCallback(
     (attachment: Attachment) => {
-      onPacketUpdate({
-        ...packet,
-        attachments: [...packet.attachments, attachment],
-      });
+      onPacketUpdate((prev) => ({ ...prev, attachments: [...prev.attachments, attachment] }));
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
   const handlePacketAttachmentRemoved = useCallback(
     (attachmentId: string) => {
-      onPacketUpdate({
-        ...packet,
-        attachments: packet.attachments.filter((a) => a.id !== attachmentId),
-      });
+      onPacketUpdate((prev) => ({
+        ...prev,
+        attachments: prev.attachments.filter((a) => a.id !== attachmentId),
+      }));
     },
-    [packet, onPacketUpdate],
+    [onPacketUpdate],
   );
 
-  /** Move the item at one position to another: shown at once, saved, put back if refused */
+  /**
+   * Move the item at one position to another: shown at once, saved, and put back if refused.
+   * One at a time: a move while another is being saved is ignored (the buttons are disabled).
+   */
   const moveItem = async (fromIndex: number, toIndex: number) => {
     const items = packet.agendaItems;
+    if (movingRef.current) return;
     if (fromIndex === toIndex || toIndex < 0 || toIndex >= items.length) return;
 
-    const reordered = [...items];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    const positioned = reordered.map((item, index) => ({ ...item, position: index }));
+    const before = items.map((item) => item.id);
+    const after = [...before];
+    const [moved] = after.splice(fromIndex, 1);
+    after.splice(toIndex, 0, moved);
 
+    movingRef.current = true;
+    setIsMoving(true);
     setError(null);
-    onPacketUpdate({ ...packet, agendaItems: positioned });
+    onPacketUpdate((prev) => ({ ...prev, agendaItems: inOrder(prev.agendaItems, after) }));
     try {
-      await reorderAgendaItems(positioned.map((item) => item.id));
+      await reorderAgendaItems(after);
     } catch (err) {
-      onPacketUpdate({ ...packet, agendaItems: items });
+      // The order before this move, with whatever else changed meanwhile
+      onPacketUpdate((prev) => ({ ...prev, agendaItems: inOrder(prev.agendaItems, before) }));
       setError(messageOf(err, "Couldn't reorder the agenda"));
+    } finally {
+      movingRef.current = false;
+      setIsMoving(false);
     }
   };
 
@@ -254,6 +285,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
                     index={index}
                     isFirst={index === 0}
                     isLast={index === count - 1}
+                    isMoving={isMoving}
                     robbieCode={packet.robbieCode}
                     organizationId={packet.organizationId}
                     packetId={packet.id}

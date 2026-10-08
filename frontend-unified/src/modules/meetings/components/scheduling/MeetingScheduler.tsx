@@ -563,8 +563,8 @@ export function MeetingScheduler({
 
                 <PacketBuilder
                   packet={packet}
-                  onPacketUpdate={(updated) => {
-                    setPacket(updated);
+                  onPacketUpdate={(update) => {
+                    setPacket((prev) => (prev ? update(prev) : prev));
                     setChanged(true);
                   }}
                 />

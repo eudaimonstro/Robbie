@@ -173,6 +173,90 @@ describe('PacketBuilder', () => {
     expect(titles()).toEqual(['Call to order', "Treasurer's report", 'Adjournment']);
   });
 
+  /** A promise and the functions that settle it, for answering requests out of order */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it('keeps a move made while a rename was being saved', async () => {
+    const rename = deferred<ReturnType<typeof item>>();
+    api.updateAgendaItem.mockReturnValue(rename.promise);
+    render(<Harness initial={scheduled()} />);
+    const second = screen.getByRole('textbox', { name: 'Agenda item 2' });
+    fireEvent.change(second, { target: { value: 'The budget' } });
+    fireEvent.blur(second);
+
+    fireEvent.click(screen.getByRole('button', { name: "Move Treasurer's report up" }));
+    await waitFor(() => expect(api.reorderAgendaItems).toHaveBeenCalledWith(['i2', 'i1', 'i3']));
+    // The rename is answered last, with the position the item had when it was sent
+    rename.resolve(item('i2', 'The budget', 1));
+    await waitFor(() => expect(titles()).toEqual(['The budget', 'Call to order', 'Adjournment']));
+  });
+
+  it('keeps an item removed while its rename was being saved removed', async () => {
+    const rename = deferred<ReturnType<typeof item>>();
+    api.updateAgendaItem.mockReturnValue(rename.promise);
+    render(<Harness initial={scheduled()} />);
+    const second = screen.getByRole('textbox', { name: 'Agenda item 2' });
+    fireEvent.change(second, { target: { value: 'The budget' } });
+    fireEvent.blur(second);
+
+    fireEvent.click(screen.getByRole('button', { name: "Remove Treasurer's report" }));
+    await waitFor(() => expect(titles()).toEqual(['Call to order', 'Adjournment']));
+    rename.resolve(item('i2', 'The budget', 1));
+    await rename.promise;
+    await waitFor(() => expect(api.updateAgendaItem).toHaveBeenCalledTimes(1));
+    expect(titles()).toEqual(['Call to order', 'Adjournment']);
+  });
+
+  it('saves one move at a time', async () => {
+    const reorder = deferred<void>();
+    api.reorderAgendaItems.mockReturnValueOnce(reorder.promise);
+    render(<Harness initial={scheduled()} />);
+    fireEvent.click(screen.getByRole('button', { name: "Move Treasurer's report up" }));
+    const moveDown = screen.getByRole('button', {
+      name: 'Move Call to order down',
+    }) as HTMLButtonElement;
+    expect(moveDown.disabled).toBe(true);
+    fireEvent.click(moveDown);
+    expect(api.reorderAgendaItems).toHaveBeenCalledTimes(1);
+
+    reorder.resolve();
+    await waitFor(() => expect(moveDown.disabled).toBe(false));
+    fireEvent.click(moveDown);
+    await waitFor(() =>
+      expect(api.reorderAgendaItems).toHaveBeenLastCalledWith(['i2', 'i3', 'i1']),
+    );
+  });
+
+  it('puts back only the refused move, keeping a rename saved meanwhile', async () => {
+    const reorder = deferred<void>();
+    api.reorderAgendaItems.mockReturnValueOnce(reorder.promise);
+    api.updateAgendaItem.mockImplementation(async (id: string, data: { title: string }) =>
+      item(id, data.title, 2),
+    );
+    render(<Harness initial={scheduled()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move Adjournment up' }));
+    expect(titles()).toEqual(['Call to order', 'Adjournment', "Treasurer's report"]);
+
+    const first = screen.getByRole('textbox', { name: 'Agenda item 1' });
+    fireEvent.change(first, { target: { value: 'Opening' } });
+    fireEvent.blur(first);
+    await waitFor(() => expect(titles()[0]).toBe('Opening'));
+
+    reorder.reject(new HttpError('You need the secretary role for this', 403));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'You need the secretary role for this',
+    );
+    expect(titles()).toEqual(['Opening', "Treasurer's report", 'Adjournment']);
+  });
+
   it('keeps an item the server refused to remove, and says why', async () => {
     api.deleteAgendaItem.mockRejectedValue(new HttpError('Not found', 404));
     render(<Harness initial={scheduled()} />);
