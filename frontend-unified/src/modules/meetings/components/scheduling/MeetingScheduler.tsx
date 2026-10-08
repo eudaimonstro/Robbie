@@ -9,7 +9,7 @@
  * from its packet, and Cancel the meeting. A meeting called to order is changed in the meeting.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2, MapPin } from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
@@ -101,7 +101,7 @@ export function MeetingScheduler({
   // The form's heading takes focus when it opens (once a meeting being changed has loaded) and
   // at each step, so a screen reader starts there and the focus never drops to the page
   const opened = existing === 'ready';
-  useEffect(() => {
+  useLayoutEffect(() => {
     headingRef.current?.focus();
   }, [opened, step]);
 
@@ -139,7 +139,7 @@ export function MeetingScheduler({
   // Cancel the meeting asks first, with Keep it focused; Keep it, or a refusal, returns the
   // focus to the button
   const refocusCancel = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (confirmingCancel) {
       keepRef.current?.focus();
     } else if (refocusCancel.current) {
