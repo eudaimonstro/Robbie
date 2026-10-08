@@ -220,7 +220,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
 - `PUT /api/organizations/{id}` - Name, description, time zone (`timeZone`, an IANA name; the minutes give times there), and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
-- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it or the `description`); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` also deletes its uploaded files
 - `GET /api/packets/{code}/roster` - The meeting's organization's members, for marking people present (emails and pending additions for admins only)
 - `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
