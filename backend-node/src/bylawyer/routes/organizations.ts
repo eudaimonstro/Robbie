@@ -19,6 +19,9 @@ import {
 import { fromParam, requireRole, signedInOnly } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfSlug } from '../../orgs/resolvers.js';
 import { deleteFiles } from '../services/fileStorage.js';
+import { recordAudit } from '../services/audit.js';
+import { ApiError } from '../../middleware/apiError.js';
+import { closeCanceledMeeting } from '../../socket/meetingLifecycle.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -170,17 +173,33 @@ organizationsRouter.put(
   },
 );
 
-// Delete organization
+/**
+ * DELETE /api/organizations/:id
+ * Delete the organization with everything in it (owner). Its live meetings close as a canceled
+ * one does (the people in them are told and sent out, and the live state is deleted), so no
+ * state is left for a later meeting with the same code; its uploaded files, which the cascade
+ * leaves on disk, are deleted. The audit record keeps who deleted it and what it held.
+ */
 organizationsRouter.delete(
   '/organizations/:id',
   validate({ params: uuidParam }),
   requireRole('owner', byOrganization),
   async (req, res) => {
-    try {
-      const organizationId = req.params.id;
-      // The uploaded files of its packets and their agenda items, which the cascade leaves on
-      // disk
-      const uploads = await prisma.attachment.findMany({
+    const organizationId = req.params.id;
+    const { codes, uploads } = await prisma.$transaction(async (tx) => {
+      const org = await tx.organization.findUnique({
+        where: { id: organizationId },
+        select: {
+          name: true,
+          slug: true,
+          packets: { select: { robbieCode: true } },
+          _count: { select: { documents: true, members: true, minutes: true } },
+        },
+      });
+      if (!org) throw ApiError.notFound();
+      // The uploaded files of its packets and their agenda items (read first: the cascade
+      // takes their rows)
+      const files = await tx.attachment.findMany({
         where: {
           type: 'uploaded_file',
           OR: [
@@ -191,12 +210,29 @@ organizationsRouter.delete(
         select: { storagePath: true },
       });
 
-      await prisma.organization.delete({ where: { id: organizationId } });
-      await deleteFiles(uploads.map((upload) => upload.storagePath));
-      res.status(204).send();
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to delete organization');
-      res.status(500).json({ error: 'Failed to delete organization' });
-    }
+      await tx.organization.delete({ where: { id: organizationId } });
+      await recordAudit(
+        {
+          organizationId,
+          actorId: req.user!.id,
+          action: 'organization.delete',
+          targetId: organizationId,
+          details: {
+            name: org.name,
+            slug: org.slug,
+            documents: org._count.documents,
+            meetings: org.packets.length,
+            members: org._count.members,
+            minutes: org._count.minutes,
+          },
+        },
+        tx,
+      );
+      return { codes: org.packets.map((packet) => packet.robbieCode), uploads: files };
+    });
+
+    for (const code of codes) await closeCanceledMeeting(code);
+    await deleteFiles(uploads.map((upload) => upload.storagePath));
+    res.status(204).send();
   },
 );

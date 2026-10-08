@@ -321,3 +321,58 @@ describe('canceling a meeting that is open', () => {
     expect(await getStorage().getMeeting(f.packet.code)).not.toBeNull();
   });
 });
+
+describe('deleting an organization', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    await resetLiveMeetings();
+    f = await seedFixture();
+  });
+  afterEach(live.disconnectAll);
+
+  it('closes its live meetings, held or not, and leaves a record of who deleted it', async () => {
+    const member = live.connect(f.users.member);
+    expect((await live.join(member, f.packet.code)).success).toBe(true);
+    // Its other meeting was called to order: it goes too
+    const chair = live.connect(f.users.secretary);
+    await prisma.meetingPacket.update({
+      where: { id: f.emptyPacket.id },
+      data: { startedAt: new Date() },
+    });
+    expect((await live.join(chair, f.emptyPacket.code)).success).toBe(true);
+    // Org B's meeting stays open
+    const outsider = live.connect(f.outsider);
+    expect((await live.join(outsider, f.packetB.code)).success).toBe(true);
+    live.broadcasts.length = 0;
+
+    const res = await call('delete', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.owner.cookie,
+    });
+    expect(res.status).toBe(204);
+
+    expect(live.broadcasts.map((b) => [b.room, b.event]).sort()).toEqual([
+      ['meeting:ORGA01', 'ERROR'],
+      ['meeting:ORGA02', 'ERROR'],
+    ]);
+    for (const [socket, code] of [
+      [member, f.packet.code],
+      [chair, f.emptyPacket.code],
+    ] as const) {
+      expect(socket.data.meetingCode).toBeNull();
+      expect(await getStorage().getMeeting(code)).toBeNull();
+    }
+    expect(outsider.data.meetingCode).toBe(f.packetB.code);
+    expect(await getStorage().getMeeting(f.packetB.code)).not.toBeNull();
+
+    expect(await prisma.auditEntry.findMany()).toMatchObject([
+      {
+        organizationId: f.orgA.id,
+        actorId: f.users.owner.id,
+        action: 'organization.delete',
+        targetId: f.orgA.id,
+        details: { name: 'Org A', slug: 'org-a', documents: 1, meetings: 2 },
+      },
+    ]);
+  });
+});

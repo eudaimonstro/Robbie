@@ -18,6 +18,8 @@ export interface MeetingPacketInfo {
   title: string | null;
   scheduledFor: Date | null;
   chairUserId: number | null;
+  /** When the meeting adjourned (null until it does, and again if called to order again) */
+  endedAt: Date | null;
   organization: {
     name: string;
     eligibleVoters: number | null;
@@ -46,6 +48,7 @@ export function findMeetingPacket(meetingCode: string): Promise<MeetingPacketInf
       title: true,
       scheduledFor: true,
       chairUserId: true,
+      endedAt: true,
       organization: {
         select: { name: true, eligibleVoters: true, quorumPercent: true, quorumCount: true },
       },

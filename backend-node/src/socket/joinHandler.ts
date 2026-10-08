@@ -45,15 +45,28 @@ type TypedServer = Server<
 export const NO_MEETING = 'No meeting with that code';
 export const NAME_FIRST = 'Set your name first';
 export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the display";
+export const MEETING_ENDED = 'This meeting has adjourned';
+/** The answer when a join fails for a reason of the server's (the details go to the log) */
+export const JOIN_FAILED = "Couldn't join the meeting. Try again.";
 
 /**
  * The live meeting for a packet, created from it when the first person arrives. A live state
- * saved before it recorded its organization, title and date gets them from the packet. Before
- * the call to order, the previous meeting's minutes are put before it.
+ * saved before it recorded its organization, title and date gets them from the packet. A live
+ * state of another organization (left by one that had this code and was deleted) is never
+ * shown: it is deleted, and the meeting starts from the packet. Before the call to order, the
+ * previous meeting's minutes are put before it.
  */
 async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
   const storage = getStorage();
-  const existing = await storage.getMeeting(packet.robbieCode);
+  let existing = await storage.getMeeting(packet.robbieCode);
+  if (existing?.state.organizationId && existing.state.organizationId !== packet.organizationId) {
+    logger.warn(
+      { meetingCode: packet.robbieCode },
+      'Deleted a live meeting of another organization that had this code',
+    );
+    await storage.deleteMeeting(packet.robbieCode);
+    existing = null;
+  }
   let meeting: MeetingRecord;
   if (!existing) {
     const rosterVoters = await countRosterVoters(packet.organizationId);
@@ -181,6 +194,13 @@ export async function handleJoinMeeting(
       return;
     }
 
+    // Guests (anyone signed in who has the code) only until the meeting adjourns; its members
+    // still come back to its record
+    if (!person.orgRole && packet.endedAt) {
+      callback({ success: false, error: MEETING_ENDED, errorCode: 'MEETING_NOT_ACTIVE' });
+      return;
+    }
+
     // Members are known by the name they signed in with
     const name = person.name?.trim();
     if (!name) {
@@ -265,9 +285,9 @@ export async function handleJoinMeeting(
       members: roomManager.getMembers(meetingCode),
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    // The error names files, hosts and queries: the log has it, the client a plain answer
     logger.error({ err: error }, 'Error joining meeting');
-    callback({ success: false, error: `Failed to join meeting: ${errorMessage}` });
+    callback({ success: false, error: JOIN_FAILED });
   }
 }
 
