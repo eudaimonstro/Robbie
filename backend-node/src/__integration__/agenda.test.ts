@@ -1,5 +1,7 @@
+import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
+import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -279,5 +281,27 @@ describe('agenda items and attachments across packets', () => {
       message: 'Give a packetId or an agendaItemId, not both',
     });
     expect(await prisma.attachment.count()).toBe(before);
+  });
+
+  it("take their attachments' files with them when deleted", async () => {
+    const stored = await storeFile(f.packet.code, 'budget.txt', 'text/plain', Buffer.from('B'));
+    if (!stored.success) throw new Error(stored.error);
+    await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        storagePath: stored.file.storagePath,
+        displayName: 'Budget',
+        agendaItemId: f.item,
+      },
+    });
+    const file = getFullPath(stored.file.storagePath);
+    expect(fs.existsSync(file)).toBe(true);
+
+    const res = await call('delete', `/api/agenda-items/${f.item}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(await prisma.attachment.count({ where: { agendaItemId: f.item } })).toBe(0);
+    expect(fs.existsSync(file)).toBe(false);
   });
 });

@@ -17,6 +17,7 @@ import {
 } from '../../schemas/agenda-items.js';
 import { uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
+import { deleteFiles } from '../services/fileStorage.js';
 import { fromBody, fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
 import { orgOfAgendaItem, orgOfPacket } from '../../orgs/resolvers.js';
 
@@ -270,7 +271,8 @@ agendaItemsRouter.put(
 
 /**
  * DELETE /api/agenda-items/:id
- * Delete agenda item (cascades to attachments)
+ * Delete agenda item. The cascade takes its attachments' rows; their uploaded files are deleted
+ * here, as the packet delete does (otherwise they stay on disk with nothing pointing at them).
  */
 agendaItemsRouter.delete(
   '/agenda-items/:id',
@@ -288,8 +290,13 @@ agendaItemsRouter.delete(
         return res.status(404).json({ error: 'Agenda item not found' });
       }
 
-      // Cascade delete handles attachments
+      // The uploaded files, read first: the cascade takes their rows
+      const uploads = await prisma.attachment.findMany({
+        where: { agendaItemId: id, type: 'uploaded_file' },
+        select: { storagePath: true },
+      });
       await prisma.meetingAgendaItem.delete({ where: { id } });
+      await deleteFiles(uploads.map((upload) => upload.storagePath));
 
       res.status(204).send();
     } catch (error) {
