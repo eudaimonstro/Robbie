@@ -78,6 +78,22 @@ describe('SettingsPage', () => {
     orgState.currentOrganization = orgState.organization('viewer');
   });
 
+  it("puts the user's own settings first and the danger zone last, all titled alike", () => {
+    render(<SettingsPage />);
+    const headings = screen.getAllByRole('heading', { level: 3 });
+    expect(headings.map((h) => h.textContent)).toEqual([
+      'Your name',
+      'Appearance',
+      'Organization',
+      'Danger zone',
+      'About Robbie',
+    ]);
+    for (const heading of headings) expect(heading.className).toContain('card-title');
+    const text = document.body.textContent ?? '';
+    expect(text.indexOf('Members list')).toBeLessThan(text.indexOf('Danger zone'));
+    expect(text).not.toContain('Development');
+  });
+
   it('lets a viewer see the members and leave, but not edit or delete', () => {
     render(<SettingsPage />);
     expect(screen.getByText('Members list')).toBeTruthy();

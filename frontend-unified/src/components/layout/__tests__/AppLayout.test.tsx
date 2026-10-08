@@ -93,6 +93,27 @@ describe('focus mode', () => {
     expect(frame.className).toContain('-translate-x-full');
   });
 
+  it('keeps the closed drawer out of reach on phones, on every page', () => {
+    const matchMedia = window.matchMedia;
+    // A phone: below the md breakpoint
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as never;
+    try {
+      renderAt('/documents/d1');
+      const frame = screen.getByTestId('sidebar-frame');
+      expect(frame.hasAttribute('inert')).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+      expect(frame.hasAttribute('inert')).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: 'Close sidebar' }));
+      expect(frame.hasAttribute('inert')).toBe(true);
+    } finally {
+      window.matchMedia = matchMedia;
+    }
+  });
+
   it("hides the app's header on phones for a page with its own, whose menu opens the drawer", () => {
     const { unmount } = render(
       <MemoryRouter initialEntries={['/meetings/MAPLE1']}>

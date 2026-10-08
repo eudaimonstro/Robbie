@@ -60,4 +60,50 @@ describe('DocumentDiffPage', () => {
     // Choosing a version used to reload the document behind a full-page spinner
     expect(api.getDocument).toHaveBeenCalledTimes(1);
   });
+
+  function renderPage() {
+    render(
+      <MemoryRouter initialEntries={['/documents/doc-1/diff']}>
+        <Routes>
+          <Route path="/documents/:documentId/diff" element={<DocumentDiffPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it('marks the words that changed in one paragraph, and counts the changes in words', async () => {
+    api.diff.mockResolvedValueOnce({
+      changes: [
+        {
+          type: 'modify',
+          sectionId: 's42',
+          oldNumberLabel: 'Section 4.2',
+          newNumberLabel: 'Section 4.2',
+          oldTitle: 'Quorum',
+          newTitle: 'Quorum',
+          oldContent: 'A quorum is twenty percent (20%) of the members.',
+          newContent: 'A quorum is fifteen percent (15%) of the members.',
+        },
+      ],
+    } as never);
+    renderPage();
+
+    expect(await screen.findByText(/^1 change from Version 2 to Version 3/)).toBeTruthy();
+    const removed = document.querySelectorAll('del');
+    const added = document.querySelectorAll('ins');
+    expect([...removed].map((el) => el.textContent)).toEqual(['Removed: twenty', 'Removed: (20%)']);
+    expect([...added].map((el) => el.textContent)).toEqual(['Added: fifteen', 'Added: (15%)']);
+    expect(screen.getByLabelText('From')).toBeTruthy();
+    expect(screen.getByLabelText('To')).toBeTruthy();
+  });
+
+  it("says when the versions couldn't load, rather than that the document isn't there", async () => {
+    api.getDocument.mockRejectedValueOnce(Object.assign(new Error('HTTP 500'), { status: 500 }));
+    renderPage();
+    expect(await screen.findByText("Couldn't load the versions.")).toBeTruthy();
+    expect(screen.queryByText('Document not found')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { name: 'Version comparison' })).toBeTruthy();
+  });
 });

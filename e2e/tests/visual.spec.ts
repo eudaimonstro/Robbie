@@ -3,7 +3,7 @@ import { PEOPLE, signIn } from '../helpers';
 
 /** The pages captured after signing in, each with the heading that says it is ready */
 const PAGES = [
-  { name: 'dashboard', path: '/', heading: 'Dashboard' },
+  { name: 'home', path: '/', heading: 'Maple Grove HOA' },
   { name: 'live-meetings', path: '/meetings', heading: 'Live meetings' },
   { name: 'settings', path: '/settings', heading: 'Settings' },
   { name: 'style-guide', path: '/style-guide', heading: 'Style guide' },

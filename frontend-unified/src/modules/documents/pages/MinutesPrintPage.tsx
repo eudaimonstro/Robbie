@@ -44,7 +44,7 @@ export default function MinutesPrintPage() {
       </div>
     );
   }
-  if (!record) return <LoadingPage />;
+  if (!record) return <LoadingPage label="Loading the minutes..." />;
 
   const title = `Minutes of the ${meetingName(record)}`;
   return (

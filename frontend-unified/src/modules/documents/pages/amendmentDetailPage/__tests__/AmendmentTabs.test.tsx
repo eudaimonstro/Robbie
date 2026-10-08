@@ -106,8 +106,11 @@ describe('AmendmentTabs', () => {
     expect(within(changed).getByText('Changed')).toBeTruthy();
     expect(within(changed).getByText('Fifteen percent of the votes is a quorum.')).toBeTruthy();
     expect(within(changed).queryByText('Twenty percent of the votes is a quorum.')).toBeNull();
-    fireEvent.click(within(changed).getByRole('button', { name: 'Show the old text' }));
-    expect(within(changed).getByText('Twenty percent of the votes is a quorum.')).toBeTruthy();
+    // The words that change, marked in one paragraph
+    fireEvent.click(within(changed).getByRole('button', { name: 'Show what changed' }));
+    expect(changed.querySelector('del')?.textContent).toBe('Removed: Twenty');
+    expect(changed.querySelector('ins')?.textContent).toBe('Added: Fifteen');
+    expect(changed.textContent).toContain('percent of the votes is a quorum.');
 
     const removed = screen.getByRole('region', { name: 'Section 4.3 Notice' });
     expect(within(removed).getByText('Removed')).toBeTruthy();

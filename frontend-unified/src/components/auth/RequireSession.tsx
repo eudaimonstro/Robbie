@@ -14,7 +14,7 @@ export function RequireSession({ children }: { children: ReactNode }) {
   const { status, user, termsAccepted, retry } = useSession();
   const location = useLocation();
 
-  if (status === 'loading') return <LoadingPage />;
+  if (status === 'loading') return <LoadingPage label="Loading Robbie..." />;
   // The session couldn't be checked: offer a retry rather than sending a signed-in user to sign in
   if (status === 'unreachable') {
     return (

@@ -406,6 +406,11 @@ export const sections = {
 // Amendments
 export const amendments = {
   list: (docId: string) => request<Amendment[]>(`/documents/${docId}/amendments`),
+  /** The amendments to all of an organization's documents, newest first: of these statuses, or all */
+  listForOrganization: (orgId: string, statuses?: Amendment['status'][]) =>
+    request<Amendment[]>(
+      `/organizations/${orgId}/amendments${statuses?.length ? `?status=${statuses.join(',')}` : ''}`,
+    ),
   get: (id: string) => request<Amendment>(`/amendments/${id}`),
   create: (docId: string, data: AmendmentCreate) =>
     request<Amendment>(`/documents/${docId}/amendments`, {

@@ -8,6 +8,13 @@ import { describeRules } from './rules.js';
 describeRules('amendment rules', [
   {
     method: 'get',
+    route: '/organizations/:orgId/amendments',
+    path: (f) => `/api/organizations/${f.orgA.id}/amendments`,
+    min: 'viewer',
+    ok: 200,
+  },
+  {
+    method: 'get',
     route: '/documents/:docId/amendments',
     path: (f) => `/api/documents/${f.doc}/amendments`,
     min: 'viewer',
@@ -133,6 +140,60 @@ describeRules('amendment rules', [
     ok: 200,
   },
 ]);
+
+describe("an organization's amendments", () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    f = await seedFixture();
+  });
+
+  const list = (query = '') =>
+    call('get', `/api/organizations/${f.orgA.id}/amendments${query}`, {
+      cookie: f.users.viewer.cookie,
+    });
+
+  it("are every document's, newest first, with their changes, and none of another's", async () => {
+    // A second document, whose amendments the per-document list of the first never showed
+    const other = await prisma.document.create({
+      data: { organizationId: f.orgA.id, title: 'Standing rules', docType: 'standing_rules' },
+    });
+    const later = await prisma.amendment.create({
+      data: {
+        documentId: other.id,
+        title: 'Later',
+        status: 'proposed',
+        createdAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const res = await list();
+    expect(res.status).toBe(200);
+    const ids = res.body.map((a: { id: string }) => a.id);
+    expect(ids[0]).toBe(later.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([f.draft, f.proposed, f.passed, f.tabled, later.id]),
+    );
+    expect(ids).not.toContain(f.proposedB);
+    const draft = res.body.find((a: { id: string }) => a.id === f.draft);
+    expect(draft.changes.map((c: { id: string }) => c.id)).toEqual([f.change]);
+  });
+
+  it('are filtered by status', async () => {
+    const res = await list('?status=draft,proposed');
+    expect(res.status).toBe(200);
+    const statuses = new Set(res.body.map((a: { status: string }) => a.status));
+    expect([...statuses].sort()).toEqual(['draft', 'proposed']);
+    expect(res.body.map((a: { id: string }) => a.id)).toEqual(
+      expect.arrayContaining([f.draft, f.proposed]),
+    );
+  });
+
+  it('refuse a status that is not one', async () => {
+    const res = await list('?status=draft,pending');
+    expect(res.status).toBe(400);
+  });
+});
 
 describe('amendment drafts', () => {
   let f: Fixture;

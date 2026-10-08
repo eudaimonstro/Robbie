@@ -37,7 +37,7 @@ describe('Sidebar', () => {
     await waitFor(() => expect(screen.queryByText('Standing Rules')).not.toBeNull());
   });
 
-  it('offers New Document only to secretaries and above', () => {
+  it('offers New document only to secretaries and above', () => {
     list.mockResolvedValueOnce([]);
     org.can = false;
     render(
@@ -45,7 +45,7 @@ describe('Sidebar', () => {
         <Sidebar onNewDocument={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.queryByRole('button', { name: /New Document/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /New document/ })).toBeNull();
   });
 
   it('marks the current page for the eye and for screen readers', async () => {
@@ -59,8 +59,23 @@ describe('Sidebar', () => {
       'page',
     );
     expect(
-      screen.getByRole('link', { name: 'Live Meetings' }).getAttribute('aria-current'),
+      screen.getByRole('link', { name: 'Live meetings' }).getAttribute('aria-current'),
     ).toBeNull();
     await waitFor(() => expect(list).toHaveBeenCalled());
+  });
+
+  it("says when the documents couldn't load, rather than listing none, and tries again", async () => {
+    list.mockRejectedValueOnce(new Error('HTTP 500'));
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar onNewDocument={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("Couldn't load the documents.")).toBeTruthy();
+
+    list.mockResolvedValueOnce([doc('d1', 'Bylaws')]);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('link', { name: 'Bylaws' })).toBeTruthy();
+    expect(screen.queryByText("Couldn't load the documents.")).toBeNull();
   });
 });

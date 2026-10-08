@@ -10,6 +10,8 @@ import { bylawsImport, documents as documentsApi, type Document } from '../../..
 import { useCan, useSelectRecordOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { LoadingPage } from '../../../components/ui/LoadingSpinner';
+import ErrorState from '../../../components/ui/ErrorState';
+import { isNotFound } from '../../../utils/httpErrors';
 import { canMerge, mergeIntoPrevious, renameSection, type TreePath } from '../utils/parsedTree';
 
 /** The largest Word document the server reads */
@@ -27,7 +29,9 @@ export default function ImportBylawsPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [doc, setDoc] = useState<Document | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<'missing' | 'failed' | null>(null);
+  // Bumped by Try again
+  const [attempt, setAttempt] = useState(0);
   useSelectRecordOrganization(doc?.organizationId);
   const canImport = useCan('secretary');
 
@@ -57,13 +61,13 @@ export default function ImportBylawsPage() {
       .then((found) => {
         if (!canceled) setDoc(found);
       })
-      .catch(() => {
-        if (!canceled) setNotFound(true);
+      .catch((err) => {
+        if (!canceled) setLoadError(isNotFound(err) ? 'missing' : 'failed');
       });
     return () => {
       canceled = true;
     };
-  }, [documentId]);
+  }, [documentId, attempt]);
 
   /** Read the text into sections, starting over */
   const parse = (value: string) => {
@@ -154,15 +158,31 @@ export default function ImportBylawsPage() {
     }
   };
 
-  if (notFound) return <p className="py-12 text-center text-ink-muted">Document not found.</p>;
-  if (!doc) return <LoadingPage />;
+  if (loadError === 'missing') {
+    return <p className="py-12 text-center text-ink-muted">Document not found.</p>;
+  }
+  if (loadError === 'failed') {
+    return (
+      <div className="mx-auto max-w-xl py-12">
+        <ErrorState
+          title="Couldn't load the document."
+          description="Check your connection, then try again."
+          onRetry={() => {
+            setLoadError(null);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      </div>
+    );
+  }
+  if (!doc) return <LoadingPage label="Loading the document..." />;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <Link
           to={`/documents/${doc.id}`}
-          className="inline-flex items-center gap-1 text-sm text-gavel hover:underline"
+          className="inline-flex items-center gap-1 max-md:min-h-11 text-sm text-gavel hover:underline"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {doc.title}
@@ -180,7 +200,7 @@ export default function ImportBylawsPage() {
         <form onSubmit={(e) => void read(e)} className="card max-w-3xl space-y-5 p-6">
           <fieldset className="flex flex-wrap gap-x-6 gap-y-2">
             <legend className="label">Source</legend>
-            <label className="flex items-center gap-2 text-sm text-ink">
+            <label className="flex items-center gap-2 text-sm text-ink max-md:min-h-11">
               <input
                 type="radio"
                 name="source"
@@ -190,7 +210,7 @@ export default function ImportBylawsPage() {
               />
               Paste the text
             </label>
-            <label className="flex items-center gap-2 text-sm text-ink">
+            <label className="flex items-center gap-2 text-sm text-ink max-md:min-h-11">
               <input
                 type="radio"
                 name="source"

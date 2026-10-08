@@ -86,16 +86,16 @@ export default function SectionEditor({
       await onSave(data);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save section');
+      setError(err instanceof Error ? err.message : "Couldn't save the section");
     } finally {
       setSaving(false);
     }
   };
 
   const titles = {
-    create: 'Add New Section',
-    edit: 'Edit Section',
-    addChild: parentLabel ? `Add Child to ${parentLabel}` : 'Add Child Section',
+    create: 'New section',
+    edit: 'Edit the section',
+    addChild: parentLabel ? `New section under ${parentLabel}` : 'New section under this one',
   };
 
   return (
@@ -107,10 +107,10 @@ export default function SectionEditor({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
           <div>
             <label htmlFor="numberLabel" className="label">
-              Section Number {isCreateMode && <span className="text-gavel">*</span>}
+              Number {isCreateMode && <span className="text-gavel">*</span>}
             </label>
             <input
               type="text"
@@ -118,7 +118,7 @@ export default function SectionEditor({
               value={numberLabel}
               onChange={(e) => setNumberLabel(e.target.value)}
               className="input"
-              placeholder="e.g., Article I, Section 1.1"
+              placeholder="e.g. Section 1.1"
               required={isCreateMode}
             />
           </div>
@@ -132,7 +132,7 @@ export default function SectionEditor({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="input"
-              placeholder="e.g., Name and Purpose"
+              placeholder="e.g. Name and purpose"
               required={isCreateMode}
             />
           </div>
@@ -140,28 +140,30 @@ export default function SectionEditor({
 
         <div className="mb-4">
           <label htmlFor="content" className="label">
-            Content
+            Text
           </label>
           <textarea
             id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="textarea h-40"
-            placeholder="Enter section content (Markdown supported)"
+            placeholder="The section's text"
           />
-          <p className="text-xs text-ink-muted mt-1">Markdown formatting is supported</p>
+          <p className="text-xs text-ink-muted mt-1">
+            A blank line starts a new paragraph; **two stars** make bold text.
+          </p>
         </div>
 
         <div className="mb-6">
           <label htmlFor="annotation" className="label">
-            Annotation (optional)
+            Note (optional)
           </label>
           <textarea
             id="annotation"
             value={annotation}
             onChange={(e) => setAnnotation(e.target.value)}
             className="textarea h-20"
-            placeholder="Add notes or commentary about this section"
+            placeholder="A note for members about this section"
           />
         </div>
 
@@ -170,7 +172,7 @@ export default function SectionEditor({
             Cancel
           </button>
           <button type="submit" className="btn-primary" disabled={saving || !isValid}>
-            {saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Add Section'}
+            {saving ? 'Saving...' : mode === 'edit' ? 'Save' : 'Add section'}
           </button>
         </div>
       </form>

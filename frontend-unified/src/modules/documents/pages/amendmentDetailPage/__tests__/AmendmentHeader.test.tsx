@@ -50,8 +50,8 @@ describe('AmendmentHeader', () => {
 
   it('lets a secretary decide a proposed amendment', () => {
     renderHeader(amendment('proposed'), { canDecide: true, canEditDraft: false });
-    expect(screen.getByRole('button', { name: 'Mark Passed' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Mark Failed' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark passed' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark failed' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Withdraw' })).toBeTruthy();
   });
 });

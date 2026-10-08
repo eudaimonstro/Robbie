@@ -285,7 +285,7 @@ function formatSize(bytes: number): string {
 }
 
 /** Picks a document of the packet's organization (the server accepts no other) */
-function DocumentPicker({
+export function DocumentPicker({
   organizationId,
   onSelect,
   onClose,
@@ -296,21 +296,28 @@ function DocumentPicker({
 }) {
   const [documents, setDocuments] = useState<BylawyerDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  // The list couldn't be loaded: said, with Try again, rather than "No documents"
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFailed(false);
     listDocuments(organizationId)
       .then((docs) => {
         if (!cancelled) setDocuments(docs);
       })
-      .catch((err) => console.error('Failed to load documents:', err))
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, attempt]);
 
   return (
     <div className="fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50">
@@ -336,8 +343,20 @@ function DocumentPicker({
 
         <div className="p-4 flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-ink-muted" />
+            <div role="status" className="flex items-center justify-center gap-2 py-8">
+              <Loader2 size={24} className="animate-spin text-ink-muted" aria-hidden="true" />
+              <span className="text-sm text-ink-muted">Loading the documents...</span>
+            </div>
+          ) : failed ? (
+            <div role="alert" className="py-6 text-center">
+              <p className="text-ink">Couldn&apos;t load the documents.</p>
+              <button
+                type="button"
+                className="btn-secondary btn-sm mt-3"
+                onClick={() => setAttempt((n) => n + 1)}
+              >
+                Try again
+              </button>
             </div>
           ) : (
             <div className="space-y-2">

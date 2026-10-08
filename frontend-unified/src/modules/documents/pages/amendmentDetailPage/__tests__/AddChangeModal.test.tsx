@@ -15,15 +15,15 @@ function renderModal() {
   return onSubmit;
 }
 
-const changeType = () => screen.getByLabelText('Change Type');
+const changeType = () => screen.getByLabelText('Kind of change');
 
 describe('AddChangeModal', () => {
   it('does not carry a target chosen for another change type into an add', async () => {
     const onSubmit = renderModal();
-    fireEvent.change(screen.getByLabelText('Target Section'), { target: { value: 'a1' } });
+    fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'a1' } });
     fireEvent.change(changeType(), { target: { value: 'add' } });
-    fireEvent.change(screen.getByLabelText('Section Title'), { target: { value: 'Dues' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add Change' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Dues' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add change' }));
 
     // The target of an add is its parent; a leftover target would nest the new section
     await waitFor(() =>
@@ -36,8 +36,8 @@ describe('AddChangeModal', () => {
   it('adds under the chosen parent section', async () => {
     const onSubmit = renderModal();
     fireEvent.change(changeType(), { target: { value: 'add' } });
-    fireEvent.change(screen.getByLabelText('Add Under'), { target: { value: 'a1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add Change' }));
+    fireEvent.change(screen.getByLabelText('Under'), { target: { value: 'a1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add change' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ targetSectionId: 'a1' })),
@@ -46,10 +46,10 @@ describe('AddChangeModal', () => {
 
   it('sends only the target for a delete', async () => {
     const onSubmit = renderModal();
-    fireEvent.change(screen.getByLabelText('Section Title'), { target: { value: 'Typed first' } });
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Typed first' } });
     fireEvent.change(changeType(), { target: { value: 'delete' } });
-    fireEvent.change(screen.getByLabelText('Target Section'), { target: { value: 'a1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add Change' }));
+    fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'a1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add change' }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({ changeType: 'delete', targetSectionId: 'a1' }),

@@ -48,7 +48,7 @@ export function EditAmendmentModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Amendment">
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit the amendment">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label htmlFor="editTitle" className="label">
@@ -78,7 +78,7 @@ export function EditAmendmentModal({
             Cancel
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim() || saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </form>
@@ -144,11 +144,11 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
   const flatSections = flattenSections(sectionTree);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Add Change" size="lg">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add a change" size="lg">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label htmlFor="changeType" className="label">
-            Change Type
+            Kind of change
           </label>
           <select
             id="changeType"
@@ -162,17 +162,17 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
             }}
             className="select"
           >
-            <option value="add">Add new section</option>
-            <option value="modify">Modify existing section</option>
-            <option value="delete">Delete section</option>
-            <option value="renumber">Renumber section</option>
+            <option value="add">Add a section</option>
+            <option value="modify">Change a section</option>
+            <option value="delete">Remove a section</option>
+            <option value="renumber">Renumber a section</option>
           </select>
         </div>
 
         {(changeType === 'modify' || changeType === 'delete' || changeType === 'renumber') && (
           <div className="mb-4">
             <label htmlFor="targetSection" className="label">
-              Target Section
+              Section
             </label>
             <select
               id="targetSection"
@@ -181,7 +181,7 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
               className="select"
               required
             >
-              <option value="">Select a section...</option>
+              <option value="">Choose a section</option>
               {flatSections.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
@@ -194,7 +194,7 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
         {changeType === 'add' && (
           <div className="mb-4">
             <label htmlFor="addUnder" className="label">
-              Add Under
+              Under
             </label>
             <select
               id="addUnder"
@@ -214,10 +214,10 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
 
         {changeType !== 'delete' && (
           <>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="newNumberLabel" className="label">
-                  Section Number
+                  Number
                 </label>
                 <input
                   id="newNumberLabel"
@@ -225,13 +225,13 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
                   value={newNumberLabel}
                   onChange={(e) => setNewNumberLabel(e.target.value)}
                   className="input"
-                  placeholder="e.g., Section 1.3"
+                  placeholder="e.g. Section 1.3"
                 />
               </div>
               {changeType !== 'renumber' && (
                 <div>
                   <label htmlFor="newTitle" className="label">
-                    Section Title
+                    Title
                   </label>
                   <input
                     id="newTitle"
@@ -239,7 +239,7 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     className="input"
-                    placeholder="e.g., New Membership Dues"
+                    placeholder="e.g. Membership dues"
                   />
                 </div>
               )}
@@ -248,14 +248,14 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
             {changeType !== 'renumber' && (
               <div className="mb-6">
                 <label htmlFor="newContent" className="label">
-                  Content
+                  Text
                 </label>
                 <textarea
                   id="newContent"
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   className="textarea h-32"
-                  placeholder="Enter the new section content..."
+                  placeholder="The section's new text"
                 />
               </div>
             )}
@@ -267,7 +267,7 @@ export function AddChangeModal({ isOpen, onClose, onSubmit, sectionTree }: AddCh
             Cancel
           </button>
           <button type="submit" className="btn-primary" disabled={adding}>
-            {adding ? 'Adding...' : 'Add Change'}
+            {adding ? 'Adding...' : 'Add change'}
           </button>
         </div>
       </form>

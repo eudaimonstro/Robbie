@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, RefreshCw } from 'lucide-react';
 import { schedule, type ScheduledMeeting } from '../../../api/client';
 import { useSession } from '../../../context/SessionContext';
 import { atLeast } from '../../../utils/roles';
@@ -13,7 +13,7 @@ import { JoinMeetingScreen } from './JoinMeetingScreen';
 /** The schedule as loaded, for the organization it belongs to */
 type Loaded =
   | { organizationId: string; meetings: ScheduledMeeting[] }
-  | { organizationId: string; error: string };
+  | { organizationId: string; failed: true };
 
 /**
  * The Live Meetings page: the current organization's schedule, each meeting with a way in (Start
@@ -51,11 +51,10 @@ export function LiveMeetingsPage() {
       .then((meetings) => {
         if (!canceled) setLoaded({ organizationId, meetings });
       })
-      .catch((err: unknown) => {
-        if (!canceled) {
-          const error = err instanceof Error ? err.message : "Couldn't load the schedule";
-          setLoaded({ organizationId, error });
-        }
+      .catch(() => {
+        // Said in words, with Try again: the server's message ("Failed to list meeting
+        // packets") means nothing to the person reading it
+        if (!canceled) setLoaded({ organizationId, failed: true });
       });
     return () => {
       canceled = true;
@@ -144,10 +143,21 @@ export function LiveMeetingsPage() {
               <h3 id="schedule-heading" className="label-caps px-6 pt-5 pb-3">
                 Schedule
               </h3>
-              {current && 'error' in current ? (
-                <p role="alert" className="px-6 pb-5 text-sm text-gavel">
-                  {current.error}
-                </p>
+              {current && 'failed' in current ? (
+                <div role="alert" className="flex flex-wrap items-center gap-3 px-6 pb-5">
+                  <p className="text-sm text-ink">Couldn&apos;t load the schedule.</p>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={() => {
+                      setLoaded(null);
+                      setRefresh((n) => n + 1);
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Try again
+                  </button>
+                </div>
               ) : meetings === null ? (
                 <p className="px-6 pb-5 text-sm text-ink-muted">Loading the schedule...</p>
               ) : upcoming.length === 0 ? (
@@ -158,6 +168,7 @@ export function LiveMeetingsPage() {
                     <ScheduleRow
                       key={meeting.id}
                       meeting={meeting}
+                      timeZone={currentOrganization?.timeZone}
                       presiding={meeting.chairUserId !== null && meeting.chairUserId === user?.id}
                       onChange={
                         // Changed until the call to order; after it, in the meeting
@@ -182,7 +193,12 @@ export function LiveMeetingsPage() {
               </h3>
               <ul className="border-t border-rule divide-y divide-rule">
                 {held.map((meeting) => (
-                  <ScheduleRow key={meeting.id} meeting={meeting} presiding={false} />
+                  <ScheduleRow
+                    key={meeting.id}
+                    meeting={meeting}
+                    timeZone={currentOrganization?.timeZone}
+                    presiding={false}
+                  />
                 ))}
               </ul>
             </section>
@@ -201,10 +217,13 @@ export function LiveMeetingsPage() {
  */
 function ScheduleRow({
   meeting,
+  timeZone,
   presiding,
   onChange,
 }: {
   meeting: ScheduledMeeting;
+  /** The organization's: a meeting's time is the time in the room */
+  timeZone?: string;
   presiding: boolean;
   onChange?: () => void;
 }) {
@@ -220,7 +239,9 @@ function ScheduleRow({
         <p className="font-medium text-ink">{title}</p>
         <p className="text-sm text-ink-muted">
           <span>
-            {meeting.scheduledFor ? formatMeetingTime(meeting.scheduledFor) : 'No date set'}
+            {meeting.scheduledFor
+              ? formatMeetingTime(meeting.scheduledFor, timeZone)
+              : 'No date set'}
           </span>
           {meeting.chair?.name && <span>{`, ${meeting.chair.name} presiding`}</span>}
         </p>

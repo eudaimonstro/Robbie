@@ -190,6 +190,8 @@ const SortableSectionNode = memo(function SortableSectionNode({
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = section.children && section.children.length > 0;
   const isSelected = selectedSectionId === section.id;
+  // How the section is named to screen readers, by its number and title
+  const name = [section.numberLabel, section.title].filter(Boolean).join(' ') || 'this section';
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.id,
@@ -242,10 +244,10 @@ const SortableSectionNode = memo(function SortableSectionNode({
       ref={setNodeRef}
       id={`section-${section.id}`}
       style={style}
-      className={`scroll-mt-4 ${depth > 0 ? 'ml-6' : ''}`}
+      className={`scroll-mt-4 ${depth > 0 ? 'sm:ml-6' : ''}`}
     >
       <div
-        className={`group flex items-start gap-2 p-3 rounded-lg transition-colors cursor-pointer ${
+        className={`group flex items-start gap-2 p-2 sm:p-3 rounded-lg transition-colors cursor-pointer ${
           isSelected
             ? 'bg-gavel-tint border-l-4 border-gavel'
             : 'hover:bg-surface-2 border-l-4 border-transparent'
@@ -258,32 +260,37 @@ const SortableSectionNode = memo(function SortableSectionNode({
             type="button"
             {...attributes}
             {...listeners}
-            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-ink-muted hover:text-ink rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            className="mt-1 p-0.5 cursor-grab active:cursor-grabbing text-ink-muted hover:text-ink rounded-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity max-md:hidden"
             title="Drag to reorder"
+            aria-label={`Move ${name}`}
           >
-            <GripVertical className="w-4 h-4" />
+            <GripVertical className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
 
         {/* Expand/collapse button */}
+        {/* 20px wide in the row, and a 44px target on phones (the margin gives back the rest) */}
         <button
           type="button"
           onClick={handleToggle}
-          className={`mt-1 p-0.5 rounded hover:bg-rule transition-colors ${
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${name}`}
+          className={`mt-1 p-0.5 max-md:-m-3 max-md:p-3.5 shrink-0 rounded hover:bg-rule transition-colors ${
             !hasChildren && 'invisible'
           }`}
         >
           {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-ink-muted" />
+            <ChevronDown className="w-4 h-4 text-ink-muted" aria-hidden="true" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-ink-muted" />
+            <ChevronRight className="w-4 h-4 text-ink-muted" aria-hidden="true" />
           )}
         </button>
 
         {/* Section content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div>
+          {/* On phones the section's buttons go under its heading, always shown: nothing hovers */}
+          <div className="flex items-start justify-between gap-2 max-md:flex-col max-md:gap-1">
+            <div className="min-w-0">
               {section.numberLabel && (
                 <span className="font-bold text-gavel">{section.numberLabel}</span>
               )}
@@ -299,32 +306,35 @@ const SortableSectionNode = memo(function SortableSectionNode({
             {/* Action buttons */}
             {editable && (
               <div
-                className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="flex shrink-0 items-center gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity max-md:-ml-3"
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
                   onClick={handleAddChild}
-                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
-                  title="Add child section"
+                  className="p-1 max-md:p-3.5 text-ink-muted hover:text-gavel rounded-sm"
+                  title="Add a section under it"
+                  aria-label={`Add a section under ${name}`}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={handleEdit}
-                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
-                  title="Edit section"
+                  className="p-1 max-md:p-3.5 text-ink-muted hover:text-gavel rounded-sm"
+                  title="Edit"
+                  aria-label={`Edit ${name}`}
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="p-1 text-ink-muted hover:text-gavel rounded-sm"
-                  title="Delete section"
+                  className="p-1 max-md:p-3.5 text-ink-muted hover:text-gavel rounded-sm"
+                  title="Delete"
+                  aria-label={`Delete ${name}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             )}

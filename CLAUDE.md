@@ -74,7 +74,7 @@ npm run test:coverage    # Run tests with coverage report
 npm run test:integration -w backend-node  # Integration tests; needs INTEGRATION_DATABASE_URL pointing at a throwaway Postgres, never DATABASE_URL
 npm run lint             # ESLint, then the palette check
 npm run lint:palette     # The design-token check alone (npm run lint runs it): no raw palette classes, and no emoji in frontend-unified/src or shared's constants, reducer and utils
-npm run e2e              # Playwright: builds, starts the API (3101), which serves the web build as production does, on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke tests (with a CSP check), the header tests, screenshots in both palettes, the bylaws import, the meeting scenarios and the whole annual meeting
+npm run e2e              # Playwright: builds, starts the API (3101), which serves the web build as production does, on E2E_DATABASE_URL (default: the throwaway Postgres on 55432), reseeds the demo, and runs the smoke tests (with a CSP check), the header tests, screenshots in both palettes, axe (`@axe-core/playwright`, WCAG 2.1 AA) over the main pages in both palettes failing on a serious or critical violation (`e2e/tests/accessibility.spec.ts`), the bylaws import, the meeting scenarios and the whole annual meeting
 npm run format:check     # Prettier
 ```
 
@@ -227,6 +227,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - `GET /api/versions/{id}/tree` - Section tree structure
 - `GET /api/versions/{id}/diff/{other_id}` - Diff between versions of one document
 - `GET/POST /api/documents/{id}/amendments` - Amendments for document
+- `GET /api/organizations/{id}/amendments?status=draft,proposed` - The amendments to all of the organization's documents, newest first, with their changes (the statuses a comma list; all when left out); Home and Amendments read it
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `PUT /api/organizations/{id}` - Name, description, time zone (`timeZone`, an IANA name; the minutes give times there), and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
 - `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code: `robbieCode`, or a random six-character one when left out, as the scheduler leaves it unless the secretary types one; a taken code is 409 "That meeting code can't be used. Choose another." without saying whose; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` (canceling the meeting) also deletes its uploaded files, refuses (409) a meeting already called to order, whose minutes would go with it, and closes one already open (`closeCanceledMeeting`, `socket/meetingLifecycle.ts`): the room is sent `ERROR` with code `MEETING_CANCELED`, its sockets leave it (still signed in), and its live state is deleted, so the screens say "This meeting was canceled." with the way back to Live Meetings

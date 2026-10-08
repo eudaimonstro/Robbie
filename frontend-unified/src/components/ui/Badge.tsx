@@ -51,7 +51,7 @@ export function StatusBadge({ status }: { status: string }) {
 export function DocumentTypeBadge({ type }: { type: string }) {
   const labels: Record<string, string> = {
     bylaws: 'Bylaws',
-    standing_rules: 'Standing Rules',
+    standing_rules: 'Standing rules',
     policy: 'Policy',
   };
 

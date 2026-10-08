@@ -9,7 +9,13 @@ vi.mock('../../../../context/SessionContext', () => ({
   useSession: () => ({ user: { id: 2, name: 'Dana Okafor', email: 'dana@maplegrove.example' } }),
 }));
 const bridge = vi.hoisted(() => ({
-  currentOrganization: null as null | { id: string; name: string; slug: string; role: string },
+  currentOrganization: null as null | {
+    id: string;
+    name: string;
+    slug: string;
+    role: string;
+    timeZone?: string;
+  },
 }));
 vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
 vi.mock('../../components/scheduling', () => ({
@@ -127,10 +133,23 @@ describe('LiveMeetingsPage', () => {
     expect(schedule.list).not.toHaveBeenCalled();
   });
 
-  it("says so when the schedule can't be loaded", async () => {
+  it("says so when the schedule can't be loaded, in words, and tries again", async () => {
     schedule.list.mockRejectedValueOnce(new Error('Failed to list meeting packets'));
     renderPage();
-    expect(await screen.findByText('Failed to list meeting packets')).toBeTruthy();
+    expect(await screen.findByText("Couldn't load the schedule.")).toBeTruthy();
+    expect(screen.queryByText('Failed to list meeting packets')).toBeNull();
+
+    schedule.list.mockResolvedValueOnce([meeting({ chairUserId: 9 })]);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('link', { name: 'Join 2026 Annual Meeting' })).toBeTruthy();
+  });
+
+  it("gives each meeting's time in the organization's time zone", async () => {
+    bridge.currentOrganization = { ...bridge.currentOrganization!, timeZone: 'Europe/Paris' };
+    schedule.list.mockResolvedValueOnce([meeting()]);
+    renderPage();
+    // 7 PM in Chicago, where the tests run, is 2 AM the next day in Paris
+    expect(await screen.findByText(/^Wed, Oct 21, 2:00\sAM$/)).toBeTruthy();
   });
 
   it('lists a meeting just scheduled when the scheduler closes', async () => {
