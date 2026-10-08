@@ -17,7 +17,8 @@ export const BASE_URL = `http://localhost:${API_PORT}`;
  * The backend's environment. Variables set here win over backend-node/.env (dotenv doesn't
  * override them): test sign-in with the code 000000, no per-address sign-in limit (NODE_ENV=test),
  * no email provider (emails are logged), and uploads in a temp folder. The web app is on the
- * API's own origin, so no CLIENT_ORIGIN.
+ * API's own origin, so no CLIENT_ORIGIN, and APP_URL is that origin, as in production (the
+ * Content Security Policy names the socket's address from it).
  */
 export function backendEnv(uploadDir: string): Record<string, string> {
   return {
@@ -31,6 +32,7 @@ export function backendEnv(uploadDir: string): Record<string, string> {
     SENDGRID_API_KEY: '',
     SMTP_HOST: '',
     EMAIL_FROM: '',
+    APP_URL: BASE_URL,
     LOG_LEVEL: 'warn',
   };
 }

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PEOPLE, signIn, signInThroughPage } from '../helpers';
+import { BASE_URL } from '../env';
 
 test('Pat signs in, opens the bylaws and finds the annual meeting on the schedule', async ({
   page,
@@ -33,14 +34,23 @@ test('the app runs under the content security policy production sends', async ({
   });
 
   const response = await page.goto('/sign-in');
-  expect(response?.headers()['content-security-policy']).toContain("default-src 'self'");
+  const policy = response?.headers()['content-security-policy'];
+  expect(policy).toContain("default-src 'self'");
+  // The meeting socket's address, from APP_URL (Safari before CSP Level 3 needs it named)
+  expect(policy).toContain(`connect-src 'self' ${BASE_URL.replace(/^http/, 'ws')}`);
   await signInThroughPage(page, PEOPLE.pat);
 
   // The pages with the most moving parts: the fonts and icons, the QR code, the socket
   await page.goto('/');
   await expect(page.getByText('Welcome to Maple Grove HOA')).toBeVisible();
+  // Socket.io starts on long-polling and moves to a WebSocket: the policy lets it, and frames
+  // come back (listening from the start: after the upgrade the next frame is 25 seconds away)
+  const socketWorks = page
+    .waitForEvent('websocket', (ws) => ws.url().includes('/socket.io/'))
+    .then((ws) => ws.waitForEvent('framereceived'));
   await page.goto('/meetings/MAPLE1/display');
   await expect(page.getByRole('img', { name: 'Scan to join' })).toBeVisible();
+  await socketWorks;
   await page.goto('/minutes');
   await expect(page.getByRole('link', { name: /2025 Annual Meeting/ })).toBeVisible();
 
