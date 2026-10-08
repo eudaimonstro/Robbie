@@ -19,6 +19,7 @@
     "db:studio": "prisma studio",
     "email:test": "tsx src/scripts/sendTestEmail.ts",
     "org:add-member": "tsx src/scripts/addOrgMember.ts",
+    "report": "tsx src/scripts/handleReport.ts",
     "seed:demo": "tsx src/scripts/seedDemo.ts"
   },
   "dependencies": {

@@ -8,3 +8,5 @@ process.env.LOG_LEVEL = 'silent';
 delete process.env.ENABLE_TEST_AUTH;
 // Uploaded files go to a temporary directory, not the working copy
 process.env.UPLOAD_DIR = path.join(os.tmpdir(), 'robbie-integration-uploads');
+// handleReport's preserved files too, beside it
+process.env.PRESERVE_DIR = path.join(os.tmpdir(), 'robbie-integration-preserved');

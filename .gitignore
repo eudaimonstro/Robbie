@@ -68,3 +68,8 @@ e2e/playwright-report/
 
 # Production backups, on the server (deploy/backup.sh)
 deploy/backups/
+
+# Files stored by a local server: uploads, and the copies handleReport preserves (reported
+# material must never reach the repository)
+backend-node/uploads/
+backend-node/preserved/
