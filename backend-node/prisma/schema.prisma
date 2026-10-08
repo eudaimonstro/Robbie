@@ -29,6 +29,8 @@ model Organization {
   quorumCount    Int?   @default(3)
   // Where its meetings are held, as an IANA name: the minutes give times there
   timeZone       String @default("America/Chicago")
+  // The vote its bylaws require to amend them: stamped on each bylaw amendment moved in a meeting
+  bylawAmendmentVote BylawAmendmentVote @default(twoThirdsCast)
 
   // Who created it: only the organizations a user created count toward their limit, not those
   // someone else made them an owner of
@@ -40,6 +42,15 @@ model Organization {
   invites   OrganizationInvite[]
   packets   MeetingPacket[]
   minutes   Minutes[]
+}
+
+// What a bylaw amendment needs: two thirds or a majority, of the votes cast or of all the
+// voting members (eligibleVoters, else the roster's voting members)
+enum BylawAmendmentVote {
+  twoThirdsCast
+  majorityCast
+  majorityMembers
+  twoThirdsMembers
 }
 
 // Document type enum

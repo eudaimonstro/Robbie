@@ -15,6 +15,7 @@ import { prisma } from './db/prisma.js';
 import { healthCheck } from './health.js';
 import {
   organizationsRouter,
+  voteRulesRouter,
   documentsRouter,
   versionsRouter,
   sectionsRouter,
@@ -163,6 +164,7 @@ app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
 app.use('/api', membersRouter);
 app.use('/api', minutesRouter);
+app.use('/api', voteRulesRouter);
 
 // An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
 // catch-all below

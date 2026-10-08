@@ -1,8 +1,9 @@
 import type { BylawAmendment, MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { MAX_BYLAW_TEXT_LENGTH } from '@robbie-bylawyer/shared/constants';
-import { bylawMotionText, sectionLabel } from '@robbie-bylawyer/shared/utils';
+import { bylawMotionText, sectionLabel, thresholdFromSetting } from '@robbie-bylawyer/shared/utils';
 import { prisma } from '../db/prisma.js';
+import { countRosterVoters } from './meetingPacket.js';
 
 type Prepared = { action: MeetingAction } | { error: string; errorCode: ActionErrorCode };
 
@@ -90,7 +91,8 @@ function missingText(change: BylawAmendment): string | null {
  *   whatever the client sent;
  * - the section changed (or the one an added section goes under) must be in the current
  *   version, and its label, title and text come from it;
- * - the motion's words come from the change (bylawMotionText), never from the client.
+ * - the motion's words come from the change (bylawMotionText), never from the client;
+ * - the vote it needs comes from the organization's setting (bylawAmendmentVote).
  * Any other motion carries no bylaw change.
  */
 export async function prepareBylawMotion(
@@ -110,7 +112,10 @@ export async function prepareBylawMotion(
 
   const packet = await prisma.meetingPacket.findUnique({
     where: { robbieCode: meetingCode },
-    select: { organizationId: true },
+    select: {
+      organizationId: true,
+      organization: { select: { bylawAmendmentVote: true, eligibleVoters: true } },
+    },
   });
   const document = await prisma.document.findUnique({
     where: { id: sent.documentId },
@@ -168,8 +173,15 @@ export async function prepareBylawMotion(
     return refuse('That section is not in the current version of the bylaws');
   }
 
+  // The vote it needs, as the organization's bylaws set it now: of all the voting members, they
+  // are counted as it is moved (the organization's number, or else its voting members)
+  const setting = packet.organization.bylawAmendmentVote;
+  const members = setting.endsWith('Members')
+    ? (packet.organization.eligibleVoters ?? (await countRosterVoters(packet.organizationId)))
+    : 0;
   const bylawAmendment: BylawAmendment = {
     ...change,
+    voteRequired: thresholdFromSetting(setting, members),
     documentTitle: document.title,
     ...(section &&
       (change.changeType === 'add'
