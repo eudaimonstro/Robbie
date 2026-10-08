@@ -49,6 +49,10 @@ function generateMeetingCode(): string {
   return code;
 }
 
+/** What the open meeting takes from the packet's agenda: its items' ids and titles, in order */
+const agendaKey = (packet: MeetingPacket) =>
+  JSON.stringify(packet.agendaItems.map((item) => [item.id, item.title]));
+
 /** A scheduled meeting being changed, as loaded */
 type Existing = 'loading' | 'ready' | 'gone' | 'called to order' | { error: string };
 
@@ -71,6 +75,8 @@ export function MeetingScheduler({
   // preside; null for nobody (the admins run the meeting)
   const [chairUserId, setChairUserId] = useState<number | null | undefined>(undefined);
   const [presiders, setPresiders] = useState<OrgMember[] | null>(null);
+  // Everyone in the organization, to name a presiding officer who can no longer preside
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [packet, setPacket] = useState<MeetingPacket | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +87,9 @@ export function MeetingScheduler({
   const [changed, setChanged] = useState(false);
   const [detailsSaved, setDetailsSaved] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // The agenda as loaded (its items' ids and titles, in order), the part the open meeting
+  // copies: Done brings the open meeting's agenda up to date only when it differs
+  const loadedAgenda = useRef<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const keepRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -104,6 +113,7 @@ export function MeetingScheduler({
           return;
         }
         setPacket(loaded);
+        loadedAgenda.current = agendaKey(loaded);
         setMeetingCode(loaded.robbieCode);
         setTitle(loaded.title ?? '');
         setDescription(loaded.description ?? '');
@@ -147,6 +157,7 @@ export function MeetingScheduler({
       .then(({ members }) => {
         if (canceled) return;
         const eligible = members.filter((m) => atLeast(m.role, 'member'));
+        setOrgMembers(members);
         setPresiders(eligible);
         setChairUserId((current) => {
           if (current !== undefined) return current;
@@ -171,15 +182,28 @@ export function MeetingScheduler({
   });
 
   /**
-   * The details for an update: a place, description or date emptied after Edit the details
-   * clears it. The title is never emptied (Next asks for one), so a missing one keeps the saved.
+   * The details that differ from the saved packet's, for an update: only those are sent, so a
+   * change made elsewhere meanwhile (the chair handed over in the open meeting, say) isn't
+   * undone. A place, description or date emptied is cleared (null). The title is never emptied
+   * (Next asks for one), so a missing one keeps the saved.
    */
-  const changedDetails = () => ({
-    ...details(),
-    description: description.trim() || null,
-    location: location.trim() || null,
-    scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
-  });
+  const changedDetails = (saved: MeetingPacket) => {
+    const changes: Parameters<typeof updatePacket>[1] = {};
+    const newTitle = title.trim();
+    if (newTitle && newTitle !== (saved.title ?? '')) changes.title = newTitle;
+    const newDescription = description.trim() || null;
+    if (newDescription !== (saved.description || null)) changes.description = newDescription;
+    const newLocation = location.trim() || null;
+    if (newLocation !== (saved.location || null)) changes.location = newLocation;
+    const savedDate = saved.scheduledFor ? toLocalDateTimeInput(saved.scheduledFor) : '';
+    if (scheduledFor !== savedDate) {
+      changes.scheduledFor = scheduledFor ? new Date(scheduledFor).toISOString() : null;
+    }
+    if (chairUserId !== undefined && chairUserId !== (saved.chairUserId ?? null)) {
+      changes.chairUserId = chairUserId;
+    }
+    return changes;
+  };
 
   /** Create the packet, with a fresh code if a generated one is already taken */
   const create = async (orgId: string): Promise<MeetingPacket> => {
@@ -211,10 +235,17 @@ export function MeetingScheduler({
       // changing a meeting), save them. The answer to a save leaves out the linked documents'
       // titles, so the agenda and files already loaded are kept.
       if (packet) {
-        const saved = await updatePacket(packet.id, changedDetails());
-        setPacket({ ...saved, attachments: packet.attachments, agendaItems: packet.agendaItems });
-        setChanged(true);
-        setDetailsSaved(changing);
+        const changes = changedDetails(packet);
+        if (Object.keys(changes).length > 0) {
+          const saved = await updatePacket(packet.id, changes);
+          setPacket((prev) =>
+            prev
+              ? { ...saved, attachments: prev.attachments, agendaItems: prev.agendaItems }
+              : prev,
+          );
+          setChanged(true);
+          setDetailsSaved(changing);
+        }
       } else {
         setPacket(await create(organization.id));
       }
@@ -229,7 +260,23 @@ export function MeetingScheduler({
   // The presiding officer goes straight into the meeting; anyone else is done
   const presiding = chairUserId != null && chairUserId === user?.id;
   const presidingName =
-    chairUserId == null ? null : (presiders?.find((m) => m.userId === chairUserId)?.name ?? null);
+    chairUserId == null
+      ? null
+      : ((presiders ?? orgMembers).find((m) => m.userId === chairUserId)?.name ??
+        orgMembers.find((m) => m.userId === chairUserId)?.name ??
+        null);
+  // The saved presiding officer, when they can no longer preside (now a viewer, or gone): kept
+  // until another is chosen, and named as such
+  const formerChairId = packet?.chairUserId ?? null;
+  const formerChair =
+    formerChairId !== null &&
+    presiders !== null &&
+    !presiders.some((m) => m.userId === formerChairId)
+      ? {
+          userId: formerChairId,
+          name: orgMembers.find((m) => m.userId === formerChairId)?.name ?? 'The presiding officer',
+        }
+      : null;
 
   const meetingName = title.trim() || 'The meeting';
 
@@ -242,15 +289,18 @@ export function MeetingScheduler({
       onBack(undefined);
       return;
     }
-    setIsSaving(true);
     let status = `${meetingName} is changed.`;
-    try {
-      const { live } = await meetingPackets.reloadAgenda(meetingCode);
-      if (live) status += " The open meeting's agenda now matches.";
-    } catch (err) {
-      if (err instanceof Error) status += ` ${err.message}`;
-    } finally {
-      setIsSaving(false);
+    // Only an agenda that differs from the one loaded is sent to the open meeting
+    if (packet && agendaKey(packet) !== loadedAgenda.current) {
+      setIsSaving(true);
+      try {
+        const { live } = await meetingPackets.reloadAgenda(meetingCode);
+        if (live) status += " The open meeting's agenda now matches.";
+      } catch (err) {
+        if (err instanceof Error) status += ` ${err.message}`;
+      } finally {
+        setIsSaving(false);
+      }
     }
     onBack(status);
   };
@@ -274,16 +324,8 @@ export function MeetingScheduler({
       await finishChange();
       return;
     }
-    if (packet) {
-      setIsSaving(true);
-      try {
-        await updatePacket(packet.id, changedDetails());
-      } catch (err) {
-        console.error('Failed to save details:', err);
-      } finally {
-        setIsSaving(false);
-      }
-    }
+    // The details were saved at Next (created, or changed after Edit the details), and each
+    // agenda change as it was made: nothing is left to save
     if (presiding) onJoinMeeting(meetingCode);
     else onBack();
   };
@@ -458,6 +500,11 @@ export function MeetingScheduler({
                   <option value="">
                     {presiders === null ? 'Loading the members...' : 'Nobody: the admins run it'}
                   </option>
+                  {formerChair && (
+                    <option value={String(formerChair.userId)}>
+                      {`${formerChair.name} (can no longer preside)`}
+                    </option>
+                  )}
                   {(presiders ?? []).map((member) => (
                     <option key={member.userId} value={String(member.userId)}>
                       {member.name ?? member.email}

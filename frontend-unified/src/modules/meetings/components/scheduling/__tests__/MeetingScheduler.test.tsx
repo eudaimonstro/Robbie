@@ -9,11 +9,41 @@ const api = vi.hoisted(() => ({
   deletePacket: vi.fn(),
 }));
 vi.mock('../api', () => api);
-vi.mock('../PacketBuilder', () => ({
-  PacketBuilder: ({ packet }: { packet: { agendaItems: Array<{ title: string }> } }) => (
-    <p data-items={packet.agendaItems.map((item) => item.title).join('|')}>Agenda builder</p>
-  ),
-}));
+vi.mock('../PacketBuilder', () => {
+  type Packet = { agendaItems: Array<{ title: string }>; attachments: object[] };
+  return {
+    PacketBuilder: ({
+      packet,
+      onPacketUpdate,
+    }: {
+      packet: Packet;
+      onPacketUpdate: (update: (prev: Packet) => Packet) => void;
+    }) => (
+      <>
+        <p data-items={packet.agendaItems.map((item) => item.title).join('|')}>Agenda builder</p>
+        <button
+          type="button"
+          onClick={() =>
+            onPacketUpdate((prev) => ({ ...prev, agendaItems: [...prev.agendaItems].reverse() }))
+          }
+        >
+          Reverse the agenda
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onPacketUpdate((prev) => ({
+              ...prev,
+              attachments: [...prev.attachments, { id: 'a9' }],
+            }))
+          }
+        >
+          Attach a file
+        </button>
+      </>
+    ),
+  };
+});
 vi.mock('../../QrCode', () => ({ QrCode: ({ label }: { label: string }) => <img alt={label} /> }));
 const membersApi = vi.hoisted(() => ({ list: vi.fn() }));
 const meetingPackets = vi.hoisted(() => ({ reloadAgenda: vi.fn() }));
@@ -83,10 +113,15 @@ describe('MeetingScheduler', () => {
     vi.clearAllMocks();
     bridge.currentOrganization = bridge.maple;
     membersApi.list.mockResolvedValue(people);
-    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) =>
-      packet(data.robbieCode),
-    );
-    api.updatePacket.mockResolvedValue(packet('ABC234'));
+    // The server answers with what it saved
+    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) => ({
+      ...packet(data.robbieCode),
+      ...data,
+    }));
+    api.updatePacket.mockImplementation(async (_id: string, data: object) => ({
+      ...packet('ABC234'),
+      ...data,
+    }));
   });
 
   it('creates the meeting in the current organization, presided over by its scheduler', async () => {
@@ -228,6 +263,8 @@ describe('MeetingScheduler', () => {
     expect(screen.queryByRole('button', { name: 'Start meeting' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(onBack).toHaveBeenCalled());
+    // The details were saved when the meeting was created: nothing is saved again
+    expect(api.updatePacket).not.toHaveBeenCalled();
   });
 
   it('tries a fresh code when the generated one is taken', async () => {
@@ -347,12 +384,11 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
 
     expect((await screen.findByRole('status')).textContent).toBe('The details are saved.');
+    // Only what changed: a chair handed over in the open meeting meanwhile stays
     expect(api.updatePacket).toHaveBeenCalledWith('p1', {
-      title: '2026 Annual Meeting',
       description: null,
       location: 'Pool house',
       scheduledFor: null,
-      chairUserId: 2,
     });
     expect(screen.getByText('Agenda builder').dataset.items).toBe(
       "Call to order|Treasurer's report",
@@ -365,12 +401,42 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     change();
     await loaded();
     expect((screen.getByLabelText('Presiding officer') as HTMLSelectElement).value).toBe('');
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
     await screen.findByText('Agenda builder');
-    expect(api.updatePacket).toHaveBeenCalledWith(
-      'p1',
-      expect.objectContaining({ chairUserId: null }),
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { location: 'Pool house' });
+  });
+
+  it('saves nothing when the details are unchanged', async () => {
+    change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).not.toHaveBeenCalled();
+    expect(screen.queryByText('The details are saved.')).toBeNull();
+  });
+
+  it('sends the presiding officer only when it is changed', async () => {
+    change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Presiding officer'), { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { chairUserId: 7 });
+  });
+
+  it('keeps a presiding officer who can no longer preside, and says so', async () => {
+    api.getPacket.mockResolvedValue({ ...scheduled, chairUserId: 9 });
+    change();
+    await loaded();
+    const select = screen.getByLabelText('Presiding officer') as HTMLSelectElement;
+    expect(await screen.findByRole('option', { name: 'Morgan Lee (can no longer preside)' })).toBe(
+      select.selectedOptions[0],
     );
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    expect(api.updatePacket).toHaveBeenCalledWith('p1', { location: 'Pool house' });
   });
 
   it("shows the server's refusal and stays on the details", async () => {
@@ -382,6 +448,7 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     );
     change();
     await loaded();
+    fireEvent.change(screen.getByLabelText('Presiding officer'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(
       /^The presiding officer must be a member/,
@@ -395,6 +462,7 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     await loaded();
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
     await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() =>
       expect(onBack).toHaveBeenCalledWith(
@@ -409,8 +477,34 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     await loaded();
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
     await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).toHaveBeenCalledWith('MAPLE1');
+  });
+
+  it("leaves an open meeting's agenda alone when only the details changed", async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Pool house' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Attach a file' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).not.toHaveBeenCalled();
+  });
+
+  it('leaves it alone when the agenda was changed and changed back', async () => {
+    const onBack = change();
+    await loaded();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+    await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Back' })[0]);
+    await waitFor(() => expect(onBack).toHaveBeenCalledWith('2026 Annual Meeting is changed.'));
+    expect(meetingPackets.reloadAgenda).not.toHaveBeenCalled();
   });
 
   it("passes on the server's answer when the meeting was called to order meanwhile", async () => {
@@ -421,6 +515,7 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     await loaded();
     fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
     await screen.findByText('Agenda builder');
+    fireEvent.click(screen.getByRole('button', { name: 'Reverse the agenda' }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() =>
       expect(onBack).toHaveBeenCalledWith(
