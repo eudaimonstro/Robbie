@@ -63,6 +63,11 @@ function rulings(motionType: string): ChairAction[] {
   }
 }
 
+/** A motion's words for a button: the first few, with an ellipsis */
+function shortened(text: string, length = 48): string {
+  return text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
+}
+
 function openVote(state: MeetingState, tone: Tone): ChairAction {
   return {
     id: 'open-vote',
@@ -128,6 +133,30 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
+  // An adjournment carried: the chair declares the meeting adjourned, and nothing else is in order
+  if (state.adjournmentCarried) {
+    return [
+      {
+        id: 'declare-adjourned',
+        label: 'Declare the meeting adjourned',
+        tone: 'primary',
+        make: () => ({ type: 'END_MEETING', timestamp: generateTimestamp() }),
+      },
+    ];
+  }
+  // In a recess the chair resumes the meeting (or adjourns one nobody returns to)
+  if (state.recess) {
+    return [
+      {
+        id: 'resume',
+        label: 'Resume the meeting',
+        tone: 'primary',
+        make: () => ({ type: 'RESUME_MEETING', timestamp: generateTimestamp() }),
+      },
+      adjourn('secondary'),
+    ];
+  }
+
   // A point of order waits for nothing: during a vote, or with a motion awaiting a second
   const motion = state.currentMotion;
   if (motion && motion.vote === 'none') return rulings(motion.type);
@@ -210,6 +239,18 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
 
+  // A question postponed to later in the meeting, which the chair takes up when its time comes
+  const takeUp = (state.postponedMotions ?? []).map((question): ChairAction => ({
+    id: `take-up-${question.motions[0].id}`,
+    label: `Take up: ${shortened(question.motions[0].text)}`,
+    tone: 'secondary',
+    make: () => ({
+      type: 'TAKE_UP_POSTPONED',
+      motionId: question.motions[0].id,
+      timestamp: generateTimestamp(),
+    }),
+  }));
+
   const item = state.currentAgendaItem;
   if (item) {
     // At the last item (often "Adjournment") the expected next step is to adjourn, which
@@ -243,6 +284,7 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         }),
       });
     }
+    actions.push(...takeUp);
     if (!last) actions.push(adjourn('secondary'));
     return actions;
   }
@@ -256,10 +298,11 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
         tone: 'primary',
         make: () => ({ type: 'CALL_AGENDA_ITEM', id: next.id, timestamp: generateTimestamp() }),
       },
+      ...takeUp,
       adjourn('secondary'),
     ];
   }
-  return [adjourn('primary')];
+  return [...takeUp, adjourn('primary')];
 }
 
 /**

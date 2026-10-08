@@ -15,8 +15,10 @@ import {
   logMotionModified,
   logQuestionPut,
   logSecondedFromFloor,
+  logTakenUp,
 } from '../../constants/logMessages.js';
 import { isRuleSuspended, markSingleActionComplete } from '../../utils/ruleSuspensionHelper.js';
+import { motionTextFromDetails } from '../../utils/motionRules.js';
 import { unvotedRecord } from './records.js';
 import type { ActionHandler } from './types.js';
 
@@ -37,11 +39,13 @@ interface NewMotion extends MotionDetails {
 /** The motion is made: it awaits a second, or is the pending question at once */
 function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingState {
   const motionDef = MOTIONS[made.motionType];
+  // A motion with details of its own is worded from them, the same everywhere it is read
+  const text = motionTextFromDetails(made.motionType, made) ?? made.text;
   const motion = {
     ...motionDef,
     id: made.motionId,
     type: made.motionType,
-    text: made.text,
+    text,
     mover: made.mover,
     moverId: made.moverId,
     secondedBy: null,
@@ -54,6 +58,10 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     tabledMotionId: made.tabledMotionId,
     reconsideredMotionId: made.reconsideredMotionId,
     dividedParts: made.dividedParts,
+    ...(made.textAmendment && { textAmendment: made.textAmendment }),
+    ...(made.postponeTo && { postponeTo: made.postponeTo }),
+    ...(made.referTo?.trim() && { referTo: made.referTo.trim() }),
+    ...(made.recessUntil?.trim() && { recessUntil: made.recessUntil.trim() }),
     ...(made.fromFloor && { fromFloor: true }),
     ...(made.putByChair && { putByChair: true }),
   };
@@ -68,8 +76,8 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
 
   if (needsSecond && !secondSuspended) {
     const message = made.fromFloor
-      ? logFloorMotionMade(made.mover, made.text, motion.name)
-      : logMotionMade(made.mover, made.text, motion.name);
+      ? logFloorMotionMade(made.mover, text, motion.name)
+      : logMotionMade(made.mover, text, motion.name);
     return {
       ...state,
       pendingSecond: motion,
@@ -81,9 +89,9 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
   // If second was bypassed due to suspension, note it in the log
   const bypassedSecond = needsSecond && secondSuspended;
   const logMessage = made.putByChair
-    ? logQuestionPut(made.text, motion.name)
+    ? logQuestionPut(text, motion.name)
     : bypassedSecond
-      ? `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}: "${made.text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
+      ? `${made.mover} moves${made.fromFloor ? ' from the floor' : ''}: "${text}" (${motion.name}). [Second requirement suspended - motion proceeds directly]`
       : `${made.mover} raises ${motion.name}${made.fromFloor ? ' from the floor' : ''}.`;
 
   // Auto-complete single-action suspension when used
@@ -303,6 +311,23 @@ export const motionHandler: ActionHandler = (state, action, log) => {
           typedAction.timestamp,
           logMotionModified(motionToModify.mover, typedAction.newText),
         ),
+      };
+    }
+
+    case 'TAKE_UP_POSTPONED': {
+      const typedAction = action as Extract<MeetingAction, { type: 'TAKE_UP_POSTPONED' }>;
+      // The question postponed to later in the meeting, as it was: its main motion and any
+      // amendment pending on it
+      const postponed = state.postponedMotions ?? [];
+      const question = postponed.find((p) => p.motions[0]?.id === typedAction.motionId);
+      if (!question) return state;
+      const motions = question.motions.map((m) => ({ ...m, status: 'active' as const }));
+      return {
+        ...state,
+        motionStack: [...state.motionStack, ...motions],
+        currentMotion: motions.at(-1) ?? state.currentMotion,
+        postponedMotions: postponed.filter((p) => p !== question),
+        meetingLog: log(typedAction.timestamp, logTakenUp(motions[0].text)),
       };
     }
 

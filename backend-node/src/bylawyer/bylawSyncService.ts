@@ -30,6 +30,12 @@ interface SyncResult {
   error?: string;
 }
 
+/**
+ * How a record decides a bylaw amendment: carried, failed or adopted by unanimous consent. One
+ * postponed, referred, withdrawn or ruled out of order is not decided, and stays proposed.
+ */
+const DECIDED: ReadonlySet<string> = new Set(['carried', 'failed', 'unanimous']);
+
 /** The record of the bylaw amendment this action decided, with its change, or null */
 function decidedBylawAmendment(
   appliedTo: MeetingState,
@@ -37,7 +43,13 @@ function decidedBylawAmendment(
 ): (CompletedMotion & { bylawAmendment: BylawAmendment }) | null {
   // The records the action added (a decision adds one; reconsideration only marks the old one)
   const added = newState.completedMotions.slice(appliedTo.completedMotions.length);
-  const record = added.filter((r) => r.type === 'bylawAmendment').at(-1);
+  const record = added
+    .filter(
+      (r) =>
+        r.type === 'bylawAmendment' &&
+        DECIDED.has(r.disposition ?? (r.passed ? 'carried' : 'failed')),
+    )
+    .at(-1);
   if (!record) return null;
   if (!record.bylawAmendment) {
     logger.warn({ motionId: record.id }, 'bylawAmendment motion missing bylawAmendment data');

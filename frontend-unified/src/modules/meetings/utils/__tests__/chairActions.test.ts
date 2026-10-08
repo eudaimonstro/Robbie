@@ -208,6 +208,31 @@ describe('chairActions', () => {
     expect(ids({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual([]);
   });
 
+  it('declares the meeting adjourned once an adjournment carries, and nothing else', () => {
+    const pending = { ...adopted, currentMotion: motion('mainMotion'), adjournmentCarried: true };
+    const actions = chairActions(pending, 2);
+    expect(actions.map((a) => a.label)).toEqual(['Declare the meeting adjourned']);
+    expect(actions[0]).toMatchObject({ tone: 'primary' });
+    expect(actions[0].confirm).toBeUndefined();
+    expect(actions[0].make()).toMatchObject({ type: 'END_MEETING' });
+  });
+
+  it('resumes the meeting from a recess, or adjourns it', () => {
+    const recess = { ...adopted, recess: { since: '8:02 PM', until: '8:15 PM' } };
+    expect(ids(recess)).toEqual(['resume', 'adjourn']);
+    expect(chairActions(recess, 2)[0].make()).toMatchObject({ type: 'RESUME_MEETING' });
+  });
+
+  it('takes up a question postponed to later in the meeting when the floor is clear', () => {
+    const postponed = {
+      ...adopted,
+      postponedMotions: [{ motions: [motion('mainMotion', { id: 9 })], when: '8:30 PM' }],
+    };
+    const takeUp = chairActions(postponed, 2).find((a) => a.id === 'take-up-9');
+    expect(takeUp?.label).toBe('Take up: Approve the pool contract');
+    expect(takeUp?.make()).toMatchObject({ type: 'TAKE_UP_POSTPONED', motionId: 9 });
+  });
+
   describe('business from the floor', () => {
     const floor = (state: MeetingState) => floorActions(state).map((a) => a.id);
 

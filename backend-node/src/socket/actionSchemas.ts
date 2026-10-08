@@ -136,8 +136,30 @@ const bylawAmendment = z.strictObject({
   parentSectionLabel: text(MAX_BYLAW_LABEL_LENGTH + MAX_BYLAW_TITLE_LENGTH + 3).optional(),
 });
 
+/** An amendment's change to the words of the motion it amends */
+const words = text(MAX_MOTION_TEXT_LENGTH);
+const textAmendment = z.discriminatedUnion('form', [
+  z.strictObject({ form: z.literal('insert'), insert: words, after: words.optional() }),
+  z.strictObject({ form: z.literal('strike'), strike: words }),
+  z.strictObject({ form: z.literal('strikeInsert'), strike: words, insert: words }),
+  z.strictObject({ form: z.literal('substitute'), insert: words }),
+]);
+
+/** A time in words: "8:30 PM", "after the treasurer's report" */
+const MAX_WHEN_LENGTH = 100;
+
+/** When a question is postponed to */
+const postponement = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('next-meeting') }),
+  z.strictObject({ kind: z.literal('later'), when: text(MAX_WHEN_LENGTH) }),
+]);
+
 /** The details some motions carry (MotionDetails) */
 const motionDetails = {
+  textAmendment: textAmendment.optional(),
+  postponeTo: postponement.optional(),
+  referTo: text(MAX_TITLE_LENGTH).optional(),
+  recessUntil: text(MAX_WHEN_LENGTH).optional(),
   agendaAmendment: agendaAmendment.optional(),
   ruleSuspension: ruleSuspension.partial().optional(),
   bylawAmendment: bylawAmendment.optional(),
@@ -454,6 +476,12 @@ export const ACTION_SCHEMAS = {
     newText: text(MAX_MOTION_TEXT_LENGTH),
     timestamp,
   }),
+  TAKE_UP_POSTPONED: z.strictObject({
+    type: z.literal('TAKE_UP_POSTPONED'),
+    motionId: id,
+    timestamp,
+  }),
+  RESUME_MEETING: clocked('RESUME_MEETING'),
   START_ROLL_CALL: timed('START_ROLL_CALL'),
   RESPOND_ROLL_CALL: z.strictObject({
     type: z.literal('RESPOND_ROLL_CALL'),

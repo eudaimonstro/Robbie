@@ -152,7 +152,20 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
-          {minutes ? (
+          {state.recess ? (
+            <div className="space-y-6">
+              <p className="font-serif-soft text-display-question font-semibold text-ink">
+                In recess
+              </p>
+              {state.recess.until && (
+                <p className="text-display-line text-ink-muted">Until {state.recess.until}</p>
+              )}
+            </div>
+          ) : state.adjournmentCarried ? (
+            <p className="font-serif-soft text-display-question font-semibold text-ink">
+              The meeting has voted to adjourn
+            </p>
+          ) : minutes ? (
             <MinutesOnDisplay state={state} />
           ) : result ? (
             <Stamp

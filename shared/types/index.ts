@@ -798,6 +798,10 @@ export type MeetingAction =
       timestamp: string;
     }
   | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
+  // The chair takes up a question postponed to later in the meeting (its main motion's id)
+  | { type: 'TAKE_UP_POSTPONED'; motionId: number; timestamp: string }
+  // The chair ends a recess
+  | { type: 'RESUME_MEETING'; at?: string; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
   | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
@@ -902,7 +906,8 @@ export type MinutesEntry =
   | { kind: 'ruling'; ruling: ChairRulingRecord }
   | { kind: 'election'; officer: Officer }
   | { kind: 'setAside'; setAside: ElectionSetAsideRecord }
-  | { kind: 'minutes'; approval: MinutesApprovalRecord };
+  | { kind: 'minutes'; approval: MinutesApprovalRecord }
+  | { kind: 'recess'; recess: RecessRecord };
 
 /** An agenda item, with what was decided under it in the order it happened */
 export interface MinutesItem {
@@ -929,6 +934,8 @@ export interface MeetingMinutes {
   items: MinutesItem[];
   /** What was decided outside any agenda item, in order */
   otherEntries: MinutesEntry[];
+  /** Questions postponed to the next meeting, for its agenda */
+  postponedToNextMeeting: CompletedMotion[];
   /** The business the meeting adjourned with unfinished, in order */
   unfinished: UnfinishedBusinessRecord[];
 }

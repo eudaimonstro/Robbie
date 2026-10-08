@@ -493,7 +493,17 @@ describe('actionValidator', () => {
   describe('MAKE_MOTION', () => {
     describe('secondary amendment (amendAmendment)', () => {
       const motion = (type: string, precedence: number) =>
-        ({ id: 1, type, name: type, text: 'x', status: 'active', precedence }) as never;
+        ({
+          id: 1,
+          type,
+          name: type,
+          text: 'x',
+          status: 'active',
+          precedence,
+          ...(type === 'amend' && {
+            textAmendment: { form: 'strikeInsert', strike: 'x', insert: 'light blue' },
+          }),
+        }) as never;
       const activeState = (current: { type: string; precedence: number }) => ({
         ...initialState,
         meetingActive: true,
@@ -503,7 +513,8 @@ describe('actionValidator', () => {
       const makeSecondary = {
         type: 'MAKE_MOTION' as const,
         motionType: 'amendAmendment',
-        text: 'by striking "blue"',
+        text: 'by striking "light"',
+        textAmendment: { form: 'strike', strike: 'light' },
         mover: 'Member',
         moverId: 2,
         id: 99,

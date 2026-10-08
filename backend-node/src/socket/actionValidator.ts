@@ -20,6 +20,7 @@ import {
   isRuleSuspended,
   motionOutOfOrder,
   moverCanClaimFloor,
+  textAmendmentProblem,
   wasMotionDefeated,
   type OutOfOrder,
 } from '@robbie-bylawyer/shared/utils';
@@ -156,13 +157,25 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
   const missingDetails =
     (action.motionType === 'bylawAmendment' &&
       !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
-    (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
+    (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action) ||
+    (action.motionType === 'postponeDefinite' &&
+      !(
+        action.postponeTo?.kind === 'next-meeting' ||
+        (action.postponeTo?.kind === 'later' && action.postponeTo.when.trim())
+      )) ||
+    (action.motionType === 'referCommittee' && !action.referTo?.trim());
   if (missingDetails) {
     return {
       valid: false,
       error: `${definition.name} needs details this request did not include`,
       errorCode: 'INVALID_ACTION',
     };
+  }
+  // An amendment says what it changes, and the words it strikes or inserts after are there: what
+  // is adopted is applied to the words beneath it
+  const amendmentProblem = textAmendmentCheck(state, action);
+  if (amendmentProblem) {
+    return { valid: false, error: amendmentProblem, errorCode: 'INVALID_ACTION' };
   }
   // Block renewal of substantially similar defeated motions (by subject matter for main motions)
   if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
@@ -173,6 +186,21 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
     };
   }
   return { valid: true };
+}
+
+/** Why an amendment can't apply to the words it amends, or null (or for another motion) */
+function textAmendmentCheck(state: MeetingState, action: NewMotion): string | null {
+  if (action.motionType !== 'amend' && action.motionType !== 'amendAmendment') return null;
+  const change = action.textAmendment;
+  if (!change) return 'Say what the amendment changes: words to insert, strike or replace';
+  const pending = state.currentMotion;
+  if (!pending) return null;
+  if (action.motionType === 'amend') return textAmendmentProblem(pending.text, change);
+  // A secondary amendment changes the words the primary amendment inserts
+  if (!pending.textAmendment || pending.textAmendment.form === 'strike') {
+    return 'The amendment inserts no words to amend';
+  }
+  return textAmendmentProblem(pending.textAmendment.insert, change);
 }
 
 /** A person the chair names from the floor as mover or seconder: a member present, not a guest */
@@ -263,6 +291,34 @@ const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingActi
   'DECLARE_ELECTED',
 ]);
 
+/** What can happen in a recess: the chair resumes or adjourns; the room's count is kept */
+const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'RESUME_MEETING',
+  'END_MEETING',
+  'MARK_PRESENT',
+  'MARK_ABSENT',
+  'SET_HEADCOUNT',
+  'SET_QUORUM',
+  'LOWER_HAND',
+  'ASK_INQUIRY',
+  'ANSWER_INQUIRY',
+  'SET_SPEAKER_TIME_LIMIT',
+  'SET_VOTE_TIME_LIMIT',
+  'SET_VOTING_METHOD',
+  'SET_AUTO_YIELD',
+  'SET_MEMBER_ROLE',
+]);
+
+/** What can happen once an adjournment has carried: the chair declares the meeting adjourned */
+const ADJOURNING_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'END_MEETING',
+  'MARK_PRESENT',
+  'MARK_ABSENT',
+  'SET_HEADCOUNT',
+  'LOWER_HAND',
+  'SET_MEMBER_ROLE',
+]);
+
 /** Business from the floor is recorded by the chair or an admin presiding */
 const NOT_PRESIDING: ValidationResult = {
   valid: false,
@@ -301,6 +357,26 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     };
   }
 
+  // In a recess nothing happens but the chair resuming (or adjourning) and the count of the
+  // room; once an adjournment has carried, only the chair's declaring it
+  if (state.recess && !isServerOnly(action.type) && !IN_RECESS_ALLOWED.has(action.type)) {
+    return {
+      valid: false,
+      error: 'The meeting is in recess: the chair resumes it first',
+      errorCode: 'IN_RECESS',
+    };
+  }
+  if (
+    state.adjournmentCarried &&
+    !isServerOnly(action.type) &&
+    !ADJOURNING_ALLOWED.has(action.type)
+  ) {
+    return {
+      valid: false,
+      error: 'The meeting has voted to adjourn: the chair declares it adjourned',
+      errorCode: 'ADJOURNMENT_CARRIED',
+    };
+  }
   if (awaitingRuling(state) && WAITS_FOR_RULING.has(action.type)) return POINT_PENDING;
 
   switch (action.type) {
@@ -573,6 +649,42 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
+    case 'TAKE_UP_POSTPONED': {
+      if (!state.meetingActive) {
+        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
+      }
+      // Taken up when the floor is clear, as new business is
+      if (
+        state.currentMotion ||
+        state.pendingSecond ||
+        state.votingOpen ||
+        isElectionUnderway(state)
+      ) {
+        return {
+          valid: false,
+          error: 'Settle the pending business first',
+          errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+        };
+      }
+      const postponed = (state.postponedMotions ?? []).some(
+        (p) => p.motions[0]?.id === action.motionId,
+      );
+      if (!postponed) {
+        return {
+          valid: false,
+          error: 'That motion is not postponed to later in this meeting',
+          errorCode: 'ITEM_NOT_FOUND',
+        };
+      }
+      return { valid: true };
+    }
+
+    case 'RESUME_MEETING':
+      if (!state.recess) {
+        return { valid: false, error: 'The meeting is not in recess', errorCode: 'INVALID_STATE' };
+      }
+      return { valid: true };
+
     case 'MODIFY_MOTION': {
       const motionToModify = state.pendingSecond || state.currentMotion;
       if (!motionToModify) {
@@ -629,6 +741,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!state.currentMotion) {
         return { valid: false, error: 'No motion on the floor', errorCode: 'NO_CURRENT_MOTION' };
       }
+      if (state.currentMotion.debateClosed) {
+        return {
+          valid: false,
+          error: 'Debate is closed: the question is put to the vote',
+          errorCode: 'DEBATE_CLOSED',
+        };
+      }
       if (!state.currentMotion.debatable) {
         return {
           valid: false,
@@ -669,6 +788,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'RECOGNIZE_SPEAKER': {
+      if (state.currentMotion?.debateClosed) {
+        return {
+          valid: false,
+          error: 'Debate is closed: the question is put to the vote',
+          errorCode: 'DEBATE_CLOSED',
+        };
+      }
       const speakerInQueue = state.speakerQueue.some((e) => e.member.id === action.member.id);
       if (!speakerInQueue) {
         return { valid: false, error: 'Member is not in speaker queue', errorCode: 'NOT_IN_QUEUE' };

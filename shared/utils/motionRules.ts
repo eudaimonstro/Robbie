@@ -1,7 +1,7 @@
-import type { MeetingState, Motion } from '../types/index.js';
+import type { MeetingState, Motion, MotionDetails } from '../types/index.js';
 import { MOTIONS } from '../constants/motions.js';
 import { motionWords } from '../constants/motionWords.js';
-import { insertsWords } from './textAmendment.js';
+import { describeTextAmendment, insertsWords } from './textAmendment.js';
 
 /**
  * The motions Robbie offers, in the order a phone lists them: the ones an HOA meeting uses, each
@@ -261,4 +261,29 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
     );
   }
   return null;
+}
+
+/**
+ * The words a motion with details of its own is moved with, from those details, so the question
+ * card, the stamp and the minutes all read the same: 'Strike "May" and insert "June"', "Postpone
+ * it to the next meeting", "Refer it to the board", "Recess until 8:15 PM". Null for a motion whose
+ * words are the mover's.
+ */
+export function motionTextFromDetails(type: string, details: MotionDetails): string | null {
+  switch (type) {
+    case 'amend':
+    case 'amendAmendment':
+      return details.textAmendment ? describeTextAmendment(details.textAmendment) : null;
+    case 'postponeDefinite':
+      if (!details.postponeTo) return null;
+      return details.postponeTo.kind === 'next-meeting'
+        ? 'Postpone it to the next meeting'
+        : `Postpone it to ${details.postponeTo.when.trim()}`;
+    case 'referCommittee':
+      return details.referTo?.trim() ? `Refer it to ${details.referTo.trim()}` : null;
+    case 'recess':
+      return details.recessUntil?.trim() ? `Recess until ${details.recessUntil.trim()}` : null;
+    default:
+      return null;
+  }
 }

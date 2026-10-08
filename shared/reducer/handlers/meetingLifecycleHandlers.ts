@@ -7,6 +7,7 @@ import {
 import {
   LOG_MEETING_CALLED_TO_ORDER,
   LOG_MEETING_ADJOURNED,
+  LOG_MEETING_RESUMED,
   logAdjournedUnfinished,
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
@@ -70,11 +71,15 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       // Adjourning ends the business under way: an election, the motions pending and the one
       // awaiting a second are left unfinished, and the record says so
       const position = state.currentElection?.position ?? state.currentNominationPosition;
+      // Questions postponed to later in the meeting and not taken up are left unfinished too
+      const postponed = (state.postponedMotions ?? []).flatMap((p) => p.motions.slice(0, 1));
       const unfinished = [
         ...(position ? [`the election for ${position}`] : []),
-        ...[...state.motionStack, ...(state.pendingSecond ? [state.pendingSecond] : [])].map(
-          (m) => `the motion "${m.text}"`,
-        ),
+        ...[
+          ...state.motionStack,
+          ...(state.pendingSecond ? [state.pendingSecond] : []),
+          ...postponed,
+        ].map((m) => `the motion "${m.text}"`),
       ];
       // The same business, for the minutes: each motion with its mover and seconder, and the
       // election with the count of each ballot already closed
@@ -114,6 +119,15 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
               },
             ]
           : []),
+        ...postponed.map((m) => ({
+          kind: 'motion' as const,
+          id: m.id,
+          name: m.name,
+          text: m.text,
+          mover: m.mover,
+          ...(m.secondedBy ? { seconder: m.secondedBy } : {}),
+          postponed: true as const,
+        })),
       ];
       // A vote interrupted by adjourning is never decided, so its choices would never be cleared
       // or redacted: they go with it, as a secret ballot's must. (An election's ballot goes with
@@ -145,11 +159,15 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         voteTimerEnd: null,
         ...voteCleared,
         unanimousConsentPending: false,
+        consentMotionId: null,
         speakerQueue: [],
         recognizedSpeaker: null,
         speakerTimerEnd: null,
         lastSpeakerStance: null,
         debatePositions: {},
+        recess: null,
+        adjournmentCarried: false,
+        postponedMotions: [],
         // What this adjournment left unfinished, replacing an earlier one's: the minutes say when
         // the meeting last adjourned, and a meeting called to order again after adjourning has
         // only the log to show what the earlier adjournment left
@@ -162,6 +180,23 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
             : []),
           { time: timestamp, message: LOG_MEETING_ADJOURNED },
         ],
+      };
+    }
+
+    case 'RESUME_MEETING': {
+      const typedAction = action as Extract<MeetingAction, { type: 'RESUME_MEETING' }>;
+      // The recess ends where it began: the business pending then is pending again
+      const recesses = state.recesses ?? [];
+      const last = recesses.at(-1);
+      const ended =
+        last && !last.endedAt && typedAction.at
+          ? [...recesses.slice(0, -1), { ...last, endedAt: typedAction.at }]
+          : recesses;
+      return {
+        ...state,
+        recess: null,
+        recesses: ended,
+        meetingLog: log(typedAction.timestamp, LOG_MEETING_RESUMED),
       };
     }
 

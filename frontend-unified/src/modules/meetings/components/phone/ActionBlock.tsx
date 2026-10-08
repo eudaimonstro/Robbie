@@ -41,6 +41,23 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
     case 'adjourned':
       // The phone shows only the adjournment then (PhoneView)
       return null;
+    case 'adjourning':
+      return (
+        <Note>
+          <p>The meeting has voted to adjourn. The chair declares it adjourned.</p>
+        </Note>
+      );
+    case 'recess':
+      return (
+        <Note>
+          <p>
+            {state.recess?.until
+              ? `The meeting is in recess until ${state.recess.until}.`
+              : 'The meeting is in recess.'}
+          </p>
+          <p>The chair resumes it.</p>
+        </Note>
+      );
     case 'ruling':
       return (
         <Note>
@@ -141,6 +158,17 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
     return (
       <Note>
         <p>The meeting has not been called to order yet.</p>
+      </Note>
+    );
+  }
+  if (moment === 'recess') {
+    return (
+      <Note>
+        <p>
+          {state.recess?.until
+            ? `The meeting is in recess until ${state.recess.until}.`
+            : 'The meeting is in recess.'}
+        </p>
       </Note>
     );
   }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   act,
   inSession,
+  minutesOf,
   move,
   moved,
   refusal,
@@ -191,5 +192,216 @@ describe('unanimous consent', () => {
     expect(refusal(s, 'dana', { type: 'REQUEST_UNANIMOUS_CONSENT' })).toMatchObject({
       error: 'An appeal is decided by a vote',
     });
+  });
+});
+
+describe('what each motion does when it carries', () => {
+  const pool = () =>
+    moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool for $40,000', 'ben');
+  const amendTo35 = {
+    textAmendment: { form: 'strikeInsert', strike: '$40,000', insert: '$35,000' },
+  } as const;
+
+  it('an amendment rewrites the motion, which is voted, stamped and minuted as amended (sim 1)', () => {
+    let s = moved(pool(), 'carl', 'amend', 'ignored: worded from the change', 'eve', amendTo35);
+    expect(s.currentMotion?.text).toBe('Strike “$40,000” and insert “$35,000”');
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion).toMatchObject({
+      type: 'mainMotion',
+      text: 'Resurface the pool for $35,000',
+      originalText: 'Resurface the pool for $40,000',
+    });
+    s = act(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null });
+    expect(s.meetingLog.at(-1)?.message).toBe(
+      'Chair puts the question: "Resurface the pool for $35,000"',
+    );
+    s = act(s, 'dana', { type: 'CLOSE_VOTING' });
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      text: 'Resurface the pool for $35,000',
+      originalText: 'Resurface the pool for $40,000',
+      disposition: 'failed',
+    });
+    const minutes = minutesOf(s);
+    expect(minutes).toContain(
+      '**Amend.** Carl Moss moved: "Strike “$40,000” and insert “$35,000”." Seconded by Eve Park. Carried, 5 to 0. A quorum was present.',
+    );
+    expect(minutes).toContain(
+      '**Main motion.** Alice Brennan moved: "Resurface the pool for $40,000." Seconded by Ben Whitaker. As amended: "Resurface the pool for $35,000." Failed.',
+    );
+  });
+
+  it('a secondary amendment changes the words the primary amendment inserts', () => {
+    let s = moved(pool(), 'carl', 'amend', '', 'eve', amendTo35);
+    s = moved(s, 'ben', 'amendAmendment', '', 'alice', {
+      textAmendment: { form: 'strikeInsert', strike: '$35,000', insert: '$38,000' },
+    });
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion?.text).toBe('Strike “$40,000” and insert “$38,000”');
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion?.text).toBe('Resurface the pool for $38,000');
+  });
+
+  it('an amendment that fails changes nothing', () => {
+    let s = moved(pool(), 'carl', 'amend', '', 'eve', amendTo35);
+    s = vote(s, { pat: 'nay', alice: 'nay', ben: 'nay', carl: 'yea' });
+    expect(s.currentMotion?.text).toBe('Resurface the pool for $40,000');
+    expect(s.currentMotion?.originalText).toBeUndefined();
+  });
+
+  it('an amendment says what it changes, in words the motion has, exactly once', () => {
+    const s = pool();
+    const amend = (textAmendment: unknown) =>
+      refusal(s, 'carl', {
+        type: 'MAKE_MOTION',
+        motionType: 'amend',
+        text: 'x',
+        motionId: 1,
+        textAmendment,
+      });
+    expect(amend(undefined)?.error).toBe(
+      'Say what the amendment changes: words to insert, strike or replace',
+    );
+    expect(amend({ form: 'strike', strike: '$50,000' })?.error).toBe(
+      '"$50,000" is not in the words being amended',
+    );
+    expect(amend({ form: 'insert', insert: 'this spring' })).toBeNull();
+  });
+
+  it('postponing to the next meeting takes the motion off the floor, for the next agenda (sim 2)', () => {
+    let s = moved(pool(), 'carl', 'postponeDefinite', '', 'eve', {
+      postponeTo: { kind: 'next-meeting' },
+    });
+    expect(s.currentMotion?.text).toBe('Postpone it to the next meeting');
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion).toBeNull();
+    expect(s.motionStack).toEqual([]);
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      text: 'Resurface the pool for $40,000',
+      disposition: 'postponed',
+      postponedTo: { kind: 'next-meeting' },
+    });
+    const minutes = minutesOf(s);
+    expect(minutes).toContain(
+      '**Main motion.** Alice Brennan moved: "Resurface the pool for $40,000." Seconded by Ben Whitaker. Postponed to the next meeting.',
+    );
+    expect(minutes).toContain(
+      '## Postponed to the next meeting\n\n- "Resurface the pool for $40,000." (Main motion, moved by Alice Brennan)',
+    );
+  });
+
+  it('postponing to later in the meeting sets the question aside with its amendment, for the chair to take up', () => {
+    let s = moved(pool(), 'carl', 'amend', '', 'eve', amendTo35);
+    s = moved(s, 'ben', 'postponeDefinite', '', 'alice', {
+      postponeTo: { kind: 'later', when: 'after the treasurer’s report' },
+    });
+    s = vote(s, ALL_YES);
+    expect(s.motionStack).toEqual([]);
+    expect(s.postponedMotions?.[0].motions.map((m) => m.type)).toEqual(['mainMotion', 'amend']);
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      disposition: 'postponed',
+      pendingAmendments: ['Strike “$40,000” and insert “$35,000”'],
+    });
+    const mainId = s.postponedMotions![0].motions[0].id;
+    s = act(s, 'dana', { type: 'TAKE_UP_POSTPONED', motionId: mainId });
+    expect(s.currentMotion?.type).toBe('amend');
+    expect(s.motionStack.map((m) => m.type)).toEqual(['mainMotion', 'amend']);
+    expect(s.postponedMotions).toEqual([]);
+  });
+
+  it('a question postponed to later and never taken up is unfinished at the adjournment', () => {
+    let s = moved(pool(), 'carl', 'postponeDefinite', '', 'eve', {
+      postponeTo: { kind: 'later', when: '8:30 PM' },
+    });
+    s = vote(s, ALL_YES);
+    s = act(s, 'dana', { type: 'END_MEETING' });
+    expect(s.unfinishedAtAdjournment).toEqual([
+      expect.objectContaining({ text: 'Resurface the pool for $40,000', postponed: true }),
+    ]);
+  });
+
+  it('postponing indefinitely kills the motion (sim 3)', () => {
+    let s = moved(
+      pool(),
+      'carl',
+      'postponeIndefinitely',
+      'I move to postpone it indefinitely',
+      'eve',
+    );
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion).toBeNull();
+    expect(minutesOf(s)).toContain('Seconded by Ben Whitaker. Postponed indefinitely.');
+  });
+
+  it('referring sends the motion and its pending amendment to the committee (sim 4)', () => {
+    let s = moved(pool(), 'carl', 'amend', '', 'eve', amendTo35);
+    s = moved(s, 'ben', 'referCommittee', '', 'alice', { referTo: 'the landscaping committee' });
+    expect(s.currentMotion?.text).toBe('Refer it to the landscaping committee');
+    s = vote(s, ALL_YES);
+    expect(s.motionStack).toEqual([]);
+    expect(minutesOf(s)).toContain(
+      'Referred to the landscaping committee, with the amendment "Strike “$40,000” and insert “$35,000”" pending.',
+    );
+  });
+
+  it('closing debate puts the question at once: no more hands, no amendments (sim 6)', () => {
+    let s = moved(pool(), 'carl', 'previousQuestion', 'I move the previous question', 'eve');
+    s = vote(s, ALL_YES);
+    expect(s.currentMotion).toMatchObject({ type: 'mainMotion', debateClosed: true });
+    expect(refusal(s, 'ben', { type: 'RAISE_HAND', stance: 'con' })).toMatchObject({
+      errorCode: 'DEBATE_CLOSED',
+    });
+    expect(
+      refusal(s, 'ben', {
+        type: 'MAKE_MOTION',
+        motionType: 'amend',
+        text: 'x',
+        motionId: 1,
+        textAmendment: { form: 'insert', insert: 'now' },
+      }),
+    ).toMatchObject({ errorCode: 'DEBATE_CLOSED' });
+    // Adjourning is still in order, and the question is voted
+    expect(vote(s, ALL_YES).completedMotions.at(-1)).toMatchObject({ disposition: 'carried' });
+  });
+
+  it('adjourning ends the meeting with business pending, which is recorded unfinished (sim 7)', () => {
+    let s = moved(pool(), 'carl', 'adjourn', 'I move that we adjourn', 'eve');
+    s = vote(s, ALL_YES);
+    expect(s.adjournmentCarried).toBe(true);
+    expect(s.meetingActive).toBe(true);
+    // Only the chair's declaring it is in order now
+    expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toMatchObject({
+      errorCode: 'ADJOURNMENT_CARRIED',
+    });
+    s = act(s, 'dana', { type: 'END_MEETING' });
+    expect(s.meetingStage).toBe('adjourned');
+    expect(s.unfinishedAtAdjournment).toEqual([
+      expect.objectContaining({ kind: 'motion', text: 'Resurface the pool for $40,000' }),
+    ]);
+    expect(s.completedMotions.at(-1)).toMatchObject({
+      type: 'adjourn',
+      disposition: 'carried',
+      reconsiderable: false,
+    });
+  });
+
+  it('a recess holds the meeting until the chair resumes it, with the business where it was (sim 16)', () => {
+    let s = moved(pool(), 'carl', 'recess', '', 'eve', { recessUntil: '8:15 PM' });
+    expect(s.currentMotion?.text).toBe('Recess until 8:15 PM');
+    s = vote(s, ALL_YES);
+    expect(s.recess).toMatchObject({ until: '8:15 PM' });
+    expect(
+      refusal(s, 'ben', { type: 'MAKE_MOTION', motionType: 'pointOrder', text: 'x', motionId: 1 }),
+    ).toMatchObject({
+      errorCode: 'IN_RECESS',
+    });
+    expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toMatchObject({
+      errorCode: 'IN_RECESS',
+    });
+    s = act(s, 'dana', { type: 'RESUME_MEETING' });
+    expect(s.recess).toBeNull();
+    expect(s.currentMotion?.text).toBe('Resurface the pool for $40,000');
+    expect(minutesOf(s)).toMatch(
+      /The meeting recessed at \d+:\d\d [AP]M and resumed at \d+:\d\d [AP]M\./,
+    );
   });
 });

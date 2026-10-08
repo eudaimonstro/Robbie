@@ -48,15 +48,19 @@ export function applyTextAmendment(text: string, change: TextAmendment): string 
       const strike = change.strike.trim();
       const at = positions(text, strike);
       if (at.length !== 1) return null;
-      const insert = change.form === 'strikeInsert' ? ` ${change.insert.trim()} ` : ' ';
+      // In place of the words struck: the spaces around them stay as they were
+      const insert = change.form === 'strikeInsert' ? change.insert.trim() : '';
       return tidy(`${text.slice(0, at[0])}${insert}${text.slice(at[0] + strike.length)}`);
     }
   }
 }
 
-/** The amendment in words, as it is moved, put and minuted: 'Strike "May" and insert "June"' */
+/**
+ * The amendment in words, as it is moved, put and minuted: Strike “May” and insert “June”. The
+ * words are in curly quotes, so they read apart from the quotes the minutes put around a motion.
+ */
 export function describeTextAmendment(change: TextAmendment): string {
-  const q = (words: string) => `"${tidy(words)}"`;
+  const q = (words: string) => `\u201c${tidy(words)}\u201d`;
   switch (change.form) {
     case 'insert':
       return change.after?.trim()

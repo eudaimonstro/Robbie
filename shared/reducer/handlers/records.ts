@@ -18,9 +18,10 @@ export function quorumNow(state: MeetingState): boolean {
 }
 
 /**
- * The record of a motion disposed of without a vote: adopted by unanimous consent, withdrawn,
- * or dead for want of a second. It has no votes, so nobody is on its prevailing side; only an
- * adopted one keeps its motion's reconsider flag.
+ * The record of a motion disposed of without a vote of its own: adopted by unanimous consent,
+ * withdrawn, dead for want of a second, postponed, referred or ruled out of order. It has no
+ * votes, so nobody is on its prevailing side; only an adopted one keeps its motion's reconsider
+ * flag. A motion amended keeps the words it was moved with too.
  */
 export function unvotedRecord(
   state: MeetingState,
@@ -28,6 +29,7 @@ export function unvotedRecord(
   disposition: Exclude<Disposition, 'carried' | 'failed'>,
   timestamp: string,
   at: string | undefined,
+  extras: Pick<CompletedMotion, 'postponedTo' | 'referredTo' | 'pendingAmendments'> = {},
 ): CompletedMotion {
   const adopted = disposition === 'unanimous';
   return {
@@ -44,7 +46,9 @@ export function unvotedRecord(
     moverId: motion.moverId,
     ...(motion.secondedBy ? { seconder: motion.secondedBy } : {}),
     ...(motion.bylawAmendment ? { bylawAmendment: motion.bylawAmendment } : {}),
+    ...(motion.originalText ? { originalText: motion.originalText } : {}),
     disposition,
+    ...extras,
     ...(adopted ? { quorumPresent: quorumNow(state) } : {}),
     ...decisionContext(state, at),
   };

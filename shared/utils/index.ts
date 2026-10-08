@@ -23,8 +23,6 @@ export {
   getRuleWarning,
 } from './ruleSuspensionHelper.js';
 
-export { applyMotionOutcome } from './motionOutcomeHelper.js';
-
 export {
   getValidMotions,
   wordingFixedBy,
@@ -41,6 +39,7 @@ export {
   awaitingRuling,
   isOffered,
   motionOutOfOrder,
+  motionTextFromDetails,
   pendingMainMotion,
   type OutOfOrder,
 } from './motionRules.js';

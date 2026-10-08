@@ -26,6 +26,7 @@ export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<Meeti
   'DECLARE_ELECTED',
   'SET_ASIDE_ELECTION',
   'APPROVE_MINUTES',
+  'RESUME_MEETING',
 ]);
 
 /** The fields of an action that say who is acting, which the server sets from the socket */
@@ -110,6 +111,8 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   SET_HEADCOUNT: NONE,
   WITHDRAW_MOTION: { id: 'requesterId' },
   MODIFY_MOTION: { id: 'requesterId' },
+  TAKE_UP_POSTPONED: NONE,
+  RESUME_MEETING: NONE,
   START_ROLL_CALL: NONE,
   RESPOND_ROLL_CALL: { id: 'memberId' },
   COMPLETE_ROLL_CALL: NONE,

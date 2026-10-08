@@ -50,6 +50,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'SET_MEETING_INFO':
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_MEETING_STAGE':
+    case 'RESUME_MEETING':
       return meetingLifecycleHandler(state, action, log);
 
     // Motions
@@ -60,6 +61,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'DECLINE_SECOND':
     case 'WITHDRAW_MOTION':
     case 'MODIFY_MOTION':
+    case 'TAKE_UP_POSTPONED':
       return motionHandler(state, action, log);
 
     // Voting

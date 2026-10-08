@@ -52,6 +52,14 @@ export function logMotionWithdrawn(mover: string): string {
   return `${mover}${LOG_MOTION_WITHDRAWN}`;
 }
 
+/** The chair takes up a question postponed to later in the meeting */
+export function logTakenUp(text: string): string {
+  return `The chair takes up the motion postponed earlier: "${text}"`;
+}
+
+/** The chair ends a recess */
+export const LOG_MEETING_RESUMED = 'The meeting resumes.';
+
 export function logMotionModified(mover: string, newText: string): string {
   return `${mover} modifies motion to: "${newText}"`;
 }
