@@ -5,34 +5,18 @@ import { databaseSsl } from './databaseSsl.js';
 const { Pool } = pg;
 
 /**
- * PostgreSQL connection pool
- *
- * Only creates actual connections when DATABASE_URL is configured.
- * The pool is lazy - connections are created when first used, not at import time.
+ * The PostgreSQL connection pool for the live meetings (meetingStorage), on DATABASE_URL. The
+ * server doesn't start without one (startupCheck). The pool is lazy: it connects when first
+ * used, not at import.
  */
-export const pool = new Pool(
-  process.env.DATABASE_URL
-    ? {
-        connectionString: process.env.DATABASE_URL,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-        ssl: databaseSsl(process.env.DATABASE_URL),
-      }
-    : {
-        // Dummy config for in-memory mode - pool won't be used
-        connectionString: 'postgresql://dummy:dummy@localhost:5432/dummy',
-        max: 1,
-      },
-);
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ssl: process.env.DATABASE_URL ? databaseSsl(process.env.DATABASE_URL) : undefined,
+});
 
-// Log connection errors (only relevant when DATABASE_URL is set)
-if (process.env.DATABASE_URL) {
-  pool.on('error', (err) => {
-    logger.error({ err }, 'Unexpected database error');
-  });
-
-  pool.on('connect', () => {
-    logger.info('PostgreSQL client connected');
-  });
-}
+pool.on('error', (err) => {
+  logger.error({ err }, 'Unexpected database error');
+});

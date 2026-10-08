@@ -24,10 +24,11 @@ describe('startupCheck', () => {
     expect(startupCheck(PRODUCTION, 'resend')).toEqual({ warnings: [] });
   });
 
-  it('stops production without a database', () => {
-    expect(startupCheck(without('DATABASE_URL'), 'resend').error).toBe(
-      'DATABASE_URL is not set, and production keeps its meetings and documents in Postgres.',
-    );
+  it('stops without a database, in development too', () => {
+    const noDatabase =
+      'DATABASE_URL is not set, and the meetings and documents are kept in Postgres.';
+    expect(startupCheck(without('DATABASE_URL'), 'resend').error).toBe(noDatabase);
+    expect(startupCheck({ NODE_ENV: 'development' }, 'development').error).toBe(noDatabase);
   });
 
   it('stops production without an email provider', () => {
@@ -49,7 +50,9 @@ describe('startupCheck', () => {
     const origin = { ...without('APP_URL'), CLIENT_ORIGIN: APP_URL };
     expect(startupCheck(origin, 'resend').error).toBeUndefined();
     // Development falls back to the Vite server
-    expect(startupCheck({ NODE_ENV: 'development' }, 'resend').error).toBeUndefined();
+    expect(startupCheck({ NODE_ENV: 'development', DATABASE_URL: 'x' }, 'resend').error).toBe(
+      undefined,
+    );
   });
 
   it('refuses test sign-in in production', () => {
@@ -75,8 +78,11 @@ describe('startupCheck', () => {
   });
 
   it('allows development and tests to log codes instead of sending them', () => {
-    expect(startupCheck({ NODE_ENV: 'development' }, 'development')).toEqual({ warnings: [] });
-    expect(startupCheck({}, 'development')).toEqual({ warnings: [] });
+    const DATABASE_URL = 'postgresql://localhost/robbie';
+    expect(startupCheck({ NODE_ENV: 'development', DATABASE_URL }, 'development')).toEqual({
+      warnings: [],
+    });
+    expect(startupCheck({ DATABASE_URL }, 'development')).toEqual({ warnings: [] });
   });
 
   it('warns when test sign-in is enabled outside production', () => {

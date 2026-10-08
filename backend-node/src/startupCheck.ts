@@ -15,7 +15,13 @@ export function startupCheck(env: NodeJS.ProcessEnv, emailProvider: EmailProvide
       'above 0, such as 500.'
     : null;
 
+  // Everything is kept in Postgres, the live meetings too: no database, no server
+  const noDatabase = env.DATABASE_URL
+    ? null
+    : 'DATABASE_URL is not set, and the meetings and documents are kept in Postgres.';
+
   if (env.NODE_ENV !== 'production') {
+    if (noDatabase) check.error = noDatabase;
     if (badStorageLimit) check.warnings.push(`${badStorageLimit} Using the default, 500.`);
     if (env.ENABLE_TEST_AUTH === 'true') {
       const code = env.TEST_VERIFICATION_CODE || '000000';
@@ -25,13 +31,7 @@ export function startupCheck(env: NodeJS.ProcessEnv, emailProvider: EmailProvide
   }
 
   const errors: string[] = [];
-  // Without it the live meetings would fall back to memory (meetingStorage.ts) and Prisma
-  // would fail on the first query
-  if (!env.DATABASE_URL) {
-    errors.push(
-      'DATABASE_URL is not set, and production keeps its meetings and documents in Postgres.',
-    );
-  }
+  if (noDatabase) errors.push(noDatabase);
   if (emailProvider === 'development') {
     errors.push(
       "No email provider is configured, and production can't send sign-in codes without one. " +

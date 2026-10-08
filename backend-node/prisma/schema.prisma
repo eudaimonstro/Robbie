@@ -428,3 +428,15 @@ model AuditEntry {
 
   @@index([organizationId, createdAt])
 }
+
+// A live meeting's state, by its meeting code: the socket's (src/db/meetingStorage.ts writes it
+// with SQL, not through Prisma). Modeled so the migrations own the table.
+model LiveMeeting {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique @db.VarChar(8)
+  currentState Json      @map("current_state")
+  stateVersion Int?      @default(1) @map("state_version")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("meetings")
+}

@@ -133,8 +133,7 @@ app.use('/api', noStore);
 app.get(
   '/api/health',
   healthCheck({
-    // Without DATABASE_URL (development only) the meetings live in memory: no database to ask
-    ping: () => (process.env.DATABASE_URL ? prisma.$queryRaw`SELECT 1` : Promise.resolve()),
+    ping: () => prisma.$queryRaw`SELECT 1`,
     mode: () => {
       try {
         return getStorage().mode;
