@@ -129,7 +129,9 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(
       pat.getByText('Moved from the floor by Carmen Diaz, seconded by a member in the room'),
     ).toBeVisible();
-    await expect(alice.getByText('I move that we add a lifeguard on weekends')).toBeVisible();
+    await expect(
+      alice.getByText('I move that we add a lifeguard on weekends', { exact: true }),
+    ).toBeVisible();
 
     // Adopted without objection, and the meeting adjourns once Dana confirms it
     await dana.getByRole('button', { name: 'Ask for unanimous consent' }).click();
