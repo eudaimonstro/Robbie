@@ -21,6 +21,8 @@ interface AttachmentUploaderProps {
   organizationId: string;
   attachments: Attachment[];
   target: { packetId?: string; agendaItemId?: string };
+  /** What the files are attached to, for the controls' names ("the meeting", an item's title) */
+  targetName: string;
   onAttachmentAdded: (attachment: Attachment) => void;
   onAttachmentRemoved: (attachmentId: string) => void;
 }
@@ -48,6 +50,7 @@ export function AttachmentUploader({
   organizationId,
   attachments,
   target,
+  targetName,
   onAttachmentAdded,
   onAttachmentRemoved,
 }: AttachmentUploaderProps) {
@@ -138,12 +141,12 @@ export function AttachmentUploader({
       >
         {isUploading ? (
           <div className="flex items-center justify-center gap-2 text-ink-muted">
-            <Loader2 size={20} className="animate-spin" />
-            <span>Uploading...</span>
+            <Loader2 size={20} className="animate-spin" aria-hidden="true" />
+            <span role="status">Uploading...</span>
           </div>
         ) : (
           <>
-            <Upload size={24} className="mx-auto text-ink-muted mb-2" />
+            <Upload size={24} className="mx-auto text-ink-muted mb-2" aria-hidden="true" />
             <p className="text-sm text-ink-muted">
               Drag files here or{' '}
               <button
@@ -151,7 +154,7 @@ export function AttachmentUploader({
                 onClick={() => fileInputRef.current?.click()}
                 className="text-gavel hover:underline"
               >
-                browse
+                choose files
               </button>
             </p>
             <p className="text-xs text-ink-muted mt-1">PDF, DOC, DOCX, TXT, RTF (max 10MB)</p>
@@ -162,6 +165,7 @@ export function AttachmentUploader({
           type="file"
           accept=".pdf,.doc,.docx,.txt,.rtf"
           multiple
+          aria-label={`Attach files to ${targetName}`}
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -173,16 +177,16 @@ export function AttachmentUploader({
         onClick={() => setShowDocPicker(true)}
         className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-rule rounded-lg text-sm text-ink hover:bg-surface-2"
       >
-        <Link size={16} />
-        Link Bylawyer Document
+        <Link size={16} aria-hidden="true" />
+        Link a document
       </button>
 
       {/* Error message */}
       {error && (
         <div className="bg-gavel-tint border border-gavel/30 text-ink px-3 py-2 rounded-sm text-sm flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)}>
-            <X size={16} />
+          <span role="alert">{error}</span>
+          <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -233,9 +237,9 @@ function AttachmentItem({
     <div className="flex items-center gap-3 p-2 bg-surface-2 rounded-lg">
       <div className="bg-surface p-2 rounded-sm">
         {isFile ? (
-          <File size={20} className="text-ink-muted" />
+          <File size={20} className="text-ink-muted" aria-hidden="true" />
         ) : (
-          <FileText size={20} className="text-gavel" />
+          <FileText size={20} className="text-gavel" aria-hidden="true" />
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -247,7 +251,7 @@ function AttachmentItem({
               {attachment.sizeBytes && ` - ${formatSize(attachment.sizeBytes)}`}
             </>
           ) : (
-            `Bylawyer: ${attachment.document?.title || 'Document'}`
+            'Linked document'
           )}
         </p>
       </div>
@@ -256,18 +260,18 @@ function AttachmentItem({
           <a
             href={getAttachmentDownloadUrl(attachment.id)}
             className="p-1 text-ink-muted hover:text-ink"
-            title="Download"
+            aria-label={`Download ${attachment.displayName}`}
           >
-            <Download size={16} />
+            <Download size={16} aria-hidden="true" />
           </a>
         )}
         <button
           type="button"
           onClick={onDelete}
           className="p-1 text-ink-muted hover:text-gavel"
-          title="Remove"
+          aria-label={`Remove ${attachment.displayName}`}
         >
-          <Trash2 size={16} />
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -310,11 +314,23 @@ function DocumentPicker({
 
   return (
     <div className="fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50">
-      <div className="bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold text-ink">Link Document</h3>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink">
-            <X size={20} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="link-document-heading"
+        className="bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-rule">
+          <h3 id="link-document-heading" className="font-semibold text-ink">
+            Link a document
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-ink-muted hover:text-ink"
+          >
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -333,6 +349,7 @@ function DocumentPicker({
                 documents.map((doc) => (
                   <button
                     key={doc.id}
+                    type="button"
                     onClick={() => onSelect(doc)}
                     className="w-full text-left p-3 bg-surface-2 rounded-lg hover:bg-gavel-tint hover:border-rule border border-transparent transition-colors"
                   >
