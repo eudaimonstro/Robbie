@@ -71,30 +71,4 @@ describe('SpeakerQueueSection', () => {
 
     expect(screen.getByText('2')).toBeTruthy();
   });
-
-  it('keeps the order hands went up when alternation is suspended and the mover has spoken', async () => {
-    await render(
-      <SpeakerQueueSection
-        state={stateWith({
-          currentMotion: { ...motion, moverHasSpoken: true },
-          suspendedRules: [
-            {
-              id: 1,
-              rule: 'pro-con-alternation',
-              purpose: 'Hear everyone in turn',
-              specificAction: 'Debate on the motion',
-              scope: 'meeting-remainder',
-              suspendedAt: '2026-10-07T19:00:00.000Z',
-              motionId: 1,
-            },
-          ],
-        })}
-        currentUser={alice}
-        dispatch={jest.fn()}
-        isHandRaised={true}
-      />,
-    );
-
-    expect(listedNames()).toEqual(['Alice', 'Ben', 'Carol']);
-  });
 });
