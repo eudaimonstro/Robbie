@@ -57,6 +57,8 @@ services:
   backup:
     image: postgres:16-alpine
     restart: unless-stopped
+    # The loop is a shell, which ignores SIGTERM as PID 1; an init stops it promptly
+    init: true
     entrypoint: ['/bin/sh', '/scripts/backup.sh']
     command: ['loop']
     environment:
