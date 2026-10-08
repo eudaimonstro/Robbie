@@ -12,6 +12,8 @@ import { authenticate } from './auth/authenticate.js';
 import { requireTerms } from './auth/terms.js';
 import { bylawyerRouter } from './bylawyer/bylawyerRouter.js';
 import { getStorage } from './db/meetingStorage.js';
+import { prisma } from './db/prisma.js';
+import { healthCheck } from './health.js';
 import {
   organizationsRouter,
   documentsRouter,
@@ -113,15 +115,21 @@ app.use(function jsonBodies(req, res, next) {
   jsonParser(req, res, next);
 });
 
-// Health check (before other routes to avoid conflicts)
-app.get('/api/health', (_req, res) => {
-  try {
-    const storage = getStorage();
-    res.json({ status: 'healthy', mode: storage.mode });
-  } catch {
-    res.json({ status: 'healthy', mode: 'initializing' });
-  }
-});
+// Health check (before other routes to avoid conflicts): healthy only when the database answers
+app.get(
+  '/api/health',
+  healthCheck({
+    // Without DATABASE_URL (development only) the meetings live in memory: no database to ask
+    ping: () => (process.env.DATABASE_URL ? prisma.$queryRaw`SELECT 1` : Promise.resolve()),
+    mode: () => {
+      try {
+        return getStorage().mode;
+      } catch {
+        return 'initializing';
+      }
+    },
+  }),
+);
 
 // Public: sign-in, and read-only share links
 app.use('/api/auth', authRouter);
