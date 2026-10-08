@@ -164,9 +164,12 @@
     outline-color: var(--gavel);
   }
 
+  /* A hint, never mistaken for something typed: italic, a little lighter than muted ink */
   input::placeholder,
   textarea::placeholder {
     color: var(--ink-muted);
+    font-style: italic;
+    opacity: 0.85;
   }
 
   body {
@@ -334,7 +337,7 @@
 
 @utility input {
   /* Form inputs: 44px tall on phones; the focus ring is the base one, with a gavel border */
-  @apply w-full px-3 py-2 max-md:min-h-11 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:border-gavel;
+  @apply w-full px-3 py-2 max-md:min-h-11 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:border-gavel placeholder:italic;
 }
 
 @utility input-error {

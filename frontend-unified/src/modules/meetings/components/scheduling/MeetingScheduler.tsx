@@ -449,7 +449,7 @@ export function MeetingScheduler({
                     setTitle(e.target.value);
                     setTitleMissing(false);
                   }}
-                  placeholder="2026 Annual Meeting"
+                  placeholder="e.g. Annual meeting"
                   maxLength={500}
                   aria-invalid={titleMissing || undefined}
                   aria-describedby={titleMissing ? 'meetingTitleMissing' : undefined}
@@ -497,9 +497,17 @@ export function MeetingScheduler({
                   className="input"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Maple Grove Clubhouse"
+                  placeholder="e.g. the clubhouse"
                   maxLength={500}
+                  aria-describedby={location.trim() ? undefined : 'meetingLocationHint'}
                 />
+                {/* A gentle nudge: the place is optional, but the minutes and the schedule
+                    read better with it */}
+                {!location.trim() && (
+                  <p id="meetingLocationHint" className="mt-1 text-xs text-ink-muted">
+                    Add the place: members see it with the meeting, and it heads the minutes.
+                  </p>
+                )}
               </div>
 
               <div>
