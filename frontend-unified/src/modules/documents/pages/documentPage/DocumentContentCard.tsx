@@ -78,7 +78,7 @@ export function DocumentContentCard({
           )}
         </div>
 
-        <div className="p-4">
+        <div className="p-2 sm:p-4">
           {canEdit && selectedVersion && !isCurrentVersion && (
             <p className="mb-4 rounded-md border border-rule bg-surface-2 px-3 py-2 text-sm text-ink-muted">
               This is an earlier version, kept as it was. Only the current version can be changed.
