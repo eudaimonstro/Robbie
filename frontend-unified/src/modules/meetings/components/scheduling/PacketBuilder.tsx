@@ -242,7 +242,10 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
                 className="flex items-start gap-2 transition-opacity"
                 style={{ opacity: draggedItemId === item.id ? 0.5 : 1 }}
               >
-                <span className="w-6 pt-3.5 text-sm font-medium text-ink-muted" aria-hidden="true">
+                <span
+                  className="w-6 pt-3.5 text-sm font-medium text-ink-muted sm:pt-4"
+                  aria-hidden="true"
+                >
                   {index + 1}.
                 </span>
                 <div className="min-w-0 flex-1">

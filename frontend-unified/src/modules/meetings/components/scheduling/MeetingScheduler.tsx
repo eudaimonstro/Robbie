@@ -20,7 +20,7 @@ import {
   members as membersApi,
   type OrgMember,
 } from '../../../../api/client';
-import { toLocalDateTimeInput } from '../../../../utils/dates';
+import { formatMeetingTime, toLocalDateTimeInput } from '../../../../utils/dates';
 import { useSession } from '../../../../context/SessionContext';
 import { useMeetingOrganization } from '../../context/OrganizationBridge';
 import { atLeast } from '../../../../utils/roles';
@@ -336,7 +336,7 @@ export function MeetingScheduler({
   return (
     <div className="mx-auto max-w-2xl">
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-3 border-b border-rule px-6 py-4">
+        <div className="flex items-center gap-3 border-b border-rule px-4 py-4 sm:px-6">
           <button
             type="button"
             onClick={() => (changing ? void finishChange() : onBack())}
@@ -356,7 +356,7 @@ export function MeetingScheduler({
           </div>
         </div>
 
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-4 sm:p-6">
           {error && (
             <div role="alert" className="rounded-lg bg-gavel-tint px-4 py-3 text-sm text-ink">
               {error}
@@ -539,7 +539,7 @@ export function MeetingScheduler({
                     <button
                       type="button"
                       onClick={() => setStep('details')}
-                      className="btn-ghost btn-sm"
+                      className="btn-ghost btn-sm shrink-0"
                     >
                       Edit the details
                     </button>
@@ -547,7 +547,7 @@ export function MeetingScheduler({
                   {scheduledFor && (
                     <p className="flex items-center gap-1 text-sm text-ink-muted">
                       <Clock className="h-4 w-4" aria-hidden="true" />
-                      {new Date(scheduledFor).toLocaleString()}
+                      {formatMeetingTime(new Date(scheduledFor).toISOString())}
                     </p>
                   )}
                   {location.trim() && (

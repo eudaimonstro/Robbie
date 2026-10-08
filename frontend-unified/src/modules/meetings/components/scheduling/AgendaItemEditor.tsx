@@ -108,8 +108,8 @@ export function AgendaItemEditor({
         isDragging ? 'shadow-lg ring-2 ring-gavel' : ''
       }`}
     >
-      {/* Collapsed header */}
-      <div className="flex items-center gap-1 p-2 sm:gap-2 sm:p-3">
+      {/* Collapsed header: the title over its controls on a phone, beside them from sm up */}
+      <div className="flex flex-wrap items-center justify-end gap-1 p-2 sm:flex-nowrap sm:gap-2 sm:p-3">
         {/* Drag handle, for a mouse */}
         <div
           {...dragHandleProps}
@@ -126,7 +126,7 @@ export function AgendaItemEditor({
           onBlur={handleTitleBlur}
           aria-label={`Agenda item ${index + 1}`}
           maxLength={500}
-          className="min-w-0 flex-1 rounded-sm border-none bg-transparent p-1 font-medium text-ink focus:ring-2 focus:ring-gavel"
+          className="min-w-0 flex-1 basis-full rounded-sm border-none bg-transparent p-1 font-medium text-ink focus:ring-2 focus:ring-gavel sm:basis-auto"
         />
 
         {/* Quick stats */}
