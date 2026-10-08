@@ -14,19 +14,23 @@
 import 'dotenv/config';
 import { prisma } from '../db/prisma.js';
 import {
-  ReportError,
   USAGE,
   parseReportArgs,
   preserveAttachment,
   recordReport,
   restoreAttachment,
   setSuspended,
+  printable,
   type ReportCommand,
 } from '../abuse/reportHandling.js';
 
+// Everything printed goes through printable: names and titles come from uploaders
+const say = (line: string) => console.log(printable(line));
+const warn = (line: string) => console.error(printable(line));
+
 const parsed = parseReportArgs(process.argv.slice(2));
 if (!parsed.command) {
-  console.error(parsed.error);
+  warn(parsed.error);
   console.error(USAGE);
   process.exit(1);
 }
@@ -41,27 +45,27 @@ async function run(command: ReportCommand): Promise<void> {
       { dryRun: command.dryRun, missingOk: command.missingOk },
     );
     const where = manifest.packet.title ?? manifest.packet.meetingCode;
-    console.log(`${dry}Attachment ${manifest.attachmentId} ("${manifest.displayName}")`);
-    console.log(`  Organization: ${manifest.organization.name} (${manifest.organization.id})`);
-    console.log(`  Meeting: ${where} (packet ${manifest.packet.id})`);
-    console.log(`  Uploaded by ${manifest.uploadedBy ?? 'unknown'} at ${manifest.uploadedAt}`);
-    console.log(`  ${manifest.mimeType ?? 'unknown type'}, ${manifest.sizeBytes ?? '?'} bytes`);
-    console.log(`  SHA-256: ${manifest.sha256 ?? 'none: the file was already gone from disk'}`);
-    console.log(`  Kind: ${manifest.kind}`);
+    say(`${dry}Attachment ${manifest.attachmentId} ("${manifest.displayName}")`);
+    say(`  Organization: ${manifest.organization.name} (${manifest.organization.id})`);
+    say(`  Meeting: ${where} (packet ${manifest.packet.id})`);
+    say(`  Uploaded by ${manifest.uploadedBy ?? 'unknown'} at ${manifest.uploadedAt}`);
+    say(`  ${manifest.mimeType ?? 'unknown type'}, ${manifest.sizeBytes ?? '?'} bytes`);
+    say(`  SHA-256: ${manifest.sha256 ?? 'none: the file was already gone from disk'}`);
+    say(`  Kind: ${manifest.kind}`);
     if (command.dryRun) {
-      console.log(
+      say(
         resumed
           ? `Already preserved in ${folder}; would finish removing it from Robbie.`
           : `Would preserve it in ${folder} and remove it from Robbie.`,
       );
       return;
     }
-    console.log(
+    say(
       resumed
         ? `Already preserved in ${folder}; now removed from Robbie.`
         : `Preserved in ${folder} (the file and manifest.json), and removed from Robbie.`,
     );
-    console.log(
+    say(
       `Keep that folder and its manifest at least until ${manifest.keepAtLeastUntil.slice(0, 10)}. ` +
         'If you report it to the NCMEC CyberTipline, the year runs from the report: record it ' +
         'with --record-report <folder> --reported-at <date> --report-id <number>, and keep the ' +
@@ -79,14 +83,12 @@ async function run(command: ReportCommand): Promise<void> {
     const place = target.agendaItemId
       ? `agenda item ${target.agendaItemId} of packet ${target.packetId}`
       : `packet ${target.packetId}`;
-    console.log(
+    say(
       `${dry}${command.dryRun ? 'Would restore' : 'Restored'} attachment ` +
         `${manifest.attachmentId} ("${manifest.displayName}") from ${folder} to ${place}.`,
     );
     if (!command.dryRun) {
-      console.log(
-        `Its file is ${manifest.restoredStoragePath} in the uploads; the preserved copy stays.`,
-      );
+      say(`Its file is ${manifest.restoredStoragePath} in the uploads; the preserved copy stays.`);
     }
     return;
   }
@@ -99,16 +101,16 @@ async function run(command: ReportCommand): Promise<void> {
       { dryRun: command.dryRun },
     );
     if (previous) {
-      console.log(
+      say(
         `${dry}Replacing the report recorded before: ${previous.reportId ?? 'no number'}, ` +
           `${previous.reportedAt ?? 'no date'}.`,
       );
     }
-    console.log(
+    say(
       `${dry}${command.dryRun ? 'Would record' : 'Recorded'} CyberTipline report ` +
         `${manifest.reportId}, submitted ${manifest.reportedAt}, in ${folder}.`,
     );
-    console.log(
+    say(
       `Keep the folder until ${manifest.keepUntil!.slice(0, 10)} (a year after the report) or ` +
         'until law enforcement releases it, whichever is later.',
     );
@@ -122,25 +124,25 @@ async function run(command: ReportCommand): Promise<void> {
       ? `is already ${suspend ? 'suspended' : 'not suspended'}`
       : `would be ${suspend ? 'suspended' : 'able to sign in again'}`;
     const sessions = suspend ? `; ${result.sessionsEnded} session(s) would end` : '';
-    console.log(`${dry}${result.email} ${state}${sessions}.`);
+    say(`${dry}${result.email} ${state}${sessions}.`);
     return;
   }
   if (suspend) {
     const state = result.unchanged ? 'was already suspended' : 'is suspended';
-    console.log(`${result.email} ${state}; ${result.sessionsEnded} session(s) ended.`);
-    console.log(
+    say(`${result.email} ${state}; ${result.sessionsEnded} session(s) ended.`);
+    say(
       'They can no longer sign in. The server closes their open meeting connections within a ' +
         'minute.',
     );
   } else {
-    console.log(`${result.email} ${result.unchanged ? 'was not suspended' : 'can sign in again'}.`);
+    say(`${result.email} ${result.unchanged ? 'was not suspended' : 'can sign in again'}.`);
   }
 }
 
 try {
   await run(parsed.command);
 } catch (error) {
-  console.error(error instanceof ReportError ? error.message : error);
+  warn(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
   await prisma.$disconnect();

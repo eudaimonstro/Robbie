@@ -7,6 +7,7 @@ import {
   buildManifest,
   parseReportArgs,
   preserveRoot,
+  printable,
   sha256OfFile,
   type AttachmentRecord,
 } from '../abuse/reportHandling.js';
@@ -279,5 +280,15 @@ describe('preserved files', () => {
     expect(preserveRoot({ PRESERVE_DIR: '/data/preserved' })).toBe('/data/preserved');
     const uploads = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
     expect(preserveRoot({})).toBe(path.join(path.dirname(uploads), 'preserved'));
+  });
+});
+
+describe('printable', () => {
+  it('replaces control and direction characters, so a name cannot rewrite the terminal', () => {
+    expect(printable('Pool rules')).toBe('Pool rules');
+    expect(printable('a\u001b[2Jb\r\nc\u0007')).toBe('a\ufffd[2Jb\ufffd\ufffdc\ufffd');
+    expect(printable('invoice\u202efdp.exe')).toBe('invoice\ufffdfdp.exe');
+    expect(printable('\u009b31m\u200b\ufeff')).toBe('\ufffd31m\ufffd\ufffd');
+    expect(printable('Café, 日本')).toBe('Café, 日本');
   });
 });

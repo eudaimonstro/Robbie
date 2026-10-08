@@ -334,6 +334,19 @@ export async function sha256OfFile(file: string): Promise<string> {
   return hash.digest('hex');
 }
 
+// C0 and C1 controls, DEL, zero-width and direction marks, separators, and the byte-order mark
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNPRINTABLE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g;
+
+/**
+ * A string safe to print to the operator's terminal: uploaders choose display names, titles and
+ * file names, so control, escape and direction characters become U+FFFD instead of moving the
+ * cursor, clearing the screen or reversing the text
+ */
+export function printable(value: string): string {
+  return value.replace(UNPRINTABLE, '\ufffd');
+}
+
 export class ReportError extends Error {
   constructor(message: string) {
     super(message);
