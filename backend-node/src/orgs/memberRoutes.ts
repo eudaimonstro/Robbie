@@ -11,13 +11,16 @@ import { logger } from '../middleware/logger.js';
 import { syncOrganizationLiveRoles } from '../socket/meetingRoles.js';
 import {
   addMemberBody,
+  addMembersBulkBody,
   changeRoleBody,
   inviteParams,
   memberParams,
   organizationMembersParams,
 } from '../schemas/members.js';
+import { heavyWriteLimiter } from '../middleware/userLimits.js';
 import {
   addMemberByEmail,
+  addMembersInBulk,
   cancelInvite,
   changeRole,
   listMembers,
@@ -88,11 +91,38 @@ membersRouter.post(
         actorOf(req.user!, req.org!),
         req.body.email,
         req.body.role,
+        new Date(),
+        req.body.name,
       );
       if (result.status === 'added') await syncLiveMeetings(req.params.id);
       res.status(result.status === 'updated' ? 200 : 201).json(result);
     } catch (error) {
       sendError(res, error, 'Failed to add the member');
+    }
+  },
+);
+
+// POST /api/organizations/:id/members/bulk { people: [{ email, name? }], role }: add many people
+// at once with one role, emailing nobody. One request, counted among the heavy writes.
+membersRouter.post(
+  '/organizations/:id/members/bulk',
+  validate({ params: organizationMembersParams, body: addMembersBulkBody }),
+  requireRole('admin', byOrganization),
+  heavyWriteLimiter,
+  async (req, res) => {
+    try {
+      const results = await addMembersInBulk(
+        req.params.id,
+        actorOf(req.user!, req.org!),
+        req.body.people,
+        req.body.role,
+      );
+      if (results.some((result) => result.status === 'added')) {
+        await syncLiveMeetings(req.params.id);
+      }
+      res.json({ results });
+    } catch (error) {
+      sendError(res, error, 'Failed to add them');
     }
   },
 );

@@ -11,8 +11,28 @@ export const memberParams = z.object({
 
 export const inviteParams = z.object({ id: z.string().uuid(), inviteId: z.string().uuid() });
 
+const email = z.string().trim().toLowerCase().max(254).email();
+/** A person's name, as the meeting takes names (MAX_NAME_LENGTH in shared) */
+const personName = z.string().trim().max(100).optional();
+
 export const addMemberBody = z.object({
-  email: z.string().trim().toLowerCase().max(254).email(),
+  email,
+  role: orgRole,
+  // Shown until they sign in, and where their name step starts
+  name: personName,
+});
+
+/** At most this many people in one bulk addition (MAX_BULK_PEOPLE in membershipService) */
+const BULK_LIMIT = 500;
+
+export const addMembersBulkBody = z.object({
+  people: z
+    .array(z.object({ email, name: personName }))
+    .min(1)
+    .max(BULK_LIMIT)
+    .refine((people) => new Set(people.map((p) => p.email)).size === people.length, {
+      message: 'Each email can be listed once',
+    }),
   role: orgRole,
 });
 

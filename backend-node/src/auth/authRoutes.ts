@@ -19,6 +19,7 @@ import {
   sessionTokenFrom,
 } from './authenticate.js';
 import { hasAcceptedTerms } from './terms.js';
+import { suggestedNameFor } from '../orgs/membershipService.js';
 import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessionSockets.js';
 
 export const authRouter = Router();
@@ -102,14 +103,25 @@ authRouter.post('/verify', verifyLimiter, validate({ body: verifyBody }), async 
       ...sessionCookieOptions(),
       maxAge: SESSION_LIFETIME_MS,
     });
-    res.json({ user });
+    // A new user added by email with a name: their name step starts from it
+    const suggestedName = await suggestedNameFor(user);
+    res.json({ user, ...(suggestedName && { suggestedName }) });
   } catch (error) {
     sendError(res, error, 'Failed to sign in');
   }
 });
 
-authRouter.get('/me', authenticate, (req, res) => {
-  res.json({ user: req.user, termsAccepted: hasAcceptedTerms(req.termsVersion) });
+authRouter.get('/me', authenticate, async (req, res) => {
+  try {
+    const suggestedName = await suggestedNameFor(req.user!);
+    res.json({
+      user: req.user,
+      termsAccepted: hasAcceptedTerms(req.termsVersion),
+      ...(suggestedName && { suggestedName }),
+    });
+  } catch (error) {
+    sendError(res, error, 'Failed to read your session');
+  }
 });
 
 // Accept the current Terms of Service and Privacy Policy. The client sends the version it

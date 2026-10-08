@@ -392,7 +392,14 @@ packetsRouter.get(
   async (req, res) => {
     try {
       const admin = atLeast(req.org!.role, 'admin');
-      const { members, invites = [] } = await listMembers(req.org!.id, admin);
+      // Who marks people present: secretaries and above, and the presiding officer
+      const packet = await findMeetingPacket(req.params.robbieCode);
+      const presiding =
+        atLeast(req.org!.role, 'secretary') || packet?.chairUserId === req.user!.id;
+      const { members } = await listMembers(req.org!.id, admin);
+      // People added by email who haven't signed in, who would vote: the chair counts them in
+      // the room by name
+      const invites = presiding ? (await listMembers(req.org!.id, true)).invites! : [];
       res.json({
         members: members.map((m) => ({
           userId: m.userId,
@@ -400,7 +407,9 @@ packetsRouter.get(
           ...(admin && { email: m.email }),
           orgRole: m.role,
         })),
-        invites: admin ? invites.map((i) => ({ email: i.email, role: i.role })) : [],
+        invites: invites
+          .filter((i) => atLeast(i.role, 'member'))
+          .map((i) => ({ id: i.id, name: i.name, ...(admin && { email: i.email }), role: i.role })),
       });
     } catch (error) {
       logger.error({ err: error }, 'Error getting roster');
