@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { DebateStance, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { STANCE_LABELS } from '../../utils/phoneMoment';
 import { MotionPanel } from './MotionPanel';
+import { useSortedSpeakerQueue } from '../../hooks/useSortedSpeakerQueue';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface DebateBlockProps {
@@ -15,15 +16,22 @@ const STANCES: DebateStance[] = ['pro', 'con', 'neutral'];
 /** Debate on a phone: ask to speak with a position, or withdraw; other motions are folded away */
 export function DebateBlock({ state, dispatch, me }: DebateBlockProps) {
   const [stance, setStance] = useState<DebateStance>('neutral');
-  const queued = state.speakerQueue.find((entry) => entry.member.id === me.id);
-  const place = queued ? state.speakerQueue.indexOf(queued) + 1 : 0;
+  // The place in the order the chair will call speakers, as the console and the display show it
+  const queue = useSortedSpeakerQueue(
+    state.speakerQueue,
+    state.currentMotion,
+    state.lastSpeakerStance,
+    state,
+  );
+  const place = queue.findIndex((entry) => entry.member.id === me.id) + 1;
+  const queued = place > 0 ? queue[place - 1] : null;
 
   return (
     <div className="space-y-4">
       {queued ? (
         <>
           <p role="status" className="text-ink">
-            You asked to speak: {place} of {state.speakerQueue.length} waiting,{' '}
+            You asked to speak: {place} of {queue.length} waiting,{' '}
             {STANCE_LABELS[queued.stance].toLowerCase()}.
           </p>
           <button

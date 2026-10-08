@@ -1,10 +1,17 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { STANCE_LABELS } from '../../utils/phoneMoment';
 import { TimerLine } from '../TimerLine';
+import { useSortedSpeakerQueue } from '../../hooks/useSortedSpeakerQueue';
 
-/** Who has the floor and who is waiting */
+/** Who has the floor and who is waiting, in the order the chair will call them */
 export function SpeakerList({ state }: { state: MeetingState }) {
-  if (!state.recognizedSpeaker && state.speakerQueue.length === 0) return null;
+  const queue = useSortedSpeakerQueue(
+    state.speakerQueue,
+    state.currentMotion,
+    state.lastSpeakerStance,
+    state,
+  );
+  if (!state.recognizedSpeaker && queue.length === 0) return null;
   return (
     <section className="card space-y-3 p-4" aria-labelledby="speakers-heading">
       <h3 id="speakers-heading" className="label-caps">
@@ -22,9 +29,9 @@ export function SpeakerList({ state }: { state: MeetingState }) {
           />
         </div>
       )}
-      {state.speakerQueue.length > 0 && (
+      {queue.length > 0 && (
         <ol className="space-y-1 text-sm text-ink">
-          {state.speakerQueue.map((entry, index) => (
+          {queue.map((entry, index) => (
             <li key={entry.member.id}>
               {index + 1}. {entry.member.name}{' '}
               <span className="text-ink-muted">({STANCE_LABELS[entry.stance]})</span>
