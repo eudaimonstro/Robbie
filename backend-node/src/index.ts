@@ -6,7 +6,8 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from '@robbie-bylawyer/shared/types/socket';
-import { app, allowedOrigins } from './app.js';
+import { app, allowedOrigins, trustedOrigins } from './app.js';
+import { requestOriginAllowed } from './middleware/originCheck.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
 import { setIoInstance } from './socket/ioInstance.js';
@@ -36,6 +37,10 @@ const io = new Server<
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  // CORS doesn't stop a WebSocket from another site's page: its handshake is refused unless it
+  // comes from the app's own pages (or from no page: the mobile app)
+  allowRequest: (req, callback) =>
+    callback(null, requestOriginAllowed(req.headers.origin, req.headers.host, trustedOrigins)),
   // A phone that loses signal for a moment resumes the same session: its meeting, and the
   // state updates it missed. Recovered sockets skip the session check (socketAuth), which they
   // passed when they connected; a socket closed by signing out is not recovered.

@@ -12,8 +12,12 @@ import { logger } from '../../middleware/logger.js';
 import { findParentProblem } from '../sectionParent.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfSection, orgOfVersion } from '../../orgs/resolvers.js';
+import { currentVersionOnly } from '../services/versionRules.js';
 
 export const sectionsRouter: RouterType = Router();
+
+// Sections change only in the document's current version; an earlier version is the record
+// (see versionRules)
 
 const byVersion = fromParam('versionId', orgOfVersion);
 const bySection = fromParam('id', orgOfSection);
@@ -57,6 +61,7 @@ sectionsRouter.put(
   '/versions/:versionId/sections/reorder',
   validate({ params: versionIdParam, body: reorderSectionsBody }),
   requireRole('secretary', byVersion),
+  currentVersionOnly('versionId'),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -122,6 +127,7 @@ sectionsRouter.post(
   '/versions/:versionId/sections',
   validate({ params: versionIdParam, body: createSectionBody }),
   requireRole('secretary', byVersion),
+  currentVersionOnly('versionId'),
   async (req, res) => {
     try {
       const version = await prisma.version.findUnique({
@@ -199,6 +205,7 @@ sectionsRouter.put(
   '/sections/:id',
   validate({ params: uuidParam, body: updateSectionBody }),
   requireRole('secretary', bySection),
+  currentVersionOnly('id', 'section'),
   async (req, res) => {
     try {
       const section = await prisma.section.findUnique({
@@ -258,6 +265,7 @@ sectionsRouter.delete(
   '/sections/:id',
   validate({ params: uuidParam }),
   requireRole('secretary', bySection),
+  currentVersionOnly('id', 'section'),
   async (req, res) => {
     try {
       const section = await prisma.section.findUnique({
@@ -283,6 +291,7 @@ sectionsRouter.post(
   '/sections/:id/children',
   validate({ params: uuidParam, body: createSectionBody }),
   requireRole('secretary', bySection),
+  currentVersionOnly('id', 'section'),
   async (req, res) => {
     try {
       const parent = await prisma.section.findUnique({

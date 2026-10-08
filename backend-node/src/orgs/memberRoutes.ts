@@ -61,14 +61,15 @@ async function syncLiveMeetings(organizationId: string): Promise<void> {
   }
 }
 
-// GET /api/organizations/:id/members: the members, and for admins the pending additions
+// GET /api/organizations/:id/members: the members by name and role, and for admins their emails
+// and the pending additions
 membersRouter.get(
   '/organizations/:id/members',
   validate({ params: organizationMembersParams }),
   requireRole('viewer', byOrganization),
   async (req, res) => {
     try {
-      res.json(await listMembers(req.params.id, atLeast(req.org!.role, 'admin')));
+      res.json(await listMembers(req.params.id, atLeast(req.org!.role, 'admin'), req.user!.id));
     } catch (error) {
       sendError(res, error, 'Failed to list members');
     }

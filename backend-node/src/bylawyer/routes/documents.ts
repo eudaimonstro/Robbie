@@ -12,6 +12,8 @@ import {
 import { searchOrganization } from '../services/search.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
+import { ApiError } from '../../middleware/apiError.js';
+import { recordAudit } from '../services/audit.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfDocument, orgOfOrganization } from '../../orgs/resolvers.js';
 
@@ -178,27 +180,45 @@ documentsRouter.put(
   },
 );
 
-// Delete document
+/**
+ * DELETE /api/documents/:id
+ * Delete a document with its versions and amendments (admin). The audit record keeps who
+ * deleted it and what it held.
+ */
 documentsRouter.delete(
   '/documents/:id',
   validate({ params: uuidParam }),
-  requireRole('secretary', byDocument),
+  requireRole('admin', byDocument),
   async (req, res) => {
-    try {
-      const doc = await prisma.document.findUnique({
+    await prisma.$transaction(async (tx) => {
+      const doc = await tx.document.findUnique({
         where: { id: req.params.id },
+        select: {
+          title: true,
+          docType: true,
+          _count: { select: { versions: true, amendments: true } },
+        },
       });
+      if (!doc) throw ApiError.notFound('Document not found');
 
-      if (!doc) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      await prisma.document.delete({ where: { id: req.params.id } });
-      res.status(204).send();
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to delete document');
-      res.status(500).json({ error: 'Failed to delete document' });
-    }
+      await tx.document.delete({ where: { id: req.params.id } });
+      await recordAudit(
+        {
+          organizationId: req.org!.id,
+          actorId: req.user!.id,
+          action: 'document.delete',
+          targetId: req.params.id,
+          details: {
+            title: doc.title,
+            docType: doc.docType,
+            versions: doc._count.versions,
+            amendments: doc._count.amendments,
+          },
+        },
+        tx,
+      );
+    });
+    res.status(204).send();
   },
 );
 

@@ -53,9 +53,19 @@ describe('MembersCard', () => {
 
   it('shows a viewer the members and their roles, and nothing to change', async () => {
     orgState.currentOrganization = { ...orgState.currentOrganization, role: 'viewer' };
-    api.list.mockResolvedValue({ members: people.members });
+    // The server sends a viewer names and roles, and only their own email
+    api.list.mockResolvedValue({
+      members: [
+        { userId: 1, name: 'Pat Lindqvist', role: 'owner' },
+        { userId: 2, name: 'Dana Okafor', email: 'dana@maplegrove.example', role: 'admin' },
+        { userId: 4, name: 'Alice Brennan', role: 'member' },
+        { userId: 5, name: null, role: 'member' },
+      ],
+    });
     render(<MembersCard />);
     expect(await screen.findByText('Alice Brennan')).toBeTruthy();
+    expect(screen.getByText('A member without a name')).toBeTruthy();
+    expect(screen.getByText('dana@maplegrove.example')).toBeTruthy();
     expect(screen.getByText('Owner')).toBeTruthy();
     expect(screen.queryByLabelText('Add by email')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();

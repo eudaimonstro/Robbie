@@ -4,7 +4,12 @@
  * File upload, download, and Bylawyer document linking
  */
 
-import { Router, type Request, type RequestHandler, type Router as RouterType } from 'express';
+import express, {
+  Router,
+  type Request,
+  type RequestHandler,
+  type Router as RouterType,
+} from 'express';
 import { prisma } from '../../db/prisma.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { validate, type RouteParams } from '../../middleware/validate.js';
@@ -18,9 +23,12 @@ import { meetingCode, uuidParam } from '../../schemas/common.js';
 import { storeFile, deleteFile, getFullPath, validateFile } from '../services/fileStorage.js';
 import { orgStorageLimitMb, orgStorageUsed, storageFullMessage } from '../services/storageQuota.js';
 import fs from 'fs';
+import { pipeline } from 'stream';
 import { logger } from '../../middleware/logger.js';
+import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
 import { orgOfAgendaItem, orgOfAttachment, orgOfPacket } from '../../orgs/resolvers.js';
+import { HIDDEN_ATTACHMENT_FIELDS } from '../services/attachmentFields.js';
 
 export const attachmentsRouter: RouterType = Router();
 
@@ -61,8 +69,16 @@ const byFirstAttachment: OrgResolver = async (req) => {
   return typeof first === 'string' ? orgOfAttachment(first) : null;
 };
 
-// We'll use raw body parsing for file uploads
-// The main app should configure express.raw() for /api/attachments/upload
+/** The file types an upload is read as (fileStorage's validateFile checks the type it gives) */
+const UPLOAD_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/rtf',
+  'application/rtf',
+  'application/octet-stream',
+];
 
 /**
  * POST /api/attachments/upload
@@ -78,6 +94,10 @@ attachmentsRouter.post(
     'secretary',
     packetOrAgendaItem((req) => req.query),
   ),
+  heavyWriteLimiter,
+  // Read only now, after the role check: nobody below a secretary can make the server read
+  // 10 MB
+  express.raw({ type: UPLOAD_TYPES, limit: '10mb' }),
   async (req, res) => {
     try {
       const filename = req.headers['x-filename'] as string;
@@ -186,6 +206,7 @@ attachmentsRouter.post(
               // Who uploaded it, for a report about the file (src/abuse/reportHandling.ts)
               uploadedBy: req.user!.email,
             },
+            omit: HIDDEN_ATTACHMENT_FIELDS,
           });
         });
       } catch (error) {
@@ -289,6 +310,7 @@ attachmentsRouter.post(
           meetingPacketId: packetId || undefined,
           agendaItemId: agendaItemId || undefined,
         },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },
@@ -318,6 +340,7 @@ attachmentsRouter.get(
 
       const attachment = await prisma.attachment.findUnique({
         where: { id },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },
@@ -363,24 +386,27 @@ attachmentsRouter.get(
         });
       }
 
-      const fullPath = getFullPath(attachment.storagePath);
-
-      // Check file exists
-      if (!fs.existsSync(fullPath)) {
+      // Open the file before answering: one deleted meanwhile, or that can't be opened (too
+      // many open files), is a 404 here, not a stream error later
+      const file = await fs.promises
+        .open(getFullPath(attachment.storagePath), 'r')
+        .catch(() => null);
+      const stat = file ? await file.stat().catch(() => null) : null;
+      if (!file || !stat?.isFile()) {
+        await file?.close();
         return res.status(404).json({ error: 'File not found on disk' });
       }
 
-      // Set headers
+      // res.attachment writes any file name (RFC 5987 filename*, with an ASCII fallback)
+      res.attachment(attachment.filename || 'download');
       res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${attachment.filename || 'download'}"`,
-      );
-      res.setHeader('Content-Length', attachment.sizeBytes || 0);
+      res.setHeader('Content-Length', stat.size);
 
-      // Stream file
-      const readStream = fs.createReadStream(fullPath);
-      readStream.pipe(res);
+      // A read that fails part way ends the response; handled here, since an unhandled stream
+      // error would end the process, and every live meeting with it
+      pipeline(file.createReadStream(), res, (err) => {
+        if (err) logger.warn({ err, attachmentId: id }, 'Failed to send a file');
+      });
     } catch (error) {
       logger.error({ err: error }, 'Error downloading file');
       res.status(500).json({ error: 'Failed to download file' });
@@ -471,6 +497,7 @@ attachmentsRouter.put(
           description,
           position,
         },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },

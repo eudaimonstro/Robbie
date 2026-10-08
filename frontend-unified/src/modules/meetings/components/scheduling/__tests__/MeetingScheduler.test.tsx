@@ -114,8 +114,9 @@ describe('MeetingScheduler', () => {
     bridge.currentOrganization = bridge.maple;
     membersApi.list.mockResolvedValue(people);
     // The server answers with what it saved
-    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode: string }) => ({
-      ...packet(data.robbieCode),
+    // The server answers with what it saved, and a code of its own when none was given
+    api.createPacket.mockImplementation(async (_org: string, data: { robbieCode?: string }) => ({
+      ...packet(data.robbieCode ?? 'SRV234'),
       ...data,
     }));
     api.updatePacket.mockImplementation(async (_id: string, data: object) => ({
@@ -129,7 +130,6 @@ describe('MeetingScheduler', () => {
     next();
     expect(await screen.findByText('Agenda builder')).toBeTruthy();
     expect(api.createPacket).toHaveBeenCalledWith('org-1', {
-      robbieCode: expect.stringMatching(/^[A-Z0-9]{6}$/),
       title: 'Annual Meeting',
       description: undefined,
       scheduledFor: undefined,
@@ -296,16 +296,39 @@ describe('MeetingScheduler', () => {
     expect(api.updatePacket).not.toHaveBeenCalled();
   });
 
-  it('tries a fresh code when the generated one is taken', async () => {
-    api.createPacket.mockRejectedValueOnce(
-      new HttpError('That meeting code is already in use', 409),
-    );
+  it("uses the server's random code, and shows it once the meeting is made", async () => {
     await schedule();
     next();
     expect(await screen.findByText('Agenda builder')).toBeTruthy();
-    expect(api.createPacket).toHaveBeenCalledTimes(2);
-    const [first, second] = api.createPacket.mock.calls.map(([, data]) => data.robbieCode);
-    expect(second).not.toBe(first);
+    expect(api.createPacket.mock.calls[0][1]).not.toHaveProperty('robbieCode');
+    expect(screen.getAllByText('SRV234').length).toBeGreaterThan(0);
+  });
+
+  it('takes a code the secretary chooses, and says when it is taken', async () => {
+    api.createPacket.mockRejectedValueOnce(
+      new HttpError("That meeting code can't be used. Choose another.", 409),
+    );
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Meeting code (optional)'), {
+      target: { value: 'maple-1' },
+    });
+    next();
+    expect(
+      await screen.findByText("That meeting code can't be used. Choose another."),
+    ).toBeTruthy();
+    expect(api.createPacket).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ robbieCode: 'MAPLE1' }),
+    );
+    fireEvent.change(screen.getByLabelText('Meeting code (optional)'), {
+      target: { value: 'MAPLE2' },
+    });
+    next();
+    expect(await screen.findByText('Agenda builder')).toBeTruthy();
+    expect(api.createPacket).toHaveBeenLastCalledWith(
+      'org-1',
+      expect.objectContaining({ robbieCode: 'MAPLE2' }),
+    );
   });
 
   it("stays in the packet's organization after a switch in the header", async () => {

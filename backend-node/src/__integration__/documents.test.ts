@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { prisma } from '../db/prisma.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -39,7 +40,7 @@ describeRules('document rules', [
     method: 'delete',
     route: '/documents/:id',
     path: (f) => `/api/documents/${f.doc}`,
-    min: 'secretary',
+    min: 'admin',
     ok: 204,
   },
   {
@@ -122,10 +123,49 @@ describe('share links', () => {
     expect(version.body.sections[0].children[0]).not.toHaveProperty('annotation');
   });
 
+  it('answer a malformed token, version or search with 400, not 500', async () => {
+    const bad = [
+      `/api/share/${'x'.repeat(101)}`,
+      '/api/share/not%20a%20token',
+      `/api/share/${f.shareToken}/versions/not-a-uuid`,
+      `/api/share/${f.shareToken}/search?q=a&q=b`,
+      `/api/share/${f.shareToken}/search?q=${'x'.repeat(201)}`,
+    ];
+    for (const path of bad) expect((await call('get', path)).status, path).toBe(400);
+    const search = await call('get', `/api/share/${f.shareToken}/search?q=name`);
+    expect(search.status).toBe(200);
+    expect(search.body.results).toHaveLength(2);
+  });
+
   it('still show annotations to members', async () => {
     const tree = await call('get', `/api/versions/${f.v2}/tree`, {
       cookie: f.users.viewer.cookie,
     });
     expect(tree.body[0].annotation).toBe('Internal note');
+  });
+});
+
+describe('deleting a document', () => {
+  let f: Fixture;
+  beforeEach(async () => {
+    await resetDatabase();
+    f = await seedFixture();
+  });
+
+  it('leaves a record of who deleted it, and what it held', async () => {
+    const res = await call('delete', `/api/documents/${f.doc}`, {
+      cookie: f.users.admin.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(await prisma.document.count({ where: { id: f.doc } })).toBe(0);
+    expect(await prisma.auditEntry.findMany()).toMatchObject([
+      {
+        organizationId: f.orgA.id,
+        actorId: f.users.admin.id,
+        action: 'document.delete',
+        targetId: f.doc,
+        details: { title: 'Bylaws', versions: 2, amendments: 4 },
+      },
+    ]);
   });
 });

@@ -11,6 +11,7 @@ import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { formatMeetingTimeWithYear } from '../../../utils/dates';
 import { downloadText, fileName } from '../../../utils/download';
 import { meetingName } from '../utils/minutes';
+import MinutesRevisions from '../components/MinutesRevisions';
 
 /** How long the editor waits after the last keystroke before it saves */
 export const AUTOSAVE_MS = 2000;
@@ -131,6 +132,13 @@ export default function MinutesPage() {
         />
       ) : (
         <MinutesReader record={record} />
+      )}
+      {isSecretary && record.status !== 'draft' && (
+        <MinutesRevisions
+          minutesId={record.id}
+          updatedAt={record.updatedAt}
+          timeZone={record.organization.timeZone}
+        />
       )}
     </div>
   );

@@ -95,8 +95,8 @@ describe('organizations', () => {
     expect(list.body).toEqual([expect.objectContaining({ id: res.body.id, role: 'owner' })]);
   });
 
-  it('lets a user own at most 3 organizations', async () => {
-    // The fixture's owner already owns Org A
+  it('lets a user create at most 3 organizations', async () => {
+    // The fixture's owner already created Org A
     const cookie = f.users.owner.cookie;
     for (const name of ['Second', 'Third']) {
       expect((await call('post', '/api/organizations', { cookie, body: { name } })).status).toBe(
@@ -105,8 +105,37 @@ describe('organizations', () => {
     }
     const fourth = await call('post', '/api/organizations', { cookie, body: { name: 'Fourth' } });
     expect(fourth.status).toBe(429);
-    expect(fourth.body).toEqual({ error: 'You can own at most 3 organizations' });
+    expect(fourth.body).toEqual({ error: 'You can create at most 3 organizations' });
     expect(await prisma.organization.count({ where: { name: 'Fourth' } })).toBe(0);
+  });
+
+  it("doesn't count organizations someone else made the user an owner of", async () => {
+    // Three organizations someone else created, each with the outsider as an owner
+    for (const slug of ['made-1', 'made-2', 'made-3']) {
+      await prisma.organization.create({
+        data: {
+          name: slug,
+          slug,
+          createdById: f.users.owner.id,
+          members: { create: { userId: f.outsider.id, role: 'owner' } },
+        },
+      });
+    }
+    // The outsider created Org B themselves (the fixture made them its owner)
+    await prisma.organization.update({
+      where: { id: f.orgB.id },
+      data: { createdById: f.outsider.id },
+    });
+    const cookie = f.outsider.cookie;
+    for (const name of ['Mine 1', 'Mine 2']) {
+      const res = await call('post', '/api/organizations', { cookie, body: { name } });
+      expect(res.status).toBe(201);
+      expect(
+        (await prisma.organization.findUniqueOrThrow({ where: { id: res.body.id } })).createdById,
+      ).toBe(f.outsider.id);
+    }
+    const third = await call('post', '/api/organizations', { cookie, body: { name: 'Mine 3' } });
+    expect(third.status).toBe(429);
   });
 
   it('holds the limit when creations arrive together', async () => {

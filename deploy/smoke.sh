@@ -24,6 +24,7 @@ ACME_EMAIL=smoke@example.org
 APP_URL=http://127.0.0.1
 EMAIL_FROM=Robbie <noreply@example.org>
 RESEND_API_KEY=re_smoke_test_only
+SERVER_SECRET=smoke-test-only-secret-smoke-test-only
 EOF
 
 compose() {

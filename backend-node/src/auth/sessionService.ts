@@ -115,7 +115,14 @@ export async function deleteUserSessions(userId: number): Promise<void> {
 export async function deleteExpiredSessionsAndCodes(now: Date = new Date()): Promise<number> {
   const [sessions, codes] = await prisma.$transaction([
     prisma.session.deleteMany({ where: { expiresAt: { lte: now } } }),
-    prisma.signInCode.deleteMany({ where: { expiresAt: { lte: now } } }),
+    // A code is kept for an hour after it was asked for, expired or not: the hourly limits
+    // count it
+    prisma.signInCode.deleteMany({
+      where: {
+        expiresAt: { lte: now },
+        createdAt: { lte: new Date(now.getTime() - 60 * 60 * 1000) },
+      },
+    }),
   ]);
   return sessions.count + codes.count;
 }

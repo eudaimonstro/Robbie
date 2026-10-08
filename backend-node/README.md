@@ -19,7 +19,7 @@ backend/src/
 │   ├── authController.ts # JWT auth, email verification
 │   └── emailService.ts   # Email sending (SendGrid)
 ├── db/
-│   └── meetingStorage.ts # PostgreSQL or in-memory storage
+│   └── meetingStorage.ts # live meetings in PostgreSQL
 ├── socket/
 │   ├── socketHandler.ts  # Main Socket.io orchestrator
 │   ├── joinHandler.ts    # JOIN_MEETING event

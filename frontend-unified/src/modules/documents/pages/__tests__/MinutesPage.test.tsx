@@ -8,6 +8,8 @@ const api = vi.hoisted(() => ({
   save: vi.fn(),
   publish: vi.fn(),
   regenerate: vi.fn(),
+  revisions: vi.fn(),
+  revision: vi.fn(),
 }));
 vi.mock('../../../../api/client', async (importOriginal) => ({
   HttpError: (await importOriginal<typeof import('../../../../api/client')>()).HttpError,
@@ -111,6 +113,7 @@ describe('MinutesPage', () => {
     vi.clearAllMocks();
     org.isSecretary = true;
     api.get.mockResolvedValue(record());
+    api.revisions.mockResolvedValue([]);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -517,6 +520,36 @@ describe('MinutesPage', () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByLabelText('Minutes text')).toBeNull();
+  });
+
+  it('shows the secretary what published minutes said before each change', async () => {
+    api.get.mockResolvedValue(record({ status: 'published' }));
+    const change = {
+      id: 'r1',
+      editedAt: '2026-10-22T15:30:00.000Z',
+      editedBy: { id: 2, name: 'Pat Lee' },
+    };
+    api.revisions.mockResolvedValue([change]);
+    api.revision.mockResolvedValue({ ...change, body: 'Twenty members were present.' });
+    renderAt();
+    const changes = await screen.findByRole('region', { name: 'Changes since publishing' });
+    expect(api.revisions).toHaveBeenCalledWith('m1');
+    // The text is read when the change is opened
+    expect(api.revision).not.toHaveBeenCalled();
+    const summary = within(changes).getByText(/Changed by Pat Lee on/);
+    const details = summary.closest('details')!;
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
+    expect(await within(changes).findByText('Twenty members were present.')).toBeTruthy();
+    expect(api.revision).toHaveBeenCalledWith('m1', 'r1');
+  });
+
+  it("doesn't ask a member for the changes, nor a secretary for a draft's", async () => {
+    org.isSecretary = false;
+    api.get.mockResolvedValue(record({ status: 'published' }));
+    renderAt();
+    await heading();
+    expect(api.revisions).not.toHaveBeenCalled();
   });
 
   it("says when the minutes aren't there, as a draft is for a member", async () => {

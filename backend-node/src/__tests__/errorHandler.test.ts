@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import { errorHandler } from '../middleware/errorHandler.js';
+import { ApiError } from '../middleware/apiError.js';
 
 /** Run the error handler on an error and answer the status and body it sent */
 function handle(err: Error): { status: number; body: unknown } {
@@ -50,5 +51,14 @@ describe('errorHandler', () => {
         body: { error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } },
       });
     }
+  });
+
+  it("answers a route's ApiError as handlers answer: its message, and its code if any", () => {
+    expect(handle(ApiError.conflict('Taken'))).toEqual({ status: 409, body: { error: 'Taken' } });
+    expect(handle(ApiError.badRequest('Too large', 'DOCX_TOO_LARGE'))).toEqual({
+      status: 400,
+      body: { error: 'Too large', code: 'DOCX_TOO_LARGE' },
+    });
+    expect(handle(ApiError.notFound())).toEqual({ status: 404, body: { error: 'Not found' } });
   });
 });

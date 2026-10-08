@@ -86,8 +86,8 @@ describe('members', () => {
     });
   const signInByCode = async (email: string) => {
     const codes = captureEmailsForTests();
-    await requestSignInCode(email);
-    return verifySignInCode(email, codes[0].code);
+    const { challenge } = await requestSignInCode(email);
+    return verifySignInCode(email, codes[0].code, challenge);
   };
 
   describe('adding by email', () => {
@@ -100,7 +100,14 @@ describe('members', () => {
         member: { userId: bo.id, name: 'Bo', email: 'bo@example.org', role: 'secretary' },
         emailSent: true,
       });
-      expect(mail).toEqual([{ to: 'bo@example.org', organization: 'Org A', addedBy: 'A admin' }]);
+      expect(mail).toEqual([
+        {
+          to: 'bo@example.org',
+          organization: 'Org A',
+          addedBy: 'A admin',
+          addedByEmail: 'admin@example.org',
+        },
+      ]);
       const invite = await prisma.organizationInvite.findFirstOrThrow({
         where: { email: 'bo@example.org' },
       });
@@ -121,8 +128,8 @@ describe('members', () => {
       expect(mail).toHaveLength(1);
 
       const codes = captureEmailsForTests();
-      await requestSignInCode('cy@example.org');
-      const cy = await verifySignInCode('cy@example.org', codes[0].code);
+      const { challenge } = await requestSignInCode('cy@example.org');
+      const cy = await verifySignInCode('cy@example.org', codes[0].code, challenge);
       expect(await roleOf(cy.id)).toBe('member');
       const invite = await prisma.organizationInvite.findFirstOrThrow({
         where: { email: 'cy@example.org' },
@@ -189,8 +196,8 @@ describe('members', () => {
         ],
       });
       const codes = captureEmailsForTests();
-      await requestSignInCode('dee@example.org');
-      const dee = await verifySignInCode('dee@example.org', codes[0].code);
+      const { challenge } = await requestSignInCode('dee@example.org');
+      const dee = await verifySignInCode('dee@example.org', codes[0].code, challenge);
       expect(await prisma.organizationMember.count({ where: { userId: dee.id } })).toBe(0);
     });
 
@@ -285,6 +292,26 @@ describe('members', () => {
       expect(asAdmin.body.invites).toEqual([
         expect.objectContaining({ id: f.invite, email: 'pending@example.org', role: 'member' }),
       ]);
+    });
+
+    it("gives members' emails to admins only, and each person their own", async () => {
+      for (const role of ['viewer', 'member', 'secretary'] as const) {
+        const res = await call('get', members(), { cookie: f.users[role].cookie });
+        const withEmail = res.body.members.filter((m: { email?: string }) => m.email);
+        expect(withEmail, role).toEqual([
+          expect.objectContaining({ userId: f.users[role].id, email: `${role}@example.org` }),
+        ]);
+        expect(res.body.members[1], role).toEqual({
+          userId: res.body.members[1].userId,
+          name: res.body.members[1].name,
+          role: res.body.members[1].role,
+          ...(res.body.members[1].userId === f.users[role].id && {
+            email: `${role}@example.org`,
+          }),
+        });
+      }
+      const asAdmin = await call('get', members(), { cookie: f.users.admin.cookie });
+      expect(asAdmin.body.members.every((m: { email?: string }) => m.email)).toBe(true);
     });
   });
 

@@ -484,39 +484,10 @@ export const minutes = {
   publish: (id: string) => request<MinutesRecord>(`/minutes/${id}/publish`, { method: 'POST' }),
   regenerate: (id: string) =>
     request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),
-};
-
-// Meetings
-export const meetings = {
-  list: (orgId: string) => request<Meeting[]>(`/organizations/${orgId}/meetings`),
-  get: (id: string) => request<Meeting>(`/meetings/${id}`),
-  create: (orgId: string, data: MeetingCreate) =>
-    request<Meeting>(`/organizations/${orgId}/meetings`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  update: (id: string, data: MeetingUpdate) =>
-    request<Meeting>(`/meetings/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  delete: (id: string) => request<void>(`/meetings/${id}`, { method: 'DELETE' }),
-};
-
-// Votes
-export const votes = {
-  list: (meetingId: string) => request<Vote[]>(`/meetings/${meetingId}/votes`),
-  get: (id: string) => request<Vote>(`/votes/${id}`),
-  create: (meetingId: string, data: VoteCreate) =>
-    request<Vote>(`/meetings/${meetingId}/votes`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  update: (id: string, data: Partial<VoteCreate>) =>
-    request<Vote>(`/votes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  // Secretaries: the changes to published minutes, and each one's text (what it replaced)
+  revisions: (id: string) => request<MinutesRevision[]>(`/minutes/${id}/revisions`, {}, false),
+  revision: (id: string, revisionId: string) =>
+    request<MinutesRevisionText>(`/minutes/${id}/revisions/${revisionId}`, {}, false),
 };
 
 // Search the current version of each of an organization's documents, from 2 characters. Not
@@ -572,7 +543,8 @@ export interface OrganizationWithRole extends Organization {
 export interface OrgMember {
   userId: number;
   name: string | null;
-  email: string;
+  /** For admins, and for the member themselves */
+  email?: string;
   role: OrgRole;
 }
 
@@ -788,6 +760,18 @@ export interface MinutesSummary {
 }
 
 /** A meeting's minutes, with who did what and the meeting they are of */
+/** A change to published minutes: who made it, and when */
+export interface MinutesRevision {
+  id: string;
+  editedAt: string;
+  editedBy: { id: number; name: string | null } | null;
+}
+
+/** A change with the text it replaced (Markdown) */
+export interface MinutesRevisionText extends MinutesRevision {
+  body: string;
+}
+
 export interface MinutesRecord {
   id: string;
   organizationId: string;
@@ -818,53 +802,6 @@ export interface MinutesRecord {
    * so a save is refused (409)
    */
   beforeMeeting: boolean;
-}
-
-export interface Meeting {
-  id: string;
-  organizationId: string;
-  title: string;
-  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate: string;
-  location: string | null;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  notes: string | null;
-  createdAt: string;
-}
-
-export interface MeetingCreate {
-  title: string;
-  meetingType: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate: string;
-  location?: string;
-  notes?: string;
-}
-
-export interface MeetingUpdate {
-  title?: string;
-  meetingType?: 'regular' | 'special' | 'annual' | 'emergency';
-  scheduledDate?: string;
-  location?: string;
-  status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  notes?: string;
-}
-
-export interface Vote {
-  id: string;
-  meetingId: string;
-  amendmentId: string;
-  yeaCount: number;
-  nayCount: number;
-  abstainCount: number;
-  result: 'passed' | 'failed' | 'tabled';
-  recordedAt: string;
-}
-
-export interface VoteCreate {
-  amendmentId: string;
-  yeaCount: number;
-  nayCount: number;
-  abstainCount: number;
 }
 
 export interface DiffResult {
@@ -952,14 +889,7 @@ export interface MeetingOrganizationResponse {
   warning?: string;
 }
 
-export interface SyncStatusResponse {
-  synced: boolean;
-  amendmentId?: string;
-  status?: string;
-  applied?: boolean;
-}
-
-// Bylaw Sync API - for Robbie/Bylawyer integration
+// What a bylaw amendment motion in a live meeting is made from
 export const bylawSync = {
   // The organization a meeting is linked to. A code without a packet, or with one in an
   // organization the user isn't in, is a 404: not linked, as far as this user can tell.
@@ -985,20 +915,6 @@ export const bylawSync = {
   // Get section tree for a document
   getDocumentSections: (docId: string) =>
     request<SectionTree[]>(`/bylawyer/documents/${docId}/sections`),
-
-  // Check sync status for a motion; an unlinked meeting (404) has synced nothing
-  getSyncStatus: async (meetingCode: string, motionId: number): Promise<SyncStatusResponse> => {
-    try {
-      return await request<SyncStatusResponse>(
-        `/robbie/sync-status/${meetingCode}/${motionId}`,
-        {},
-        false,
-      );
-    } catch (err) {
-      if (err instanceof HttpError && err.status === 404) return { synced: false };
-      throw err;
-    }
-  },
 };
 
 export interface SessionUser {
@@ -1021,17 +937,19 @@ export const auth = {
     if (!response.ok) throw new Error(await errorMessage(response));
     return (await response.json()) as Me;
   },
-  requestCode: (email: string) =>
-    request<{ success: boolean }>(
+  // The answer's challenge goes back with the code (and with "send a new code"): only this
+  // browser can use the code it asked for
+  requestCode: (email: string, challenge?: string) =>
+    request<{ success: boolean; challenge: string }>(
       '/auth/request-code',
-      { method: 'POST', body: JSON.stringify({ email }) },
+      { method: 'POST', body: JSON.stringify({ email, challenge }) },
       false,
     ),
-  verify: async (email: string, code: string) =>
+  verify: async (email: string, code: string, challenge?: string) =>
     (
       await request<{ user: SessionUser }>(
         '/auth/verify',
-        { method: 'POST', body: JSON.stringify({ email, code }) },
+        { method: 'POST', body: JSON.stringify({ email, code, challenge }) },
         false,
       )
     ).user,

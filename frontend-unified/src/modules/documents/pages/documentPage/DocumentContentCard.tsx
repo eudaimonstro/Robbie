@@ -9,6 +9,11 @@ interface DocumentContentCardProps {
   selectedSection: SectionTreeType | null;
   /** Whether the user may change the document (secretary and above) */
   canEdit: boolean;
+  /**
+   * Whether the version shown is the current one: only its sections change, and an earlier
+   * version is the record
+   */
+  isCurrentVersion: boolean;
   onSelectSection: (section: SectionTreeType | null) => void;
   onEditSection: (section: SectionTreeType) => void;
   onDeleteSection: (section: SectionTreeType) => void;
@@ -25,6 +30,7 @@ export function DocumentContentCard({
   sectionTree,
   selectedSection,
   canEdit,
+  isCurrentVersion,
   onSelectSection,
   onEditSection,
   onDeleteSection,
@@ -34,6 +40,8 @@ export function DocumentContentCard({
   onCreateVersion,
   onImport,
 }: DocumentContentCardProps) {
+  // Sections of an earlier version stay as they were adopted (the server refuses changes)
+  const canEditSections = canEdit && (!selectedVersion || isCurrentVersion);
   return (
     <>
       <div className="card">
@@ -52,20 +60,27 @@ export function DocumentContentCard({
                 New Version
               </button>
               {/* A section belongs to a version; there is none to add to until one exists */}
-              <button
-                onClick={onAddSection}
-                className="btn-primary btn-sm whitespace-nowrap"
-                disabled={!selectedVersion}
-                title={selectedVersion ? undefined : 'Create a version first'}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Section
-              </button>
+              {canEditSections && (
+                <button
+                  onClick={onAddSection}
+                  className="btn-primary btn-sm whitespace-nowrap"
+                  disabled={!selectedVersion}
+                  title={selectedVersion ? undefined : 'Create a version first'}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Section
+                </button>
+              )}
             </div>
           )}
         </div>
 
         <div className="p-4">
+          {canEdit && selectedVersion && !isCurrentVersion && (
+            <p className="mb-4 rounded-md border border-rule bg-surface-2 px-3 py-2 text-sm text-ink-muted">
+              This is an earlier version, kept as it was. Only the current version can be changed.
+            </p>
+          )}
           {!selectedVersion ? (
             <EmptyState
               message={
@@ -91,7 +106,9 @@ export function DocumentContentCard({
           ) : sectionTree.length === 0 ? (
             <EmptyState
               message="This document has no sections yet."
-              action={canEdit ? { text: 'Add First Section', onClick: onAddSection } : undefined}
+              action={
+                canEditSections ? { text: 'Add First Section', onClick: onAddSection } : undefined
+              }
             />
           ) : (
             <SectionTree
@@ -101,8 +118,8 @@ export function DocumentContentCard({
               onEditSection={onEditSection}
               onDeleteSection={onDeleteSection}
               onAddChild={onAddChild}
-              onReorder={canEdit ? onReorder : undefined}
-              editable={canEdit}
+              onReorder={canEditSections ? onReorder : undefined}
+              editable={canEditSections}
             />
           )}
         </div>

@@ -14,7 +14,8 @@ import { largeJson } from '../../middleware/largeJson.js';
 import { validate } from '../../middleware/validate.js';
 import { logger } from '../../middleware/logger.js';
 import { orgIdParam, uuidParam } from '../../schemas/common.js';
-import { updateMinutesBody } from '../../schemas/minutes.js';
+import { revisionParams, updateMinutesBody } from '../../schemas/minutes.js';
+import { ApiError } from '../../middleware/apiError.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfMinutes, orgOfOrganization } from '../../orgs/resolvers.js';
 import { atLeast } from '../../orgs/roles.js';
@@ -34,6 +35,15 @@ export const ONLY_DRAFTS_REGENERATE = 'Only a draft can be written again from th
 export const NO_MEETING_RECORD = 'The meeting has no record to write the minutes from';
 export const MINUTES_BEFORE_MEETING =
   'These minutes are before a meeting; corrections are made there';
+
+/**
+ * A secretary's run of saves (the editor saves two seconds after typing stops) makes one
+ * revision: a save keeps the text it replaces only when the latest revision is older than
+ * this, or another editor's
+ */
+export const REVISION_COALESCE_MS = 10 * 60 * 1000;
+/** The revisions kept per minutes; the oldest go first */
+export const MAX_REVISIONS = 50;
 
 /** A minutes response: the text, its status, who did what, its meeting and organization */
 const MINUTES_SELECT = {
@@ -168,7 +178,9 @@ minutesRouter.get(
  * PUT /api/minutes/:id
  * The secretary's text. The last save wins, and its author is named. Approved minutes are the
  * record and stay as they are; published minutes before a meeting that hasn't adjourned stay as
- * the meeting has them, since the meeting makes any corrections.
+ * the meeting has them, since the meeting makes any corrections. A change to published minutes
+ * keeps the text it replaced as a revision (who changed it, and when), since members have read
+ * it.
  * Body: { body }
  */
 minutesRouter.put(
@@ -188,17 +200,90 @@ minutesRouter.put(
       if (await lockedBeforeMeeting(req.org!.id, { id, status })) {
         return res.status(409).json({ error: MINUTES_BEFORE_MEETING });
       }
-      // One statement, so minutes approved in the meantime aren't changed
-      const updated = await prisma.minutes.updateMany({
-        where: { id, status: { not: 'approved' } },
-        data: { body: req.body.body, updatedById: req.user!.id },
+      // Under the row's lock, so minutes approved meanwhile aren't changed, and each revision
+      // keeps the text its change replaced
+      const body: string = req.body.body;
+      const saved = await prisma.$transaction(async (tx) => {
+        const [current] = await tx.$queryRaw<Array<{ status: string; body: string }>>`
+          SELECT status::text AS status, body FROM "Minutes" WHERE id = ${id} FOR UPDATE`;
+        if (!current || current.status === 'approved') return false;
+        if (current.status === 'published' && current.body !== body) {
+          const latest = await tx.minutesRevision.findFirst({
+            where: { minutesId: id },
+            orderBy: { editedAt: 'desc' },
+            select: { editedAt: true, editedById: true },
+          });
+          const sameRun =
+            latest?.editedById === req.user!.id &&
+            Date.now() - latest.editedAt.getTime() < REVISION_COALESCE_MS;
+          if (!sameRun) {
+            await tx.minutesRevision.create({
+              data: { minutesId: id, body: current.body, editedById: req.user!.id },
+            });
+            const beyond = await tx.minutesRevision.findMany({
+              where: { minutesId: id },
+              orderBy: { editedAt: 'desc' },
+              skip: MAX_REVISIONS,
+              select: { id: true },
+            });
+            if (beyond.length > 0) {
+              await tx.minutesRevision.deleteMany({
+                where: { id: { in: beyond.map((revision) => revision.id) } },
+              });
+            }
+          }
+        }
+        await tx.minutes.update({ where: { id }, data: { body, updatedById: req.user!.id } });
+        return true;
       });
-      if (updated.count === 0) return res.status(409).json({ error: MINUTES_APPROVED });
+      if (!saved) return res.status(409).json({ error: MINUTES_APPROVED });
       res.json(await readMinutes(id));
     } catch (error) {
       logger.error({ err: error }, 'Failed to save minutes');
       res.status(500).json({ error: 'Failed to save the minutes' });
     }
+  },
+);
+
+/**
+ * GET /api/minutes/:id/revisions
+ * The changes to published minutes, the latest first: who made each and when (secretary). Each
+ * one's text, as it was before the change, is read by its id.
+ */
+minutesRouter.get(
+  '/minutes/:id/revisions',
+  validate({ params: uuidParam }),
+  requireRole('secretary', byMinutes),
+  async (req, res) => {
+    const revisions = await prisma.minutesRevision.findMany({
+      where: { minutesId: req.params.id },
+      select: { id: true, editedAt: true, editedBy: { select: { id: true, name: true } } },
+      orderBy: { editedAt: 'desc' },
+    });
+    res.json(revisions);
+  },
+);
+
+/**
+ * GET /api/minutes/:id/revisions/:revisionId
+ * One revision with its text: the minutes as they were before that change (secretary)
+ */
+minutesRouter.get(
+  '/minutes/:id/revisions/:revisionId',
+  validate({ params: revisionParams }),
+  requireRole('secretary', byMinutes),
+  async (req, res) => {
+    const revision = await prisma.minutesRevision.findFirst({
+      where: { id: req.params.revisionId, minutesId: req.params.id },
+      select: {
+        id: true,
+        body: true,
+        editedAt: true,
+        editedBy: { select: { id: true, name: true } },
+      },
+    });
+    if (!revision) throw ApiError.notFound();
+    res.json(revision);
   },
 );
 

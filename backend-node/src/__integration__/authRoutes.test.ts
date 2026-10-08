@@ -10,9 +10,10 @@ import { resetAccounts } from './db.js';
 let outbox: Array<{ to: string; code: string }>;
 
 async function signIn(email: string, client?: 'web' | 'mobile') {
-  await request(app).post('/api/auth/request-code').send({ email }).expect(200);
+  const asked = await request(app).post('/api/auth/request-code').send({ email }).expect(200);
   const code = outbox[outbox.length - 1].code;
-  return request(app).post('/api/auth/verify').send({ email, code, client });
+  const { challenge } = asked.body;
+  return request(app).post('/api/auth/verify').send({ email, code, challenge, client });
 }
 
 const sessionCookie = (res: request.Response) =>
@@ -44,6 +45,33 @@ describe('auth routes', () => {
     const res = await signIn('ann@example.org', 'mobile');
     expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(sessionCookie(res)).toBeUndefined();
+  });
+
+  it("refuses a change from another site's page, and takes one from the app's", async () => {
+    const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    const evil = await request(app)
+      .patch('/api/auth/me')
+      .set('Cookie', cookie)
+      .set('Origin', 'https://evil.scouch.dev')
+      .send({ name: 'Mallory' });
+    expect(evil.status).toBe(403);
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { email: 'ann@example.org' } })).name,
+    ).toBeNull();
+    // The app's own origin (APP_URL, here the development default), and no Origin at all
+    for (const origin of ['http://localhost:5173', undefined]) {
+      let req = request(app).patch('/api/auth/me').set('Cookie', cookie);
+      if (origin) req = req.set('Origin', origin);
+      expect((await req.send({ name: 'Ann Lee' })).status, origin).toBe(200);
+    }
+  });
+
+  it('tells browsers and proxies not to keep API answers', async () => {
+    const cookie = sessionCookie(await signIn('ann@example.org'))!;
+    const me = await request(app).get('/api/auth/me').set('Cookie', cookie);
+    expect(me.headers['cache-control']).toBe('no-store');
+    const orgs = await request(app).get('/api/organizations').set('Cookie', cookie);
+    expect(orgs.headers['cache-control']).toBe('no-store');
   });
 
   it('knows who is signed in, by cookie or bearer token', async () => {
@@ -145,13 +173,38 @@ describe('auth routes', () => {
   });
 
   it('answers a wrong code with 401 and the message', async () => {
-    await request(app).post('/api/auth/request-code').send({ email: 'ann@example.org' });
+    const asked = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org' });
     const code = outbox[0].code === '000001' ? '000002' : '000001';
     const res = await request(app)
       .post('/api/auth/verify')
-      .send({ email: 'ann@example.org', code });
+      .send({ email: 'ann@example.org', code, challenge: asked.body.challenge });
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('That code is wrong or has expired');
+  });
+
+  it('answers a code request with a challenge, and takes the code only with it', async () => {
+    const asked = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org' });
+    expect(asked.body).toEqual({ success: true, challenge: expect.any(String) });
+    const { challenge } = asked.body;
+    // "Send a new code" from the same page keeps the challenge
+    const again = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org', challenge });
+    expect(again.body.challenge).toBe(challenge);
+
+    const code = outbox[1].code;
+    const without = await request(app)
+      .post('/api/auth/verify')
+      .send({ email: 'ann@example.org', code });
+    expect(without.status).toBe(401);
+    const signedIn = await request(app)
+      .post('/api/auth/verify')
+      .send({ email: 'ann@example.org', code, challenge });
+    expect(signedIn.status).toBe(200);
   });
 
   it('refuses the test code in production even with test sign-in enabled', async () => {

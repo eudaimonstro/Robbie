@@ -1,5 +1,7 @@
+import fs from 'fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../db/prisma.js';
+import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { call } from './helpers.js';
@@ -279,5 +281,83 @@ describe('agenda items and attachments across packets', () => {
       message: 'Give a packetId or an agendaItemId, not both',
     });
     expect(await prisma.attachment.count()).toBe(before);
+  });
+
+  it("take their attachments' files with them when deleted", async () => {
+    const stored = await storeFile(f.packet.code, 'budget.txt', 'text/plain', Buffer.from('B'));
+    if (!stored.success) throw new Error(stored.error);
+    await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        storagePath: stored.file.storagePath,
+        displayName: 'Budget',
+        agendaItemId: f.item,
+      },
+    });
+    const file = getFullPath(stored.file.storagePath);
+    expect(fs.existsSync(file)).toBe(true);
+
+    const res = await call('delete', `/api/agenda-items/${f.item}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(204);
+    expect(await prisma.attachment.count({ where: { agendaItemId: f.item } })).toBe(0);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it("never send who uploaded a file or where it's stored", async () => {
+    await prisma.attachment.update({
+      where: { id: f.upload },
+      data: { uploadedBy: f.users.secretary.email },
+    });
+    await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        displayName: 'On the item',
+        storagePath: 'ORGA01/item.txt',
+        uploadedBy: f.users.secretary.email,
+        agendaItemId: f.item,
+      },
+    });
+    const cookie = f.users.viewer.cookie;
+    const responses = await Promise.all([
+      call('get', `/api/packets/${f.packet.code}`, { cookie }),
+      call('get', `/api/attachments/${f.upload}`, { cookie }),
+      call('get', `/api/packets/${f.packet.id}/agenda`, { cookie }),
+      call('get', `/api/agenda-items/${f.item}`, { cookie }),
+    ]);
+    for (const res of responses) {
+      expect(res.status).toBe(200);
+      const text = JSON.stringify(res.body);
+      expect(text).not.toContain('uploadedBy');
+      expect(text).not.toContain('storagePath');
+      expect(text).not.toContain('secretary@example.org');
+    }
+  });
+
+  it("answer a file that can't be read with an error, and keep serving", async () => {
+    // A directory where the file should be: it opens, and reading it would fail
+    const storagePath = `${f.packet.code}/not-a-file`;
+    fs.mkdirSync(getFullPath(storagePath), { recursive: true });
+    const broken = await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        displayName: 'Broken',
+        filename: 'broken.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        storagePath,
+        meetingPacketId: f.packet.id,
+      },
+    });
+    const cookie = f.users.viewer.cookie;
+    const res = await call('get', `/api/attachments/${broken.id}/download`, { cookie });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'File not found on disk' });
+    fs.rmSync(getFullPath(storagePath), { recursive: true });
+
+    const good = await call('get', `/api/attachments/${f.upload}/download`, { cookie });
+    expect(good.status).toBe(200);
+    expect(good.headers['content-disposition']).toMatch(/^attachment; filename=/);
   });
 });

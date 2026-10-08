@@ -21,10 +21,7 @@ export async function resetDatabase(): Promise<void> {
   );
 }
 
-/**
- * Empty the live meetings table, which isn't Prisma's (see meetingStorage). The storage must be
- * initialized (initializeStorage) first, which creates the table.
- */
+/** Empty the live meetings table (meetingStorage writes it with SQL; the migrations make it) */
 export async function resetLiveMeetings(): Promise<void> {
   await pool.query('DELETE FROM meetings');
 }
