@@ -44,7 +44,7 @@ As `steve`, with `sudo`:
 
    sshd also asks for a TOTP code (`sshd_config.d/99-2fa.conf`), so give `deploy` its own the way `steve`'s was set up (with the Google Authenticator PAM module, `sudo -iu deploy google-authenticator`), and add it to your authenticator app.
 
-4. Add a 2 GB swap file. Node, Postgres and Caddy fit in 1.9 GiB with little headroom: `compose.yaml` caps them (the app at 768 MB with a 384 MB heap, Postgres at 512 MB, Caddy at 256 MB), so a runaway restarts its container instead of pushing the box into swap; the swap file is for building the image here ("Upgrades") and the system's own spikes:
+4. Add a 2 GB swap file. The containers don't use it: `compose.yaml` caps each with no swap (`memswap_limit` equal to `mem_limit`: the app 768 MB with a 384 MB Node heap, Postgres 512 MB, Caddy 256 MB, the backups 128 MB; 1.66 GB in all), so a runaway container restarts instead of pushing the box into swap. A 150-phone meeting measured at most 336 MB in the app's limit (386 MB RSS) through six reconnect storms. The swap file is for building the image here ("Upgrades") and the system's own spikes:
 
    ```bash
    sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
