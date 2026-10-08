@@ -114,6 +114,10 @@ function BeforeMeeting({
             <p className={LABEL}>Code</p>
             <p className="meeting-code text-display-number text-ink">{meetingCode}</p>
           </div>
+          {/* For the owners who won't scan anything: the headcount is how they count */}
+          <p className="text-display-line text-ink">
+            No phone? You still count: the chair will count you in the room.
+          </p>
         </div>
         <QrCode value={link} label="Scan to join" size={360} />
       </div>

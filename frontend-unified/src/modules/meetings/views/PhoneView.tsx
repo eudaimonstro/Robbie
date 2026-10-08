@@ -117,15 +117,9 @@ export function PhoneView() {
       )}
       {hasFloor && <FloorBanner state={state} dispatch={dispatch} />}
       {/* With the result up, or the minutes before the meeting, nothing is pending: the card
-          would only say so */}
-      {(question || !(result || minutesItemUnderWay(state))) && (
-        <QuestionCard
-          question={question}
-          size="phone"
-          empty={
-            state.meetingActive ? 'No question is pending.' : 'Nothing is before the meeting yet.'
-          }
-        />
+          would only say so. Before the call to order the one card below says it all. */}
+      {(question || (state.meetingActive && !(result || minutesItemUnderWay(state)))) && (
+        <QuestionCard question={question} size="phone" empty="No question is pending." />
       )}
       <MinutesNotice state={state} />
       <section aria-label="Your part" className="card p-4">

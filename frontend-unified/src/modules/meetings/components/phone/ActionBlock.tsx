@@ -12,6 +12,7 @@ import { MotionPanel } from './MotionPanel';
 import { WithdrawMine } from './WithdrawMine';
 import { ForumHand } from './ForumHand';
 import { RaisePointOfOrder } from './RaisePointOfOrder';
+import { LobbyNote } from './LobbyNote';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
@@ -32,15 +33,8 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
   }
 
   switch (moment) {
-    case 'lobby': {
-      const chair = state.members.find((m) => m.role === 'chair');
-      return (
-        <Note>
-          <p>The meeting has not been called to order yet.</p>
-          {chair && <p>{chair.name} chairs it.</p>}
-        </Note>
-      );
-    }
+    case 'lobby':
+      return <LobbyNote state={state} me={me} />;
     case 'adjourned':
       // The phone shows only the adjournment then (PhoneView)
       return null;
@@ -219,13 +213,7 @@ function ElectionWaiting({ state }: { state: MeetingState }) {
  */
 function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment: PhoneMoment }) {
   if (moment === 'adjourned') return null;
-  if (moment === 'lobby') {
-    return (
-      <Note>
-        <p>The meeting has not been called to order yet.</p>
-      </Note>
-    );
-  }
+  if (moment === 'lobby') return <LobbyNote state={state} me={me} />;
   if (moment === 'recess') {
     return (
       <Note>
