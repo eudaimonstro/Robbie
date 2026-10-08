@@ -6,7 +6,12 @@ import path from 'path';
 import { prisma } from '../db/prisma.js';
 import { captureEmailsForTests } from '../auth/emailService.js';
 import { findSession } from '../auth/sessionService.js';
-import { SignInError, requestSignInCode, verifySignInCode } from '../auth/signInService.js';
+import {
+  SUSPENDED_ANSWER_DELAY_MS,
+  SignInError,
+  requestSignInCode,
+  verifySignInCode,
+} from '../auth/signInService.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import {
   ReportError,
@@ -493,6 +498,35 @@ describe('handleReport: suspending an account', () => {
     expect(back.body.user).toMatchObject({ email: 'ann@example.org' });
     const restored = await signIn('ann@example.org');
     expect(await handshake(restored.cookie.slice('session='.length))).toBeUndefined();
+  });
+
+  it("answers a suspended account's code request in about a send's time", async () => {
+    await signIn('ann@example.org');
+    await setSuspended('ann@example.org', true);
+    const started = Date.now();
+    await requestSignInCode('ann@example.org');
+    expect(Date.now() - started).toBeGreaterThanOrEqual(SUSPENDED_ANSWER_DELAY_MS.min - 5);
+    expect(outbox).toEqual([]);
+  });
+
+  it('answers a suspended account as a failed send when sending fails', async () => {
+    await signIn('ann@example.org');
+    await setSuspended('ann@example.org', true);
+    const failed = { status: 502, message: "We couldn't send the email. Try again." };
+
+    // Production without an email provider can't send to anyone
+    process.env.NODE_ENV = 'production';
+    try {
+      await expect(requestSignInCode('bob@example.org')).rejects.toMatchObject(failed);
+      await expect(requestSignInCode('ann@example.org')).rejects.toMatchObject(failed);
+    } finally {
+      process.env.NODE_ENV = 'test';
+    }
+    // The provider's last send failed: so does the suspended account's, until one succeeds
+    await expect(requestSignInCode('ann@example.org')).rejects.toMatchObject(failed);
+    await requestSignInCode('carol@example.org');
+    await expect(requestSignInCode('ann@example.org')).resolves.toBeUndefined();
+    expect(outbox.map((m) => m.to)).toEqual(['carol@example.org']);
   });
 
   it('refuses the test code for a suspended account', async () => {

@@ -198,12 +198,19 @@ export function captureEmailsForTests(): Array<{ to: string; code: string }> {
 }
 
 /**
+ * Whether emails can be sent at all: not in production without a provider. Reads NODE_ENV now,
+ * not at load: production must never report a code as sent when it wasn't.
+ */
+export function canSendEmail(): boolean {
+  return !(emailProvider === 'development' && process.env.NODE_ENV === 'production');
+}
+
+/**
  * Email a sign-in code. Without an email provider (development only; production requires
  * one), the code is logged at debug level, which production never logs.
  */
 export async function sendSignInCode(email: string, code: string): Promise<void> {
-  // Read NODE_ENV now, not at load: production must never report a code as sent when it wasn't
-  if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
+  if (!canSendEmail()) {
     throw new Error('No email provider configured; production cannot send sign-in codes');
   }
 

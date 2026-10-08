@@ -1,6 +1,8 @@
 import { prisma } from '../db/prisma.js';
 import { acceptPendingInvites } from '../orgs/membershipService.js';
-import { sendSignInCode } from './emailService.js';
+import { randomInt } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { canSendEmail, sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
 import { normalizeEmail } from './normalizeEmail.js';
 import type { SessionUser } from './sessionService.js';
@@ -37,6 +39,22 @@ function isTestCode(code: string): boolean {
 }
 
 /** Whether the account with this (normalized) email is suspended (see handleReport) */
+/**
+ * How long a suspended account's code request waits before answering, in milliseconds: about
+ * as long as a send to the email provider takes, so the answer's timing doesn't single it out
+ */
+export const SUSPENDED_ANSWER_DELAY_MS = { min: 150, max: 700 };
+
+// Whether the latest send to the email provider failed: a suspended account's request fails
+// too then, as anyone's would
+let lastSendFailed = false;
+
+/** Stand in for a send to a suspended account: as long, and failing when sends are failing */
+async function answerAsASendWould(): Promise<void> {
+  await sleep(randomInt(SUSPENDED_ANSWER_DELAY_MS.min, SUSPENDED_ANSWER_DELAY_MS.max + 1));
+  if (!canSendEmail() || lastSendFailed) throw new Error('Sending is failing');
+}
+
 async function isSuspended(email: string): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { email }, select: { suspendedAt: true } });
   return Boolean(user?.suspendedAt);
@@ -44,7 +62,8 @@ async function isSuspended(email: string): Promise<boolean> {
 
 /**
  * Email a new sign-in code. The answer is the same whether or not the email has an account, and
- * for a suspended account, which goes through the same steps but is never sent the code.
+ * for a suspended account, which goes through the same steps but is never sent the code: its
+ * answer waits about as long as a send, and fails when sends are failing.
  */
 export async function requestSignInCode(rawEmail: string, now: Date = new Date()): Promise<void> {
   const email = normalizeEmail(rawEmail);
@@ -70,7 +89,17 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
   });
 
   try {
-    if (!(await isSuspended(email))) await sendSignInCode(email, code);
+    if (await isSuspended(email)) {
+      await answerAsASendWould();
+    } else {
+      try {
+        await sendSignInCode(email, code);
+        lastSendFailed = false;
+      } catch (error) {
+        lastSendFailed = true;
+        throw error;
+      }
+    }
   } catch {
     await prisma.signInCode.delete({ where: { id: record.id } });
     throw new SignInError(502, "We couldn't send the email. Try again.");
