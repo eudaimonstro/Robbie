@@ -7,13 +7,11 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { logger } from '../middleware/logger.js';
-import { databaseSsl } from './databaseSsl.js';
+import { pool } from './client.js';
 
-// Same TLS settings as the meetings pool, so both reach the database the same way
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? databaseSsl(process.env.DATABASE_URL) : undefined,
-});
+// The server's one pool (client.ts), shared with the live meetings. Prisma never ends a pool it
+// was given: the server closes it once, after both are done with it (index.ts).
+const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });
 

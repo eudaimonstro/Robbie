@@ -46,13 +46,12 @@ export class SocketRateLimiter {
       },
       5 * 60 * 1000,
     );
+    // The sweep doesn't keep the process alive (a shutdown, a script)
+    this.cleanupInterval.unref?.();
   }
 
-  /**
-   * Check if a request should be allowed
-   * Returns true if allowed, false if rate limited
-   */
-  consume(userId: string | number): boolean {
+  /** The user's bucket, created full and refilled for the time since it was last used */
+  private refill(userId: string | number): RateLimitBucket {
     const key = String(userId);
     const now = Date.now();
     let bucket = this.buckets.get(key);
@@ -75,6 +74,15 @@ export class SocketRateLimiter {
     const tokensToAdd = elapsed * this.options.refillRate;
     bucket.tokens = Math.min(this.options.maxTokens, bucket.tokens + tokensToAdd);
     bucket.lastRefill = now;
+    return bucket;
+  }
+
+  /**
+   * Check if a request should be allowed
+   * Returns true if allowed, false if rate limited
+   */
+  consume(userId: string | number): boolean {
+    const bucket = this.refill(userId);
 
     // Check if we have enough tokens
     if (bucket.tokens >= this.options.tokensPerRequest) {
@@ -83,6 +91,11 @@ export class SocketRateLimiter {
     }
 
     return false;
+  }
+
+  /** Whether a request would be allowed now, without spending anything */
+  allows(userId: string | number): boolean {
+    return this.refill(userId).tokens >= this.options.tokensPerRequest;
   }
 
   /**
@@ -162,9 +175,19 @@ export const actionRateLimiter = new SocketRateLimiter({
   tokensPerRequest: 1,
 });
 
-// Stricter limiter for join attempts (prevent meeting code guessing)
+// Joins that found no meeting (against meeting code guessing): 5, then 1 per 10 seconds. A join
+// that finds the meeting spends nothing here, so a phone on flaky Wi-Fi that joins again on every
+// reconnect is never locked out of its own meeting.
 export const joinRateLimiter = new SocketRateLimiter({
   maxTokens: 5, // Max 5 join attempts
   refillRate: 0.1, // 1 attempt per 10 seconds sustainable
+  tokensPerRequest: 1,
+});
+
+// Every join, found or not: a backstop against a client joining in a loop (each join reads the
+// database). A phone reconnecting every two seconds stays well inside it.
+export const joinFloodLimiter = new SocketRateLimiter({
+  maxTokens: 30,
+  refillRate: 1,
   tokensPerRequest: 1,
 });

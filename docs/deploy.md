@@ -44,7 +44,7 @@ As `steve`, with `sudo`:
 
    sshd also asks for a TOTP code (`sshd_config.d/99-2fa.conf`), so give `deploy` its own the way `steve`'s was set up (with the Google Authenticator PAM module, `sudo -iu deploy google-authenticator`), and add it to your authenticator app.
 
-4. Add a 2 GB swap file (Node, Postgres and Caddy fit in 1.9 GiB with little headroom):
+4. Add a 2 GB swap file. The containers don't use it: `compose.yaml` caps each with no swap (`memswap_limit` equal to `mem_limit`: the app 768 MB with a 384 MB Node heap, Postgres 512 MB, Caddy 256 MB, the backups 128 MB; 1.66 GB in all), so a runaway container restarts instead of pushing the box into swap. A 150-phone meeting measured at most 336 MB in the app's limit (386 MB RSS) through six reconnect storms. The swap file is for building the image here ("Upgrades") and the system's own spikes:
 
    ```bash
    sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
@@ -194,7 +194,7 @@ Never within a day of a meeting.
 
 6. Check: `docker compose logs app | grep 'Server running'`, then `curl -s https://robbie.scouch.dev/api/health`, then sign in.
 
-Phones in a live meeting reconnect by themselves after a restart (presence survives 90 seconds), but upgrade between meetings anyway.
+Phones in a live meeting reconnect by themselves after a restart (presence survives 90 seconds): the app stops in a second or two, writing the meeting's last changes first, and starts in about one more, and each phone's join brings it the meeting as it is. Upgrade between meetings anyway.
 
 Old images pile up on the disk: `docker image prune` removes the ones no container and no tag uses (`robbie:previous` stays).
 

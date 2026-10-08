@@ -1,7 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { initialState, meetingReducer } from '@robbie-bylawyer/shared/reducer';
 import type { CompletedMotion, Election, MeetingState } from '@robbie-bylawyer/shared/types';
-import { emitState, publicState, publicUpdate } from '../socket/statePublisher.js';
+import {
+  emitState,
+  forgetBroadcasts,
+  publicState,
+  publicUpdate,
+} from '../socket/statePublisher.js';
+
+// Each test's first update goes out at once, whole
+beforeEach(() => forgetBroadcasts());
 
 const record = (method: CompletedMotion['method']): CompletedMotion => ({
   id: 1,

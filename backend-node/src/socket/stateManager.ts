@@ -22,6 +22,11 @@ export type ApplyActionResult =
       stateVersion: number;
       /** The state the action was applied to (in the meeting's queue, so after any before it) */
       previousState: MeetingState;
+      /**
+       * Whether the action changed anything. One that didn't (a device reconnecting for a member
+       * already present, say) keeps the version, writes nothing and needs no broadcast.
+       */
+      changed: boolean;
     }
   | {
       success: false;
@@ -31,6 +36,26 @@ export type ApplyActionResult =
 
 /** Maximum number of retry attempts for concurrent conflicts */
 const MAX_RETRIES = 3;
+
+/**
+ * The actions whose state may wait in memory for up to FLUSH_DELAY_MS (meetingStorage) before it
+ * is written: a vote or ballot in progress, a hand, a member arriving or a device coming and
+ * going, which arrive by the hundred at once. Everything else, every decision among it
+ * (CLOSE_VOTING, DECLARE_ELECTED, a motion, the adjournment), is written before it is
+ * acknowledged, and that write carries every deferred change before it. A crash (not a
+ * shutdown, which writes them) within that window loses those changes: a vote cast in it is gone
+ * from the phone's screen when it rejoins, and is cast again; nothing decided is lost.
+ */
+export const DEFERRED_WRITES: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'CAST_VOTE',
+  'CAST_PROXY_VOTE',
+  'CAST_BALLOT',
+  'RAISE_HAND',
+  'LOWER_HAND',
+  'ADD_MEMBER',
+  'SET_MEMBER_PRESENCE',
+  'REFRESH_MEMBERS',
+]);
 
 /** The tail of each meeting's queue of pending writes */
 const meetingQueues = new Map<string, Promise<unknown>>();
@@ -53,10 +78,11 @@ function runExclusive<T>(meetingCode: string, task: () => Promise<T>): Promise<T
 /**
  * Apply an action to a meeting's state and persist it
  *
- * Actions on a meeting are applied one at a time, so concurrent actions (such as many members
- * voting at once) are never lost to a version conflict. Optimistic locking remains as a
- * safeguard: if the stored version changed anyway, the action is retried with the latest
- * state (up to MAX_RETRIES times).
+ * Actions on a meeting are applied one at a time, to the state in memory (meetingStorage), so
+ * concurrent actions (such as many members voting at once) are never lost to a version
+ * conflict. Optimistic locking remains as a safeguard: if the stored version changed anyway
+ * (outside this process), the action is retried with the latest state (up to MAX_RETRIES
+ * times).
  *
  * @param meetingCode - The meeting code
  * @param action - The action to apply
@@ -80,7 +106,8 @@ async function applyActionNow(
   const storage = getStorage();
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const meeting = await storage.getMeeting(meetingCode);
+    // The state in memory: every write to it comes through this queue
+    const meeting = await storage.peekMeeting(meetingCode);
     if (!meeting) {
       return { success: false, error: 'Meeting not found', errorCode: 'MEETING_NOT_FOUND' };
     }
@@ -101,6 +128,16 @@ async function applyActionNow(
     try {
       // Apply the reducer
       const newState = meetingReducer(meeting.state, action);
+      // Nothing changed: no new version, no write
+      if (newState === meeting.state) {
+        return {
+          success: true,
+          state: meeting.state,
+          stateVersion: meeting.stateVersion,
+          previousState: meeting.state,
+          changed: false,
+        };
+      }
       const expectedVersion = meeting.stateVersion;
       const newVersion = expectedVersion + 1;
 
@@ -110,6 +147,7 @@ async function applyActionNow(
         newState,
         expectedVersion,
         newVersion,
+        { defer: DEFERRED_WRITES.has(action.type) },
       );
 
       if (updateResult.success) {
@@ -118,6 +156,7 @@ async function applyActionNow(
           state: newState,
           stateVersion: newVersion,
           previousState: meeting.state,
+          changed: true,
         };
       }
 
@@ -152,14 +191,14 @@ async function applyActionNow(
 }
 
 /**
- * Get current meeting state
+ * A meeting's current state as this process has it (its actions all come through here), without
+ * a trip to the database once it is in memory
  */
 export async function getMeetingState(meetingCode: string): Promise<{
   state: MeetingState;
   stateVersion: number;
 } | null> {
-  const storage = getStorage();
-  const meeting = await storage.getMeeting(meetingCode);
+  const meeting = await getStorage().peekMeeting(meetingCode);
   if (!meeting) return null;
   return { state: meeting.state, stateVersion: meeting.stateVersion };
 }

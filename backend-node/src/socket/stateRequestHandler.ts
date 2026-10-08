@@ -29,8 +29,9 @@ export async function handleRequestState(
       return;
     }
 
-    const storage = getStorage();
-    const meeting = await storage.getMeeting(socket.data.meetingCode);
+    // The meeting in memory, where every change to it is made: a client asks for the whole
+    // state when an update can't be applied, and needs it as it is now
+    const meeting = await getStorage().peekMeeting(socket.data.meetingCode);
     if (!meeting) {
       callback({ success: false, error: 'Meeting not found' });
       return;

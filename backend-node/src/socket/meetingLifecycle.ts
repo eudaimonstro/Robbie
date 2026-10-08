@@ -3,6 +3,8 @@ import { getStorage } from '../db/meetingStorage.js';
 import { logger } from '../middleware/logger.js';
 import { getIoInstance } from './ioInstance.js';
 import { roomManager } from './roomManager.js';
+import { forgetBroadcasts } from './statePublisher.js';
+import { forgetRoleSweeps } from './meetingRoles.js';
 
 /** What the people in a meeting are told when it is canceled */
 export const MEETING_CANCELED = 'This meeting was canceled.';
@@ -31,6 +33,8 @@ export async function closeCanceledMeeting(meetingCode: string): Promise<void> {
       }
     }
     roomManager.forgetMeeting(meetingCode);
+    forgetBroadcasts(meetingCode);
+    forgetRoleSweeps(meetingCode);
     await getStorage().deleteMeeting(meetingCode);
   } catch (error) {
     logger.error({ err: error, meetingCode }, 'Failed to close the canceled meeting');
