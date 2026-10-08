@@ -9,6 +9,7 @@ const CREATED_ID_FIELDS: Partial<Record<MeetingAction['type'], string>> = {
   ADD_AGENDA_ITEM: 'itemId',
   NOMINATE: 'nominationId',
   START_ELECTION: 'electionId',
+  ELECT_BY_ACCLAMATION: 'electionId',
   ASK_INQUIRY: 'inquiryId',
   // The request to withdraw a motion already stated, put to the meeting
   WITHDRAW_MOTION: 'motionId',
@@ -26,6 +27,7 @@ export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<Meeti
   'WITHDRAW_MOTION',
   'CHAIR_RULING',
   'DECLARE_ELECTED',
+  'ELECT_BY_ACCLAMATION',
   'SET_ASIDE_ELECTION',
   'APPROVE_MINUTES',
   'RESUME_MEETING',
@@ -103,6 +105,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   CLOSE_ELECTION: NONE,
   SET_FLOOR_BALLOTS: NONE,
   DECLARE_ELECTED: NONE,
+  ELECT_BY_ACCLAMATION: NONE,
   SET_ASIDE_ELECTION: NONE,
   ASK_INQUIRY: { id: 'askerId', name: 'askedBy' },
   ANSWER_INQUIRY: { name: 'answeredBy' },

@@ -42,6 +42,7 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   CLOSE_ELECTION: PRESIDING,
   SET_FLOOR_BALLOTS: PRESIDING,
   DECLARE_ELECTED: PRESIDING,
+  ELECT_BY_ACCLAMATION: PRESIDING,
   SET_ASIDE_ELECTION: PRESIDING,
   // The chair takes up a question postponed to later in the meeting, and ends a recess
   TAKE_UP_POSTPONED: PRESIDING,

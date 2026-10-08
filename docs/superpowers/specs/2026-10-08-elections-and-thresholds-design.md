@@ -19,7 +19,7 @@ Batch A3 of the 2026-10-08 review (meeting-rules.md I7, I11, I12, M1, M2, X1, X2
 
 **Screens.** The console's election card: position and seats; after nominations close, the candidates, the vote required, Open the ballot and, when it applies, Declare elected by acclamation; the paper form with write-in rows, blank and illegal ballots (and the ballot count for several seats); each winner's Declare button; Open the next ballot. Phones: one tap per name for one seat, "Choose up to 2" with check boxes and Cast my ballot for more. The display stamps ELECTED at each declaration, naming everyone elected in that election so far ("Alice Brennan and Ben Whitaker, Director") with the ballot's tally, or "By acclamation". The stamp comes from `electedOfficers`, not the log.
 
-**Minutes.** One paragraph per election: "**Election for Director (2 seats).** Ballot 1, 27 ballots cast (1 blank ballot not counted): Alice Brennan 20, Ben Whitaker 15, Carmen Diaz 9, Dan Ortiz (write-in) 1. Alice Brennan and Ben Whitaker were elected." A later ballot gets its own line, with who it elected.
+**Minutes.** One paragraph per election: "**Election for Director.** Ballot 1, 27 ballots cast (1 blank ballot not counted): Alice Brennan 20, Ben Whitaker 15, Carmen Diaz 9, Dan Ortiz (write-in) 1. Alice Brennan and Ben Whitaker were elected." A later ballot gets its own line, with who it elected.
 
 ## Vote thresholds
 

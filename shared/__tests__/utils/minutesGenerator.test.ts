@@ -361,7 +361,7 @@ describe('the minutes', () => {
         '',
         '### Other business',
         '',
-        '**Main motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed on a voice vote, 4 to 20. No quorum was present.',
+        '**Main motion.** Ben Whitaker moved: "Hold the next meeting online." Seconded by Alice Brennan. Failed by voice vote, 4 to 20. No quorum was present.',
         '',
         '## Adjournment',
         '',
@@ -384,7 +384,7 @@ describe('the minutes', () => {
     });
     const markdown = formatMinutesAsMarkdown(minutes, context);
     expect(markdown).toContain(
-      "## Proceedings\n\n### 2. Treasurer's report\n\nNo action was taken.\n\n### 3. Landscaping\n\nNo action was taken.\n\n## Adjournment\n",
+      "## Proceedings\n\n### 2. Treasurer's report\n\nReport received.\n\n### 3. Landscaping\n\nNo action was taken.\n\n## Adjournment\n",
     );
   });
 
@@ -410,7 +410,7 @@ describe('the minutes', () => {
     const markdown = formatMinutesAsMarkdown(minutes, context);
     expect(markdown).toContain('### 1. Call to order\n\n**Ruling of the chair.**');
     expect(markdown).toContain(
-      '### 2. Adjournment of the March meeting: report\n\nNo action was taken.\n',
+      '### 2. Adjournment of the March meeting: report\n\nReport received.\n',
     );
     expect(markdown).toContain(
       '### 3. Call to order of the budget hearing\n\nNo action was taken.\n',
@@ -536,7 +536,7 @@ describe('the minutes', () => {
     });
     const markdown = formatMinutesAsMarkdown(minutes, nothingKnown);
     expect(markdown).toContain(
-      '**Close debate.** Alice moved: "Close debate." Failed on a voice vote, two thirds required, 12 to 8.\n',
+      '**Close debate.** Alice moved: "Close debate." Failed by voice vote, two thirds required, 12 to 8.\n',
     );
     expect(markdown).toContain(
       '**Suspend the rules.** Ben moved: "Suspend the rules to hear the guest." Carried, two thirds required, 9 to 1.\n',

@@ -33,8 +33,40 @@ function settleConsent(state: MeetingState): MeetingState {
   return stillAsked ? state : { ...state, unanimousConsentPending: false, consentMotionId: null };
 }
 
+/**
+ * What leaves a declared voice vote open to a division (RONR 29:7): the room's count and roles,
+ * hands, questions to the chair, settings, and the server's own bookkeeping. Anything else is
+ * the meeting moving on, and it is too late.
+ */
+const KEEPS_DIVISION_OPEN: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'CLOSE_VOTING',
+  'ADD_MEMBER',
+  'SET_MEMBER_PRESENCE',
+  'REFRESH_MEMBERS',
+  'SET_MEETING_INFO',
+  'SET_PREVIOUS_MINUTES',
+  'SET_MEMBER_ROLE',
+  'MARK_PRESENT',
+  'MARK_ABSENT',
+  'SET_HEADCOUNT',
+  'SET_QUORUM',
+  'RAISE_HAND',
+  'LOWER_HAND',
+  'ASK_INQUIRY',
+  'ANSWER_INQUIRY',
+  'SET_SPEAKER_TIME_LIMIT',
+  'SET_VOTE_TIME_LIMIT',
+  'SET_VOTING_METHOD',
+  'SET_AUTO_YIELD',
+]);
+
+function settleDivision(state: MeetingState, action: MeetingAction): MeetingState {
+  if (!state.voiceVote || KEEPS_DIVISION_OPEN.has(action.type)) return state;
+  return { ...state, voiceVote: null };
+}
+
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
-  return settleConsent(applyAction(state, action));
+  return settleDivision(settleConsent(applyAction(state, action)), action);
 }
 
 function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
@@ -116,6 +148,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'CLOSE_ELECTION':
     case 'SET_FLOOR_BALLOTS':
     case 'DECLARE_ELECTED':
+    case 'ELECT_BY_ACCLAMATION':
     case 'SET_ASIDE_ELECTION':
       return electionHandler(state, action, log);
 

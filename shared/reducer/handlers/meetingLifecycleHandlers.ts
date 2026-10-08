@@ -12,6 +12,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import { NO_VOTES } from '../../utils/voteCalculator.js';
+import { seatsOpen } from '../../utils/elections.js';
 import { decisionContext, quorumNow, withPresentAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
@@ -86,6 +87,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       const { agendaItemId } = decisionContext(state, undefined);
       const under = agendaItemId !== undefined ? { agendaItemId } : {};
       const ballots = state.currentElection?.ballots ?? [];
+      const ballotTotals = state.currentElection?.ballotTotals ?? [];
+      const seats = seatsOpen(state);
       const unfinishedRecords: UnfinishedBusinessRecord[] = [
         ...(position
           ? [
@@ -93,6 +96,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
                 kind: 'election' as const,
                 position,
                 ...(ballots.length > 0 ? { ballots } : {}),
+                ...(ballotTotals.length > 0 ? { ballotTotals } : {}),
+                ...(seats > 1 ? { seats } : {}),
                 ...under,
               },
             ]
@@ -150,6 +155,7 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ),
         nominationsOpen: false,
         currentNominationPosition: null,
+        openSeats: null,
         currentElection: null,
         pendingSecond: null,
         currentMotion: null,

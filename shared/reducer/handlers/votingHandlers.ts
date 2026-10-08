@@ -1,15 +1,31 @@
-import type { CompletedMotion, MeetingAction, Votes } from '../../types/index.js';
+import type { CompletedMotion, MeetingAction, MeetingState, Votes } from '../../types/index.js';
 import {
   LOG_QUORUM_WARNING,
   logDivisionCalled,
   logRollCallVote,
+  logVoiceVoteDeclared,
 } from '../../constants/logMessages.js';
-import { NO_VOTES, addVotes, calculateVoteResult } from '../../utils/voteCalculator.js';
+import {
+  NO_VOTES,
+  addVotes,
+  calculateVoteResult,
+  motionThreshold,
+} from '../../utils/voteCalculator.js';
 import { decide } from './decisions.js';
 import { decisionContext, quorumNow } from './records.js';
+import type { ActionHandler } from './types.js';
 
 const floorCounted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
-import type { ActionHandler } from './types.js';
+
+/**
+ * What a declared voice vote's result changed, as it stood before: put back if a member calls
+ * for a division. Absent fields are kept as null, so the snapshot survives being stored as JSON.
+ */
+function snapshot(state: MeetingState, keys: Iterable<string>): Partial<MeetingState> {
+  const fields: Record<string, unknown> = {};
+  for (const key of keys) fields[key] = state[key as keyof MeetingState] ?? null;
+  return fields as Partial<MeetingState>;
+}
 
 export const votingHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -92,6 +108,23 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       const caller = typedAction.fromFloor
         ? null
         : state.members.find((m) => m.id === typedAction.requesterId)?.name;
+      // Right after the chair declared its result (RONR 29:7): the decision is undone and the
+      // vote opened again, to be counted
+      const declared = !state.votingOpen ? state.voiceVote : null;
+      if (declared?.undo) {
+        return {
+          ...state,
+          ...declared.undo,
+          voiceVote: null,
+          voteTimerEnd: null,
+          votes: NO_VOTES,
+          voters: [],
+          voterChoices: {},
+          floorVotes: NO_VOTES,
+          divisionCalled: true,
+          meetingLog: log(typedAction.timestamp, logDivisionCalled(caller ?? null)),
+        };
+      }
       return {
         ...state,
         // For this vote only: the meeting's way of voting is unchanged
@@ -111,11 +144,15 @@ export const votingHandler: ActionHandler = (state, action, log) => {
 
     case 'CLOSE_VOTING': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_VOTING' }>;
+      // The chair declares a voice vote's result without a count ("The ayes have it"): no votes
+      // are recorded, and a member may still call for a division
+      const declared = typedAction.declared;
       // The result counts the device votes and the chair's floor tally together
-      const floorVotes = state.floorVotes ?? NO_VOTES;
+      const floorVotes = declared ? NO_VOTES : (state.floorVotes ?? NO_VOTES);
+      const deviceVotes = declared ? NO_VOTES : state.votes;
       const voteCalc = calculateVoteResult(
-        addVotes(state.votes, floorVotes),
-        state.currentMotion?.vote || 'majority',
+        addVotes(deviceVotes, floorVotes),
+        state.currentMotion ? motionThreshold(state.currentMotion) : 'majority',
       );
       const { yea, nay } = voteCalc;
       const isBallot = state.votingMethod === 'ballot';
@@ -124,7 +161,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       // sustained?" (YEA = sustain). RONR: a majority or a tie sustains the chair, so the
       // chair is overturned only by a majority against.
       const isAppeal = state.currentMotion?.type === 'appeal';
-      const passed = isAppeal ? nay <= yea : voteCalc.passed;
+      const passed = declared ? declared === 'ayes' : isAppeal ? nay <= yea : voteCalc.passed;
 
       const voteResultText = isAppeal
         ? passed
@@ -163,13 +200,14 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         mover: decided.mover,
         moverId: decided.moverId,
         passed,
-        voterChoices: isBallot ? {} : state.voterChoices,
+        voterChoices: isBallot || declared ? {} : state.voterChoices,
         timestamp: typedAction.timestamp,
         reconsidered: false,
         reconsiderable: decided.reconsidered,
-        deviceVotes: state.votes,
+        deviceVotes,
         floorVotes,
         method: state.divisionCalled ? 'standard' : state.votingMethod,
+        ...(declared ? { declared } : {}),
         ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
         // The change a bylaw amendment proposed: the text adopted (or not), for the sync and
         // the minutes
@@ -188,19 +226,38 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         floorCounted(floorVotes) && (state.votingMethod !== 'voice' || state.divisionCalled)
           ? ` On devices ${state.votes.yea} to ${state.votes.nay}, in the room ${floorVotes.yea} to ${floorVotes.nay}.`
           : '';
+      const resultLog = declared
+        ? logVoiceVoteDeclared(declared, voteResultText)
+        : `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${partsLog}`;
 
-      return {
-        ...state,
+      const closed: Partial<MeetingState> = {
         votingOpen: false,
         voteTimerEnd: null,
         divisionCalled: false,
         ...(isBallot && { voterChoices: {}, proxyVotes: [] }),
         defeatedMotions,
         ...outcome.state,
-        meetingLog: log(
-          typedAction.timestamp,
-          `Vote: Yea ${yea}, Nay ${nay}. ${voteResultText}.${partsLog}${outcome.log}`,
-        ),
+      };
+      return {
+        ...state,
+        ...closed,
+        // A division may still be called on a declared result: what deciding it changed is kept,
+        // to be put back
+        voiceVote: declared
+          ? {
+              motionId: decided.id,
+              passed,
+              undo: snapshot(state, [
+                ...Object.keys(closed),
+                'votes',
+                'voters',
+                'voterChoices',
+                'floorVotes',
+                'proxyVotes',
+              ]),
+            }
+          : null,
+        meetingLog: log(typedAction.timestamp, `${resultLog}${outcome.log}`),
       };
     }
 

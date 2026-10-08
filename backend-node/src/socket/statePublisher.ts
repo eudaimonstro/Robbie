@@ -38,10 +38,15 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
   );
   const openElection = !!state.currentElection?.votingInProgress;
   const hideMinutes = role === 'guest' && !!state.minutesFromPreviousMeeting;
-  if (!openBallot && !ballotChoices && !openElection && !hideMinutes) return state;
+  // What a declared voice vote's division would put back stays on the server
+  const voiceUndo = !!state.voiceVote?.undo;
+  if (!openBallot && !ballotChoices && !openElection && !hideMinutes && !voiceUndo) return state;
   return {
     ...state,
     ...(hideMinutes && { minutesFromPreviousMeeting: '' }),
+    ...(voiceUndo && {
+      voiceVote: { motionId: state.voiceVote!.motionId, passed: state.voiceVote!.passed },
+    }),
     ...(openBallot && {
       votes: NO_VOTES,
       voterChoices: {},
@@ -52,6 +57,8 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
         m.method === 'ballot' ? { ...m, voterChoices: {} } : m,
       ),
     }),
+    // The paper count the chair entered is the chair's own, like a floor tally; the running
+    // count of the ballots stays hidden until the ballot closes
     ...(openElection && {
       currentElection: { ...state.currentElection!, ballotResults: {} },
     }),
