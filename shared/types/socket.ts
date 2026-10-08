@@ -39,6 +39,8 @@ export interface JoinMeetingResponse {
   members?: Member[];
   error?: string;
   errorCode?: ActionErrorCode;
+  /** A join refused for now (RATE_LIMITED, or the server's own failure): when to try again */
+  retryAfterMs?: number;
 }
 
 export interface DispatchActionPayload {
@@ -68,7 +70,24 @@ export interface StateUpdatePayload {
     actionType: string;
     userId: number;
   };
+  /**
+   * The version of the update before this one in the room. A client that has it (or a later
+   * one) applies `tails` and `unchanged`; one that doesn't asks for the state (REQUEST_STATE).
+   */
+  baseVersion?: number;
+  /**
+   * The history the meeting only adds to, sent as what was added: for each field named, `state`
+   * holds the entries from that index on, and the client keeps its own entries before it
+   */
+  tails?: Partial<Record<StateTailField, number>>;
+  /** Fields not sent (left empty in `state`) because they are as in the update before */
+  unchanged?: StateUnchangedField[];
 }
+
+/** The fields an update may send as a tail (see StateUpdatePayload.tails) */
+export type StateTailField = 'meetingLog' | 'completedMotions';
+/** The fields an update may leave out when they haven't changed */
+export type StateUnchangedField = 'minutesFromPreviousMeeting';
 
 export interface ActionRejectedPayload {
   clientSequence: number;

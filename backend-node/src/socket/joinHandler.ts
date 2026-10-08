@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { Member } from '@robbie-bylawyer/shared/types';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -9,7 +9,7 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import { roomManager } from './roomManager.js';
 import { getStorage, type MeetingRecord } from '../db/meetingStorage.js';
-import { joinRateLimiter } from './rateLimiter.js';
+import { joinFloodLimiter, joinRateLimiter } from './rateLimiter.js';
 import { applyAction, type ApplyActionResult } from './stateManager.js';
 import { scheduleReconcile } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
@@ -21,10 +21,8 @@ import {
   stateFromPacket,
   type MeetingPacketInfo,
 } from './meetingPacket.js';
-import { deriveMeetingRole, roleChanges, updateSocketRoles } from './meetingRoles.js';
+import { deriveMeetingRole, staleRoles, updateSocketRoles } from './meetingRoles.js';
 import { previousMinutesFor } from '../bylawyer/services/meetingMinutes.js';
-import { findSessionById } from '../auth/sessionService.js';
-import { hasAcceptedTerms } from '../auth/terms.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
 
@@ -48,6 +46,8 @@ export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the
 export const MEETING_ENDED = 'This meeting has adjourned';
 /** The answer when a join fails for a reason of the server's (the details go to the log) */
 export const JOIN_FAILED = "Couldn't join the meeting. Try again.";
+/** When a client tries again after a join failed for a reason of the server's */
+export const JOIN_RETRY_MS = 3000;
 
 /**
  * The live meeting for a packet, created from it when the first person arrives. A live state
@@ -56,7 +56,10 @@ export const JOIN_FAILED = "Couldn't join the meeting. Try again.";
  * shown: it is deleted, and the meeting starts from the packet. Before the call to order, the
  * previous meeting's minutes are put before it.
  */
-async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
+/** A live meeting as a join opened it: changed when opening it changed its state */
+type OpenedMeeting = MeetingRecord & { changed?: boolean };
+
+async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting> {
   const storage = getStorage();
   let existing = await storage.getMeeting(packet.robbieCode);
   if (existing?.state.organizationId && existing.state.organizationId !== packet.organizationId) {
@@ -67,7 +70,7 @@ async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
     await storage.deleteMeeting(packet.robbieCode);
     existing = null;
   }
-  let meeting: MeetingRecord;
+  let meeting: OpenedMeeting;
   if (!existing) {
     const rosterVoters = await countRosterVoters(packet.organizationId);
     meeting = await storage.getOrCreateMeeting(
@@ -85,7 +88,7 @@ async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
       timestamp: new Date().toISOString(),
     });
     meeting = result.success
-      ? { ...existing, state: result.state, stateVersion: result.stateVersion }
+      ? { ...existing, state: result.state, stateVersion: result.stateVersion, changed: true }
       : existing;
   }
   return withPreviousMinutes(packet, meeting);
@@ -98,8 +101,8 @@ async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
  */
 async function withPreviousMinutes(
   packet: MeetingPacketInfo,
-  meeting: MeetingRecord,
-): Promise<MeetingRecord> {
+  meeting: OpenedMeeting,
+): Promise<OpenedMeeting> {
   if (meeting.state.meetingStage !== 'not-started' || meeting.state.previousMinutesId) {
     return meeting;
   }
@@ -112,7 +115,7 @@ async function withPreviousMinutes(
       minutesId: previous.id,
     });
     return result.success
-      ? { ...meeting, state: result.state, stateVersion: result.stateVersion }
+      ? { ...meeting, state: result.state, stateVersion: result.stateVersion, changed: true }
       : meeting;
   } catch (error) {
     logger.error(
@@ -123,9 +126,26 @@ async function withPreviousMinutes(
   }
 }
 
+/** A join refused for too many attempts: when the client may try again */
+function refuseForNow(
+  callback: (response: JoinMeetingResponse) => void,
+  retryAfterMs: number,
+): void {
+  callback({
+    success: false,
+    error: `Too many join attempts. Please wait ${Math.ceil(retryAfterMs / 1000)} seconds.`,
+    errorCode: 'RATE_LIMITED',
+    retryAfterMs,
+  });
+}
+
 /**
  * Handle JOIN_MEETING socket event. A live meeting is a scheduled meeting: a code without a
  * packet is refused, and each person's role comes from the packet's organization.
+ *
+ * A phone joins again on every reconnect (the server keeps no connection state to recover), so a
+ * join by a member already present changes nothing: no write, no broadcast, and the joiner gets
+ * the state once, in the answer.
  */
 export async function handleJoinMeeting(
   socket: TypedSocket,
@@ -137,18 +157,20 @@ export async function handleJoinMeeting(
     // The socket was authenticated at connection (socketAuth)
     const userId = socket.data.userId;
 
-    // Rate limit join attempts per user
-    if (!joinRateLimiter.consume(userId)) {
-      const retryAfter = joinRateLimiter.getRetryAfter(userId);
-      callback({
-        success: false,
-        error: `Too many join attempts. Please wait ${Math.ceil(retryAfter / 1000)} seconds.`,
-      });
+    // Joins that found no meeting are limited (against guessing codes), and every join has a
+    // generous backstop; a join that finds the meeting spends nothing against guessing
+    if (!joinRateLimiter.allows(userId)) {
+      refuseForNow(callback, joinRateLimiter.getRetryAfter(userId));
+      return;
+    }
+    if (!joinFloodLimiter.consume(userId)) {
+      refuseForNow(callback, joinFloodLimiter.getRetryAfter(userId));
       return;
     }
 
     const parsedCode = meetingCodeSchema.safeParse(data.meetingCode);
     if (!parsedCode.success) {
+      joinRateLimiter.consume(userId);
       callback({ success: false, error: parsedCode.error.issues[0].message });
       return;
     }
@@ -163,6 +185,7 @@ export async function handleJoinMeeting(
     const packet = await findMeetingPacket(meetingCode);
     const person = packet ? await findPerson(packet.organizationId, userId) : null;
     if (!packet || !person) {
+      joinRateLimiter.consume(userId);
       callback({ success: false, error: NO_MEETING, errorCode: 'MEETING_NOT_FOUND' });
       return;
     }
@@ -185,6 +208,9 @@ export async function handleJoinMeeting(
       socket.data.role = 'guest';
       socket.data.display = true;
       socket.join(roomName);
+      if (meeting.changed) {
+        emitState(io, meetingCode, { state: meeting.state, stateVersion: meeting.stateVersion });
+      }
       callback({
         success: true,
         state: publicState(meeting.state, 'guest'),
@@ -224,16 +250,21 @@ export async function handleJoinMeeting(
     const timestamp = new Date().toISOString();
     let currentState = meeting.state;
     let currentVersion = meeting.stateVersion;
+    // Opening the meeting may have changed it (its organization, the previous minutes)
+    let changed = !!meeting.changed;
     const track = (result: ApplyActionResult) => {
-      if (result.success) {
+      if (result.success && result.changed) {
         currentState = result.state;
         currentVersion = result.stateVersion;
+        changed = true;
       }
+      return result.success && result.changed;
     };
 
-    // Add the member, or mark them present again
+    // Add the member, or mark them present again (nothing changes for one already present on a
+    // device: a phone reconnecting)
     const existing = currentState.members.find((m) => m.id === userId);
-    track(
+    const arrived = track(
       await applyAction(
         meetingCode,
         existing
@@ -243,14 +274,19 @@ export async function handleJoinMeeting(
     );
 
     // This member's name and role as the organization has them now, and the roles of others
-    // that changed since they joined (a new presiding officer, a changed role, a restart);
-    // other members keep their names (one taken in the meeting stays)
-    const others = await roleChanges(
-      packet,
-      currentState.members.filter((m) => m.id !== userId),
-    );
+    // that changed since they joined (a new presiding officer, a changed role, a restart), all
+    // checked at most once a minute; other members keep their names (one taken in the meeting
+    // stays)
     const self = currentState.members.find((m) => m.id === userId);
     const selfChanged = !!self && (self.name !== name || self.role !== role);
+    const stateChair = currentState.members.find((m) => m.role === 'chair')?.id ?? null;
+    const others = await staleRoles(
+      meetingCode,
+      packet,
+      currentState.members.filter((m) => m.id !== userId),
+      // A chair shown who no longer presides
+      selfChanged || (stateChair !== null && stateChair !== packet.chairUserId),
+    );
     const changes = selfChanged ? [{ id: userId, name, role }, ...others] : others;
     if (changes.length > 0) {
       track(
@@ -265,18 +301,22 @@ export async function handleJoinMeeting(
     // is here
     scheduleReconcile(io, meetingCode);
 
-    // Notify others of member joined
-    socket.to(roomName).emit('MEMBER_JOINED', {
-      member: memberData,
-      timestamp,
-    });
+    // The others hear of an arrival, not of a phone reconnecting
+    if (arrived) {
+      socket.to(roomName).emit('MEMBER_JOINED', {
+        member: memberData,
+        timestamp,
+      });
+    }
 
-    // Broadcast updated state to all (including the joiner via callback)
-    emitState(io, meetingCode, {
-      state: currentState,
-      stateVersion: currentVersion,
-      triggeredBy: { actionType: 'MEMBER_JOINED', userId },
-    });
+    // The room gets the new state (the joiner has it in the answer)
+    if (changed) {
+      emitState(io, meetingCode, {
+        state: currentState,
+        stateVersion: currentVersion,
+        triggeredBy: { actionType: 'MEMBER_JOINED', userId },
+      });
+    }
 
     callback({
       success: true,
@@ -285,123 +325,9 @@ export async function handleJoinMeeting(
       members: roomManager.getMembers(meetingCode),
     });
   } catch (error) {
-    // The error names files, hosts and queries: the log has it, the client a plain answer
+    // The error names files, hosts and queries: the log has it, the client a plain answer, and
+    // when to try again
     logger.error({ err: error }, 'Error joining meeting');
-    callback({ success: false, error: JOIN_FAILED });
-  }
-}
-
-/**
- * A socket that connection state recovery brought back (after a moment without signal):
- * socket.io restores its rooms and socket.data, and the client doesn't join again, so the
- * connection middleware (socketAuth) and the join's checks don't run. The session may have
- * been signed out and the organization may have changed the person's role while the socket
- * was away: a socket without a live session is closed (a display too), and the role is derived
- * again as on a join. Then count it as connected again, which ends its grace period; if the
- * grace period ran out meanwhile, the member is present again.
- *
- * A recovered socket in no meeting has its session checked too.
- *
- * Until the checks pass the socket is in no meeting, so an action it sends meanwhile is refused
- * ("Not in a meeting"). A socket whose check fails is closed rather than left half recovered.
- */
-export async function handleRecoveredSocket(socket: TypedSocket, io: TypedServer): Promise<void> {
-  const meetingCode = socket.data.meetingCode;
-  if (!meetingCode) {
-    // In no meeting, there is only the session to check: signed out, expired or suspended
-    // while the socket was away, it is closed
-    try {
-      const session = await findSessionById(socket.data.sessionId);
-      if (!session || !hasAcceptedTerms(session.termsVersion)) socket.disconnect(true);
-    } catch (error) {
-      socket.disconnect(true);
-      throw error;
-    }
-    return;
-  }
-  socket.data.meetingCode = null;
-
-  // The disconnect handler needs the meeting to clear the socket's place in it
-  const close = () => {
-    socket.data.meetingCode = meetingCode;
-    socket.disconnect(true);
-  };
-  try {
-    await recoverSocket(socket, io, meetingCode, close);
-  } catch (error) {
-    close();
-    throw error;
-  }
-}
-
-async function recoverSocket(
-  socket: TypedSocket,
-  io: TypedServer,
-  meetingCode: string,
-  close: () => void,
-): Promise<void> {
-  const { userId } = socket.data;
-
-  const session = await findSessionById(socket.data.sessionId);
-  if (!session || !hasAcceptedTerms(session.termsVersion)) {
-    close();
-    return;
-  }
-  const packet = await findMeetingPacket(meetingCode);
-  // A display shows the meeting while it is on the schedule; it isn't a member of it
-  if (packet && socket.data.display) {
-    socket.data.meetingCode = meetingCode;
-    return;
-  }
-  const person = packet ? await findPerson(packet.organizationId, userId) : null;
-  if (!packet || !person) {
-    // The meeting is gone, canceled say (as a join would find); the disconnect handler takes
-    // it from here
-    close();
-    return;
-  }
-  const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
-  socket.data.role = role;
-  socket.data.meetingCode = meetingCode;
-  // Dropped again meanwhile, when the disconnect handler found it in no meeting: socket.io
-  // saved this same data, so the next recovery brings it back to its meeting and checks again
-  if (!socket.connected) return;
-  roomManager.addMember(meetingCode, socket.id, {
-    id: userId,
-    name: socket.data.name,
-    role,
-    present: true,
-  });
-
-  const meeting = await getStorage().getMeeting(meetingCode);
-  const member = meeting?.state.members.find((m) => m.id === userId);
-  if (!member) return;
-  const timestamp = new Date().toISOString();
-  let latest: { state: MeetingState; stateVersion: number } | null = null;
-
-  if (member.role !== role) {
-    const refreshed = await applyAction(meetingCode, {
-      type: 'REFRESH_MEMBERS',
-      members: [{ id: userId, name: member.name, role }],
-      timestamp,
-    });
-    if (refreshed.success) latest = refreshed;
-    await updateSocketRoles(io, meetingCode, [{ id: userId, role }]);
-  }
-  if (!member.present) {
-    const present = await applyAction(meetingCode, {
-      type: 'SET_MEMBER_PRESENCE',
-      memberId: userId,
-      present: true,
-      timestamp,
-    });
-    if (present.success) latest = present;
-  }
-  if (latest) {
-    emitState(io, meetingCode, {
-      state: latest.state,
-      stateVersion: latest.stateVersion,
-      triggeredBy: { actionType: 'MEMBER_JOINED', userId },
-    });
+    callback({ success: false, error: JOIN_FAILED, retryAfterMs: JOIN_RETRY_MS });
   }
 }

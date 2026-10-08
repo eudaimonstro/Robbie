@@ -33,11 +33,11 @@ vi.mock('../socket/meetingPacket.js', () => ({
 }));
 vi.mock('../socket/meetingRoles.js', () => ({
   deriveMeetingRole: () => 'member',
-  roleChanges: async () => [],
+  staleRoles: async () => [],
   updateSocketRoles: async () => {},
 }));
 vi.mock('../socket/stateManager.js', () => ({
-  applyAction: async () => ({ success: true, state: initialState, stateVersion: 2 }),
+  applyAction: async () => ({ success: true, state: initialState, stateVersion: 2, changed: true }),
 }));
 vi.mock('../socket/presenceReconciler.js', () => ({ scheduleReconcile: () => {} }));
 

@@ -47,7 +47,7 @@ export async function markDeviceAbsent(
       return { valid: true };
     },
   );
-  if (!result.success) return;
+  if (!result.success || !result.changed) return;
 
   emitState(io, meetingCode, {
     state: result.state,

@@ -63,6 +63,40 @@ export async function roleChanges(
   });
 }
 
+/**
+ * How long after a meeting's roles were all checked against the organization a join checks only
+ * the joiner's own. Changes made in the app reach live meetings at once (syncLiveRoles,
+ * syncOrganizationLiveRoles); this catches the rest (a script, a restart) without reading every
+ * member's role on every one of 150 arrivals.
+ */
+export const ROLE_SWEEP_MS = 60_000;
+/** When each meeting's roles were last all checked, in this process */
+const sweptAt = new Map<string, number>();
+
+/**
+ * The other members' role changes a join brings in: all of them when the meeting's roles
+ * haven't all been checked within ROLE_SWEEP_MS (as roleChanges), or `force` says they must be
+ * (the joiner's own role changed, or the state's chair isn't the packet's); otherwise none
+ */
+export async function staleRoles(
+  meetingCode: string,
+  packet: { organizationId: string; chairUserId: number | null },
+  members: readonly Member[],
+  force = false,
+): Promise<RoleChange[]> {
+  const last = sweptAt.get(meetingCode);
+  if (!force && last !== undefined && Date.now() - last < ROLE_SWEEP_MS) return [];
+  const changes = await roleChanges(packet, members);
+  sweptAt.set(meetingCode, Date.now());
+  return changes;
+}
+
+/** Forget when a meeting's roles were checked (tests; a canceled meeting) */
+export function forgetRoleSweeps(meetingCode?: string): void {
+  if (meetingCode === undefined) sweptAt.clear();
+  else sweptAt.delete(meetingCode);
+}
+
 /** Give connected sockets their members' new roles, so permissions follow at once */
 export async function updateSocketRoles(
   io: TypedServer,
@@ -92,6 +126,7 @@ export async function syncMeetingRoles(
   if (!packet || !meeting) return null;
 
   const changes = await roleChanges(packet, meeting.state.members);
+  sweptAt.set(meetingCode, Date.now());
   if (changes.length === 0) return null;
   const result = await applyAction(meetingCode, {
     type: 'REFRESH_MEMBERS',

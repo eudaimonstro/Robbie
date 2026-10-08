@@ -16,7 +16,7 @@ import { actionRateLimiter } from './rateLimiter.js';
 import { validateAction } from './actionValidator.js';
 import { enrichAction } from './actionEnricher.js';
 import { validateRoleChange, handleRoleChangePostAction } from './roleChangeHandler.js';
-import { applyAction } from './stateManager.js';
+import { applyAction, DEFERRED_WRITES } from './stateManager.js';
 import { recordMeetingTimes } from './meetingPacket.js';
 import { afterAttendanceAction, prepareAttendanceAction } from './attendanceActions.js';
 import { prepareBylawMotion } from './bylawMotion.js';
@@ -131,9 +131,8 @@ export async function handleDispatchAction(
       return;
     }
 
-    // Fetch meeting state once for validation and enrichment
-    const storage = getStorage();
-    const meeting = await storage.getMeeting(meetingCode);
+    // The meeting's state (in memory) once, for validation and enrichment
+    const meeting = await getStorage().peekMeeting(meetingCode);
     if (!meeting) {
       callback({
         success: false,
@@ -256,15 +255,25 @@ export async function handleDispatchAction(
 
     // Broadcast new state to all clients in the room, after the role change (so a new chair's
     // socket already has its permissions) and before the bylaw sync (so the vote result isn't
-    // held up by database work). Clients ignore a state older than the one they have.
-    emitState(io, meetingCode, {
-      state: latest.state,
-      stateVersion: latest.stateVersion,
-      triggeredBy: {
-        actionType: action.type,
-        userId,
-      },
-    });
+    // held up by database work). Clients ignore a state older than the one they have; an action
+    // that changed nothing sends nothing.
+    if (result.changed || afterRoleChange) {
+      emitState(
+        io,
+        meetingCode,
+        {
+          state: latest.state,
+          stateVersion: latest.stateVersion,
+          triggeredBy: {
+            actionType: action.type,
+            userId,
+          },
+        },
+        // Votes and hands come by the hundred and wait for the window; anything else (the
+        // chair's actions, a motion, a decision) goes out at once
+        { immediate: !DEFERRED_WRITES.has(action.type) },
+      );
+    }
 
     callback({ success: true, stateVersion: latest.stateVersion });
 

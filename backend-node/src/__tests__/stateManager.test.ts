@@ -11,13 +11,19 @@ const storage = {
     await tick();
     return { code: 'TEST01', ...structuredClone(record) };
   },
+  async peekMeeting() {
+    return storage.getMeeting();
+  },
+  writes: [] as Array<{ version: number; defer: boolean }>,
   async updateMeetingState(
     _code: string,
     state: MeetingState,
     expectedVersion: number,
     newVersion: number,
+    options: { defer?: boolean } = {},
   ) {
     await tick();
+    storage.writes.push({ version: newVersion, defer: !!options.defer });
     if (record.stateVersion !== expectedVersion) {
       return { success: false, error: 'VERSION_CONFLICT' };
     }
@@ -35,6 +41,7 @@ describe('applyAction', () => {
   beforeEach(() => {
     record.state = { ...initialState, meetingActive: true };
     record.stateVersion = 0;
+    storage.writes = [];
   });
 
   it('applies every one of many concurrent actions on a meeting', async () => {
@@ -73,5 +80,38 @@ describe('applyAction', () => {
 
     expect(first.success).toBe(true);
     expect(second).toMatchObject({ success: false, error: 'Already present' });
+  });
+
+  it('writes nothing and keeps the version for an action that changes nothing', async () => {
+    record.state.members = [
+      { id: 1, name: 'Member 1', role: 'member', present: true, presentBy: 'device' },
+    ];
+    record.stateVersion = 4;
+
+    // A phone reconnecting for a member already present
+    const result = await applyAction('TEST01', {
+      type: 'SET_MEMBER_PRESENCE',
+      memberId: 1,
+      present: true,
+      timestamp: '',
+    });
+
+    expect(result).toMatchObject({ success: true, stateVersion: 4, changed: false });
+    expect(storage.writes).toEqual([]);
+  });
+
+  it('lets a vote in progress wait to be written, and writes a decision at once', async () => {
+    record.state.members = [
+      { id: 1, name: 'Member 1', role: 'member', present: true, presentBy: 'device' },
+    ];
+    record.state.votingOpen = true;
+
+    await applyAction('TEST01', { type: 'CAST_VOTE', vote: 'yea', voterId: 1 });
+    await applyAction('TEST01', { type: 'CLOSE_VOTING', timestamp: '' });
+
+    expect(storage.writes).toEqual([
+      { version: 1, defer: true },
+      { version: 2, defer: false },
+    ]);
   });
 });

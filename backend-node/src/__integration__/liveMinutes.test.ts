@@ -5,6 +5,7 @@ import { prisma } from '../db/prisma.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { liveSockets, type FakeSocket } from './liveSockets.js';
+import { forgetBroadcasts } from '../socket/statePublisher.js';
 
 const live = liveSockets();
 const stateOf = async (code: string): Promise<MeetingState> =>
@@ -128,6 +129,9 @@ describe('minutes in a live meeting', () => {
     expect(joined.state?.previousMinutesId).toBe(f.minutes);
 
     live.broadcasts.length = 0;
+    // The room was sent the text when the meeting opened; later updates leave it out while it
+    // is the same. Forgotten, the next update carries it again, and is split by role.
+    forgetBroadcasts(f.packet.code);
     await act(secretary, { type: 'START_MEETING' });
     const updates = live.broadcasts.filter((b) => b.event === 'STATE_UPDATE');
     const stateIn = (b: (typeof updates)[number]) => (b.payload as { state: MeetingState }).state;
