@@ -23,7 +23,7 @@ vi.mock('../socket/meetingPacket.js', () => ({
           title: null,
           scheduledFor: null,
           chairUserId: null,
-          organization: { name: 'Org', eligibleVoters: null, quorumPercent: null, quorumCount: 3 },
+          organization: { name: 'Org', eligibleVoters: 20, quorumPercent: null, quorumCount: 3 },
           agendaItems: [],
         }
       : null,

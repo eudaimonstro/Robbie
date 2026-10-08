@@ -1,5 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import { isQuorumSet } from '@robbie-bylawyer/shared/utils';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -44,6 +45,8 @@ export const NO_MEETING = 'No meeting with that code';
 export const NAME_FIRST = 'Set your name first';
 export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the display";
 export const MEETING_ENDED = 'This meeting has adjourned';
+export const QUORUM_NOT_SET =
+  "The meeting can't open yet: the organization's voting members and quorum aren't set. An admin sets them in Settings.";
 /** The answer when a join fails for a reason of the server's (the details go to the log) */
 export const JOIN_FAILED = "Couldn't join the meeting. Try again.";
 /** When a client tries again after a join failed for a reason of the server's */
@@ -54,12 +57,13 @@ export const JOIN_RETRY_MS = 3000;
  * saved before it recorded its organization, title and date gets them from the packet. A live
  * state of another organization (left by one that had this code and was deleted) is never
  * shown: it is deleted, and the meeting starts from the packet. Before the call to order, the
- * previous meeting's minutes are put before it.
+ * previous meeting's minutes are put before it. A meeting not yet open doesn't open (null)
+ * until the organization has set its voting members and quorum: its quorum would be a guess.
  */
 /** A live meeting as a join opened it: changed when opening it changed its state */
 type OpenedMeeting = MeetingRecord & { changed?: boolean };
 
-async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting> {
+async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting | null> {
   const storage = getStorage();
   let existing = await storage.getMeeting(packet.robbieCode);
   if (existing?.state.organizationId && existing.state.organizationId !== packet.organizationId) {
@@ -72,6 +76,7 @@ async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting> {
   }
   let meeting: OpenedMeeting;
   if (!existing) {
+    if (!isQuorumSet(packet.organization)) return null;
     const rosterVoters = await countRosterVoters(packet.organizationId);
     meeting = await storage.getOrCreateMeeting(
       packet.robbieCode,
@@ -213,6 +218,10 @@ export async function handleJoinMeeting(
         await handleDisconnect(socket, io, 'disconnect');
       }
       const meeting = await openMeeting(packet);
+      if (!meeting) {
+        callback({ success: false, error: QUORUM_NOT_SET, errorCode: 'QUORUM_NOT_SET' });
+        return;
+      }
       socket.data.meetingCode = meetingCode;
       socket.data.role = 'guest';
       socket.data.display = true;
@@ -247,6 +256,10 @@ export async function handleJoinMeeting(
     }
     const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
     const meeting = await openMeeting(packet);
+    if (!meeting) {
+      callback({ success: false, error: QUORUM_NOT_SET, errorCode: 'QUORUM_NOT_SET' });
+      return;
+    }
 
     // Store socket data
     socket.data.name = name;

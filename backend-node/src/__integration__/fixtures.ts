@@ -65,6 +65,9 @@ export async function seedFixture(): Promise<Fixture> {
       name: 'Org A',
       slug: 'org-a',
       createdById: users.owner.id,
+      // Set up, so its meetings can open
+      eligibleVoters: 20,
+      quorumCount: 3,
       members: { create: ROLES.map((role) => ({ userId: users[role].id, role })) },
     },
   });
@@ -72,6 +75,8 @@ export async function seedFixture(): Promise<Fixture> {
     data: {
       name: 'Org B',
       slug: 'org-b',
+      eligibleVoters: 20,
+      quorumCount: 3,
       members: { create: { userId: outsider.id, role: 'owner' } },
     },
   });
@@ -189,6 +194,7 @@ export async function seedFixture(): Promise<Fixture> {
     data: {
       organizationId: orgA.id,
       email: 'pending@example.org',
+      name: 'Pat Pending',
       role: 'member',
       invitedById: users.admin.id,
     },

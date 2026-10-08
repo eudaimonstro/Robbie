@@ -22,11 +22,11 @@ model Organization {
   updatedAt   DateTime @updatedAt
 
   // How many voting members the organization has (for an HOA, lots or units): the quorum
-  // denominator. Null means the roster's members with the member role or above.
+  // denominator. Null until set: a meeting can't open before it and the quorum are set.
   eligibleVoters Int?
-  // Quorum: a percentage of eligibleVoters, or a fixed count. One of the two is set.
+  // Quorum: a percentage of eligibleVoters, or a fixed count. Null until set, then one of the two.
   quorumPercent  Int?
-  quorumCount    Int?   @default(3)
+  quorumCount    Int?
   // Where its meetings are held, as an IANA name: the minutes give times there
   timeZone       String @default("America/Chicago")
 
@@ -353,7 +353,13 @@ model OrganizationInvite {
   id             String       @id @default(uuid())
   organizationId String
   email          String // lowercased
+  // The person's name as whoever added them gave it: the roster shows it before they sign in,
+  // and the sign-in name step starts from it
+  name           String?
   role           OrgRole
+  // Whether the person was emailed about it: a bulk addition isn't, and only emailed additions
+  // count toward the organization's daily limit
+  emailed        Boolean      @default(true)
   invitedById    Int?
   createdAt      DateTime     @default(now())
   acceptedAt     DateTime? // set when it became a membership

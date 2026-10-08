@@ -39,7 +39,7 @@ describe('joining a live meeting', () => {
   it('creates the live meeting from its packet', async () => {
     await prisma.organization.update({
       where: { id: f.orgA.id },
-      data: { quorumPercent: 50, quorumCount: null },
+      data: { eligibleVoters: 9, quorumPercent: 50, quorumCount: null },
     });
     await prisma.meetingPacket.update({
       where: { id: f.packet.id },
@@ -53,8 +53,8 @@ describe('joining a live meeting', () => {
       organizationId: f.orgA.id,
       title: 'October meeting',
       scheduledFor: '2026-10-20T19:00:00.000Z',
-      // Half of the 4 members with the member role or above
-      quorum: 2,
+      // Half of the 9 voting members, rounded up
+      quorum: 5,
       headcount: 0,
       agenda: [
         { id: 1, title: 'Reports', status: 'pending', packetItemId: f.item },
@@ -67,6 +67,38 @@ describe('joining a live meeting', () => {
     await prisma.organization.update({ where: { id: f.orgA.id }, data: { quorumCount: 29 } });
     const res = await live.join(live.connect(f.users.member), f.packet.code);
     expect(res.state?.quorum).toBe(29);
+  });
+
+  it("won't open a meeting until the organization has set its voting members and quorum", async () => {
+    // The old default: a quorum count of 3 and no voting members
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { eligibleVoters: null, quorumPercent: null, quorumCount: 3 },
+    });
+    const refused = {
+      success: false,
+      error:
+        "The meeting can't open yet: the organization's voting members and quorum aren't set. An admin sets them in Settings.",
+      errorCode: 'QUORUM_NOT_SET',
+    };
+    expect(await live.join(live.connect(f.users.member), f.packet.code)).toEqual(refused);
+    expect(await live.join(live.connect(f.users.admin), f.packet.code, true)).toEqual(refused);
+    expect(await getStorage().getMeeting(f.packet.code)).toBeNull();
+
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { eligibleVoters: 40, quorumCount: 10 },
+    });
+    const opened = await live.join(live.connect(f.users.member), f.packet.code);
+    expect(opened.success).toBe(true);
+    expect(opened.state?.quorum).toBe(10);
+
+    // A meeting already open goes on if the settings are cleared meanwhile
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { eligibleVoters: null },
+    });
+    expect((await live.join(live.connect(f.users.admin), f.packet.code)).success).toBe(true);
   });
 
   it('gives each person the role their organization gives them', async () => {
@@ -423,7 +455,13 @@ describe('meeting storage', () => {
   beforeEach(resetLiveMeetings);
 
   it('fills in the fields a stored meeting was saved without', async () => {
-    const { headcount: _h, headcountNames: _n, floorVotes: _f, ...old } = initialState;
+    const {
+      headcount: _h,
+      headcountNames: _n,
+      proxiesHeld: _p,
+      floorVotes: _f,
+      ...old
+    } = initialState;
     await pool.query(
       `INSERT INTO meetings (code, current_state, state_version) VALUES ('OLD001', $1, 3)`,
       [JSON.stringify({ ...old, meetingCode: 'OLD001' })],
@@ -434,6 +472,7 @@ describe('meeting storage', () => {
       meetingCode: 'OLD001',
       headcount: 0,
       headcountNames: [],
+      proxiesHeld: 0,
       floorVotes: { yea: 0, nay: 0, abstain: 0 },
     });
   });

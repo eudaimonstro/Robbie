@@ -72,7 +72,15 @@ organizationsRouter.post(
   heavyWriteLimiter,
   async (req, res) => {
     try {
-      const { name, slug: providedSlug, description, timeZone } = req.body;
+      const {
+        name,
+        slug: providedSlug,
+        description,
+        timeZone,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
+      } = req.body;
       const slug = providedSlug || generateSlug(name);
 
       // Check for existing slug
@@ -86,6 +94,9 @@ organizationsRouter.post(
         slug,
         description,
         timeZone,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
       });
       res.status(201).json(org);
     } catch (error) {
