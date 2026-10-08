@@ -63,6 +63,7 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
           <BylawyerLinkPanel
             meetingCode={meetingCode}
             suggestedOrgId={organizationId ?? undefined}
+            calledToOrder={state.meetingStage !== 'not-started'}
           />
         )}
         <MeetingDocumentsPanel meetingCode={meetingCode} />

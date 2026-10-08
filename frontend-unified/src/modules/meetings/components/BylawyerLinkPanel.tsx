@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link, Unlink, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
 import {
@@ -13,13 +13,20 @@ import { atLeast } from '../../../utils/roles';
 interface BylawyerLinkPanelProps {
   meetingCode: string;
   suggestedOrgId?: string;
+  /** The meeting has been called to order: its link (and its minutes) stay */
+  calledToOrder?: boolean;
 }
 
 /**
  * Links this live meeting to one of the user's organizations, so a bylaw amendment passed in it
- * reaches that organization's documents. Linking and unlinking need the secretary role there.
+ * reaches that organization's documents. Linking and unlinking need the secretary role there;
+ * unlinking asks first, and ends with the call to order (the server refuses it after).
  */
-export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkPanelProps) {
+export function BylawyerLinkPanel({
+  meetingCode,
+  suggestedOrgId,
+  calledToOrder = false,
+}: BylawyerLinkPanelProps) {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { setCurrentOrganization } = useMeetingOrganization();
@@ -29,6 +36,20 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  // Unlink is asking, with Keep the link focused; answering it returns focus to Unlink
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const unlinkRef = useRef<HTMLButtonElement>(null);
+  const refocusUnlink = useRef(false);
+
+  useEffect(() => {
+    if (confirmingUnlink) {
+      keepRef.current?.focus();
+    } else if (refocusUnlink.current) {
+      refocusUnlink.current = false;
+      unlinkRef.current?.focus();
+    }
+  }, [confirmingUnlink]);
 
   // Only the organizations where the user may link a meeting
   const linkable = organizations.filter((org) => atLeast(org.role, 'secretary'));
@@ -81,7 +102,8 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   };
 
   const handleUnlink = async () => {
-    if (!meetingCode) return;
+    if (!meetingCode || calledToOrder) return;
+    setConfirmingUnlink(false);
     try {
       setLoading(true);
       await bylawSync.unlinkMeeting(meetingCode);
@@ -101,7 +123,8 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
   };
 
   const linked = linkedOrg?.linked ? linkedOrg.organization : null;
-  const canUnlink = linked !== null && linkable.some((org) => org.id === linked.id);
+  const canUnlink =
+    !calledToOrder && linked !== null && linkable.some((org) => org.id === linked.id);
 
   /** Show the linked organization's documents, not the header's */
   const viewDocuments = () => {
@@ -165,16 +188,46 @@ export function BylawyerLinkPanel({ meetingCode, suggestedOrgId }: BylawyerLinkP
             </button>
           </div>
 
-          {canUnlink && (
-            <button
-              onClick={handleUnlink}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-surface-2 text-ink py-2 px-4 rounded-lg hover:bg-rule disabled:opacity-50"
-            >
-              <Unlink size={16} />
-              Unlink Organization
-            </button>
-          )}
+          {canUnlink &&
+            (confirmingUnlink ? (
+              <div role="group" aria-labelledby="unlinkQuestion" className="space-y-3">
+                <p id="unlinkQuestion" className="text-sm text-ink">
+                  {`Unlink ${linked.name}? The meeting leaves its schedule, and bylaw amendments passed in it no longer reach its documents.`}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleUnlink()}
+                    disabled={loading}
+                    className="btn-danger btn-sm"
+                  >
+                    Yes, unlink
+                  </button>
+                  <button
+                    ref={keepRef}
+                    type="button"
+                    onClick={() => {
+                      refocusUnlink.current = true;
+                      setConfirmingUnlink(false);
+                    }}
+                    className="btn-secondary btn-sm"
+                  >
+                    Keep the link
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                ref={unlinkRef}
+                type="button"
+                onClick={() => setConfirmingUnlink(true)}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 bg-surface-2 text-ink py-2 px-4 rounded-lg hover:bg-rule disabled:opacity-50"
+              >
+                <Unlink size={16} aria-hidden="true" />
+                Unlink Organization
+              </button>
+            ))}
         </div>
       ) : (
         <div className="space-y-3">

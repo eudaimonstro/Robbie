@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { bylawyerRouter } from '../bylawyer/bylawyerRouter.js';
+import { bylawyerRouter, MEETING_STAYS_LINKED } from '../bylawyer/bylawyerRouter.js';
 import { prisma } from '../db/prisma.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -146,6 +146,32 @@ describe('live meetings', () => {
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ error: 'Remove the agenda and attachments first' });
     expect(await prisma.meetingPacket.count({ where: { id: f.packet.id } })).toBe(1);
+  });
+
+  it('stay linked once called to order, with their minutes', async () => {
+    const held = await prisma.meetingPacket.update({
+      where: { id: f.emptyPacket.id },
+      data: { startedAt: new Date('2026-10-01T19:00:00Z') },
+    });
+    const res = await call('delete', `/api/bylawyer/link-meeting/${f.emptyPacket.code}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: MEETING_STAYS_LINKED });
+    expect(await prisma.meetingPacket.count({ where: { id: held.id } })).toBe(1);
+    expect(await prisma.minutes.count({ where: { id: f.minutes } })).toBe(1);
+  });
+
+  it('say a meeting called to order stays linked, whatever its agenda', async () => {
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: new Date('2026-10-01T19:00:00Z') },
+    });
+    const res = await call('delete', `/api/bylawyer/link-meeting/${f.packet.code}`, {
+      cookie: f.users.secretary.cookie,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: MEETING_STAYS_LINKED });
   });
 
   it("unlink only their own organization's packet", async () => {

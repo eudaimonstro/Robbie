@@ -31,13 +31,19 @@ const chess = {
   role: 'member',
 };
 
-function renderPanel() {
+function renderPanel({ calledToOrder = false } = {}) {
   render(
     <MemoryRouter initialEntries={['/meetings/MAPLE1']}>
       <Routes>
         <Route
           path="/meetings/:code"
-          element={<BylawyerLinkPanel meetingCode="MAPLE1" suggestedOrgId="o1" />}
+          element={
+            <BylawyerLinkPanel
+              meetingCode="MAPLE1"
+              suggestedOrgId="o1"
+              calledToOrder={calledToOrder}
+            />
+          }
         />
         <Route path="/" element={<p>Dashboard</p>} />
       </Routes>
@@ -91,6 +97,38 @@ describe('BylawyerLinkPanel', () => {
     api.getMeetingOrganization.mockResolvedValue({ linked: true, organization: chess });
     renderPanel();
     expect(await screen.findByText('Chess Club')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Unlink/ })).toBeNull();
+  });
+
+  it('unlinks only after asking, and keeps the link when told to', async () => {
+    api.getMeetingOrganization.mockResolvedValue({ linked: true, organization: maple });
+    api.unlinkMeeting.mockResolvedValue(undefined);
+    renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Unlink Organization' }));
+    expect(
+      screen.getByText(
+        'Unlink Maple Grove HOA? The meeting leaves its schedule, and bylaw amendments passed in it no longer reach its documents.',
+      ),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep the link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep the link' }));
+    expect(api.unlinkMeeting).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Unlink Organization' }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Unlink Organization' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, unlink' }));
+    await waitFor(() => expect(api.unlinkMeeting).toHaveBeenCalledWith('MAPLE1'));
+    expect(await screen.findByRole('option', { name: 'Maple Grove HOA (Current)' })).toBeTruthy();
+  });
+
+  it('offers no Unlink once the meeting has been called to order', async () => {
+    api.getMeetingOrganization.mockResolvedValue({ linked: true, organization: maple });
+    renderPanel({ calledToOrder: true });
+    expect(await screen.findByText('Maple Grove HOA')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Unlink/ })).toBeNull();
   });
 

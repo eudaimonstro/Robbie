@@ -163,21 +163,27 @@ bylawyerRouter.post(
   linkMeeting,
 );
 
+/** The answer when a meeting called to order is unlinked: its minutes go with its packet */
+export const MEETING_STAYS_LINKED = 'A meeting that has been called to order stays linked';
+
 /**
  * DELETE /api/bylawyer/link-meeting/:meetingCode
- * Unlink a live meeting by deleting its packet, which must have no agenda or attachments
+ * Unlink a live meeting by deleting its packet, which must have no agenda or attachments, and
+ * must not have been called to order (its minutes would go with it)
  */
 const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
   try {
     const { meetingCode } = req.params;
     const organizationId = req.org!.id;
 
-    // One statement, so an item added meanwhile can't be deleted with the packet. It names the
-    // organization too: the code may have been unlinked and linked elsewhere since the rule.
+    // One statement, so an item added or a call to order meanwhile can't be deleted with the
+    // packet. It names the organization too: the code may have been unlinked and linked
+    // elsewhere since the rule.
     const deleted = await prisma.meetingPacket.deleteMany({
       where: {
         robbieCode: meetingCode,
         organizationId,
+        startedAt: null,
         agendaItems: { none: {} },
         attachments: { none: {} },
       },
@@ -185,10 +191,13 @@ const unlinkMeeting: RequestHandler<RouteParams> = async (req, res) => {
     if (deleted.count === 0) {
       const packet = await prisma.meetingPacket.findFirst({
         where: { robbieCode: meetingCode, organizationId },
-        select: { id: true },
+        select: { startedAt: true },
       });
       if (!packet) {
         return res.status(404).json({ error: 'Not found' });
+      }
+      if (packet.startedAt) {
+        return res.status(409).json({ error: MEETING_STAYS_LINKED });
       }
       return res.status(409).json({ error: 'Remove the agenda and attachments first' });
     }

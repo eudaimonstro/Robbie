@@ -256,19 +256,10 @@ packetsRouter.delete(
   async (req, res) => {
     try {
       const { id } = req.params;
-
-      const packet = await prisma.meetingPacket.findUnique({
-        where: { id },
-      });
-
-      if (!packet) {
-        return res.status(404).json({ error: 'Packet not found' });
-      }
-      if (packet.startedAt) {
-        return res.status(409).json({ error: MEETING_HELD });
-      }
+      const organizationId = req.org!.id;
 
       // The uploaded files of the packet and its agenda items, which the cascade leaves on disk
+      // (read first: the cascade takes their rows)
       const uploads = await prisma.attachment.findMany({
         where: {
           type: 'uploaded_file',
@@ -277,8 +268,21 @@ packetsRouter.delete(
         select: { storagePath: true },
       });
 
-      // Cascade delete will handle attachments and agenda items
-      await prisma.meetingPacket.delete({ where: { id } });
+      // One statement, so a call to order meanwhile can't be deleted with the packet; the
+      // cascade takes the agenda items and attachments. It names the rule's organization too.
+      const deleted = await prisma.meetingPacket.deleteMany({
+        where: { id, organizationId, startedAt: null },
+      });
+      if (deleted.count === 0) {
+        const packet = await prisma.meetingPacket.findFirst({
+          where: { id, organizationId },
+          select: { startedAt: true },
+        });
+        if (!packet) {
+          return res.status(404).json({ error: 'Packet not found' });
+        }
+        return res.status(409).json({ error: MEETING_HELD });
+      }
 
       await deleteFiles(uploads.map((upload) => upload.storagePath));
 
