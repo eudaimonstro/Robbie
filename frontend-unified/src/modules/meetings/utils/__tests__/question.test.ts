@@ -64,6 +64,15 @@ describe('describeQuestion', () => {
       label: 'If adopted, the motion reads',
       text: 'Resurface the pool for $35,000',
     });
+    // Awaiting a second, it reads the same
+    expect(
+      describeQuestion({
+        ...active,
+        pendingSecond: amendment,
+        currentMotion: main,
+        motionStack: [main],
+      })?.reads,
+    ).toEqual({ label: 'If adopted, the motion reads', text: 'Resurface the pool for $35,000' });
     const secondary = motion('amendAmendment', {
       id: 3,
       textAmendment: { form: 'strikeInsert', strike: '35', insert: '38' },

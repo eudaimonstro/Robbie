@@ -706,3 +706,40 @@ describe('the agenda', () => {
     );
   });
 });
+
+describe('words that come from what a motion does', () => {
+  it('are not modified: an amendment is withdrawn and moved again', () => {
+    const s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool in May', 'ben');
+    const t = move(s, 'carl', 'amend', '', {
+      textAmendment: { form: 'strikeInsert', strike: 'May', insert: 'June' },
+    });
+    expect(
+      refusal(t, 'carl', { type: 'MODIFY_MOTION', newText: 'Strike May and insert July' }),
+    ).toMatchObject({ errorCode: 'INVALID_ACTION' });
+  });
+
+  it('an appeal is in order only at once after the ruling, not once the meeting has decided something', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool', 'ben');
+    s = move(s, 'carl', 'pointOrder', 'The speaker is off the subject');
+    s = act(s, 'dana', { type: 'CHAIR_RULING', ruling: 'overrule' });
+    expect(
+      refusal(s, 'carl', {
+        type: 'MAKE_MOTION',
+        motionType: 'appeal',
+        text: 'I appeal',
+        motionId: 1,
+      }),
+    ).toBeNull();
+    s = vote(s, ALL_YES);
+    expect(
+      refusal(s, 'carl', {
+        type: 'MAKE_MOTION',
+        motionType: 'appeal',
+        text: 'I appeal',
+        motionId: 1,
+      }),
+    ).toMatchObject({
+      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
+    });
+  });
+});

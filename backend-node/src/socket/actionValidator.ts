@@ -749,6 +749,22 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
+      // A motion worded from its details (an amendment's change, a postponement, a referral, a
+      // recess, a request to withdraw) is changed only by making it again: its words are what
+      // adoption applies
+      if (
+        motionToModify.textAmendment ||
+        motionToModify.postponeTo ||
+        motionToModify.referTo ||
+        motionToModify.recessUntil ||
+        motionToModify.type === 'withdrawMotion'
+      ) {
+        return {
+          valid: false,
+          error: 'Its words come from what it does: withdraw it and move it again',
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       if (motionToModify.moverId !== action.requesterId) {
         return {
           valid: false,

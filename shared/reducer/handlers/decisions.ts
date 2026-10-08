@@ -259,7 +259,8 @@ export function decide(
       motionStack: outcome.stack,
       currentMotion: outcome.stack.at(-1) ?? null,
       completedMotions: [...state.completedMotions, ...own, ...outcome.records],
-      lastChairRuling: decided?.type === 'appeal' ? null : state.lastChairRuling,
+      // An appeal is made at once after a ruling: once the meeting decides anything, it is too late
+      lastChairRuling: null,
       debatePositions: {},
       speakerQueue: [],
       recognizedSpeaker: null,
