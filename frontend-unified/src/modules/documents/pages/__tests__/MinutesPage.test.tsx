@@ -111,6 +111,8 @@ async function typeAndWait(text: string) {
 describe('MinutesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The text kept for a save that failed (minutesDraft) is per browser: each test starts clean
+    localStorage.clear();
     org.isSecretary = true;
     api.get.mockResolvedValue(record());
     api.revisions.mockResolvedValue([]);
@@ -560,10 +562,68 @@ describe('MinutesPage', () => {
     expect(screen.getByRole('link', { name: 'All minutes' }).getAttribute('href')).toBe('/minutes');
   });
 
-  it("says when the minutes couldn't be loaded", async () => {
-    api.get.mockRejectedValue(new Error('Failed to fetch'));
+  it("says when the minutes couldn't be loaded, and tries again", async () => {
+    api.get.mockRejectedValueOnce(new Error('Failed to fetch'));
     renderAt();
     expect(await screen.findByText("Couldn't load the minutes.")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await heading()).toBeTruthy();
+  });
+
+  it('keeps text whose save failed on the way out, says so, and offers it back', async () => {
+    api.save.mockRejectedValueOnce(new Error('Failed to fetch'));
+    const view = renderAt();
+    await heading();
+    fireEvent.change(textarea(), { target: { value: 'Typed, then the Wi-Fi dropped' } });
+    view.unmount();
+    await waitFor(() =>
+      expect(toast.showToast).toHaveBeenCalledWith(
+        'error',
+        "Your last changes to the minutes weren't saved. Open the minutes again to get them back.",
+      ),
+    );
+
+    // Back on the minutes: the server still has the old text, and the page offers the new
+    api.save.mockImplementation(async (_id: string, body: string) => record({ body }));
+    renderAt();
+    await heading();
+    expect(textarea().value).toBe(BODY);
+    expect(screen.getByText(/weren't saved\.$/)).toBeTruthy();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore them' }));
+    expect(textarea().value).toBe('Typed, then the Wi-Fi dropped');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    });
+    expect(api.save).toHaveBeenLastCalledWith('m1', 'Typed, then the Wi-Fi dropped');
+    // Saved: nothing left to offer
+    expect(localStorage.length).toBe(0);
+    expect(screen.queryByRole('button', { name: 'Restore them' })).toBeNull();
+  });
+
+  it('lets the kept text go when the secretary discards it', async () => {
+    localStorage.setItem(
+      'robbie.minutesDraft.m1',
+      JSON.stringify({ text: 'Old idea', at: '2026-10-21T03:00:00.000Z' }),
+    );
+    renderAt();
+    await heading();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(textarea().value).toBe(BODY);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('formats the selection with the toolbar, in Markdown underneath', async () => {
+    renderAt();
+    await heading();
+    expect(screen.getByLabelText('Minutes text')).toBe(textarea());
+    const field = textarea();
+    const start = field.value.indexOf('carried');
+    field.setSelectionRange(start, start + 'carried'.length);
+    const toolbar = screen.getByRole('toolbar', { name: 'Formatting' });
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Bold' }));
+    expect(field.value).toContain('The pool motion **carried**, on devices');
+    expect(preview().getByText('carried').tagName).toBe('STRONG');
   });
 });
 

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { ArrowLeft, Download, Info, Printer, RefreshCw, Send } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bold,
+  Download,
+  Heading2,
+  Info,
+  List,
+  Printer,
+  RefreshCw,
+  Send,
+} from 'lucide-react';
 import { HttpError, minutes as minutesApi, type MinutesRecord } from '../../../api/client';
 import { useCan, useSelectRecordOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
@@ -11,6 +21,8 @@ import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { formatMeetingTimeWithYear } from '../../../utils/dates';
 import { downloadText, fileName } from '../../../utils/download';
 import { meetingName } from '../utils/minutes';
+import { dropDraft, keepDraft, readDraft, type MinutesDraft } from '../utils/minutesDraft';
+import { applyFormat, type MarkdownFormat } from '../utils/markdownFormat';
 import MinutesRevisions from '../components/MinutesRevisions';
 
 /** How long the editor waits after the last keystroke before it saves */
@@ -33,12 +45,15 @@ export default function MinutesPage() {
   const { minutesId = '' } = useParams<{ minutesId: string }>();
   const [record, setRecord] = useState<MinutesRecord | null>(null);
   const [loadError, setLoadError] = useState<'missing' | 'failed' | null>(null);
+  // Bumped by Try again
+  const [attempt, setAttempt] = useState(0);
   // Why the last change was refused, kept above the editor or the reader it turns into
   const [notice, setNotice] = useState<string | null>(null);
   // Whether the editor was open when a save was refused: it stays, read-only, with the text
   const [stoppedEditor, setStoppedEditor] = useState(false);
   useSelectRecordOrganization(record?.organizationId);
   const isSecretary = useCan('secretary');
+  const { showToast } = useToast();
 
   useEffect(() => {
     let canceled = false;
@@ -55,7 +70,7 @@ export default function MinutesPage() {
     return () => {
       canceled = true;
     };
-  }, [minutesId]);
+  }, [minutesId, attempt]);
 
   // After a refusal the minutes have changed under the editor (approved, published): read them
   // again, so the page shows them as they now are
@@ -63,8 +78,10 @@ export default function MinutesPage() {
     minutesApi
       .get(minutesId)
       .then(setRecord)
-      .catch(() => {});
-  }, [minutesId]);
+      .catch(() =>
+        showToast('error', "Couldn't load the minutes as they are now. Reload the page."),
+      );
+  }, [minutesId, showToast]);
 
   const refused = useCallback(
     (message: string) => {
@@ -83,14 +100,28 @@ export default function MinutesPage() {
             ? "These minutes aren't available."
             : "Couldn't load the minutes."}
         </p>
-        {loadError === 'missing' && (
+        {loadError === 'missing' ? (
           <p className="mt-1 text-sm text-ink-muted">
             Minutes are here once the secretary publishes them.
           </p>
+        ) : (
+          <button
+            type="button"
+            className="btn-secondary btn-sm mt-4"
+            onClick={() => {
+              setLoadError(null);
+              setAttempt((n) => n + 1);
+            }}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Try again
+          </button>
         )}
-        <Link to="/minutes" className="mt-4 inline-block text-gavel hover:underline">
-          All minutes
-        </Link>
+        <div>
+          <Link to="/minutes" className="mt-4 inline-block text-gavel hover:underline">
+            All minutes
+          </Link>
+        </div>
       </div>
     );
   }
@@ -255,6 +286,12 @@ function MinutesEditor({
   const discarding = useRef(false);
   const [regenerating, setRegenerating] = useState(false);
   const id = record.id;
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  // Text typed here before and never saved (the save on the way out failed): offered back
+  const [offered, setOffered] = useState<MinutesDraft | null>(() => {
+    const draft = readDraft(record.id);
+    return draft && draft.text !== record.body ? draft : null;
+  });
 
   const cancelTimer = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -283,7 +320,11 @@ function MinutesEditor({
       }
     }
     if (stopped.current) return false;
-    if (!discarding.current) setSaveState('saved');
+    if (!discarding.current) {
+      setSaveState('saved');
+      // The server has the text: nothing to offer back
+      dropDraft(id);
+    }
     return true;
   }, [id, onChange, onRefused]);
 
@@ -295,16 +336,24 @@ function MinutesEditor({
   }, [sendLatest]);
 
   // Leaving the page with text the server doesn't have (typed before the autosave, or after a
-  // save failed): save it on the way out, after any save still out
+  // save failed): save it on the way out, after any save still out. If that fails too, the text
+  // stays in this browser (minutesDraft) and the editor offers it back next time.
   useEffect(
     () => () => {
       cancelTimer();
       void chain.current.then(() => {
         if (stopped.current || discarding.current || latest.current === lastSaved.current) return;
-        minutesApi.save(id, latest.current).catch(() => {});
+        minutesApi.save(id, latest.current).then(
+          () => dropDraft(id),
+          () =>
+            showToast(
+              'error',
+              "Your last changes to the minutes weren't saved. Open the minutes again to get them back.",
+            ),
+        );
       });
     },
-    [id],
+    [id, showToast],
   );
 
   // Closing or reloading the tab with text not yet saved: the browser asks first
@@ -324,9 +373,35 @@ function MinutesEditor({
     if (stopped.current) return;
     setBody(text);
     latest.current = text;
+    // Kept in this browser until the server has it
+    keepDraft(id, text);
     setSaveState('unsaved');
     cancelTimer();
     timer.current = setTimeout(() => void save(), AUTOSAVE_MS);
+  };
+
+  /** A formatting button: Markdown around the selection, the selection kept */
+  const format = (kind: MarkdownFormat) => {
+    const field = textRef.current;
+    if (!field || field.readOnly) return;
+    const next = applyFormat(body, field.selectionStart, field.selectionEnd, kind);
+    edit(next.text);
+    // After React writes the new text into the field
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(next.start, next.end);
+    });
+  };
+
+  const restore = () => {
+    if (!offered) return;
+    edit(offered.text);
+    setOffered(null);
+  };
+
+  const discard = () => {
+    dropDraft(id);
+    setOffered(null);
   };
 
   const publish = async () => {
@@ -369,6 +444,8 @@ function MinutesEditor({
       latest.current = written.body;
       lastSaved.current = written.body;
       setSaveState('saved');
+      dropDraft(id);
+      setOffered(null);
       onChange(written);
       showToast('success', 'The minutes were written again from the meeting');
     } catch (err) {
@@ -398,6 +475,22 @@ function MinutesEditor({
 
   return (
     <>
+      {offered && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-md border border-caution/40 bg-caution-tint px-4 py-3 text-sm text-caution-ink"
+        >
+          <p className="min-w-0 flex-1">
+            Changes typed here on {formatMeetingTimeWithYear(offered.at)} weren&apos;t saved.
+          </p>
+          <button type="button" className="btn-primary btn-sm" onClick={restore}>
+            Restore them
+          </button>
+          <button type="button" className="btn-ghost btn-sm" onClick={discard}>
+            Discard
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {record.status === 'draft' ? (
           <>
@@ -433,20 +526,30 @@ function MinutesEditor({
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="minutes-text-heading" className="card flex flex-col p-4 sm:p-6">
-          <h3 id="minutes-text-heading" className="label-caps mb-3">
-            Markdown
-          </h3>
-          <label htmlFor="minutesText" className="sr-only">
-            Minutes text
-          </label>
+        <section className="card flex flex-col p-4 sm:p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="minutesText" className="label-caps">
+              Minutes text
+            </label>
+            <FormattingToolbar
+              disabled={refused || regenerating}
+              onFormat={format}
+              controls="minutesText"
+            />
+          </div>
           <textarea
+            ref={textRef}
             id="minutesText"
-            className="textarea min-h-[60vh] flex-1 text-sm read-only:bg-surface-2 read-only:text-ink-muted"
+            aria-describedby="minutes-text-hint"
+            className="textarea min-h-[40vh] lg:min-h-[60vh] flex-1 text-sm read-only:bg-surface-2 read-only:text-ink-muted"
             value={body}
             readOnly={refused || regenerating}
             onChange={(e) => edit(e.target.value)}
           />
+          <p id="minutes-text-hint" className="mt-2 text-xs text-ink-muted">
+            The buttons above add headings, bold text and lists; the preview shows how the minutes
+            will read.
+          </p>
         </section>
         <section aria-labelledby="minutes-preview-heading" className="card p-4 sm:p-6">
           <h3 id="minutes-preview-heading" className="label-caps mb-3">
@@ -467,5 +570,41 @@ function MinutesEditor({
         variant="danger"
       />
     </>
+  );
+}
+
+const FORMATS: { kind: MarkdownFormat; label: string; Icon: typeof Bold }[] = [
+  { kind: 'heading', label: 'Heading', Icon: Heading2 },
+  { kind: 'bold', label: 'Bold', Icon: Bold },
+  { kind: 'list', label: 'List', Icon: List },
+];
+
+/** Heading, Bold and List for the minutes text, so the secretary needn't type ## and ** */
+function FormattingToolbar({
+  disabled,
+  onFormat,
+  controls,
+}: {
+  disabled: boolean;
+  onFormat: (kind: MarkdownFormat) => void;
+  controls: string;
+}) {
+  return (
+    <div role="toolbar" aria-label="Formatting" aria-controls={controls} className="flex gap-1">
+      {FORMATS.map(({ kind, label, Icon }) => (
+        <button
+          key={kind}
+          type="button"
+          className="btn-ghost btn-sm px-2"
+          disabled={disabled}
+          // Keep the selection in the text while the button is pressed
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onFormat(kind)}
+        >
+          <Icon className="h-4 w-4" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
