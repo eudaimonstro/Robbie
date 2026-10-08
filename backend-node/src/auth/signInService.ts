@@ -37,7 +37,16 @@ function isTestCode(code: string): boolean {
   );
 }
 
-/** Email a new sign-in code. The answer is the same whether or not the email has an account. */
+/** Whether the account with this (normalized) email is suspended (see handleReport) */
+async function isSuspended(email: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { email }, select: { suspendedAt: true } });
+  return Boolean(user?.suspendedAt);
+}
+
+/**
+ * Email a new sign-in code. The answer is the same whether or not the email has an account, and
+ * for a suspended account, which goes through the same steps but is never sent the code.
+ */
 export async function requestSignInCode(rawEmail: string, now: Date = new Date()): Promise<void> {
   const email = normalizeEmail(rawEmail);
   if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
@@ -62,7 +71,7 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
   });
 
   try {
-    await sendSignInCode(email, code);
+    if (!(await isSuspended(email))) await sendSignInCode(email, code);
   } catch {
     await prisma.signInCode.delete({ where: { id: record.id } });
     throw new SignInError(502, "We couldn't send the email. Try again.");
@@ -78,7 +87,7 @@ export async function requestSignInCode(rawEmail: string, now: Date = new Date()
   });
 }
 
-/** Check a code and return the user, created on first sign-in */
+/** Check a code and return the user, created on first sign-in. A suspended user is refused. */
 export async function verifySignInCode(
   rawEmail: string,
   rawCode: string,
@@ -128,6 +137,9 @@ export async function verifySignInCode(
     });
     if (consumed.count === 0) throw new SignInError(401, WRONG_CODE);
   }
+
+  // A suspended account gets the answer a wrong code gets, so the refusal doesn't confirm it
+  if (await isSuspended(email)) throw new SignInError(401, WRONG_CODE);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.upsert({

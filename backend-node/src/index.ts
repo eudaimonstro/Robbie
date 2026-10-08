@@ -10,6 +10,10 @@ import { app, allowedOrigins } from './app.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
 import { setIoInstance } from './socket/ioInstance.js';
+import {
+  SOCKET_SESSION_CHECK_MS,
+  disconnectSocketsWithoutSession,
+} from './socket/sessionSockets.js';
 import { connectPrisma, disconnectPrisma } from './db/prisma.js';
 import { initializeStorage as initializeFileStorage } from './bylawyer/services/fileStorage.js';
 import { logger } from './middleware/logger.js';
@@ -75,6 +79,14 @@ async function start() {
       60 * 60 * 1000,
     );
     cleanup.unref();
+
+    // Close sockets whose session ended in another process (handleReport suspends users there)
+    const socketCheck = setInterval(() => {
+      disconnectSocketsWithoutSession()
+        .then((closed) => closed && logger.info({ closed }, 'Closed sockets without a session'))
+        .catch((err) => logger.error({ err }, 'Failed to check socket sessions'));
+    }, SOCKET_SESSION_CHECK_MS);
+    socketCheck.unref();
 
     // Every interface: in a container, Caddy reaches the server over the compose network
     httpServer.listen(Number(PORT), '0.0.0.0', () => {

@@ -44,7 +44,10 @@ export async function createSession(
   return { token, sessionId: session.id, expiresAt };
 }
 
-/** The session and user for a token, or null if unknown, expired or signed out. Use extends it. */
+/**
+ * The session and user for a token, or null if unknown, expired, signed out or its user is
+ * suspended. Use extends it.
+ */
 export async function findSession(
   token: string,
   now: Date = new Date(),
@@ -53,7 +56,8 @@ export async function findSession(
     where: { tokenHash: hashSecret(token) },
     include: { user: true },
   });
-  if (!session || session.expiresAt <= now) return null;
+  // A suspended user's sessions are refused even before the operator's script deletes them
+  if (!session || session.expiresAt <= now || session.user.suspendedAt) return null;
 
   let extended = false;
   if (now.getTime() - session.lastUsedAt.getTime() >= EXTEND_AFTER_MS) {
@@ -71,8 +75,9 @@ export async function findSession(
 }
 
 /**
- * The session with this id and its user, or null if it was signed out or has expired. Checks a
- * session already known to be signed in (a recovered socket's, say); use doesn't extend it.
+ * The session with this id and its user, or null if it was signed out, has expired or its user
+ * is suspended. Checks a session already known to be signed in (a recovered socket's, say); use
+ * doesn't extend it.
  */
 export async function findSessionById(
   sessionId: string,
@@ -82,7 +87,7 @@ export async function findSessionById(
     where: { id: sessionId },
     include: { user: true },
   });
-  if (!session || session.expiresAt <= now) return null;
+  if (!session || session.expiresAt <= now || session.user.suspendedAt) return null;
   const { id, email, name, termsVersion } = session.user;
   return { sessionId: session.id, user: { id, email, name }, termsVersion };
 }
@@ -113,4 +118,20 @@ export async function deleteExpiredSessionsAndCodes(now: Date = new Date()): Pro
     prisma.signInCode.deleteMany({ where: { expiresAt: { lte: now } } }),
   ]);
   return sessions.count + codes.count;
+}
+
+/**
+ * Of the session ids given, those still signed in: not signed out, expired or of a suspended
+ * user. The server checks its open sockets with it (see disconnectSocketsWithoutSession).
+ */
+export async function liveSessionIds(
+  sessionIds: string[],
+  now: Date = new Date(),
+): Promise<Set<string>> {
+  if (sessionIds.length === 0) return new Set();
+  const live = await prisma.session.findMany({
+    where: { id: { in: sessionIds }, expiresAt: { gt: now }, user: { suspendedAt: null } },
+    select: { id: true },
+  });
+  return new Set(live.map((session) => session.id));
 }
