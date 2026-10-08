@@ -96,15 +96,13 @@ test('the annual meeting runs from the call to order to published minutes and ne
     });
     expect(linked.ok(), "link a document to the treasurer's report").toBe(true);
 
-    // Pat proposes the board's draft amendment to Section 4.2 ahead of the meeting, so it can be
-    // moved as drafted (AmendmentHeader's Propose; POST /api/amendments/:id/propose)
+    // The board proposed its amendment to Section 4.2 ahead of the meeting (the demo has it
+    // proposed), so a member can move it as drafted
     const drafts: Array<{ id: string; title: string; status: string }> = await (
       await pat.request.get(`/api/documents/${bylaws!.id}/amendments`)
     ).json();
     const lowerQuorum = drafts.find((amendment) => amendment.title === 'Lower the quorum to 15%');
-    expect(lowerQuorum?.status, "the demo's draft amendment").toBe('draft');
-    const proposed = await pat.request.post(`/api/amendments/${lowerQuorum!.id}/propose`);
-    expect(proposed.ok(), 'propose the amendment').toBe(true);
+    expect(lowerQuorum?.status, "the demo's proposed amendment").toBe('proposed');
 
     // The TV shows the display (Morgan, a viewer, is signed in on it)
     const tv = await open(PEOPLE.morgan, { viewport: { width: 1920, height: 1080 } });

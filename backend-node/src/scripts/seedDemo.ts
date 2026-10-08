@@ -21,7 +21,7 @@ const { values } = parseArgs({ options: { reset: { type: 'boolean', default: fal
 try {
   const summary = await seedDemo({ reset: values.reset });
   console.log(
-    `Created Maple Grove HOA (${DEMO_SLUG}): ${summary.people} people, bylaws version 1 with ${summary.sections} sections, a draft amendment, the 2025 annual meeting with its published minutes (${DEMO_PAST_MEETING_CODE}), and the packet for meeting ${DEMO_MEETING_CODE} with ${summary.agendaItems} agenda items.`,
+    `Created Maple Grove HOA (${DEMO_SLUG}): ${summary.people} people, bylaws version 1 with ${summary.sections} sections, a proposed amendment, the 2025 annual meeting with its published minutes (${DEMO_PAST_MEETING_CODE}), and the packet for meeting ${DEMO_MEETING_CODE} with ${summary.agendaItems} agenda items.`,
   );
   console.log('');
   console.log('People (all have accepted the current terms):');

@@ -46,8 +46,9 @@ The meeting code is **MAPLE1**. For Alice and Ben, a narrow window works, or a r
    - Dana: **Open the vote**. Alice and Ben: **Yea**.
    - Dana, under **In the room**: 20 yea, 3 nay, 0 abstain, then **Enter the count**, then **Close the vote**. The display stamps **Carried**: "On devices 2 to 0, in the room 20 to 3: 22 to 3".
 9. **Call the next item: New business: amend Section 4.2 to lower the quorum to 15%**.
-   - Alice: **Other motions**, **Amend the bylaws**, **Move**. In the form pick the bylaws and Section 4.2, type the new text (say, "fifteen percent (15%)" in place of twenty), then **Submit Motion**. Ben: **Second**.
-   - The console shows **Two thirds** required. Vote as before with 20 yea and 5 nay: carried.
+   - Alice: **Other motions**, **Amend the bylaws**, **Move**. Under **Proposed amendments** pick **Lower the quorum to 15%** (the board proposed it before the meeting): the form shows Section 4.2 as it reads now and as it would read. Then **Move**. Ben: **Second**.
+   - The console, the phones and the display show the section's new text under the question; the console shows **Two thirds** required. Vote as before with 20 yea and 5 nay: carried.
+   - To amend a section nobody proposed, choose **Write a change** instead: pick the section, and edit its wording, which starts from what it says now.
 10. **Call the next item: Election of two directors**.
     - Dana: **Open nominations for** "Director, seat 1", then **Open nominations**.
     - Ben, on his phone: under **Nominate** pick Alice Brennan, then **Nominate**. Dana: pick Carmen Diaz and **Nominate from the floor**.

@@ -1,6 +1,6 @@
 /**
  * The Maple Grove HOA demo from docs/mvp-roadmap.md: an organization with its people, bylaws, a
- * draft amendment, last year's meeting record and published minutes, and the packet for this
+ * proposed amendment, last year's meeting record and published minutes, and the packet for this
  * year's annual meeting
  */
 
@@ -439,11 +439,14 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
     data: { currentVersionId: version.id },
   });
 
-  // The amendment the annual meeting takes up as new business
+  // The amendment the annual meeting takes up as new business: proposed by the board ahead of
+  // the meeting, so a member moves it as drafted from the phone
   await tx.amendment.create({
     data: {
       documentId: document.id,
       title: 'Lower the quorum to 15%',
+      status: 'proposed',
+      proposedAt: new Date('2026-02-20T18:00:00-06:00'),
       description:
         'The last three annual meetings fell short of the 20% quorum. Lowering it to 15% lets the annual meeting do its business.',
       createdById: idOf('pat@maplegrove.example'),
