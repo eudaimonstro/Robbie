@@ -1,0 +1,6 @@
+# For deploy/smoke.sh only (CI and local checks): the app on the machine's own address, where
+# curl can reach it without Caddy
+services:
+  app:
+    ports:
+      - '127.0.0.1:${SMOKE_PORT:-3001}:3001'

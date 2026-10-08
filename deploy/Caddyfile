@@ -1,0 +1,11 @@
+# Robbie behind Caddy (docs/deploy.md): a Let's Encrypt certificate for ROBBIE_DOMAIN, HTTP
+# redirected to HTTPS, and every request, WebSocket upgrades included, passed to the app. Caddy
+# sets X-Forwarded-For itself and ignores one a client sends, so the app trusts one proxy.
+{
+	email {$ACME_EMAIL}
+}
+
+{$ROBBIE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3001
+}

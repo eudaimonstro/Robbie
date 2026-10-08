@@ -1,0 +1,77 @@
+# Robbie in production (docs/deploy.md): the app, its database and Caddy for HTTPS. Run every
+# command from this directory: docker compose up -d, docker compose logs -f app. The settings
+# are in .env, copied from .env.production.example.
+name: robbie
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
+services:
+  app:
+    image: ${ROBBIE_IMAGE:-ghcr.io/eudaimonstro/robbie:main}
+    # The fallback when the image can't be pulled: docker compose build app (needs the swap file)
+    build:
+      context: ..
+    restart: unless-stopped
+    env_file: ${ROBBIE_ENV_FILE:-.env}
+    # These win over .env
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+      # Caddy is the one proxy in front (it replaces any X-Forwarded-For a client sends)
+      TRUST_PROXY: '1'
+      UPLOAD_DIR: /data/uploads
+      DATABASE_URL: postgresql://robbie:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/robbie
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    # The server closes its sockets and the database pool on SIGTERM, within 10 seconds
+    stop_grace_period: 15s
+    logging: *logging
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: robbie
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: robbie
+    # Never published: only the app (and the backup service) reach it
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U robbie -d robbie']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      ROBBIE_DOMAIN: ${ROBBIE_DOMAIN:-robbie.scouch.dev}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    logging: *logging
+
+volumes:
+  pgdata:
+  uploads:
+  # Caddy's certificates and account: keep them, or Let's Encrypt's rate limits may bite
+  caddy_data:
+  caddy_config:
