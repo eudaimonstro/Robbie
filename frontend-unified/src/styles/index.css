@@ -768,3 +768,28 @@
     break-before: page;
   }
 }
+
+/*
+ * The display on a short screen (a 720p or 768p TV or projector): the same screen at a smaller
+ * scale, so the join block and the attendance fit before the meeting, and the question and the
+ * attendance in session. Unlayered, so it wins over the utilities it adjusts.
+ */
+@media (max-height: 800px) {
+  :root {
+    --text-display-question: 3rem;
+    --text-display-line: 1.75rem;
+    --text-display-number: 4rem;
+    --text-display-label: 1.25rem;
+  }
+  .display-screen {
+    gap: 1.25rem;
+    padding: 1.5rem 2.5rem;
+  }
+  .display-gap {
+    gap: 1.5rem;
+  }
+  .display-qr {
+    width: 240px;
+    height: 240px;
+  }
+}
