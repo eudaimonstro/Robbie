@@ -1,5 +1,4 @@
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
-import { isRuleSuspended } from '@robbie-bylawyer/shared/utils';
 import { nomineesFor } from './question';
 
 export interface ChairScript {
@@ -25,6 +24,28 @@ const VOTE_SCRIPTS: Record<MeetingState['votingMethod'], string> = {
 export function getChairScript(state: MeetingState): ChairScript | null {
   if (!state.meetingActive) return null;
 
+  if (state.adjournmentCarried) {
+    return {
+      text: '"The motion to adjourn has carried. The meeting is adjourned."',
+      note: 'Declare the meeting adjourned.',
+    };
+  }
+  if (state.recess) {
+    return {
+      text: state.recess.until
+        ? `"The meeting is in recess until ${state.recess.until}."`
+        : '"The meeting is in recess."',
+      note: 'Resume the meeting when the members are back.',
+    };
+  }
+  // A point of order, during a vote or not: the chair rules on it at once
+  if (state.currentMotion?.type === 'pointOrder') {
+    return {
+      text: `"${state.currentMotion.mover} will state the point of order." Then: "The point is well taken" or "The point is not well taken."`,
+      note: 'Rule on the point. An appeal from the ruling is in order at once.',
+    };
+  }
+
   // Agenda adoption phase
   if (
     !state.agendaAdopted &&
@@ -34,7 +55,7 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   ) {
     return {
       text: '"Is there any objection to adopting the agenda?"',
-      note: "If none, click 'No Objection'. If someone objects, click 'Objection Raised'.",
+      note: 'If none, adopt the agenda. If someone objects, record the objection to the agenda.',
     };
   }
 
@@ -108,16 +129,6 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   const voteOutcome = outcomeMatch?.[1] ?? outcomeMatch?.[2];
 
   if (voteOutcome === 'CARRIED' && !state.votingOpen && !state.currentMotion) {
-    // Check if this was a suspension (special handling)
-    if (lastLog.message.includes('[RULE SUSPENDED]')) {
-      const suspensionMatch = lastLog.message.match(/\[RULE SUSPENDED\] ([\w-]+)/);
-      const ruleName = suspensionMatch ? suspensionMatch[1] : 'rule';
-      return {
-        text: '"The motion has carried. The rules have been suspended."',
-        note: `The ${ruleName} is now suspended. Proceed with business under the suspended rules.`,
-      };
-    }
-
     if (state.currentAgendaItem) {
       return {
         text: '"The motion has carried."',
@@ -148,7 +159,19 @@ export function getChairScript(state: MeetingState): ChairScript | null {
   // Current motion handling
   if (state.currentMotion) {
     const recentObjection = lastLog && lastLog.message.includes('objects');
-    const debateRulesSuspended = isRuleSuspended(state, 'debate-rules');
+
+    if (state.currentMotion.type === 'withdrawMotion') {
+      return {
+        text: `"${state.currentMotion.mover} asks to withdraw the motion. Is there any objection?"`,
+        note: 'Without objection it is withdrawn; with one, put the request to a vote.',
+      };
+    }
+    if (state.currentMotion.debateClosed) {
+      return {
+        text: `"Debate is closed. The question is on: ${state.currentMotion.text}."`,
+        note: 'Open the vote.',
+      };
+    }
 
     // Special handling for Appeal
     if (state.currentMotion.type === 'appeal' && state.lastChairRuling) {
@@ -160,18 +183,8 @@ export function getChairScript(state: MeetingState): ChairScript | null {
 
     if (recentObjection) {
       return {
-        text: '"An objection has been raised. The motion is now open for debate."',
-        note: state.currentMotion.debatable
-          ? 'Recognize speakers, then call the question.'
-          : 'This motion is not debatable - proceed to vote.',
-      };
-    }
-
-    // When debate-rules suspended, chair can proceed directly to vote even on debatable motions
-    if (debateRulesSuspended && state.currentMotion.debatable) {
-      return {
-        text: `"Is there any discussion on: ${state.currentMotion.text}?"`,
-        note: '[Debate rules suspended] You may proceed directly to vote without debate if desired.',
+        text: '"There is an objection. The question will be put to a vote."',
+        note: 'Open the vote.',
       };
     }
 

@@ -147,3 +147,46 @@ describe('the script during an election', () => {
     ).toBe('"Carmen Diaz, having received the vote required, is elected Director."');
   });
 });
+
+describe('the chair script for the moments of the meeting rules', () => {
+  const inSession: MeetingState = { ...initialState, meetingActive: true, agendaAdopted: true };
+
+  it('declares an adjournment that carried, and a recess', () => {
+    expect(getChairScript({ ...inSession, adjournmentCarried: true })?.note).toBe(
+      'Declare the meeting adjourned.',
+    );
+    expect(
+      getChairScript({ ...inSession, recess: { since: '8:02 PM', until: '8:15 PM' } })?.text,
+    ).toBe('"The meeting is in recess until 8:15 PM."');
+  });
+
+  it('rules on a point of order, and puts a request to withdraw by consent', () => {
+    const point = {
+      ...pendingMotion,
+      id: 2,
+      type: 'pointOrder',
+      vote: 'none' as const,
+      mover: 'Ben',
+    };
+    expect(
+      getChairScript({ ...inSession, currentMotion: point, motionStack: [pendingMotion, point] })
+        ?.note,
+    ).toBe('Rule on the point. An appeal from the ruling is in order at once.');
+    const request = { ...pendingMotion, id: 3, type: 'withdrawMotion' };
+    expect(
+      getChairScript({
+        ...inSession,
+        currentMotion: request,
+        motionStack: [pendingMotion, request],
+      })?.text,
+    ).toBe('"Member 1 asks to withdraw the motion. Is there any objection?"');
+  });
+
+  it('puts the question once debate is closed', () => {
+    const closed = { ...pendingMotion, debateClosed: true };
+    expect(getChairScript({ ...inSession, currentMotion: closed, motionStack: [closed] })).toEqual({
+      text: '"Debate is closed. The question is on: Approve the budget."',
+      note: 'Open the vote.',
+    });
+  });
+});
