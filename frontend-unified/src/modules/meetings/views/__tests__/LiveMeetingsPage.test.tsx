@@ -28,6 +28,7 @@ const meeting = (overrides: Partial<ScheduledMeeting> = {}): ScheduledMeeting =>
   robbieCode: 'MAPLE1',
   title: '2026 Annual Meeting',
   description: null,
+  location: null,
   scheduledFor: '2026-10-21T00:00:00.000Z',
   chairUserId: 2,
   startedAt: null,

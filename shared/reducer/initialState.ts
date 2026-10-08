@@ -5,7 +5,7 @@ import type { MeetingState } from '../types/index.js';
  * its packet (code, organization, title, date, quorum, agenda); the rest starts here.
  * - Members: added when people join, with the role their organization gives them
  * - Committee Reports: Chair adds as needed
- * - Previous Minutes: Can be set via admin interface
+ * - Previous Minutes: the organization's latest published minutes, loaded by the server
  */
 export const initialState: MeetingState = {
   meetingStage: 'not-started' as const,
@@ -45,8 +45,16 @@ export const initialState: MeetingState = {
   defeatedMotions: [],
   completedMotions: [],
   committeeReports: [], // Chair adds committee reports as needed
-  minutesFromPreviousMeeting: '', // Can be set via admin interface before meeting
+  // The previous meeting's published minutes, put before this one by the server
+  minutesFromPreviousMeeting: '',
   minutesApproved: false,
+  previousMinutesId: null,
+  minutesApproval: null,
+  quorumAtCallToOrder: null,
+  chairRulings: [],
+  attendedIds: [],
+  electionsSetAside: [],
+  unfinishedAtAdjournment: [],
   suspendedRules: [],
   lastChairRuling: null,
   nominations: [],

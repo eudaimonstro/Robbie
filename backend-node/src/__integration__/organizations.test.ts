@@ -220,6 +220,51 @@ describe('organizations', () => {
     expect(org).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 });
   });
 
+  it("keep their meetings in the creator's time zone, or Chicago's without one", async () => {
+    const ann = await signIn('ann@example.org');
+    const denver = await call('post', '/api/organizations', {
+      cookie: ann.cookie,
+      body: { name: 'Garden Club', timeZone: 'America/Denver' },
+    });
+    expect(denver.status).toBe(201);
+    expect(denver.body.timeZone).toBe('America/Denver');
+
+    const plain = await call('post', '/api/organizations', {
+      cookie: ann.cookie,
+      body: { name: 'Book Club' },
+    });
+    expect(plain.body.timeZone).toBe('America/Chicago');
+
+    // Organizations made before there was a time zone got Chicago's from the migration
+    const read = await call('get', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(read.body.timeZone).toBe('America/Chicago');
+  });
+
+  it('change their time zone, only to one the server knows', async () => {
+    const put = (timeZone: string) =>
+      call('put', `/api/organizations/${f.orgA.id}`, {
+        cookie: f.users.admin.cookie,
+        body: { timeZone },
+      });
+    const paris = await put('Europe/Paris');
+    expect(paris.status).toBe(200);
+    expect(paris.body.timeZone).toBe('Europe/Paris');
+
+    for (const timeZone of ['Mars/Olympus', '', 'America/Chicago; DROP TABLE']) {
+      expect((await put(timeZone)).status, timeZone).toBe(400);
+    }
+    const created = await call('post', '/api/organizations', {
+      cookie: f.users.member.cookie,
+      body: { name: 'Nowhere Club', timeZone: 'Nowhere/Land' },
+    });
+    expect(created.status).toBe(400);
+
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: f.orgA.id } });
+    expect(org.timeZone).toBe('Europe/Paris');
+  });
+
   it('changes only the name and description', async () => {
     const res = await call('put', `/api/organizations/${f.orgA.id}`, {
       cookie: f.users.admin.cookie,

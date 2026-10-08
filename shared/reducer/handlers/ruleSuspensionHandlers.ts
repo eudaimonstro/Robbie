@@ -1,5 +1,6 @@
 import type { MeetingAction } from '../../types/index.js';
 import { logChairRuled } from '../../constants/logMessages.js';
+import { decisionContext } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
@@ -64,6 +65,17 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
         currentMotion: motionStack.at(-1) ?? null,
         motionStack,
         lastChairRuling,
+        // lastChairRuling is the one an appeal can name; the minutes need them all
+        chairRulings: [
+          ...(state.chairRulings ?? []),
+          {
+            ruling: rulingText,
+            ...(typedAction.explanation ? { explanation: typedAction.explanation } : {}),
+            motionText,
+            timestamp: typedAction.timestamp,
+            ...decisionContext(state, typedAction.at),
+          },
+        ],
         meetingLog: log(typedAction.timestamp, logMessage),
       };
     }

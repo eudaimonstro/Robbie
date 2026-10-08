@@ -1,6 +1,7 @@
 /**
  * The Maple Grove HOA demo from docs/mvp-roadmap.md: an organization with its people, bylaws, a
- * draft amendment, last year's meeting record and the packet for this year's annual meeting
+ * draft amendment, last year's meeting record and published minutes, and the packet for this
+ * year's annual meeting
  */
 
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
@@ -10,6 +11,51 @@ import { deleteFiles } from '../bylawyer/services/fileStorage.js';
 
 export const DEMO_SLUG = 'maple-grove-hoa';
 export const DEMO_MEETING_CODE = 'MAPLE1';
+/** Last year's annual meeting, whose minutes this year's approves */
+export const DEMO_PAST_MEETING_CODE = 'MAPLE25';
+
+const CLUBHOUSE = 'Maple Grove Clubhouse, 400 Maple Grove Drive';
+
+/**
+ * The 2025 annual meeting's minutes, as Pat published them. Without a quorum the meeting could
+ * only recess and adjourn, and it did both.
+ */
+const MINUTES_2025 = [
+  '# Maple Grove HOA',
+  '',
+  '## Minutes of the 2025 Annual Meeting',
+  '',
+  `Thursday, March 20, 2025, at ${CLUBHOUSE}.`,
+  '',
+  'Dana Okafor presided. The meeting was called to order at 7:04 PM.',
+  '',
+  '## Attendance',
+  '',
+  '**Members present:** 21, and 6 more by proxy.',
+  '',
+  'A quorum of 29 was not present at the call to order.',
+  '',
+  '## Proceedings',
+  '',
+  '### 1. Reports',
+  '',
+  'The treasurer reported $48,200 in the operating account and $112,000 in the reserve fund. The pool committee reported that the pool needs resurfacing within two years.',
+  '',
+  '### 2. Business',
+  '',
+  'Without a quorum, no business was taken up.',
+  '',
+  '**Recess.** Carmen Diaz moved: "That the meeting recess for fifteen minutes while the directors call members who have not arrived." Seconded by Ben Whitaker. Carried on a voice vote. No quorum was present.',
+  '',
+  'After the recess, a quorum was still not present.',
+  '',
+  '**Adjourn.** Hector Ramos moved: "That the meeting adjourn." Seconded by Grace Kim. Carried on a voice vote. No quorum was present.',
+  '',
+  '## Adjournment',
+  '',
+  'The meeting adjourned at 8:15 PM.',
+  '',
+].join('\n');
 
 type Tx = Prisma.TransactionClient;
 
@@ -278,13 +324,13 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<DemoS
   }
   if (existing) await deleteOrganization(existing.id);
 
-  const codeTaken = await prisma.meetingPacket.findUnique({
-    where: { robbieCode: DEMO_MEETING_CODE },
-    select: { id: true },
+  const codeTaken = await prisma.meetingPacket.findFirst({
+    where: { robbieCode: { in: [DEMO_MEETING_CODE, DEMO_PAST_MEETING_CODE] } },
+    select: { robbieCode: true },
   });
   if (codeTaken) {
     throw new DemoSeedError(
-      `Another organization has the meeting code ${DEMO_MEETING_CODE}. Delete its packet first.`,
+      `Another organization has the meeting code ${codeTaken.robbieCode}. Delete its packet first.`,
     );
   }
 
@@ -335,6 +381,8 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
       eligibleVoters: 142,
       quorumPercent: 20,
       quorumCount: null,
+      // The clubhouse is in Chicago's time zone; the minutes give their times there
+      timeZone: 'America/Chicago',
       members: {
         create: DEMO_PEOPLE.map((person) => ({ userId: idOf(person.email), role: person.role })),
       },
@@ -423,13 +471,42 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
     },
   });
 
+  // Last year's annual meeting as a scheduled meeting, adjourned, with the minutes Pat
+  // published: this year's meeting approves them
+  const lastYear = await tx.meetingPacket.create({
+    data: {
+      organizationId: organization.id,
+      robbieCode: DEMO_PAST_MEETING_CODE,
+      title: '2025 Annual Meeting',
+      location: CLUBHOUSE,
+      scheduledFor: new Date('2025-03-20T19:00:00-05:00'),
+      startedAt: new Date('2025-03-20T19:04:00-05:00'),
+      endedAt: new Date('2025-03-20T20:15:00-05:00'),
+      chairUserId: idOf('dana@maplegrove.example'),
+    },
+  });
+  await tx.minutes.create({
+    data: {
+      organizationId: organization.id,
+      packetId: lastYear.id,
+      status: 'published',
+      body: MINUTES_2025,
+      generatedAt: new Date('2025-03-20T20:15:00-05:00'),
+      updatedById: idOf('pat@maplegrove.example'),
+      publishedAt: new Date('2025-04-02T15:00:00Z'),
+      publishedById: idOf('pat@maplegrove.example'),
+    },
+  });
+
   // This year's annual meeting, scheduled with its agenda
   await tx.meetingPacket.create({
     data: {
       organizationId: organization.id,
       robbieCode: DEMO_MEETING_CODE,
       title: '2026 Annual Meeting',
-      description: 'Maple Grove Clubhouse, 400 Maple Grove Drive',
+      description:
+        'The annual meeting of the members: reports, the pool contract, the quorum amendment and the election of two directors.',
+      location: CLUBHOUSE,
       scheduledFor: new Date('2026-10-20T19:00:00-05:00'),
       // The president presides
       chairUserId: idOf('dana@maplegrove.example'),

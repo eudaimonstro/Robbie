@@ -36,7 +36,29 @@ interface UseDocumentDataReturn {
   refreshTree: () => Promise<void>;
 }
 
-export function useDocumentData(documentId: string | undefined): UseDocumentDataReturn {
+/** The version asked for when the document has it, else the current one (or the newest) */
+function versionToShow(doc: Document, versions: Version[], versionId: string | null) {
+  const asked = versionId ? versions.find((v) => v.id === versionId) : undefined;
+  return (
+    asked ??
+    (doc.currentVersionId
+      ? versions.find((v) => v.id === doc.currentVersionId)
+      : versions.reduce<Version | undefined>(
+          (newest, v) => (!newest || v.versionNumber > newest.versionNumber ? v : newest),
+          undefined,
+        ))
+  );
+}
+
+/**
+ * A document, its versions and amendments, and the section tree of the version shown: the one
+ * asked for (`versionId`, from ?version=) when the document has it, else the current one. A new
+ * `versionId` shows that version without reloading the document, and a later reload keeps it
+ */
+export function useDocumentData(
+  documentId: string | undefined,
+  versionId: string | null = null,
+): UseDocumentDataReturn {
   const { showToast } = useToast();
 
   const [doc, setDoc] = useState<Document | null>(null);
@@ -47,6 +69,11 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
   const [loading, setLoading] = useState(true);
   // Identifies the newest fetch, so a slow response for a document no longer shown is ignored
   const latestFetch = useRef(0);
+  // The version asked for, as the last render had it: a reload reads it, so it shows the version
+  // the link names now, not the one it named when the page opened
+  const askedVersion = useRef(versionId);
+  // Identifies the newest version picked, so a slow tree for one picked before is ignored
+  const latestPick = useRef(0);
 
   // On moving to another document, drop the previous one's data at once, so nothing (such as
   // Add Section) acts on it while the new one loads
@@ -79,13 +106,9 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
       setVersions(vers);
       setAmendments(amends.filter((a) => a.status === 'draft' || a.status === 'proposed'));
 
-      // Select the current version, or the newest one if none is marked current
-      const currentVersion = fetchedDoc.currentVersionId
-        ? vers.find((v) => v.id === fetchedDoc.currentVersionId)
-        : vers.reduce<Version | undefined>(
-            (newest, v) => (!newest || v.versionNumber > newest.versionNumber ? v : newest),
-            undefined,
-          );
+      // Select the version asked for, else the current version, or the newest one if none is
+      // marked current
+      const currentVersion = versionToShow(fetchedDoc, vers, askedVersion.current);
 
       if (currentVersion) {
         setSelectedVersion(currentVersion);
@@ -102,6 +125,31 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
     }
   }, [documentId, showToast]);
 
+  const showVersion = useCallback(
+    async (version: Version) => {
+      const pickId = ++latestPick.current;
+      setSelectedVersion(version);
+      try {
+        const tree = await versionsApi.getTree(version.id);
+        if (pickId === latestPick.current) setSectionTree(tree);
+      } catch {
+        showToast('error', 'Failed to load version');
+      }
+    },
+    [showToast],
+  );
+
+  // Another version asked for (the picker, or a link): show it. Before the load below, so a load
+  // this render starts reads the new one
+  useEffect(() => {
+    if (askedVersion.current === versionId) return;
+    askedVersion.current = versionId;
+    // Still loading: the load in flight shows it
+    if (!doc || versions.length === 0) return;
+    const version = versionToShow(doc, versions, versionId);
+    if (version && version.id !== selectedVersion?.id) void showVersion(version);
+  }, [versionId, doc, versions, selectedVersion, showVersion]);
+
   useEffect(() => {
     fetchDocument();
   }, [fetchDocument]);
@@ -109,17 +157,9 @@ export function useDocumentData(documentId: string | undefined): UseDocumentData
   const handleVersionChange = useCallback(
     async (versionId: string) => {
       const version = versions.find((v) => v.id === versionId);
-      if (version) {
-        setSelectedVersion(version);
-        try {
-          const tree = await versionsApi.getTree(version.id);
-          setSectionTree(tree);
-        } catch {
-          showToast('error', 'Failed to load version');
-        }
-      }
+      if (version) await showVersion(version);
     },
-    [versions, showToast],
+    [versions, showVersion],
   );
 
   const refreshTree = useCallback(async () => {

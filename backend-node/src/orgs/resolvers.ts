@@ -111,3 +111,11 @@ export async function orgOfAttachment(id: string): Promise<string | null> {
     null
   );
 }
+
+export async function orgOfMinutes(id: string): Promise<string | null> {
+  const minutes = await prisma.minutes.findUnique({
+    where: { id },
+    select: { organizationId: true },
+  });
+  return minutes?.organizationId ?? null;
+}

@@ -18,3 +18,8 @@ export const updateDocumentBody = z.object({
 export const atDateQuery = z.object({
   date: dateString,
 });
+
+/** A search of the organization's bylaws: at least 2 characters */
+export const searchQuery = z.object({
+  q: z.string().trim().min(2, 'Search for at least 2 characters').max(200),
+});

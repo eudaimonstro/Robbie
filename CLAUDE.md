@@ -88,7 +88,7 @@ npm run db:generate      # Generate Prisma client
 npm run db:migrate       # Create/apply migrations in development (prisma migrate dev)
 npm run db:deploy        # Apply migrations without prompting (CI, production)
 npm run db:studio        # Open Prisma Studio
-npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces it); its people sign in with code 000000 when ENABLE_TEST_AUTH=true
+npm run seed:demo        # Create the Maple Grove HOA demo (-- --reset replaces it); its people sign in with code 000000 when ENABLE_TEST_AUTH=true. It has this year's annual meeting (MAPLE1, at the clubhouse) and last year's (MAPLE25, adjourned, with the minutes Pat published), so MAPLE1 has minutes to approve; Maple Grove keeps America/Chicago time
 ```
 
 ### Docker
@@ -125,7 +125,7 @@ The backend serves both Robbie and Bylawyer from a single Express server:
 
 - Single PostgreSQL database (`robbie`) contains both:
   - Robbie tables: `users`, `meetings`, `meeting_participants`, `meeting_actions`
-  - Bylawyer tables (Prisma): `Organization`, `OrganizationMember`, `OrganizationInvite`, `Document`, `Version`, `Section`, `Amendment`, `MeetingPacket`, etc.
+  - Bylawyer tables (Prisma): `Organization`, `OrganizationMember`, `OrganizationInvite`, `Document`, `Version`, `Section`, `Amendment`, `MeetingPacket`, `Minutes`, etc.
 
 ### Unified Frontend (frontend-unified)
 
@@ -140,7 +140,10 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
 - `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
 - `/style-guide` - The design language: the tokens and components in both palettes
-- `/settings` - App settings
+- `/documents/:id/import` - Import the bylaws from pasted text or a `.txt`, `.md` or `.docx` file into a new version (secretary)
+- `/minutes`, `/minutes/:id` - The organization's minutes; the editor for secretaries, read-only for members
+- `/documents/:id/print`, `/minutes/:id/print` (signed in) and `/share/:token/print` (public) - Print pages outside the app's chrome; `?print=1` opens the print dialog, which saves a PDF
+- `/settings` - App settings: the Time zone card (`TimeZoneCard`) sits beside Attendance; a new organization takes the browser's time zone
 - `/sign-in` - Sign in by emailed code (public, as are `/share/:shareToken`, `/terms` and `/privacy`)
 
 **State Management:**
@@ -184,6 +187,7 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 - **Version**: Immutable snapshot of a document at a point in time
 - **Section**: Hierarchical content within a version (nested via parent_id)
 - **Amendment**: Proposed change with lifecycle (draft → proposed → passed/failed)
+- **Minutes**: One meeting's minutes (one per packet) as Markdown: draft, published, approved; who saved and published them last, and the meeting that approved them with its corrections
 - **AmendmentChange**: Specific change within an amendment (add/modify/delete/renumber)
 - **Meeting**: Records of meetings where votes occur
 - **Vote**: Tally of votes on an amendment
@@ -196,21 +200,27 @@ import { motionDefinitions } from '@robbie-bylawyer/shared/constants';
 4. Record vote at a meeting
 5. If passed, apply to create new version
 
+**Import, search and minutes (web):** the import screen parses with `parseBylaws` from shared (the same rules for pasted text, `.txt`, `.md` and the server's text of a `.docx`), lets the secretary rename and merge sections, and saves through `POST /api/documents/:id/versions/import`. The header search calls the organization search and opens `/documents/:id#section-<sectionId>`, where `useSectionFromHash` selects and scrolls to the section. An amendment's Preview tab shows the document as it would read. Minutes are Markdown (`/minutes/:id`), drafted by the server at adjournment, autosaved two seconds after typing stops; the approval at the next meeting is `MinutesApprovalCard` in the chair console while `minutesItemUnderWay(state)` (`modules/meetings/utils/minutesApproval.ts`). The scheduler's Place is the packet's `location`, which heads the minutes.
+
 **API Endpoints (all on port 3001):**
 
 - `GET /api/health` - Health check
-- `GET/POST /api/organizations` - The user's organizations (each with their `role`) / create one (creator is owner)
+- `GET/POST /api/organizations` - The user's organizations (each with their `role`) / create one (creator is owner; takes `timeZone`, an IANA name, default `America/Chicago`)
 - `GET/POST/PUT/DELETE /api/organizations/{id}/members[/{userId}]` - Members; add by email; change role; remove or leave
 - `DELETE /api/organizations/{id}/invites/{inviteId}` - Cancel a pending addition
 - `GET/POST /api/organizations/{id}/documents` - Documents for org
 - `GET/POST /api/documents/{id}/versions` - Versions of document
+- `POST /api/documents/{id}/import/docx` - A Word document (raw body, at most 5 MB, never stored) as text with `#` heading lines, for the bylaws parser (secretary). 400 for no body or a file mammoth can't read, and 400 `DOCX_TOO_LARGE` for one that would unpack too large (more than 2,000 parts, 50 MB in all, or a `word/document.xml` over 20 MB, by the zip's declared sizes and again while unpacking, capped at them); 413 over 5 MB
+- `POST /api/documents/{id}/versions/import` - A new current version from parsed sections (`parseBylaws` in shared; at most 2,000 sections, 6 levels, JSON up to 2 MB), in one transaction (secretary)
+- `GET /api/organizations/{id}/search?q=` - Sections of the current version of each of the organization's documents whose label, title or content contains `q` (2 to 200 characters, any case; `%` and `_` match only themselves), at most 20, with a snippet
+- `GET /api/organizations/{id}/minutes`, `GET/PUT /api/minutes/{id}`, `POST /api/minutes/{id}/publish`, `POST /api/minutes/{id}/regenerate` - Meeting minutes: drafts are a secretary's (404 below), published and approved minutes are every member's. Publishing twice changes nothing; only drafts regenerate (409 otherwise, and 409 when the meeting has no live record); approved minutes don't change (409), nor do published minutes before a meeting that hasn't adjourned (409; `GET`, `PUT` and the other answers with one meeting's minutes say so as `beforeMeeting`, and the editor opens them read-only). The body is Markdown, at most 200,000 characters, and the last save wins
 - `GET /api/versions/{id}/tree` - Section tree structure
 - `GET /api/versions/{id}/diff/{other_id}` - Diff between versions of one document
 - `GET/POST /api/documents/{id}/amendments` - Amendments for document
 - `POST /api/amendments/{id}/propose` - Move to proposed status
 - `POST /api/meetings/{id}/votes` - Record a vote
-- `PUT /api/organizations/{id}` - Name, description, and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
-- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator); `DELETE /api/packets/{id}` also deletes its uploaded files
+- `PUT /api/organizations/{id}` - Name, description, time zone (`timeZone`, an IANA name; the minutes give times there), and attendance settings: `eligibleVoters`, and `quorumPercent` or `quorumCount` (admin)
+- `GET/POST /api/organizations/{id}/packets` - The schedule (meetings not yet adjourned first) / schedule a meeting (claims a meeting code; `chairUserId` defaults to the creator; `location`, at most 500 characters, is the place, also on `PUT /api/packets/{id}`, where `null` clears it, the `description` or the date (`scheduledFor`); a title is required in the scheduler, though the server still accepts a packet without one); `DELETE /api/packets/{id}` also deletes its uploaded files
 - `GET /api/packets/{code}/roster` - The meeting's organization's members, for marking people present (emails and pending additions for admins only)
 - `POST /api/packets/{code}/reload-agenda` - Replace the live agenda with the packet's before the meeting starts (secretary, or the presiding officer)
 - `GET/POST/DELETE /api/documents/{id}/share`, `POST .../share/regenerate` - Share link (admin; the only responses that carry the token)
@@ -223,7 +233,7 @@ Meeting codes (packets, link-meeting, sync-status) are trimmed and uppercased, a
 
 When a bylaw amendment motion passes in Robbie:
 
-1. `bylawSyncService` detects the CLOSE_VOTING action
+1. `bylawSyncService` detects the decision: `CLOSE_VOTING`, or `UNANIMOUS_CONSENT_PASSED` (a bylaw amendment adopted by unanimous consent is applied too, its vote data recording the method)
 2. Creates an Amendment in Bylawyer with status 'passed'
 3. Automatically applies the amendment to create a new document version
 
@@ -280,9 +290,11 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 
 11. **Live meetings:** a meeting code is a `MeetingPacket`; `JOIN_MEETING` refuses a code without one and creates the live state from it (`backend-node/src/socket/meetingPacket.ts`). Meeting roles come from `deriveMeetingRole` (`socket/meetingRoles.ts`) at every join, never from memory. Every action goes through the reducer, `actionValidator`, `permissionGuard` and `actionEnricher`, and all four are exhaustive over the action union: a new action needs a case in the reducer and the validator, an entry in `PERMISSIONS` (empty for server-only actions) and an entry in `ACTOR_FIELDS`. Every state sent to clients goes through `publicState` (`socket/statePublisher.ts`), which strips secret ballot choices. A dropped connection gets `PRESENCE_GRACE_MS` (90 seconds) before its member is marked absent; only device presence (`presentBy: 'device'`) is cleared automatically.
 
-12. **Design brief:** UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); the whole web app is on it.
+12. **Minutes:** a `Minutes` row per packet holds the minutes as Markdown (draft, published, approved). The server drafts them when `END_MEETING` is applied (`draftMinutesOnAdjournment`, once per packet: a meeting adjourned again keeps the text, and a secretary can regenerate a draft), puts the organization's latest published minutes before a meeting not yet called to order (`SET_PREVIOUS_MINUTES`, server-only, with `previousMinutesId`), and marks them approved, with the approving meeting and any corrections, after `APPROVE_MINUTES` (`backend-node/src/bylawyer/services/meetingMinutes.ts`; all three best effort, like the bylaw sync). The minutes are written from the meeting record, never from log strings (`generateMeetingMinutes` and `formatMinutesAsMarkdown(minutes, context)` in shared, the context giving the organization's time zone, the packet's title, place and times, and the voting members): motions decided or disposed of are `completedMotions` records (with `disposition`, `seconder`, `agendaItemId`, `quorumPresent`, `decidedAt`), rulings are `chairRulings`, elections `electedOfficers` (with `ballots` and `requiredVotes`) and `electionsSetAside`, business pending at the last adjournment `unfinishedAtAdjournment`, plus `attendedIds`, `quorumAtCallToOrder` and `minutesApproval`. The enricher stamps `at` (the server's clock, ISO) on the actions in `CLOCKED_ACTIONS` (eight: `CLOSE_VOTING`, `UNANIMOUS_CONSENT_PASSED`, `DECLINE_SECOND`, `WITHDRAW_MOTION`, `CHAIR_RULING`, `DECLARE_ELECTED`, `SET_ASIDE_ELECTION`, `APPROVE_MINUTES`). Motions are named by `plainMotionName` (`shared/constants/motionWords.ts`, the words the meeting screens use). Ballots are counts only, never who voted which way. A new kind of decision needs a record, a clocked action if it is timed, and a line in `formatMinutesAsMarkdown`.
 
-13. **Design tokens (web):** `docs/design-brief.md` is authoritative for look and feel. Use the tokens from `frontend-unified/src/styles/index.css` (`bg-paper`, `bg-surface`, `bg-surface-2`, `text-ink`, `text-ink-muted`, `border-rule`, `bg-gavel`, `text-carried`, `text-caution-ink` for caution text, and the `-tint`s) and its utilities (`btn-primary`/`btn-secondary`/`btn-ghost`, `card`, `badge-*`, `input`, `label-caps`, `page-title`, `card-title`, `meeting-code`, `animate-reveal`/`-stamp`/`-count-pulse`/`-crossfade`); they flip with `.dark` on any element, so a subtree can be forced into the evening palette. Text links are `text-gavel hover:underline`; native checkboxes and radios use `accent-gavel`. Tailwind's own palette is switched off (`--color-*: initial`) and the old `primary-`, `secondary-`, `accent-`, `success-`, `danger-` and `meeting-` scales are gone: the only colors are the tokens and the fixed numbered shades around them (`gavel-*`, `ink-*`, `carried-*`, `caution-*`, the same in both palettes, for overlays and hovers). Never raw Tailwind palette classes, `white` or `black`, or emoji icons (lucide only): `scripts/check-palette.sh` fails `npm run lint` on them. Its allowlist (`scripts/palette-allowlist.txt`) is empty and only shrinks; never add a file to it. `/style-guide` shows everything.
+13. **Design brief:** UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); the whole web app is on it.
+
+14. **Design tokens (web):** `docs/design-brief.md` is authoritative for look and feel. Use the tokens from `frontend-unified/src/styles/index.css` (`bg-paper`, `bg-surface`, `bg-surface-2`, `text-ink`, `text-ink-muted`, `border-rule`, `bg-gavel`, `text-carried`, `text-caution-ink` for caution text, and the `-tint`s) and its utilities (`btn-primary`/`btn-secondary`/`btn-ghost`, `card`, `badge-*`, `input`, `label-caps`, `page-title`, `card-title`, `meeting-code`, `animate-reveal`/`-stamp`/`-count-pulse`/`-crossfade`); they flip with `.dark` on any element, so a subtree can be forced into the evening palette. Text links are `text-gavel hover:underline`; native checkboxes and radios use `accent-gavel`. Tailwind's own palette is switched off (`--color-*: initial`) and the old `primary-`, `secondary-`, `accent-`, `success-`, `danger-` and `meeting-` scales are gone: the only colors are the tokens and the fixed numbered shades around them (`gavel-*`, `ink-*`, `carried-*`, `caution-*`, the same in both palettes, for overlays and hovers). Never raw Tailwind palette classes, `white` or `black`, or emoji icons (lucide only): `scripts/check-palette.sh` fails `npm run lint` on them. Its allowlist (`scripts/palette-allowlist.txt`) is empty and only shrinks; never add a file to it. `/style-guide` shows everything.
 
 ## Feature Specifications
 

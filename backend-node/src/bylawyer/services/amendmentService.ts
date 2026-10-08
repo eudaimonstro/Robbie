@@ -269,7 +269,15 @@ export class AmendmentService {
       return [];
     }
 
-    // Build a mutable copy of the section tree
+    // The text of a section before the amendment changed it
+    type Previous = { numberLabel: string | null; title: string | null; content: string | null };
+    const before = (s: {
+      numberLabel: string | null;
+      title: string | null;
+      content: string | null;
+    }) => ({ numberLabel: s.numberLabel, title: s.title, content: s.content }) as Previous;
+
+    // Build a mutable copy of the section tree; `previous` is set when a change touches it
     const sectionsCopy = currentVersion.sections.map((s) => ({
       id: s.id,
       parentId: s.parentId,
@@ -281,6 +289,7 @@ export class AmendmentService {
       modified: false,
       added: false,
       deleted: false,
+      previous: null as Previous | null,
     }));
 
     // Apply changes to the copy
@@ -303,10 +312,13 @@ export class AmendmentService {
           modified: false,
           added: true,
           deleted: false,
+          previous: null,
         });
       } else if (change.changeType === 'modify') {
         const section = sectionsCopy.find((s) => s.id === change.targetSectionId);
         if (section) {
+          // Two changes to one section: the text from before is the version's
+          section.previous ??= before(section);
           if (change.newContent !== null) section.content = change.newContent;
           if (change.newTitle !== null) section.title = change.newTitle;
           if (change.newNumberLabel !== null) section.numberLabel = change.newNumberLabel;
@@ -327,6 +339,7 @@ export class AmendmentService {
       } else if (change.changeType === 'renumber') {
         const section = sectionsCopy.find((s) => s.id === change.targetSectionId);
         if (section && change.newNumberLabel !== null) {
+          section.previous ??= before(section);
           section.numberLabel = change.newNumberLabel;
           section.modified = true;
         }

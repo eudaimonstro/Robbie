@@ -1,6 +1,7 @@
 import type { MeetingAction } from '../../types/index.js';
 import { logHeadcountSet, logMemberMarkedPresent } from '../../constants/logMessages.js';
 import { withPresence } from './memberHandlers.js';
+import { withAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const attendanceHandler: ActionHandler = (state, action, log) => {
@@ -20,6 +21,7 @@ export const attendanceHandler: ActionHandler = (state, action, log) => {
         members: existing
           ? state.members.map((m) => (m.id === marked.id ? marked : m))
           : [...state.members, marked],
+        attendedIds: withAttended(state, marked.id),
         meetingLog: log(typedAction.timestamp, logMemberMarkedPresent(marked.name)),
       };
     }

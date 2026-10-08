@@ -1,6 +1,7 @@
 import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { calculateTimerEnd, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { minutesItemUnderWay } from './minutesApproval';
 
 /** One thing the chair can do now, as a button in the console's toolbar */
 export interface ChairAction {
@@ -194,11 +195,13 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     // At the last item (often "Adjournment") the expected next step is to adjourn, which
     // completes the item too; before it, completing the item is
     const last = !state.agenda.some((i) => i.status === 'pending' && i.id !== item.id);
+    // While the minutes are to be approved, their card has the expected next step
+    const approving = minutesItemUnderWay(state) && !state.minutesApproved;
     const actions: ChairAction[] = last ? [adjourn('primary')] : [];
     actions.push({
       id: 'complete-item',
       label: 'Complete the item',
-      tone: last ? 'secondary' : 'primary',
+      tone: last || approving ? 'secondary' : 'primary',
       make: () => ({ type: 'COMPLETE_AGENDA_ITEM', id: item.id, timestamp: generateTimestamp() }),
     });
     if (presidingId !== null) {

@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import css from '../index.css?raw';
 
-/** The declarations of the rule with this selector, at the start of a line */
+/**
+ * The declarations of the rule with this selector, at the start of a line, indented when it sits
+ * in a media query (the evening palette is for the screen only)
+ */
 function block(selector: string): string {
-  const start = css.indexOf(`\n${selector} {`);
-  expect(start, `${selector} block`).toBeGreaterThanOrEqual(0);
-  return css.slice(start, css.indexOf('\n}', start));
+  const match = new RegExp(`\\n( *)${selector.replace(/[.:]/g, '\\$&')} \\{`).exec(css);
+  expect(match, `${selector} block`).not.toBeNull();
+  const start = match!.index;
+  return css.slice(start, css.indexOf(`\n${match![1]}}`, start));
 }
 
 // docs/design-brief.md, "Color": the day session and the evening session

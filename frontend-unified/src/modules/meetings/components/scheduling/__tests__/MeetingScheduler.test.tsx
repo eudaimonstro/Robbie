@@ -91,6 +91,101 @@ describe('MeetingScheduler', () => {
     });
   });
 
+  it('records where the meeting is held', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Place'), {
+      target: { value: 'Maple Grove Clubhouse' },
+    });
+    next();
+    await screen.findByText('Agenda builder');
+    expect(api.createPacket).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({ location: 'Maple Grove Clubhouse' }),
+    );
+  });
+
+  it('clears a place or description emptied after Edit the details', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Place'), {
+      target: { value: 'Maple Grove Clubhouse' },
+    });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'The pool and the budget' },
+    });
+    next();
+    await screen.findByText('Agenda builder');
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    fireEvent.change(screen.getByLabelText('Place'), { target: { value: '  ' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '' } });
+    next();
+    await waitFor(() => expect(api.updatePacket).toHaveBeenCalled());
+    expect(api.updatePacket).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ location: null, description: null }),
+    );
+  });
+
+  it('clears a date emptied after Edit the details, and trims the description', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Date and time'), {
+      target: { value: '2026-11-03T19:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: '  The pool and the budget  ' },
+    });
+    next();
+    await screen.findByText('Agenda builder');
+    expect(api.createPacket).toHaveBeenCalledWith(
+      'org-1',
+      expect.objectContaining({
+        description: 'The pool and the budget',
+        scheduledFor: new Date('2026-11-03T19:00').toISOString(),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    fireEvent.change(screen.getByLabelText('Date and time'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '   ' } });
+    next();
+    await waitFor(() => expect(api.updatePacket).toHaveBeenCalled());
+    expect(api.updatePacket).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ scheduledFor: null, description: null }),
+    );
+  });
+
+  it('asks for a title, and keeps the one saved when it is emptied', async () => {
+    await schedule();
+    fireEvent.change(screen.getByLabelText('Meeting title'), { target: { value: '  ' } });
+    next();
+    expect(screen.getByRole('alert').textContent).toBe('Give the meeting a title.');
+    expect(screen.getByLabelText('Meeting title').getAttribute('aria-invalid')).toBe('true');
+    expect(api.createPacket).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Meeting title'), {
+      target: { value: 'Annual Meeting' },
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    next();
+    await screen.findByText('Agenda builder');
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit the details/ }));
+    fireEvent.change(screen.getByLabelText('Meeting title'), { target: { value: '' } });
+    next();
+    expect(screen.getByRole('alert').textContent).toBe('Give the meeting a title.');
+    expect(api.updatePacket).not.toHaveBeenCalled();
+  });
+
+  it('leaves an empty place and description out of a new meeting', async () => {
+    await schedule();
+    next();
+    await screen.findByText('Agenda builder');
+    const [, data] = api.createPacket.mock.calls[0];
+    expect(data.location).toBeUndefined();
+    expect(data.description).toBeUndefined();
+  });
+
   it('offers members and above to preside, and names who does', async () => {
     await schedule();
     expect(screen.queryByRole('option', { name: 'Morgan Lee' })).toBeNull();

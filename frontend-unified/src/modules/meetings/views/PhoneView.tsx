@@ -13,6 +13,8 @@ import { ProxyAcceptancePanel, ProxyRequestPanel } from '../components/participa
 import { PhoneHeader } from '../components/phone/PhoneHeader';
 import { ActionBlock } from '../components/phone/ActionBlock';
 import { AskTheChair } from '../components/phone/AskTheChair';
+import { MinutesNotice } from '../components/phone/MinutesNotice';
+import { minutesItemUnderWay } from '../utils/minutesApproval';
 import { PhoneAgenda, SpeakerList } from '../components/phone/MeetingLists';
 
 /**
@@ -97,8 +99,9 @@ export function PhoneView() {
       )}
       {!guest && <ProxyAcceptancePanel state={state} dispatch={dispatch} currentUser={me} />}
       {hasFloor && <FloorBanner state={state} dispatch={dispatch} />}
-      {/* With the result up, nothing is pending: the card would only say so */}
-      {!(result && !question) && (
+      {/* With the result up, or the minutes before the meeting, nothing is pending: the card
+          would only say so */}
+      {(question || !(result || minutesItemUnderWay(state))) && (
         <QuestionCard
           question={question}
           size="phone"
@@ -107,6 +110,7 @@ export function PhoneView() {
           }
         />
       )}
+      <MinutesNotice state={state} />
       <section aria-label="Your part" className="card p-4">
         <ActionBlock state={state} dispatch={dispatch} me={me} />
       </section>

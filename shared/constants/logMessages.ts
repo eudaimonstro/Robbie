@@ -143,6 +143,10 @@ export function logRuleSuspended(rule: string, purpose: string): string {
 // Minutes
 export const LOG_MINUTES_APPROVED = 'Minutes from previous meeting approved.';
 
+export function logMinutesApprovedWithCorrections(corrections: string): string {
+  return `Minutes from previous meeting approved with corrections: ${corrections}`;
+}
+
 // Nominations
 export function logNominationsOpened(position: string): string {
   return `Chair: Nominations are now open for ${position}.`;

@@ -1,4 +1,4 @@
-import type { MeetingAction } from '../../types/index.js';
+import type { CompletedMotion, MeetingAction } from '../../types/index.js';
 import { LOG_QUORUM_WARNING, logRollCallVote } from '../../constants/logMessages.js';
 import {
   applyMotionOutcome,
@@ -6,6 +6,7 @@ import {
   restoreReconsideredMotion,
 } from '../../utils/motionOutcomeHelper.js';
 import { NO_VOTES, addVotes, calculateVoteResult } from '../../utils/voteCalculator.js';
+import { decisionContext, quorumNow } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const votingHandler: ActionHandler = (state, action, log) => {
@@ -185,28 +186,34 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         reconsideredMotion,
       );
 
-      // Record every decided motion, with both parts of its vote. A secret ballot keeps no
-      // record of who voted which way, in person or by proxy.
-      const completedMotions = state.currentMotion
-        ? [
-            ...updatedCompletedMotions,
-            {
-              id: state.currentMotion.id,
-              type: state.currentMotion.type,
-              name: state.currentMotion.name,
-              text: state.currentMotion.text,
-              mover: state.currentMotion.mover,
-              moverId: state.currentMotion.moverId,
-              passed,
-              voterChoices: isBallot ? {} : state.voterChoices,
-              timestamp: typedAction.timestamp,
-              reconsidered: false,
-              reconsiderable: state.currentMotion.reconsidered,
-              deviceVotes: state.votes,
-              floorVotes,
-              method: state.votingMethod,
-            },
-          ]
+      // Record every decided motion, with both parts of its vote, who moved and seconded it,
+      // and where and when it was decided. A secret ballot keeps no record of who voted which
+      // way, in person or by proxy.
+      const decided = state.currentMotion;
+      const record: CompletedMotion | null = decided
+        ? {
+            id: decided.id,
+            type: decided.type,
+            name: decided.name,
+            text: decided.text,
+            mover: decided.mover,
+            moverId: decided.moverId,
+            passed,
+            voterChoices: isBallot ? {} : state.voterChoices,
+            timestamp: typedAction.timestamp,
+            reconsidered: false,
+            reconsiderable: decided.reconsidered,
+            deviceVotes: state.votes,
+            floorVotes,
+            method: state.votingMethod,
+            ...(decided.secondedBy ? { seconder: decided.secondedBy } : {}),
+            disposition: passed ? 'carried' : 'failed',
+            quorumPresent: quorumNow(state),
+            ...decisionContext(state, typedAction.at),
+          }
+        : null;
+      const completedMotions = record
+        ? [...updatedCompletedMotions, record]
         : updatedCompletedMotions;
 
       // Both parts, so the room can check the chair's count

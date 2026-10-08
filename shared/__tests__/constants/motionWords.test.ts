@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
-import { motionWords } from '../motionWords';
+import { MOTIONS, motionWords, plainMotionName } from '../../constants/index.js';
 
 describe('motionWords', () => {
   it('gives every motion a sentence-case name and one short line', () => {
@@ -18,5 +17,12 @@ describe('motionWords', () => {
       name: 'Refer to a committee',
       explanation: 'Send the question to a committee to study',
     });
+  });
+
+  it('names a motion plainly from its key, its book name, or else in sentence case', () => {
+    expect(plainMotionName('Main Motion', 'mainMotion')).toBe('Main motion');
+    expect(plainMotionName('Refer to Committee')).toBe('Refer to a committee');
+    expect(plainMotionName('Refer to a Committee')).toBe('Refer to a committee');
+    expect(plainMotionName('Ratify the Contract', 'noSuchMotion')).toBe('Ratify the contract');
   });
 });

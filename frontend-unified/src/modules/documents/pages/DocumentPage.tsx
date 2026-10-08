@@ -25,12 +25,17 @@ import {
   CreateVersionModal,
   CreateAmendmentModal,
 } from './documentPage';
+import { useSectionFromHash } from './documentPage/sectionFromHash';
+import { useVersionParam } from './documentPage/versionParam';
 
 export default function DocumentPage() {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
   const { showToast } = useToast();
+  // A link may open a particular version (an applied amendment links to the one it produced),
+  // and the picker keeps the link in step with the version shown
+  const { versionId, chooseVersion } = useVersionParam();
 
   const {
     doc,
@@ -39,13 +44,12 @@ export default function DocumentPage() {
     sectionTree,
     amendments,
     loading,
-    handleVersionChange,
     handleSaveSection,
     handleDeleteSection,
     handleReorderSections,
     handleCreateVersion,
     handleCreateAmendment,
-  } = useDocumentData(documentId);
+  } = useDocumentData(documentId, versionId);
 
   // The role, breadcrumb and panels are the document's organization's, not the header's
   useSelectRecordOrganization(doc?.organizationId);
@@ -54,6 +58,8 @@ export default function DocumentPage() {
   const canShare = useCan('admin');
 
   const [selectedSection, setSelectedSection] = useState<SectionTreeType | null>(null);
+  // Opened from search at a section: select it and bring it into view
+  useSectionFromHash(sectionTree, setSelectedSection);
 
   // Editor state
   const [editorOpen, setEditorOpen] = useState(false);
@@ -117,7 +123,8 @@ export default function DocumentPage() {
   };
 
   const onCreateVersion = async (data: VersionCreate) => {
-    await handleCreateVersion(data);
+    // The new version is the current one: the link no longer names an older one
+    if (await handleCreateVersion(data)) chooseVersion(null);
   };
 
   const onCreateAmendment = async (title: string, description?: string) => {
@@ -154,7 +161,7 @@ export default function DocumentPage() {
           organizationName={currentOrganization?.name}
           canDraft={canDraft}
           canShare={canShare}
-          onVersionChange={handleVersionChange}
+          onVersionChange={(id) => chooseVersion(id, doc.currentVersionId)}
           onProposeAmendment={() => setAmendmentModalOpen(true)}
           onShare={() => setShareModalOpen(true)}
         />
@@ -171,6 +178,7 @@ export default function DocumentPage() {
           onReorder={handleReorderSections}
           onAddSection={handleAddSection}
           onCreateVersion={() => setVersionModalOpen(true)}
+          onImport={() => navigate(`/documents/${doc.id}/import`)}
         />
       </div>
 

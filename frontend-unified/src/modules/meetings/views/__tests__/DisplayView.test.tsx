@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import { MOTIONS, logAdoptedByConsent, logChairRuled } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MINUTES_APPROVED,
+  MOTIONS,
+  logAdoptedByConsent,
+  logAgendaItemCalled,
+  logChairRuled,
+} from '@robbie-bylawyer/shared/constants';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 
@@ -279,5 +285,114 @@ describe('DisplayView', () => {
     };
     render(<DisplayView />);
     expect(screen.getByText("Only the organization's members can open the display")).toBeTruthy();
+  });
+
+  it('puts the minutes before the room and asks for corrections', () => {
+    socket.state = {
+      ...inSession,
+      currentAgendaItem: {
+        id: 2,
+        title: 'Approval of the minutes of the 2025 annual meeting',
+        status: 'active',
+      },
+      minutesFromPreviousMeeting: '# Maple Grove HOA\n\n## Minutes of the 2025 Annual Meeting',
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+    // The agenda line says what the business is: no label repeats it
+    expect(screen.getByText('Approval of the minutes of the 2025 annual meeting')).toBeTruthy();
+    expect(screen.queryByText('Approval of the minutes')).toBeNull();
+  });
+
+  it('labels the minutes when no agenda line names their approval', () => {
+    socket.state = {
+      ...inSession,
+      meetingStage: 'minutes-approval',
+      currentAgendaItem: null,
+      minutesFromPreviousMeeting: '## Minutes of the 2025 Annual Meeting',
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Approval of the minutes')).toBeTruthy();
+    expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
+  });
+
+  it('asks for corrections in large type when the minutes are not sent to the display', () => {
+    socket.state = {
+      ...inSession,
+      currentAgendaItem: {
+        id: 2,
+        title: 'Approval of the minutes of the 2025 annual meeting',
+        status: 'active',
+      },
+      minutesFromPreviousMeeting: '',
+      previousMinutesId: 'm1',
+    };
+    const { rerender } = render(<DisplayView />);
+    // The item line names the minutes: no stand-in title under it
+    expect(screen.queryByText('The minutes of the previous meeting')).toBeNull();
+    expect(screen.getByText('Any corrections?').className).toContain('text-display-question');
+
+    socket.state = {
+      ...socket.state,
+      minutesApproved: true,
+      minutesApproval: { corrections: 'Twenty-two were present', timestamp: '' },
+    };
+    rerender(<DisplayView />);
+    expect(screen.getByText('Approved with corrections').className).toContain(
+      'text-display-question',
+    );
+    expect(screen.getByText('Twenty-two were present')).toBeTruthy();
+  });
+
+  it('keeps the result at an item that only gives itself minutes', () => {
+    const title = "Treasurer's report (5 minutes)";
+    socket.state = {
+      ...inSession,
+      currentAgendaItem: { id: 3, title, status: 'active' },
+      minutesFromPreviousMeeting: '',
+      previousMinutesId: 'm1',
+      meetingLog: [
+        { time: '7:30:00 PM', message: logAgendaItemCalled(title) },
+        { time: '7:45:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' },
+      ],
+    };
+    render(<DisplayView />);
+    expect(screen.getByText('Carried')).toBeTruthy();
+    expect(screen.queryByText('Any corrections?')).toBeNull();
+  });
+
+  it('stamps a decision made during the minutes, and puts the minutes over an older one', () => {
+    const title = 'Approval of the minutes of the 2025 annual meeting';
+    const vote = { time: '7:20:00 PM', message: 'Vote: Yea 11, Nay 2. CARRIED.' };
+    const called = { time: '7:25:00 PM', message: logAgendaItemCalled(title) };
+    const atTheMinutes: MeetingState = {
+      ...inSession,
+      currentAgendaItem: { id: 2, title, status: 'active' },
+      minutesFromPreviousMeeting: '',
+      previousMinutesId: 'm1',
+    };
+    // A vote before the item: the minutes are the business
+    socket.state = { ...atTheMinutes, meetingLog: [vote, called] };
+    const { rerender } = render(<DisplayView />);
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+    expect(screen.queryByText('Carried')).toBeNull();
+
+    // A vote during it: its result stands until the next thing
+    socket.state = { ...atTheMinutes, meetingLog: [called, vote] };
+    rerender(<DisplayView />);
+    expect(screen.getByText('Carried')).toBeTruthy();
+    expect(screen.queryByText('Any corrections?')).toBeNull();
+
+    // Then the minutes approved: the approval is the news
+    socket.state = {
+      ...atTheMinutes,
+      minutesApproved: true,
+      minutesApproval: { corrections: null, timestamp: '' },
+      meetingLog: [called, vote, { time: '7:30:00 PM', message: LOG_MINUTES_APPROVED }],
+    };
+    rerender(<DisplayView />);
+    expect(screen.getByText('Approved as read')).toBeTruthy();
+    expect(screen.queryByText('Carried')).toBeNull();
   });
 });

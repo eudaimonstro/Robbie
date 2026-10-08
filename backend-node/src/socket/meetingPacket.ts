@@ -12,6 +12,7 @@ import { logger } from '../middleware/logger.js';
 
 /** What a live meeting needs from its packet and organization */
 export interface MeetingPacketInfo {
+  id: string;
   robbieCode: string;
   organizationId: string;
   title: string | null;
@@ -39,6 +40,7 @@ export function findMeetingPacket(meetingCode: string): Promise<MeetingPacketInf
   return prisma.meetingPacket.findUnique({
     where: { robbieCode: meetingCode },
     select: {
+      id: true,
       robbieCode: true,
       organizationId: true,
       title: true,

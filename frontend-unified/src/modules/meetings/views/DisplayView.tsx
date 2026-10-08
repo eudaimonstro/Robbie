@@ -9,6 +9,12 @@ import { useSortedSpeakerQueue } from '../hooks/useSortedSpeakerQueue';
 import { eligibleCount } from '../utils/attendance';
 import { adjournedAt, currentResult, describeQuestion, itemsDecided } from '../utils/question';
 import { STANCE_LABELS } from '../utils/phoneMoment';
+import {
+  agendaNamesTheApproval,
+  minutesHeading,
+  minutesItemUnderWay,
+  minutesLatestLine,
+} from '../utils/minutesApproval';
 import { latestDecision } from '../utils/decisions';
 import { joinUrl } from '../utils/meetingLinks';
 import { formatScheduledStart } from '../../../utils/dates';
@@ -122,6 +128,10 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
   );
   const question = describeQuestion(state);
   const result = currentResult(state, voteResult);
+  // The previous minutes, while the room is asked to approve them, unless the room decided
+  // something since they came up: a fresh result keeps its stamp
+  const decidedSince = (latestDecision(state.meetingLog)?.index ?? -1) > minutesLatestLine(state);
+  const minutes = minutesItemUnderWay(state) && !(result && decidedSince);
   const debate = !!state.recognizedSpeaker || queue.length > 0;
   // The chair's ruling, while it is the latest decision and no new motion has been made
   const ruling =
@@ -137,7 +147,9 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.currentAgendaItem && (
             <p className="text-display-line text-ink-muted">{state.currentAgendaItem.title}</p>
           )}
-          {result ? (
+          {minutes ? (
+            <MinutesOnDisplay state={state} />
+          ) : result ? (
             <Stamp
               key={result.key}
               outcome={result.outcome}
@@ -161,6 +173,41 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
         <VoteBand state={state} />
       </footer>
     </>
+  );
+}
+
+/**
+ * The minutes put before the room: their title, and the chair's question or the approval. A
+ * display is sent the minutes without their text (as guests are): then the item line names
+ * them, and the question takes the large type.
+ */
+function MinutesOnDisplay({ state }: { state: MeetingState }) {
+  const made = state.minutesApproval?.corrections;
+  const text = state.minutesFromPreviousMeeting;
+  const verdict = state.minutesApproved
+    ? made
+      ? 'Approved with corrections'
+      : 'Approved as read'
+    : 'Any corrections?';
+  const large = 'font-serif-soft text-display-question font-semibold text-ink';
+  // Corrections run to 2,000 characters: the screen keeps the first lines
+  const line = 'line-clamp-3 text-display-line text-ink-muted';
+  return (
+    <div className="space-y-6">
+      {/* The agenda line above may say it already */}
+      {!agendaNamesTheApproval(state) && <p className={LABEL}>Approval of the minutes</p>}
+      {text ? (
+        <>
+          <p className={large}>{minutesHeading(text)}</p>
+          <p className={line}>{made ? `${verdict}: ${made}` : verdict}</p>
+        </>
+      ) : (
+        <>
+          <p className={large}>{verdict}</p>
+          {made && <p className={line}>{made}</p>}
+        </>
+      )}
+    </div>
   );
 }
 

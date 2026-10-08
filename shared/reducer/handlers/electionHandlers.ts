@@ -1,10 +1,16 @@
-import type { MeetingAction, Nomination, Officer } from '../../types/index.js';
+import type {
+  ElectionSetAsideRecord,
+  MeetingAction,
+  Nomination,
+  Officer,
+} from '../../types/index.js';
 import { FROM_THE_FLOOR } from '../../constants/floor.js';
 import {
   logElectionSetAside,
   logFloorNomination,
   logNomination,
 } from '../../constants/logMessages.js';
+import { decisionContext } from './records.js';
 import type { ActionHandler } from './types.js';
 
 export const electionHandler: ActionHandler = (state, action, log) => {
@@ -157,6 +163,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       for (const [name, count] of Object.entries(floorBallots)) {
         results[name] = (results[name] ?? 0) + count;
       }
+      // Every ballot's count is kept for the minutes, whatever comes of it
+      const ballots = [...(state.currentElection.ballots ?? []), results];
       const totalVotes =
         state.currentElection.votersWhoVoted.length +
         Object.values(floorBallots).reduce((sum, count) => sum + count, 0);
@@ -219,6 +227,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             ballotResults: {},
             votersWhoVoted: [],
             floorBallots: {},
+            ballots,
             votingInProgress: true,
             elected: null,
             isRunoff: true,
@@ -246,6 +255,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
             ),
             votersWhoVoted: [],
             floorBallots: {},
+            ballots,
             votingInProgress: true,
             elected: null,
             // Counts the repeated ballots (the first ballot is round 0)
@@ -265,6 +275,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
           // The tally the result rests on, device and paper ballots together, for the result,
           // the declaration and the minutes
           ballotResults: results,
+          ballots,
           votingInProgress: false,
           elected: winner,
         },
@@ -296,11 +307,15 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         0;
 
       const isWriteIn = !nominatedCandidate;
+      const ballots = state.currentElection.ballots ?? [];
       const officer: Officer = {
         position: state.currentElection.position,
         name: typedAction.candidateName,
         memberId,
         electedAt: typedAction.timestamp,
+        ...(ballots.length > 0 ? { ballots } : {}),
+        requiredVotes: state.currentElection.requiredVotes,
+        ...decisionContext(state, typedAction.at),
       };
 
       const writeInNote = isWriteIn ? ' (write-in candidate)' : '';
@@ -316,11 +331,20 @@ export const electionHandler: ActionHandler = (state, action, log) => {
     }
 
     case 'SET_ASIDE_ELECTION': {
-      const { timestamp } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
+      const { timestamp, at } = action as Extract<MeetingAction, { type: 'SET_ASIDE_ELECTION' }>;
       if (!state.nominationsOpen && !state.currentNominationPosition && !state.currentElection) {
         return state;
       }
       const position = state.currentElection?.position ?? state.currentNominationPosition;
+      // The minutes record it, with the count of each ballot already closed (the open ballot's
+      // count, never announced, goes with it)
+      const ballots = state.currentElection?.ballots ?? [];
+      const setAside: ElectionSetAsideRecord = {
+        position,
+        ...(ballots.length > 0 ? { ballots } : {}),
+        timestamp,
+        ...decisionContext(state, at),
+      };
       // The nominations already made stand: nominations reopened for the same position bring
       // them back
       return {
@@ -328,6 +352,7 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         nominationsOpen: false,
         currentNominationPosition: null,
         currentElection: null,
+        electionsSetAside: [...(state.electionsSetAside ?? []), setAside],
         meetingLog: log(timestamp, logElectionSetAside(position)),
       };
     }

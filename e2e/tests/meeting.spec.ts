@@ -8,7 +8,7 @@ import {
 } from '@playwright/test';
 import { PEOPLE, PHONE, personPage } from '../helpers';
 
-test('a scheduled meeting runs a vote from the phones to the display', async ({
+test('a scheduled meeting runs from the phones to the display, and its minutes are published', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(180_000);
@@ -102,11 +102,14 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await expect(pat.getByText('In the room: 9 to 2')).toBeVisible();
     await dana.getByRole('button', { name: 'Close the vote' }).click();
 
-    // The display announces the result in both parts, with the quorum
-    await expect(pat.getByText('Carried', { exact: true })).toBeVisible();
-    await expect(pat.getByText('On devices 2 to 0, in the room 9 to 2: 11 to 2')).toBeVisible();
+    // The display announces the result in both parts, with the quorum. The stamp also writes
+    // the result into its own hidden live region, so its words are read from the visible stamp.
+    const tally = 'On devices 2 to 0, in the room 9 to 2: 11 to 2';
+    const displayStamp = visibleStamp(pat, 'Carried');
+    await expect(displayStamp.word).toBeVisible();
+    await expect(displayStamp.caption.getByText(tally, { exact: true })).toBeVisible();
     await expect(pat.getByText('Need 22 more')).toBeVisible();
-    await expect(alice.getByText('Carried', { exact: true })).toBeVisible();
+    await expect(visibleStamp(alice, 'Carried').word).toBeVisible();
 
     await capture(dana, testInfo, 'console');
     await capture(alice, testInfo, 'phone');
@@ -138,6 +141,52 @@ test('a scheduled meeting runs a vote from the phones to the display', async ({
     await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
     await expect(alice.getByText(/^The meeting was adjourned at /)).toBeVisible();
     await expect(pat.getByText(/^Adjourned at /)).toBeVisible();
+
+    // After the meeting, Pat opens the minutes the server drafted as it adjourned: the pool
+    // motion with both parts of its vote, and Carmen's motion adopted without objection.
+    // (The latest meeting is listed first, so a retry's draft is the one opened.)
+    await pat.setViewportSize({ width: 1280, height: 900 });
+    const draft = pat.getByRole('link', { name: /Special meeting on the pool/ }).first();
+    await expect(async () => {
+      await pat.goto('/minutes');
+      await expect(draft).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(draft).toContainText('Draft');
+    await draft.click();
+
+    const minutes = pat.getByRole('region', { name: 'Preview' });
+    await expect(
+      minutes.getByText(
+        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\./,
+      ),
+    ).toBeVisible();
+    await expect(
+      minutes.getByText(
+        /Carmen Diaz moved: "I move that we add a lifeguard on weekends\." Seconded by a member in the room\. Adopted by unanimous consent\./,
+      ),
+    ).toBeVisible();
+
+    // Pat publishes them: the members can read them, and the next meeting is asked to approve.
+    // The status is the badge beside the heading (the toast says more, in a live region).
+    const heading = pat.getByRole('heading', {
+      name: /^Minutes of the Special meeting on the pool/,
+    });
+    await expect(heading.locator('..').getByText('Draft', { exact: true })).toBeVisible();
+    // Pat corrects a name and publishes at once, before the autosave: Publish saves it first
+    const text = pat.getByLabel('Minutes text');
+    const drafted = await text.inputValue();
+    expect(drafted).toContain('Seconded by Ben Whitaker.');
+    await text.fill(drafted.replace('Seconded by Ben Whitaker.', 'Seconded by Benjamin Whitaker.'));
+    await pat.getByRole('button', { name: 'Publish' }).click();
+    await expect(heading.locator('..').getByText('Published', { exact: true })).toBeVisible();
+    await expect(pat.getByRole('link', { name: 'Print or save as PDF' })).toBeVisible();
+    await capture(pat, testInfo, 'minutes');
+
+    // Alice, a member, reads the published minutes with Pat's correction
+    await alice.goto(new URL(pat.url()).pathname);
+    const published = alice.getByRole('article');
+    await expect(published).toContainText('Seconded by Benjamin Whitaker.');
+    await expect(published).not.toContainText('Seconded by Ben Whitaker.');
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
@@ -241,4 +290,17 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
   const file = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path: file, fullPage: true });
   await testInfo.attach(name, { path: file, contentType: 'image/png' });
+}
+
+/**
+ * The visible parts of a result stamp: its word and its caption (the subject and the tally).
+ * The stamp also writes the result into a hidden live region inside the same figure for screen
+ * readers, so a bare getByText would match it as well.
+ */
+function visibleStamp(page: Page, word: string) {
+  const figure = page.getByRole('figure', { name: new RegExp(`^${word}\\b`) });
+  return {
+    word: figure.getByText(word, { exact: true }).and(figure.locator(':not([role="status"])')),
+    caption: figure.locator('figcaption'),
+  };
 }

@@ -188,7 +188,81 @@ export interface CompletedMotion {
   readonly method?: VotingMethod;
   /** Whether the motion can be reconsidered (its definition's reconsidered flag) */
   readonly reconsiderable?: boolean;
+  // What the minutes need. Records made before these existed have none of them.
+  /** Who seconded it */
+  readonly seconder?: string;
+  /** How it was disposed of; a record without one was decided on a vote */
+  readonly disposition?: Disposition;
+  /** When, by the server's clock (ISO) */
+  readonly decidedAt?: string;
+  /** The agenda item under way when it was disposed of */
+  readonly agendaItemId?: number;
+  /** Whether a quorum was present when it was decided, on a vote or by unanimous consent */
+  readonly quorumPresent?: boolean;
 }
+
+/**
+ * How a motion was disposed of: carried or failed on a vote, adopted by unanimous consent,
+ * withdrawn by its mover, or dead for want of a second
+ */
+export type Disposition = 'carried' | 'failed' | 'unanimous' | 'withdrawn' | 'no-second';
+
+/** A ruling of the chair on a point that takes no vote, as the minutes record it */
+export interface ChairRulingRecord {
+  /** "The point is well taken." */
+  readonly ruling: string;
+  readonly explanation?: string;
+  /** The point ruled on */
+  readonly motionText: string;
+  readonly timestamp: string;
+  readonly decidedAt?: string;
+  readonly agendaItemId?: number;
+}
+
+/** How the meeting approved the previous meeting's minutes */
+export interface MinutesApprovalRecord {
+  /** The corrections made, or null when approved as read */
+  readonly corrections: string | null;
+  readonly timestamp: string;
+  readonly decidedAt?: string;
+  readonly agendaItemId?: number;
+}
+
+/** An election the chair set aside (SET_ASIDE_ELECTION), as the minutes record it */
+export interface ElectionSetAsideRecord {
+  /** The office, or null when none was named */
+  readonly position: string | null;
+  /** Each ballot closed before it was set aside, devices and paper together; counts only */
+  readonly ballots?: ReadonlyArray<Record<string, number>>;
+  readonly timestamp: string;
+  readonly decidedAt?: string;
+  readonly agendaItemId?: number;
+}
+
+/**
+ * Business the meeting adjourned with unfinished (END_MEETING), as the minutes record it: a
+ * motion pending or awaiting a second, or an election under way, with the agenda item it was
+ * under
+ */
+export type UnfinishedBusinessRecord =
+  | {
+      readonly kind: 'motion';
+      readonly id: number;
+      readonly name: string;
+      readonly text: string;
+      readonly mover: string;
+      readonly seconder?: string;
+      /** Made, but not yet seconded */
+      readonly awaitingSecond?: true;
+      readonly agendaItemId?: number;
+    }
+  | {
+      readonly kind: 'election';
+      readonly position: string;
+      /** Each ballot closed before the adjournment; counts only */
+      readonly ballots?: ReadonlyArray<Record<string, number>>;
+      readonly agendaItemId?: number;
+    };
 
 export interface Nomination {
   id: number;
@@ -218,6 +292,8 @@ export interface Election {
   votersWhoVoted: number[];
   /** The tellers' count of paper ballots, by candidate name, entered by the chair */
   floorBallots?: Record<string, number>;
+  /** Each closed ballot's count, devices and paper together, the first ballot first */
+  ballots?: Array<Record<string, number>>;
   elected: string | null;
   isRunoff?: boolean;
   runoffRound?: number;
@@ -228,6 +304,12 @@ export interface Officer {
   readonly name: string;
   readonly memberId: number;
   readonly electedAt: string;
+  /** Each ballot's count in the election that chose them */
+  readonly ballots?: ReadonlyArray<Record<string, number>>;
+  /** The vote the election required; records made before it was kept have none */
+  readonly requiredVotes?: Election['requiredVotes'];
+  readonly agendaItemId?: number;
+  readonly decidedAt?: string;
 }
 
 export type InquiryType = 'parliamentary' | 'information';
@@ -343,8 +425,23 @@ export interface MeetingState {
   }>;
   completedMotions: CompletedMotion[];
   committeeReports: CommitteeReport[];
+  /** The previous meeting's published minutes (Markdown), put before this meeting */
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
+  /** Which minutes those are (a Minutes id), or null when none were loaded */
+  previousMinutesId: string | null;
+  /** How the meeting approved them, or null until it has */
+  minutesApproval: MinutesApprovalRecord | null;
+  /** Whether a quorum was present when the meeting was called to order; null before */
+  quorumAtCallToOrder: boolean | null;
+  /** The chair's rulings, in order */
+  chairRulings: ChairRulingRecord[];
+  /** Members who have been present at any point, for the minutes' attendance */
+  attendedIds: number[];
+  /** Elections the chair set aside, in order */
+  electionsSetAside: ElectionSetAsideRecord[];
+  /** Business left unfinished when the meeting last adjourned */
+  unfinishedAtAdjournment: UnfinishedBusinessRecord[];
   suspendedRules: RuleSuspension[];
   lastChairRuling: { ruling: string; motionText: string; timestamp: string } | null;
   nominations: Nomination[];
@@ -406,7 +503,8 @@ export type MeetingAction =
       recordedBy?: number;
       timestamp: string;
     }
-  | { type: 'DECLINE_SECOND'; timestamp: string }
+  // `at` (ISO) is set by the server on the decisions the minutes record (CLOCKED_ACTIONS)
+  | { type: 'DECLINE_SECOND'; at?: string; timestamp: string }
   | { type: 'OPEN_VOTING'; voteTimerEnd: number | null; timestamp: string; withoutQuorum?: boolean }
   | {
       type: 'CAST_VOTE';
@@ -415,7 +513,7 @@ export type MeetingAction =
       isChairDecidingVote?: boolean;
       timestamp?: string;
     }
-  | { type: 'CLOSE_VOTING'; timestamp: string }
+  | { type: 'CLOSE_VOTING'; at?: string; timestamp: string }
   // The chair's count of the room: replaces the floor tally (a correction is a new entry)
   | { type: 'SET_FLOOR_TALLY'; yea: number; nay: number; abstain: number; timestamp: string }
   | { type: 'RAISE_HAND'; member: Member; stance: DebateStance }
@@ -441,13 +539,15 @@ export type MeetingAction =
   | { type: 'SET_VOTE_TIME_LIMIT'; seconds: number }
   | { type: 'REQUEST_UNANIMOUS_CONSENT'; timestamp: string }
   | { type: 'OBJECT_TO_CONSENT'; objector: string; objectorId?: number; timestamp: string }
-  | { type: 'UNANIMOUS_CONSENT_PASSED'; timestamp: string }
+  | { type: 'UNANIMOUS_CONSENT_PASSED'; at?: string; timestamp: string }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
   | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
   | { type: 'SET_MEETING_STAGE'; stage: MeetingStage; timestamp: string }
   | { type: 'SET_QUORUM'; quorum: number; timestamp: string }
-  | { type: 'APPROVE_MINUTES'; timestamp: string }
-  | { type: 'SET_PREVIOUS_MINUTES'; minutes: string }
+  // Approve the previous minutes as read, or with the corrections the chair enters
+  | { type: 'APPROVE_MINUTES'; corrections?: string; at?: string; timestamp: string }
+  // Server-only: the previous meeting's published minutes, and which they are
+  | { type: 'SET_PREVIOUS_MINUTES'; minutes: string; minutesId?: string }
   | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
   | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
   | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string }
@@ -456,6 +556,7 @@ export type MeetingAction =
       type: 'CHAIR_RULING';
       ruling: 'sustain' | 'overrule' | 'allow' | 'deny';
       explanation?: string;
+      at?: string;
       timestamp: string;
     }
   | { type: 'OPEN_NOMINATIONS'; position: string; timestamp: string }
@@ -485,10 +586,10 @@ export type MeetingAction =
   | { type: 'CLOSE_ELECTION'; timestamp: string }
   // The tellers' count of paper ballots by candidate name: replaces the floor ballots
   | { type: 'SET_FLOOR_BALLOTS'; counts: Record<string, number>; timestamp: string }
-  | { type: 'DECLARE_ELECTED'; candidateName: string; timestamp: string }
+  | { type: 'DECLARE_ELECTED'; candidateName: string; at?: string; timestamp: string }
   // The chair sets aside an election that can't go on (no nominee, a mistyped position): its
   // nominations close and its ballot, with any result not yet declared, is dropped
-  | { type: 'SET_ASIDE_ELECTION'; timestamp: string }
+  | { type: 'SET_ASIDE_ELECTION'; at?: string; timestamp: string }
   | {
       type: 'ASK_INQUIRY';
       inquiryType: InquiryType;
@@ -546,7 +647,7 @@ export type MeetingAction =
       scheduledFor: string | null;
       timestamp: string;
     }
-  | { type: 'WITHDRAW_MOTION'; requesterId: number; timestamp: string }
+  | { type: 'WITHDRAW_MOTION'; requesterId: number; at?: string; timestamp: string }
   | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
@@ -653,57 +754,55 @@ export interface VoteCalculationResult {
 }
 
 // Meeting Minutes types
-export interface AttendanceRecord {
-  memberId: number;
-  name: string;
-  role: MeetingRole;
-  status: 'present' | 'absent' | 'excused' | 'late' | 'left-early';
-  arrivedAt?: string;
-  departedAt?: string;
+
+/** Something the minutes record */
+export type MinutesEntry =
+  | { kind: 'motion'; motion: CompletedMotion }
+  | { kind: 'ruling'; ruling: ChairRulingRecord }
+  | { kind: 'election'; officer: Officer }
+  | { kind: 'setAside'; setAside: ElectionSetAsideRecord }
+  | { kind: 'minutes'; approval: MinutesApprovalRecord };
+
+/** An agenda item, with what was decided under it in the order it happened */
+export interface MinutesItem {
+  title: string;
+  status: AgendaItem['status'];
+  entries: MinutesEntry[];
 }
 
-export interface MinutesMotionRecord {
-  id: number;
-  type: string;
-  name: string;
-  text: string;
-  mover: string;
-  moverId: number;
-  seconder?: string;
-  outcome: 'passed' | 'failed' | 'withdrawn' | 'tabled';
-  /** Device and floor votes together */
-  voteCount?: { yea: number; nay: number; abstain: number };
-  voterChoices?: Record<number, 'yea' | 'nay' | 'abstain'>;
-  deviceVotes?: Votes;
-  floorVotes?: Votes;
-  method?: VotingMethod;
-  timestamp: string;
-}
-
-export interface MinutesElectionRecord {
-  position: string;
-  candidates: string[];
-  winner: string | null;
-  ballotResults: Record<string, number>;
-  wasRunoff: boolean;
-  timestamp: string;
-}
-
+/** What the minutes of a meeting record, from its final state (see generateMeetingMinutes) */
 export interface MeetingMinutes {
   meetingCode: string;
-  startTime: string;
-  endTime?: string;
-  chairName?: string;
-  attendance: AttendanceRecord[];
+  title: string;
+  chairName: string | null;
+  /** Members (not guests) present at any point; marked when the chair marked them present */
+  present: Array<{ id: number; name: string; marked: boolean }>;
+  /** Guests present at any point, by name */
+  guests: string[];
   /** People present without an account, and the names given for them */
   headcount: number;
   headcountNames: string[];
-  quorumPresent: boolean;
-  agendaItems: Array<{ title: string; status: 'completed' | 'pending' | 'active' }>;
-  motions: MinutesMotionRecord[];
-  elections: MinutesElectionRecord[];
-  electedOfficers: Officer[];
-  announcements: string[];
-  nextMeetingDate?: string;
-  generatedAt: string;
+  quorum: number;
+  quorumAtCallToOrder: boolean | null;
+  /** The agenda in order */
+  items: MinutesItem[];
+  /** What was decided outside any agenda item, in order */
+  otherEntries: MinutesEntry[];
+  /** The business the meeting adjourned with unfinished, in order */
+  unfinished: UnfinishedBusinessRecord[];
+}
+
+/** What the minutes need from outside the meeting state: its organization and its packet */
+export interface MinutesContext {
+  organizationName: string;
+  /** An IANA time zone name: the minutes give dates and times there */
+  timeZone: string;
+  title: string;
+  location: string | null;
+  /** When the meeting was scheduled, called to order and adjourned (ISO) */
+  scheduledFor: string | null;
+  calledToOrderAt: string | null;
+  adjournedAt: string | null;
+  /** The organization's voting members (member role and above), for the absent list */
+  voters: Array<{ id: number; name: string }>;
 }

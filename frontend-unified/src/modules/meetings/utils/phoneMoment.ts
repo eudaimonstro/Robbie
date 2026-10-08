@@ -1,5 +1,6 @@
 import type { DebateStance, MeetingState } from '@robbie-bylawyer/shared/types';
 import { electionUnderway } from './chairActions';
+import { minutesItemUnderWay } from './minutesApproval';
 
 /** What the phone asks of its owner now: one thing at a time (docs/design-brief.md) */
 export type PhoneMoment =
@@ -14,6 +15,7 @@ export type PhoneMoment =
   | 'consent'
   | 'agenda'
   | 'debate'
+  | 'minutes'
   | 'motion';
 
 /** The moment for the phone's one action block, the most pressing first */
@@ -30,6 +32,9 @@ export function phoneMoment(state: MeetingState): PhoneMoment {
   // election holds the floor, and the phone waits for the chair
   if (electionUnderway(state)) return 'election';
   if (!state.agendaAdopted && !state.agendaObjection && !state.currentMotion) return 'agenda';
+  // The previous minutes before the room: a member with a correction offers it aloud, so the
+  // phone asks for no motion until they are approved
+  if (minutesItemUnderWay(state) && !state.minutesApproved) return 'minutes';
   return 'motion';
 }
 

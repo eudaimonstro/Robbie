@@ -38,7 +38,9 @@ export interface MeetingPacket {
   organizationId: string;
   robbieCode: string;
   title?: string;
-  description?: string;
+  description?: string | null;
+  /** Where the meeting is held */
+  location?: string | null;
   scheduledFor?: string;
   /** The presiding officer, who chairs the live meeting; null when the admins run it */
   chairUserId?: number | null;

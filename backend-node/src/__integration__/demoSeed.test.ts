@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { prisma } from '../db/prisma.js';
-import { DEMO_MEETING_CODE, DEMO_SLUG, DemoSeedError, seedDemo } from '../demo/demoSeed.js';
+import {
+  DEMO_MEETING_CODE,
+  DEMO_PAST_MEETING_CODE,
+  DEMO_SLUG,
+  DemoSeedError,
+  seedDemo,
+} from '../demo/demoSeed.js';
 import { resetDatabase } from './db.js';
 
 describe('demo seed', () => {
@@ -24,7 +30,12 @@ describe('demo seed', () => {
     expect(members.every((m) => m.user.name && m.user.termsVersion === TERMS_VERSION)).toBe(true);
     expect(members.find((m) => m.role === 'admin')?.user.name).toBe('Dana Okafor');
     // 142 lots, one vote each; the bylaws' Section 4.2 sets the quorum at 20%
-    expect(org).toMatchObject({ eligibleVoters: 142, quorumPercent: 20, quorumCount: null });
+    expect(org).toMatchObject({
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
+      timeZone: 'America/Chicago',
+    });
 
     const document = await prisma.document.findFirstOrThrow({
       where: { organizationId: org.id },
@@ -62,6 +73,29 @@ describe('demo seed', () => {
     // The president presides
     const dana = members.find((m) => m.user.email === 'dana@maplegrove.example');
     expect(packet.chairUserId).toBe(dana?.userId);
+    expect(packet.location).toBe('Maple Grove Clubhouse, 400 Maple Grove Drive');
+
+    // Last year's annual meeting, adjourned, with the minutes Pat published for this year's
+    // meeting to approve
+    const lastYear = await prisma.meetingPacket.findUniqueOrThrow({
+      where: { robbieCode: DEMO_PAST_MEETING_CODE },
+      include: { minutes: true },
+    });
+    expect(lastYear).toMatchObject({
+      organizationId: org.id,
+      title: '2025 Annual Meeting',
+      chairUserId: dana?.userId,
+    });
+    expect(lastYear.endedAt).not.toBeNull();
+    const pat = members.find((m) => m.user.email === 'pat@maplegrove.example');
+    expect(lastYear.minutes).toMatchObject({
+      status: 'published',
+      publishedById: pat?.userId,
+    });
+    expect(lastYear.minutes?.body).toContain('## Minutes of the 2025 Annual Meeting');
+    // Something for this year's meeting to approve: the motions it could make without a quorum
+    expect(lastYear.minutes?.body).toContain('Carried on a voice vote');
+    expect(await prisma.meetingPacket.count({ where: { organizationId: org.id } })).toBe(2);
   });
 
   it('refuses to run again without reset', async () => {

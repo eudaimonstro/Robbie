@@ -131,6 +131,10 @@ describe('the record of a vote', () => {
         deviceVotes: { yea: 3, nay: 1, abstain: 0 },
         floorVotes: { yea: 2, nay: 0, abstain: 0 },
         method: 'standard',
+        seconder: 'Bo',
+        disposition: 'carried',
+        // Nobody is present in this state, against a quorum of 3
+        quorumPresent: false,
       },
     ]);
   });
@@ -262,7 +266,15 @@ describe('floor ballots in elections', () => {
       timestamp: '20:31',
     });
     expect(declared.electedOfficers).toEqual([
-      { position: 'Director', name: 'Carmen', memberId: 0, electedAt: '20:31' },
+      {
+        position: 'Director',
+        name: 'Carmen',
+        memberId: 0,
+        electedAt: '20:31',
+        // The ballot that elected them, and the vote it took, for the minutes
+        ballots: [{ Carmen: 18, Ann: 9, Bo: 0 }],
+        requiredVotes: 'majority',
+      },
     ]);
     expect(declared.currentElection).toBeNull();
   });

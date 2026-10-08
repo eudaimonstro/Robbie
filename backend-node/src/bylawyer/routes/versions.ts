@@ -1,10 +1,30 @@
-import { Router, type Router as RouterType } from 'express';
+import { randomUUID } from 'crypto';
+import express, { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import type { Section } from '../../generated/prisma/client.js';
+import type { Prisma, Section } from '../../generated/prisma/client.js';
+import { largeJson } from '../../middleware/largeJson.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam, docIdParam } from '../../schemas/common.js';
-import { createVersionBody, updateVersionBody, diffParams } from '../../schemas/versions.js';
+import {
+  createVersionBody,
+  updateVersionBody,
+  diffParams,
+  importVersionBody,
+  isLongTextWithoutHeadings,
+  NO_HEADINGS,
+  type ImportedSection,
+  type ImportVersionBody,
+} from '../../schemas/versions.js';
 import { diffSections } from '../services/versionDiff.js';
+import {
+  DOCX_LIMIT,
+  DOCX_TOO_LARGE,
+  DOCX_TYPES,
+  DocxTooLargeError,
+  NOT_A_DOCX,
+  NO_FILE,
+  docxToText,
+} from '../services/docxText.js';
 import { logger } from '../../middleware/logger.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfDocument, orgOfVersion } from '../../orgs/resolvers.js';
@@ -87,6 +107,32 @@ function renderMarkdown(sections: Section[], parentId: string | null = null, dep
     });
 
   return lines.join('\n');
+}
+
+/**
+ * An imported tree as rows for one createMany: ids made here, so each child names its parent,
+ * and positions in the order given. Empty labels, titles and content are saved as none.
+ */
+function importedRows(
+  versionId: string,
+  sections: ImportedSection[],
+  parentId: string | null = null,
+): Prisma.SectionCreateManyInput[] {
+  return sections.flatMap((section, position) => {
+    const id = randomUUID();
+    return [
+      {
+        id,
+        versionId,
+        parentId,
+        position,
+        numberLabel: section.numberLabel?.trim() || null,
+        title: section.title?.trim() || null,
+        content: section.content.trim() || null,
+      },
+      ...importedRows(versionId, section.children, id),
+    ];
+  });
 }
 
 // List versions for a document
@@ -200,6 +246,87 @@ versionsRouter.post(
     } catch (error) {
       logger.error({ err: error }, 'Failed to create version');
       res.status(500).json({ error: 'Failed to create version' });
+    }
+  },
+);
+
+/**
+ * POST /api/documents/:docId/import/docx
+ * A Word document as text for the bylaws parser. The body is the raw file (at most 5 MB), read
+ * from memory and never stored. It is read only after the role is checked, so nobody below a
+ * secretary can make the server read it, and refused (400) when it would unpack too large.
+ */
+versionsRouter.post(
+  '/documents/:docId/import/docx',
+  validate({ params: docIdParam }),
+  requireRole('secretary', byDocument),
+  express.raw({ type: DOCX_TYPES, limit: DOCX_LIMIT }),
+  async (req, res) => {
+    // express.raw leaves no Buffer for an empty body or a type it doesn't read
+    const file: unknown = req.body;
+    if (!Buffer.isBuffer(file) || file.length === 0) {
+      return res.status(400).json({ error: NO_FILE });
+    }
+    try {
+      res.json({ text: await docxToText(file) });
+    } catch (error) {
+      if (error instanceof DocxTooLargeError) {
+        logger.warn('A Word document would unpack too large to read');
+        return res.status(400).json({ error: DOCX_TOO_LARGE });
+      }
+      logger.warn({ err: error }, 'A Word document could not be read');
+      res.status(400).json({ error: NOT_A_DOCX });
+    }
+  },
+);
+
+/**
+ * POST /api/documents/:docId/versions/import
+ * A new version from parsed sections, made current: the version and every section in one
+ * transaction, so a failed import leaves nothing behind.
+ * Body: { effectiveDate?, notes?, sections: ImportedSection[] }
+ */
+versionsRouter.post(
+  '/documents/:docId/versions/import',
+  validate({ params: docIdParam }),
+  requireRole('secretary', byDocument),
+  // Read only now, after the role check (see largeJson)
+  largeJson,
+  (req, res, next) => {
+    if (isLongTextWithoutHeadings(req.body)) return res.status(400).json({ error: NO_HEADINGS });
+    next();
+  },
+  validate({ body: importVersionBody }),
+  async (req, res) => {
+    try {
+      const documentId = req.params.docId;
+      const { effectiveDate, notes, sections } = req.body as ImportVersionBody;
+      const version = await prisma.$transaction(async (tx) => {
+        const last = await tx.version.findFirst({
+          where: { documentId },
+          orderBy: { versionNumber: 'desc' },
+          select: { versionNumber: true },
+        });
+        const created = await tx.version.create({
+          data: {
+            documentId,
+            versionNumber: (last?.versionNumber ?? 0) + 1,
+            effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
+            notes: notes?.trim() || null,
+          },
+        });
+        const rows = importedRows(created.id, sections);
+        await tx.section.createMany({ data: rows });
+        await tx.document.update({
+          where: { id: documentId },
+          data: { currentVersionId: created.id },
+        });
+        return { ...created, sectionCount: rows.length };
+      });
+      res.status(201).json(version);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to import a version');
+      res.status(500).json({ error: 'Failed to import the version' });
     }
   },
 );

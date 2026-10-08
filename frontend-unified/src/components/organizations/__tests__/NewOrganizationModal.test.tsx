@@ -38,7 +38,12 @@ describe('NewOrganizationModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
 
     await waitFor(() => expect(orgContext.setCurrentOrganization).toHaveBeenCalledWith(created));
-    expect(create).toHaveBeenCalledWith({ name: 'Maple Grove HOA', description: '142 lots' });
+    // With the creator's time zone (the suite runs in Chicago), for the minutes' times
+    expect(create).toHaveBeenCalledWith({
+      name: 'Maple Grove HOA',
+      description: '142 lots',
+      timeZone: 'America/Chicago',
+    });
     expect(orgContext.refreshOrganizations).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });

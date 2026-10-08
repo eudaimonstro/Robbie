@@ -10,6 +10,7 @@ import { useToast } from '../../../context/ToastContext';
 import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import { MembersCard } from '../components/MembersCard';
 import { AttendanceSettingsCard } from '../components/AttendanceSettingsCard';
+import { TimeZoneCard } from '../components/TimeZoneCard';
 import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
 
 const messageOf = (err: unknown, fallback: string) =>
@@ -197,6 +198,9 @@ export default function SettingsPage() {
 
           {/* Voting members and the quorum every meeting starts from; keyed like MembersCard */}
           <AttendanceSettingsCard key={`attendance-${currentOrganization.id}`} />
+
+          {/* The time zone the minutes give times in, beside the attendance settings */}
+          <TimeZoneCard key={`time-zone-${currentOrganization.id}`} />
 
           {/* Keyed so a switch starts the card afresh, without the previous members */}
           <MembersCard key={currentOrganization.id} />

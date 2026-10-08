@@ -15,6 +15,7 @@ import {
   useAmendmentData,
   AmendmentHeader,
   AmendmentChangesList,
+  AmendmentTabs,
   EditAmendmentModal,
   AddChangeModal,
   AmendmentActionDialogs,
@@ -150,7 +151,7 @@ export default function AmendmentDetailPage() {
 
       {/* Timeline info */}
       <div className="card p-4 mb-6">
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-1 text-ink-muted">
             <Clock className="w-4 h-4" />
             Created: {new Date(amendment.createdAt).toLocaleString()}
@@ -171,16 +172,21 @@ export default function AmendmentDetailPage() {
         </div>
       </div>
 
-      {/* Changes */}
-      <AmendmentChangesList
-        changes={amendment.changes || []}
-        sectionTree={sectionTree}
-        canEdit={canEditDraft}
-        onAddChange={() => setChangeModalOpen(true)}
-        onDeleteChange={(change) => {
-          setDeletingChange(change);
-          setDeleteChangeDialogOpen(true);
-        }}
+      {/* The changes, and a preview of the document as it would read */}
+      <AmendmentTabs
+        amendment={amendment}
+        changes={
+          <AmendmentChangesList
+            changes={amendment.changes || []}
+            sectionTree={sectionTree}
+            canEdit={canEditDraft}
+            onAddChange={() => setChangeModalOpen(true)}
+            onDeleteChange={(change) => {
+              setDeletingChange(change);
+              setDeleteChangeDialogOpen(true);
+            }}
+          />
+        }
       />
 
       {/* Modals */}

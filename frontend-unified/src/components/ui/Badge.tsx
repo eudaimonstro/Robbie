@@ -99,3 +99,15 @@ const PRESENCE_LABELS: Record<Presence, string> = {
 export function PresenceBadge({ presence }: { presence: Presence }) {
   return <Badge variant={presence}>{PRESENCE_LABELS[presence]}</Badge>;
 }
+
+const MINUTES_STATUS: Record<'draft' | 'published' | 'approved', [string, string]> = {
+  draft: ['badge-draft', 'Draft'],
+  published: ['badge-proposed', 'Published'],
+  approved: ['badge-passed', 'Approved'],
+};
+
+/** A meeting's minutes: the secretary's draft, published for the members, or approved */
+export function MinutesStatusBadge({ status }: { status: 'draft' | 'published' | 'approved' }) {
+  const [className, label] = MINUTES_STATUS[status];
+  return <span className={className}>{label}</span>;
+}

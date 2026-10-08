@@ -10,6 +10,7 @@ import {
   ChevronDown,
   X,
   Users,
+  ScrollText,
 } from 'lucide-react';
 import { useOrganization, useCan } from '../../context/OrganizationContext';
 import { documents as documentsApi, Document } from '../../api/client';
@@ -19,6 +20,7 @@ const navItems = [
   { icon: GitBranch, label: 'Amendments', path: '/amendments' },
   { icon: Calendar, label: 'Meeting Records', path: '/bylawyer-meetings' },
   { icon: Users, label: 'Live Meetings', path: '/meetings' },
+  { icon: ScrollText, label: 'Minutes', path: '/minutes' },
 ];
 
 /**

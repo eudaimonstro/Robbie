@@ -238,7 +238,12 @@ const SortableSectionNode = memo(function SortableSectionNode({
   );
 
   return (
-    <div ref={setNodeRef} style={style} className={depth > 0 ? 'ml-6' : ''}>
+    <div
+      ref={setNodeRef}
+      id={`section-${section.id}`}
+      style={style}
+      className={`scroll-mt-4 ${depth > 0 ? 'ml-6' : ''}`}
+    >
       <div
         className={`group flex items-start gap-2 p-3 rounded-lg transition-colors cursor-pointer ${
           isSelected

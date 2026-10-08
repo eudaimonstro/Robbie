@@ -3,7 +3,7 @@
  * Tests for validating meeting actions before dispatch
  */
 import { describe, it, expect } from 'vitest';
-import { validateAction } from '../socket/actionValidator.js';
+import { MAX_RULING_EXPLANATION_LENGTH, validateAction } from '../socket/actionValidator.js';
 import { ACTION_TYPES, isServerOnly } from '../socket/permissionGuard.js';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type {
@@ -208,6 +208,25 @@ describe('actionValidator', () => {
         timestamp: '',
       } as never);
       expect(result.errorCode).toBe('VOTING_IN_PROGRESS');
+    });
+
+    it('takes an explanation of up to 2,000 characters, and nothing but text', () => {
+      expect(MAX_RULING_EXPLANATION_LENGTH).toBe(2000);
+      const rule = (explanation: unknown) =>
+        validateAction(activeMeetingState(), {
+          type: 'CHAIR_RULING',
+          ruling: 'sustain',
+          explanation,
+          timestamp: '',
+        } as never);
+      expect(rule(undefined)).toEqual({ valid: true });
+      expect(rule('x'.repeat(2000))).toEqual({ valid: true });
+      for (const explanation of ['x'.repeat(2001), 42, { text: 'x' }, ['x'], null]) {
+        expect(rule(explanation), JSON.stringify(explanation)).toMatchObject({
+          valid: false,
+          errorCode: 'INVALID_ACTION',
+        });
+      }
     });
   });
 

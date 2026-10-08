@@ -1,11 +1,11 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { MAX_FLOOR_NAME_LENGTH, MOTIONS } from '@robbie-bylawyer/shared/constants';
+import { MAX_FLOOR_NAME_LENGTH, MOTIONS, motionWords } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
 import type { MeetingDispatch } from '../../types/socket';
-import { FORM_MOTIONS, motionWords } from '../../utils/motionWords';
+import { FORM_MOTIONS } from '../../utils/motionWords';
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the

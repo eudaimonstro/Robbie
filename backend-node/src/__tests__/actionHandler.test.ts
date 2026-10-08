@@ -22,6 +22,10 @@ vi.mock('../socket/stateManager.js', () => ({ applyAction }));
 vi.mock('../bylawyer/bylawSyncService.js', () => ({
   checkAndSyncBylawAmendment: async () => null,
 }));
+vi.mock('../bylawyer/services/meetingMinutes.js', () => ({
+  draftMinutesOnAdjournment: async () => {},
+  markPreviousMinutesApproved: async () => {},
+}));
 
 const { handleDispatchAction } = await import('../socket/actionHandler.js');
 const { roomManager } = await import('../socket/roomManager.js');

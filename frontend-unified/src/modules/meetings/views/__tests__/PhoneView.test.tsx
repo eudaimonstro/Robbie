@@ -309,6 +309,50 @@ describe('PhoneView', () => {
     expect(screen.getByLabelText(/^About the rules/)).toBeTruthy();
   });
 
+  it('puts the minutes in place of an empty question while they are the business', () => {
+    renderAs(alice, {
+      ...active,
+      currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      minutesFromPreviousMeeting: '## Minutes of the 2025 Annual Meeting\n\nText.',
+    });
+    expect(screen.getByText('Minutes of the 2025 Annual Meeting')).toBeTruthy();
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+    expect(screen.queryByText('No question is pending.')).toBeNull();
+  });
+
+  it('asks no motion of a member while the minutes are being approved', () => {
+    const atTheMinutes: MeetingState = {
+      ...active,
+      currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      minutesFromPreviousMeeting: '## Minutes of the 2025 Annual Meeting\n\nText.',
+    };
+    const { unmount } = renderAs(alice, atTheMinutes);
+    expect(screen.queryByLabelText('Motion text')).toBeNull();
+    expect(screen.getByText(/To offer a correction/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
+    unmount();
+
+    // Once they are approved, the meeting moves on: a motion again
+    renderAs(alice, {
+      ...atTheMinutes,
+      minutesApproved: true,
+      minutesApproval: { corrections: null, timestamp: '' },
+    });
+    expect(screen.getByLabelText('Motion text')).toBeTruthy();
+    expect(screen.queryByText(/To offer a correction/)).toBeNull();
+  });
+
+  it('tells a guest the minutes are being approved, without their text', () => {
+    renderAs(sam, {
+      ...active,
+      currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      minutesFromPreviousMeeting: '',
+      previousMinutesId: 'm1',
+    });
+    expect(screen.getByText('The minutes of the previous meeting')).toBeTruthy();
+    expect(screen.getByText('Any corrections?')).toBeTruthy();
+  });
+
   it('gives a guest a Guest badge and Ask the chair, and no vote', () => {
     renderAs(sam, voting);
     expect(screen.getByText('Guest')).toBeTruthy();

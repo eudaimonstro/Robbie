@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   formatCalendarDate,
   formatClockTime,
+  formatLongDate,
   formatMeetingTime,
+  formatMeetingTimeWithYear,
   formatScheduledStart,
   fromLocalDateTimeInput,
   toLocalDateTimeInput,
@@ -63,6 +65,26 @@ describe('formatMeetingTime', () => {
   });
 });
 
+describe('formatMeetingTimeWithYear', () => {
+  it("shows a past meeting's day, year and time in the viewer's time zone", () => {
+    // 7 PM in Chicago, where the tests run, on Thursday, March 20, 2025
+    expect(formatMeetingTimeWithYear('2025-03-21T00:00:00.000Z')).toMatch(
+      /^Thu, Mar 20, 2025, 7:00\sPM$/,
+    );
+  });
+
+  it("shows it in the organization's time zone when given one", () => {
+    expect(formatMeetingTimeWithYear('2025-03-21T00:00:00.000Z', 'America/New_York')).toMatch(
+      /^Thu, Mar 20, 2025, 8:00\sPM$/,
+    );
+  });
+
+  it('shows nothing for a missing or unreadable date', () => {
+    expect(formatMeetingTimeWithYear(null)).toBe('');
+    expect(formatMeetingTimeWithYear('not a date')).toBe('');
+  });
+});
+
 describe('formatClockTime', () => {
   it("shows a log entry's instant as a time of day in the viewer's time zone", () => {
     // 9:16 AM in Chicago, where the tests run
@@ -86,5 +108,13 @@ describe('formatScheduledStart', () => {
   it('is empty for no time, or one it cannot read', () => {
     expect(formatScheduledStart(null)).toBe('');
     expect(formatScheduledStart('soon')).toBe('');
+  });
+});
+
+describe('formatLongDate', () => {
+  it('writes a calendar date out, on the day it was stored', () => {
+    expect(formatLongDate('2026-03-15T00:00:00.000Z')).toBe('March 15, 2026');
+    expect(formatLongDate(null)).toBe('');
+    expect(formatLongDate('not a date')).toBe('');
   });
 });

@@ -26,13 +26,16 @@ model Organization {
   eligibleVoters Int?
   // Quorum: a percentage of eligibleVoters, or a fixed count. One of the two is set.
   quorumPercent  Int?
-  quorumCount    Int? @default(3)
+  quorumCount    Int?   @default(3)
+  // Where its meetings are held, as an IANA name: the minutes give times there
+  timeZone       String @default("America/Chicago")
 
   documents Document[]
   meetings  Meeting[]
   members   OrganizationMember[]
   invites   OrganizationInvite[]
   packets   MeetingPacket[]
+  minutes   Minutes[]
 }
 
 // Document type enum
@@ -235,6 +238,8 @@ model MeetingPacket {
   robbieCode     String    @unique // Links to Robbie meeting code
   title          String?
   description    String?
+  // Where the meeting is held
+  location       String?
   scheduledFor   DateTime?
   // The presiding officer: chairs the live meeting
   chairUserId    Int?
@@ -244,10 +249,13 @@ model MeetingPacket {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  chair        User?               @relation(fields: [chairUserId], references: [id], onDelete: SetNull)
-  attachments  Attachment[]
-  agendaItems  MeetingAgendaItem[]
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chair           User?               @relation(fields: [chairUserId], references: [id], onDelete: SetNull)
+  attachments     Attachment[]
+  agendaItems     MeetingAgendaItem[]
+  // Its own minutes, and the minutes it approved
+  minutes         Minutes?            @relation("MeetingMinutes")
+  minutesApproved Minutes[]           @relation("MinutesApprovedAt")
 
   @@index([organizationId])
 }
@@ -317,10 +325,12 @@ model User {
   termsVersion    String?
   termsAcceptedAt DateTime?
 
-  memberships OrganizationMember[]
-  invitesSent OrganizationInvite[]
-  amendments  Amendment[]
-  chairing    MeetingPacket[]
+  memberships      OrganizationMember[]
+  invitesSent      OrganizationInvite[]
+  amendments       Amendment[]
+  chairing         MeetingPacket[]
+  minutesUpdated   Minutes[]            @relation("MinutesUpdatedBy")
+  minutesPublished Minutes[]            @relation("MinutesPublishedBy")
 }
 
 // A signed-in device. Only the SHA-256 hash of the session token is stored.
@@ -387,4 +397,39 @@ model OrganizationInvite {
 
   @@index([organizationId, createdAt])
   @@index([email])
+}
+
+// A meeting's minutes go from the app's draft to published (members can read them, and the next
+// meeting is asked to approve them) to approved
+enum MinutesStatus {
+  draft
+  published
+  approved
+}
+
+// The minutes of a scheduled meeting: Markdown that the app drafts at adjournment and a secretary
+// edits. One per packet.
+model Minutes {
+  id                 String        @id @default(uuid())
+  organizationId     String
+  packetId           String        @unique
+  status             MinutesStatus @default(draft)
+  body               String
+  generatedAt        DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  updatedById        Int?
+  publishedAt        DateTime?
+  publishedById      Int?
+  approvedAt         DateTime?
+  // The meeting that approved them, and the corrections it made
+  approvedAtPacketId String?
+  corrections        String?
+
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packet           MeetingPacket  @relation("MeetingMinutes", fields: [packetId], references: [id], onDelete: Cascade)
+  approvedAtPacket MeetingPacket? @relation("MinutesApprovedAt", fields: [approvedAtPacketId], references: [id], onDelete: SetNull)
+  updatedBy        User?          @relation("MinutesUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  publishedBy      User?          @relation("MinutesPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
 }

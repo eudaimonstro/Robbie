@@ -3,7 +3,13 @@ import crypto from 'crypto';
 import { prisma } from '../../db/prisma.js';
 import { validate } from '../../middleware/validate.js';
 import { uuidParam, orgIdParam } from '../../schemas/common.js';
-import { createDocumentBody, updateDocumentBody, atDateQuery } from '../../schemas/documents.js';
+import {
+  createDocumentBody,
+  updateDocumentBody,
+  atDateQuery,
+  searchQuery,
+} from '../../schemas/documents.js';
+import { searchOrganization } from '../services/search.js';
 import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
@@ -59,6 +65,26 @@ documentsRouter.get(
     } catch (error) {
       logger.error({ err: error }, 'Failed to list documents');
       res.status(500).json({ error: 'Failed to list documents' });
+    }
+  },
+);
+
+/**
+ * GET /api/organizations/:orgId/search?q=
+ * Sections of the current version of each of the organization's documents whose label, title
+ * or content has the query, in any case: at most 20, each with the text around the match
+ */
+documentsRouter.get(
+  '/organizations/:orgId/search',
+  validate({ params: orgIdParam, query: searchQuery }),
+  requireRole('viewer', byOrganization),
+  async (req, res) => {
+    try {
+      const query = String(req.query.q);
+      res.json({ query, results: await searchOrganization(req.org!.id, query) });
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to search');
+      res.status(500).json({ error: 'Failed to search' });
     }
   },
 );

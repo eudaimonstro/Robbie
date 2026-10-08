@@ -336,6 +336,12 @@ describe('the meeting in words', () => {
   });
 
   it('says when the meeting adjourned and how many things it decided', () => {
+    const record = {
+      type: 'mainMotion',
+      name: 'Main Motion',
+      voterChoices: {},
+      reconsidered: false,
+    };
     const state: MeetingState = {
       ...initialState,
       meetingStage: 'adjourned',
@@ -344,15 +350,31 @@ describe('the meeting in words', () => {
         { time: '8:42:15 PM', message: 'Meeting adjourned.' },
       ],
       completedMotions: [
+        { ...record, id: 1, text: 'Resurface the pool', passed: true, timestamp: '7:45:00 PM' },
         {
-          id: 1,
-          type: 'mainMotion',
-          name: 'Main Motion',
-          text: 'Resurface the pool',
+          ...record,
+          id: 2,
+          text: 'Thank the board',
           passed: true,
-          voterChoices: {},
-          timestamp: '7:45:00 PM',
-          reconsidered: false,
+          timestamp: '8:10:00 PM',
+          disposition: 'unanimous',
+        },
+        // Recorded for the minutes, but nothing was decided
+        {
+          ...record,
+          id: 3,
+          text: 'Paint the clubhouse',
+          passed: false,
+          timestamp: '8:12:00 PM',
+          disposition: 'no-second',
+        },
+        {
+          ...record,
+          id: 4,
+          text: 'Repave the lot',
+          passed: false,
+          timestamp: '8:13:00 PM',
+          disposition: 'withdrawn',
         },
       ],
       electedOfficers: [
@@ -360,6 +382,7 @@ describe('the meeting in words', () => {
       ],
     };
     expect(adjournedAt(state)).toBe('8:42 PM');
+    // The vote, the unanimous consent (counted once, from its record) and the election
     expect(itemsDecided(state)).toBe(3);
   });
 });

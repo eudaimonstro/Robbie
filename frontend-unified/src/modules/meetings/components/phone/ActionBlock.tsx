@@ -91,6 +91,12 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       );
     case 'debate':
       return <DebateBlock state={state} dispatch={dispatch} me={me} />;
+    case 'minutes':
+      return (
+        <Note>
+          <p>To offer a correction, ask the chair for the floor in the room.</p>
+        </Note>
+      );
     case 'motion':
       return <MotionPanel state={state} dispatch={dispatch} me={me} />;
   }

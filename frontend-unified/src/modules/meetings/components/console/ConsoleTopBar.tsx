@@ -47,10 +47,13 @@ export function ConsoleTopBar({
   const elapsed = useElapsed(startedAt, state.meetingActive);
   return (
     <header className="card flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 xl:flex-nowrap">
-      <h2 className="min-w-0 truncate font-serif-soft text-title font-semibold text-ink">
+      {/* The title keeps its words; a long agenda item gives way, with the whole of it on hover */}
+      <h2 className="min-w-0 max-w-[50%] shrink-0 truncate font-serif-soft text-title font-semibold text-ink">
         {state.title || 'Live meeting'}
       </h2>
-      <span className="label-caps shrink-0">{stageLabel(state)}</span>
+      <span className="label-caps min-w-0 truncate" title={stageLabel(state)}>
+        {stageLabel(state)}
+      </span>
       {elapsed && (
         <span className="shrink-0 text-sm tabular-nums text-ink-muted">{elapsed} elapsed</span>
       )}

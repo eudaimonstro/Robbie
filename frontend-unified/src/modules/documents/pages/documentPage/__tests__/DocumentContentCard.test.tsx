@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DocumentContentCard } from '../DocumentContentCard';
 import type { Version } from '../../../../../api/client';
 
@@ -13,7 +13,11 @@ const version: Version = {
   createdAt: '2026-10-01T00:00:00Z',
 };
 
-function renderCard(props: { canEdit: boolean; selectedVersion: Version | null }) {
+function renderCard(props: {
+  canEdit: boolean;
+  selectedVersion: Version | null;
+  onImport?: () => void;
+}) {
   render(
     <DocumentContentCard
       sectionTree={[]}
@@ -45,5 +49,24 @@ describe('DocumentContentCard', () => {
     expect(screen.queryByRole('button', { name: 'New Version' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Add First Section' })).toBeNull();
     expect(screen.getByText('This document has no sections yet.')).toBeTruthy();
+  });
+
+  it('offers to import the bylaws into an empty document, and a new version later', () => {
+    const onImport = vi.fn();
+    renderCard({ canEdit: true, selectedVersion: null, onImport });
+    fireEvent.click(screen.getByRole('button', { name: 'Import the bylaws' }));
+    expect(onImport).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Create First Version' })).toBeTruthy();
+
+    cleanup();
+    renderCard({ canEdit: true, selectedVersion: version, onImport });
+    fireEvent.click(screen.getByRole('button', { name: 'Import a new version' }));
+    expect(onImport).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers a role below secretary no import', () => {
+    renderCard({ canEdit: false, selectedVersion: null, onImport: vi.fn() });
+    expect(screen.queryByRole('button', { name: 'Import the bylaws' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Import a new version' })).toBeNull();
   });
 });

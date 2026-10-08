@@ -1,5 +1,6 @@
 import type { OrgRole } from '../utils/roles';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
+import type { ParsedSection } from '@robbie-bylawyer/shared/utils';
 
 const API_BASE = '/api';
 
@@ -167,11 +168,20 @@ function getRetryDelay(attempt: number): number {
   return delay + jitter;
 }
 
+/**
+ * A request's options: fetch's, and whether a failure (a 5xx, or no answer) is tried again.
+ * A write the server may have applied before the failure, and that would do something twice if
+ * sent again, turns retries off.
+ */
+type RequestOptions = RequestInit & { retry?: boolean };
+
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {},
+  requestOptions: RequestOptions = {},
   useCache = true,
 ): Promise<T> {
+  const { retry = true, ...options } = requestOptions;
+  const retries = retry && !endpoint.startsWith('/auth/');
   const isGet = !options.method || options.method === 'GET';
   const cacheKey = getCacheKey(endpoint);
   const startedAt = Date.now();
@@ -199,7 +209,7 @@ async function request<T>(
       if (!response.ok) {
         noteUnauthorized(endpoint, response.status);
 
-        if (!endpoint.startsWith('/auth/') && shouldRetry(response.status, attempt, isGet)) {
+        if (retries && shouldRetry(response.status, attempt, isGet)) {
           const delay = getRetryDelay(attempt);
           console.warn(
             `Request failed with ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
@@ -239,7 +249,7 @@ async function request<T>(
 
       // Retry on network errors
       if (
-        !endpoint.startsWith('/auth/') &&
+        retries &&
         attempt < MAX_RETRIES &&
         (err instanceof TypeError || (err as Error).message === 'Failed to fetch')
       ) {
@@ -362,8 +372,6 @@ export const versions = {
   getText: (id: string) => request<{ text: string }>(`/versions/${id}/text`),
   diff: (id: string, otherId: string) => request<DiffResult>(`/versions/${id}/diff/${otherId}`),
   exportMarkdown: (id: string) => downloadFile(`/versions/${id}/export/markdown`),
-  exportHtml: (id: string) => downloadFile(`/versions/${id}/export/html`),
-  exportPdf: (id: string) => downloadFile(`/versions/${id}/export/pdf`),
 };
 
 // Sections
@@ -430,6 +438,52 @@ export const amendments = {
     }),
   deleteChange: (changeId: string) =>
     request<void>(`/amendment-changes/${changeId}`, { method: 'DELETE' }),
+  /** The document as it would read after the amendment. Not cached: changes are added often. */
+  preview: (id: string) => request<AmendmentPreview>(`/amendments/${id}/preview`, {}, false),
+};
+
+/** The type of a .docx, which the import route reads raw */
+const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+// Bylaws import (secretary)
+export const bylawsImport = {
+  /** A Word document (at most 5 MB) as text with # heading lines, for parseBylaws */
+  docxText: async (docId: string, file: File): Promise<string> => {
+    const response = await apiFetch(`/documents/${docId}/import/docx`, {
+      method: 'POST',
+      headers: { 'Content-Type': DOCX_TYPE },
+      body: file,
+    });
+    if (!response.ok) throw new HttpError(await errorMessage(response), response.status);
+    return ((await response.json()) as { text: string }).text;
+  },
+  /**
+   * Parsed and reviewed sections as a new current version. Sent once: when the answer is lost,
+   * the version may be saved, and sending it again would save a second.
+   */
+  saveVersion: (docId: string, data: ImportVersion) =>
+    request<ImportedVersion>(`/documents/${docId}/versions/import`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      retry: false,
+    }),
+};
+
+// Meeting minutes. Not cached: a secretary saves them while others read.
+export const minutes = {
+  list: (orgId: string) => request<MinutesSummary[]>(`/organizations/${orgId}/minutes`, {}, false),
+  get: (id: string) => request<MinutesRecord>(`/minutes/${id}`, {}, false),
+  // Sent once: the editor saves again after the next change, and a retry landing after a newer
+  // save would put older text back
+  save: (id: string, body: string) =>
+    request<MinutesRecord>(`/minutes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ body }),
+      retry: false,
+    }),
+  publish: (id: string) => request<MinutesRecord>(`/minutes/${id}/publish`, { method: 'POST' }),
+  regenerate: (id: string) =>
+    request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),
 };
 
 // Meetings
@@ -465,14 +519,11 @@ export const votes = {
     }),
 };
 
-// Search
+// Search the current version of each of an organization's documents, from 2 characters. Not
+// cached: the results follow edits.
 export const search = {
-  query: (q: string, orgId?: string, docId?: string) => {
-    let endpoint = `/search?q=${encodeURIComponent(q)}`;
-    if (orgId) endpoint += `&org_id=${orgId}`;
-    if (docId) endpoint += `&doc_id=${docId}`;
-    return request<SearchResult>(endpoint, {}, false); // Don't cache search results
-  },
+  query: (orgId: string, q: string) =>
+    request<SearchResult>(`/organizations/${orgId}/search?q=${encodeURIComponent(q)}`, {}, false),
 };
 
 // Types
@@ -489,12 +540,16 @@ export interface Organization {
   /** The quorum: a percentage of the voting members, or a number of people; one is set */
   quorumPercent?: number | null;
   quorumCount?: number | null;
+  /** Where its meetings are held, as an IANA name: the minutes give times there */
+  timeZone?: string;
 }
 
 export interface OrganizationCreate {
   name: string;
   description?: string;
   slug?: string;
+  /** The creator's time zone; the server uses America/Chicago without one */
+  timeZone?: string;
 }
 
 export interface OrganizationUpdate {
@@ -506,6 +561,7 @@ export interface OrganizationUpdate {
   /** Setting one of these clears the other */
   quorumPercent?: number;
   quorumCount?: number;
+  timeZone?: string;
 }
 
 /** One of the signed-in user's organizations, with their role in it */
@@ -541,6 +597,8 @@ export interface ScheduledMeeting {
   robbieCode: string;
   title: string | null;
   description: string | null;
+  /** Where the meeting is held */
+  location: string | null;
   scheduledFor: string | null;
   /** The presiding officer, who chairs the live meeting; null when the admins run it */
   chairUserId: number | null;
@@ -681,6 +739,87 @@ export interface AmendmentChangeCreate {
   position?: number;
 }
 
+/** A section of an amendment's preview: as it would read, and what the amendment does to it */
+export interface PreviewSection {
+  /** An added section's id is `new-<changeId>` */
+  id: string;
+  parentId: string | null;
+  position: number;
+  numberLabel: string | null;
+  title: string | null;
+  content: string | null;
+  annotation: string | null;
+  modified: boolean;
+  added: boolean;
+  deleted: boolean;
+  /** Its text before the amendment, when modified or renumbered */
+  previous: { numberLabel: string | null; title: string | null; content: string | null } | null;
+  children: PreviewSection[];
+}
+
+export interface AmendmentPreview {
+  amendmentId: string;
+  amendmentTitle: string;
+  sections: PreviewSection[];
+}
+
+/** What the import saves: the reviewed sections and the version's details */
+export interface ImportVersion {
+  effectiveDate?: string;
+  notes?: string;
+  sections: ParsedSection[];
+}
+
+export interface ImportedVersion extends Version {
+  sectionCount: number;
+}
+
+export type MinutesStatus = 'draft' | 'published' | 'approved';
+
+/** A meeting's minutes, as the Minutes page lists them */
+export interface MinutesSummary {
+  id: string;
+  status: MinutesStatus;
+  generatedAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  approvedAt: string | null;
+  packet: { id: string; robbieCode: string; title: string | null; scheduledFor: string | null };
+}
+
+/** A meeting's minutes, with who did what and the meeting they are of */
+export interface MinutesRecord {
+  id: string;
+  organizationId: string;
+  packetId: string;
+  status: MinutesStatus;
+  /** Markdown */
+  body: string;
+  generatedAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  approvedAt: string | null;
+  /** The corrections the meeting that approved them made */
+  corrections: string | null;
+  packet: {
+    id: string;
+    robbieCode: string;
+    title: string | null;
+    scheduledFor: string | null;
+    location: string | null;
+  };
+  organization: { id: string; name: string; timeZone: string };
+  updatedBy: { id: number; name: string | null } | null;
+  publishedBy: { id: number; name: string | null } | null;
+  /** The meeting that approved them */
+  approvedAtPacket: { id: string; title: string | null; scheduledFor: string | null } | null;
+  /**
+   * Published and before a meeting that hasn't adjourned: the meeting makes any corrections,
+   * so a save is refused (409)
+   */
+  beforeMeeting: boolean;
+}
+
 export interface Meeting {
   id: string;
   organizationId: string;
@@ -747,19 +886,18 @@ export interface DiffChange {
 
 export interface SearchResult {
   query: string;
-  total: number;
-  results: SearchResultItem[];
+  results: SearchHit[];
 }
 
-export interface SearchResultItem {
-  type: 'document' | 'section';
-  id: string;
+/** A section that matched, with the text around the first match */
+export interface SearchHit {
   documentId: string;
   documentTitle: string;
-  sectionId?: string;
-  title: string;
+  versionId: string;
+  sectionId: string;
+  numberLabel: string | null;
+  title: string | null;
   snippet: string;
-  matchType: 'title' | 'content' | 'label';
 }
 
 // Sharing types

@@ -29,6 +29,12 @@ export const MAX_HEADCOUNT = 100_000;
 /** The largest count the chair can enter for one choice in a floor tally or floor ballot */
 export const MAX_FLOOR_COUNT = 1_000_000;
 
+/** The longest corrections to the previous minutes the chair can enter */
+export const MAX_CORRECTIONS_LENGTH = 2000;
+
+/** The longest explanation the chair can give with a ruling (it goes in the minutes) */
+export const MAX_RULING_EXPLANATION_LENGTH = 2000;
+
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
@@ -782,6 +788,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'MINUTES_ALREADY_APPROVED',
         };
       }
+      if (
+        action.corrections !== undefined &&
+        (typeof action.corrections !== 'string' ||
+          action.corrections.length > MAX_CORRECTIONS_LENGTH)
+      ) {
+        return {
+          valid: false,
+          error: `Corrections can be at most ${MAX_CORRECTIONS_LENGTH} characters`,
+          errorCode: 'INVALID_ACTION',
+        };
+      }
       return { valid: true };
 
     case 'OPEN_NOMINATIONS':
@@ -1112,6 +1129,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'The chair cannot rule while a vote is in progress',
           errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (
+        action.explanation !== undefined &&
+        (typeof action.explanation !== 'string' ||
+          action.explanation.length > MAX_RULING_EXPLANATION_LENGTH)
+      ) {
+        return {
+          valid: false,
+          error: `An explanation can be at most ${MAX_RULING_EXPLANATION_LENGTH} characters`,
+          errorCode: 'INVALID_ACTION',
         };
       }
       // The reducer handles context-specific validation

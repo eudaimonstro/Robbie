@@ -41,6 +41,9 @@ export interface Fixture {
   linked: string;
   /** A's packet with nothing in it (code ORGA02) */
   emptyPacket: { id: string; code: string };
+  /** Published minutes of emptyPacket (published by A's secretary), and draft minutes of packet */
+  minutes: string;
+  draftMinutes: string;
   /** A pending addition by email to A */
   invite: string;
   /** B's resources, for the routes that take two */
@@ -181,6 +184,23 @@ export async function seedFixture(): Promise<Fixture> {
   const emptyPacket = await prisma.meetingPacket.create({
     data: { organizationId: orgA.id, robbieCode: 'ORGA02' },
   });
+  const minutes = await prisma.minutes.create({
+    data: {
+      organizationId: orgA.id,
+      packetId: emptyPacket.id,
+      status: 'published',
+      body: '# Org A\n\n## Minutes of the September meeting\n\nThe meeting adjourned at 8:00 PM.\n',
+      publishedAt: new Date('2026-09-10T12:00:00Z'),
+      publishedById: users.secretary.id,
+    },
+  });
+  const draftMinutes = await prisma.minutes.create({
+    data: {
+      organizationId: orgA.id,
+      packetId: packet.id,
+      body: '# Org A\n\n## Minutes of the October meeting\n',
+    },
+  });
   const invite = await prisma.organizationInvite.create({
     data: {
       organizationId: orgA.id,
@@ -241,6 +261,8 @@ export async function seedFixture(): Promise<Fixture> {
     upload: upload.id,
     linked: linked.id,
     emptyPacket: { id: emptyPacket.id, code: emptyPacket.robbieCode },
+    minutes: minutes.id,
+    draftMinutes: draftMinutes.id,
     invite: invite.id,
     docB: docB.id,
     versionB: versionB.id,

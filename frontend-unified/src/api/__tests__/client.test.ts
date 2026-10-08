@@ -9,6 +9,8 @@ import {
   bylawSync,
   meetingPackets,
   schedule,
+  bylawsImport,
+  minutes,
   apiFetch,
   HttpError,
   setSignedOutHandler,
@@ -256,5 +258,116 @@ describe('organization calls', () => {
     const [url, init] = fetchMock.mock.calls[2] as unknown as [string, RequestInit];
     expect(url).toBe('/api/packets/MAPLE1/reload-agenda');
     expect(init.method).toBe('POST');
+  });
+});
+
+describe('secretary calls', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sends a Word document as its raw bytes and reads its text', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ text: '# Article I' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const file = new File(['docx bytes'], 'bylaws.docx');
+
+    expect(await bylawsImport.docxText('doc-1', file)).toBe('# Article I');
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/documents/doc-1/import/docx');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(file);
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+  });
+
+  it("shows the server's message when a Word document can't be read", async () => {
+    mockResponse(400, { error: 'That file is not a Word document Robbie can read' });
+    await expect(bylawsImport.docxText('doc-1', new File(['x'], 'x.docx'))).rejects.toThrow(
+      'That file is not a Word document Robbie can read',
+    );
+  });
+
+  it('saves parsed sections as a new version', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ id: 'v3', versionNumber: 3, sectionCount: 2 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const sections = [
+      { numberLabel: 'Article I', title: 'Name', content: '', children: [] },
+      { numberLabel: 'Article II', title: 'Members', content: '', children: [] },
+    ];
+
+    const saved = await bylawsImport.saveVersion('doc-1', { notes: 'Pasted', sections });
+    expect(saved.sectionCount).toBe(2);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/documents/doc-1/versions/import');
+    expect(JSON.parse(init.body as string)).toEqual({ notes: 'Pasted', sections });
+  });
+
+  it('sends an import once: a retry after a lost answer would save a second version', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'Bad gateway' }), { status: 502 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(bylawsImport.saveVersion('doc-1', { sections: [] })).rejects.toMatchObject({
+      status: 502,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('reads minutes fresh each time, and saves, publishes and regenerates them', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'm1', body: '#' })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await minutes.get('m1');
+    await minutes.get('m1');
+    await minutes.list('org-1');
+    await minutes.save('m1', '# Minutes');
+    await minutes.publish('m1');
+    await minutes.regenerate('m1');
+
+    const calls = fetchMock.mock.calls.map((call) => {
+      const [url, init] = call as unknown as [string, RequestInit | undefined];
+      return `${init?.method ?? 'GET'} ${url}`;
+    });
+    expect(calls).toEqual([
+      'GET /api/minutes/m1',
+      'GET /api/minutes/m1',
+      'GET /api/organizations/org-1/minutes',
+      'PUT /api/minutes/m1',
+      'POST /api/minutes/m1/publish',
+      'POST /api/minutes/m1/regenerate',
+    ]);
+    const [, saveInit] = fetchMock.mock.calls[3] as unknown as [string, RequestInit];
+    expect(JSON.parse(saveInit.body as string)).toEqual({ body: '# Minutes' });
+  });
+
+  it('sends a minutes save once, without retries: the next autosave is the retry', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'Bad gateway' }), { status: 502 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(minutes.save('m1', '# Minutes')).rejects.toMatchObject({ status: 502 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    // Nor after a network failure
+    fetchMock.mockImplementation(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    await expect(minutes.save('m1', '# Minutes')).rejects.toThrow('Failed to fetch');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The option stays out of the fetch itself
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init).not.toHaveProperty('retry');
+  });
+
+  it("reads an amendment's preview fresh each time", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ sections: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+    await amendments.preview('a1');
+    await amendments.preview('a1');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url] = fetchMock.mock.calls[0] as unknown as [string];
+    expect(url).toBe('/api/amendments/a1/preview');
   });
 });

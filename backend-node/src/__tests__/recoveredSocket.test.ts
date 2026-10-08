@@ -30,6 +30,7 @@ const organization = vi.hoisted(() => ({
   chairUserId: null as number | null,
   orgRole: 'member' as string | null,
 }));
+vi.mock('../bylawyer/services/meetingMinutes.js', () => ({ previousMinutesFor: async () => null }));
 vi.mock('../socket/meetingPacket.js', () => ({
   findMeetingPacket: async () => ({
     robbieCode: 'REC001',

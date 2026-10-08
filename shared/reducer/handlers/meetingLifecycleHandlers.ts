@@ -1,4 +1,4 @@
-import type { AgendaItem, MeetingAction } from '../../types/index.js';
+import type { AgendaItem, MeetingAction, UnfinishedBusinessRecord } from '../../types/index.js';
 import {
   getNextStage,
   getStageLogMessage,
@@ -11,6 +11,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import { NO_VOTES } from '../../utils/voteCalculator.js';
+import { decisionContext, quorumNow, withPresentAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
 /**
@@ -25,6 +26,10 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
     case 'START_MEETING': {
       const { timestamp } = action as Extract<MeetingAction, { type: 'START_MEETING' }>;
       const started = log(timestamp, LOG_MEETING_CALLED_TO_ORDER);
+      // Whether a quorum is present as the meeting is called to order, for the minutes
+      const quorumAtCallToOrder = quorumNow(state);
+      // Everyone here at the call to order attends; anyone who arrives later, as they arrive
+      const attendedIds = withPresentAttended(state);
       // Calling the meeting to order is the agenda's first item, when it has one: it is done
       // (only while pending, as a meeting called to order again after adjourning has done it)
       const first = state.agenda[0];
@@ -33,6 +38,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
           ...state,
           meetingActive: true,
           meetingStage: 'call-to-order',
+          quorumAtCallToOrder,
+          attendedIds,
           agenda: state.agenda.map((a) =>
             a.id === first.id ? { ...a, status: 'completed' as const } : a,
           ),
@@ -46,6 +53,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ...state,
         meetingActive: true,
         meetingStage: 'call-to-order',
+        quorumAtCallToOrder,
+        attendedIds,
         meetingLog: started,
       };
     }
@@ -66,6 +75,45 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ...[...state.motionStack, ...(state.pendingSecond ? [state.pendingSecond] : [])].map(
           (m) => `the motion "${m.text}"`,
         ),
+      ];
+      // The same business, for the minutes: each motion with its mover and seconder, and the
+      // election with the count of each ballot already closed
+      const { agendaItemId } = decisionContext(state, undefined);
+      const under = agendaItemId !== undefined ? { agendaItemId } : {};
+      const ballots = state.currentElection?.ballots ?? [];
+      const unfinishedRecords: UnfinishedBusinessRecord[] = [
+        ...(position
+          ? [
+              {
+                kind: 'election' as const,
+                position,
+                ...(ballots.length > 0 ? { ballots } : {}),
+                ...under,
+              },
+            ]
+          : []),
+        ...state.motionStack.map((m) => ({
+          kind: 'motion' as const,
+          id: m.id,
+          name: m.name,
+          text: m.text,
+          mover: m.mover,
+          ...(m.secondedBy ? { seconder: m.secondedBy } : {}),
+          ...under,
+        })),
+        ...(state.pendingSecond
+          ? [
+              {
+                kind: 'motion' as const,
+                id: state.pendingSecond.id,
+                name: state.pendingSecond.name,
+                text: state.pendingSecond.text,
+                mover: state.pendingSecond.mover,
+                awaitingSecond: true as const,
+                ...under,
+              },
+            ]
+          : []),
       ];
       // A vote interrupted by adjourning is never decided, so its choices would never be cleared
       // or redacted: they go with it, as a secret ballot's must. (An election's ballot goes with
@@ -102,6 +150,10 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         speakerTimerEnd: null,
         lastSpeakerStance: null,
         debatePositions: {},
+        // What this adjournment left unfinished, replacing an earlier one's: the minutes say when
+        // the meeting last adjourned, and a meeting called to order again after adjourning has
+        // only the log to show what the earlier adjournment left
+        unfinishedAtAdjournment: unfinishedRecords,
         meetingLog: [
           ...state.meetingLog,
           ...completed.map((a) => ({ time: timestamp, message: logAgendaItemCompleted(a.title) })),

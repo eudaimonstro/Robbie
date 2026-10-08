@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Scale, Menu, Search, X, FileText, Hash } from 'lucide-react';
+import { Scale, Menu, Search, X, Hash } from 'lucide-react';
 import { useOrganization } from '../../context/OrganizationContext';
-import { search as searchApi, SearchResultItem } from '../../api/client';
+import { search as searchApi, type SearchHit } from '../../api/client';
 import { UserMenu } from './UserMenu';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 
@@ -18,7 +18,7 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   // Below the xl breakpoint the search box is an icon button that opens it over the header
@@ -46,36 +46,47 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (searchQuery.trim().length < 2) {
+    // The current organization's bylaws, from 2 characters
+    const organizationId = currentOrganization?.id;
+    const query = searchQuery.trim();
+    if (!organizationId || query.length < 2) {
       setSearchResults([]);
       setShowSearchResults(false);
+      setIsSearching(false);
       return;
     }
 
+    // Set when the query or the organization changes (or the search is cleared): an answer
+    // already on its way is for a search nobody is looking at any more, and is dropped
+    let stale = false;
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const result = await searchApi.query(searchQuery, currentOrganization?.id);
+        const result = await searchApi.query(organizationId, query);
+        if (stale) return;
         setSearchResults(result.results);
         setShowSearchResults(true);
       } catch {
-        setSearchResults([]);
+        if (!stale) setSearchResults([]);
       } finally {
-        setIsSearching(false);
+        if (!stale) setIsSearching(false);
       }
     }, 300);
 
     return () => {
+      stale = true;
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
   }, [searchQuery, currentOrganization?.id]);
 
-  const handleSearchResultClick = (result: SearchResultItem) => {
+  // The document opens at the section: it is selected and scrolled into view there
+  const handleSearchResultClick = (hit: SearchHit) => {
     setShowSearchResults(false);
     setSearchQuery('');
-    navigate(`/documents/${result.documentId}`);
+    setSearchOpen(false);
+    navigate(`/documents/${hit.documentId}#section-${hit.sectionId}`);
   };
 
   const clearSearch = () => {
@@ -173,32 +184,26 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
                 </div>
               ) : (
                 <div className="py-1">
-                  {searchResults.map((result) => (
+                  {searchResults.map((hit) => (
                     <button
-                      key={`${result.type}-${result.id}`}
-                      onClick={() => handleSearchResultClick(result)}
+                      key={hit.sectionId}
+                      onClick={() => handleSearchResultClick(hit)}
                       className="w-full text-left px-4 py-2 hover:bg-surface-2 transition-colors"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5">
-                          {result.type === 'document' ? (
-                            <FileText className="w-4 h-4 text-gavel" />
-                          ) : (
-                            <Hash className="w-4 h-4 text-ink-muted" />
-                          )}
-                        </div>
+                        <Hash className="mt-0.5 w-4 h-4 text-ink-muted" aria-hidden="true" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-ink truncate">
-                            {result.title}
+                            {[hit.numberLabel, hit.title].filter(Boolean).join(' ') || 'Section'}
                           </div>
-                          {result.type === 'section' && (
-                            <div className="text-xs text-ink-muted truncate">
-                              in {result.documentTitle}
+                          <div className="text-xs text-ink-muted truncate">
+                            in {hit.documentTitle}
+                          </div>
+                          {hit.snippet && (
+                            <div className="text-xs text-ink-muted mt-0.5 line-clamp-2">
+                              {hit.snippet}
                             </div>
                           )}
-                          <div className="text-xs text-ink-muted mt-0.5 line-clamp-2">
-                            {result.snippet}
-                          </div>
                         </div>
                       </div>
                     </button>

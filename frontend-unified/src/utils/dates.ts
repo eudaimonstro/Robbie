@@ -12,6 +12,22 @@ export function formatCalendarDate(value: string | null | undefined): string {
 }
 
 /**
+ * A calendar date written out ("March 15, 2026"), in UTC for the same reason as
+ * formatCalendarDate: "Version 2, effective March 15, 2026" on a print page
+ */
+export function formatLongDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
  * The value for a `datetime-local` input ("2026-10-06T19:00") showing a stored instant in the
  * viewer's time zone. (Slicing the ISO string would show the UTC time instead.)
  */
@@ -37,13 +53,35 @@ export function fromLocalDateTimeInput(value: string): string {
  * unlike a calendar date, a meeting is an instant
  */
 export function formatMeetingTime(value: string | null | undefined): string {
+  return meetingTime(value, false);
+}
+
+/**
+ * A meeting's day, year and time ("Thu, Mar 20, 2025, 7:00 PM"), for a record that reaches
+ * back over the years, like the minutes. Given the organization's time zone, the time is the
+ * one in the room, as the minutes give it; without one, the viewer's.
+ */
+export function formatMeetingTimeWithYear(
+  value: string | null | undefined,
+  timeZone?: string,
+): string {
+  return meetingTime(value, true, timeZone);
+}
+
+function meetingTime(
+  value: string | null | undefined,
+  withYear: boolean,
+  timeZone?: string,
+): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString(undefined, {
+    ...(timeZone ? { timeZone } : {}),
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    ...(withYear ? { year: 'numeric' } : {}),
     hour: 'numeric',
     minute: '2-digit',
   });

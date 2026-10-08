@@ -22,6 +22,7 @@ import {
   type MeetingPacketInfo,
 } from './meetingPacket.js';
 import { deriveMeetingRole, roleChanges, updateSocketRoles } from './meetingRoles.js';
+import { previousMinutesFor } from '../bylawyer/services/meetingMinutes.js';
 import { findSessionById } from '../auth/sessionService.js';
 import { hasAcceptedTerms } from '../auth/terms.js';
 import { logger } from '../middleware/logger.js';
@@ -47,26 +48,66 @@ export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the
 
 /**
  * The live meeting for a packet, created from it when the first person arrives. A live state
- * saved before it recorded its organization, title and date gets them from the packet.
+ * saved before it recorded its organization, title and date gets them from the packet. Before
+ * the call to order, the previous meeting's minutes are put before it.
  */
 async function openMeeting(packet: MeetingPacketInfo): Promise<MeetingRecord> {
   const storage = getStorage();
   const existing = await storage.getMeeting(packet.robbieCode);
+  let meeting: MeetingRecord;
   if (!existing) {
     const rosterVoters = await countRosterVoters(packet.organizationId);
-    return storage.getOrCreateMeeting(packet.robbieCode, stateFromPacket(packet, rosterVoters));
+    meeting = await storage.getOrCreateMeeting(
+      packet.robbieCode,
+      stateFromPacket(packet, rosterVoters),
+    );
+  } else if (existing.state.organizationId) {
+    meeting = existing;
+  } else {
+    const result = await applyAction(packet.robbieCode, {
+      type: 'SET_MEETING_INFO',
+      organizationId: packet.organizationId,
+      title: packet.title ?? '',
+      scheduledFor: packet.scheduledFor?.toISOString() ?? null,
+      timestamp: new Date().toISOString(),
+    });
+    meeting = result.success
+      ? { ...existing, state: result.state, stateVersion: result.stateVersion }
+      : existing;
   }
-  if (existing.state.organizationId) return existing;
-  const result = await applyAction(packet.robbieCode, {
-    type: 'SET_MEETING_INFO',
-    organizationId: packet.organizationId,
-    title: packet.title ?? '',
-    scheduledFor: packet.scheduledFor?.toISOString() ?? null,
-    timestamp: new Date().toISOString(),
-  });
-  return result.success
-    ? { ...existing, state: result.state, stateVersion: result.stateVersion }
-    : existing;
+  return withPreviousMinutes(packet, meeting);
+}
+
+/**
+ * A meeting not yet called to order, without previous minutes, gets the organization's most
+ * recent published minutes (not yet approved, not its own) to approve. Best effort: a meeting
+ * opens without them.
+ */
+async function withPreviousMinutes(
+  packet: MeetingPacketInfo,
+  meeting: MeetingRecord,
+): Promise<MeetingRecord> {
+  if (meeting.state.meetingStage !== 'not-started' || meeting.state.previousMinutesId) {
+    return meeting;
+  }
+  try {
+    const previous = await previousMinutesFor(packet.organizationId, packet.id);
+    if (!previous) return meeting;
+    const result = await applyAction(packet.robbieCode, {
+      type: 'SET_PREVIOUS_MINUTES',
+      minutes: previous.body,
+      minutesId: previous.id,
+    });
+    return result.success
+      ? { ...meeting, state: result.state, stateVersion: result.stateVersion }
+      : meeting;
+  } catch (error) {
+    logger.error(
+      { err: error, meetingCode: packet.robbieCode },
+      'Failed to put the previous minutes before the meeting',
+    );
+    return meeting;
+  }
 }
 
 /**
@@ -133,7 +174,7 @@ export async function handleJoinMeeting(
       socket.join(roomName);
       callback({
         success: true,
-        state: publicState(meeting.state),
+        state: publicState(meeting.state, 'guest'),
         stateVersion: meeting.stateVersion,
         members: roomManager.getMembers(meetingCode),
       });
@@ -219,7 +260,7 @@ export async function handleJoinMeeting(
 
     callback({
       success: true,
-      state: publicState(currentState),
+      state: publicState(currentState, role),
       stateVersion: currentVersion,
       members: roomManager.getMembers(meetingCode),
     });

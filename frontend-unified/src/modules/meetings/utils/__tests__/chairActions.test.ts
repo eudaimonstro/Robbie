@@ -64,6 +64,37 @@ describe('chairActions', () => {
     expect(chairActions(state, null).map((a) => a.id)).toEqual(['complete-item', 'adjourn']);
   });
 
+  it('leaves the approval of the minutes to their card until they are approved', () => {
+    const state: MeetingState = {
+      ...adopted,
+      currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+      previousMinutesId: 'm1',
+    };
+    const tones = (s: MeetingState) => chairActions(s, 2).map((a) => [a.id, a.tone]);
+    expect(tones(state)).toEqual([
+      ['complete-item', 'secondary'],
+      ['put-item', 'secondary'],
+      ['adjourn', 'secondary'],
+    ]);
+    expect(tones({ ...state, minutesApproved: true })[0]).toEqual(['complete-item', 'primary']);
+  });
+
+  it('keeps Complete the item first at an item that only gives itself minutes', () => {
+    const tones = (s: MeetingState) => chairActions(s, 2).map((a) => [a.id, a.tone]);
+    const timed: MeetingState = {
+      ...adopted,
+      currentAgendaItem: { id: 2, title: "Treasurer's report (5 minutes)", status: 'active' },
+      previousMinutesId: 'm1',
+    };
+    expect(tones(timed)[0]).toEqual(['complete-item', 'primary']);
+    // No minutes before the meeting: an item about them is an ordinary item
+    const none: MeetingState = {
+      ...adopted,
+      currentAgendaItem: { id: 2, title: 'Approval of the minutes', status: 'active' },
+    };
+    expect(tones(none)[0]).toEqual(['complete-item', 'primary']);
+  });
+
   it('adjourns from the last item without completing it first', () => {
     const state: MeetingState = {
       ...adopted,

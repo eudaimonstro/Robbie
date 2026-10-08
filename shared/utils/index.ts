@@ -69,3 +69,10 @@ export {
   type StanceBalance,
   type QueueStats,
 } from './speakerQueueHelper.js';
+
+export {
+  MAX_SECTION_DEPTH,
+  parseBylaws,
+  describeParsedBylaws,
+  type ParsedSection,
+} from './bylawsParser.js';

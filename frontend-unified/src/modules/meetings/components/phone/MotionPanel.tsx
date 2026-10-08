@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { MOTIONS } from '@robbie-bylawyer/shared/constants';
+import { MOTIONS, motionWords } from '@robbie-bylawyer/shared/constants';
 import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { AgendaAmendmentForm } from '../AgendaAmendmentForm';
@@ -7,7 +7,7 @@ import { BylawAmendmentForm } from '../BylawAmendmentForm';
 import { SuspendRulesForm } from '../SuspendRulesForm';
 import { TakeFromTableForm } from '../TakeFromTableForm';
 import { ReconsiderForm } from '../ReconsiderForm';
-import { FORM_MOTIONS, motionWords } from '../../utils/motionWords';
+import { FORM_MOTIONS } from '../../utils/motionWords';
 import { electionUnderway } from '../../utils/chairActions';
 import { useSocket } from '../../context/SocketContext';
 import type { MeetingDispatch } from '../../types/socket';

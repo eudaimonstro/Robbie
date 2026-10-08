@@ -24,6 +24,7 @@ import {
   packetsRouter,
   attachmentsRouter,
   agendaItemsRouter,
+  minutesRouter,
 } from './bylawyer/routes/index.js';
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
@@ -88,7 +89,29 @@ app.use(
   }),
 );
 
-app.use(express.json());
+// The Word document for the bylaws import is read in its route (versions.ts), after the role
+// check, since express.json below leaves its types alone.
+
+/**
+ * The JSON bodies that can be larger than the 100 KB default (a whole set of bylaws, a
+ * meeting's minutes): each is read in its route with a 2 MB limit, after the role check, so
+ * nobody below a secretary can make the server read 2 MB. The parser for every other request
+ * leaves exactly these alone (method and path, matched as Express matches them: any case, an
+ * optional trailing slash).
+ */
+export const LARGE_JSON_ROUTES: ReadonlyArray<{ method: string; path: RegExp }> = [
+  { method: 'POST', path: /^\/api\/documents\/[^/]+\/versions\/import\/?$/i },
+  { method: 'PUT', path: /^\/api\/minutes\/[^/]+\/?$/i },
+];
+
+const jsonParser = express.json();
+app.use(function jsonBodies(req, res, next) {
+  const large = LARGE_JSON_ROUTES.some(
+    (route) => route.method === req.method && route.path.test(req.path),
+  );
+  if (large) return next();
+  jsonParser(req, res, next);
+});
 
 // Health check (before other routes to avoid conflicts)
 app.get('/api/health', (_req, res) => {
@@ -119,6 +142,7 @@ app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
 app.use('/api', membersRouter);
+app.use('/api', minutesRouter);
 
 // An unknown API path is a JSON 404, not the web app's index.html (with status 200) from the
 // catch-all below

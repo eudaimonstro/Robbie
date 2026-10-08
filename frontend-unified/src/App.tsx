@@ -14,12 +14,18 @@ import AppLayout from './components/layout/AppLayout';
 const HomePage = lazy(() => import('./modules/documents/pages/HomePage'));
 const DocumentPage = lazy(() => import('./modules/documents/pages/DocumentPage'));
 const DocumentDiffPage = lazy(() => import('./modules/documents/pages/DocumentDiffPage'));
+const ImportBylawsPage = lazy(() => import('./modules/documents/pages/ImportBylawsPage'));
 const AmendmentsPage = lazy(() => import('./modules/documents/pages/AmendmentsPage'));
 const AmendmentDetailPage = lazy(() => import('./modules/documents/pages/AmendmentDetailPage'));
 const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage'));
 const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
+const MinutesListPage = lazy(() => import('./modules/documents/pages/MinutesListPage'));
+const MinutesPage = lazy(() => import('./modules/documents/pages/MinutesPage'));
+const MinutesPrintPage = lazy(() => import('./modules/documents/pages/MinutesPrintPage'));
 const PublicDocumentPage = lazy(() => import('./modules/documents/pages/PublicDocumentPage'));
+const PublicPrintPage = lazy(() => import('./modules/documents/pages/PublicPrintPage'));
+const PrintDocumentPage = lazy(() => import('./modules/documents/pages/PrintDocumentPage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
@@ -41,6 +47,7 @@ function App() {
               <Routes>
                 {/* Public routes (no layout, no session) */}
                 <Route path="/share/:shareToken" element={<PublicDocumentPage />} />
+                <Route path="/share/:shareToken/print" element={<PublicPrintPage />} />
                 <Route path="/sign-in" element={<SignInPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
@@ -56,6 +63,28 @@ function App() {
                       <OrganizationProvider>
                         <MeetingDisplay />
                       </OrganizationProvider>
+                    </RequireSession>
+                  }
+                />
+
+                {/* A document's version to print: signed in, without the app's chrome */}
+                <Route
+                  path="/documents/:documentId/print"
+                  element={
+                    <RequireSession>
+                      <OrganizationProvider>
+                        <PrintDocumentPage />
+                      </OrganizationProvider>
+                    </RequireSession>
+                  }
+                />
+
+                {/* A meeting's minutes to print: signed in, without the app's chrome */}
+                <Route
+                  path="/minutes/:minutesId/print"
+                  element={
+                    <RequireSession>
+                      <MinutesPrintPage />
                     </RequireSession>
                   }
                 />
@@ -77,6 +106,7 @@ function App() {
                   {/* Document management */}
                   <Route path="documents/:documentId" element={<DocumentPage />} />
                   <Route path="documents/:documentId/diff" element={<DocumentDiffPage />} />
+                  <Route path="documents/:documentId/import" element={<ImportBylawsPage />} />
                   <Route path="documents/:documentId/amendments" element={<AmendmentsPage />} />
 
                   {/* Amendments */}
@@ -86,6 +116,10 @@ function App() {
                   {/* Bylawyer meetings (document records) */}
                   <Route path="bylawyer-meetings" element={<MeetingsPage />} />
                   <Route path="bylawyer-meetings/:meetingId" element={<MeetingDetailPage />} />
+
+                  {/* Minutes of the organization's meetings */}
+                  <Route path="minutes" element={<MinutesListPage />} />
+                  <Route path="minutes/:minutesId" element={<MinutesPage />} />
 
                   {/* Settings */}
                   <Route path="settings" element={<SettingsPage />} />

@@ -107,6 +107,7 @@ packetsRouter.get(
         robbieCode: true,
         title: true,
         description: true,
+        location: true,
         scheduledFor: true,
         chairUserId: true,
         startedAt: true,
@@ -137,7 +138,7 @@ packetsRouter.get(
  * POST /api/organizations/:orgId/packets
  * Create the packet for a meeting code in an organization. Codes are unique across all
  * organizations. The presiding officer defaults to the person creating it.
- * Body: { robbieCode, title?, description?, scheduledFor?, chairUserId? }
+ * Body: { robbieCode, title?, description?, location?, scheduledFor?, chairUserId? }
  */
 packetsRouter.post(
   '/organizations/:orgId/packets',
@@ -145,7 +146,7 @@ packetsRouter.post(
   requireRole('secretary', fromParam('orgId', orgOfOrganization)),
   async (req, res) => {
     try {
-      const { robbieCode, title, description, scheduledFor } = req.body;
+      const { robbieCode, title, description, location, scheduledFor } = req.body;
       const chairUserId: number | null =
         req.body.chairUserId === undefined ? req.user!.id : req.body.chairUserId;
       if (chairUserId !== null && !(await canPreside(req.org!.id, chairUserId))) {
@@ -158,6 +159,7 @@ packetsRouter.post(
           robbieCode,
           title,
           description,
+          location,
           scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
           chairUserId,
         },
@@ -178,7 +180,7 @@ packetsRouter.post(
 /**
  * PUT /api/packets/:id
  * Update packet metadata
- * Body: { title?, description?, scheduledFor?, chairUserId? }
+ * Body: { title?, description?, location?, scheduledFor?, chairUserId? } (null clears the description, the location or the date)
  */
 packetsRouter.put(
   '/packets/:id',
@@ -187,7 +189,7 @@ packetsRouter.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, scheduledFor, chairUserId } = req.body;
+      const { title, description, location, scheduledFor, chairUserId } = req.body;
 
       const packet = await prisma.meetingPacket.findUnique({
         where: { id },
@@ -208,7 +210,9 @@ packetsRouter.put(
         data: {
           title,
           description,
-          scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
+          location,
+          scheduledFor:
+            scheduledFor === null ? null : scheduledFor ? new Date(scheduledFor) : undefined,
           chairUserId,
         },
         include: {

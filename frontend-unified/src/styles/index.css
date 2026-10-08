@@ -27,23 +27,27 @@
   color-scheme: light;
 }
 
-.dark {
-  --paper: #15130f;
-  --surface: #1f1c17;
-  --surface-2: #282420;
-  --ink: #f3eee6;
-  --ink-muted: #a8a094;
-  --rule: #332e27;
-  /* A shade lighter than the brief's first #e0604a: gavel text on its tint and on surface-2 is
-     4.5:1 or more */
-  --gavel: #e46a55;
-  --gavel-tint: #3a1f1b;
-  --carried: #5dbb7a;
-  --carried-tint: #1e3326;
-  --caution: #e0a530;
-  --caution-tint: #3a2e14;
-  --caution-ink: #e0a530;
-  color-scheme: dark;
+/* The evening palette is for the screen: on paper, a dark-theme user's printout keeps the day
+   palette's ink */
+@media not print {
+  .dark {
+    --paper: #15130f;
+    --surface: #1f1c17;
+    --surface-2: #282420;
+    --ink: #f3eee6;
+    --ink-muted: #a8a094;
+    --rule: #332e27;
+    /* A shade lighter than the brief's first #e0604a: gavel text on its tint and on surface-2 is
+       4.5:1 or more */
+    --gavel: #e46a55;
+    --gavel-tint: #3a1f1b;
+    --carried: #5dbb7a;
+    --carried-tint: #1e3326;
+    --caution: #e0a530;
+    --caution-tint: #3a2e14;
+    --caution-ink: #e0a530;
+    color-scheme: dark;
+  }
 }
 
 /*
@@ -713,5 +717,44 @@
   /* Show print-only elements */
   .print-only {
     display: block !important;
+  }
+}
+
+/* The print pages (/documents/:id/print, /share/:token/print, /minutes/:id/print). The running
+   header shows only on paper, fixed to the top of every page. */
+.print-running-header {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 2cm 2cm 2.2cm;
+  }
+
+  .print-document {
+    max-width: none !important;
+    /* Room for the running header at the top of every page, not only the first: the padding is
+       repeated on each page the document breaks across */
+    padding: 1.2cm 0 0 !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .print-running-header {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding-bottom: 0.15cm;
+    border-bottom: 1px solid var(--rule);
+    font-size: 9pt;
+    color: var(--ink-muted) !important;
+  }
+
+  .print-break-before {
+    break-before: page;
   }
 }

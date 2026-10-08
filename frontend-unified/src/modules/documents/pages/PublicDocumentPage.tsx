@@ -1,9 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Clock, FileText, Download, ChevronDown, Eye, AlertCircle } from 'lucide-react';
+import { Clock, FileText, Eye, AlertCircle, Printer } from 'lucide-react';
 import {
   publicDocuments,
-  versions as versionsApi,
   PublicDocument,
   PublicVersion,
   SectionTree as SectionTreeType,
@@ -24,25 +23,6 @@ export default function PublicDocumentPage() {
   const [sectionTree, setSectionTree] = useState<SectionTreeType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Export dropdown
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const exportDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close export dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
-        setExportDropdownOpen(false);
-      }
-    };
-
-    if (exportDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [exportDropdownOpen]);
 
   const fetchDocument = useCallback(async () => {
     if (!shareToken) return;
@@ -102,33 +82,6 @@ export default function PublicDocumentPage() {
       } catch {
         showToast('error', 'Failed to load version');
       }
-    }
-  };
-
-  const handleExport = async (format: 'pdf' | 'markdown' | 'html') => {
-    if (!selectedVersion) return;
-
-    try {
-      setExporting(true);
-      setExportDropdownOpen(false);
-
-      switch (format) {
-        case 'pdf':
-          await versionsApi.exportPdf(selectedVersion.id);
-          break;
-        case 'markdown':
-          await versionsApi.exportMarkdown(selectedVersion.id);
-          break;
-        case 'html':
-          await versionsApi.exportHtml(selectedVersion.id);
-          break;
-      }
-
-      showToast('success', `Exported as ${format.toUpperCase()}`);
-    } catch {
-      showToast('error', `Failed to export as ${format.toUpperCase()}`);
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -195,41 +148,18 @@ export default function PublicDocumentPage() {
               ))}
             </select>
 
-            {/* Export dropdown */}
-            <div className="relative" ref={exportDropdownRef}>
-              <button
-                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                className="btn-secondary btn-sm"
-                disabled={exporting || !selectedVersion}
+            {/* The browser's print dialog saves a PDF */}
+            {selectedVersion && (
+              <Link
+                to={`/share/${shareToken}/print?version=${selectedVersion.id}&print=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary btn-sm shrink-0 whitespace-nowrap"
               >
-                <Download className="w-4 h-4 mr-2" />
-                {exporting ? 'Exporting...' : 'Export'}
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </button>
-
-              {exportDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-40 bg-surface rounded-lg shadow-lg border border-rule z-10">
-                  <button
-                    onClick={() => handleExport('pdf')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 first:rounded-t-lg"
-                  >
-                    PDF Document
-                  </button>
-                  <button
-                    onClick={() => handleExport('markdown')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2"
-                  >
-                    Markdown
-                  </button>
-                  <button
-                    onClick={() => handleExport('html')}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-surface-2 last:rounded-b-lg"
-                  >
-                    HTML
-                  </button>
-                </div>
-              )}
-            </div>
+                <Printer className="w-4 h-4 shrink-0" aria-hidden="true" />
+                Print or save as PDF
+              </Link>
+            )}
           </div>
         </div>
 

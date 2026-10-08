@@ -34,6 +34,7 @@ export async function createPacket(
     robbieCode: string;
     title?: string;
     description?: string;
+    location?: string;
     scheduledFor?: string;
     /** The presiding officer; the server defaults it to the creator, and null is nobody */
     chairUserId?: number | null;
@@ -60,8 +61,12 @@ export async function updatePacket(
   packetId: string,
   data: {
     title?: string;
-    description?: string;
-    scheduledFor?: string;
+    /** null clears it */
+    description?: string | null;
+    /** null clears it */
+    location?: string | null;
+    /** null clears it */
+    scheduledFor?: string | null;
     chairUserId?: number | null;
   },
 ): Promise<MeetingPacket> {

@@ -27,9 +27,11 @@ export interface MotionHistoryFilters {
 export function getMotionHistory(state: MeetingState): HistoricalMotion[] {
   const history: HistoricalMotion[] = [];
 
-  // Add completed motions (passed/failed)
+  // Add completed motions (passed/failed). Motions withdrawn or dead for want of a second were
+  // never decided, and unanimous consent has no count.
   state.completedMotions.forEach((motion) => {
-    const voteCount = completedMotionVotes(motion);
+    if (motion.disposition === 'withdrawn' || motion.disposition === 'no-second') return;
+    const voteCount = motion.disposition === 'unanimous' ? undefined : completedMotionVotes(motion);
     history.push({
       id: motion.id,
       type: motion.type,

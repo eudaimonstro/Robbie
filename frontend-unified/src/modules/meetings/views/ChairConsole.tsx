@@ -28,6 +28,7 @@ import { ConsoleAgenda } from '../components/console/ConsoleAgenda';
 import { ConsoleTopBar } from '../components/console/ConsoleTopBar';
 import { CurrentItemLine } from '../components/console/CurrentItemLine';
 import { JoinInfoCard } from '../components/console/JoinInfoCard';
+import { MinutesApprovalCard } from '../components/console/MinutesApprovalCard';
 import { MoreArea } from '../components/console/MoreArea';
 import { VoteControl } from '../components/console/VoteControl';
 import Modal from '../../../components/ui/Modal';
@@ -146,6 +147,7 @@ export function ChairConsole() {
             )}
             <ChairScriptLine state={state} />
           </QuestionCard>
+          <MinutesApprovalCard state={state} dispatch={dispatch} />
           {result && !adjourned && (
             <section aria-label="The result" className="card p-6">
               <Stamp
