@@ -133,7 +133,11 @@ test('the annual meeting runs from the call to order to published minutes and ne
         .click();
       await phone.getByRole('button', { name: 'Ask to speak' }).click();
     }
-    await expect(tv.getByText('Waiting').first()).toBeVisible();
+    // The display's speaker rail (DisplayView's SpeakerRail): "Speaking time" under the speaker
+    // would also match a loose 'Speaking', so look at the names
+    const speakers = tv.getByRole('complementary', { name: 'Speakers' });
+    await expect(speakers.getByText('Waiting', { exact: true })).toBeVisible();
+    await expect(speakers.getByRole('listitem')).toHaveText([/^Alice Brennan/, /^Ben Whitaker/]);
     // The mover speaks first, though Ben asked first (the server refuses anyone else)
     for (const [name, phone] of [
       ['Alice Brennan', alice],
@@ -141,7 +145,8 @@ test('the annual meeting runs from the call to order to published minutes and ne
     ] as const) {
       await dana.getByRole('button', { name: `Recognize ${name} to speak` }).click();
       await expect(phone.getByRole('region', { name: 'You have the floor' })).toBeVisible();
-      await expect(tv.getByText('Speaking').first()).toBeVisible();
+      await expect(speakers.getByText(name, { exact: true })).toBeVisible();
+      await expect(speakers.getByRole('listitem').filter({ hasText: name })).toHaveCount(0);
       await phone.getByRole('button', { name: 'Yield the floor' }).click();
     }
     await voteOn(dana, [alice, ben], { yea: 20, nay: 3 });
