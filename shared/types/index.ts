@@ -377,7 +377,7 @@ export type UnfinishedBusinessRecord =
       /** Each ballot closed before the adjournment; counts only */
       readonly ballots?: ReadonlyArray<Record<string, number>>;
       readonly ballotTotals?: readonly BallotTotals[];
-      /** The seats still open, when more than one */
+      /** The seats still open, when more than one or when some of the election's were filled */
       readonly seats?: number;
       readonly agendaItemId?: number;
     };
@@ -643,6 +643,15 @@ export interface MeetingState {
   voiceVote?: VoiceVoteResult | null;
   /** The seats to fill for the position nominations are (or were) open for; one when absent */
   openSeats?: number | null;
+  /**
+   * The election those seats belong to, when some were filled (by acclamation, or a ballot before
+   * nominations were reopened): its id and closed ballots, so it stays one election
+   */
+  continuingElection?: {
+    id: number;
+    ballots?: Array<Record<string, number>>;
+    ballotTotals?: BallotTotals[];
+  } | null;
   nominations: Nomination[];
   nominationsOpen: boolean;
   currentNominationPosition: string | null;

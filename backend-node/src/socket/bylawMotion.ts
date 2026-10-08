@@ -179,6 +179,12 @@ export async function prepareBylawMotion(
   const members = setting.endsWith('Members')
     ? (packet.organization.eligibleVoters ?? (await countRosterVoters(packet.organizationId)))
     : 0;
+  // A share of no members can't be reached or missed: the organization says how many there are
+  if (setting.endsWith('Members') && members < 1) {
+    return refuse(
+      'The bylaws need a share of all the voting members, and the organization has none: set the voting members in Settings',
+    );
+  }
   const bylawAmendment: BylawAmendment = {
     ...change,
     voteRequired: thresholdFromSetting(setting, members),

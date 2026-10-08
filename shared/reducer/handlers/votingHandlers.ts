@@ -112,9 +112,15 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       // vote opened again, to be counted
       const declared = !state.votingOpen ? state.voiceVote : null;
       if (declared?.undo) {
+        // Hands raised since the declaration stay up, after the ones it took down
+        const queue = declared.undo.speakerQueue ?? [];
+        const raisedSince = state.speakerQueue.filter(
+          (entry) => !queue.some((e) => e.member.id === entry.member.id),
+        );
         return {
           ...state,
           ...declared.undo,
+          speakerQueue: [...queue, ...raisedSince],
           voiceVote: null,
           voteTimerEnd: null,
           votes: NO_VOTES,

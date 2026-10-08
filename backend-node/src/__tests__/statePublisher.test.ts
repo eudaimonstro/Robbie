@@ -73,7 +73,7 @@ describe('publicState', () => {
   });
 
   it('leaves out the running count of an election while its ballot is open', () => {
-    const shown = publicState({ ...initialState, currentElection: election }, 'member');
+    const shown = publicState({ ...initialState, currentElection: election }, 'chair');
     expect(shown.currentElection).toEqual({ ...election, ballotResults: {} });
     // Decided: the count is the result
     const decided = { ...election, votingInProgress: false, elected: 'Ann' };
@@ -82,9 +82,34 @@ describe('publicState', () => {
     ).toEqual(decided);
   });
 
+  it("keeps the tellers' count of paper ballots to the chair and admins while the ballot is open (I2)", () => {
+    const paper = {
+      ...election,
+      floorWriteIns: { Cy: 1 },
+      floorBlank: 1,
+      floorIllegal: 1,
+      floorBallotCount: 4,
+    };
+    const state = { ...initialState, currentElection: paper };
+    for (const role of ['member', 'guest'] as const) {
+      expect(publicState(state, role).currentElection).toEqual({
+        ...paper,
+        ballotResults: {},
+        floorBallots: {},
+        floorWriteIns: {},
+        floorBlank: 0,
+        floorIllegal: 0,
+        floorBallotCount: 0,
+      });
+    }
+    for (const role of ['chair', 'admin'] as const) {
+      expect(publicState(state, role).currentElection).toEqual({ ...paper, ballotResults: {} });
+    }
+  });
+
   it("keeps the counts of an election's closed ballots, which the log announced, while the next is open", () => {
     const runoff = { ...election, ballots: [{ Ann: 4, Bo: 4 }] };
-    const shown = publicState({ ...initialState, currentElection: runoff }, 'member');
+    const shown = publicState({ ...initialState, currentElection: runoff }, 'chair');
     expect(shown.currentElection).toEqual({ ...runoff, ballotResults: {} });
   });
 
@@ -235,5 +260,34 @@ describe('emitState while the previous minutes are before the meeting', () => {
     expect(sent).toEqual([
       { to: ['meeting:TEST01'], except: [], payload: { state: approving, stateVersion: 5 } },
     ]);
+  });
+});
+
+describe('emitState while a ballot is open', () => {
+  it("sends the chair and admins the tellers' count, and everyone else the state without it", () => {
+    const sent: Array<{ to: string[]; except: string[]; payload: { state: MeetingState } }> = [];
+    const target = (to: string[], except: string[] = []) => ({
+      except: (ids: string[]) => target(to, [...except, ...ids]),
+      emit: (_event: string, payload: { state: MeetingState }) =>
+        sent.push({ to, except, payload }),
+    });
+    const sockets = { a: { role: 'member' }, b: { role: 'guest' }, c: { role: 'chair' } };
+    const io = {
+      sockets: {
+        adapter: { rooms: new Map([['meeting:TEST01', new Set(Object.keys(sockets))]]) },
+        sockets: new Map(Object.entries(sockets).map(([id, data]) => [id, { data }])),
+      },
+      to: (room: string | string[]) => target(Array.isArray(room) ? room : [room]),
+    };
+    emitState(io as never, 'TEST01', {
+      state: { ...initialState, currentElection: election },
+      stateVersion: 6,
+    });
+    expect(sent.map(({ to, except }) => ({ to, except }))).toEqual([
+      { to: ['meeting:TEST01'], except: ['c'] },
+      { to: ['c'], except: [] },
+    ]);
+    expect(sent[0].payload.state.currentElection?.floorBallots).toEqual({});
+    expect(sent[1].payload.state.currentElection?.floorBallots).toEqual({ Ann: 2 });
   });
 });

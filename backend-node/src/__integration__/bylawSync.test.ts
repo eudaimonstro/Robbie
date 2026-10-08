@@ -502,6 +502,36 @@ describe('bylaw sync in a live meeting', () => {
     });
   });
 
+  it('refuses a share of all the voting members when there are none', async () => {
+    const { member } = await meetingUnderWay();
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { bylawAmendmentVote: 'majorityMembers', eligibleVoters: null },
+    });
+    await prisma.organizationMember.updateMany({
+      where: { organizationId: f.orgA.id },
+      data: { role: 'viewer' },
+    });
+    const res = await live.dispatch(member, {
+      timestamp: '',
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename',
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    expect(res).toMatchObject({
+      success: false,
+      error:
+        'The bylaws need a share of all the voting members, and the organization has none: set the voting members in Settings',
+    });
+  });
+
   it('counts the voting members on the roster when the organization gives no number', async () => {
     const { member } = await meetingUnderWay();
     await prisma.organization.update({

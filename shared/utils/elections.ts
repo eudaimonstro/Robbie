@@ -38,6 +38,39 @@ export function seatsOpen(state: MeetingState): number {
       : 0;
 }
 
+/**
+ * The election in hand: its id and the ballots it has closed, whether a ballot is under way or
+ * nominations were reopened for seats still open
+ */
+export function electionHistory(state: MeetingState): {
+  id: number | null;
+  ballots: Array<Record<string, number>>;
+  ballotTotals: BallotTotals[];
+} {
+  const from = state.currentElection ?? state.continuingElection ?? null;
+  return {
+    id: from?.id ?? null,
+    ballots: from?.ballots ?? [],
+    ballotTotals: from?.ballotTotals ?? [],
+  };
+}
+
+/**
+ * The election's closed ballots not yet in an elected officer's paragraph of the minutes (the
+ * ballots up to one that elected someone are minuted with them): for the record of an election
+ * set aside or left unfinished
+ */
+export function ballotsNotMinuted(state: MeetingState): {
+  ballots: Array<Record<string, number>>;
+  ballotTotals: BallotTotals[];
+} {
+  const { id, ballots, ballotTotals } = electionHistory(state);
+  const minuted = state.electedOfficers
+    .filter((o) => id !== null && o.electionId === id)
+    .reduce((most, o) => Math.max(most, o.ballots?.length ?? 0), 0);
+  return { ballots: ballots.slice(minuted), ballotTotals: ballotTotals.slice(minuted) };
+}
+
 /** Who has the vote required on the closed ballot, awaiting the chair's declaration */
 export function winnersOf(election: Election): string[] {
   return election.winners ?? (election.elected ? [election.elected] : []);
@@ -84,7 +117,7 @@ export interface BallotCount {
    * plurality the candidates tied at the top
    */
   next: Election['candidates'];
-  /** Under a plurality with nobody elected: the candidates tied at the top, run off */
+  /** Under a plurality: the candidates tied for the last open seat, run off on the next ballot */
   tied: string[];
 }
 
@@ -147,12 +180,15 @@ export function countBallot(election: Election): BallotCount {
     ...election.candidates,
     ...writeIns.filter((name) => !known.has(name)).map((name) => ({ name, id: 0, writeIn: true })),
   ];
-  const top = ranked[0]?.[1] ?? 0;
-  const tiedAtTop = ranked.filter(([, votes]) => votes === top).map(([name]) => name);
+  // Under a plurality, the candidates tied for the last open seat run off; under a majority or
+  // two thirds nobody is dropped
+  const boundary = qualified.length > seats ? qualified[seats - 1][1] : null;
   const tied =
-    required === 'plurality' && winners.length === 0 && top > 0 && tiedAtTop.length > 1
-      ? tiedAtTop
+    required === 'plurality' && boundary !== null && qualified[seats][1] === boundary
+      ? qualified.filter(([, votes]) => votes === boundary).map(([name]) => name)
       : [];
-  const next = tied.length > 0 ? all.filter((c) => tied.includes(c.name)) : all;
-  return { results, totals, winners: winners.map(([name]) => name), next, tied };
+  const elected = winners.map(([name]) => name);
+  const next =
+    tied.length > 0 ? all.filter((c) => tied.includes(c.name) || elected.includes(c.name)) : all;
+  return { results, totals, winners: elected, next, tied };
 }

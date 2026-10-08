@@ -428,16 +428,21 @@ function electionText(officers: Officer[]): string {
     (o.ballots?.length ?? 0) > (a.ballots?.length ?? 0) ? o : a,
   );
   const lines = [`**Election for ${md(officers[0].position)}.**`];
+  // Elected by acclamation after this many ballots (before any, or between them)
+  const acclaimedAfter = (count: number) => {
+    const acclaimed = officers.filter((o) => o.acclamation && (o.ballots?.length ?? 0) === count);
+    if (acclaimed.length > 0) lines.push(electedText(acclaimed));
+  };
+  acclaimedAfter(0);
   ballotTallies(longest.ballots, longest.ballotTotals).forEach((tally, index) => {
     lines.push(`${tally}.`);
     const chosen = officers.filter((o) => !o.acclamation && (o.ballots?.length ?? 0) === index + 1);
     if (chosen.length > 0) lines.push(electedText(chosen));
+    acclaimedAfter(index + 1);
   });
-  // Records made before ballots were kept, and acclamations
+  // Records made before ballots were kept
   const unballoted = officers.filter((o) => !o.acclamation && !o.ballots?.length);
   if (unballoted.length > 0) lines.push(electedText(unballoted));
-  const acclaimed = officers.filter((o) => o.acclamation);
-  if (acclaimed.length > 0) lines.push(electedText(acclaimed));
   return lines.join(' ');
 }
 
@@ -452,8 +457,11 @@ function setAsideText(setAside: ElectionSetAsideRecord): string {
 /** 'the motion "Repave the lot" (Main motion, moved by Pat and seconded by Carmen)' and the like */
 function unfinishedText(record: UnfinishedBusinessRecord): string {
   if (record.kind === 'election') {
-    const ballots = ballotTallies(record.ballots, record.ballotTotals);
-    return `the election for ${md(record.position)}${ballots.length > 0 ? ` (${ballots.join('; ')})` : ''}`;
+    const seats = record.seats
+      ? [`${record.seats} ${record.seats === 1 ? 'seat' : 'seats'} still open`]
+      : [];
+    const notes = [...seats, ...ballotTallies(record.ballots, record.ballotTotals)];
+    return `the election for ${md(record.position)}${notes.length > 0 ? ` (${notes.join('; ')})` : ''}`;
   }
   const moved = record.mover === PUT_BY_CHAIR ? 'put by the chair' : `moved by ${md(record.mover)}`;
   const seconded = record.seconder

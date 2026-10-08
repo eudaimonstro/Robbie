@@ -19,6 +19,7 @@ import {
   awaitingRuling,
   canChairVoteDecide,
   acclamationCandidates,
+  countBallot,
   electedTo,
   floorOpenForDebate,
   motionOutOfOrder,
@@ -380,21 +381,15 @@ function voiceResultDeclarable(state: MeetingState): ValidationResult {
     };
   }
   const motion = state.currentMotion;
-  if (motion?.type === 'bylawAmendment') {
-    return {
-      valid: false,
-      error: 'A bylaw amendment is counted: enter the count in the room',
-      errorCode: 'VOTING_METHOD',
-    };
-  }
   const threshold = motion ? motionThreshold(motion) : null;
-  if (threshold && (threshold.of !== 'cast' || threshold.fraction !== 'majority')) {
-    return {
-      valid: false,
-      error: 'A vote of two thirds is counted: enter the count in the room',
-      errorCode: 'VOTING_METHOD',
-    };
-  }
+  const counted = (what: string): ValidationResult => ({
+    valid: false,
+    error: `${what} is counted: enter the count in the room`,
+    errorCode: 'VOTING_METHOD',
+  });
+  if (threshold?.of === 'members') return counted('A vote of all the voting members');
+  if (threshold?.fraction === '2/3') return counted('A vote of two thirds');
+  if (motion?.type === 'bylawAmendment') return counted('A bylaw amendment');
   return { valid: true };
 }
 
@@ -441,7 +436,11 @@ function ballotProblem(election: OpenElection, action: BallotAction): Validation
  * counted are entered (a ballot marks several names, so the marks can't give it), each
  * candidate has no more marks than the legal ballots, and all marks fit on them.
  */
-function paperBallotProblem(election: OpenElection, action: PaperAction): ValidationResult | null {
+function paperBallotProblem(
+  election: OpenElection,
+  action: PaperAction,
+  elected: string[],
+): ValidationResult | null {
   const candidates = new Set(election.candidates.map((c) => c.name));
   if (Object.keys(action.counts).some((name) => !candidates.has(name))) {
     return {
@@ -451,6 +450,15 @@ function paperBallotProblem(election: OpenElection, action: PaperAction): Valida
     };
   }
   const writeIns = Object.keys(action.writeIns ?? {});
+  // Elected to one seat, nobody is elected to another by a name written in
+  const again = writeIns.find((name) => elected.some((e) => sameName(e, name)));
+  if (again) {
+    return {
+      valid: false,
+      error: `${again} has already been elected ${election.position}`,
+      errorCode: 'INVALID_ACTION',
+    };
+  }
   if (writeIns.some((name) => [...candidates].some((c) => sameName(c, name)))) {
     return {
       valid: false,
@@ -1211,10 +1219,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NOMINATIONS_ALREADY_OPEN',
         };
       }
-      // One election at a time: the one in hand is finished or set aside first
+      // One election at a time: the one in hand is finished or set aside first. With seats still
+      // open after a ballot and nobody awaiting the declaration, its nominations reopen.
       {
-        const inHand = state.currentElection?.position ?? state.currentNominationPosition;
-        if (state.currentElection || (inHand && inHand !== action.position)) {
+        const election = state.currentElection;
+        const inHand = election?.position ?? state.currentNominationPosition;
+        const between =
+          !!election && !election.votingInProgress && winnersOf(election).length === 0;
+        if ((election && !between) || (inHand && inHand !== action.position)) {
           return {
             valid: false,
             error: `Finish the election for ${inHand}, or set it aside`,
@@ -1346,7 +1358,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
             ? 'The ballot is already open'
             : winnersOf(open).length > 0
               ? 'Declare the result of this ballot first'
-              : 'An election is already in progress',
+              : open.candidates.length === 0
+                ? 'No candidates are left: reopen nominations, or set the election aside'
+                : 'An election is already in progress',
           errorCode: 'ELECTION_IN_PROGRESS',
         };
       }
@@ -1433,6 +1447,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!isElectionUnderway(state)) {
         return { valid: false, error: 'No election to set aside', errorCode: 'NO_ELECTION' };
       }
+      // Someone has the vote required: the chair declares the result, which can't be set aside
+      if (
+        state.currentElection &&
+        !state.currentElection.votingInProgress &&
+        winnersOf(state.currentElection).length > 0
+      ) {
+        return { valid: false, error: 'Declare the result first', errorCode: 'INVALID_STATE' };
+      }
       return { valid: true };
 
     case 'CAST_BALLOT': {
@@ -1496,7 +1518,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
-      return paperBallotProblem(state.currentElection, action) ?? { valid: true };
+      return (
+        paperBallotProblem(
+          state.currentElection,
+          action,
+          electedTo(state, state.currentElection.position),
+        ) ?? { valid: true }
+      );
     }
 
     case 'CLOSE_ELECTION':
@@ -1508,6 +1536,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Election voting is not open',
           errorCode: 'ELECTION_VOTING_NOT_OPEN',
+        };
+      }
+      // A ballot nobody cast decides nothing, as a voice vote with no count doesn't
+      if (countBallot(state.currentElection).totals.cast === 0) {
+        return {
+          valid: false,
+          error: 'No ballots have been cast: enter the paper ballots, or set the election aside',
+          errorCode: 'INVALID_STATE',
         };
       }
       return { valid: true };
@@ -1523,6 +1559,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Close the ballot before declaring the result',
           errorCode: 'VOTING_IN_PROGRESS',
+        };
+      }
+      if (electedTo(state, election.position).some((n) => sameName(n, action.candidateName))) {
+        return {
+          valid: false,
+          error: `${action.candidateName} has already been elected ${election.position}`,
+          errorCode: 'INVALID_ACTION',
         };
       }
       if (!winnersOf(election).includes(action.candidateName)) {

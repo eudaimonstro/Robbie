@@ -265,3 +265,155 @@ describe('the server refuses', () => {
     ).toBeNull();
   });
 });
+
+describe('review fixes', () => {
+  /** Two seats, Alice declared on the first ballot, the second seat still open */
+  function oneSeatFilled(): MeetingState {
+    let s = startBallot(threeForTwo());
+    for (const who of ['pat', 'alice', 'ben'] as const) s = ballot(s, who, 'Alice Brennan');
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    return act(s, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Alice Brennan' });
+  }
+
+  it('never elects someone twice, by a paper write-in or a declaration (C1)', () => {
+    let s = startBallot(oneSeatFilled());
+    expect(
+      refusal(s, 'dana', {
+        type: 'SET_FLOOR_BALLOTS',
+        counts: {},
+        writeIns: { 'alice brennan': 5 },
+      })?.error,
+    ).toBe('alice brennan has already been elected Director');
+    expect(
+      refusal(s, 'carl', { type: 'CAST_BALLOT', candidateNames: ['Alice Brennan'], voterId: 0 })
+        ?.error,
+    ).toBe('Vote for a candidate on the ballot');
+    // A state that somehow has her among the winners still can't declare her again
+    s = act(s, 'pat', { type: 'CAST_BALLOT', candidateNames: ['Ben Whitaker'], voterId: 0 });
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    const forged = {
+      ...s,
+      currentElection: { ...s.currentElection!, winners: ['Alice Brennan'] },
+    };
+    expect(
+      refusal(forged, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Alice Brennan' })?.error,
+    ).toBe('Alice Brennan has already been elected Director');
+  });
+
+  it('sets nothing aside while a winner awaits the declaration, and leaves out ballots already minuted (I1)', () => {
+    let s = startBallot(threeForTwo());
+    for (const who of ['pat', 'alice', 'ben'] as const) {
+      s = ballot(s, who, 'Alice Brennan', 'Ben Whitaker');
+    }
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    expect(refusal(s, 'dana', { type: 'SET_ASIDE_ELECTION' })?.error).toBe(
+      'Declare the result first',
+    );
+    s = act(s, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Alice Brennan' });
+    s = act(s, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Ben Whitaker' });
+    // A one-seat election: two ballots, then set aside
+    s = open(s, 'Treasurer');
+    s = nominate(s, 'eve', 'Treasurer', ...CARL);
+    s = nominate(s, 'pat', 'Treasurer', 6, 'Eve Park');
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    s = act(s, 'dana', {
+      type: 'START_ELECTION',
+      electionId: 2,
+      position: 'Treasurer',
+      requiredVotes: 'majority',
+    });
+    s = ballot(s, 'pat', 'Carl Moss');
+    s = ballot(s, 'alice', 'Eve Park');
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    s = act(s, 'dana', { type: 'SET_ASIDE_ELECTION' });
+    expect(s.electionsSetAside.at(-1)?.ballots).toHaveLength(1);
+
+    // Set aside after a seat was filled: the ballot that filled it is in the director's paragraph
+    let t = oneSeatFilled();
+    t = startBallot(t);
+    t = ballot(t, 'pat', 'Ben Whitaker');
+    t = ballot(t, 'alice', 'Carl Moss');
+    t = act(t, 'dana', { type: 'CLOSE_ELECTION' });
+    t = act(t, 'dana', { type: 'SET_ASIDE_ELECTION' });
+    expect(t.electionsSetAside.at(-1)?.ballots).toEqual([{ 'Ben Whitaker': 1, 'Carl Moss': 1 }]);
+    expect(minutesOf(t)).toContain('Ballot 1, 2 ballots cast: Ben Whitaker 1, Carl Moss 1.');
+  });
+
+  it('reopens nominations for a seat still open with no candidates left, as one election (minor 1, 3)', () => {
+    // Two seats, two nominees: Alice elected, Ben short of a majority, then he withdraws
+    let s = open(inSession(), 'Director', 2);
+    s = nominate(s, 'eve', 'Director', ...ALICE);
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    // One nominee for two seats: acclaimed, the other seat open
+    s = act(s, 'dana', { type: 'ELECT_BY_ACCLAMATION', electionId: 1 });
+    s = open(s, 'Director');
+    s = nominate(s, 'pat', 'Director', ...BEN);
+    s = nominate(s, 'pat', 'Director', ...CARL);
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    s = startBallot(s);
+    for (const who of ['pat', 'alice', 'ben'] as const) s = ballot(s, who, 'Ben Whitaker');
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    s = act(s, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Ben Whitaker' });
+    // One election from the acclamation to the ballot
+    const [alice, ben] = s.electedOfficers;
+    expect(ben.electionId).toBe(alice.electionId);
+    expect(minutesOf(s)).toContain(
+      '**Election for Director.** Alice Brennan was elected by acclamation. Ballot 1, 3 ballots cast: Ben Whitaker 3, Carl Moss 0. Ben Whitaker was elected.',
+    );
+
+    // A seat open with nobody left on the ballot: no next ballot, nominations reopen
+    let t = open(inSession(), 'Director', 2);
+    t = nominate(t, 'eve', 'Director', ...ALICE);
+    t = nominate(t, 'eve', 'Director', ...BEN);
+    t = act(t, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    t = startBallot(t);
+    for (const who of ['pat', 'alice', 'ben'] as const) t = ballot(t, who, 'Alice Brennan');
+    t = act(t, 'dana', { type: 'CLOSE_ELECTION' });
+    t = act(t, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Alice Brennan' });
+    t = act(t, 'dana', { type: 'DECLINE_NOMINATION', nominationId: t.nominations[1].id });
+    const empty = { ...t, currentElection: { ...t.currentElection!, candidates: [] } };
+    expect(
+      refusal(empty, 'dana', {
+        type: 'START_ELECTION',
+        electionId: 3,
+        position: 'Director',
+        requiredVotes: 'majority',
+      })?.error,
+    ).toBe('No candidates are left: reopen nominations, or set the election aside');
+    t = open(empty, 'Director');
+    expect(t).toMatchObject({ nominationsOpen: true, currentElection: null, openSeats: 1 });
+  });
+
+  it('runs off only the candidates tied for the last seat under a plurality (minor 2)', () => {
+    let s = open(inSession(), 'Director', 2);
+    s = nominate(s, 'eve', 'Director', ...ALICE);
+    s = nominate(s, 'pat', 'Director', ...BEN);
+    s = nominate(s, 'alice', 'Director', ...CARL);
+    s = nominate(s, 'alice', 'Director', 6, 'Eve Park');
+    s = act(s, 'dana', { type: 'CLOSE_NOMINATIONS' });
+    s = startBallot(s, 'plurality');
+    s = ballot(s, 'pat', 'Alice Brennan', 'Ben Whitaker');
+    s = ballot(s, 'alice', 'Alice Brennan', 'Carl Moss');
+    s = ballot(s, 'ben', 'Alice Brennan', 'Eve Park');
+    s = ballot(s, 'carl', 'Alice Brennan', 'Ben Whitaker');
+    s = ballot(s, 'eve', 'Carl Moss');
+    s = act(s, 'dana', { type: 'CLOSE_ELECTION' });
+    // Alice 4; Ben 2 and Carl 2 tie for the second seat; Eve 1 is out of the running
+    s = act(s, 'dana', { type: 'DECLARE_ELECTED', candidateName: 'Alice Brennan' });
+    expect(s.currentElection?.candidates.map((c) => c.name)).toEqual(['Ben Whitaker', 'Carl Moss']);
+  });
+
+  it('keeps the open seats in the business left unfinished (minor 4)', () => {
+    let s = oneSeatFilled();
+    s = act(s, 'dana', { type: 'END_MEETING' });
+    expect(s.unfinishedAtAdjournment[0]).toMatchObject({ kind: 'election', seats: 1 });
+    expect(minutesOf(s)).toContain('the election for Director (1 seat still open)');
+  });
+
+  it('closes no ballot with no ballots cast (minor 5)', () => {
+    const s = startBallot(threeForTwo());
+    expect(refusal(s, 'dana', { type: 'CLOSE_ELECTION' })?.error).toBe(
+      'No ballots have been cast: enter the paper ballots, or set the election aside',
+    );
+  });
+});

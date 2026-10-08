@@ -35,7 +35,8 @@ function settleConsent(state: MeetingState): MeetingState {
 
 /**
  * What leaves a declared voice vote open to a division (RONR 29:7): the room's count and roles,
- * hands, questions to the chair, settings, and the server's own bookkeeping. Anything else is
+ * hands, questions to the chair, timers, and the server's own bookkeeping. Changing the way the
+ * next vote is taken is the meeting moving on. Anything else is
  * the meeting moving on, and it is too late.
  */
 const KEEPS_DIVISION_OPEN: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
@@ -56,7 +57,6 @@ const KEEPS_DIVISION_OPEN: ReadonlySet<MeetingAction['type']> = new Set<MeetingA
   'ANSWER_INQUIRY',
   'SET_SPEAKER_TIME_LIMIT',
   'SET_VOTE_TIME_LIMIT',
-  'SET_VOTING_METHOD',
   'SET_AUTO_YIELD',
 ]);
 

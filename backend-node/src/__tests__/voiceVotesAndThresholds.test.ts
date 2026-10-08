@@ -182,3 +182,34 @@ describe('a bylaw amendment under the organization’s threshold', () => {
     expect(minutesOf(twoThirds)).toContain('Failed, two thirds required, 2 to 2.');
   });
 });
+
+describe('review fixes to declared voice votes', () => {
+  it('keeps hands raised after the declaration when a division is called (minor 7)', () => {
+    let s = act(voiceVoteOn(grill()), 'dana', { type: 'CLOSE_VOTING', declared: 'ayes' });
+    s = act(s, 'carl', { type: 'RAISE_HAND', stance: 'neutral' });
+    s = act(s, 'eve', { type: 'REQUEST_DIVISION' });
+    expect(s.speakerQueue.map((e) => e.member.name)).toEqual(['Carl Moss']);
+  });
+
+  it('is too late for a division once the way of voting is changed (minor 8)', () => {
+    let s = act(voiceVoteOn(grill()), 'dana', { type: 'CLOSE_VOTING', declared: 'noes' });
+    s = act(s, 'dana', { type: 'SET_VOTING_METHOD', method: 'ballot' });
+    expect(s.voiceVote).toBeNull();
+  });
+
+  it('says a vote of all the members is counted, and why (minor 9)', () => {
+    const s = voiceVoteOn(
+      moved(inSession(), 'alice', 'bylawAmendment', 'Amend Section 4.2', 'ben', {
+        bylawAmendment: {
+          documentId: 'doc',
+          changeType: 'delete',
+          targetSectionId: 's42',
+          voteRequired: { fraction: 'majority', of: 'members', members: 9 },
+        },
+      }),
+    );
+    expect(refusal(s, 'dana', { type: 'CLOSE_VOTING', declared: 'ayes' })?.error).toBe(
+      'A vote of all the voting members is counted: enter the count in the room',
+    );
+  });
+});

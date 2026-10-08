@@ -101,7 +101,9 @@ export { fitMotionText } from './motionText.js';
 export {
   MAX_SEATS,
   acclamationCandidates,
+  ballotsNotMinuted,
   countBallot,
+  electionHistory,
   electedTo,
   joinNames,
   remainingNominees,
