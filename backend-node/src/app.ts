@@ -30,6 +30,7 @@ import {
 import { httpLogger } from './middleware/logger.js';
 import { trustProxyHops } from './middleware/trustProxy.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
+import { appUrl } from './auth/emailService.js';
 import { serveWebApp } from './webApp.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { membersRouter } from './orgs/memberRoutes.js';
@@ -58,7 +59,7 @@ const allowedOrigins = process.env.CLIENT_ORIGIN
 export { allowedOrigins };
 
 // Security headers, with the Content Security Policy the web app is served under
-app.use(securityHeaders());
+app.use(securityHeaders(appUrl()));
 
 // Request logging
 app.use(httpLogger);

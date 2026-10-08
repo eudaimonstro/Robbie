@@ -68,6 +68,9 @@ for route in / /meetings/ABC123; do
   grep -q '<div id="root">' "$work/page.html" || fail "$route is not the web app"
   grep -qi '^cache-control: no-cache' <<<"$headers" || fail "$route may be cached"
   grep -qi "^content-security-policy:.*default-src 'self'" <<<"$headers" || fail "$route has no CSP"
+  # The meeting socket's address, from APP_URL
+  grep -qiE "^content-security-policy:.*connect-src 'self' ws://127\.0\.0\.1(;|\s|$)" <<<"$headers" ||
+    fail "$route's CSP doesn't let the page open its socket"
 done
 bundle=$(grep -o '/assets/[^"]*\.js' "$work/page.html" | head -n 1)
 [ -n "$bundle" ] || fail "index.html names no bundle"
