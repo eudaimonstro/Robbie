@@ -207,9 +207,10 @@ describe('LiveMeetingsPage', () => {
       expect(screen.getByText('Changing MAPLE1')).toBeTruthy();
 
       fireEvent.click(screen.getByRole('button', { name: 'Done changing' }));
-      expect((await screen.findByRole('status')).textContent).toBe(
-        '2026 Annual Meeting is changed.',
-      );
+      const status = await screen.findByRole('status');
+      expect(status.textContent).toBe('2026 Annual Meeting is changed.');
+      // The focus goes to what happened, not to the top of the page
+      expect(document.activeElement).toBe(status);
       expect(
         await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }),
       ).toBeTruthy();
@@ -222,10 +223,22 @@ describe('LiveMeetingsPage', () => {
       renderPage();
       fireEvent.click(await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }));
       fireEvent.click(screen.getByRole('button', { name: 'Done scheduling' }));
-      expect(
-        await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }),
-      ).toBeTruthy();
-      expect(screen.queryByRole('status')).toBeNull();
+      const change = await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' });
+      // Back where it was opened from
+      expect(document.activeElement).toBe(change);
+      // The status is always there for a screen reader, with nothing in it
+      expect(screen.getByRole('status').textContent).toBe('');
+    });
+
+    it('goes back to Schedule a meeting when the scheduler closes without a meeting', async () => {
+      bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+      schedule.list.mockResolvedValue([]);
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Schedule a meeting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Done scheduling' }));
+      expect(document.activeElement).toBe(
+        await screen.findByRole('button', { name: 'Schedule a meeting' }),
+      );
     });
   });
 });

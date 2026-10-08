@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarPlus } from 'lucide-react';
 import { schedule, type ScheduledMeeting } from '../../../api/client';
@@ -33,6 +33,12 @@ export function LiveMeetingsPage() {
   const [status, setStatus] = useState<string | null>(null);
   // Bumped when the scheduler closes, so a meeting just scheduled is listed
   const [refresh, setRefresh] = useState(0);
+  // Where the focus goes when the scheduler closes: what happened, or back where it was opened
+  // (the Change of that meeting, or Schedule a meeting), never the top of the page
+  const returnFocus = useRef<{ code: string | null } | null>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const scheduleRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // Meetings are scheduled in the current organization, by its secretaries and above
   const canSchedule =
     currentOrganization !== null && atLeast(currentOrganization.role, 'secretary');
@@ -56,12 +62,24 @@ export function LiveMeetingsPage() {
     };
   }, [organizationId, refresh]);
 
+  const open = scheduling || changing !== null;
+  useLayoutEffect(() => {
+    const target = returnFocus.current;
+    if (open || !target) return;
+    returnFocus.current = null;
+    const change = target.code
+      ? listRef.current?.querySelector<HTMLButtonElement>(`button[data-change="${target.code}"]`)
+      : null;
+    (status ? statusRef.current : (change ?? scheduleRef.current))?.focus();
+  }, [open, status]);
+
   if (scheduling || changing) {
     return (
       <MeetingScheduler
         key={changing ?? 'new'}
         meetingCode={changing ?? undefined}
         onBack={(message) => {
+          returnFocus.current = { code: changing };
           setScheduling(false);
           setChanging(null);
           setStatus(message ?? null);
@@ -91,6 +109,7 @@ export function LiveMeetingsPage() {
         </div>
         {canSchedule && (
           <button
+            ref={scheduleRef}
             type="button"
             className="btn-primary"
             onClick={() => {
@@ -104,13 +123,21 @@ export function LiveMeetingsPage() {
         )}
       </div>
 
-      {status && (
-        <p role="status" className="mb-6 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink">
-          {status}
-        </p>
-      )}
+      {/* Always there, so a screen reader hears it when it is filled in */}
+      <p
+        ref={statusRef}
+        role="status"
+        tabIndex={-1}
+        className={
+          status
+            ? 'mb-6 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink focus:outline-none'
+            : 'sr-only'
+        }
+      >
+        {status}
+      </p>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div ref={listRef} className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {currentOrganization && (
             <section className="card" aria-labelledby="schedule-heading">
@@ -206,6 +233,7 @@ function ScheduleRow({
             type="button"
             onClick={onChange}
             aria-label={`Change ${title}`}
+            data-change={meeting.robbieCode}
             className="btn-ghost btn-sm"
           >
             Change
