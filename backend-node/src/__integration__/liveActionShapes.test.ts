@@ -33,6 +33,8 @@ describe('a malformed action in a live meeting', () => {
     for (const socket of [chair, member, guest]) await live.join(socket, f.packet.code);
     await live.dispatch(chair, { type: 'MARK_PRESENT', userId: f.users.owner.id, timestamp: '' });
     await live.dispatch(chair, { type: 'START_MEETING', timestamp: '' });
+    // Business is taken up once the agenda is adopted
+    await live.dispatch(chair, { type: 'ADOPT_AGENDA', timestamp: '' });
     await live.dispatch(member, {
       type: 'MAKE_MOTION',
       motionType: 'mainMotion',

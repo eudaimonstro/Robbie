@@ -31,6 +31,8 @@ describe('business from the floor in a live meeting', () => {
     // The owner is in the room without a device
     await live.dispatch(chair, { type: 'MARK_PRESENT', userId: f.users.owner.id, timestamp: '' });
     await live.dispatch(chair, { type: 'START_MEETING', timestamp: '' });
+    // Business is taken up once the agenda is adopted
+    await live.dispatch(chair, { type: 'ADOPT_AGENDA', timestamp: '' });
   });
   afterEach(live.disconnectAll);
 

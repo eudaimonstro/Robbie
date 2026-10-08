@@ -459,7 +459,9 @@ async function elect(
     'Nominated from the floor',
   );
 
-  await dana.getByRole('button', { name: 'Close nominations' }).click();
+  // The toolbar has the election's next step, as the election card does
+  const toolbar = dana.getByRole('toolbar', { name: "The chair's actions" });
+  await toolbar.getByRole('button', { name: 'Close nominations' }).click();
   await dana.getByRole('button', { name: 'Open the ballot' }).click();
   for (const voter of voters) {
     await voter
@@ -473,7 +475,7 @@ async function elect(
     await dana.getByLabel(`${name} in the room`).fill(String(count));
   }
   await dana.getByRole('button', { name: 'Enter the paper ballots' }).click();
-  await dana.getByRole('button', { name: 'Close the ballot' }).click();
+  await toolbar.getByRole('button', { name: 'Close the ballot' }).click();
   await expect(dana.getByText(`${nominee} has the vote required.`)).toBeVisible();
-  await dana.getByRole('button', { name: `Declare ${nominee} elected` }).click();
+  await toolbar.getByRole('button', { name: `Declare ${nominee} elected` }).click();
 }

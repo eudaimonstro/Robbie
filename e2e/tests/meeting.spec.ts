@@ -70,8 +70,14 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(dana.getByText('Moved by Alice Brennan, seconded by Ben Whitaker')).toBeVisible();
     await expect(pat.getByText('I move that we resurface the pool this spring')).toBeVisible();
 
-    // The vote opens. Sam, a viewer in the organization, follows as a guest and has no vote.
+    // Without a quorum the console and the display say so, and the vote opens only once Dana
+    // confirms it (the minutes will say it has no effect unless ratified). Sam, a viewer in the
+    // organization, follows as a guest and has no vote.
+    await expect(dana.getByText(/^No quorum: 7 present, 29 needed\./)).toBeVisible();
+    await expect(pat.getByText('No quorum', { exact: true })).toBeVisible();
     await dana.getByRole('button', { name: 'Open the vote' }).click();
+    const noQuorum = dana.getByRole('dialog', { name: 'There is no quorum' });
+    await noQuorum.getByRole('button', { name: 'Open the vote anyway' }).click();
     const sam = await open(PEOPLE.sam, PHONE);
     await sam.goto(`/meetings/${code}`);
     await expect(sam.getByText('Guest', { exact: true })).toBeVisible();
@@ -150,7 +156,7 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     const minutes = pat.getByRole('region', { name: 'Preview' });
     await expect(
       minutes.getByText(
-        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\./,
+        /Alice Brennan moved: "I move that we resurface the pool this spring\." Seconded by Ben Whitaker\. Carried, on devices 2 to 0 and in the room 9 to 2: 11 to 2\. No quorum was present: the action has no effect unless a meeting with a quorum ratifies it\./,
       ),
     ).toBeVisible();
     await expect(
@@ -206,7 +212,10 @@ test('an election nobody was nominated for is set aside, and the chair goes on',
     // Nominations open and close with nobody nominated: no ballot to open
     await dana.getByLabel('Open nominations for').fill('Treasurer');
     await dana.getByRole('button', { name: 'Open nominations' }).click();
-    await dana.getByRole('button', { name: 'Close nominations' }).click();
+    await dana
+      .getByRole('toolbar', { name: "The chair's actions" })
+      .getByRole('button', { name: 'Close nominations' })
+      .click();
     await expect(
       dana.getByText(/^Nobody has been nominated\. Open nominations again/),
     ).toBeVisible();

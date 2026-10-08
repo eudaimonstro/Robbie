@@ -377,6 +377,19 @@ describe('bylaw sync', () => {
     expect(doc.currentVersionId).toBe(f.v2);
   });
 
+  it('leaves alone a bylaw amendment postponed, referred, withdrawn or ruled out of order', async () => {
+    for (const disposition of ['postponed', 'referred', 'withdrawn', 'out-of-order'] as const) {
+      const { before, after } = states(
+        decided(rename(f.doc, f.section), { passed: false, disposition }),
+      );
+      expect(
+        await checkAndSyncBylawAmendment(f.packet.code, closeVoting, before, after),
+        disposition,
+      ).toBeNull();
+    }
+    expect(await prisma.amendment.count({ where: { robbieMeetingCode: f.packet.code } })).toBe(0);
+  });
+
   it('skips a meeting without a packet', async () => {
     const { before, after } = votedStates(f.doc, f.section);
     expect(await checkAndSyncBylawAmendment('NOPACK', closeVoting, before, after)).toBeNull();
