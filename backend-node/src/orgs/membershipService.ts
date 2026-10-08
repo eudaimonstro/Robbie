@@ -219,7 +219,8 @@ export async function addMemberByEmail(
     await sendAddedToOrganization({
       to: email,
       organization: organization.name,
-      addedBy: actor.name ?? actor.email,
+      addedBy: actor.name,
+      addedByEmail: actor.email,
     });
   } catch (error) {
     logger.warn({ err: error, organizationId }, 'Failed to send the added-to-organization email');

@@ -89,7 +89,8 @@ interface OutgoingEmail {
   to: string;
   subject: string;
   text: string;
-  html: string;
+  /** Left out for a plain-text email */
+  html?: string;
 }
 
 /**
@@ -99,7 +100,11 @@ interface OutgoingEmail {
 async function deliver(message: OutgoingEmail): Promise<string | undefined> {
   if (resendClient) {
     // The Resend SDK returns errors instead of throwing them
-    const { data, error } = await resendClient.emails.send({ from: EMAIL_FROM, ...message });
+    const { data, error } = await resendClient.emails.send(
+      message.html === undefined
+        ? { from: EMAIL_FROM, to: message.to, subject: message.subject, text: message.text }
+        : { from: EMAIL_FROM, ...message, html: message.html },
+    );
     if (error) {
       throw new Error(`Resend error (${error.name}): ${error.message}`);
     }
@@ -241,8 +246,10 @@ export async function sendSignInCode(email: string, code: string): Promise<void>
 export interface AddedToOrganizationEmail {
   to: string;
   organization: string;
-  /** The name (or email) of whoever added them */
-  addedBy: string;
+  /** The name of whoever added them, if they set one */
+  addedBy: string | null;
+  /** Their email address, which they signed in with */
+  addedByEmail: string;
 }
 
 // Tests: when set, added-to-organization emails are collected here instead of being sent
@@ -271,53 +278,47 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/** The longest organization or person's name an email quotes, in characters */
+export const MAX_QUOTED_NAME = 60;
+
 /**
- * The added-to-organization email. Names come from users, so they are escaped in the HTML and
- * kept to one line in the subject.
+ * A name someone chose, as an email quotes it: one line, at most MAX_QUOTED_NAME characters,
+ * in double quotes, so it reads as a name and not as Robbie's own words
+ */
+export function quotedName(name: string): string {
+  const line = name.replace(/\s+/g, ' ').replace(/"/g, "'").trim();
+  const chars = [...line];
+  const capped =
+    chars.length > MAX_QUOTED_NAME ? `${chars.slice(0, MAX_QUOTED_NAME - 1).join('')}…` : line;
+  return `"${capped}"`;
+}
+
+/**
+ * The added-to-organization email, in plain text only. The organization's and the adder's names
+ * come from users (anyone can make an organization and add an email), so they are quoted and
+ * capped (quotedName), and the adder is named by the email address they signed in with too.
  */
 export function addedToOrganizationEmail(
   email: AddedToOrganizationEmail,
   url: string,
-): { subject: string; text: string; html: string } {
-  const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim();
-  const organization = oneLine(email.organization);
-  const addedBy = oneLine(email.addedBy);
+): { subject: string; text: string } {
+  const organization = quotedName(email.organization);
+  const addedBy = email.addedBy?.trim()
+    ? `${quotedName(email.addedBy)} (${email.addedByEmail})`
+    : email.addedByEmail;
   return {
-    subject: `You were added to ${organization} on Robbie`,
-    text: `${addedBy} added you to ${organization} on Robbie.
+    subject: `You were added to the organization ${organization} on Robbie`,
+    text: `${addedBy} added you to the organization ${organization} on Robbie.
 
 Sign in with this email address to see it:
 
 ${url}
 
+If you don't know this organization, you can leave it in Robbie's Settings, or ignore this
+email.
+
 ---
 Robbie - Parliamentary Procedure Made Easy
-`,
-    html: `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Added to ${escapeHtml(organization)}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <div style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 32px 24px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Robbie</h1>
-    </div>
-    <div style="padding: 32px 24px;">
-      <p style="color: #18181b; margin: 0 0 16px 0; font-size: 15px; line-height: 1.6;">
-        ${escapeHtml(addedBy)} added you to <strong>${escapeHtml(organization)}</strong> on Robbie.
-      </p>
-      <p style="color: #52525b; margin: 0 0 24px 0; font-size: 15px; line-height: 1.6;">
-        Sign in with this email address to see it.
-      </p>
-      <a href="${escapeHtml(url)}" style="display: inline-block; background-color: #4f46e5; color: white; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">Open Robbie</a>
-    </div>
-  </div>
-</body>
-</html>
 `,
   };
 }

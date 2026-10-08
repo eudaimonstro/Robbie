@@ -64,6 +64,7 @@ export async function seedFixture(): Promise<Fixture> {
     data: {
       name: 'Org A',
       slug: 'org-a',
+      createdById: users.owner.id,
       members: { create: ROLES.map((role) => ({ userId: users[role].id, role })) },
     },
   });

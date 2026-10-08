@@ -100,7 +100,14 @@ describe('members', () => {
         member: { userId: bo.id, name: 'Bo', email: 'bo@example.org', role: 'secretary' },
         emailSent: true,
       });
-      expect(mail).toEqual([{ to: 'bo@example.org', organization: 'Org A', addedBy: 'A admin' }]);
+      expect(mail).toEqual([
+        {
+          to: 'bo@example.org',
+          organization: 'Org A',
+          addedBy: 'A admin',
+          addedByEmail: 'admin@example.org',
+        },
+      ]);
       const invite = await prisma.organizationInvite.findFirstOrThrow({
         where: { email: 'bo@example.org' },
       });
