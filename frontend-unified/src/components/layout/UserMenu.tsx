@@ -22,7 +22,7 @@ export function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-surface-2"
+        className="flex items-center gap-2 px-2 py-1.5 max-md:min-h-11 text-sm rounded-md hover:bg-surface-2"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -45,7 +45,7 @@ export function UserMenu() {
               role="menuitem"
               to="/settings"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-surface-2"
+              className="flex items-center gap-2 px-4 py-2 max-md:py-3 text-sm hover:bg-surface-2"
             >
               <Settings className="w-4 h-4" aria-hidden="true" />
               Settings
@@ -53,7 +53,7 @@ export function UserMenu() {
             <button
               role="menuitem"
               onClick={() => run(signOut)}
-              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left hover:bg-surface-2"
+              className="w-full flex items-center gap-2 px-4 py-2 max-md:py-3 text-sm text-left hover:bg-surface-2"
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
               Sign out
@@ -61,7 +61,7 @@ export function UserMenu() {
             <button
               role="menuitem"
               onClick={() => run(signOutEverywhere)}
-              className="w-full px-4 py-2 text-sm text-left text-ink-muted hover:bg-surface-2"
+              className="w-full px-4 py-2 max-md:py-3 text-sm text-left text-ink-muted hover:bg-surface-2"
             >
               Sign out on all devices
             </button>

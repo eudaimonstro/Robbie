@@ -26,7 +26,10 @@ const navItems = [
  * left edge (docs/design-brief.md: the sidebar is "not a blue block")
  */
 function entryClass(current: boolean, nested = false): string {
-  const size = nested ? 'gap-2 px-3 py-1.5 mb-0.5 text-sm' : 'gap-3 px-3 py-2 mb-1';
+  // At least 44px tall on phones, where the drawer is tapped
+  const size = nested
+    ? 'gap-2 px-3 py-1.5 max-md:min-h-11 mb-0.5 text-sm'
+    : 'gap-3 px-3 py-2 max-md:min-h-11 mb-1';
   const state = current
     ? 'bg-surface text-ink font-medium before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-gavel'
     : 'text-ink-muted hover:bg-surface hover:text-ink';
@@ -73,7 +76,7 @@ export default function Sidebar({ onNewDocument, onClose, drawer = false }: Side
         <div className={`flex justify-end p-2 ${drawer ? '' : 'md:hidden'}`}>
           <button
             onClick={onClose}
-            className="p-2 rounded-md text-ink-muted hover:text-ink hover:bg-surface"
+            className="p-2 max-md:p-3 rounded-md text-ink-muted hover:text-ink hover:bg-surface"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />

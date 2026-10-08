@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { isFocusPath } from './focusMode';
+import { BELOW_MD, useMediaQuery } from './useMediaQuery';
 import Header from './Header';
 import { AppChromeContext } from './appChrome';
 import Modal from '../ui/Modal';
@@ -25,6 +26,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const chrome = useMemo(() => ({ openMenu: () => setSidebarOpen(true), setOwnHeader }), []);
   const modalTriggerRef = useRef<HTMLElement | null>(null);
   const focus = isFocusPath(location.pathname);
+  // The sidebar is a drawer on phones, and at every width in a live meeting
+  const phone = useMediaQuery(BELOW_MD);
+  const drawer = focus || phone;
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -76,10 +80,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
         />
       )}
 
-      {/* Sidebar - a drawer on mobile (and in a live meeting), shown when sidebarOpen */}
+      {/* Sidebar - a drawer on mobile (and in a live meeting), shown when sidebarOpen. Closed,
+          it is off the screen and out of the keyboard's and screen readers' way too. */}
       <div
         data-testid="sidebar-frame"
-        inert={focus && !sidebarOpen}
+        inert={drawer && !sidebarOpen}
         className={`
         fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out ${focus ? '' : 'md:relative md:translate-x-0'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}

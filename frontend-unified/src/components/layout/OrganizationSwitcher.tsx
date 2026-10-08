@@ -30,7 +30,7 @@ export function OrganizationSwitcher() {
         onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 text-sm border border-rule rounded-md bg-surface hover:bg-surface-2 transition-colors max-w-full"
+        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 max-md:min-h-11 text-sm border border-rule rounded-md bg-surface hover:bg-surface-2 transition-colors max-w-full"
       >
         <Building2 className="w-4 h-4 shrink-0 text-ink-muted" aria-hidden="true" />
         {/* The name is only read out on phones; it truncates on wider screens */}
@@ -57,7 +57,7 @@ export function OrganizationSwitcher() {
                       key={org.id}
                       role="menuitem"
                       onClick={() => choose(org)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-surface-2 transition-colors ${
+                      className={`w-full text-left px-4 py-2 max-md:py-3 text-sm hover:bg-surface-2 transition-colors ${
                         currentOrganization?.id === org.id ? 'bg-gavel-tint text-ink' : 'text-ink'
                       }`}
                     >
@@ -77,7 +77,7 @@ export function OrganizationSwitcher() {
                 setOpen(false);
                 setCreating(true);
               }}
-              className="w-full text-left px-4 py-2 text-sm text-gavel hover:bg-surface-2 transition-colors flex items-center gap-2"
+              className="w-full text-left px-4 py-2 max-md:py-3 text-sm text-gavel hover:bg-surface-2 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               New organization
