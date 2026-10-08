@@ -87,7 +87,7 @@ export interface StateUpdatePayload {
 /** The fields an update may send as a tail (see StateUpdatePayload.tails) */
 export type StateTailField = 'meetingLog' | 'completedMotions';
 /** The fields an update may leave out when they haven't changed */
-export type StateUnchangedField = 'minutesFromPreviousMeeting';
+export type StateUnchangedField = 'members' | 'agenda' | 'attendedIds' | 'minutesFromPreviousMeeting';
 
 export interface ActionRejectedPayload {
   clientSequence: number;

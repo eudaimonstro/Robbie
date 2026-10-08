@@ -88,12 +88,10 @@ function guestSockets(io: TypedServer, room: string): string[] {
  */
 export const BROADCAST_WINDOW_MS = 250;
 
-/** What a meeting's room was last sent, for the next update's tails */
+/** What a meeting's room was last sent (the server's state, before publicState), for the next */
 export interface SentUpdate {
   version: number;
-  meetingLog: MeetingState['meetingLog'];
-  completedMotions: MeetingState['completedMotions'];
-  minutes: string;
+  state: MeetingState;
 }
 
 interface Channel {
@@ -125,10 +123,19 @@ export function tailStart(
 }
 
 /**
+ * The fields an update leaves out while they are the same object as in the room's last update:
+ * they change only when someone arrives or leaves, or the agenda changes, and are most of an
+ * update's size (150 members are 13 KB). The reducer never puts an old array back, so the same
+ * object means the same content for every client at or after the last update.
+ */
+const SAME_OBJECT_FIELDS = ['members', 'agenda', 'attendedIds'] as const;
+
+/**
  * An update as it goes to a room that was last sent `sent`: the meeting log and the record of
- * decided motions as what was added since (StateUpdatePayload.tails), and the previous minutes
- * left out while they are the same. The rest of the state goes in every update, so a client that
- * applies it has the whole meeting; the history comes whole with the join (and REQUEST_STATE).
+ * decided motions as what was added since (StateUpdatePayload.tails), and the members, the agenda,
+ * the attendance and the previous minutes left out while they are unchanged. The rest of the
+ * state goes in every update, so a client that applies it has the whole meeting; all of it comes
+ * with the join (and REQUEST_STATE).
  */
 export function slimUpdate(
   update: StateUpdatePayload,
@@ -138,14 +145,24 @@ export function slimUpdate(
   const state: MeetingState = { ...update.state };
   const tails: NonNullable<StateUpdatePayload['tails']> = {};
   for (const field of TAIL_FIELDS) {
-    const start = tailStart(sent[field], update.state[field]);
+    const start = tailStart(sent.state[field], update.state[field]);
     if (start === 0) continue;
     tails[field] = start;
     if (field === 'meetingLog') state.meetingLog = update.state.meetingLog.slice(start);
     else state.completedMotions = update.state.completedMotions.slice(start);
   }
   const unchanged: StateUnchangedField[] = [];
-  if (state.minutesFromPreviousMeeting && state.minutesFromPreviousMeeting === sent.minutes) {
+  for (const field of SAME_OBJECT_FIELDS) {
+    if (update.state[field] !== sent.state[field]) continue;
+    unchanged.push(field);
+    if (field === 'members') state.members = [];
+    else if (field === 'agenda') state.agenda = [];
+    else state.attendedIds = [];
+  }
+  if (
+    state.minutesFromPreviousMeeting &&
+    state.minutesFromPreviousMeeting === sent.state.minutesFromPreviousMeeting
+  ) {
     state.minutesFromPreviousMeeting = '';
     unchanged.push('minutesFromPreviousMeeting');
   }
@@ -186,12 +203,7 @@ function send(
   // opened again) or an update overtaken by a later one: it goes out whole
   const sent = channel.sent && update.stateVersion >= channel.sent.version ? channel.sent : null;
   const slim = slimUpdate(update, sent);
-  channel.sent = {
-    version: update.stateVersion,
-    meetingLog: update.state.meetingLog,
-    completedMotions: update.state.completedMotions,
-    minutes: update.state.minutesFromPreviousMeeting,
-  };
+  channel.sent = { version: update.stateVersion, state: update.state };
   deliver(io, meetingCode, slim);
 }
 

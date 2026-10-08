@@ -4,8 +4,8 @@ import type { StateTailField, StateUpdatePayload } from '@robbie-bylawyer/shared
 /**
  * The whole state after a server update, from the state the client has (at `version`): an update
  * sends the meeting log and the record of decided motions as what was added since the update
- * before it, and leaves out the previous minutes while they are unchanged. The screens read the
- * whole state, as before.
+ * before it, and leaves out the members, the agenda, the attendance and the previous minutes while
+ * they are unchanged. The screens read the whole state, as before.
  *
  * Null when this client can't apply it (it doesn't have the update before it, or its history is
  * shorter than the update's start): the client asks for the whole state instead.
@@ -32,7 +32,7 @@ export function mergeStateUpdate(
     }
   }
   for (const field of unchanged ?? []) {
-    next[field] = current[field];
+    (next as unknown as Record<string, unknown>)[field] = current[field];
   }
   return next;
 }

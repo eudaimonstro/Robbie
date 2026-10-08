@@ -38,7 +38,9 @@ function merge(mine: MeetingState, myVersion: number, update: StateUpdatePayload
     if (start > mine[key].length) return null;
     (next as Record<string, unknown>)[key] = [...mine[key].slice(0, start), ...update.state[key]];
   }
-  for (const field of update.unchanged ?? []) next[field] = mine[field];
+  for (const field of update.unchanged ?? []) {
+    (next as unknown as Record<string, unknown>)[field] = mine[field];
+  }
   return next;
 }
 
@@ -103,12 +105,7 @@ describe('slimUpdate', () => {
     const before = voting();
     const after = meetingReducer(before, { type: 'CAST_VOTE', vote: 'yea', voterId: 2 });
     const closed = meetingReducer(after, { type: 'CLOSE_VOTING', timestamp: '7:05 PM' });
-    const sent = {
-      version: 7,
-      meetingLog: before.meetingLog,
-      completedMotions: before.completedMotions,
-      minutes: before.minutesFromPreviousMeeting,
-    };
+    const sent = { version: 7, state: before };
 
     const slim = slimUpdate({ state: closed, stateVersion: 9 }, sent);
 
@@ -117,11 +114,17 @@ describe('slimUpdate', () => {
     expect(slim.state.meetingLog).toEqual(closed.meetingLog.slice(before.meetingLog.length));
     // Nothing was decided before: the record goes whole (one motion)
     expect(slim.state.completedMotions).toEqual(closed.completedMotions);
-    expect(slim.unchanged).toEqual(['minutesFromPreviousMeeting']);
+    // The members, the agenda and the attendance are as they were: left out, as the minutes are
+    expect(slim.unchanged).toEqual([
+      'members',
+      'agenda',
+      'attendedIds',
+      'minutesFromPreviousMeeting',
+    ]);
+    expect(slim.state.members).toEqual([]);
     expect(slim.state.minutesFromPreviousMeeting).toBe('');
     // Everything else is as it is
     expect(slim.state.votes).toEqual(closed.votes);
-    expect(slim.state.members).toBe(closed.members);
   });
 
   it('sends a history whole when an entry before its tail changed', () => {
@@ -129,12 +132,7 @@ describe('slimUpdate', () => {
     const record = { ...state.completedMotions[0], id: 1 } as MeetingState['completedMotions'][0];
     const decided = { ...state, completedMotions: [record] };
     const reconsidered = { ...decided, completedMotions: [{ ...record, reconsidered: true }] };
-    const sent = {
-      version: 3,
-      meetingLog: decided.meetingLog,
-      completedMotions: decided.completedMotions,
-      minutes: '',
-    };
+    const sent = { version: 3, state: decided };
 
     const slim = slimUpdate({ state: reconsidered, stateVersion: 4 }, sent);
 
@@ -237,6 +235,8 @@ describe('emitState', () => {
         timestamp: '7:06 PM',
       },
       { type: 'DECLINE_SECOND', timestamp: '7:07 PM' },
+      { type: 'ADD_MEMBER', member: member(5), timestamp: '7:07 PM' },
+      { type: 'SET_MEMBER_PRESENCE', memberId: 3, present: false, timestamp: '7:07 PM' },
       { type: 'START_MEETING', timestamp: '7:08 PM' },
     ];
     for (const action of actions) {

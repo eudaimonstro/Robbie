@@ -32,6 +32,27 @@ describe('mergeStateUpdate', () => {
     expect(merged?.completedMotions.map((m) => m.id)).toEqual([1, 2]);
   });
 
+  it('keeps its own members, agenda and attendance when an update leaves them out', () => {
+    const mine = {
+      ...initialState,
+      members: [{ id: 1, name: 'Ann', role: 'member' as const, present: true }],
+      agenda: [{ id: 1, title: 'Reports', status: 'pending' as const }],
+      attendedIds: [1],
+    };
+    const merged = mergeStateUpdate(mine, 4, {
+      state: { ...initialState, quorum: 5 },
+      stateVersion: 5,
+      baseVersion: 4,
+      unchanged: ['members', 'agenda', 'attendedIds'],
+    });
+    expect(merged).toMatchObject({
+      quorum: 5,
+      members: mine.members,
+      agenda: mine.agenda,
+      attendedIds: [1],
+    });
+  });
+
   it("can't apply a tail that starts past the history the client has", () => {
     const merged = mergeStateUpdate(initialState, 4, {
       state: { ...initialState, completedMotions: [decided(3)] },
