@@ -87,6 +87,7 @@ As `deploy` on the server:
    Then fill in `.env` (`nano .env`):
    - `ACME_EMAIL`: your email, for certificate notices.
    - `POSTGRES_PASSWORD`: the random string `openssl` just printed.
+   - `SERVER_SECRET`: another random string, from `openssl rand -hex 32` (the key of the hashes of sign-in addresses; the server refuses to start without one).
    - `RESEND_API_KEY`: the sending-only key.
    - `BACKUP_OWNER`: the two numbers from `id -u deploy` and `id -g deploy`, as `uid:gid` (the example's `1000:1000` is a placeholder).
    - Keep `ROBBIE_DOMAIN=robbie.scouch.dev`, `APP_URL=https://robbie.scouch.dev`, `EMAIL_FROM=Robbie <noreply@robbie.scouch.dev>` and `ROBBIE_IMAGE=ghcr.io/eudaimonstro/robbie:main`. Leave `CLIENT_ORIGIN` and `DATABASE_URL` unset (compose sets the database address).

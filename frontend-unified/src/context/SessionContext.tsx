@@ -118,13 +118,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     apply(await checkSession());
   }, [apply]);
 
+  // The challenge of this page's latest code request, by email: sent with the code, and with a
+  // new request for the same email, so only this browser can use (or spend the guesses of) the
+  // code it asked for
+  const challenges = useRef(new Map<string, string>());
+
   const requestCode = useCallback(async (email: string) => {
-    await auth.requestCode(email);
+    const key = email.trim().toLowerCase();
+    const answer = await auth.requestCode(email, challenges.current.get(key));
+    if (answer?.challenge) challenges.current.set(key, answer.challenge);
   }, []);
 
   const verify = useCallback(
     async (email: string, code: string) => {
-      const signedIn = await auth.verify(email, code);
+      const challenge = challenges.current.get(email.trim().toLowerCase());
+      const signedIn = await auth.verify(email, code, challenge);
       // The verify answer has only the user; whether they accepted the current terms comes from
       // me. If that check fails, ask for the terms: accepting again is harmless.
       const me = await auth.me().catch(() => null);

@@ -10,9 +10,10 @@ import { resetAccounts } from './db.js';
 let outbox: Array<{ to: string; code: string }>;
 
 async function signIn(email: string, client?: 'web' | 'mobile') {
-  await request(app).post('/api/auth/request-code').send({ email }).expect(200);
+  const asked = await request(app).post('/api/auth/request-code').send({ email }).expect(200);
   const code = outbox[outbox.length - 1].code;
-  return request(app).post('/api/auth/verify').send({ email, code, client });
+  const { challenge } = asked.body;
+  return request(app).post('/api/auth/verify').send({ email, code, challenge, client });
 }
 
 const sessionCookie = (res: request.Response) =>
@@ -172,13 +173,38 @@ describe('auth routes', () => {
   });
 
   it('answers a wrong code with 401 and the message', async () => {
-    await request(app).post('/api/auth/request-code').send({ email: 'ann@example.org' });
+    const asked = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org' });
     const code = outbox[0].code === '000001' ? '000002' : '000001';
     const res = await request(app)
       .post('/api/auth/verify')
-      .send({ email: 'ann@example.org', code });
+      .send({ email: 'ann@example.org', code, challenge: asked.body.challenge });
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('That code is wrong or has expired');
+  });
+
+  it('answers a code request with a challenge, and takes the code only with it', async () => {
+    const asked = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org' });
+    expect(asked.body).toEqual({ success: true, challenge: expect.any(String) });
+    const { challenge } = asked.body;
+    // "Send a new code" from the same page keeps the challenge
+    const again = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'ann@example.org', challenge });
+    expect(again.body.challenge).toBe(challenge);
+
+    const code = outbox[1].code;
+    const without = await request(app)
+      .post('/api/auth/verify')
+      .send({ email: 'ann@example.org', code });
+    expect(without.status).toBe(401);
+    const signedIn = await request(app)
+      .post('/api/auth/verify')
+      .send({ email: 'ann@example.org', code, challenge });
+    expect(signedIn.status).toBe(200);
   });
 
   it('refuses the test code in production even with test sign-in enabled', async () => {

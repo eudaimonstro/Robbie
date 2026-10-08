@@ -1,24 +1,39 @@
 import { prisma } from '../db/prisma.js';
 import { acceptPendingInvites } from '../orgs/membershipService.js';
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
+import { isIP } from 'node:net';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { ipKeyGenerator } from 'express-rate-limit';
 import { canSendEmail, sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
 import { normalizeEmail } from './normalizeEmail.js';
+import { keyedHash } from './serverSecret.js';
 import type { SessionUser } from './sessionService.js';
+
+/**
+ * Sign-in by emailed code, bound to the browser that asked. A code request is answered with a
+ * challenge (random, kept by the browser; only its hash is stored), and verify needs the email,
+ * the code and that challenge. So only the browser that asked can use a code or spend its wrong
+ * guesses: nobody else can lock a person out by guessing, or cancel the code they are about to
+ * type by asking for another. A new request carrying the browser's challenge ("send a new code")
+ * replaces that browser's earlier code; codes asked for elsewhere stay as they are.
+ */
 
 export const CODE_LIFETIME_MS = 15 * 60 * 1000;
 /** Wrong guesses a code takes before it stops working; a new code starts again */
 export const MAX_ATTEMPTS = 5;
 
 /**
- * Codes an email can be sent in an hour from one network address: the limit that applies to
- * the person themselves, so someone asking for codes for their email elsewhere can't lock them
- * out
+ * Codes an email can be sent in an hour from one network address (an IPv6 /64): the limit that
+ * applies to the person themselves
  */
 export const MAX_CODES_PER_EMAIL_FROM_ADDRESS = 5;
-/** Codes an email can be sent in an hour from all addresses: caps guessing at 100 an hour */
-export const MAX_CODES_PER_EMAIL = 20;
+/**
+ * Codes an email can be sent in an hour from all addresses. High enough that filling it to keep
+ * the chair from getting a code takes ten networks (the per-address limit does the everyday
+ * limiting), and still a ceiling on guessing: 50 codes of 5 guesses is 250 of a million an hour.
+ */
+export const MAX_CODES_PER_EMAIL = 50;
 /**
  * Sign-in emails one network address can have sent in an hour, to any addresses: room for a
  * clubhouse of homeowners on the venue's Wi-Fi, not for spraying the email provider's quota
@@ -78,10 +93,22 @@ async function isSuspended(email: string): Promise<boolean> {
   return Boolean(user?.suspendedAt);
 }
 
-/** A network address as the codes record it: its hash, not the address */
+/**
+ * A network address as the codes record it: a keyed hash (HMAC under SERVER_SECRET), not the
+ * address, of the address as the limits count it: an IPv4 address, or an IPv6 address's /64,
+ * since one device or home holds a whole /64
+ */
 export function addressKey(address: string): string {
-  return hashSecret(`address:${address}`);
+  const counted = isIP(address) ? ipKeyGenerator(address, 64) : address;
+  return keyedHash(`address:${counted}`);
 }
+
+/** What a code request answers: the challenge the browser keeps and sends with the code */
+export interface CodeRequested {
+  challenge: string;
+}
+
+const newChallenge = () => randomBytes(32).toString('base64url');
 
 /**
  * Email a new sign-in code. The answer is the same whether or not the email has an account, and
@@ -94,9 +121,15 @@ export function addressKey(address: string): string {
  */
 export async function requestSignInCode(
   rawEmail: string,
-  from: string = 'unknown',
-  now: Date = new Date(),
-): Promise<void> {
+  options: {
+    /** The requester's network address */
+    from?: string;
+    /** The challenge of this browser's earlier request, if any: the new code replaces its code */
+    challenge?: string;
+    now?: Date;
+  } = {},
+): Promise<CodeRequested> {
+  const { from = 'unknown', now = new Date() } = options;
   const email = normalizeEmail(rawEmail);
   if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
     throw new SignInError(400, 'Enter a valid email address');
@@ -114,6 +147,17 @@ export async function requestSignInCode(
     throw new SignInError(429, TOO_MANY_CODES);
   }
 
+  // The browser's earlier challenge carries on when it is one this email was answered with;
+  // anything else gets a new one
+  const earlier = options.challenge
+    ? await prisma.signInCode.findFirst({
+        where: { email, challengeHash: hashSecret(options.challenge) },
+        select: { id: true },
+      })
+    : null;
+  const challenge = earlier ? options.challenge! : newChallenge();
+  const challengeHash = hashSecret(challenge);
+
   const code = newSignInCode();
   const record = await prisma.signInCode.create({
     data: {
@@ -122,6 +166,7 @@ export async function requestSignInCode(
       createdAt: now,
       expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
       requestedFrom,
+      challengeHash,
     },
   });
 
@@ -142,20 +187,25 @@ export async function requestSignInCode(
     throw new SignInError(502, "We couldn't send the email. Try again.");
   }
 
-  // The new code replaces earlier ones, once it has been sent: a failed send leaves the earlier
-  // code usable. Only codes created before this one, so two overlapping requests can't cancel
-  // each other's codes. The later one always survives. Two codes created at the same time both
-  // stay unused, but only one of them signs in, since verify checks the newest code.
+  // The new code replaces this browser's earlier ones (same challenge), once it has been sent:
+  // a failed send leaves the earlier code usable. Only codes created before this one, so two
+  // overlapping requests can't cancel each other's codes. Codes other browsers asked for stay.
   await prisma.signInCode.updateMany({
-    where: { email, consumedAt: null, createdAt: { lt: record.createdAt } },
+    where: { email, challengeHash, consumedAt: null, createdAt: { lt: record.createdAt } },
     data: { consumedAt: now },
   });
+  return { challenge };
 }
 
-/** Check a code and return the user, created on first sign-in. A suspended user is refused. */
+/**
+ * Check a code, with the challenge its request was answered with, and return the user, created
+ * on first sign-in. Only the newest live code of that challenge is checked, and only its
+ * attempts are spent. A suspended user is refused. (The test code needs no challenge.)
+ */
 export async function verifySignInCode(
   rawEmail: string,
   rawCode: string,
+  challenge: string | undefined,
   now: Date = new Date(),
 ): Promise<SessionUser> {
   const email = normalizeEmail(rawEmail);
@@ -163,10 +213,17 @@ export async function verifySignInCode(
   if (!CODE_PATTERN.test(code)) throw new SignInError(400, 'The code is 6 digits');
 
   if (!isTestCode(code)) {
-    const record = await prisma.signInCode.findFirst({
-      where: { email, consumedAt: null, expiresAt: { gt: now } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const record = challenge
+      ? await prisma.signInCode.findFirst({
+          where: {
+            email,
+            challengeHash: hashSecret(challenge),
+            consumedAt: null,
+            expiresAt: { gt: now },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
     if (!record) throw new SignInError(401, WRONG_CODE);
 
     // Claim an attempt before comparing, in one conditional update, so concurrent guesses can't

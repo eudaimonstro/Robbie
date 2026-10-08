@@ -312,10 +312,14 @@ model SignInCode {
   attempts      Int       @default(0)
   consumedAt    DateTime?
   createdAt     DateTime  @default(now())
-  // The SHA-256 hash of the address that asked for it, for the per-address limits
+  // The address that asked for it, as a keyed hash (addressKey), for the per-address limits
   requestedFrom String?
+  // The SHA-256 hash of the challenge the request was answered with: only the browser holding
+  // it can use (and spend the attempts of) this code
+  challengeHash String?
 
   @@index([email, createdAt])
+  @@index([email, challengeHash])
   @@index([requestedFrom, createdAt])
 }
 

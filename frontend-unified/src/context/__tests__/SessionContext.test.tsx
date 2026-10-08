@@ -91,6 +91,25 @@ describe('SessionProvider', () => {
     expect(result.current.termsAccepted).toBe(false);
   });
 
+  it('keeps the challenge a code request answers, and sends it with the code', async () => {
+    client.me.mockResolvedValueOnce(null);
+    const { result } = renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('signedOut'));
+
+    client.requestCode.mockResolvedValueOnce({ success: true, challenge: 'c-1' } as never);
+    await act(() => result.current.requestCode('Ann@Example.org'));
+    expect(client.requestCode).toHaveBeenLastCalledWith('Ann@Example.org', undefined);
+    // "Send a new code" carries it on
+    client.requestCode.mockResolvedValueOnce({ success: true, challenge: 'c-1' } as never);
+    await act(() => result.current.requestCode('ann@example.org'));
+    expect(client.requestCode).toHaveBeenLastCalledWith('ann@example.org', 'c-1');
+
+    client.verify.mockResolvedValueOnce(ann);
+    client.me.mockResolvedValueOnce(me());
+    await act(() => result.current.verify('ann@example.org', '123456'));
+    expect(client.verify).toHaveBeenCalledWith('ann@example.org', '123456', 'c-1');
+  });
+
   it("asks for the terms after signing in when they couldn't be checked", async () => {
     client.me.mockResolvedValueOnce(null);
     const { result } = renderHook(() => useSession(), { wrapper });

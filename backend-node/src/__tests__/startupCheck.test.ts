@@ -10,6 +10,7 @@ const PRODUCTION: NodeJS.ProcessEnv = {
   APP_URL,
   EMAIL_FROM: 'Robbie <noreply@app.example.org>',
   TRUST_PROXY: '1',
+  SERVER_SECRET: '0123456789abcdef0123456789abcdef',
 };
 
 /** Production with one setting left out */
@@ -64,17 +65,23 @@ describe('startupCheck', () => {
   it('gives every reason production must not start', () => {
     const check = startupCheck({ NODE_ENV: 'production', ENABLE_TEST_AUTH: 'true' }, 'development');
     expect(check.error).toMatch(
-      /DATABASE_URL.*email provider.*EMAIL_FROM.*APP_URL.*ENABLE_TEST_AUTH/,
+      /DATABASE_URL.*email provider.*EMAIL_FROM.*APP_URL.*ENABLE_TEST_AUTH.*SERVER_SECRET.*TRUST_PROXY/,
     );
   });
 
-  it('warns production that trusts no proxy', () => {
-    expect(startupCheck(without('TRUST_PROXY'), 'resend')).toEqual({
-      warnings: [
-        'TRUST_PROXY is not set: behind a reverse proxy such as Caddy, every client shares one ' +
-          'rate limit. Set TRUST_PROXY=1 behind one proxy.',
-      ],
-    });
+  it('stops production that trusts no proxy', () => {
+    expect(startupCheck(without('TRUST_PROXY'), 'resend').error).toBe(
+      'TRUST_PROXY is not set: behind a reverse proxy such as Caddy, every client shares one ' +
+        'rate limit. Set TRUST_PROXY=1 behind one proxy.',
+    );
+  });
+
+  it('stops production without a server secret of 32 characters', () => {
+    const message =
+      'SERVER_SECRET is not set, or shorter than 32 characters. Set it to a random string: ' +
+      'openssl rand -hex 32.';
+    expect(startupCheck(without('SERVER_SECRET'), 'resend').error).toBe(message);
+    expect(startupCheck({ ...PRODUCTION, SERVER_SECRET: 'short' }, 'resend').error).toBe(message);
   });
 
   it('allows development and tests to log codes instead of sending them', () => {

@@ -52,10 +52,14 @@ const verifyLimiter = rateLimit({
   legacyHeaders: false,
 }) as unknown as RequestHandler;
 
-const requestCodeBody = z.object({ email: z.string().max(254) });
+// The challenge a code request answers with (see signInService): sent back with "send a new
+// code" and with the code
+const challenge = z.string().max(100);
+const requestCodeBody = z.object({ email: z.string().max(254), challenge: challenge.optional() });
 const verifyBody = z.object({
   email: z.string().max(254),
   code: z.string().max(10),
+  challenge: challenge.optional(),
   client: z.enum(['web', 'mobile']).default('web'),
 });
 const updateMeBody = z.object({ name: z.string().trim().min(2).max(100) });
@@ -75,8 +79,11 @@ authRouter.post(
   validate({ body: requestCodeBody }),
   async (req, res) => {
     try {
-      await requestSignInCode(req.body.email, req.ip);
-      res.json({ success: true });
+      const { challenge } = await requestSignInCode(req.body.email, {
+        from: req.ip,
+        challenge: req.body.challenge,
+      });
+      res.json({ success: true, challenge });
     } catch (error) {
       sendError(res, error, 'Failed to send a sign-in code');
     }
@@ -85,7 +92,7 @@ authRouter.post(
 
 authRouter.post('/verify', verifyLimiter, validate({ body: verifyBody }), async (req, res) => {
   try {
-    const user = await verifySignInCode(req.body.email, req.body.code);
+    const user = await verifySignInCode(req.body.email, req.body.code, req.body.challenge);
     const session = await createSession(user.id, req.body.client);
     // Mobile keeps the token in its secure store; web gets it only as an httpOnly cookie
     if (req.body.client === 'mobile') {

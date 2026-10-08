@@ -86,8 +86,8 @@ describe('members', () => {
     });
   const signInByCode = async (email: string) => {
     const codes = captureEmailsForTests();
-    await requestSignInCode(email);
-    return verifySignInCode(email, codes[0].code);
+    const { challenge } = await requestSignInCode(email);
+    return verifySignInCode(email, codes[0].code, challenge);
   };
 
   describe('adding by email', () => {
@@ -128,8 +128,8 @@ describe('members', () => {
       expect(mail).toHaveLength(1);
 
       const codes = captureEmailsForTests();
-      await requestSignInCode('cy@example.org');
-      const cy = await verifySignInCode('cy@example.org', codes[0].code);
+      const { challenge } = await requestSignInCode('cy@example.org');
+      const cy = await verifySignInCode('cy@example.org', codes[0].code, challenge);
       expect(await roleOf(cy.id)).toBe('member');
       const invite = await prisma.organizationInvite.findFirstOrThrow({
         where: { email: 'cy@example.org' },
@@ -196,8 +196,8 @@ describe('members', () => {
         ],
       });
       const codes = captureEmailsForTests();
-      await requestSignInCode('dee@example.org');
-      const dee = await verifySignInCode('dee@example.org', codes[0].code);
+      const { challenge } = await requestSignInCode('dee@example.org');
+      const dee = await verifySignInCode('dee@example.org', codes[0].code, challenge);
       expect(await prisma.organizationMember.count({ where: { userId: dee.id } })).toBe(0);
     });
 

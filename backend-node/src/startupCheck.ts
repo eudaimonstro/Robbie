@@ -1,5 +1,6 @@
 import type { EmailProvider } from './auth/emailService.js';
 import { isValidOrgStorageLimit } from './bylawyer/services/storageQuota.js';
+import { MIN_SERVER_SECRET_LENGTH } from './auth/serverSecret.js';
 
 /** Problems with the server's configuration, checked once when it starts */
 export interface StartupCheck {
@@ -57,15 +58,22 @@ export function startupCheck(env: NodeJS.ProcessEnv, emailProvider: EmailProvide
     errors.push('ENABLE_TEST_AUTH=true would let a fixed code sign in any email. Remove it.');
   }
   if (badStorageLimit) errors.push(badStorageLimit);
-  if (errors.length > 0) check.error = errors.join(' ');
-
-  // Behind Caddy without it, req.ip is Caddy's address for everyone (trustProxy.ts)
+  // The key of the hashes of sign-in addresses (serverSecret.ts)
+  if ((env.SERVER_SECRET ?? '').length < MIN_SERVER_SECRET_LENGTH) {
+    errors.push(
+      `SERVER_SECRET is not set, or shorter than ${MIN_SERVER_SECRET_LENGTH} characters. ` +
+        'Set it to a random string: openssl rand -hex 32.',
+    );
+  }
+  // Behind Caddy without it, req.ip is Caddy's address for everyone (trustProxy.ts): every
+  // client would share one rate limit, and one person's sign-in limits would be everyone's
   if (!env.TRUST_PROXY) {
-    check.warnings.push(
+    errors.push(
       'TRUST_PROXY is not set: behind a reverse proxy such as Caddy, every client shares one ' +
         'rate limit. Set TRUST_PROXY=1 behind one proxy.',
     );
   }
+  if (errors.length > 0) check.error = errors.join(' ');
 
   return check;
 }

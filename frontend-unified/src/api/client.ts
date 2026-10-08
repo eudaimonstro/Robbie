@@ -932,17 +932,19 @@ export const auth = {
     if (!response.ok) throw new Error(await errorMessage(response));
     return (await response.json()) as Me;
   },
-  requestCode: (email: string) =>
-    request<{ success: boolean }>(
+  // The answer's challenge goes back with the code (and with "send a new code"): only this
+  // browser can use the code it asked for
+  requestCode: (email: string, challenge?: string) =>
+    request<{ success: boolean; challenge: string }>(
       '/auth/request-code',
-      { method: 'POST', body: JSON.stringify({ email }) },
+      { method: 'POST', body: JSON.stringify({ email, challenge }) },
       false,
     ),
-  verify: async (email: string, code: string) =>
+  verify: async (email: string, code: string, challenge?: string) =>
     (
       await request<{ user: SessionUser }>(
         '/auth/verify',
-        { method: 'POST', body: JSON.stringify({ email, code }) },
+        { method: 'POST', body: JSON.stringify({ email, code, challenge }) },
         false,
       )
     ).user,

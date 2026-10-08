@@ -436,16 +436,18 @@ describe('handleReport: suspending an account', () => {
   });
 
   async function signInByCode(email: string) {
-    await call('post', '/api/auth/request-code', { body: { email } }).expect(200);
+    const asked = await call('post', '/api/auth/request-code', { body: { email } }).expect(200);
     const code = outbox.at(-1)!.code;
-    return call('post', '/api/auth/verify', { body: { email, code } });
+    return call('post', '/api/auth/verify', {
+      body: { email, code, challenge: asked.body.challenge },
+    });
   }
 
   it('ends the sessions, refuses sign-in and existing tokens, and unsuspend restores', async () => {
     const ann = await signIn('ann@example.org', { name: 'Ann' });
     const token = ann.cookie.slice('session='.length);
     // A code requested before the suspension can't be used after it
-    await requestSignInCode('ann@example.org');
+    const { challenge: earlierChallenge } = await requestSignInCode('ann@example.org');
     const earlierCode = outbox.at(-1)!.code;
 
     const dry = await setSuspended('Ann@Example.org', true, { dryRun: true });
@@ -468,12 +470,12 @@ describe('handleReport: suspending an account', () => {
       body: { email: 'ann@example.org' },
     });
     expect(request.status).toBe(200);
-    expect(request.body).toEqual({ success: true });
+    expect(request.body).toEqual({ success: true, challenge: expect.any(String) });
     expect(outbox.length).toBe(sent);
 
     // The earlier code gets a wrong code's answer
     const verify = await call('post', '/api/auth/verify', {
-      body: { email: 'ann@example.org', code: earlierCode },
+      body: { email: 'ann@example.org', code: earlierCode, challenge: earlierChallenge },
     });
     expect(verify.status).toBe(401);
     expect(verify.body).toEqual({ error: 'That code is wrong or has expired' });
@@ -525,7 +527,7 @@ describe('handleReport: suspending an account', () => {
     // The provider's last send failed: so does the suspended account's, until one succeeds
     await expect(requestSignInCode('ann@example.org')).rejects.toMatchObject(failed);
     await requestSignInCode('carol@example.org');
-    await expect(requestSignInCode('ann@example.org')).resolves.toBeUndefined();
+    await expect(requestSignInCode('ann@example.org')).resolves.toHaveProperty('challenge');
     expect(outbox.map((m) => m.to)).toEqual(['carol@example.org']);
   });
 
@@ -534,10 +536,10 @@ describe('handleReport: suspending an account', () => {
     await setSuspended('ben@example.org', true);
     process.env.ENABLE_TEST_AUTH = 'true';
     try {
-      await expect(verifySignInCode('ben@example.org', '000000')).rejects.toMatchObject({
+      await expect(verifySignInCode('ben@example.org', '000000', undefined)).rejects.toMatchObject({
         status: 401,
       });
-      await expect(verifySignInCode('ben@example.org', '000000')).rejects.toBeInstanceOf(
+      await expect(verifySignInCode('ben@example.org', '000000', undefined)).rejects.toBeInstanceOf(
         SignInError,
       );
     } finally {
