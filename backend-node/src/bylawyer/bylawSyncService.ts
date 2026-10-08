@@ -41,7 +41,7 @@ function decidedBylawAmendment(
   appliedTo: MeetingState,
   newState: MeetingState,
 ): (CompletedMotion & { bylawAmendment: BylawAmendment }) | null {
-  // The records the action added (a decision adds one; reconsideration only marks the old one)
+  // The records the action added (a decision adds one, and may dispose of others with it)
   const added = newState.completedMotions.slice(appliedTo.completedMotions.length);
   const record = added
     .filter(
@@ -56,28 +56,6 @@ function decidedBylawAmendment(
     return null;
   }
   return record as CompletedMotion & { bylawAmendment: BylawAmendment };
-}
-
-/**
- * The earlier decision of the same bylaw amendment, when this one decides it again after a
- * motion to reconsider: the record the reconsideration marked, with the same change
- */
-function reconsideredRecord(
-  newState: MeetingState,
-  record: CompletedMotion & { bylawAmendment: BylawAmendment },
-): CompletedMotion | null {
-  const change = JSON.stringify(record.bylawAmendment);
-  return (
-    newState.completedMotions
-      .filter(
-        (r) =>
-          r.reconsidered &&
-          r.id !== record.id &&
-          r.type === 'bylawAmendment' &&
-          JSON.stringify(r.bylawAmendment) === change,
-      )
-      .at(-1) ?? null
-  );
 }
 
 /**
@@ -130,31 +108,10 @@ export async function checkAndSyncBylawAmendment(
     return { success: true, amendmentId: existing.id, applied: !!existing.resultingVersionId };
   }
 
-  // A decision reversed on reconsideration after it was applied can't be undone here: the
-  // version it made stays, and a secretary restores the section from the earlier version
-  const earlier = reconsideredRecord(newState, record);
-  if (earlier?.passed && !record.passed) {
-    const applied = await prisma.amendment.findFirst({
-      where: {
-        robbieMeetingCode: meetingCode,
-        robbieMotionId: earlier.id,
-        resultingVersionId: { not: null },
-      },
-      select: { id: true },
-    });
-    if (applied) {
-      logger.error(
-        { meetingCode, motionId: record.id, amendmentId: applied.id },
-        'A reconsidered bylaw amendment failed after it was applied; the bylaws still have it',
-      );
-      return { success: false, amendmentId: applied.id, error: 'Already applied' };
-    }
-  }
-
   // The section may have left the current version since the motion was made (another
   // amendment applied): the decision is still recorded, and the apply below leaves it passed
   // but unapplied, with the reason, for a secretary
-  return syncMotionToBylawyer(meetingCode, record, appliedTo, earlier);
+  return syncMotionToBylawyer(meetingCode, record, appliedTo);
 }
 
 /**
@@ -204,29 +161,19 @@ function voteData(record: CompletedMotion, appliedTo: MeetingState): Prisma.Inpu
 
 /**
  * Mark a proposed amendment decided by the motion that moved it, with the text adopted as its
- * change: the proposed amendment, or (on reconsideration) the one an earlier decision of the
- * same motion failed. Null when it is no longer there to decide.
+ * change. Null when it is no longer proposed.
  */
 async function decideProposedAmendment(
   meetingCode: string,
   record: CompletedMotion & { bylawAmendment: BylawAmendment },
   appliedTo: MeetingState,
-  earlier: CompletedMotion | null,
 ): Promise<string | null> {
   const change = record.bylawAmendment;
   const amendmentId = change.amendmentId!;
   const status: AmendmentStatus = record.passed ? 'passed' : 'failed';
   return prisma.$transaction(async (tx) => {
-    const decidable: Prisma.AmendmentWhereInput[] = [{ status: 'proposed' }];
-    if (earlier) {
-      decidable.push({
-        status: 'failed',
-        robbieMeetingCode: meetingCode,
-        robbieMotionId: earlier.id,
-      });
-    }
     const decided = await tx.amendment.updateMany({
-      where: { id: amendmentId, documentId: change.documentId, OR: decidable },
+      where: { id: amendmentId, documentId: change.documentId, status: 'proposed' },
       data: {
         status,
         decidedAt: new Date(),
@@ -281,7 +228,6 @@ async function syncMotionToBylawyer(
   meetingCode: string,
   record: CompletedMotion & { bylawAmendment: BylawAmendment },
   appliedTo: MeetingState,
-  earlier: CompletedMotion | null,
 ): Promise<SyncResult> {
   const change = record.bylawAmendment;
   try {
@@ -289,7 +235,7 @@ async function syncMotionToBylawyer(
 
     let amendmentId: string;
     if (change.amendmentId) {
-      const decided = await decideProposedAmendment(meetingCode, record, appliedTo, earlier);
+      const decided = await decideProposedAmendment(meetingCode, record, appliedTo);
       if (!decided) {
         logger.warn(
           { meetingCode, motionId: record.id, amendmentId: change.amendmentId },
