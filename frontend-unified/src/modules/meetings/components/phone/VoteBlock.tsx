@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingDispatch } from '../../types/socket';
 import { TimerLine } from '../TimerLine';
 
 interface VoteBlockProps {
   state: MeetingState;
-  dispatch: React.Dispatch<MeetingAction>;
+  dispatch: MeetingDispatch;
   me: Member;
 }
 
 const CHOICES = ['yea', 'nay', 'abstain'] as const;
+type Choice = (typeof CHOICES)[number];
+/** How long a vote the server took stays shown as tapped while its update is on the way */
+const CONFIRMING_MS = 3000;
 
 /**
  * The vote on a phone: three 56px buttons, and the votes of members whose proxy this member
@@ -22,6 +27,32 @@ export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
       : { yea: 'Yea', nay: 'Nay', abstain: 'Abstain' };
   const myVote = state.voterChoices[me.id];
   const voted = state.voters.includes(me.id);
+  // The vote tapped, until the meeting's state shows it: "Sending" until the server answers,
+  // and "Not sent" with a way to send it again if it doesn't take it (offline, timed out)
+  const [pending, setPending] = useState<{ choice: Choice; answered: boolean } | null>(null);
+  const [notSent, setNotSent] = useState<Choice | null>(null);
+  const shown =
+    pending && !(pending.answered && (myVote === pending.choice || (method === 'ballot' && voted)))
+      ? pending
+      : null;
+  const castVote = async (choice: Choice) => {
+    setNotSent(null);
+    setPending({ choice, answered: false });
+    const sent = await dispatch({ type: 'CAST_VOTE', vote: choice, voterId: me.id });
+    if (sent === false) {
+      setPending(null);
+      setNotSent(choice);
+      return;
+    }
+    setPending({ choice, answered: true });
+    setTimeout(
+      () => setPending((p) => (p?.choice === choice && p.answered ? null : p)),
+      CONFIRMING_MS,
+    );
+  };
+  // A secret ballot never shows a choice, not even this phone's own
+  const pressed = (choice: Choice) =>
+    method !== 'ballot' && (shown ? shown.choice : myVote) === choice;
   const held = state.allowProxyVoting ? state.proxies.filter((p) => p.grantedTo === me.id) : [];
   const proxyVotes = new Map(
     state.proxyVotes.filter((v) => v.castBy === me.id).map((v) => [v.memberId, v.vote]),
@@ -49,21 +80,39 @@ export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
           <button
             key={choice}
             type="button"
-            aria-pressed={myVote === choice}
+            aria-pressed={pressed(choice)}
+            aria-busy={shown?.choice === choice && !shown.answered}
             aria-label={`Vote ${labels[choice].toLowerCase()}`}
-            className={`${myVote === choice ? 'btn-primary' : 'btn-secondary'} btn-lg`}
-            onClick={() => dispatch({ type: 'CAST_VOTE', vote: choice, voterId: me.id })}
+            className={`${pressed(choice) ? 'btn-primary' : 'btn-secondary'} btn-lg`}
+            onClick={() => void castVote(choice)}
           >
             {labels[choice]}
           </button>
         ))}
       </div>
-      {voted && (
-        <p role="status" className="text-center text-sm font-medium text-carried">
-          {method === 'ballot'
-            ? 'Vote recorded'
-            : 'Vote recorded. You may change it until the vote closes.'}
+      {shown && !shown.answered ? (
+        <p role="status" className="text-center text-sm text-ink-muted">
+          Sending your vote...
         </p>
+      ) : notSent ? (
+        <div role="alert" className="flex items-center justify-center gap-3">
+          <p className="text-sm font-medium text-caution-ink">Your vote was not sent.</p>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => void castVote(notSent)}
+          >
+            Send again
+          </button>
+        </div>
+      ) : (
+        voted && (
+          <p role="status" className="text-center text-sm font-medium text-carried">
+            {method === 'ballot'
+              ? 'Vote recorded'
+              : 'Vote recorded. You may change it until the vote closes.'}
+          </p>
+        )
       )}
       {held.map((proxy) => {
         const cast = proxyVotes.get(proxy.grantedBy);
