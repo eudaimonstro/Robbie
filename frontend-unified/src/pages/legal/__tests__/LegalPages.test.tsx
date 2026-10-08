@@ -5,7 +5,13 @@ import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import TermsPage from '../TermsPage';
 import PrivacyPage from '../PrivacyPage';
 import { DmcaAgentDetails } from '../LegalPage';
-import { ABUSE_EMAIL, DMCA_AGENT, PRIVACY_EMAIL } from '../legalContact';
+import {
+  ABUSE_EMAIL,
+  DMCA_AGENT,
+  PRIVACY_EMAIL,
+  PROVIDER_NAME,
+  providerName,
+} from '../legalContact';
 
 const mailLink = (email: string) =>
   screen.getAllByRole('link', { name: email }).map((link) => link.getAttribute('href'));
@@ -43,6 +49,18 @@ describe('legal pages', () => {
     expect(mailLink(ABUSE_EMAIL)).toEqual([`mailto:${ABUSE_EMAIL}`]);
     expect(mailLink(DMCA_AGENT.email)).toEqual([`mailto:${DMCA_AGENT.email}`]);
     expect(mailLink(PRIVACY_EMAIL)).toEqual([`mailto:${PRIVACY_EMAIL}`]);
+  });
+
+  it('names who provides Robbie, or "the operator of Robbie" until the name is filled in', () => {
+    render(
+      <MemoryRouter>
+        <TermsPage />
+      </MemoryRouter>,
+    );
+    expect(PROVIDER_NAME).toBe('');
+    expect(screen.getByText(/which the operator of Robbie provides/)).toBeTruthy();
+    expect(providerName('')).toBe('the operator of Robbie');
+    expect(providerName('  Jane Doe ')).toBe('Jane Doe');
   });
 
   it("shows only the agent's email until the agent is registered", () => {
@@ -88,6 +106,12 @@ describe('legal pages', () => {
     expect(screen.getByText(/through Resend/)).toBeTruthy();
     expect(screen.getByText(/and your votes/)).toBeTruthy();
     expect(screen.getByText(/reports child\s+sexual abuse material/)).toBeTruthy();
+    expect(screen.getByText(/provided by the operator of Robbie/)).toBeTruthy();
+    expect(
+      screen.getByText(/Content removed after a report/).textContent?.replace(/\s+/g, ' '),
+    ).toMatch(
+      /infringes copyright, malware or child sexual abuse material.*at least a year in a restricted folder/,
+    );
     expect(mailLink(PRIVACY_EMAIL)).toEqual([`mailto:${PRIVACY_EMAIL}`]);
   });
 });

@@ -1,12 +1,13 @@
 import { ContactLink, DmcaAgentDetails, LegalPage, LegalSection } from './LegalPage';
-import { ABUSE_EMAIL, DMCA_AGENT } from './legalContact';
+import { ABUSE_EMAIL, DMCA_AGENT, providerName } from './legalContact';
 
 export default function TermsPage() {
   return (
     <LegalPage title="Terms of Service">
       <p>
         These terms cover your use of Robbie, an app for running meetings and keeping an
-        organization's governing documents. By using Robbie you agree to them.
+        organization's governing documents, which {providerName()} provides. By using Robbie you
+        agree to them.
       </p>
       <LegalSection heading="Who can use Robbie">
         <p>

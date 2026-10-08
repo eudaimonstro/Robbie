@@ -152,6 +152,7 @@ Before anyone outside the HOA can sign up:
 - **The mailboxes:** `privacy@`, `abuse@` and `copyright@robbie.scouch.dev` exist and reach you. The Terms and the Privacy Policy give them (`frontend-unified/src/pages/legal/legalContact.ts`), and a report to `abuse@` may be child sexual abuse material that has to be acted on promptly (see "Handling a report"), so read it daily.
 - **The DMCA agent:** register a designated agent with the US Copyright Office at [dmca.copyright.gov](https://dmca.copyright.gov) (a small fee; the registration lapses unless renewed every 3 years, so put the renewal date in a calendar). Then fill in `DMCA_AGENT` in `legalContact.ts` with exactly what you registered (the name, the postal address one line per entry, the phone, and `copyright@robbie.scouch.dev`), and release it. Until then the Terms give only the email, and the safe harbor of 17 U.S.C. 512(c) doesn't apply.
 - **No disk-level backups:** droplet Backups off in DigitalOcean, no droplet snapshots, and any host backup tool excluding `/var/lib/docker/volumes/robbie_preserved` (see "Backups"): those would copy reported material along with the disk.
+- **Who provides Robbie:** fill in `PROVIDER_NAME` in `legalContact.ts` (the person or company, as the lawyer advises); until then the Terms and the Privacy Policy say "the operator of Robbie".
 - **The terms reviewed:** a lawyer reviews the Terms and the Privacy Policy, and the reviewed text replaces the draft (removing the "Draft" note and bumping `TERMS_VERSION`).
 
 ## Upgrades
