@@ -77,7 +77,7 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(sam.getByText('Guest', { exact: true })).toBeVisible();
     // A guest asks to speak only while a motion is debated, not during the vote
     await expect(
-      sam.getByText('You can ask to speak once a motion is being debated.'),
+      sam.getByText('You can ask to speak while the floor is open for debate.'),
     ).toBeVisible();
     await expect(sam.getByRole('button', { name: 'Ask to speak' })).toHaveCount(0);
     await expect(sam.getByRole('button', { name: /^Vote / })).toHaveCount(0);

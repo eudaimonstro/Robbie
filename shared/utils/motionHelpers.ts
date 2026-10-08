@@ -1,28 +1,33 @@
 import { MOTIONS } from '../constants/motions.js';
 import { motionOutOfOrder, OFFERED_MOTIONS } from './motionRules.js';
-import type {
-  BylawAmendment,
-  MeetingState,
-  Member,
-  Motion,
-  MotionDefinition,
-} from '../types/index.js';
+import type { BylawAmendment, MeetingState, MotionDefinition } from '../types/index.js';
 
 export interface ValidMotion extends MotionDefinition {
   key: string;
 }
 
 /**
- * Whether the mover of a motion can claim the first chance to speak on it (RONR), which the
- * chair keeps for them until they have spoken. Only someone on a device can ask for the floor,
- * so a question put by the chair, a motion moved from the floor by a typed name or by a member
- * in the room without a device, gives no one that claim.
+ * Whether the mover has claimed the first chance to speak on their motion (RONR 42:9): they are
+ * waiting to speak and haven't yet. The chair recognizes them first then; a mover who doesn't
+ * ask to speak claims nothing, and the chair recognizes whoever is waiting.
  */
-export function moverCanClaimFloor(motion: Motion, members: readonly Member[]): boolean {
-  if (!motion.moverId) return false;
-  if (!motion.fromFloor) return true;
-  const mover = members.find((m) => m.id === motion.moverId);
-  return !!mover && mover.present && mover.presentBy !== 'chair';
+export function moverClaimsFloor(state: MeetingState): boolean {
+  const motion = state.currentMotion;
+  if (!motion || !motion.debatable || motion.moverHasSpoken || !motion.moverId) return false;
+  return state.speakerQueue.some((entry) => entry.member.id === motion.moverId);
+}
+
+/**
+ * Whether someone may ask for the floor now: in session, nothing being voted on, and either
+ * nothing pending (an open forum, a report's questions) or a debatable question whose debate is
+ * open. Members may change sides as they please (RONR doesn't forbid it).
+ */
+export function floorOpenForDebate(state: MeetingState): boolean {
+  if (!state.meetingActive || state.recess || state.adjournmentCarried) return false;
+  if (state.votingOpen || state.currentElection?.votingInProgress) return false;
+  const motion = state.currentMotion;
+  if (!motion) return !state.pendingSecond;
+  return motion.debatable && !motion.debateClosed && motion.vote !== 'none';
 }
 
 /**

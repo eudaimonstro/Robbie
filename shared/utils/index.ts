@@ -31,7 +31,8 @@ export {
   isSimilarMotionSubject,
   wasMotionDefeated,
   type ValidMotion,
-  moverCanClaimFloor,
+  floorOpenForDebate,
+  moverClaimsFloor,
 } from './motionHelpers.js';
 
 export {

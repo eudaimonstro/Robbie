@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { floorOpenForDebate, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import { phoneMoment, type PhoneMoment } from '../../utils/phoneMoment';
 import { nomineesFor } from '../../utils/question';
@@ -10,6 +10,7 @@ import { VoteBlock } from './VoteBlock';
 import { DebateBlock } from './DebateBlock';
 import { MotionPanel } from './MotionPanel';
 import { WithdrawMine } from './WithdrawMine';
+import { ForumHand } from './ForumHand';
 import type { MeetingDispatch } from '../../types/socket';
 
 interface ActionBlockProps {
@@ -133,6 +134,23 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
           <WithdrawMine state={state} dispatch={dispatch} me={me} />
         </div>
       );
+    case 'debate-closed':
+      return (
+        <div className="space-y-3">
+          <Note>
+            <p>Debate is closed. The chair puts the question to the vote.</p>
+          </Note>
+          <details className="rounded-lg border border-rule">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-ink">
+              Other motions
+            </summary>
+            <div className="border-t border-rule p-4">
+              <MotionPanel state={state} dispatch={dispatch} me={me} othersOnly />
+            </div>
+          </details>
+          <WithdrawMine state={state} dispatch={dispatch} me={me} />
+        </div>
+      );
     case 'minutes':
       return (
         <Note>
@@ -142,6 +160,7 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
     case 'motion':
       return (
         <div className="space-y-3">
+          <ForumHand state={state} dispatch={dispatch} me={me} />
           <MotionPanel state={state} dispatch={dispatch} me={me} />
           <WithdrawMine state={state} dispatch={dispatch} me={me} />
         </div>
@@ -211,9 +230,9 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
         >
           Withdraw the request
         </button>
-      ) : moment !== 'debate' ? (
+      ) : !floorOpenForDebate(state) ? (
         <p className="text-sm text-ink-muted">
-          You can ask to speak once a motion is being debated.
+          You can ask to speak while the floor is open for debate.
         </p>
       ) : (
         <button

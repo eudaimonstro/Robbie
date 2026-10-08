@@ -294,6 +294,26 @@ describe('PhoneView', () => {
     expect(screen.queryByRole('button', { name: 'Withdraw my motion' })).toBeNull();
   });
 
+  it('lets a member ask to speak in an open forum, with nothing pending', () => {
+    renderAs(alice, active);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
+    expect(socket.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'RAISE_HAND', stance: 'neutral' }),
+    );
+    cleanup();
+    renderAs(alice, { ...active, speakerQueue: [{ member: alice, stance: 'neutral' }] });
+    expect(screen.getByText('You asked to speak: 1 of 1 waiting.')).toBeTruthy();
+  });
+
+  it('says debate is closed once it is, with no hand to raise', () => {
+    const closed = { ...motion, debateClosed: true };
+    renderAs(ben, { ...active, currentMotion: closed, motionStack: [closed] });
+    expect(
+      screen.getByText('Debate is closed. The chair puts the question to the vote.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+  });
+
   it('makes another motion in plain words, each saying what it does', () => {
     renderAs(alice, active);
     fireEvent.click(screen.getByText('Other motions', { selector: 'summary' }));
@@ -385,14 +405,17 @@ describe('PhoneView', () => {
     expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
   });
 
-  it('lets a guest ask to speak only while a debatable motion is pending', () => {
+  it('lets a guest ask to speak while the floor is open: in debate, or with nothing pending', () => {
     const { unmount } = renderAs(sam, voting);
     expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
-    expect(screen.getByText('You can ask to speak once a motion is being debated.')).toBeTruthy();
+    expect(
+      screen.getByText('You can ask to speak while the floor is open for debate.'),
+    ).toBeTruthy();
     unmount();
 
+    // An open forum: nothing pending
     renderAs(sam, active);
-    expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ask to speak' })).toBeTruthy();
     cleanup();
 
     renderAs(sam, { ...active, currentMotion: motion, motionStack: [motion] });

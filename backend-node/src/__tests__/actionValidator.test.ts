@@ -976,15 +976,19 @@ describe('actionValidator', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('should reject when no motion on floor', () => {
-      const state = activeMeetingState();
-      const result = validateAction(state, {
-        type: 'RAISE_HAND',
-        member: createMember(3),
-        stance: 'pro' as DebateStance,
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('NO_CURRENT_MOTION');
+    it('takes a hand with nothing pending: an open forum, or questions on a report', () => {
+      const raise = (state: MeetingState) =>
+        validateAction(state, {
+          type: 'RAISE_HAND',
+          member: createMember(3),
+          stance: 'neutral' as DebateStance,
+        });
+      expect(raise(activeMeetingState())).toEqual({ valid: true });
+      // Not before the meeting, during a vote, or while a motion waits for a second
+      expect(raise({ ...activeMeetingState(), meetingActive: false }).valid).toBe(false);
+      expect(
+        raise({ ...activeMeetingState(), pendingSecond: { ...createMotion(), status: 'pending' } }),
+      ).toMatchObject({ valid: false, error: 'The motion is waiting for a second' });
     });
 
     it('should reject when motion is not debatable', () => {
@@ -1016,7 +1020,7 @@ describe('actionValidator', () => {
       expect(result.errorCode).toBe('ALREADY_IN_QUEUE');
     });
 
-    it('should reject side-switching when not suspended', () => {
+    it('lets a member who spoke for the motion ask to speak against it', () => {
       const member = createMember(3);
       const state: MeetingState = {
         ...debatableState(),
@@ -1027,8 +1031,7 @@ describe('actionValidator', () => {
         member,
         stance: 'con' as DebateStance,
       });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('CANNOT_SWITCH_SIDES');
+      expect(result).toEqual({ valid: true });
     });
   });
 

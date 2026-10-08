@@ -29,6 +29,7 @@ export const CLOCKED_ACTIONS: ReadonlySet<MeetingAction['type']> = new Set<Meeti
   'SET_ASIDE_ELECTION',
   'APPROVE_MINUTES',
   'RESUME_MEETING',
+  'ADOPT_AGENDA',
 ]);
 
 /** The fields of an action that say who is acting, which the server sets from the socket */

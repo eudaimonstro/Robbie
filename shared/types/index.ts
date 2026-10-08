@@ -941,6 +941,8 @@ export interface MeetingMinutes {
   otherEntries: MinutesEntry[];
   /** Questions postponed to the next meeting, for its agenda */
   postponedToNextMeeting: CompletedMotion[];
+  /** How the agenda was adopted, and any motion on it, before the first item */
+  agenda: { adoption: AgendaAdoptionRecord | null; motions: CompletedMotion[] };
   /** The business the meeting adjourned with unfinished, in order */
   unfinished: UnfinishedBusinessRecord[];
 }

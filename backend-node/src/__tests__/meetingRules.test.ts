@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   act,
+  gathered,
   inSession,
   minutesOf,
   move,
@@ -612,5 +613,96 @@ describe('a vote without a quorum', () => {
   it('to adjourn or recess needs no confirming', () => {
     const s = moved(thin(), 'alice', 'adjourn', 'I move that we adjourn', 'ben');
     expect(refusal(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null })).toBeNull();
+  });
+});
+
+describe('debate', () => {
+  it('lets the chair recognize others when the mover does not ask to speak (sim 11)', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool', 'ben');
+    s = act(s, 'carl', { type: 'RAISE_HAND', stance: 'con' });
+    const carl = s.members.find((m) => m.name === 'Carl Moss')!;
+    s = act(s, 'dana', {
+      type: 'RECOGNIZE_SPEAKER',
+      member: carl,
+      stance: 'con',
+      speakerTimerEnd: null,
+    });
+    expect(s.recognizedSpeaker?.name).toBe('Carl Moss');
+  });
+
+  it('takes hands in an open forum, which ends when a question is stated or the item is completed (sim 27)', () => {
+    let s = inSession();
+    s = act(s, 'carl', { type: 'RAISE_HAND', stance: 'neutral' });
+    s = act(s, 'sam', { type: 'RAISE_HAND', stance: 'neutral' });
+    expect(s.speakerQueue.map((e) => e.member.name)).toEqual(['Carl Moss', 'Sam Ortiz']);
+    const carl = s.members.find((m) => m.name === 'Carl Moss')!;
+    s = act(s, 'dana', {
+      type: 'RECOGNIZE_SPEAKER',
+      member: carl,
+      stance: 'neutral',
+      speakerTimerEnd: null,
+    });
+    s = moved(s, 'carl', 'mainMotion', 'Add a dog park', 'eve');
+    expect(s.speakerQueue).toEqual([]);
+    expect(s.recognizedSpeaker).toBeNull();
+    s = vote(s, ALL_YES);
+    s = act(s, 'ben', { type: 'RAISE_HAND', stance: 'neutral' });
+    s = act(s, 'dana', { type: 'COMPLETE_AGENDA_ITEM', id: 102 });
+    expect(s.speakerQueue).toEqual([]);
+  });
+
+  it('lets a member speak on both sides', () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool', 'ben');
+    s = act(s, 'carl', { type: 'RAISE_HAND', stance: 'pro' });
+    const carl = s.members.find((m) => m.name === 'Carl Moss')!;
+    s = act(s, 'dana', {
+      type: 'RECOGNIZE_SPEAKER',
+      member: carl,
+      stance: 'pro',
+      speakerTimerEnd: null,
+    });
+    s = act(s, 'carl', { type: 'YIELD_FLOOR' });
+    s = act(s, 'carl', { type: 'RAISE_HAND', stance: 'con' });
+    expect(s.speakerQueue).toEqual([expect.objectContaining({ stance: 'con' })]);
+  });
+});
+
+describe('the agenda', () => {
+  it('is adopted before any main motion, and its adoption opens the minutes (M9, sim 17)', () => {
+    let s = act(gathered(), 'dana', { type: 'START_MEETING' });
+    expect(
+      refusal(s, 'alice', {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'Paint it',
+        motionId: 1,
+      }),
+    ).toMatchObject({
+      errorCode: 'AGENDA_NOT_ADOPTED',
+      error: 'Adopt the agenda first',
+    });
+    s = act(s, 'dana', { type: 'ADOPT_AGENDA' });
+    expect(minutesOf(s)).toContain('## Proceedings\n\nThe agenda was adopted without objection.');
+  });
+
+  it('after an objection, is adopted on a motion, which the minutes give first', () => {
+    let s = act(gathered(), 'dana', { type: 'START_MEETING' });
+    s = act(s, 'carl', { type: 'AGENDA_OBJECTION' });
+    expect(
+      refusal(s, 'alice', {
+        type: 'MAKE_MOTION',
+        motionType: 'mainMotion',
+        text: 'Paint it',
+        motionId: 1,
+      }),
+    ).toMatchObject({
+      errorCode: 'AGENDA_NOT_ADOPTED',
+    });
+    s = moved(s, 'alice', 'adoptAgenda', 'I move to adopt the agenda as presented.', 'ben');
+    s = vote(s, ALL_YES);
+    expect(s.agendaAdopted).toBe(true);
+    expect(minutesOf(s)).toContain(
+      '## Proceedings\n\n**Adopt the agenda.** Alice Brennan moved: "I move to adopt the agenda as presented." Seconded by Ben Whitaker. Carried, 5 to 0.',
+    );
   });
 });

@@ -319,6 +319,7 @@ describe('the clock on decisions', () => {
     vi.setSystemTime(new Date('2026-10-20T19:42:00Z'));
     try {
       expect([...CLOCKED_ACTIONS].sort()).toEqual([
+        'ADOPT_AGENDA',
         'APPROVE_MINUTES',
         'CHAIR_RULING',
         'CLOSE_VOTING',

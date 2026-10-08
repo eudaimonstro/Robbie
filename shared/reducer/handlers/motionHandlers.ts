@@ -26,6 +26,20 @@ import type { ActionHandler } from './types.js';
 
 type Log = (timestamp: string, msg: string) => MeetingLogEntry[];
 
+/**
+ * The queue of people waiting to speak when nothing was pending (an open forum, questions on a
+ * report) ends once a question is stated: debate is on the question now
+ */
+export const FORUM_ENDS: Pick<
+  MeetingState,
+  'speakerQueue' | 'recognizedSpeaker' | 'speakerTimerEnd' | 'lastSpeakerStance'
+> = {
+  speakerQueue: [],
+  recognizedSpeaker: null,
+  speakerTimerEnd: null,
+  lastSpeakerStance: null,
+};
+
 /** A motion being made: by a member on a device, from the floor, or put by the chair */
 interface NewMotion extends MotionDetails {
   motionType: string;
@@ -106,6 +120,8 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
   const activeMotion = { ...motion, status: 'active' as const };
   return {
     ...state,
+    // A question stated on an empty floor ends the open forum (not a point of order on one)
+    ...(state.motionStack.length === 0 && made.motionType !== 'pointOrder' && FORUM_ENDS),
     currentMotion: activeMotion,
     motionStack: [...state.motionStack, activeMotion],
     suspendedRules: updatedSuspensions,
@@ -126,6 +142,7 @@ function second(
   const seconded = { ...state.pendingSecond, secondedBy, status: 'active' as const };
   return {
     ...state,
+    ...(state.motionStack.length === 0 && FORUM_ENDS),
     pendingSecond: null,
     currentMotion: seconded,
     motionStack: [...state.motionStack, seconded],

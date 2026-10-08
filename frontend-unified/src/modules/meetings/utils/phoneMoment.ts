@@ -18,6 +18,7 @@ export type PhoneMoment =
   | 'consent'
   | 'agenda'
   | 'debate'
+  | 'debate-closed'
   | 'minutes'
   | 'motion';
 
@@ -34,6 +35,7 @@ export function phoneMoment(state: MeetingState): PhoneMoment {
   if (state.nominationsOpen) return 'nominate';
   if (state.pendingSecond) return 'second';
   if (state.unanimousConsentPending) return 'consent';
+  if (state.currentMotion?.debateClosed) return 'debate-closed';
   if (state.currentMotion?.debatable) return 'debate';
   // Nominations closed with the ballot still to open, or a winner awaiting the declaration: the
   // election holds the floor, and the phone waits for the chair

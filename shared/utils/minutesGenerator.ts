@@ -29,6 +29,9 @@ interface Placed {
 
 const byName = (a: string, b: string) => a.localeCompare(b);
 
+/** Motions on the agenda itself, made before it is adopted */
+const AGENDA_MOTIONS = new Set(['adoptAgenda', 'amendAgenda']);
+
 /**
  * What a member typed, as literal text in the minutes' Markdown: on one line (newlines and runs
  * of spaces made one space), with every character Markdown reads as markup escaped, and a start
@@ -73,7 +76,12 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
   };
   // A ruling comes before what it decided at the same moment (a motion ruled out of order)
   for (const ruling of state.chairRulings ?? []) add({ kind: 'ruling', ruling }, ruling);
-  for (const motion of state.completedMotions) add({ kind: 'motion', motion }, motion);
+  // A motion on the agenda before any item was called opens the proceedings instead
+  const onTheAgenda = (motion: CompletedMotion) =>
+    AGENDA_MOTIONS.has(motion.type) && motion.agendaItemId === undefined;
+  for (const motion of state.completedMotions) {
+    if (!onTheAgenda(motion)) add({ kind: 'motion', motion }, motion);
+  }
   for (const officer of state.electedOfficers) add({ kind: 'election', officer }, officer);
   for (const setAside of state.electionsSetAside ?? []) {
     add({ kind: 'setAside', setAside }, setAside);
@@ -113,6 +121,10 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     postponedToNextMeeting: state.completedMotions.filter(
       (m) => m.disposition === 'postponed' && m.postponedTo?.kind !== 'later',
     ),
+    agenda: {
+      adoption: state.agendaAdoption ?? null,
+      motions: state.completedMotions.filter(onTheAgenda),
+    },
   };
 }
 
@@ -498,6 +510,11 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   const adjourned = !!context.adjournedAt || minutes.unfinished.length > 0;
   const last = minutes.items.length - 1;
   paragraph('## Proceedings');
+  // The agenda's adoption opens the proceedings: without objection, or on a motion
+  for (const motion of minutes.agenda.motions) paragraph(motionText(motion));
+  if (minutes.agenda.adoption?.how === 'consent') {
+    paragraph('The agenda was adopted without objection.');
+  }
   minutes.items.forEach((item, index) => {
     if (item.entries.length === 0) {
       // The call to order and the adjournment, with nothing under them: the opening paragraph

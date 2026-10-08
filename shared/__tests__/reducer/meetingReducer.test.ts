@@ -960,22 +960,20 @@ describe('meetingReducer', () => {
       expect(state.speakerQueue.length).toBe(1);
     });
 
-    it('should reject raising hand with opposite stance after speaking (side-switching)', () => {
+    it('lets a member who spoke for the motion ask to speak against it (RONR allows it)', () => {
       const member = mockMembers[0];
       const stateWithPreviousStance: MeetingState = {
         ...initialState,
-        debatePositions: { [member.id]: 'pro' }, // Member already spoke pro
+        debatePositions: { [member.id]: 'pro' },
       };
 
       const state = meetingReducer(stateWithPreviousStance, {
         type: 'RAISE_HAND',
         member,
-        stance: 'con', // Trying to switch to con
+        stance: 'con',
       });
 
-      // Should reject - return unchanged state
-      expect(state).toBe(stateWithPreviousStance);
-      expect(state.speakerQueue.length).toBe(0);
+      expect(state.speakerQueue).toEqual([{ member, stance: 'con' }]);
     });
 
     it('should allow raising hand with same stance after speaking', () => {
@@ -1051,7 +1049,7 @@ describe('meetingReducer', () => {
       expect(state.lastSpeakerStance).toBe('pro');
     });
 
-    it('should reject recognition of non-mover when mover has not spoken on debatable motion', () => {
+    it('should reject recognition of non-mover when the mover has asked to speak and not spoken', () => {
       const mover = mockMembers[0];
       const otherMember = mockMembers[1];
       const motion = {
@@ -1082,7 +1080,11 @@ describe('meetingReducer', () => {
         members: mockMembers,
         currentMotion: motion,
         motionStack: [motion],
-        speakerQueue: [{ member: otherMember, stance: 'con' }],
+        // The mover has asked to speak, and so claims the first chance
+        speakerQueue: [
+          { member: mover, stance: 'pro' },
+          { member: otherMember, stance: 'con' },
+        ],
       };
 
       // Try to recognize someone who is NOT the mover

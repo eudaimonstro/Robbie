@@ -352,11 +352,36 @@ describe('business from the floor', () => {
       });
     });
 
-    it('is held for a mover on a device', () => {
+    it('is held only for a mover waiting to speak (RONR 42:9)', () => {
       const ben = person(6, 'Ben Whitaker');
+      const bens = question({ ...active, mover: 'Ben Whitaker', moverId: ben.id });
+      // Ben moved it but hasn't asked to speak: Alice is recognized
+      expect(recognize(bens)).toEqual({ valid: true });
+      // Ben is waiting too: he speaks first
       expect(
-        recognize(question({ ...active, mover: 'Ben Whitaker', moverId: ben.id })),
-      ).toMatchObject({ valid: false, errorCode: 'MOVER_SPEAKS_FIRST' });
+        validateAction(
+          {
+            ...inSession,
+            currentMotion: bens,
+            motionStack: [bens],
+            speakerQueue: [
+              { member: alice, stance: 'pro' },
+              { member: ben, stance: 'con' },
+            ],
+          },
+          {
+            type: 'RECOGNIZE_SPEAKER',
+            member: alice,
+            stance: 'pro',
+            speakerTimerEnd: null,
+            timestamp: '',
+          },
+        ),
+      ).toMatchObject({
+        valid: false,
+        errorCode: 'MOVER_SPEAKS_FIRST',
+        error: 'Ben Whitaker moved it and asked to speak: recognize them first',
+      });
     });
   });
 

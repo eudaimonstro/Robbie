@@ -286,7 +286,7 @@ export const ACTION_SCHEMAS = {
     itemId: id,
   }),
   REMOVE_AGENDA_ITEM: z.strictObject({ type: z.literal('REMOVE_AGENDA_ITEM'), id }),
-  ADOPT_AGENDA: timed('ADOPT_AGENDA'),
+  ADOPT_AGENDA: clocked('ADOPT_AGENDA'),
   AGENDA_OBJECTION: z.strictObject({
     type: z.literal('AGENDA_OBJECTION'),
     objectorId: optionalId,

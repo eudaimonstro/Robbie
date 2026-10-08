@@ -272,10 +272,33 @@ describe('business from the floor', () => {
       }
     });
 
-    it('is held for a mover on a device', () => {
-      const motion = question({ mover: 'Alice Brennan', moverId: alice.id, fromFloor: true });
-      expect(recognize(pending(motion), ben).recognizedSpeaker).toBeNull();
-      expect(recognize(pending(question()), ben).recognizedSpeaker).toBeNull();
+    it('is held only for a mover who claims it by asking to speak (RONR 42:9)', () => {
+      // Alice moved it and hasn't asked to speak: the chair recognizes Ben
+      expect(recognize(pending(question()), ben).recognizedSpeaker).toEqual(ben);
+      // Alice is waiting too: she speaks first
+      const claimed = {
+        ...pending(question()),
+        speakerQueue: [
+          { member: alice, stance: 'pro' as const },
+          { member: ben, stance: 'con' as const },
+        ],
+      };
+      const benFirst = meetingReducer(claimed, {
+        type: 'RECOGNIZE_SPEAKER',
+        member: ben,
+        stance: 'con',
+        speakerTimerEnd: null,
+        timestamp: '20:20',
+      });
+      expect(benFirst.recognizedSpeaker).toBeNull();
+      const aliceFirst = meetingReducer(claimed, {
+        type: 'RECOGNIZE_SPEAKER',
+        member: alice,
+        stance: 'pro',
+        speakerTimerEnd: null,
+        timestamp: '20:20',
+      });
+      expect(aliceFirst.recognizedSpeaker).toEqual(alice);
     });
   });
 });

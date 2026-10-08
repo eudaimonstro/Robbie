@@ -19,8 +19,9 @@ import {
   awaitingRuling,
   canChairVoteDecide,
   isRuleSuspended,
+  floorOpenForDebate,
   motionOutOfOrder,
-  moverCanClaimFloor,
+  moverClaimsFloor,
   textAmendmentProblem,
   wasMotionDefeated,
   type OutOfOrder,
@@ -787,43 +788,31 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'RAISE_HAND': {
-      if (!state.currentMotion) {
-        return { valid: false, error: 'No motion on the floor', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      if (state.currentMotion.debateClosed) {
+      // In session with nothing pending (an open forum, questions on a report), or while a
+      // debatable question's debate is open; members may change sides (RONR doesn't forbid it)
+      if (state.currentMotion?.debateClosed) {
         return {
           valid: false,
           error: 'Debate is closed: the question is put to the vote',
           errorCode: 'DEBATE_CLOSED',
         };
       }
-      if (!state.currentMotion.debatable) {
+      if (!floorOpenForDebate(state)) {
         return {
           valid: false,
-          error: 'Current motion is not debatable',
-          errorCode: 'MOTION_NOT_DEBATABLE',
+          error: state.votingOpen
+            ? 'A vote is in progress'
+            : state.currentMotion
+              ? 'The question before the meeting is not debatable'
+              : state.pendingSecond
+                ? 'The motion is waiting for a second'
+                : 'The meeting is not in session',
+          errorCode: state.currentMotion ? 'MOTION_NOT_DEBATABLE' : 'NO_CURRENT_MOTION',
         };
       }
-      // Check if already in queue
       const alreadyInQueue = state.speakerQueue.some((e) => e.member.id === action.member.id);
       if (alreadyInQueue) {
         return { valid: false, error: 'Already in speaker queue', errorCode: 'ALREADY_IN_QUEUE' };
-      }
-      // Check for side-switching (member already spoke with different stance)
-      if (action.stance !== 'neutral') {
-        const previousStance = state.debatePositions[action.member.id];
-        if (previousStance && previousStance !== action.stance) {
-          const debateRulesSuspended = state.suspendedRules.some(
-            (s) => s.rule === 'debate-rules' && !s.actionCompleted,
-          );
-          if (!debateRulesSuspended) {
-            return {
-              valid: false,
-              error: `You already spoke ${previousStance} on this motion. Cannot switch to ${action.stance}.`,
-              errorCode: 'CANNOT_SWITCH_SIDES',
-            };
-          }
-        }
       }
       return { valid: true };
     }
@@ -855,25 +844,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'SPEAKER_HAS_FLOOR',
         };
       }
-      // Enforce motion-maker-priority: mover speaks first unless rule is suspended
-      if (
-        state.currentMotion &&
-        state.currentMotion.debatable &&
-        !state.currentMotion.moverHasSpoken &&
-        moverCanClaimFloor(state.currentMotion, state.members)
-      ) {
-        const isMover = state.currentMotion.moverId === action.member.id;
-        const prioritySuspended = state.suspendedRules.some(
-          (s) => s.rule === 'motion-maker-priority' && !s.actionCompleted,
-        );
-        if (!isMover && !prioritySuspended) {
-          const mover = state.members.find((m) => m.id === state.currentMotion?.moverId);
-          return {
-            valid: false,
-            error: `Motion maker (${mover?.name || 'the mover'}) must speak first`,
-            errorCode: 'MOVER_SPEAKS_FIRST',
-          };
-        }
+      // The mover speaks first if they have asked to (RONR 42:9); otherwise anyone waiting
+      if (moverClaimsFloor(state) && state.currentMotion?.moverId !== action.member.id) {
+        return {
+          valid: false,
+          error: `${state.currentMotion?.mover ?? 'The mover'} moved it and asked to speak: recognize them first`,
+          errorCode: 'MOVER_SPEAKS_FIRST',
+        };
       }
       return { valid: true };
     }
