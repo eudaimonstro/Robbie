@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { MinutesRecord } from '../../../../api/client';
 
@@ -551,7 +551,7 @@ describe('MinutesPrintPage', () => {
     expect(document.querySelector('.print-running-header')?.textContent).toBe(
       'Maple Grove HOA | Minutes of the 2026 Annual Meeting',
     );
-    expect(document.title).toBe('Minutes of the 2026 Annual Meeting');
-    expect(window.print).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(document.title).toBe('Minutes of the 2026 Annual Meeting'));
+    await waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const api = vi.hoisted(() => ({ getDocument: vi.fn(), listVersions: vi.fn(), getTree: vi.fn() }));
@@ -69,7 +69,7 @@ describe('PrintDocumentPage', () => {
     );
     expect(api.getTree).toHaveBeenCalledWith('v2');
     // A saved PDF takes the page's title as its name
-    expect(document.title).toBe('Bylaws of Maple Grove, version 2');
+    await waitFor(() => expect(document.title).toBe('Bylaws of Maple Grove, version 2'));
     expect(window.print).not.toHaveBeenCalled();
   });
 
@@ -77,7 +77,7 @@ describe('PrintDocumentPage', () => {
     renderAt('/documents/d1/print?version=v1&print=1');
     expect(await screen.findByText('Version 1, effective March 15, 2024')).toBeTruthy();
     expect(api.getTree).toHaveBeenCalledWith('v1');
-    expect(window.print).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
   it('says when there is nothing to print', async () => {
