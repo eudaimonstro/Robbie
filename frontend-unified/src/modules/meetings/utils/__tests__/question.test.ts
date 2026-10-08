@@ -52,6 +52,13 @@ describe('describeQuestion', () => {
     expect(describeQuestion(active)).toBeNull();
   });
 
+  it('says who raised a point of order', () => {
+    const point = motion('pointOrder', { text: 'Not germane', mover: 'Ben Whitaker' });
+    expect(
+      describeQuestion({ ...active, currentMotion: point, motionStack: [point] })?.byline,
+    ).toBe('Raised by Ben Whitaker');
+  });
+
   it('says how the motion would read if a pending amendment is adopted, and an amendment of it', () => {
     const main = motion('mainMotion', { text: 'Resurface the pool for $40,000' });
     const amendment = motion('amend', {
@@ -175,7 +182,7 @@ describe('describeQuestion', () => {
       byline: 'Moved by Ben Whitaker, seconded by Alice Brennan',
       requirement: 'Two thirds',
       awaitingSecond: false,
-      beneath: ['Main Motion: Resurface the pool this spring'],
+      beneath: ['Main motion: Resurface the pool this spring'],
       key: 'motion-2',
     });
   });

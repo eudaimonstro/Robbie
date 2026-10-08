@@ -1,4 +1,8 @@
-import { LOG_MEETING_ADJOURNED, PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
+import {
+  LOG_MEETING_ADJOURNED,
+  PUT_BY_CHAIR,
+  plainMotionName,
+} from '@robbie-bylawyer/shared/constants';
 import type { Election, MeetingState, Motion } from '@robbie-bylawyer/shared/types';
 import {
   amendInsertedWords,
@@ -43,8 +47,16 @@ function requirementOf(vote: Motion['vote'] | Election['requiredVotes']): string
  * Who brought the motion: "Moved by Alice Brennan", "Moved from the floor by Carmen Diaz", or
  * "Put by the chair" for a question the chair puts from the agenda (it has no mover)
  */
-export function moverLine(motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'>): string {
+export function moverLine(
+  motion: Pick<Motion, 'mover' | 'fromFloor' | 'putByChair'> & { type?: string },
+): string {
   if (motion.putByChair) return PUT_BY_CHAIR;
+  // A point of order is raised, not moved
+  if (motion.type === 'pointOrder') {
+    return motion.fromFloor
+      ? `Raised from the floor by ${motion.mover}`
+      : `Raised by ${motion.mover}`;
+  }
   return motion.fromFloor ? `Moved from the floor by ${motion.mover}` : `Moved by ${motion.mover}`;
 }
 
@@ -75,7 +87,7 @@ function bylawTextOf(motion: Motion): Pick<QuestionView, 'bylawText'> {
 }
 
 function beneathLine(motion: Motion): string {
-  return `${motion.name}: ${motion.text}`;
+  return `${plainMotionName(motion.name, motion.type)}: ${motion.text}`;
 }
 
 /** Who stands for the position nominations are (or were) open for, declined nominees left out */
