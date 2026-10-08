@@ -166,11 +166,16 @@ describe('PacketBuilder', () => {
       new HttpError('You need the secretary role for this', 403),
     );
     render(<Harness initial={scheduled()} />);
-    fireEvent.click(screen.getByRole('button', { name: "Move Treasurer's report up" }));
+    const up = screen.getByRole('button', { name: "Move Treasurer's report up" });
+    up.focus();
+    fireEvent.click(up);
     expect((await screen.findByRole('alert')).textContent).toBe(
       'You need the secretary role for this',
     );
     expect(titles()).toEqual(['Call to order', "Treasurer's report", 'Adjournment']);
+    // Put back, the item keeps the focus, and the live region says where it is
+    expect(document.activeElement).toBe(up);
+    expect(screen.getByRole('status').textContent).toBe("Treasurer's report, 2 of 3");
   });
 
   /** A promise and the functions that settle it, for answering requests out of order */

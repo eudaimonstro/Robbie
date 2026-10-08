@@ -63,13 +63,17 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
 
   // Moving the item's row in the page takes the focus from its button: give it back, or to the
   // other button when the item has reached the end of the agenda
+  // An item's row in the agenda
+  const rowOf = (itemId: string) =>
+    [...(listRef.current?.children ?? [])].find(
+      (child) => (child as HTMLElement).dataset.itemId === itemId,
+    );
+
   useLayoutEffect(() => {
     const target = focusAfterMove.current;
     if (!target) return;
     focusAfterMove.current = null;
-    const row = [...(listRef.current?.children ?? [])].find(
-      (child) => (child as HTMLElement).dataset.itemId === target.itemId,
-    );
+    const row = rowOf(target.itemId);
     const button = (direction: MoveDirection) =>
       row?.querySelector<HTMLButtonElement>(`button[data-move="${direction}"]`);
     const same = button(target.direction);
@@ -199,7 +203,12 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
     try {
       await reorderAgendaItems(after);
     } catch (err) {
-      // The order before this move, with whatever else changed meanwhile
+      // The order before this move, with whatever else changed meanwhile. Putting the row back
+      // takes the focus from it again: it gets it back, if it still had it.
+      if (from && rowOf(moved)?.contains(document.activeElement)) {
+        focusAfterMove.current = { itemId: moved, direction: from };
+        setAnnouncement(`${items[fromIndex].title}, ${fromIndex + 1} of ${items.length}`);
+      }
       onPacketUpdate((prev) => ({ ...prev, agendaItems: inOrder(prev.agendaItems, before) }));
       setError(messageOf(err, "Couldn't reorder the agenda"));
     } finally {
