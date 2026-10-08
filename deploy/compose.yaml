@@ -33,11 +33,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # The server closes its sockets and the database pool on SIGTERM, within 10 seconds. An init
-    # process passes SIGTERM on while app-start is still migrating (a shell as PID 1 ignores it,
-    # so docker stop would wait out the grace period and kill it)
+    # The server closes its sockets, writes the live meetings' last changes and closes the
+    # database pool on SIGTERM, in a second or two (10 at most). An init process passes SIGTERM
+    # on while app-start is still migrating (a shell as PID 1 ignores it, so docker stop would
+    # wait out the grace period and kill it)
     init: true
     stop_grace_period: 15s
+    # The box has 1.9 GiB for the app, Postgres, Caddy, the backups and the system, and each is
+    # capped with no swap (memswap_limit equal to mem_limit): past its limit a container is
+    # restarted rather than pushing the whole box into swap. Measured with 150 phones, 25 votes
+    # and six reconnect storms inside this limit: at most 336 MB charged (386 MB RSS), a live
+    # heap under 45 MB (186 MB committed), about 23 MB of it compression for 150 connections.
+    # Node's heap is capped at 384 MB (app-start). A restart costs phones a few seconds: they
+    # join again by themselves.
+    mem_limit: 768m
+    memswap_limit: 768m
     logging: *logging
 
   db:
@@ -55,6 +65,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Default settings (128 MB of shared buffers) and at most 10 connections from the app's one
+    # pool, plus the backups' one; no swap, as for the app
+    mem_limit: 512m
+    memswap_limit: 512m
     logging: *logging
 
   backup:
@@ -64,6 +78,9 @@ services:
     init: true
     entrypoint: ['/bin/sh', '/scripts/backup.sh']
     command: ['loop']
+    # pg_dump and tar stream what they copy; no swap, as for the app
+    mem_limit: 128m
+    memswap_limit: 128m
     environment:
       PGHOST: db
       PGUSER: robbie
@@ -98,6 +115,8 @@ services:
       - caddy_config:/config
     depends_on:
       - app
+    mem_limit: 256m
+    memswap_limit: 256m
     logging: *logging
 
 volumes:

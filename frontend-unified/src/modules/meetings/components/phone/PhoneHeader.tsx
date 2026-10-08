@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { LogOut, Menu } from 'lucide-react';
 import { RoleBadge } from '../../../../components/ui/Badge';
+import ConfirmDialog from '../../../../components/ui/ConfirmDialog';
 
 interface PhoneHeaderProps {
   title: string;
@@ -8,6 +10,8 @@ interface PhoneHeaderProps {
   guest: boolean;
   /** Leave the meeting and return to the app (a live meeting hides the app's sidebar) */
   onLeave?: () => void;
+  /** Ask first: a member leaving a meeting in session stops counting toward the quorum */
+  confirmLeave?: boolean;
   /** Open the app's drawer: on a phone this header stands in for the app's */
   onMenu?: () => void;
 }
@@ -16,7 +20,15 @@ interface PhoneHeaderProps {
  * The phone's sticky header: the meeting, the current item, a Guest badge for guests, Leave, and
  * on a phone (where the app's header steps aside) the menu button
  */
-export function PhoneHeader({ title, item, guest, onLeave, onMenu }: PhoneHeaderProps) {
+export function PhoneHeader({
+  title,
+  item,
+  guest,
+  onLeave,
+  confirmLeave = false,
+  onMenu,
+}: PhoneHeaderProps) {
+  const [asking, setAsking] = useState(false);
   return (
     // The app's main area scrolls inside its padding: the negative top meets its edge, so nothing
     // shows above the header while it is stuck
@@ -43,7 +55,7 @@ export function PhoneHeader({ title, item, guest, onLeave, onMenu }: PhoneHeader
               className="btn-ghost btn-sm"
               aria-label="Leave meeting"
               title="Leave the meeting and return to the app"
-              onClick={onLeave}
+              onClick={confirmLeave ? () => setAsking(true) : onLeave}
             >
               <LogOut className="h-4 w-4" aria-hidden="true" />
               Leave
@@ -52,6 +64,20 @@ export function PhoneHeader({ title, item, guest, onLeave, onMenu }: PhoneHeader
         </div>
       </div>
       <p className="truncate text-sm text-ink-muted">{item ?? 'No item is before the meeting'}</p>
+      {onLeave && (
+        <ConfirmDialog
+          isOpen={asking}
+          onClose={() => setAsking(false)}
+          onConfirm={() => {
+            setAsking(false);
+            onLeave();
+          }}
+          title="Leave the meeting?"
+          message="You won't count toward the quorum."
+          confirmText="Leave"
+          cancelText="Stay"
+        />
+      )}
     </header>
   );
 }

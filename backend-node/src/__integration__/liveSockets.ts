@@ -8,8 +8,9 @@ import type {
 import { handleDispatchAction } from '../socket/actionHandler.js';
 import { handleDisconnect } from '../socket/disconnectHandler.js';
 import { handleJoinMeeting } from '../socket/joinHandler.js';
-import { actionRateLimiter, joinRateLimiter } from '../socket/rateLimiter.js';
+import { actionRateLimiter, joinFloodLimiter, joinRateLimiter } from '../socket/rateLimiter.js';
 import { roomManager } from '../socket/roomManager.js';
+import { flushBroadcasts } from '../socket/statePublisher.js';
 
 /** A stand-in for a connected socket.io socket, as the socket handlers use one */
 export interface FakeSocket {
@@ -100,8 +101,12 @@ export function liveSockets() {
     display?: boolean,
   ): Promise<JoinMeetingResponse> {
     joinRateLimiter.remove(socket.data.userId);
+    joinFloodLimiter.remove(socket.data.userId);
     const callback = vi.fn();
     await handleJoinMeeting(socket as never, io as never, { meetingCode, display }, callback);
+    // The room's update goes out now rather than at the end of its window, and the next change
+    // goes out at once: each step's broadcasts are there to read when it returns
+    flushBroadcasts();
     return callback.mock.calls[0][0];
   }
 
@@ -114,6 +119,7 @@ export function liveSockets() {
       { action: action as MeetingAction, clientSequence: 1 },
       callback,
     );
+    flushBroadcasts();
     return callback.mock.calls[0][0];
   }
 

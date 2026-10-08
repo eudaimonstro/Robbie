@@ -362,3 +362,270 @@ describe('useSocketConnection joins', () => {
     expect(socket.connect).toHaveBeenCalled();
   });
 });
+
+describe('useSocketConnection updates and reconnects', () => {
+  beforeEach(() => {
+    io.mockClear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const line = (message: string) => ({ time: '7:00 PM', message });
+  const base = { ...initialState, meetingLog: [line('Meeting called to order.')] };
+
+  // A socket whose answers each test gives: joins in turn, and the whole state on request
+  function scriptedSocket(joins: Array<Record<string, unknown>>, whole?: Record<string, unknown>) {
+    const handlers: Record<string, Handler> = {};
+    const socket = {
+      connected: true,
+      io: { engine: { close: vi.fn() } },
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers[event] = handler;
+      }),
+      emit: vi.fn((event: string, data?: unknown, callback?: Handler) => {
+        if (event === 'JOIN_MEETING') callback?.(joins.shift());
+        if (event === 'REQUEST_STATE') (data as Handler)?.(whole);
+      }),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    io.mockReturnValueOnce(socket as never);
+    return { handlers, socket };
+  }
+
+  it('builds the whole state from updates that carry only the history added', () => {
+    const { handlers } = scriptedSocket([{ success: true, state: base, stateVersion: 3 }]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() =>
+      handlers.STATE_UPDATE({
+        state: { ...base, quorum: 7, meetingLog: [line('Vote: Yea 9, Nay 2. CARRIED.')] },
+        stateVersion: 5,
+        baseVersion: 3,
+        tails: { meetingLog: 1 },
+      }),
+    );
+
+    expect(result.current.state.quorum).toBe(7);
+    expect(result.current.state.meetingLog.map((l) => l.message)).toEqual([
+      'Meeting called to order.',
+      'Vote: Yea 9, Nay 2. CARRIED.',
+    ]);
+  });
+
+  it('keeps the previous minutes it has when an update leaves them out', () => {
+    const withMinutes = { ...base, minutesFromPreviousMeeting: '# Minutes' };
+    const { handlers } = scriptedSocket([{ success: true, state: withMinutes, stateVersion: 3 }]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() =>
+      handlers.STATE_UPDATE({
+        state: { ...withMinutes, minutesFromPreviousMeeting: '', quorum: 4 },
+        stateVersion: 4,
+        baseVersion: 3,
+        unchanged: ['minutesFromPreviousMeeting'],
+      }),
+    );
+
+    expect(result.current.state.minutesFromPreviousMeeting).toBe('# Minutes');
+    expect(result.current.state.quorum).toBe(4);
+  });
+
+  it('asks for the whole state when an update builds on one it never had', () => {
+    const whole = { ...base, quorum: 9, meetingLog: [line('a'), line('b'), line('c')] };
+    const { handlers, socket } = scriptedSocket([{ success: true, state: base, stateVersion: 3 }], {
+      success: true,
+      state: whole,
+      stateVersion: 8,
+    });
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    act(() =>
+      handlers.STATE_UPDATE({
+        state: { ...base, meetingLog: [line('c')] },
+        stateVersion: 8,
+        baseVersion: 6,
+        tails: { meetingLog: 2 },
+      }),
+    );
+
+    expect(socket.emit).toHaveBeenCalledWith('REQUEST_STATE', expect.any(Function));
+    expect(result.current.state).toEqual(whole);
+  });
+
+  it('asks for the state after joining when the room moved on while the join was answered', () => {
+    const handlers: Record<string, Handler> = {};
+    let answerJoin: Handler = () => {};
+    const socket = {
+      connected: true,
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers[event] = handler;
+      }),
+      emit: vi.fn((event: string, data?: unknown, callback?: Handler) => {
+        if (event === 'JOIN_MEETING') answerJoin = callback!;
+        if (event === 'REQUEST_STATE') {
+          (data as Handler)({ success: true, state: { ...base, quorum: 6 }, stateVersion: 6 });
+        }
+      }),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    io.mockReturnValueOnce(socket as never);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    // An update for the room arrives before the join's answer, which is older
+    act(() => handlers.STATE_UPDATE({ state: base, stateVersion: 6 }));
+    act(() => answerJoin({ success: true, state: base, stateVersion: 4 }));
+
+    expect(socket.emit).toHaveBeenCalledWith('REQUEST_STATE', expect.any(Function));
+    expect(result.current.state.quorum).toBe(6);
+  });
+
+  it('says it is still trying, with what the server said, after a few refused tries', () => {
+    const refused = {
+      success: false,
+      error: "Couldn't join the meeting. Try again.",
+      retryAfterMs: 3000,
+    };
+    const { handlers } = scriptedSocket([refused, refused, refused, refused]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    expect(result.current.error).toBeNull();
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(4000));
+    expect(result.current.error).toBe(
+      "Still trying to join... Couldn't join the meeting. Try again.",
+    );
+    expect(result.current.joinError).toBeNull();
+  });
+
+  it('asks for the whole state again when a request goes unanswered', () => {
+    const handlers: Record<string, Handler> = {};
+    const socket = {
+      connected: true,
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers[event] = handler;
+      }),
+      emit: vi.fn((event: string, _data?: unknown, callback?: Handler) => {
+        if (event === 'JOIN_MEETING') callback?.({ success: true, state: base, stateVersion: 3 });
+        // REQUEST_STATE is never answered
+      }),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    io.mockReturnValueOnce(socket as never);
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    const gap = { state: base, stateVersion: 9, baseVersion: 7, tails: { meetingLog: 1 } };
+    const requests = () => socket.emit.mock.calls.filter(([event]) => event === 'REQUEST_STATE');
+
+    act(() => handlers.STATE_UPDATE(gap));
+    act(() => handlers.STATE_UPDATE({ ...gap, stateVersion: 10 }));
+    expect(requests()).toHaveLength(1);
+
+    act(() => vi.advanceTimersByTime(5000));
+    act(() => handlers.STATE_UPDATE({ ...gap, stateVersion: 11 }));
+    expect(requests()).toHaveLength(2);
+  });
+
+  it('tries a join refused for now again, keeping the meeting on screen', () => {
+    const { handlers, socket } = scriptedSocket([
+      { success: true, state: base, stateVersion: 3 },
+      {
+        success: false,
+        error: 'Too many join attempts. Please wait 5 seconds.',
+        errorCode: 'RATE_LIMITED',
+        retryAfterMs: 5000,
+      },
+      { success: true, state: base, stateVersion: 3 },
+    ]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    act(() => handlers.disconnect('transport close'));
+    act(() => handlers.connect());
+
+    // Refused: no refusal on screen, the meeting still joined, a second try waiting
+    expect(result.current.joinError).toBeNull();
+    expect(result.current.hasJoined).toBe(true);
+    expect(result.current.isConnected).toBe(false);
+    const joins = () => socket.emit.mock.calls.filter(([event]) => event === 'JOIN_MEETING');
+    expect(joins()).toHaveLength(2);
+
+    act(() => vi.advanceTimersByTime(4999));
+    expect(joins()).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(1));
+    expect(joins()).toHaveLength(3);
+    expect(result.current.isConnected).toBe(true);
+  });
+
+  it('shows the connection lost as soon as the device goes offline, and back when online', () => {
+    const { handlers } = scriptedSocket([{ success: true, state: base, stateVersion: 3 }]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    expect(result.current.isConnected).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.hasJoined).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(result.current.isConnected).toBe(true);
+  });
+
+  it('refuses to send an action while offline, at once', async () => {
+    const { handlers, socket } = scriptedSocket([{ success: true, state: base, stateVersion: 3 }]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    let sent: boolean | undefined;
+    await act(async () => {
+      sent = await result.current.dispatch({ type: 'CAST_VOTE', vote: 'yea', voterId: 1 });
+    });
+
+    expect(sent).toBe(false);
+    expect(result.current.error).toBe('You are offline. Nothing was sent.');
+    const actions = socket.emit.mock.calls.filter(([event]) => event === 'DISPATCH_ACTION');
+    expect(actions).toEqual([]);
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+  });
+
+  it('connects afresh when shown again after long enough hidden to have lost the connection', () => {
+    const { handlers, socket } = scriptedSocket([{ success: true, state: base, stateVersion: 3 }]);
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+
+    const show = (visibility: 'hidden' | 'visible') => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: visibility,
+        configurable: true,
+      });
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+    };
+    show('hidden');
+    act(() => vi.advanceTimersByTime(5_000));
+    show('visible');
+    expect(socket.io.engine.close).not.toHaveBeenCalled();
+
+    show('hidden');
+    act(() => vi.advanceTimersByTime(25_000));
+    show('visible');
+    expect(socket.io.engine.close).toHaveBeenCalledTimes(1);
+  });
+});
