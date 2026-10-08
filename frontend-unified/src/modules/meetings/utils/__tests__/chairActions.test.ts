@@ -172,9 +172,30 @@ describe('chairActions', () => {
   it('rules on a point of order', () => {
     const state = { ...adopted, currentMotion: motion('pointOrder', { secondedBy: null }) };
     expect(chairActions(state, 2).map((a) => a.label)).toEqual([
-      'Sustain the point',
-      'Overrule the point',
+      'The point is well taken',
+      'The point is not well taken',
     ]);
+  });
+
+  it('rules on a point of order raised during a vote or while a motion awaits a second', () => {
+    const point = motion('pointOrder', { secondedBy: null });
+    const main = motion('mainMotion');
+    const voting = {
+      ...adopted,
+      currentMotion: point,
+      motionStack: [main, point],
+      votingOpen: true,
+    };
+    expect(ids(voting)).toEqual(['sustain', 'overrule']);
+    const awaiting = {
+      ...adopted,
+      currentMotion: point,
+      motionStack: [point],
+      pendingSecond: motion('mainMotion', { secondedBy: null }),
+    };
+    expect(ids(awaiting)).toEqual(['sustain', 'overrule']);
+    // Nothing is recorded from the floor until the chair rules
+    expect(floorActions(awaiting)).toEqual([]);
   });
 
   it('leaves closing a vote to the vote panel, and an election to the election panel', () => {
@@ -201,23 +222,26 @@ describe('chairActions', () => {
     it('records a second from the floor while a motion waits for one', () => {
       expect(
         floor({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) }),
-      ).toEqual(['floor-second']);
+      ).toEqual(['floor-second', 'floor-motion']);
       expect(
         floorActions({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })[0]
           .label,
       ).toBe('Seconded from the floor');
     });
 
-    it('records nothing before the call to order, after the adjournment or while a question is up', () => {
+    it('records nothing before the call to order or after the adjournment', () => {
       expect(floor(initialState)).toEqual([]);
       expect(floor({ ...adopted, meetingStage: 'adjourned', meetingActive: false })).toEqual([]);
-      expect(floor({ ...adopted, currentMotion: motion('mainMotion') })).toEqual([]);
-      expect(floor({ ...adopted, currentMotion: motion('mainMotion'), votingOpen: true })).toEqual(
-        [],
-      );
+    });
+
+    it('records a motion from the floor while a question is up: an amendment, a point of order in a vote, adjourning in an election', () => {
+      const pending = { ...adopted, currentMotion: motion('mainMotion') };
+      pending.motionStack = [pending.currentMotion];
+      expect(floor(pending)).toEqual(['floor-motion']);
+      expect(floor({ ...pending, votingOpen: true })).toEqual(['floor-motion']);
       expect(
         floor({ ...adopted, nominationsOpen: true, currentNominationPosition: 'Treasurer' }),
-      ).toEqual([]);
+      ).toEqual(['floor-motion']);
     });
   });
 
@@ -241,7 +265,8 @@ describe('chairActions', () => {
     ];
     for (const election of elections) {
       expect(ids({ ...adopted, ...election })).toEqual(['set-aside', 'adjourn']);
-      expect(floorActions({ ...adopted, ...election })).toEqual([]);
+      // Only adjourn, recess and a point of order are in order: the chair records them
+      expect(floorActions({ ...adopted, ...election }).map((a) => a.id)).toEqual(['floor-motion']);
     }
   });
 

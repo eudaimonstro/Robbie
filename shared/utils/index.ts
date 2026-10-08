@@ -33,9 +33,25 @@ export {
   isSimilarMotionSubject,
   wasMotionDefeated,
   type ValidMotion,
-  isSecondaryAmendmentInOrder,
   moverCanClaimFloor,
 } from './motionHelpers.js';
+
+export {
+  OFFERED_MOTIONS,
+  awaitingRuling,
+  isOffered,
+  motionOutOfOrder,
+  pendingMainMotion,
+  type OutOfOrder,
+} from './motionRules.js';
+
+export {
+  amendInsertedWords,
+  applyTextAmendment,
+  describeTextAmendment,
+  insertsWords,
+  textAmendmentProblem,
+} from './textAmendment.js';
 
 export {
   attendanceSummary,

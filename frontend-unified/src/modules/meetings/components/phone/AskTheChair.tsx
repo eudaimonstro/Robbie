@@ -15,11 +15,12 @@ interface AskTheChairProps {
   me: Member;
 }
 
-const KINDS: InquiryType[] = ['parliamentary', 'information'];
+const KINDS: InquiryType[] = ['parliamentary', 'information', 'privilege'];
 
 /**
- * A question for the chair, from a member or a guest: about the rules, or for information. The
- * chair's answers stay listed below.
+ * A question for the chair, from a member or a guest: about the rules (a parliamentary inquiry),
+ * for information, or a problem in the room (a question of privilege). The chair answers each;
+ * none is a motion, and none goes in the minutes. The chair's answers stay listed below.
  */
 export function AskTheChair({ state, dispatch, me }: AskTheChairProps) {
   const headingId = useId();
@@ -57,7 +58,7 @@ export function AskTheChair({ state, dispatch, me }: AskTheChairProps) {
         Ask the chair
       </h3>
       <form onSubmit={ask} className="space-y-3">
-        <fieldset className="grid grid-cols-2 gap-2">
+        <fieldset className="grid grid-cols-1 gap-2">
           <legend className="sr-only">Your question is</legend>
           {KINDS.map((option) => (
             <label

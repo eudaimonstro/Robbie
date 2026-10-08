@@ -77,14 +77,14 @@ const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
 
 describe('motionHelpers', () => {
   describe('getValidMotions', () => {
-    it('should return incidental motions when no motion is pending', () => {
-      const state = createMockState();
-      const validMotions = getValidMotions(state);
-
-      const motionKeys = validMotions.map((m) => m.key);
-      // Incidental motions should always be available
+    it('offers a point of order, and never a motion Robbie hides, when nothing is pending', () => {
+      const motionKeys = getValidMotions(createMockState()).map((m) => m.key);
       expect(motionKeys).toContain('pointOrder');
-      expect(motionKeys).toContain('pointInfo');
+      // Questions to the chair are asked of the chair, not moved
+      expect(motionKeys).not.toContain('pointInfo');
+      expect(motionKeys).not.toContain('questionPrivilege');
+      expect(motionKeys).not.toContain('suspendRules');
+      expect(motionKeys).not.toContain('fixTimeAdjourn');
     });
 
     it('should return privileged motions when their precedence is higher', () => {
@@ -146,9 +146,9 @@ describe('motionHelpers', () => {
       expect(motionKeys).not.toContain('bylawAmendment');
     });
 
-    it('should offer take from the table only when a motion is tabled', () => {
+    it('never offers take from the table, which Robbie hides, even with a motion tabled', () => {
       const state = createMockState({ tabledMotions: [createMockMotion()] });
-      expect(getValidMotions(state).map((m) => m.key)).toContain('takeFromTable');
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
     });
 
     it('should not offer take from the table while a motion is pending', () => {
@@ -234,10 +234,14 @@ describe('motionHelpers', () => {
       const validMotions = getValidMotions(state);
 
       const motionKeys = validMotions.map((m) => m.key);
-      // Subsidiary motions should be available
+      // The subsidiary motions Robbie offers, and none it hides
       expect(motionKeys).toContain('amend');
       expect(motionKeys).toContain('previousQuestion');
-      expect(motionKeys).toContain('layOnTable');
+      expect(motionKeys).toContain('postponeDefinite');
+      expect(motionKeys).toContain('postponeIndefinitely');
+      expect(motionKeys).toContain('referCommittee');
+      expect(motionKeys).not.toContain('layOnTable');
+      expect(motionKeys).not.toContain('limitDebate');
     });
 
     it('should not allow secondary amendment when no primary amendment exists', () => {
@@ -282,7 +286,7 @@ describe('motionHelpers', () => {
       expect(getValidMotions(state).map((m) => m.key)).not.toContain('amendAmendment');
     });
 
-    it('should offer reconsider to a voter on the prevailing side', () => {
+    it('never offers reconsider, which Robbie hides', () => {
       const state = createMockState({
         completedMotions: [
           {
@@ -295,8 +299,7 @@ describe('motionHelpers', () => {
           },
         ],
       });
-      expect(getValidMotions(state, 1).map((m) => m.key)).toContain('reconsider');
-      // A voter on the losing side may not move to reconsider
+      expect(getValidMotions(state, 1).map((m) => m.key)).not.toContain('reconsider');
       expect(getValidMotions(state, 2).map((m) => m.key)).not.toContain('reconsider');
     });
 

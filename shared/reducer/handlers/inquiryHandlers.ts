@@ -1,5 +1,18 @@
-import type { MeetingAction, Inquiry } from '../../types/index.js';
+import type { MeetingAction, Inquiry, InquiryType } from '../../types/index.js';
 import type { ActionHandler } from './types.js';
+
+/** A question to the chair, by its kind, as the log names it */
+const INQUIRY_LABELS: Record<InquiryType, string> = {
+  parliamentary: 'Parliamentary Inquiry',
+  information: 'Request for Information',
+  privilege: 'Question of Privilege',
+};
+
+function inquiryLabel(type: InquiryType | undefined): string {
+  return type && Object.hasOwn(INQUIRY_LABELS, type)
+    ? INQUIRY_LABELS[type]
+    : INQUIRY_LABELS.information;
+}
 
 export const inquiryHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
@@ -14,10 +27,7 @@ export const inquiryHandler: ActionHandler = (state, action, log) => {
         timestamp: typedAction.timestamp,
       };
 
-      const inquiryTypeLabel =
-        typedAction.inquiryType === 'parliamentary'
-          ? 'Parliamentary Inquiry'
-          : 'Request for Information';
+      const inquiryTypeLabel = inquiryLabel(typedAction.inquiryType);
 
       return {
         ...state,
@@ -43,8 +53,7 @@ export const inquiryHandler: ActionHandler = (state, action, log) => {
       );
 
       const inquiry = state.inquiries.find((inq) => inq.id === typedAction.inquiryId);
-      const inquiryTypeLabel =
-        inquiry?.type === 'parliamentary' ? 'Parliamentary Inquiry' : 'Request for Information';
+      const inquiryTypeLabel = inquiryLabel(inquiry?.type);
 
       return {
         ...state,

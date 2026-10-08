@@ -15,12 +15,13 @@ import {
   BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
+  awaitingRuling,
   canChairVoteDecide,
   isRuleSuspended,
-  isSecondaryAmendmentInOrder,
+  motionOutOfOrder,
   moverCanClaimFloor,
   wasMotionDefeated,
-  wordingFixedBy,
+  type OutOfOrder,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
 import { checkPermission, isServerOnly } from './permissionGuard.js';
@@ -93,30 +94,38 @@ type NewMotion = Pick<
   'motionType' | 'text' | keyof MotionDetails
 >;
 
+/** The error code for each kind of reason a motion is out of order */
+const OUT_OF_ORDER_CODES: Record<OutOfOrder['kind'], ActionErrorCode> = {
+  unknown: 'UNKNOWN_MOTION_TYPE',
+  'not-offered': 'MOTION_NOT_OFFERED',
+  'not-in-session': 'MEETING_NOT_ACTIVE',
+  adjourning: 'ADJOURNMENT_CARRIED',
+  recess: 'IN_RECESS',
+  'point-pending': 'POINT_OF_ORDER_PENDING',
+  voting: 'VOTING_IN_PROGRESS',
+  'awaiting-second': 'MOTION_PRECEDENCE_VIOLATION',
+  election: 'ELECTION_IN_PROGRESS',
+  agenda: 'AGENDA_NOT_ADOPTED',
+  'agenda-adopted': 'AGENDA_ALREADY_ADOPTED',
+  'debate-closed': 'DEBATE_CLOSED',
+  precedence: 'MOTION_PRECEDENCE_VIOLATION',
+};
+
+/** The chair rules on a point of order before anything else happens */
+const POINT_PENDING: ValidationResult = {
+  valid: false,
+  error: 'The chair rules on the point of order first',
+  errorCode: 'POINT_OF_ORDER_PENDING',
+};
+
 /**
- * Whether a motion is in order now: the meeting in session, nothing waiting for a second or
- * being voted on, the motion known, with the details it needs, ranking above the pending
- * question, and not renewing a defeated one. The same for every way a motion is made.
+ * Whether a motion is in order now (motionOutOfOrder in shared, which the screens use too), with
+ * the words and details it needs, and not renewing a defeated one. The same for every way a
+ * motion is made.
  */
 function validateMotionInOrder(state: MeetingState, action: NewMotion): ValidationResult {
   if (!state.meetingActive) {
     return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
-  }
-  // A motion made during a vote would become the pending question and take over the votes
-  // already cast, and one made while another awaits a second would replace it
-  if (state.votingOpen) {
-    return {
-      valid: false,
-      error: 'No motion can be made while a vote is in progress',
-      errorCode: 'VOTING_IN_PROGRESS',
-    };
-  }
-  if (state.pendingSecond) {
-    return {
-      valid: false,
-      error: 'Another motion is waiting for a second',
-      errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-    };
   }
   // Validate motion text length
   if (action.text && action.text.length > 500) {
@@ -134,30 +143,17 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       errorCode: 'UNKNOWN_MOTION_TYPE',
     };
   }
-  // An election holds the floor until it is finished or set aside: only a privileged motion
-  // (adjourn, recess) or an incidental one (a point of order, an inquiry) may interrupt it
-  if (
-    isElectionUnderway(state) &&
-    definition.category !== 'privileged' &&
-    definition.category !== 'incidental'
-  ) {
+  const outOfOrder = motionOutOfOrder(state, action.motionType);
+  if (outOfOrder) {
     return {
       valid: false,
-      error: 'Finish or set aside the election first',
-      errorCode: 'ELECTION_IN_PROGRESS',
+      error: outOfOrder.reason,
+      errorCode: OUT_OF_ORDER_CODES[outOfOrder.kind],
     };
   }
   // Motions whose effect depends on details: without them the motion could be adopted and
   // then do nothing
   const missingDetails =
-    (action.motionType === 'takeFromTable' &&
-      !state.tabledMotions.some((m) => m.id === action.tabledMotionId)) ||
-    (action.motionType === 'reconsider' &&
-      !state.completedMotions.some(
-        (m) => m.id === action.reconsideredMotionId && m.reconsiderable !== false,
-      )) ||
-    (action.motionType === 'suspendRules' &&
-      !(action.ruleSuspension?.rule && action.ruleSuspension?.scope)) ||
     (action.motionType === 'bylawAmendment' &&
       !(action.bylawAmendment?.documentId && action.bylawAmendment?.changeType)) ||
     (action.motionType === 'amendAgenda' && !action.agendaAmendment?.action);
@@ -167,31 +163,6 @@ function validateMotionInOrder(state: MeetingState, action: NewMotion): Validati
       error: `${definition.name} needs details this request did not include`,
       errorCode: 'INVALID_ACTION',
     };
-  }
-  // A bylaw amendment's words are the text the room sees and the sync applies
-  if (wordingFixedBy(state, action.motionType)) {
-    return { valid: false, error: BYLAW_WORDING_FIXED, errorCode: 'INVALID_ACTION' };
-  }
-  // A secondary amendment is in order only on a pending primary amendment; its numeric
-  // precedence can't express that, so it is checked by type instead
-  if (action.motionType === 'amendAmendment') {
-    if (!isSecondaryAmendmentInOrder(state)) {
-      return {
-        valid: false,
-        error: 'Amend the Amendment is only in order while an amendment is pending',
-        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-      };
-    }
-  } else if (state.currentMotion) {
-    // Check precedence if there's a current motion
-    const currentDef = MOTIONS[state.currentMotion.type];
-    if (currentDef && definition.precedence < currentDef.precedence && !definition.interrupt) {
-      return {
-        valid: false,
-        error: `Cannot make ${definition.name} while ${currentDef.name} is pending`,
-        errorCode: 'MOTION_PRECEDENCE_VIOLATION',
-      };
-    }
   }
   // Block renewal of substantially similar defeated motions (by subject matter for main motions)
   if (wasMotionDefeated(state, action.motionType, action.text, action.bylawAmendment)) {
@@ -264,6 +235,34 @@ function checkFloorName(name: unknown, required: boolean): ValidationResult {
   return { valid: true };
 }
 
+/**
+ * What waits while a point of order is before the chair: the business it interrupted, and its
+ * vote. Only the ruling (CHAIR_RULING) settles it; the chair can still adjourn.
+ */
+const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
+  'SECOND_MOTION',
+  'SECOND_FROM_FLOOR',
+  'DECLINE_SECOND',
+  'OPEN_VOTING',
+  'CAST_VOTE',
+  'SET_FLOOR_TALLY',
+  'CLOSE_VOTING',
+  'REQUEST_UNANIMOUS_CONSENT',
+  'UNANIMOUS_CONSENT_PASSED',
+  'OBJECT_TO_CONSENT',
+  'WITHDRAW_MOTION',
+  'MODIFY_MOTION',
+  'RAISE_HAND',
+  'RECOGNIZE_SPEAKER',
+  'CALL_AGENDA_ITEM',
+  'COMPLETE_AGENDA_ITEM',
+  'OPEN_NOMINATIONS',
+  'CLOSE_NOMINATIONS',
+  'START_ELECTION',
+  'CLOSE_ELECTION',
+  'DECLARE_ELECTED',
+]);
+
 /** Business from the floor is recorded by the chair or an admin presiding */
 const NOT_PRESIDING: ValidationResult = {
   valid: false,
@@ -301,6 +300,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       errorCode: 'PERMISSION_DENIED',
     };
   }
+
+  if (awaitingRuling(state) && WAITS_FOR_RULING.has(action.type)) return POINT_PENDING;
 
   switch (action.type) {
     case 'START_MEETING':
@@ -1163,13 +1164,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     }
 
     case 'CHAIR_RULING':
-      // A ruling pops the pending motion; during a vote that would leave the vote open with
-      // nothing to decide, and closing it would then drop the motion underneath undecided
-      if (state.votingOpen) {
+      // The chair rules on a point of order, which takes no vote. A motion is decided by a vote
+      // or by unanimous consent, never by a ruling, which would take it off the floor with no
+      // record of its fate.
+      if (!awaitingRuling(state)) {
         return {
           valid: false,
-          error: 'The chair cannot rule while a vote is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
+          error: 'There is no point of order to rule on',
+          errorCode: 'INVALID_STATE',
         };
       }
       if (
@@ -1657,8 +1659,15 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_PREVIOUS_MINUTES':
     case 'ADD_COMMITTEE_REPORT':
-    case 'SUSPEND_RULE_APPROVED':
       return { valid: true };
+
+    case 'SUSPEND_RULE_APPROVED':
+      return {
+        valid: false,
+        error:
+          "Suspend the rules isn't offered in Robbie: the meeting follows its rules as they are",
+        errorCode: 'MOTION_NOT_OFFERED',
+      };
 
     default: {
       // Every action type needs a case above; this fails to compile if one is missing

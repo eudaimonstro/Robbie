@@ -22,6 +22,7 @@ const sam = person(9, 'Sam Guest', { role: 'guest' });
 const inSession: MeetingState = {
   ...initialState,
   meetingActive: true,
+  agendaAdopted: true,
   members: [dana, eve, alice, carmen, away, sam],
 };
 
@@ -142,10 +143,10 @@ describe('business from the floor', () => {
         valid: false,
         errorCode: 'UNKNOWN_MOTION_TYPE',
       });
-      // A special motion without its details
+      // A motion Robbie doesn't offer
       expect(floorMotion({ motionType: 'takeFromTable', tabledMotionId: 42 })).toMatchObject({
         valid: false,
-        errorCode: 'INVALID_ACTION',
+        errorCode: 'MOTION_NOT_OFFERED',
       });
       // Renewing a motion defeated this meeting
       const defeated = {
@@ -397,7 +398,7 @@ describe('business from the floor', () => {
         error: 'Finish or set aside the election first',
         errorCode: 'ELECTION_IN_PROGRESS',
       };
-      for (const motionType of ['mainMotion', 'bylawAmendment', 'layOnTable', 'reconsider']) {
+      for (const motionType of ['mainMotion', 'bylawAmendment', 'amend', 'previousQuestion']) {
         expect(move(electing, motionType), motionType).toEqual(refused);
       }
       expect(floorMotion({}, electing)).toEqual(refused);
@@ -405,7 +406,7 @@ describe('business from the floor', () => {
 
     it.each(elections)('allows privileged and incidental motions: %s', (_, election) => {
       const electing = { ...inSession, ...election };
-      for (const motionType of ['adjourn', 'recess', 'pointOrder', 'pointInfo']) {
+      for (const motionType of ['adjourn', 'recess', 'pointOrder']) {
         expect(move(electing, motionType), motionType).toEqual({ valid: true });
       }
       expect(floorMotion({ motionType: 'adjourn' }, electing)).toEqual({ valid: true });

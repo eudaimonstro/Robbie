@@ -41,6 +41,12 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
     case 'adjourned':
       // The phone shows only the adjournment then (PhoneView)
       return null;
+    case 'ruling':
+      return (
+        <Note>
+          <p>The chair is ruling on a point of order.</p>
+        </Note>
+      );
     case 'voice-vote':
       return (
         <Note>

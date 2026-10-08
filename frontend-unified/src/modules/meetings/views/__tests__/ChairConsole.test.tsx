@@ -472,7 +472,7 @@ describe('ChairConsole', () => {
         within(screen.getByRole('toolbar'))
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Set the election aside']);
+      ).toEqual(['Set the election aside', 'A motion from the floor']);
       const headings = screen.getAllByRole('heading').map((h) => h.textContent);
       expect(headings.indexOf('Election for Director')).toBeLessThan(
         headings.indexOf('Attendance'),
@@ -531,7 +531,7 @@ describe('ChairConsole', () => {
         within(toolbar)
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Set the election aside', 'Adjourn']);
+      ).toEqual(['Set the election aside', 'A motion from the floor', 'Adjourn']);
       fireEvent.click(within(toolbar).getByRole('button', { name: 'Set the election aside' }));
       expect(screen.getByRole('dialog', { name: 'Set the election aside?' })).toBeTruthy();
     });

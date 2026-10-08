@@ -12,16 +12,16 @@ describe('motionWords', () => {
     }
   });
 
-  it('says what referring to a committee does', () => {
+  it('says what referring does', () => {
     expect(motionWords('referCommittee')).toEqual({
-      name: 'Refer to a committee',
-      explanation: 'Send the question to a committee to study',
+      name: 'Refer to a committee or the board',
+      explanation: 'Send the question to a committee or the board to study',
     });
   });
 
   it('names a motion plainly from its key, its book name, or else in sentence case', () => {
     expect(plainMotionName('Main Motion', 'mainMotion')).toBe('Main motion');
-    expect(plainMotionName('Refer to Committee')).toBe('Refer to a committee');
+    expect(plainMotionName('Refer to Committee')).toBe('Refer to a committee or the board');
     expect(plainMotionName('Refer to a Committee')).toBe('Refer to a committee');
     expect(plainMotionName('Ratify the Contract', 'noSuchMotion')).toBe('Ratify the contract');
   });

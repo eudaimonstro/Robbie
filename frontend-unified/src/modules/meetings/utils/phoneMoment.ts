@@ -6,6 +6,7 @@ import { minutesItemUnderWay } from './minutesApproval';
 export type PhoneMoment =
   | 'lobby'
   | 'adjourned'
+  | 'ruling'
   | 'voice-vote'
   | 'vote'
   | 'ballot'
@@ -22,6 +23,8 @@ export type PhoneMoment =
 export function phoneMoment(state: MeetingState): PhoneMoment {
   if (state.meetingStage === 'adjourned') return 'adjourned';
   if (!state.meetingActive) return 'lobby';
+  // A point of order holds everything, a vote too, until the chair rules
+  if (state.currentMotion?.vote === 'none') return 'ruling';
   if (state.votingOpen) return state.votingMethod === 'voice' ? 'voice-vote' : 'vote';
   if (state.currentElection?.votingInProgress) return 'ballot';
   if (state.nominationsOpen) return 'nominate';

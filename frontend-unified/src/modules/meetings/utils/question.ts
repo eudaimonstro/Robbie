@@ -70,7 +70,8 @@ export function nomineesFor(state: MeetingState, position: string): string[] {
 export function describeQuestion(state: MeetingState): QuestionView | null {
   if (state.meetingStage === 'adjourned') return null;
 
-  if (state.pendingSecond) {
+  // A point of order raised while a motion awaits a second comes first: the chair rules on it
+  if (state.pendingSecond && state.currentMotion?.vote !== 'none') {
     const motion = state.pendingSecond;
     return {
       kind: motion.name,

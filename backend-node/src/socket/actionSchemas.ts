@@ -400,7 +400,7 @@ export const ACTION_SCHEMAS = {
   SET_ASIDE_ELECTION: clocked('SET_ASIDE_ELECTION'),
   ASK_INQUIRY: z.strictObject({
     type: z.literal('ASK_INQUIRY'),
-    inquiryType: z.enum(['parliamentary', 'information']),
+    inquiryType: z.enum(['parliamentary', 'information', 'privilege']),
     question: text(MAX_SHORT_TEXT_LENGTH),
     askedBy: optionalName,
     askerId: optionalId,

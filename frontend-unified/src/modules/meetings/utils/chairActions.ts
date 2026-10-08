@@ -1,10 +1,12 @@
 import { PUT_BY_CHAIR } from '@robbie-bylawyer/shared/constants';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import {
+  awaitingRuling,
   calculateTimerEnd,
   fitMotionText,
   generateId,
   generateTimestamp,
+  getValidMotions,
 } from '@robbie-bylawyer/shared/utils';
 import { minutesItemUnderWay } from './minutesApproval';
 
@@ -39,13 +41,13 @@ function ruling(id: string, label: string, kind: Ruling, tone: Tone): ChairActio
   };
 }
 
-/** The chair's rulings on a motion that takes no vote */
+/** The chair's rulings on a point of order (or a request saved before they were questions) */
 function rulings(motionType: string): ChairAction[] {
   switch (motionType) {
     case 'pointOrder':
       return [
-        ruling('sustain', 'Sustain the point', 'sustain', 'primary'),
-        ruling('overrule', 'Overrule the point', 'overrule', 'secondary'),
+        ruling('sustain', 'The point is well taken', 'sustain', 'primary'),
+        ruling('overrule', 'The point is not well taken', 'overrule', 'secondary'),
       ];
     case 'questionPrivilege':
     case 'withdrawMotion':
@@ -126,6 +128,10 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
       },
     ];
   }
+  // A point of order waits for nothing: during a vote, or with a motion awaiting a second
+  const motion = state.currentMotion;
+  if (motion && motion.vote === 'none') return rulings(motion.type);
+
   if (state.votingOpen) return [];
 
   if (state.pendingSecond) {
@@ -139,7 +145,6 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     ];
   }
 
-  const motion = state.currentMotion;
   if (motion && state.unanimousConsentPending) {
     const actions: ChairAction[] = [
       {
@@ -153,7 +158,6 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
     return actions;
   }
   if (motion) {
-    if (motion.vote === 'none') return rulings(motion.type);
     return [
       openVote(state, 'primary'),
       {
@@ -248,16 +252,18 @@ export function chairActions(state: MeetingState, presidingId: number | null): C
 }
 
 /**
- * What the chair can record for people in the room, many of them without a phone: a motion when
- * nothing is pending, or a second for the motion waiting for one. They sit in the toolbar
- * beside the chair's own actions.
+ * What the chair can record for people in the room, many of them without a phone: a second for
+ * the motion waiting for one, and a motion of any kind in order now (an amendment, close debate,
+ * a point of order during a vote). They sit in the toolbar beside the chair's own actions.
  */
 export function floorActions(state: MeetingState): FloorAction[] {
   if (!state.meetingActive || state.meetingStage === 'adjourned') return [];
-  if (state.votingOpen || electionUnderway(state)) return [];
-  if (state.pendingSecond) {
-    return [{ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' }];
+  const actions: FloorAction[] = [];
+  if (state.pendingSecond && !awaitingRuling(state)) {
+    actions.push({ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' });
   }
-  if (state.currentMotion || state.unanimousConsentPending) return [];
-  return [{ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' }];
+  if (getValidMotions(state).length > 0) {
+    actions.push({ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' });
+  }
+  return actions;
 }
