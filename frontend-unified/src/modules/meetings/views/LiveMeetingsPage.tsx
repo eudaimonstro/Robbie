@@ -18,7 +18,8 @@ type Loaded =
 /**
  * The Live Meetings page: the current organization's schedule, each meeting with a way in (Start
  * for its presiding officer, Join for everyone else), the meetings already held, the code box
- * for anyone with a code, and Schedule a meeting for secretaries and above
+ * for anyone with a code, and for secretaries and above Schedule a meeting and Change on each
+ * meeting not yet called to order
  */
 export function LiveMeetingsPage() {
   const navigate = useNavigate();
@@ -27,6 +28,9 @@ export function LiveMeetingsPage() {
   const organizationId = currentOrganization?.id ?? null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  // The meeting being changed, by its code, and what the last change came to
+  const [changing, setChanging] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   // Bumped when the scheduler closes, so a meeting just scheduled is listed
   const [refresh, setRefresh] = useState(0);
   // Meetings are scheduled in the current organization, by its secretaries and above
@@ -52,11 +56,15 @@ export function LiveMeetingsPage() {
     };
   }, [organizationId, refresh]);
 
-  if (scheduling) {
+  if (scheduling || changing) {
     return (
       <MeetingScheduler
-        onBack={() => {
+        key={changing ?? 'new'}
+        meetingCode={changing ?? undefined}
+        onBack={(message) => {
           setScheduling(false);
+          setChanging(null);
+          setStatus(message ?? null);
           setRefresh((n) => n + 1);
         }}
         onJoinMeeting={(code) => navigate(meetingPath(code))}
@@ -82,12 +90,25 @@ export function LiveMeetingsPage() {
           </p>
         </div>
         {canSchedule && (
-          <button type="button" className="btn-primary" onClick={() => setScheduling(true)}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setStatus(null);
+              setScheduling(true);
+            }}
+          >
             <CalendarPlus className="w-5 h-5" aria-hidden="true" />
             Schedule a meeting
           </button>
         )}
       </div>
+
+      {status && (
+        <p role="status" className="mb-6 rounded-lg bg-surface-2 px-4 py-3 text-sm text-ink">
+          {status}
+        </p>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -111,6 +132,15 @@ export function LiveMeetingsPage() {
                       key={meeting.id}
                       meeting={meeting}
                       presiding={meeting.chairUserId !== null && meeting.chairUserId === user?.id}
+                      onChange={
+                        // Changed until the call to order; after it, in the meeting
+                        canSchedule && !meeting.startedAt
+                          ? () => {
+                              setStatus(null);
+                              setChanging(meeting.robbieCode);
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -138,8 +168,19 @@ export function LiveMeetingsPage() {
   );
 }
 
-/** One scheduled meeting: its title, date, presiding officer and code, and the way in */
-function ScheduleRow({ meeting, presiding }: { meeting: ScheduledMeeting; presiding: boolean }) {
+/**
+ * One scheduled meeting: its title, date, presiding officer and code, the way in, and Change when
+ * it can be changed
+ */
+function ScheduleRow({
+  meeting,
+  presiding,
+  onChange,
+}: {
+  meeting: ScheduledMeeting;
+  presiding: boolean;
+  onChange?: () => void;
+}) {
   const title = meeting.title || 'Untitled meeting';
   const inSession = meeting.startedAt !== null && meeting.endedAt === null;
   // The presiding officer starts a meeting not yet called to order; everyone else joins it.
@@ -160,6 +201,16 @@ function ScheduleRow({ meeting, presiding }: { meeting: ScheduledMeeting; presid
       <div className="flex items-center gap-3">
         {inSession && <span className="badge-present">In session</span>}
         <span className="meeting-code text-sm text-ink-muted">{meeting.robbieCode}</span>
+        {onChange && (
+          <button
+            type="button"
+            onClick={onChange}
+            aria-label={`Change ${title}`}
+            className="btn-ghost btn-sm"
+          >
+            Change
+          </button>
+        )}
         <Link
           to={meetingPath(meeting.robbieCode)}
           aria-label={`${action} ${title}`}

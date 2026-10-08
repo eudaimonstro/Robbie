@@ -13,10 +13,17 @@ const bridge = vi.hoisted(() => ({
 }));
 vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
 vi.mock('../../components/scheduling', () => ({
-  MeetingScheduler: ({ onBack }: { onBack: () => void }) => (
+  MeetingScheduler: ({
+    onBack,
+    meetingCode,
+  }: {
+    onBack: (status?: string) => void;
+    meetingCode?: string;
+  }) => (
     <div>
-      <p>Scheduler</p>
-      <button onClick={onBack}>Done scheduling</button>
+      <p>{meetingCode ? `Changing ${meetingCode}` : 'Scheduler'}</p>
+      <button onClick={() => onBack()}>Done scheduling</button>
+      <button onClick={() => onBack('2026 Annual Meeting is changed.')}>Done changing</button>
     </div>
   ),
 }));
@@ -136,5 +143,89 @@ describe('LiveMeetingsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done scheduling' }));
     expect(await screen.findByRole('link', { name: 'Start 2026 Annual Meeting' })).toBeTruthy();
     expect(schedule.list).toHaveBeenCalledTimes(2);
+  });
+
+  describe('Change', () => {
+    const schedule3 = () => [
+      meeting(),
+      meeting({
+        id: 'p2',
+        robbieCode: 'BOARD1',
+        title: 'Board meeting',
+        startedAt: '2026-10-07T00:05:00.000Z',
+      }),
+      meeting({
+        id: 'p0',
+        robbieCode: 'MAPLE0',
+        title: '2025 Annual Meeting',
+        startedAt: '2025-03-21T00:05:00.000Z',
+        endedAt: '2025-03-21T01:30:00.000Z',
+      }),
+    ];
+
+    it('is offered to a secretary for meetings not yet called to order only', async () => {
+      bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+      schedule.list.mockResolvedValueOnce(schedule3());
+      renderPage();
+      expect(
+        await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }),
+      ).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Change Board meeting' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Change 2025 Annual Meeting' })).toBeNull();
+    });
+
+    it('is offered to admins and owners, and not to members or viewers', async () => {
+      for (const [role, offered] of [
+        ['viewer', false],
+        ['member', false],
+        ['admin', true],
+        ['owner', true],
+      ] as const) {
+        bridge.currentOrganization = { ...bridge.currentOrganization!, role };
+        schedule.list.mockResolvedValueOnce([meeting()]);
+        const { unmount } = render(
+          <MemoryRouter>
+            <LiveMeetingsPage />
+          </MemoryRouter>,
+        );
+        await screen.findByText('2026 Annual Meeting');
+        expect(
+          screen.queryByRole('button', { name: 'Change 2026 Annual Meeting' }) !== null,
+          role,
+        ).toBe(offered);
+        unmount();
+      }
+    });
+
+    it('opens the scheduler for the meeting, and says what changed when it closes', async () => {
+      bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+      schedule.list
+        .mockResolvedValueOnce([meeting()])
+        .mockResolvedValueOnce([meeting({ location: 'Pool house' })]);
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }));
+      expect(screen.getByText('Changing MAPLE1')).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Done changing' }));
+      expect((await screen.findByRole('status')).textContent).toBe(
+        '2026 Annual Meeting is changed.',
+      );
+      expect(
+        await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }),
+      ).toBeTruthy();
+      expect(schedule.list).toHaveBeenCalledTimes(2);
+    });
+
+    it('says nothing when the scheduler closes without a change', async () => {
+      bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+      schedule.list.mockResolvedValue([meeting()]);
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Done scheduling' }));
+      expect(
+        await screen.findByRole('button', { name: 'Change 2026 Annual Meeting' }),
+      ).toBeTruthy();
+      expect(screen.queryByRole('status')).toBeNull();
+    });
   });
 });
