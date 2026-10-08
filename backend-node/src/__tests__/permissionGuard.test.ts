@@ -157,12 +157,7 @@ describe('permissionGuard', () => {
     });
 
     describe('actions guests may take', () => {
-      const guestActions = [
-        'RAISE_HAND',
-        'LOWER_HAND',
-        'YIELD_FLOOR',
-        'ASK_INQUIRY',
-      ] as const;
+      const guestActions = ['RAISE_HAND', 'LOWER_HAND', 'YIELD_FLOOR', 'ASK_INQUIRY'] as const;
 
       it.each(guestActions)('should allow every role to perform %s', (action) => {
         for (const role of ['admin', 'chair', 'member', 'guest'] as const) {

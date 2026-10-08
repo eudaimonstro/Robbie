@@ -49,6 +49,15 @@ export function isJoinPayload(data: unknown): data is JoinMeetingPayload {
   return isObject(data) && typeof data.meetingCode === 'string';
 }
 
+/**
+ * An action to dispatch, in outline: an object with a type, and the client's sequence number.
+ * The action itself is checked against its type's schema by the action handler.
+ */
 export function isDispatchPayload(data: unknown): data is DispatchActionPayload {
-  return isObject(data) && isObject(data.action) && typeof data.action.type === 'string';
+  return (
+    isObject(data) &&
+    isObject(data.action) &&
+    typeof data.action.type === 'string' &&
+    Number.isSafeInteger(data.clientSequence)
+  );
 }

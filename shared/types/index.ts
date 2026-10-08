@@ -94,16 +94,39 @@ export interface AgendaAmendment {
 // Bylaw amendment types for Bylawyer integration
 export type BylawChangeType = 'add' | 'modify' | 'delete' | 'renumber';
 
+/**
+ * The change a bylaw amendment motion proposes, carried in the motion so that everyone sees the
+ * text they are voting on, and the text adopted is the text applied. The mover sends the
+ * document, the change and its new text, or a proposed amendment to move; the server checks them
+ * against the document's current version and fills in the rest (the fields marked so), so what
+ * the room sees comes from the bylaws, never from the mover's device.
+ */
 export interface BylawAmendment {
   documentId: string; // Bylawyer document ID
-  documentTitle?: string; // Document title for display
+  /** The document's title (set by the server) */
+  documentTitle?: string;
+  /**
+   * The proposed amendment (status proposed) this motion moves, when moved from the drafts: its
+   * change is copied into the motion by the server, and the sync marks it decided
+   */
+  amendmentId?: string;
+  /** The proposed amendment's title (set by the server) */
+  amendmentTitle?: string;
   changeType: BylawChangeType;
-  targetSectionId?: string; // Section being modified
-  targetSectionLabel?: string; // Section label for display (e.g., "Article III, Section 2")
+  /** The section changed, deleted or renumbered */
+  targetSectionId?: string;
+  /** That section's number and title, as 'Section 4.2 "Quorum"' (set by the server) */
+  targetSectionLabel?: string;
+  /** That section's title and text as they stand (set by the server) */
+  currentTitle?: string;
+  currentContent?: string;
   newContent?: string; // New/modified content
-  newNumberLabel?: string; // New section number (for renumber)
+  newNumberLabel?: string; // New section number (for renumber, or an added section)
   newTitle?: string; // New section title
-  parentSectionId?: string; // Parent section for add operations
+  /** Where an added section goes: under this section, or at the top level when absent */
+  parentSectionId?: string;
+  /** That section's number and title (set by the server) */
+  parentSectionLabel?: string;
 }
 
 export interface CommitteeReport {

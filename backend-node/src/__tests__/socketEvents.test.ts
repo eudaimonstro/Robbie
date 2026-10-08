@@ -103,7 +103,7 @@ describe('payload checks', () => {
     }
   });
 
-  it('needs an action object with a string type to dispatch', () => {
+  it('needs an action object with a string type, and a sequence number, to dispatch', () => {
     expect(isDispatchPayload({ action: { type: 'CALL_TO_ORDER' }, clientSequence: 1 })).toBe(true);
     for (const data of [
       null,
@@ -113,6 +113,9 @@ describe('payload checks', () => {
       { action: 'CALL_TO_ORDER' },
       { action: {} },
       { action: { type: 3 } },
+      { action: { type: 'CALL_TO_ORDER' } },
+      { action: { type: 'CALL_TO_ORDER' }, clientSequence: '1' },
+      { action: { type: 'CALL_TO_ORDER' }, clientSequence: 1.5 },
     ]) {
       expect(isDispatchPayload(data)).toBe(false);
     }

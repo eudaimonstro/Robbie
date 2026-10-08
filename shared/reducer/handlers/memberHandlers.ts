@@ -1,8 +1,5 @@
 import type { MeetingAction, Member } from '../../types/index.js';
-import {
-  logMemberJoined,
-  logMemberPresenceChanged,
-} from '../../constants/logMessages.js';
+import { logMemberJoined, logMemberPresenceChanged } from '../../constants/logMessages.js';
 import { withAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 

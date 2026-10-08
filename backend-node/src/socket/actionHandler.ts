@@ -5,10 +5,12 @@ import type {
   SocketData,
   DispatchActionPayload,
   ActionResponse,
+  ActionErrorCode,
 } from '@robbie-bylawyer/shared/types/socket';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import { checkPermission } from './permissionGuard.js';
+import { isActionType, parseClientAction } from './actionSchemas.js';
 import { getStorage } from '../db/meetingStorage.js';
 import { actionRateLimiter } from './rateLimiter.js';
 import { validateAction } from './actionValidator.js';
@@ -37,6 +39,18 @@ type TypedServer = Server<
   Record<string, never>,
   SocketData
 >;
+
+/** Refuse an action: the callback, and ACTION_REJECTED for the client's pending action */
+function reject(
+  socket: TypedSocket,
+  clientSequence: number,
+  callback: (response: ActionResponse) => void,
+  reason: string,
+  errorCode: ActionErrorCode,
+): void {
+  callback({ success: false, error: reason, errorCode });
+  socket.emit('ACTION_REJECTED', { clientSequence, reason, errorCode });
+}
 
 /**
  * Handle DISPATCH_ACTION socket event
@@ -78,29 +92,40 @@ export async function handleDispatchAction(
       return;
     }
 
+    // The action's type must be one of the meeting's actions (an own key, never a prototype
+    // key), and the sender's role allowed to send it
+    const actionType: unknown = (data.action as { type?: unknown }).type;
+    if (!isActionType(actionType)) {
+      reject(socket, data.clientSequence, callback, 'Unknown action type', 'INVALID_ACTION');
+      return;
+    }
+    if (!checkPermission(socket.data.role, actionType)) {
+      reject(
+        socket,
+        data.clientSequence,
+        callback,
+        `Permission denied: ${socket.data.role} cannot perform ${actionType}`,
+        'PERMISSION_DENIED',
+      );
+      return;
+    }
+
+    // Its shape: every field of the right type and within its bounds, and nothing else. From
+    // here on only the parsed action is read.
+    const parsed = parseClientAction(data.action);
+    if (!parsed.success) {
+      reject(socket, data.clientSequence, callback, parsed.error, 'VALIDATION_FAILED');
+      return;
+    }
+    const action = parsed.action;
+
     // Validate role change restrictions
-    const roleChangeError = validateRoleChange(data.action, socket.data);
+    const roleChangeError = validateRoleChange(action, socket.data);
     if (roleChangeError) {
       callback({
         success: false,
         error: roleChangeError.error,
         errorCode: roleChangeError.errorCode,
-      });
-      return;
-    }
-
-    // Check permission
-    const permitted = checkPermission(socket.data.role, data.action.type);
-    if (!permitted) {
-      callback({
-        success: false,
-        error: `Permission denied: ${socket.data.role} cannot perform ${data.action.type}`,
-        errorCode: 'PERMISSION_DENIED',
-      });
-      socket.emit('ACTION_REJECTED', {
-        clientSequence: data.clientSequence,
-        reason: `Permission denied for action ${data.action.type}`,
-        errorCode: 'PERMISSION_DENIED',
       });
       return;
     }
@@ -120,7 +145,7 @@ export async function handleDispatchAction(
     // Quorum warning for voting actions (allow but log warning). Attendance counts members on
     // a device or marked present, the headcount, and proxies when they count; never guests.
     let votingWithoutQuorum = false;
-    if (data.action.type === 'OPEN_VOTING') {
+    if (action.type === 'OPEN_VOTING') {
       const attendance = attendanceSummary(meeting.state);
       if (!attendance.hasQuorum) {
         votingWithoutQuorum = true;
@@ -131,46 +156,17 @@ export async function handleDispatchAction(
       }
     }
 
-    // Voter membership validation
-    if (data.action.type === 'CAST_VOTE') {
-      const voter = meeting.state.members.find((m) => m.id === userId);
-      if (!voter) {
-        callback({
-          success: false,
-          error: 'You are not a member of this meeting',
-          errorCode: 'NOT_A_MEMBER',
-        });
-        return;
-      }
-      if (!voter.present) {
-        callback({
-          success: false,
-          error: 'You must be present to vote',
-          errorCode: 'NOT_PRESENT',
-        });
-        return;
-      }
-      if (!meeting.state.votingOpen) {
-        callback({
-          success: false,
-          error: 'Voting is not open',
-          errorCode: 'VOTING_CLOSED',
-        });
-        return;
-      }
-    }
-
     // Enrich action with server-authoritative values
-    let enrichedAction = enrichAction(data.action, socket.data, meeting.state.members);
+    let enrichedAction = enrichAction(action, socket.data, meeting.state.members);
 
     // Special enrichment for OPEN_VOTING - add quorum warning flag
-    if (data.action.type === 'OPEN_VOTING' && votingWithoutQuorum) {
+    if (action.type === 'OPEN_VOTING' && votingWithoutQuorum) {
       enrichedAction = { ...enrichedAction, withoutQuorum: true } as MeetingAction;
     }
 
     // Special enrichment for SET_MEMBER_ROLE: find the current chair (the enricher records who
     // made the change)
-    if (data.action.type === 'SET_MEMBER_ROLE') {
+    if (action.type === 'SET_MEMBER_ROLE') {
       const roleAction = enrichedAction as {
         type: 'SET_MEMBER_ROLE';
         targetMemberId: number;
@@ -256,7 +252,7 @@ export async function handleDispatchAction(
       state: latest.state,
       stateVersion: latest.stateVersion,
       triggeredBy: {
-        actionType: data.action.type,
+        actionType: action.type,
         userId,
       },
     });

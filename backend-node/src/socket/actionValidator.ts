@@ -49,6 +49,26 @@ function isPresiding(state: MeetingState, memberId: number | undefined): boolean
   return role === 'chair' || role === 'admin';
 }
 
+/**
+ * Why the member with this id can't vote now, or null when they can: they must be in the meeting
+ * and present. Checked against the state the vote is applied to, so a member marked absent a
+ * moment before isn't counted.
+ */
+function checkVoterPresent(state: MeetingState, voterId: number): ValidationResult | null {
+  const voter = state.members.find((m) => m.id === voterId);
+  if (!voter) {
+    return {
+      valid: false,
+      error: 'You are not a member of this meeting',
+      errorCode: 'NOT_A_MEMBER',
+    };
+  }
+  if (!voter.present) {
+    return { valid: false, error: 'You must be present to vote', errorCode: 'NOT_PRESENT' };
+  }
+  return null;
+}
+
 /** Whether an election is under way: nominations open or closed, or a ballot */
 function isElectionUnderway(state: MeetingState): boolean {
   return state.nominationsOpen || !!state.currentNominationPosition || !!state.currentElection;
@@ -416,7 +436,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'CAST_VOTE':
+    case 'CAST_VOTE': {
+      const notVoting = checkVoterPresent(state, action.voterId);
+      if (notVoting) return notVoting;
       if (!state.votingOpen) {
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
@@ -459,6 +481,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         }
       }
       return { valid: true };
+    }
 
     case 'CLOSE_VOTING': {
       if (!state.votingOpen) {
@@ -940,7 +963,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'CAST_BALLOT':
+    case 'CAST_BALLOT': {
+      const notVoting = checkVoterPresent(state, action.voterId);
+      if (notVoting) return notVoting;
       if (!state.currentElection) {
         return { valid: false, error: 'No election in progress', errorCode: 'NO_ELECTION' };
       }
@@ -959,6 +984,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         };
       }
       return { valid: true };
+    }
 
     case 'SET_FLOOR_BALLOTS': {
       if (!state.currentElection) {
