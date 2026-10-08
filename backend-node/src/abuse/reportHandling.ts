@@ -12,7 +12,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { prisma } from '../db/prisma.js';
-import { normalizeEmail } from '../auth/signInService.js';
+// Not from signInService, which would start the email service in the script
+import { normalizeEmail } from '../auth/normalizeEmail.js';
 import { deleteFile, getFullPath, uploadRoot } from '../bylawyer/services/fileStorage.js';
 
 export const USAGE = `Usage (from backend-node, or /app/backend-node in the image):

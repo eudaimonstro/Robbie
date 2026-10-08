@@ -2,6 +2,7 @@ import { prisma } from '../db/prisma.js';
 import { acceptPendingInvites } from '../orgs/membershipService.js';
 import { sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
+import { normalizeEmail } from './normalizeEmail.js';
 import type { SessionUser } from './sessionService.js';
 
 export const CODE_LIFETIME_MS = 15 * 60 * 1000;
@@ -24,9 +25,7 @@ export class SignInError extends Error {
   }
 }
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export { normalizeEmail };
 
 // Test sign-in: outside production, ENABLE_TEST_AUTH=true makes a fixed code sign in any email
 function isTestCode(code: string): boolean {
