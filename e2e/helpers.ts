@@ -5,7 +5,8 @@ import {
   type Page,
   type TestInfo,
 } from '@playwright/test';
-import { BASE_URL } from './env';
+import pg from 'pg';
+import { BASE_URL, DATABASE_URL } from './env';
 
 /**
  * The demo's people (backend-node/src/demo/demoSeed.ts): named, past the terms step, and signed in
@@ -40,10 +41,22 @@ export const PHONE: BrowserContextOptions = {
 };
 
 /**
- * Sign in the way a person does: the sign-in page, the email, then the test code. The global
- * setup clears the sign-in codes, so the hourly limit on codes per email never trips a run.
+ * Forget the codes this person asked for, so the hourly limit on codes per email (five from one
+ * address, which every browser in a run shares) never trips a run that signs them in often
  */
+async function forgetSignInCodes(email: string): Promise<void> {
+  const client = new pg.Client({ connectionString: DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query('DELETE FROM "SignInCode" WHERE email = $1', [email]);
+  } finally {
+    await client.end();
+  }
+}
+
+/** Sign in the way a person does: the sign-in page, the email, then the test code */
 export async function signInThroughPage(page: Page, email: string): Promise<void> {
+  await forgetSignInCodes(email);
   await page.goto('/sign-in');
   await page.getByLabel('Email').fill(email);
   await page.getByRole('button', { name: 'Send code' }).click();

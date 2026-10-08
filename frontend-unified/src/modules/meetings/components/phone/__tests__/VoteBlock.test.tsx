@@ -26,17 +26,17 @@ describe('VoteBlock', () => {
     const { dispatch, answer } = answeredLater();
     const { rerender } = render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
     expect(screen.getByRole('status').textContent).toBe('Sending your vote...');
-    expect(screen.getByRole('button', { name: 'Vote yea' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Vote yes' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Vote yea' }).getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Vote yes' }).getAttribute('aria-busy')).toBe('true');
 
     await answer(true);
     expect(screen.queryByText('Sending your vote...')).toBeNull();
     // Still shown as tapped while the update with it is on the way
-    expect(screen.getByRole('button', { name: 'Vote yea' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Vote yes' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
 
@@ -54,11 +54,11 @@ describe('VoteBlock', () => {
     const { dispatch, answer } = answeredLater();
     render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vote nay' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote no' }));
     await answer(false);
 
     expect(screen.getByRole('alert').textContent).toContain('Your vote was not sent.');
-    expect(screen.getByRole('button', { name: 'Vote nay' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Vote no' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
 
@@ -72,14 +72,14 @@ describe('VoteBlock', () => {
     const dispatch = vi.fn(() => new Promise<boolean>((resolve) => answers.push(resolve)));
     render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Vote nay' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote no' }));
     await act(async () => answers[0](false));
 
     // The yea that failed is not shown: the nay is still on its way
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('status').textContent).toBe('Sending your vote...');
-    expect(screen.getByRole('button', { name: 'Vote nay' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Vote no' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
   });
@@ -87,7 +87,7 @@ describe('VoteBlock', () => {
   it('takes back "not sent" once the meeting shows the vote cast', async () => {
     const { dispatch, answer } = answeredLater();
     const { rerender } = render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
     await answer(false);
     expect(screen.getByRole('alert')).toBeTruthy();
 
@@ -104,9 +104,9 @@ describe('VoteBlock', () => {
   it('never shows the choice on a secret ballot, even while it is sent', () => {
     const { dispatch } = answeredLater();
     render(<VoteBlock state={{ ...open, votingMethod: 'ballot' }} dispatch={dispatch} me={me} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
     expect(screen.getByRole('status').textContent).toBe('Sending your vote...');
-    expect(screen.getByRole('button', { name: 'Vote yea' }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: 'Vote yes' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
   });
