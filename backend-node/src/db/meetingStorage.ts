@@ -126,6 +126,8 @@ class PostgresStorage implements StorageProvider {
   /** Each meeting's database work, one at a time: writes, flushes, checks and loads */
   private chains = new Map<string, Promise<unknown>>();
   private sweep: ReturnType<typeof setInterval> | null = null;
+  /** A flush failed and none has succeeded since: nothing is deferred until one does */
+  private writesFailing = false;
 
   /** Check the table is there: the migrations make it (npm run db:deploy) */
   async initialize(): Promise<void> {
@@ -209,7 +211,7 @@ class PostgresStorage implements StorageProvider {
       }
       record.lastUsed = Date.now();
 
-      if (options.defer) {
+      if (options.defer && !this.writesFailing) {
         record.state = state;
         record.stateVersion = newVersion;
         this.scheduleFlush(code, record, FLUSH_DELAY_MS);
@@ -241,6 +243,24 @@ class PostgresStorage implements StorageProvider {
       [JSON.stringify(state), version, code, record.id, record.persistedVersion],
     );
     if (result.rowCount === 0) {
+      const row = (
+        await pool.query<{ id: number; state_version: number }>(
+          'SELECT id, state_version FROM meetings WHERE code = $1',
+          [code],
+        )
+      ).rows[0];
+      if (
+        row &&
+        row.id === record.id &&
+        row.state_version > record.persistedVersion &&
+        row.state_version <= record.stateVersion
+      ) {
+        // An earlier write of ours landed though its answer was lost (the connection dropped
+        // after the commit): the table has one of the states this server holds. Carry on from it.
+        record.persistedVersion = row.state_version;
+        if (row.state_version === version) return this.written(record);
+        return this.write(code, record, state, version);
+      }
       if (record.stateVersion !== record.persistedVersion) {
         logger.warn(
           { code },
@@ -248,17 +268,19 @@ class PostgresStorage implements StorageProvider {
         );
       }
       this.drop(code);
-      const exists = await pool.query('SELECT 1 FROM meetings WHERE code = $1', [code]);
-      return {
-        success: false,
-        error: exists.rows.length === 0 ? 'NOT_FOUND' : 'VERSION_CONFLICT',
-      };
+      return { success: false, error: row ? 'VERSION_CONFLICT' : 'NOT_FOUND' };
     }
     record.persistedVersion = version;
-    if (record.flushTimer) {
+    return this.written(record);
+  }
+
+  /** A write landed: nothing waits for the record, and deferring is safe again */
+  private written(record: LiveRecord): UpdateResult {
+    if (record.persistedVersion >= record.stateVersion && record.flushTimer) {
       clearTimeout(record.flushTimer);
       record.flushTimer = null;
     }
+    this.writesFailing = false;
     return { success: true };
   }
 
@@ -281,7 +303,9 @@ class PostgresStorage implements StorageProvider {
       try {
         await this.write(code, record, record.state, record.stateVersion);
       } catch (error) {
-        // The database is away: keep the state in memory and try again
+        // The database is away: keep the state in memory and try again, and write every change
+        // through meanwhile, so an action that can't be saved is refused rather than confirmed
+        this.writesFailing = true;
         this.scheduleFlush(code, record, FLUSH_RETRY_MS);
         throw error;
       }
@@ -335,7 +359,15 @@ class PostgresStorage implements StorageProvider {
     const codes = [...this.live.values()]
       .filter((record) => record.stateVersion !== record.persistedVersion)
       .map((record) => record.code);
-    await Promise.allSettled(codes.map((code) => this.flush(code)));
+    const results = await Promise.allSettled(codes.map((code) => this.flush(code)));
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        logger.error(
+          { err: result.reason, code: codes[i] },
+          "Couldn't save a live meeting's last changes",
+        );
+      }
+    });
   }
 
   forgetAll(): void {

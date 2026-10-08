@@ -18,6 +18,10 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30000,
   allowExitOnIdle: true,
+  // A query that hangs (a lock, a database in trouble) fails after 10 seconds rather than
+  // holding one of the ten connections and the meeting's queue behind it
+  statement_timeout: 10_000,
+  query_timeout: 10_000,
   connectionTimeoutMillis: 5000,
   ssl: process.env.DATABASE_URL ? databaseSsl(process.env.DATABASE_URL) : undefined,
 });

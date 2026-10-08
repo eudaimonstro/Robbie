@@ -100,6 +100,8 @@ interface Channel {
   /** The latest update waiting for the window to end */
   pending: { io: TypedServer; update: StateUpdatePayload } | null;
   sent: SentUpdate | null;
+  /** When the room was last sent anything */
+  sentAt: number;
 }
 
 const channels = new Map<string, Channel>();
@@ -204,6 +206,7 @@ function send(
   const sent = channel.sent && update.stateVersion >= channel.sent.version ? channel.sent : null;
   const slim = slimUpdate(update, sent);
   channel.sent = { version: update.stateVersion, state: update.state };
+  channel.sentAt = Date.now();
   deliver(io, meetingCode, slim);
 }
 
@@ -234,9 +237,10 @@ export function emitState(
   update: StateUpdatePayload,
   options: { immediate?: boolean } = {},
 ): void {
+  forgetIdleChannels();
   let channel = channels.get(meetingCode);
   if (!channel) {
-    channel = { timer: null, pending: null, sent: null };
+    channel = { timer: null, pending: null, sent: null, sentAt: Date.now() };
     channels.set(meetingCode, channel);
   }
   if (channel.timer && !options.immediate) {
@@ -253,6 +257,20 @@ export function emitState(
     waiting && waiting.update.stateVersion > update.stateVersion ? waiting : { io, update };
   send(latest.io, meetingCode, channel, latest.update);
   openWindow(meetingCode, channel);
+}
+
+/** A meeting's room sent nothing for this long is forgotten (its next update goes whole) */
+const IDLE_CHANNEL_MS = 60 * 60 * 1000;
+let lastIdleCheck = Date.now();
+
+/** Let go of the rooms of meetings quiet for an hour, at most once every ten minutes */
+function forgetIdleChannels(): void {
+  const now = Date.now();
+  if (now - lastIdleCheck < 10 * 60 * 1000) return;
+  lastIdleCheck = now;
+  for (const [code, channel] of channels) {
+    if (!channel.timer && now - channel.sentAt > IDLE_CHANNEL_MS) channels.delete(code);
+  }
 }
 
 /**

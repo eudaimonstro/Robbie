@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type { MeetingDispatch } from '../../types/socket';
@@ -28,27 +28,33 @@ export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
   const myVote = state.voterChoices[me.id];
   const voted = state.voters.includes(me.id);
   // The vote tapped, until the meeting's state shows it: "Sending" until the server answers,
-  // and "Not sent" with a way to send it again if it doesn't take it (offline, timed out)
-  const [pending, setPending] = useState<{ choice: Choice; answered: boolean } | null>(null);
+  // and "Not sent" with a way to send it again if it doesn't take it (offline, timed out). Each
+  // tap is its own request: an answer to an earlier one doesn't change what a later one shows.
+  const [pending, setPending] = useState<{
+    request: number;
+    choice: Choice;
+    answered: boolean;
+  } | null>(null);
   const [notSent, setNotSent] = useState<Choice | null>(null);
-  const shown =
-    pending && !(pending.answered && (myVote === pending.choice || (method === 'ballot' && voted)))
-      ? pending
-      : null;
+  const requests = useRef(0);
+  const cast = (choice: Choice) => myVote === choice || (method === 'ballot' && voted);
+  const shown = pending && !(pending.answered && cast(pending.choice)) ? pending : null;
+  // A vote the meeting shows as cast after all (sent again, or by another tab) is not "not sent"
+  const failed = notSent && !cast(notSent) ? notSent : null;
   const castVote = async (choice: Choice) => {
+    const request = ++requests.current;
     setNotSent(null);
-    setPending({ choice, answered: false });
+    setPending({ request, choice, answered: false });
     const sent = await dispatch({ type: 'CAST_VOTE', vote: choice, voterId: me.id });
+    // A later tap took over
+    if (request !== requests.current) return;
     if (sent === false) {
       setPending(null);
       setNotSent(choice);
       return;
     }
-    setPending({ choice, answered: true });
-    setTimeout(
-      () => setPending((p) => (p?.choice === choice && p.answered ? null : p)),
-      CONFIRMING_MS,
-    );
+    setPending({ request, choice, answered: true });
+    setTimeout(() => setPending((p) => (p?.request === request ? null : p)), CONFIRMING_MS);
   };
   // A secret ballot never shows a choice, not even this phone's own
   const pressed = (choice: Choice) =>
@@ -94,13 +100,13 @@ export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
         <p role="status" className="text-center text-sm text-ink-muted">
           Sending your vote...
         </p>
-      ) : notSent ? (
+      ) : failed ? (
         <div role="alert" className="flex items-center justify-center gap-3">
           <p className="text-sm font-medium text-caution-ink">Your vote was not sent.</p>
           <button
             type="button"
             className="btn-secondary btn-sm"
-            onClick={() => void castVote(notSent)}
+            onClick={() => void castVote(failed)}
           >
             Send again
           </button>

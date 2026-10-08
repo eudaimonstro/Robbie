@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -10,7 +10,7 @@ import type {
 import { roomManager } from './roomManager.js';
 import { getStorage, type MeetingRecord } from '../db/meetingStorage.js';
 import { joinFloodLimiter, joinRateLimiter } from './rateLimiter.js';
-import { applyAction, type ApplyActionResult } from './stateManager.js';
+import { applyAction, getMeetingState, type ApplyActionResult } from './stateManager.js';
 import { scheduleReconcile } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { emitState, publicState } from './statePublisher.js';
@@ -126,6 +126,15 @@ async function withPreviousMinutes(
   }
 }
 
+/** The meeting's state in memory now, or `known` if that is as new (or the meeting is gone) */
+async function latestState(
+  meetingCode: string,
+  known: { state: MeetingState; stateVersion: number },
+): Promise<{ state: MeetingState; stateVersion: number }> {
+  const now = await getMeetingState(meetingCode);
+  return now && now.stateVersion >= known.stateVersion ? now : known;
+}
+
 /** A join refused for too many attempts: when the client may try again */
 function refuseForNow(
   callback: (response: JoinMeetingResponse) => void,
@@ -211,10 +220,13 @@ export async function handleJoinMeeting(
       if (meeting.changed) {
         emitState(io, meetingCode, { state: meeting.state, stateVersion: meeting.stateVersion });
       }
+      // The state as it is now, read after joining the room: anything later reaches the
+      // socket as an update
+      const latest = await latestState(meetingCode, meeting);
       callback({
         success: true,
-        state: publicState(meeting.state, 'guest'),
-        stateVersion: meeting.stateVersion,
+        state: publicState(latest.state, 'guest'),
+        stateVersion: latest.stateVersion,
         members: roomManager.getMembers(meetingCode),
       });
       return;
@@ -318,10 +330,16 @@ export async function handleJoinMeeting(
       });
     }
 
+    // The state as it is now (other actions may have been applied while this join waited), read
+    // after joining the room: anything later reaches the socket as an update
+    const latest = await latestState(meetingCode, {
+      state: currentState,
+      stateVersion: currentVersion,
+    });
     callback({
       success: true,
-      state: publicState(currentState, role),
-      stateVersion: currentVersion,
+      state: publicState(latest.state, socket.data.role),
+      stateVersion: latest.stateVersion,
       members: roomManager.getMembers(meetingCode),
     });
   } catch (error) {

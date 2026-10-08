@@ -62,6 +62,29 @@ describe('the live meetings in memory', () => {
     expect(written.state.meetingLog.at(-1)?.message).toMatch(/Yea 1, Nay 1/);
   });
 
+  it('carries on when an earlier write landed though its answer was lost', async () => {
+    const opened = await getStorage().getOrCreateMeeting('MEM006', {
+      ...initialState,
+      meetingActive: true,
+      members: [member(1), member(2)],
+      votingOpen: true,
+    });
+    await applyAction('MEM006', { type: 'CAST_VOTE', vote: 'yea', voterId: 1 });
+    await applyAction('MEM006', { type: 'CAST_VOTE', vote: 'nay', voterId: 2 });
+    // The flush of the first vote reached the table, and its answer never came back
+    await pool.query('UPDATE meetings SET state_version = $1 WHERE code = $2', [
+      opened.stateVersion + 1,
+      'MEM006',
+    ]);
+
+    const closed = await applyAction('MEM006', { type: 'CLOSE_VOTING', timestamp: '' });
+
+    expect(closed).toMatchObject({ success: true, stateVersion: opened.stateVersion + 3 });
+    const written = await row('MEM006');
+    expect(written.version).toBe(opened.stateVersion + 3);
+    expect(written.state.meetingLog.at(-1)?.message).toMatch(/Yea 1, Nay 1/);
+  });
+
   it('writes what is waiting when the server shuts down', async () => {
     await getStorage().getOrCreateMeeting('MEM002', {
       ...initialState,

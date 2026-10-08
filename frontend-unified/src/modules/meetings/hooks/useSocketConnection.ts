@@ -21,6 +21,10 @@ const SERVER_URL: string | undefined = import.meta.env.VITE_SERVER_URL;
 export const STALE_AFTER_HIDDEN_MS = 20_000;
 /** The longest wait between tries of a join the server refused for now */
 const MAX_JOIN_RETRY_MS = 30_000;
+/** How long a request for the whole state waits for its answer before another may be sent */
+const STATE_REQUEST_TIMEOUT_MS = 5_000;
+/** Refused joins tried again before the screen says it is still trying */
+const JOIN_TRIES_BEFORE_SAYING = 3;
 /** How long an action waits for the server's answer */
 const ACTION_TIMEOUT_MS = 10_000;
 
@@ -158,7 +162,12 @@ export function useSocketConnection(
     const requestState = () => {
       if (requesting || !newSocket.connected) return;
       requesting = true;
+      // An answer that never comes (a connection about to drop) doesn't block the next request
+      const giveUp = setTimeout(() => {
+        requesting = false;
+      }, STATE_REQUEST_TIMEOUT_MS);
       newSocket.emit('REQUEST_STATE', (response) => {
+        clearTimeout(giveUp);
         requesting = false;
         if (
           response.success &&
@@ -181,6 +190,8 @@ export function useSocketConnection(
           retries = 0;
           joined = true;
           everJoined = true;
+          // Answered by the server: whatever the browser said, the device is online
+          setOffline(false);
           showState(response.state!, response.stateVersion ?? 0);
           setConnectedMembers(response.members || []);
           setIsConnected(true);
@@ -203,7 +214,12 @@ export function useSocketConnection(
             retryTimer = null;
             if (newSocket.connected) join();
           }, delay);
-          if (!everJoined) setError(null);
+          // A few tries in, say so, with what the server said; the tries go on
+          if (retries === JOIN_TRIES_BEFORE_SAYING) {
+            setError(`Still trying to join... ${response.error ?? ''}`.trim());
+          } else if (retries < JOIN_TRIES_BEFORE_SAYING && !everJoined) {
+            setError(null);
+          }
           return;
         }
         const message = response.error || 'Failed to join meeting';
@@ -213,6 +229,7 @@ export function useSocketConnection(
     };
 
     newSocket.on('connect', () => {
+      setOffline(false);
       joined = false;
       newestBeforeJoin = 0;
       join();

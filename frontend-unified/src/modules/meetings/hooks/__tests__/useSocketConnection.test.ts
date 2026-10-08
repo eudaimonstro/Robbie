@@ -487,6 +487,53 @@ describe('useSocketConnection updates and reconnects', () => {
     expect(result.current.state.quorum).toBe(6);
   });
 
+  it('says it is still trying, with what the server said, after a few refused tries', () => {
+    const refused = {
+      success: false,
+      error: "Couldn't join the meeting. Try again.",
+      retryAfterMs: 3000,
+    };
+    const { handlers } = scriptedSocket([refused, refused, refused, refused]);
+    const { result } = renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    expect(result.current.error).toBeNull();
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(4000));
+    expect(result.current.error).toBe(
+      "Still trying to join... Couldn't join the meeting. Try again.",
+    );
+    expect(result.current.joinError).toBeNull();
+  });
+
+  it('asks for the whole state again when a request goes unanswered', () => {
+    const handlers: Record<string, Handler> = {};
+    const socket = {
+      connected: true,
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers[event] = handler;
+      }),
+      emit: vi.fn((event: string, _data?: unknown, callback?: Handler) => {
+        if (event === 'JOIN_MEETING') callback?.({ success: true, state: base, stateVersion: 3 });
+        // REQUEST_STATE is never answered
+      }),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    io.mockReturnValueOnce(socket as never);
+    renderHook(() => useSocketConnection('DEMO', () => {}));
+    act(() => handlers.connect());
+    const gap = { state: base, stateVersion: 9, baseVersion: 7, tails: { meetingLog: 1 } };
+    const requests = () => socket.emit.mock.calls.filter(([event]) => event === 'REQUEST_STATE');
+
+    act(() => handlers.STATE_UPDATE(gap));
+    act(() => handlers.STATE_UPDATE({ ...gap, stateVersion: 10 }));
+    expect(requests()).toHaveLength(1);
+
+    act(() => vi.advanceTimersByTime(5000));
+    act(() => handlers.STATE_UPDATE({ ...gap, stateVersion: 11 }));
+    expect(requests()).toHaveLength(2);
+  });
+
   it('tries a join refused for now again, keeping the meeting on screen', () => {
     const { handlers, socket } = scriptedSocket([
       { success: true, state: base, stateVersion: 3 },

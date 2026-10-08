@@ -38,6 +38,7 @@ vi.mock('../socket/meetingRoles.js', () => ({
 }));
 vi.mock('../socket/stateManager.js', () => ({
   applyAction: async () => ({ success: true, state: initialState, stateVersion: 2, changed: true }),
+  getMeetingState: async () => ({ state: initialState, stateVersion: 2 }),
 }));
 vi.mock('../socket/presenceReconciler.js', () => ({ scheduleReconcile: () => {} }));
 

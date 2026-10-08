@@ -67,6 +67,40 @@ describe('VoteBlock', () => {
     expect(screen.getByRole('status').textContent).toBe('Sending your vote...');
   });
 
+  it('shows the latest tap while an earlier one is answered', async () => {
+    const answers: Array<(sent: boolean) => void> = [];
+    const dispatch = vi.fn(() => new Promise<boolean>((resolve) => answers.push(resolve)));
+    render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote nay' }));
+    await act(async () => answers[0](false));
+
+    // The yea that failed is not shown: the nay is still on its way
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('Sending your vote...');
+    expect(screen.getByRole('button', { name: 'Vote nay' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+  });
+
+  it('takes back "not sent" once the meeting shows the vote cast', async () => {
+    const { dispatch, answer } = answeredLater();
+    const { rerender } = render(<VoteBlock state={open} dispatch={dispatch} me={me} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    await answer(false);
+    expect(screen.getByRole('alert')).toBeTruthy();
+
+    rerender(
+      <VoteBlock
+        state={{ ...open, voters: [2], voterChoices: { 2: 'yea' } }}
+        dispatch={dispatch}
+        me={me}
+      />,
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('never shows the choice on a secret ballot, even while it is sent', () => {
     const { dispatch } = answeredLater();
     render(<VoteBlock state={{ ...open, votingMethod: 'ballot' }} dispatch={dispatch} me={me} />);

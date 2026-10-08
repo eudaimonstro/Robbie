@@ -11,6 +11,7 @@ import { requestOriginAllowed } from './middleware/originCheck.js';
 import { setupSocketHandlers } from './socket/socketHandler.js';
 import { initializeStorage, getStorage, shutdownStorage } from './db/meetingStorage.js';
 import { pool } from './db/client.js';
+import { acquireServerLock } from './db/serverLock.js';
 import { flushBroadcasts } from './socket/statePublisher.js';
 import { setIoInstance } from './socket/ioInstance.js';
 import {
@@ -71,6 +72,9 @@ const io = new Server<
 // Store io instance for access from other modules (e.g., sessionSockets)
 setIoInstance(io);
 
+/** The connection holding the database's server lock (db/serverLock.ts) */
+let serverLock: Awaited<ReturnType<typeof acquireServerLock>> = null;
+
 // Initialize storage and start server
 async function start() {
   // Refuse to start production misconfigured (no database, no way to send sign-in codes, no
@@ -83,6 +87,15 @@ async function start() {
   }
 
   try {
+    // One server per database: the live meetings are kept in this process's memory
+    serverLock = await acquireServerLock(process.env.DATABASE_URL!);
+    if (!serverLock) {
+      logger.error(
+        'Another Robbie server is running on this database: stop it first (one process runs the live meetings)',
+      );
+      process.exit(1);
+    }
+
     // Connect to databases
     await initializeStorage();
     await connectPrisma();
@@ -156,6 +169,7 @@ async function shutdown(signal: string) {
     await shutdownStorage();
     await disconnectPrisma();
     await pool.end();
+    await serverLock?.end();
   } catch (error) {
     logger.error({ err: error }, 'Error during storage shutdown');
   }
