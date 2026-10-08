@@ -14,7 +14,8 @@ import { largeJson } from '../../middleware/largeJson.js';
 import { validate } from '../../middleware/validate.js';
 import { logger } from '../../middleware/logger.js';
 import { orgIdParam, uuidParam } from '../../schemas/common.js';
-import { updateMinutesBody } from '../../schemas/minutes.js';
+import { revisionParams, updateMinutesBody } from '../../schemas/minutes.js';
+import { ApiError } from '../../middleware/apiError.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfMinutes, orgOfOrganization } from '../../orgs/resolvers.js';
 import { atLeast } from '../../orgs/roles.js';
@@ -34,6 +35,15 @@ export const ONLY_DRAFTS_REGENERATE = 'Only a draft can be written again from th
 export const NO_MEETING_RECORD = 'The meeting has no record to write the minutes from';
 export const MINUTES_BEFORE_MEETING =
   'These minutes are before a meeting; corrections are made there';
+
+/**
+ * A secretary's run of saves (the editor saves two seconds after typing stops) makes one
+ * revision: a save keeps the text it replaces only when the latest revision is older than
+ * this, or another editor's
+ */
+export const REVISION_COALESCE_MS = 10 * 60 * 1000;
+/** The revisions kept per minutes; the oldest go first */
+export const MAX_REVISIONS = 50;
 
 /** A minutes response: the text, its status, who did what, its meeting and organization */
 const MINUTES_SELECT = {
@@ -198,9 +208,30 @@ minutesRouter.put(
           SELECT status::text AS status, body FROM "Minutes" WHERE id = ${id} FOR UPDATE`;
         if (!current || current.status === 'approved') return false;
         if (current.status === 'published' && current.body !== body) {
-          await tx.minutesRevision.create({
-            data: { minutesId: id, body: current.body, editedById: req.user!.id },
+          const latest = await tx.minutesRevision.findFirst({
+            where: { minutesId: id },
+            orderBy: { editedAt: 'desc' },
+            select: { editedAt: true, editedById: true },
           });
+          const sameRun =
+            latest?.editedById === req.user!.id &&
+            Date.now() - latest.editedAt.getTime() < REVISION_COALESCE_MS;
+          if (!sameRun) {
+            await tx.minutesRevision.create({
+              data: { minutesId: id, body: current.body, editedById: req.user!.id },
+            });
+            const beyond = await tx.minutesRevision.findMany({
+              where: { minutesId: id },
+              orderBy: { editedAt: 'desc' },
+              skip: MAX_REVISIONS,
+              select: { id: true },
+            });
+            if (beyond.length > 0) {
+              await tx.minutesRevision.deleteMany({
+                where: { id: { in: beyond.map((revision) => revision.id) } },
+              });
+            }
+          }
         }
         await tx.minutes.update({ where: { id }, data: { body, updatedById: req.user!.id } });
         return true;
@@ -216,8 +247,8 @@ minutesRouter.put(
 
 /**
  * GET /api/minutes/:id/revisions
- * What published minutes said before each change, the latest change first: the text it
- * replaced, who made it and when (secretary)
+ * The changes to published minutes, the latest first: who made each and when (secretary). Each
+ * one's text, as it was before the change, is read by its id.
  */
 minutesRouter.get(
   '/minutes/:id/revisions',
@@ -226,15 +257,33 @@ minutesRouter.get(
   async (req, res) => {
     const revisions = await prisma.minutesRevision.findMany({
       where: { minutesId: req.params.id },
+      select: { id: true, editedAt: true, editedBy: { select: { id: true, name: true } } },
+      orderBy: { editedAt: 'desc' },
+    });
+    res.json(revisions);
+  },
+);
+
+/**
+ * GET /api/minutes/:id/revisions/:revisionId
+ * One revision with its text: the minutes as they were before that change (secretary)
+ */
+minutesRouter.get(
+  '/minutes/:id/revisions/:revisionId',
+  validate({ params: revisionParams }),
+  requireRole('secretary', byMinutes),
+  async (req, res) => {
+    const revision = await prisma.minutesRevision.findFirst({
+      where: { id: req.params.revisionId, minutesId: req.params.id },
       select: {
         id: true,
         body: true,
         editedAt: true,
         editedBy: { select: { id: true, name: true } },
       },
-      orderBy: { editedAt: 'desc' },
     });
-    res.json(revisions);
+    if (!revision) throw ApiError.notFound();
+    res.json(revision);
   },
 );
 

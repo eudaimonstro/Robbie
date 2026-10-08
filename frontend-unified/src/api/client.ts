@@ -484,8 +484,10 @@ export const minutes = {
   publish: (id: string) => request<MinutesRecord>(`/minutes/${id}/publish`, { method: 'POST' }),
   regenerate: (id: string) =>
     request<MinutesRecord>(`/minutes/${id}/regenerate`, { method: 'POST' }),
-  // Secretaries: what published minutes said before each change
+  // Secretaries: the changes to published minutes, and each one's text (what it replaced)
   revisions: (id: string) => request<MinutesRevision[]>(`/minutes/${id}/revisions`, {}, false),
+  revision: (id: string, revisionId: string) =>
+    request<MinutesRevisionText>(`/minutes/${id}/revisions/${revisionId}`, {}, false),
 };
 
 // Search the current version of each of an organization's documents, from 2 characters. Not
@@ -758,13 +760,16 @@ export interface MinutesSummary {
 }
 
 /** A meeting's minutes, with who did what and the meeting they are of */
-/** Published minutes' text before a change: who changed it, and when */
+/** A change to published minutes: who made it, and when */
 export interface MinutesRevision {
   id: string;
-  /** The text the change replaced (Markdown) */
-  body: string;
   editedAt: string;
   editedBy: { id: number; name: string | null } | null;
+}
+
+/** A change with the text it replaced (Markdown) */
+export interface MinutesRevisionText extends MinutesRevision {
+  body: string;
 }
 
 export interface MinutesRecord {

@@ -4,6 +4,7 @@ import type { OrgRole } from '../generated/prisma/client.js';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import {
+  MAX_REVISIONS,
   MINUTES_APPROVED,
   MINUTES_BEFORE_MEETING,
   NO_MEETING_RECORD,
@@ -64,6 +65,14 @@ describeRules('minutes rules', [
     path: (f) => `/api/minutes/${f.minutes}/revisions`,
     min: 'secretary',
     ok: 200,
+  },
+  {
+    // No such revision: the rule lets a secretary through to the 404
+    method: 'get',
+    route: '/minutes/:id/revisions/:revisionId',
+    path: (f) => `/api/minutes/${f.minutes}/revisions/00000000-0000-4000-8000-000000000000`,
+    min: 'secretary',
+    ok: 404,
   },
 ]);
 
@@ -374,12 +383,67 @@ describe('minutes', () => {
       cookie: as('secretary'),
     });
     expect(res.status).toBe(200);
-    // The latest change first: the text it replaced, who made it and when
+    // The latest change first: who made it and when, without the text
     expect(res.body).toMatchObject([
-      { body: '# Corrected once', editedBy: { id: f.users.admin.id, name: 'A admin' } },
-      { body: before, editedBy: { id: f.users.secretary.id, name: 'A secretary' } },
+      { editedBy: { id: f.users.admin.id, name: 'A admin' } },
+      { editedBy: { id: f.users.secretary.id, name: 'A secretary' } },
     ]);
+    expect(res.body[0]).not.toHaveProperty('body');
     expect(res.body[0].editedAt).toBeTruthy();
+
+    // Each one's text, by its id: the minutes as they were before that change
+    const texts = await Promise.all(
+      res.body.map((r: { id: string }) =>
+        call('get', `/api/minutes/${f.minutes}/revisions/${r.id}`, { cookie: as('secretary') }),
+      ),
+    );
+    expect(texts.map((t) => t.body.body)).toEqual(['# Corrected once', before]);
+    // Not through another meeting's minutes
+    const elsewhere = await call(
+      'get',
+      `/api/minutes/${f.draftMinutes}/revisions/${res.body[0].id}`,
+      { cookie: as('secretary') },
+    );
+    expect(elsewhere.status).toBe(404);
+  });
+
+  it("make one revision of a secretary's run of saves, for ten minutes", async () => {
+    const before = (await prisma.minutes.findUniqueOrThrow({ where: { id: f.minutes } })).body;
+    const edit = (body: string) =>
+      call('put', `/api/minutes/${f.minutes}`, { cookie: as('secretary'), body: { body } });
+    for (const text of ['# A', '# Ab', '# Abc']) expect((await edit(text)).status).toBe(200);
+    expect(await prisma.minutesRevision.findMany({ select: { body: true } })).toEqual([
+      { body: before },
+    ]);
+
+    // Ten minutes on, the next save starts a new one
+    await prisma.minutesRevision.updateMany({
+      data: { editedAt: new Date(Date.now() - 11 * 60 * 1000) },
+    });
+    expect((await edit('# Abcd')).status).toBe(200);
+    expect(
+      (await prisma.minutesRevision.findMany({ orderBy: { editedAt: 'asc' } })).map((r) => r.body),
+    ).toEqual([before, '# Abc']);
+  });
+
+  it(`keep the latest ${MAX_REVISIONS} revisions`, async () => {
+    const old = Date.now() - 24 * 60 * 60 * 1000;
+    await prisma.minutesRevision.createMany({
+      data: Array.from({ length: MAX_REVISIONS }, (_, i) => ({
+        minutesId: f.minutes,
+        body: `Revision ${i}`,
+        editedById: f.users.admin.id,
+        editedAt: new Date(old + i * 60_000),
+      })),
+    });
+    const res = await call('put', `/api/minutes/${f.minutes}`, {
+      cookie: as('secretary'),
+      body: { body: '# Newest' },
+    });
+    expect(res.status).toBe(200);
+    const kept = await prisma.minutesRevision.findMany({ orderBy: { editedAt: 'asc' } });
+    expect(kept).toHaveLength(MAX_REVISIONS);
+    expect(kept[0].body).toBe('Revision 1');
   });
 
   it('keep no revisions of a draft', async () => {

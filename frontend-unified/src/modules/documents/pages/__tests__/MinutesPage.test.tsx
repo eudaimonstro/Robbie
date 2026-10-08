@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   publish: vi.fn(),
   regenerate: vi.fn(),
   revisions: vi.fn(),
+  revision: vi.fn(),
 }));
 vi.mock('../../../../api/client', async (importOriginal) => ({
   HttpError: (await importOriginal<typeof import('../../../../api/client')>()).HttpError,
@@ -523,19 +524,24 @@ describe('MinutesPage', () => {
 
   it('shows the secretary what published minutes said before each change', async () => {
     api.get.mockResolvedValue(record({ status: 'published' }));
-    api.revisions.mockResolvedValue([
-      {
-        id: 'r1',
-        body: 'Twenty members were present.',
-        editedAt: '2026-10-22T15:30:00.000Z',
-        editedBy: { id: 2, name: 'Pat Lee' },
-      },
-    ]);
+    const change = {
+      id: 'r1',
+      editedAt: '2026-10-22T15:30:00.000Z',
+      editedBy: { id: 2, name: 'Pat Lee' },
+    };
+    api.revisions.mockResolvedValue([change]);
+    api.revision.mockResolvedValue({ ...change, body: 'Twenty members were present.' });
     renderAt();
     const changes = await screen.findByRole('region', { name: 'Changes since publishing' });
     expect(api.revisions).toHaveBeenCalledWith('m1');
-    expect(within(changes).getByText(/Changed by Pat Lee on/)).toBeTruthy();
-    expect(within(changes).getByText('Twenty members were present.')).toBeTruthy();
+    // The text is read when the change is opened
+    expect(api.revision).not.toHaveBeenCalled();
+    const summary = within(changes).getByText(/Changed by Pat Lee on/);
+    const details = summary.closest('details')!;
+    details.open = true;
+    fireEvent(details, new Event('toggle'));
+    expect(await within(changes).findByText('Twenty members were present.')).toBeTruthy();
+    expect(api.revision).toHaveBeenCalledWith('m1', 'r1');
   });
 
   it("doesn't ask a member for the changes, nor a secretary for a draft's", async () => {

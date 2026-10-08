@@ -4,9 +4,9 @@ import { minutes as minutesApi, type MinutesRevision } from '../../../api/client
 import { formatMeetingTimeWithYear } from '../../../utils/dates';
 
 /**
- * For the secretary: what published minutes said before each change since they were published,
- * the latest change first, with who made it and when. Read again when the minutes change.
- * Nothing shows until there is a change.
+ * For the secretary: the changes to published minutes since they were published, the latest
+ * first, with who made each and when. A change's text (the minutes before it) is read when it
+ * is opened. Read again when the minutes change; nothing shows until there is a change.
  */
 export default function MinutesRevisions({
   minutesId,
@@ -48,19 +48,52 @@ export default function MinutesRevisions({
       <ul className="mt-3 divide-y divide-rule">
         {revisions.map((revision) => (
           <li key={revision.id} className="py-2">
-            <details>
-              <summary className="cursor-pointer text-sm text-ink">
-                Changed by {revision.editedBy?.name ?? 'a former member'} on{' '}
-                {formatMeetingTimeWithYear(revision.editedAt, timeZone)}
-              </summary>
-              <p className="label-caps mt-2">The text before this change</p>
-              <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-sm text-ink">
-                {revision.body}
-              </pre>
-            </details>
+            <RevisionText minutesId={minutesId} revision={revision} timeZone={timeZone} />
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** One change, its text read the first time it is opened */
+function RevisionText({
+  minutesId,
+  revision,
+  timeZone,
+}: {
+  minutesId: string;
+  revision: MinutesRevision;
+  timeZone: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const onToggle = (open: boolean) => {
+    if (!open || text !== null) return;
+    setFailed(false);
+    minutesApi
+      .revision(minutesId, revision.id)
+      .then((full) => setText(full.body))
+      .catch(() => setFailed(true));
+  };
+
+  return (
+    <details onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="cursor-pointer text-sm text-ink">
+        Changed by {revision.editedBy?.name ?? 'a former member'} on{' '}
+        {formatMeetingTimeWithYear(revision.editedAt, timeZone)}
+      </summary>
+      <p className="label-caps mt-2">The text before this change</p>
+      {failed ? (
+        <p className="mt-1 text-sm text-caution-ink">Couldn&apos;t load this text.</p>
+      ) : text === null ? (
+        <p className="mt-1 text-sm text-ink-muted">Loading...</p>
+      ) : (
+        <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-sm text-ink">
+          {text}
+        </pre>
+      )}
+    </details>
   );
 }
