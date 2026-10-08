@@ -18,6 +18,7 @@ import {
 import { uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
 import { deleteFiles } from '../services/fileStorage.js';
+import { HIDDEN_ATTACHMENT_FIELDS } from '../services/attachmentFields.js';
 import { fromBody, fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
 import { orgOfAgendaItem, orgOfPacket } from '../../orgs/resolvers.js';
 
@@ -57,6 +58,7 @@ agendaItemsRouter.get(
         orderBy: { position: 'asc' },
         include: {
           attachments: {
+            omit: HIDDEN_ATTACHMENT_FIELDS,
             orderBy: { position: 'asc' },
             include: {
               document: {
@@ -147,6 +149,7 @@ agendaItemsRouter.get(
         where: { id },
         include: {
           attachments: {
+            omit: HIDDEN_ATTACHMENT_FIELDS,
             orderBy: { position: 'asc' },
             include: {
               document: {
@@ -251,6 +254,7 @@ agendaItemsRouter.put(
         },
         include: {
           attachments: {
+            omit: HIDDEN_ATTACHMENT_FIELDS,
             orderBy: { position: 'asc' },
             include: {
               document: {

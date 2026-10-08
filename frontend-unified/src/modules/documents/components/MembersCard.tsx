@@ -84,7 +84,8 @@ export function MembersCard() {
   const canChangeRole = (target: OrgRole) => isAdmin && (role === 'owner' || target !== 'owner');
   const canRemove = (member: OrgMember) => canChangeRole(member.role) && member.userId !== user?.id;
 
-  const nameOf = (member: OrgMember) => member.name ?? member.email;
+  // Admins see every email; others see names, and a member without one yet as such
+  const nameOf = (member: OrgMember) => member.name ?? member.email ?? 'A member without a name';
 
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -159,7 +160,9 @@ export function MembersCard() {
                       <span className="font-normal text-ink-muted"> (you)</span>
                     )}
                   </p>
-                  <p className="text-sm text-ink-muted truncate">{member.email}</p>
+                  {member.email && (
+                    <p className="text-sm text-ink-muted truncate">{member.email}</p>
+                  )}
                 </div>
                 {canChangeRole(member.role) ? (
                   <div className="flex items-center gap-2">

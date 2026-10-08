@@ -15,6 +15,7 @@ import { ApiError } from '../../middleware/apiError.js';
 import { meetingCodeLimiter } from '../../middleware/userLimits.js';
 import { randomMeetingCode } from '../services/meetingCodes.js';
 import { deleteFiles } from '../services/fileStorage.js';
+import { HIDDEN_ATTACHMENT_FIELDS } from '../services/attachmentFields.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
 import { atLeast, roleNeeded } from '../../orgs/roles.js';
@@ -67,6 +68,7 @@ const byPacket = fromParam('id', orgOfPacket);
 // What a packet response includes
 const packetInclude = {
   attachments: {
+    omit: HIDDEN_ATTACHMENT_FIELDS,
     orderBy: { position: 'asc' as const },
     include: { document: { select: { id: true, title: true, docType: true } } },
   },
@@ -74,6 +76,7 @@ const packetInclude = {
     orderBy: { position: 'asc' as const },
     include: {
       attachments: {
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         orderBy: { position: 'asc' as const },
         include: { document: { select: { id: true, title: true, docType: true } } },
       },
@@ -241,12 +244,12 @@ packetsRouter.put(
           chairUserId,
         },
         include: {
-          attachments: {
-            orderBy: { position: 'asc' },
-          },
+          attachments: { omit: HIDDEN_ATTACHMENT_FIELDS, orderBy: { position: 'asc' } },
           agendaItems: {
             orderBy: { position: 'asc' },
-            include: { attachments: { orderBy: { position: 'asc' } } },
+            include: {
+              attachments: { omit: HIDDEN_ATTACHMENT_FIELDS, orderBy: { position: 'asc' } },
+            },
           },
         },
       });

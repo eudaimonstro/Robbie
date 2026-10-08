@@ -541,7 +541,8 @@ export interface OrganizationWithRole extends Organization {
 export interface OrgMember {
   userId: number;
   name: string | null;
-  email: string;
+  /** For admins, and for the member themselves */
+  email?: string;
   role: OrgRole;
 }
 

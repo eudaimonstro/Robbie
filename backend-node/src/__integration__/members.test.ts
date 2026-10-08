@@ -293,6 +293,26 @@ describe('members', () => {
         expect.objectContaining({ id: f.invite, email: 'pending@example.org', role: 'member' }),
       ]);
     });
+
+    it("gives members' emails to admins only, and each person their own", async () => {
+      for (const role of ['viewer', 'member', 'secretary'] as const) {
+        const res = await call('get', members(), { cookie: f.users[role].cookie });
+        const withEmail = res.body.members.filter((m: { email?: string }) => m.email);
+        expect(withEmail, role).toEqual([
+          expect.objectContaining({ userId: f.users[role].id, email: `${role}@example.org` }),
+        ]);
+        expect(res.body.members[1], role).toEqual({
+          userId: res.body.members[1].userId,
+          name: res.body.members[1].name,
+          role: res.body.members[1].role,
+          ...(res.body.members[1].userId === f.users[role].id && {
+            email: `${role}@example.org`,
+          }),
+        });
+      }
+      const asAdmin = await call('get', members(), { cookie: f.users.admin.cookie });
+      expect(asAdmin.body.members.every((m: { email?: string }) => m.email)).toBe(true);
+    });
   });
 
   describe('leaving and removing', () => {

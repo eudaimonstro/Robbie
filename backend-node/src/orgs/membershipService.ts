@@ -16,7 +16,8 @@ export const LAST_OWNER = 'An organization needs at least one owner';
 export interface MemberView {
   userId: number;
   name: string | null;
-  email: string;
+  /** Left out of a list for someone below admin, but for their own */
+  email?: string;
   role: OrgRole;
 }
 
@@ -108,10 +109,15 @@ async function checkAnotherOwner(tx: Tx, organizationId: string): Promise<void> 
   if (owners <= 1) throw new OrgError(409, LAST_OWNER);
 }
 
-/** The members, and for admins the pending additions */
+/**
+ * The members by name and role. Admins (`forAdmin`) also get their emails and the pending
+ * additions; anyone else gets only their own email: members' addresses are for those who add
+ * and remove them.
+ */
 export async function listMembers(
   organizationId: string,
-  withInvites: boolean,
+  forAdmin: boolean,
+  viewerId: number | null = null,
   now: Date = new Date(),
 ): Promise<{ members: MemberView[]; invites?: InviteView[] }> {
   const rows = await prisma.organizationMember.findMany({
@@ -122,10 +128,10 @@ export async function listMembers(
   const members = rows.map((row) => ({
     userId: row.userId,
     name: row.user.name,
-    email: row.user.email,
+    ...((forAdmin || row.userId === viewerId) && { email: row.user.email }),
     role: row.role,
   }));
-  if (!withInvites) return { members };
+  if (!forAdmin) return { members };
 
   const invites = await prisma.organizationInvite.findMany({
     where: { organizationId, ...pending(now) },

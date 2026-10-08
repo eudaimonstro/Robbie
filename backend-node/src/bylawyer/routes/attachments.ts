@@ -27,6 +27,7 @@ import { logger } from '../../middleware/logger.js';
 import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { fromParam, requireRole, type OrgResolver } from '../../orgs/requireRole.js';
 import { orgOfAgendaItem, orgOfAttachment, orgOfPacket } from '../../orgs/resolvers.js';
+import { HIDDEN_ATTACHMENT_FIELDS } from '../services/attachmentFields.js';
 
 export const attachmentsRouter: RouterType = Router();
 
@@ -204,6 +205,7 @@ attachmentsRouter.post(
               // Who uploaded it, for a report about the file (src/abuse/reportHandling.ts)
               uploadedBy: req.user!.email,
             },
+            omit: HIDDEN_ATTACHMENT_FIELDS,
           });
         });
       } catch (error) {
@@ -307,6 +309,7 @@ attachmentsRouter.post(
           meetingPacketId: packetId || undefined,
           agendaItemId: agendaItemId || undefined,
         },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },
@@ -336,6 +339,7 @@ attachmentsRouter.get(
 
       const attachment = await prisma.attachment.findUnique({
         where: { id },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },
@@ -489,6 +493,7 @@ attachmentsRouter.put(
           description,
           position,
         },
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         include: {
           document: {
             select: { id: true, title: true, docType: true },

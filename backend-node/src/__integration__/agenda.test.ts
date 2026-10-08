@@ -304,4 +304,34 @@ describe('agenda items and attachments across packets', () => {
     expect(await prisma.attachment.count({ where: { agendaItemId: f.item } })).toBe(0);
     expect(fs.existsSync(file)).toBe(false);
   });
+
+  it("never send who uploaded a file or where it's stored", async () => {
+    await prisma.attachment.update({
+      where: { id: f.upload },
+      data: { uploadedBy: f.users.secretary.email },
+    });
+    await prisma.attachment.create({
+      data: {
+        type: 'uploaded_file',
+        displayName: 'On the item',
+        storagePath: 'ORGA01/item.txt',
+        uploadedBy: f.users.secretary.email,
+        agendaItemId: f.item,
+      },
+    });
+    const cookie = f.users.viewer.cookie;
+    const responses = await Promise.all([
+      call('get', `/api/packets/${f.packet.code}`, { cookie }),
+      call('get', `/api/attachments/${f.upload}`, { cookie }),
+      call('get', `/api/packets/${f.packet.id}/agenda`, { cookie }),
+      call('get', `/api/agenda-items/${f.item}`, { cookie }),
+    ]);
+    for (const res of responses) {
+      expect(res.status).toBe(200);
+      const text = JSON.stringify(res.body);
+      expect(text).not.toContain('uploadedBy');
+      expect(text).not.toContain('storagePath');
+      expect(text).not.toContain('secretary@example.org');
+    }
+  });
 });

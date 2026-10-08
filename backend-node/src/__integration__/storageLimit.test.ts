@@ -118,7 +118,11 @@ describe('organization storage limit', () => {
     process.env.ORG_STORAGE_LIMIT_MB = '1';
     const first = await upload(f, 600 * 1024);
     expect(first.status).toBe(201);
-    expect(first.body.uploadedBy).toBe(f.users.secretary.email);
+    // Recorded for a report about the file, and never sent
+    const stored = await prisma.attachment.findUniqueOrThrow({ where: { id: first.body.id } });
+    expect(stored.uploadedBy).toBe(f.users.secretary.email);
+    expect(first.body).not.toHaveProperty('uploadedBy');
+    expect(first.body).not.toHaveProperty('storagePath');
 
     const second = await upload(f, 600 * 1024);
     expect(second.status).toBe(413);
