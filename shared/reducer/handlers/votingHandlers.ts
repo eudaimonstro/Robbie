@@ -1,5 +1,9 @@
 import type { CompletedMotion, MeetingAction, Votes } from '../../types/index.js';
-import { LOG_QUORUM_WARNING, logRollCallVote } from '../../constants/logMessages.js';
+import {
+  LOG_QUORUM_WARNING,
+  logDivisionCalled,
+  logRollCallVote,
+} from '../../constants/logMessages.js';
 import { NO_VOTES, addVotes, calculateVoteResult } from '../../utils/voteCalculator.js';
 import { decide } from './decisions.js';
 import { decisionContext, quorumNow } from './records.js';
@@ -76,6 +80,22 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         voters: newVoters,
         voterChoices: newVoterChoices,
         meetingLog: rollCallLog,
+      };
+    }
+
+    case 'REQUEST_DIVISION': {
+      const typedAction = action as Extract<MeetingAction, { type: 'REQUEST_DIVISION' }>;
+      // A member doubts the voice vote: it is retaken as a counted vote, on devices and by the
+      // chair's count of the room
+      const caller = typedAction.fromFloor
+        ? null
+        : state.members.find((m) => m.id === typedAction.requesterId)?.name;
+      return {
+        ...state,
+        votingMethod: 'standard',
+        floorVotes: NO_VOTES,
+        divisionCalled: true,
+        meetingLog: log(typedAction.timestamp, logDivisionCalled(caller ?? null)),
       };
     }
 

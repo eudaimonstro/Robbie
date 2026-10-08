@@ -541,3 +541,49 @@ describe('withdrawing a motion', () => {
     });
   });
 });
+
+describe('a division of the assembly', () => {
+  const voiceVote = () => {
+    let s = moved(inSession(), 'alice', 'mainMotion', 'Buy a new grill', 'ben');
+    s = act(s, 'dana', { type: 'SET_VOTING_METHOD', method: 'voice' });
+    return act(s, 'dana', { type: 'OPEN_VOTING', voteTimerEnd: null });
+  };
+
+  it('turns a voice vote into a counted vote, on devices and in the room, and the minutes say so', () => {
+    let s = act(voiceVote(), 'dana', { type: 'SET_FLOOR_TALLY', yea: 9, nay: 8, abstain: 0 });
+    expect(refusal(s, 'carl', { type: 'CAST_VOTE', vote: 'nay', voterId: 0 })).toMatchObject({
+      errorCode: 'VOTING_METHOD',
+    });
+    s = act(s, 'carl', { type: 'REQUEST_DIVISION' });
+    expect(s.votingMethod).toBe('standard');
+    expect(s.floorVotes).toEqual({ yea: 0, nay: 0, abstain: 0 });
+    expect(s.meetingLog.at(-1)?.message).toBe(
+      'Carl Moss calls for a division: the vote is counted.',
+    );
+    s = act(s, 'carl', { type: 'CAST_VOTE', vote: 'nay', voterId: 0 });
+    s = act(s, 'alice', { type: 'CAST_VOTE', vote: 'yea', voterId: 0 });
+    s = act(s, 'dana', { type: 'SET_FLOOR_TALLY', yea: 6, nay: 9, abstain: 0 });
+    s = act(s, 'dana', { type: 'CLOSE_VOTING' });
+    expect(s.completedMotions.at(-1)).toMatchObject({ division: true, disposition: 'failed' });
+    expect(minutesOf(s)).toContain(
+      'Failed on a division, on devices 1 to 1 and in the room 6 to 9: 7 to 10.',
+    );
+  });
+
+  it('is recorded by the chair for someone in the room, and only on an open voice vote', () => {
+    const s = voiceVote();
+    expect(refusal(s, 'carl', { type: 'REQUEST_DIVISION', fromFloor: true })).toMatchObject({
+      errorCode: 'PERMISSION_DENIED',
+    });
+    expect(
+      act(s, 'dana', { type: 'REQUEST_DIVISION', fromFloor: true }).meetingLog.at(-1)?.message,
+    ).toBe('A member in the room calls for a division: the vote is counted.');
+    const counted = moved(inSession(), 'alice', 'mainMotion', 'Buy a new grill', 'ben');
+    expect(refusal(counted, 'carl', { type: 'REQUEST_DIVISION' })).toMatchObject({
+      errorCode: 'VOTING_METHOD',
+    });
+    expect(refusal(s, 'sam', { type: 'REQUEST_DIVISION' })).toMatchObject({
+      errorCode: 'PERMISSION_DENIED',
+    });
+  });
+});

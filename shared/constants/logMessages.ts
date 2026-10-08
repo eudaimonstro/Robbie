@@ -91,6 +91,11 @@ export function logVoteResultWithExtras(
   return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`;
 }
 
+/** A division called on a voice vote: by a member, or from the floor */
+export function logDivisionCalled(caller: string | null): string {
+  return `${caller ?? 'A member in the room'} calls for a division: the vote is counted.`;
+}
+
 // Speaker management
 export function logSpeakerRecognized(name: string): string {
   return `Chair recognizes ${name}.`;

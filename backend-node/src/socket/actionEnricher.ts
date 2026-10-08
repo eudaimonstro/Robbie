@@ -115,6 +115,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   MODIFY_MOTION: { id: 'requesterId' },
   TAKE_UP_POSTPONED: NONE,
   RESUME_MEETING: NONE,
+  REQUEST_DIVISION: { id: 'requesterId' },
   START_ROLL_CALL: NONE,
   RESPOND_ROLL_CALL: { id: 'memberId' },
   COMPLETE_ROLL_CALL: NONE,

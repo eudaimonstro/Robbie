@@ -485,6 +485,12 @@ export const ACTION_SCHEMAS = {
     timestamp,
   }),
   RESUME_MEETING: clocked('RESUME_MEETING'),
+  REQUEST_DIVISION: z.strictObject({
+    type: z.literal('REQUEST_DIVISION'),
+    requesterId: optionalId,
+    fromFloor: z.boolean().optional(),
+    timestamp,
+  }),
   START_ROLL_CALL: timed('START_ROLL_CALL'),
   RESPOND_ROLL_CALL: z.strictObject({
     type: z.literal('RESPOND_ROLL_CALL'),

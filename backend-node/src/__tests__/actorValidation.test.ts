@@ -258,6 +258,7 @@ describe('who may act', () => {
         canceledBy: 9,
         timestamp: '',
       },
+      REQUEST_DIVISION: { type: 'REQUEST_DIVISION', requesterId: 9, timestamp: '' },
     };
 
     it('are refused every action that takes part, whatever the socket says', () => {

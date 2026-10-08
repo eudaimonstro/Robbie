@@ -67,9 +67,19 @@ export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
       );
     case 'voice-vote':
       return (
-        <Note>
-          <p>This is a voice vote: answer aloud in the room.</p>
-        </Note>
+        <div className="space-y-3">
+          <Note>
+            <p>This is a voice vote: answer aloud in the room.</p>
+            <p>If you doubt how it sounds, call for a division: the vote is counted instead.</p>
+          </Note>
+          <button
+            type="button"
+            className="btn-secondary btn-lg w-full"
+            onClick={() => dispatch({ type: 'REQUEST_DIVISION', timestamp: generateTimestamp() })}
+          >
+            Call for a division
+          </button>
+        </div>
       );
     case 'vote':
       return <VoteBlock state={state} dispatch={dispatch} me={me} />;

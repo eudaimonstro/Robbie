@@ -282,6 +282,11 @@ function VoteBand({ state }: { state: MeetingState }) {
         <p className={LABEL}>Voting now</p>
         {voice ? (
           <p className="text-display-line text-ink">Voice vote</p>
+        ) : state.divisionCalled ? (
+          <p className="text-display-line tabular-nums text-ink">
+            Division: <span className="animate-count-pulse">{state.voters.length}</span> votes
+            received
+          </p>
         ) : (
           <p className="text-display-line tabular-nums text-ink">
             <span className="animate-count-pulse">{state.voters.length}</span> votes received

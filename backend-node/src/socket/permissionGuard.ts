@@ -99,6 +99,8 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   WITHDRAW_MOTION: TAKING_PART,
   MODIFY_MOTION: TAKING_PART,
   RESPOND_ROLL_CALL: TAKING_PART,
+  // A member doubts a voice vote (the chair records one from the floor, which the validator checks)
+  REQUEST_DIVISION: TAKING_PART,
 
   // Actions guests may take too: asking for the floor, and asking a question
   RAISE_HAND: EVERYONE,

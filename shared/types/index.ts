@@ -804,6 +804,9 @@ export type MeetingAction =
   | { type: 'TAKE_UP_POSTPONED'; motionId: number; timestamp: string }
   // The chair ends a recess
   | { type: 'RESUME_MEETING'; at?: string; timestamp: string }
+  // A member calls for a division on a voice vote: it is counted instead (RONR 29). With fromFloor
+  // the chair records it for someone in the room. requesterId is set by the server.
+  | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
   | { type: 'START_ROLL_CALL'; timestamp: string }
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
   | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }

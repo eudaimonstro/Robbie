@@ -69,6 +69,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'CAST_VOTE':
     case 'CLOSE_VOTING':
     case 'SET_FLOOR_TALLY':
+    case 'REQUEST_DIVISION':
       return votingHandler(state, action, log);
 
     // Unanimous consent

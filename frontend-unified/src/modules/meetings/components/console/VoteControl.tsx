@@ -120,9 +120,25 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
       )}
 
       {method === 'voice' ? (
-        <p className="text-sm text-ink-muted">
-          Counted in the room. Enter the count below, or just the clear result.
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-ink-muted">
+            Counted in the room. Enter the count below, or just the clear result.
+          </p>
+          {/* Someone in the room doubts it: the vote is counted, on devices and by hand */}
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() =>
+              dispatch({
+                type: 'REQUEST_DIVISION',
+                fromFloor: true,
+                timestamp: generateTimestamp(),
+              })
+            }
+          >
+            Division called from the floor
+          </button>
+        </div>
       ) : method === 'ballot' ? (
         <p className="text-ink">
           <span className="animate-count-pulse font-serif-soft text-page font-semibold tabular-nums">

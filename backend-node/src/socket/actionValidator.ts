@@ -699,6 +699,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
+    case 'REQUEST_DIVISION':
+      // On a voice vote, before the chair announces it
+      if (!state.votingOpen || state.votingMethod !== 'voice') {
+        return {
+          valid: false,
+          error: 'A division is called on a voice vote, before the result is announced',
+          errorCode: 'VOTING_METHOD',
+        };
+      }
+      if (action.fromFloor && !isPresiding(state, action.requesterId)) return NOT_PRESIDING;
+      return { valid: true };
+
     case 'RESUME_MEETING':
       if (!state.recess) {
         return { valid: false, error: 'The meeting is not in recess', errorCode: 'INVALID_STATE' };
