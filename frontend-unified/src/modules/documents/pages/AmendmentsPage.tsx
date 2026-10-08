@@ -114,11 +114,11 @@ export default function AmendmentsPage() {
       <div className="mb-6">
         {selectedDocument ? (
           <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-1">
-            <Link to="/" className="hover:text-gavel">
+            <Link to="/" className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
               {currentOrganization.name}
             </Link>
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            <Link to={`/documents/${selectedDocument.id}`} className="hover:text-gavel">
+            <Link to={`/documents/${selectedDocument.id}`} className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
               {selectedDocument.title}
             </Link>
             <ChevronRight className="w-4 h-4" aria-hidden="true" />

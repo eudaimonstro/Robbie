@@ -99,7 +99,7 @@ export function AmendmentChangesList({
                 {canEdit && (
                   <button
                     onClick={() => onDeleteChange(change)}
-                    className="p-1 max-md:p-3 max-md:-m-2 text-ink-muted hover:text-gavel rounded-sm"
+                    className="p-1 max-md:p-3.5 max-md:-m-2.5 text-ink-muted hover:text-gavel rounded-sm"
                     title="Delete the change"
                     aria-label={`Delete change ${index + 1}`}
                   >

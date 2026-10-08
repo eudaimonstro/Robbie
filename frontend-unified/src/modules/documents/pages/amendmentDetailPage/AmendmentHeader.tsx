@@ -44,11 +44,11 @@ export function AmendmentHeader({
   return (
     <div className="mb-6">
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-1">
-        <Link to="/" className="hover:text-gavel">
+        <Link to="/" className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
           {organizationName}
         </Link>
         <ChevronRight className="w-4 h-4" aria-hidden="true" />
-        <Link to={`/documents/${document.id}`} className="hover:text-gavel">
+        <Link to={`/documents/${document.id}`} className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
           {document.title}
         </Link>
         <ChevronRight className="w-4 h-4" aria-hidden="true" />

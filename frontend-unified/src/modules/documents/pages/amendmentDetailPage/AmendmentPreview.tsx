@@ -110,7 +110,7 @@ function ChangeSummary({ sections }: { sections: PreviewSection[] }) {
                 {i > 0 && ', '}
                 <a
                   href={`#${anchorOf(section)}`}
-                  className="text-gavel underline-offset-2 hover:underline"
+                  className="text-gavel underline underline-offset-2 hover:decoration-2"
                   onClick={(event) => {
                     event.preventDefault();
                     jumpTo(section);

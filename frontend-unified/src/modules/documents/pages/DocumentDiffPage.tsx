@@ -171,11 +171,11 @@ export default function DocumentDiffPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-1">
-          <Link to="/" className="hover:text-gavel">
+          <Link to="/" className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
             {currentOrganization?.name}
           </Link>
           <ChevronRight className="w-4 h-4" aria-hidden="true" />
-          <Link to={`/documents/${documentId}`} className="hover:text-gavel">
+          <Link to={`/documents/${documentId}`} className="inline-flex items-center max-md:min-h-11 hover:text-gavel">
             {document.title}
           </Link>
           <ChevronRight className="w-4 h-4" aria-hidden="true" />

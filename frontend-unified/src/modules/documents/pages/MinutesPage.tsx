@@ -185,7 +185,7 @@ function MinutesHeading({ record }: { record: MinutesRecord }) {
     <div>
       <Link
         to="/minutes"
-        className="inline-flex items-center gap-1 text-sm text-gavel hover:underline"
+        className="inline-flex items-center gap-1 max-md:min-h-11 text-sm text-gavel hover:underline"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Minutes
