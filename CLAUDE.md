@@ -140,7 +140,7 @@ The unified frontend combines both Robbie and Bylawyer into a single React appli
 - `/` - Dashboard/Home (documents)
 - `/documents/*` - Document management (Bylawyer)
 - `/amendments/*` - Amendment tracking (Bylawyer)
-- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer) and the code box (Robbie)
+- `/meetings` - Live Meetings: the organization's schedule (Join, and Start for the presiding officer; Change for secretaries and above until the call to order, which reopens the scheduler on that meeting, with Cancel the meeting) and the code box (Robbie)
 - `/meetings/:code` - The live meeting with that code, over Socket.io; the link (or its QR code) joins after sign-in. Focus mode: the app's sidebar folds into the drawer, opened from the header's menu button at every width (`components/layout/focusMode.ts`) (Robbie)
 - `/meetings/:code/display` - The meeting on a TV or projector: always dark, nothing to click, outside the app's layout; joins as a display, not a member, for the organization's viewers and above (Robbie)
 - `/style-guide` - The design language: the tokens and components in both palettes
