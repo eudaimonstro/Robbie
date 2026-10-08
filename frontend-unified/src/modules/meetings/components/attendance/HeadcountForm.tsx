@@ -4,29 +4,44 @@ import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import { useToast } from '../../../../context/ToastContext';
 
 interface HeadcountFormProps {
-  /** The meeting's headcount and names now (the form is keyed on them, so a change resets it) */
+  /** The meeting's counts now (the form is keyed on them, so a change resets it) */
   headcount: number;
   names: string[];
-  dispatch: React.Dispatch<MeetingAction>;
+  proxiesHeld: number;
+  dispatch: (action: MeetingAction) => unknown;
 }
+
+/** A count as typed: a whole number, 0 or more (empty is 0), or null */
+const countOf = (text: string): number | null => {
+  const trimmed = text.trim() || '0';
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
+};
 
 /**
  * People in the room without an account: how many, and their names when they want them in the
- * minutes. Saving replaces both (SET_HEADCOUNT).
+ * minutes; and the paper proxies and absentee ballots held, which count toward quorum too.
+ * Saving replaces all three (SET_HEADCOUNT).
  */
-export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps) {
+export function HeadcountForm({ headcount, names, proxiesHeld, dispatch }: HeadcountFormProps) {
   const countId = useId();
   const namesId = useId();
+  const proxiesId = useId();
   const [count, setCount] = useState(String(headcount));
   const [nameText, setNameText] = useState(names.join('\n'));
+  const [proxies, setProxies] = useState(String(proxiesHeld));
   const [problem, setProblem] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const value = Number(count.trim() || '0');
-    if (!Number.isInteger(value) || value < 0) {
+    const value = countOf(count);
+    if (value === null) {
       setProblem('The headcount is a whole number, 0 or more');
+      return;
+    }
+    const held = countOf(proxies);
+    if (held === null) {
+      setProblem('The proxies and absentee ballots held are a whole number, 0 or more');
       return;
     }
     const list = nameText
@@ -38,7 +53,13 @@ export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps
       return;
     }
     setProblem(null);
-    dispatch({ type: 'SET_HEADCOUNT', count: value, names: list, timestamp: generateTimestamp() });
+    dispatch({
+      type: 'SET_HEADCOUNT',
+      count: value,
+      names: list,
+      proxiesHeld: held,
+      timestamp: generateTimestamp(),
+    });
     // The form resets to what the meeting has, so say that it was saved
     showToast('success', 'Headcount saved');
   };
@@ -76,6 +97,21 @@ export function HeadcountForm({ headcount, names, dispatch }: HeadcountFormProps
           />
         </div>
       </details>
+      <div>
+        <label htmlFor={proxiesId} className="label">
+          Proxies and absentee ballots held
+        </label>
+        <p className="mb-1 text-xs text-ink-muted">
+          Paper ones handed in for owners who aren&apos;t here: they count toward quorum
+        </p>
+        <input
+          id={proxiesId}
+          className="input tabular-nums"
+          inputMode="numeric"
+          value={proxies}
+          onChange={(e) => setProxies(e.target.value)}
+        />
+      </div>
       {problem && (
         <p role="alert" className="text-sm text-gavel">
           {problem}

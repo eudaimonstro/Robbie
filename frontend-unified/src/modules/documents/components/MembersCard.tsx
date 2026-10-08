@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { UserPlus, Users, X } from 'lucide-react';
+import { ListPlus, UserPlus, Users, X } from 'lucide-react';
 import {
   members as membersApi,
   type AddMemberResult,
@@ -10,6 +10,7 @@ import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { ROLE_LABELS, assignableRoles, type OrgRole } from '../../../utils/roles';
+import { BulkAddMembers } from './BulkAddMembers';
 
 type Notice = { kind: 'status' | 'alert'; text: string };
 
@@ -40,6 +41,8 @@ export function MembersCard() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [email, setEmail] = useState('');
+  const [newName, setNewName] = useState('');
+  const [bulk, setBulk] = useState(false);
   const [newRole, setNewRole] = useState<OrgRole>('member');
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<OrgMember | null>(null);
@@ -92,8 +95,9 @@ export function MembersCard() {
     if (!orgId) return;
     const address = email.trim().toLowerCase();
     void act(async () => {
-      const result = await membersApi.add(orgId, address, newRole);
+      const result = await membersApi.add(orgId, address, newRole, newName.trim() || undefined);
       setEmail('');
+      setNewName('');
       return addedMessage(address, result);
     }, 'Failed to add them');
   };
@@ -206,7 +210,13 @@ export function MembersCard() {
               {invites.map((invite) => (
                 <li key={invite.id} className="flex items-center justify-between gap-2 py-2">
                   <span className="text-sm text-ink truncate">
-                    {invite.email}{' '}
+                    {invite.name ? (
+                      <>
+                        {invite.name} <span className="text-ink-muted">{invite.email}</span>
+                      </>
+                    ) : (
+                      invite.email
+                    )}{' '}
                     <span className="text-ink-muted">({ROLE_LABELS[invite.role]})</span>
                   </span>
                   {canChangeRole(invite.role) && (
@@ -227,7 +237,21 @@ export function MembersCard() {
           </div>
         )}
 
-        {isAdmin && (
+        {isAdmin && orgId && bulk && (
+          <BulkAddMembers
+            organizationId={orgId}
+            members={list}
+            invites={invites}
+            assignable={assignable}
+            onCancel={() => setBulk(false)}
+            onAdded={async (message) => {
+              setBulk(false);
+              await act(async () => message, 'Failed to add them');
+            }}
+          />
+        )}
+
+        {isAdmin && !bulk && (
           <form onSubmit={onAdd} className="flex flex-wrap items-end gap-2">
             <div className="flex-1 min-w-[12rem]">
               <label htmlFor="memberEmail" className="label">
@@ -241,6 +265,19 @@ export function MembersCard() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex-1 min-w-[10rem]">
+              <label htmlFor="memberName" className="label">
+                Name (optional)
+              </label>
+              <input
+                id="memberName"
+                className="input"
+                maxLength={100}
+                autoComplete="off"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
               />
             </div>
             <div>
@@ -265,6 +302,17 @@ export function MembersCard() {
               Add
             </button>
           </form>
+        )}
+        {isAdmin && !bulk && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setBulk(true)}>
+              <ListPlus className="h-4 w-4" aria-hidden="true" />
+              Add several people
+            </button>
+            <p className="text-xs text-ink-muted">
+              Paste a list of names and emails, from a spreadsheet, say.
+            </p>
+          </div>
         )}
       </div>
 

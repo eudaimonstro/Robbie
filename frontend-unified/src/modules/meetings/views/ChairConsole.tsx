@@ -56,7 +56,8 @@ export function ChairConsole() {
   // The motion a second from the floor is being recorded for: the form closes with it
   const [secondingId, setSecondingId] = useState<number | null>(null);
   const nowRef = useRef<HTMLDivElement>(null);
-  const { roster, error: rosterError } = useRoster(meetingCode);
+  // Read again as people join: someone added by email who signs in now is a member
+  const { roster, error: rosterError } = useRoster(meetingCode, true, state.members.length);
   const eligible = useEligibleVoters(state.organizationId, roster);
   // Loaded again at the call to order and the adjournment, for the start time
   const packet = usePacket(meetingCode, state.meetingActive);

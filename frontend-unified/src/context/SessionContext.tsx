@@ -25,6 +25,8 @@ interface SessionContextValue {
   user: SessionUser | null;
   /** Whether the user accepted the current Terms of Service and Privacy Policy */
   termsAccepted: boolean;
+  /** For a user without a name: the name given when they were added by email, to start from */
+  suggestedName: string | null;
   requestCode: (email: string) => Promise<void>;
   verify: (email: string, code: string) => Promise<SessionUser>;
   setName: (name: string) => Promise<void>;
@@ -50,6 +52,7 @@ interface SessionState {
   user: SessionUser | null;
   termsAccepted: boolean;
   status: SessionStatus;
+  suggestedName?: string | null;
 }
 
 const SIGNED_OUT: SessionState = { user: null, termsAccepted: false, status: 'signedOut' };
@@ -58,7 +61,14 @@ const SIGNED_OUT: SessionState = { user: null, termsAccepted: false, status: 'si
 async function checkSession(): Promise<SessionState> {
   try {
     const me = await auth.me();
-    return me ? { user: me.user, termsAccepted: me.termsAccepted, status: 'signedIn' } : SIGNED_OUT;
+    return me
+      ? {
+          user: me.user,
+          termsAccepted: me.termsAccepted,
+          status: 'signedIn',
+          suggestedName: me.suggestedName ?? null,
+        }
+      : SIGNED_OUT;
   } catch {
     // Offline or a server error: the cookie may still be good, so don't send them to sign in
     return { user: null, termsAccepted: false, status: 'unreachable' };
@@ -69,6 +79,7 @@ async function checkSession(): Promise<SessionState> {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [suggestedName, setSuggestedName] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionStatus>('loading');
   // When the terms were last known to be accepted. A request refused before then, whose answer
   // arrives after, must not bring the terms step back.
@@ -77,6 +88,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const apply = useCallback((state: SessionState) => {
     setUser(state.user);
     setTermsAccepted(state.termsAccepted);
+    setSuggestedName(state.suggestedName ?? null);
     if (state.termsAccepted) acceptedAt.current = Date.now();
     setStatus(state.status);
   }, []);
@@ -140,6 +152,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         user: me?.user ?? signedIn,
         termsAccepted: me?.termsAccepted ?? false,
         status: 'signedIn',
+        suggestedName: me?.suggestedName ?? null,
       });
       return signedIn;
     },
@@ -200,6 +213,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status,
       user,
       termsAccepted,
+      suggestedName,
       requestCode,
       verify,
       setName,
@@ -213,6 +227,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status,
       user,
       termsAccepted,
+      suggestedName,
       requestCode,
       verify,
       setName,

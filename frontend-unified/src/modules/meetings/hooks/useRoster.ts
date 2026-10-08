@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { meetingPackets, type MeetingRoster } from '../../../api/client';
 
 /**
- * The meeting's organization's roster, loaded once per meeting. People outside the organization
- * (guests) are refused it, and get the error.
+ * The meeting's organization's roster, loaded once per meeting and again when `refreshKey`
+ * changes (the console passes how many people the meeting has, so someone added by email who
+ * signs in during it moves from "not yet signed in" to the members). People outside the
+ * organization (guests) are refused it, and get the error. A reload keeps the roster it has.
  */
-export function useRoster(meetingCode: string, enabled = true) {
+export function useRoster(meetingCode: string, enabled = true, refreshKey: unknown = null) {
   const [loaded, setLoaded] = useState<{
     code: string;
     roster: MeetingRoster | null;
@@ -29,7 +31,7 @@ export function useRoster(meetingCode: string, enabled = true) {
     return () => {
       canceled = true;
     };
-  }, [meetingCode, enabled]);
+  }, [meetingCode, enabled, refreshKey]);
 
   // A roster loaded for another meeting is not this one's
   const current = loaded?.code === meetingCode ? loaded : null;
