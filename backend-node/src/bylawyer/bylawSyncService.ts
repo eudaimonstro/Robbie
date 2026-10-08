@@ -86,7 +86,7 @@ export async function checkAndSyncBylawAmendment(
   if (!record) return null;
   const change = record.bylawAmendment;
 
-  // The meeting's packet records its organization (see POST /api/bylawyer/link-meeting)
+  // The meeting's packet records its organization: the one that scheduled it
   const packet = await prisma.meetingPacket.findUnique({
     where: { robbieCode: meetingCode },
     select: { organizationId: true },

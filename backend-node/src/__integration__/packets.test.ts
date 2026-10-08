@@ -1,7 +1,12 @@
 import fs from 'fs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prisma } from '../db/prisma.js';
-import { CHAIR_NOT_MEMBER, MEETING_HELD, packetsRouter } from '../bylawyer/routes/packets.js';
+import {
+  CHAIR_NOT_MEMBER,
+  CODE_UNAVAILABLE,
+  MEETING_HELD,
+  packetsRouter,
+} from '../bylawyer/routes/packets.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -98,17 +103,31 @@ describe('packets', () => {
     expect((await call('get', '/api/packets/AB-C01', { cookie })).status).toBe(400);
   });
 
-  it('need an unused meeting code', async () => {
+  it("need an unused meeting code, and don't say whose a taken one is", async () => {
     for (const robbieCode of [f.packet.code, f.packetB.code]) {
       const res = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
         cookie: f.users.secretary.cookie,
         body: { robbieCode },
       });
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ error: 'That meeting code is already in use' });
+      expect(res.body).toEqual({ error: CODE_UNAVAILABLE });
     }
     const packetB = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packetB.id } });
     expect(packetB.organizationId).toBe(f.orgB.id);
+  });
+
+  it('get a random code when none is given', async () => {
+    const codes = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      const res = await call('post', `/api/organizations/${f.orgA.id}/packets`, {
+        cookie: f.users.secretary.cookie,
+        body: { title: `Meeting ${i}` },
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.robbieCode).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
+      codes.add(res.body.robbieCode);
+    }
+    expect(codes.size).toBe(3);
   });
 
   it("take their agenda's and attachments' files with them when deleted", async () => {

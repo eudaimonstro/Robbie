@@ -30,8 +30,12 @@ model Organization {
   // Where its meetings are held, as an IANA name: the minutes give times there
   timeZone       String @default("America/Chicago")
 
+  // Who created it: only the organizations a user created count toward their limit, not those
+  // someone else made them an owner of
+  createdById Int?
+  createdBy   User? @relation("OrganizationsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+
   documents Document[]
-  meetings  Meeting[]
   members   OrganizationMember[]
   invites   OrganizationInvite[]
   packets   MeetingPacket[]
@@ -86,6 +90,7 @@ model Version {
   document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   sections Section[]
 
+  @@unique([documentId, versionNumber])
   @@index([documentId, effectiveDate])
 }
 
@@ -149,7 +154,6 @@ model Amendment {
 
   document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
   changes  AmendmentChange[]
-  votes    Vote[]
 
   @@unique([robbieMeetingCode, robbieMotionId])
   @@index([documentId, status])
@@ -170,61 +174,6 @@ model AmendmentChange {
   // a section's id belongs to one version, so once the amendment is applied it names nothing
   targetLabel     String?
 
-  amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
-}
-
-// Meeting type enum
-enum MeetingType {
-  regular
-  special
-  annual
-  emergency
-}
-
-// Meeting status enum
-enum MeetingStatus {
-  scheduled
-  in_progress
-  completed
-  cancelled
-}
-
-// Vote result enum
-enum VoteResult {
-  passed
-  failed
-  tabled
-}
-
-// Meeting where votes occur
-model Meeting {
-  id             String        @id @default(uuid())
-  organizationId String
-  title          String        @default("Meeting")
-  scheduledDate  DateTime
-  meetingType    MeetingType   @default(regular)
-  location       String?
-  status         MeetingStatus @default(scheduled)
-  notes          String?
-  createdAt      DateTime      @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  votes        Vote[]
-}
-
-// Vote on an amendment
-model Vote {
-  id           String     @id @default(uuid())
-  meetingId    String
-  amendmentId  String
-  yeaCount     Int        @default(0)
-  nayCount     Int        @default(0)
-  abstainCount Int        @default(0)
-  result       VoteResult
-  requires     String?
-  recordedAt   DateTime   @default(now())
-
-  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   amendment Amendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
 }
 
@@ -332,12 +281,15 @@ model User {
   // sessions are refused (docs/deploy.md, "Handling a report")
   suspendedAt DateTime?
 
-  memberships     OrganizationMember[]
-  invitesSent      OrganizationInvite[]
-  amendments       Amendment[]
-  chairing         MeetingPacket[]
-  minutesUpdated   Minutes[]            @relation("MinutesUpdatedBy")
-  minutesPublished Minutes[]            @relation("MinutesPublishedBy")
+  memberships          OrganizationMember[]
+  invitesSent          OrganizationInvite[]
+  amendments           Amendment[]
+  chairing             MeetingPacket[]
+  minutesUpdated       Minutes[]            @relation("MinutesUpdatedBy")
+  minutesPublished     Minutes[]            @relation("MinutesPublishedBy")
+  minutesRevisions     MinutesRevision[]
+  organizationsCreated Organization[]       @relation("OrganizationsCreated")
+  auditEntries         AuditEntry[]
 }
 
 // A signed-in device. Only the SHA-256 hash of the session token is stored.
@@ -356,15 +308,22 @@ model Session {
 
 // An emailed 6-digit code. Only its SHA-256 hash is stored.
 model SignInCode {
-  id         String    @id @default(uuid())
-  email      String
-  codeHash   String
-  expiresAt  DateTime
-  attempts   Int       @default(0)
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id            String    @id @default(uuid())
+  email         String
+  codeHash      String
+  expiresAt     DateTime
+  attempts      Int       @default(0)
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  // The address that asked for it, as a keyed hash (addressKey), for the per-address limits
+  requestedFrom String?
+  // The SHA-256 hash of the challenge the request was answered with: only the browser holding
+  // it can use (and spend the attempts of) this code
+  challengeHash String?
 
   @@index([email, createdAt])
+  @@index([email, challengeHash])
+  @@index([requestedFrom, createdAt])
 }
 
 // Roles in an organization, lowest first. Each role can do everything the roles before it can.
@@ -432,11 +391,59 @@ model Minutes {
   approvedAtPacketId String?
   corrections        String?
 
-  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  packet           MeetingPacket  @relation("MeetingMinutes", fields: [packetId], references: [id], onDelete: Cascade)
-  approvedAtPacket MeetingPacket? @relation("MinutesApprovedAt", fields: [approvedAtPacketId], references: [id], onDelete: SetNull)
-  updatedBy        User?          @relation("MinutesUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  publishedBy      User?          @relation("MinutesPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packet           MeetingPacket     @relation("MeetingMinutes", fields: [packetId], references: [id], onDelete: Cascade)
+  approvedAtPacket MeetingPacket?    @relation("MinutesApprovedAt", fields: [approvedAtPacketId], references: [id], onDelete: SetNull)
+  revisions        MinutesRevision[]
+  updatedBy        User?             @relation("MinutesUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  publishedBy      User?             @relation("MinutesPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+}
+
+// Published minutes as they were before a secretary changed them: the text members had read,
+// who changed it and when. Kept as long as the minutes.
+model MinutesRevision {
+  id         String   @id @default(uuid())
+  minutesId  String
+  // The text before the change
+  body       String
+  editedById Int?
+  editedAt   DateTime @default(now())
+
+  minutes  Minutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  editedBy User?   @relation(fields: [editedById], references: [id], onDelete: SetNull)
+
+  @@index([minutesId, editedAt])
+}
+
+// An append-only record of what was deleted from an organization's records (a document, a
+// version, the organization itself), and by whom. No foreign key to the organization: the record
+// outlasts what it describes.
+model AuditEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  actorId        Int?
+  // What was done, as "document.delete"
+  action         String
+  targetId       String
+  // What the target was (its title, version number, counts), as it was before
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
+
+// A live meeting's state, by its meeting code: the socket's (src/db/meetingStorage.ts writes it
+// with SQL, not through Prisma). Modeled so the migrations own the table.
+model LiveMeeting {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique @db.VarChar(8)
+  currentState Json      @map("current_state")
+  stateVersion Int?      @default(1) @map("state_version")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("meetings")
 }

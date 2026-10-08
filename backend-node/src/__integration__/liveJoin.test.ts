@@ -98,6 +98,51 @@ describe('joining a live meeting', () => {
     ]);
   });
 
+  it('lets a guest in until the meeting adjourns, and members after', async () => {
+    const guest = await signIn('guest@example.org', { name: 'A guest' });
+    const first = await live.join(live.connect(guest), f.packet.code);
+    expect(first.success).toBe(true);
+    expect(first.state?.members.find((m) => m.id === guest.id)?.role).toBe('guest');
+
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { startedAt: new Date('2026-10-20T19:00:00Z'), endedAt: new Date() },
+    });
+    const after = await live.join(live.connect(guest), f.packet.code);
+    expect(after).toEqual({
+      success: false,
+      error: 'This meeting has adjourned',
+      errorCode: 'MEETING_NOT_ACTIVE',
+    });
+    // A member still comes back to the record of their meeting
+    expect((await live.join(live.connect(f.users.member), f.packet.code)).success).toBe(true);
+  });
+
+  it("starts from the packet when the stored meeting is another organization's", async () => {
+    // Left by a deleted organization that had this code: its members, business and minutes
+    await getStorage().getOrCreateMeeting(f.packet.code, {
+      ...initialState,
+      meetingCode: f.packet.code,
+      organizationId: f.orgB.id,
+      title: "B's secrets",
+      meetingStage: 'new-business',
+      members: [{ id: f.outsider.id, name: 'Outsider', role: 'chair', present: true }],
+      minutesFromPreviousMeeting: 'Minutes of another organization',
+    });
+
+    const res = await live.join(live.connect(f.users.member), f.packet.code);
+    expect(res.success).toBe(true);
+    expect(res.state).toMatchObject({
+      organizationId: f.orgA.id,
+      title: 'October meeting',
+      meetingStage: 'not-started',
+    });
+    expect(res.state?.members.map((m) => m.id)).toEqual([f.users.member.id]);
+    const stored = await stateOf(f.packet.code);
+    expect(JSON.stringify(stored)).not.toContain('secrets');
+    expect(stored.minutesFromPreviousMeeting).not.toBe('Minutes of another organization');
+  });
+
   it('refuses a user who has not set a name', async () => {
     const nameless = await signIn('nameless@example.org');
     await prisma.organizationMember.create({

@@ -28,9 +28,6 @@ export interface Fixture {
   proposed: string;
   passed: string;
   tabled: string;
-  meeting: string;
-  /** A vote at meeting on the passed amendment */
-  vote: string;
   /** A's packet (code ORGA01) with two agenda items, an uploaded file and a linked document */
   packet: { id: string; code: string };
   item: string;
@@ -51,7 +48,6 @@ export interface Fixture {
   versionB: string;
   sectionB: string;
   proposedB: string;
-  meetingB: string;
   packetB: { id: string; code: string };
   itemB: string;
 }
@@ -68,6 +64,7 @@ export async function seedFixture(): Promise<Fixture> {
     data: {
       name: 'Org A',
       slug: 'org-a',
+      createdById: users.owner.id,
       members: { create: ROLES.map((role) => ({ userId: users[role].id, role })) },
     },
   });
@@ -130,19 +127,6 @@ export async function seedFixture(): Promise<Fixture> {
   const proposed = await amendment('proposed');
   const passed = await amendment('passed');
   const tabled = await amendment('tabled');
-
-  const meeting = await prisma.meeting.create({
-    data: { organizationId: orgA.id, scheduledDate: new Date('2026-10-01') },
-  });
-  const vote = await prisma.vote.create({
-    data: {
-      meetingId: meeting.id,
-      amendmentId: passed.id,
-      yeaCount: 5,
-      nayCount: 1,
-      result: 'passed',
-    },
-  });
 
   const packet = await prisma.meetingPacket.create({
     data: { organizationId: orgA.id, robbieCode: 'ORGA01', title: 'October meeting' },
@@ -226,9 +210,6 @@ export async function seedFixture(): Promise<Fixture> {
   const proposedB = await prisma.amendment.create({
     data: { documentId: docB.id, title: 'A proposed amendment of B', status: 'proposed' },
   });
-  const meetingB = await prisma.meeting.create({
-    data: { organizationId: orgB.id, scheduledDate: new Date('2026-10-01') },
-  });
   const packetB = await prisma.meetingPacket.create({
     data: { organizationId: orgB.id, robbieCode: 'ORGB01' },
   });
@@ -253,8 +234,6 @@ export async function seedFixture(): Promise<Fixture> {
     proposed: proposed.id,
     passed: passed.id,
     tabled: tabled.id,
-    meeting: meeting.id,
-    vote: vote.id,
     packet: { id: packet.id, code: packet.robbieCode },
     item: item.id,
     item2: item2.id,
@@ -268,7 +247,6 @@ export async function seedFixture(): Promise<Fixture> {
     versionB: versionB.id,
     sectionB: sectionB.id,
     proposedB: proposedB.id,
-    meetingB: meetingB.id,
     packetB: { id: packetB.id, code: packetB.robbieCode },
     itemB: itemB.id,
   };

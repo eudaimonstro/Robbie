@@ -17,8 +17,6 @@ const DocumentDiffPage = lazy(() => import('./modules/documents/pages/DocumentDi
 const ImportBylawsPage = lazy(() => import('./modules/documents/pages/ImportBylawsPage'));
 const AmendmentsPage = lazy(() => import('./modules/documents/pages/AmendmentsPage'));
 const AmendmentDetailPage = lazy(() => import('./modules/documents/pages/AmendmentDetailPage'));
-const MeetingsPage = lazy(() => import('./modules/documents/pages/MeetingsPage'));
-const MeetingDetailPage = lazy(() => import('./modules/documents/pages/MeetingDetailPage'));
 const SettingsPage = lazy(() => import('./modules/documents/pages/SettingsPage'));
 const MinutesListPage = lazy(() => import('./modules/documents/pages/MinutesListPage'));
 const MinutesPage = lazy(() => import('./modules/documents/pages/MinutesPage'));
@@ -114,8 +112,6 @@ function App() {
                   <Route path="amendments/:amendmentId" element={<AmendmentDetailPage />} />
 
                   {/* Bylawyer meetings (document records) */}
-                  <Route path="bylawyer-meetings" element={<MeetingsPage />} />
-                  <Route path="bylawyer-meetings/:meetingId" element={<MeetingDetailPage />} />
 
                   {/* Minutes of the organization's meetings */}
                   <Route path="minutes" element={<MinutesListPage />} />

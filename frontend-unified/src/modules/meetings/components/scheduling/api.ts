@@ -36,13 +36,14 @@ export async function getPacket(robbieCode: string): Promise<MeetingPacket | nul
 }
 
 /**
- * Create the packet for a new meeting code in an organization (secretary and above). A code
- * that already has a packet, in any organization, is an HttpError with status 409.
+ * Create the packet for a new meeting in an organization (secretary and above). Without a
+ * `robbieCode` the server makes a random one, which the answer carries; a code that is taken is
+ * an HttpError with status 409.
  */
 export async function createPacket(
   organizationId: string,
   data: {
-    robbieCode: string;
+    robbieCode?: string;
     title?: string;
     description?: string;
     location?: string;

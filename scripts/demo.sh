@@ -273,11 +273,9 @@ echo "Applying the database migrations..."
 
 seeded="$(psql_demo "SELECT count(*) FROM \"Organization\" WHERE slug = '$DEMO_SLUG'")"
 if [ "$reset" = true ] || [ "$seeded" = 0 ]; then
-  # The live meetings are kept outside Prisma (the server creates the table when it first
-  # starts): a fresh demo would otherwise find the old meeting under its code (e2e/demo.ts)
-  psql_demo "DO \$\$ BEGIN
-    IF to_regclass('public.meetings') IS NOT NULL THEN DELETE FROM meetings; END IF;
-  END \$\$" >/dev/null
+  # The live meetings (the meetings table, which the migrations just made) aren't the seed's: a
+  # fresh demo would otherwise find the old meeting under its code (e2e/demo.ts)
+  psql_demo "DELETE FROM meetings" >/dev/null
   echo "Seeding the Maple Grove HOA demo..."
   (cd "$ROOT" && npm run seed:demo -w backend-node -- --reset) || fail "The seed failed (see above)."
 else

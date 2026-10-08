@@ -23,10 +23,11 @@ import { disconnectSessionSockets, disconnectUserSockets } from '../socket/sessi
 
 export const authRouter = Router();
 
-// Per-IP limits on top of the per-email limits in signInService (5 codes an hour, 5 attempts per
-// code), which are the guard against guessing. These only slow one machine spraying many
-// addresses: at a meeting every homeowner on the venue's Wi-Fi shares one public address, so
-// they allow a room. Tests sign in many times from one address, so they are off under test.
+// Per-IP limits on requests, on top of signInService's hourly limits on codes (per email from an
+// address, per email, and emails sent per address) and its 5 attempts per code, which are the
+// guard against guessing. These only slow one machine spraying many addresses: at a meeting
+// every homeowner on the venue's Wi-Fi shares one public address, so they allow a room. Tests
+// sign in many times from one address, so they are off under test.
 export const SIGN_IN_WINDOW_MS = 15 * 60 * 1000;
 export const REQUEST_CODE_LIMIT_PER_IP = 300;
 export const VERIFY_LIMIT_PER_IP = 600;
@@ -51,10 +52,14 @@ const verifyLimiter = rateLimit({
   legacyHeaders: false,
 }) as unknown as RequestHandler;
 
-const requestCodeBody = z.object({ email: z.string().max(254) });
+// The challenge a code request answers with (see signInService): sent back with "send a new
+// code" and with the code
+const challenge = z.string().max(100);
+const requestCodeBody = z.object({ email: z.string().max(254), challenge: challenge.optional() });
 const verifyBody = z.object({
   email: z.string().max(254),
   code: z.string().max(10),
+  challenge: challenge.optional(),
   client: z.enum(['web', 'mobile']).default('web'),
 });
 const updateMeBody = z.object({ name: z.string().trim().min(2).max(100) });
@@ -74,8 +79,11 @@ authRouter.post(
   validate({ body: requestCodeBody }),
   async (req, res) => {
     try {
-      await requestSignInCode(req.body.email);
-      res.json({ success: true });
+      const { challenge } = await requestSignInCode(req.body.email, {
+        from: req.ip,
+        challenge: req.body.challenge,
+      });
+      res.json({ success: true, challenge });
     } catch (error) {
       sendError(res, error, 'Failed to send a sign-in code');
     }
@@ -84,7 +92,7 @@ authRouter.post(
 
 authRouter.post('/verify', verifyLimiter, validate({ body: verifyBody }), async (req, res) => {
   try {
-    const user = await verifySignInCode(req.body.email, req.body.code);
+    const user = await verifySignInCode(req.body.email, req.body.code, req.body.challenge);
     const session = await createSession(user.id, req.body.client);
     // Mobile keeps the token in its secure store; web gets it only as an httpOnly cookie
     if (req.body.client === 'mobile') {

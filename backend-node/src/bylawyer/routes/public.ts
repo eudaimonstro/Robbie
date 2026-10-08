@@ -2,6 +2,8 @@ import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
 import type { Section } from '../../generated/prisma/client.js';
 import { logger } from '../../middleware/logger.js';
+import { validate } from '../../middleware/validate.js';
+import { shareParams, shareSearchQuery, shareVersionParams } from '../../schemas/public.js';
 
 export const publicRouter: RouterType = Router();
 
@@ -26,7 +28,8 @@ function buildSectionTree(sections: Section[], parentId: string | null = null): 
 }
 
 // Get shared document by token
-publicRouter.get('/share/:token', async (req, res) => {
+// Each route checks its token, version and query (400 for a malformed one, not a 500)
+publicRouter.get('/share/:token', validate({ params: shareParams }), async (req, res) => {
   try {
     const doc = await prisma.document.findUnique({
       where: { shareToken: req.params.token },
@@ -91,90 +94,98 @@ publicRouter.get('/share/:token', async (req, res) => {
 });
 
 // Get specific version of shared document
-publicRouter.get('/share/:token/versions/:versionId', async (req, res) => {
-  try {
-    const doc = await prisma.document.findUnique({
-      where: { shareToken: req.params.token },
-    });
+publicRouter.get(
+  '/share/:token/versions/:versionId',
+  validate({ params: shareVersionParams }),
+  async (req, res) => {
+    try {
+      const doc = await prisma.document.findUnique({
+        where: { shareToken: req.params.token },
+      });
 
-    if (!doc) {
-      return res.status(404).json({ error: 'Document not found' });
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      if (!doc.shareEnabled) {
+        return res.status(403).json({ error: 'Sharing is disabled for this document' });
+      }
+
+      const version = await prisma.version.findUnique({
+        where: { id: req.params.versionId },
+        include: { sections: true },
+      });
+
+      if (!version || version.documentId !== doc.id) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      res.json({
+        id: version.id,
+        versionNumber: version.versionNumber,
+        effectiveDate: version.effectiveDate?.toISOString() || null,
+        adoptedAt: version.adoptedAt?.toISOString() || null,
+        notes: version.notes,
+        sections: buildSectionTree(version.sections),
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to get version');
+      res.status(500).json({ error: 'Failed to get version' });
     }
-
-    if (!doc.shareEnabled) {
-      return res.status(403).json({ error: 'Sharing is disabled for this document' });
-    }
-
-    const version = await prisma.version.findUnique({
-      where: { id: req.params.versionId },
-      include: { sections: true },
-    });
-
-    if (!version || version.documentId !== doc.id) {
-      return res.status(404).json({ error: 'Version not found' });
-    }
-
-    res.json({
-      id: version.id,
-      versionNumber: version.versionNumber,
-      effectiveDate: version.effectiveDate?.toISOString() || null,
-      adoptedAt: version.adoptedAt?.toISOString() || null,
-      notes: version.notes,
-      sections: buildSectionTree(version.sections),
-    });
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to get version');
-    res.status(500).json({ error: 'Failed to get version' });
-  }
-});
+  },
+);
 
 // Search shared document
-publicRouter.get('/share/:token/search', async (req, res) => {
-  try {
-    const doc = await prisma.document.findUnique({
-      where: { shareToken: req.params.token },
-    });
+publicRouter.get(
+  '/share/:token/search',
+  validate({ params: shareParams, query: shareSearchQuery }),
+  async (req, res) => {
+    try {
+      const doc = await prisma.document.findUnique({
+        where: { shareToken: req.params.token },
+      });
 
-    if (!doc) {
-      return res.status(404).json({ error: 'Document not found' });
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      if (!doc.shareEnabled) {
+        return res.status(403).json({ error: 'Sharing is disabled for this document' });
+      }
+
+      const query = (req.query.q as string)?.toLowerCase();
+      if (!query) {
+        return res.json({ results: [] });
+      }
+
+      // Search in current version
+      if (!doc.currentVersionId) {
+        return res.json({ results: [] });
+      }
+
+      const sections = await prisma.section.findMany({
+        where: { versionId: doc.currentVersionId },
+      });
+
+      const results = sections
+        .filter((s) => {
+          return (
+            s.content?.toLowerCase().includes(query) ||
+            s.title?.toLowerCase().includes(query) ||
+            s.numberLabel?.toLowerCase().includes(query)
+          );
+        })
+        .map((s) => ({
+          id: s.id,
+          numberLabel: s.numberLabel,
+          title: s.title,
+          contentPreview: s.content?.substring(0, 200) || null,
+        }));
+
+      res.json({ results });
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to search document');
+      res.status(500).json({ error: 'Failed to search document' });
     }
-
-    if (!doc.shareEnabled) {
-      return res.status(403).json({ error: 'Sharing is disabled for this document' });
-    }
-
-    const query = (req.query.q as string)?.toLowerCase();
-    if (!query) {
-      return res.json({ results: [] });
-    }
-
-    // Search in current version
-    if (!doc.currentVersionId) {
-      return res.json({ results: [] });
-    }
-
-    const sections = await prisma.section.findMany({
-      where: { versionId: doc.currentVersionId },
-    });
-
-    const results = sections
-      .filter((s) => {
-        return (
-          s.content?.toLowerCase().includes(query) ||
-          s.title?.toLowerCase().includes(query) ||
-          s.numberLabel?.toLowerCase().includes(query)
-        );
-      })
-      .map((s) => ({
-        id: s.id,
-        numberLabel: s.numberLabel,
-        title: s.title,
-        contentPreview: s.content?.substring(0, 200) || null,
-      }));
-
-    res.json({ results });
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to search document');
-    res.status(500).json({ error: 'Failed to search document' });
-  }
-});
+  },
+);

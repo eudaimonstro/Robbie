@@ -16,6 +16,7 @@ const version: Version = {
 function renderCard(props: {
   canEdit: boolean;
   selectedVersion: Version | null;
+  isCurrentVersion?: boolean;
   onImport?: () => void;
 }) {
   render(
@@ -29,6 +30,7 @@ function renderCard(props: {
       onReorder={vi.fn()}
       onAddSection={vi.fn()}
       onCreateVersion={vi.fn()}
+      isCurrentVersion
       {...props}
     />,
   );
@@ -68,5 +70,18 @@ describe('DocumentContentCard', () => {
     renderCard({ canEdit: false, selectedVersion: null, onImport: vi.fn() });
     expect(screen.queryByRole('button', { name: 'Import the bylaws' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import a new version' })).toBeNull();
+  });
+
+  it('keeps an earlier version as it was, and says so', () => {
+    renderCard({ canEdit: true, selectedVersion: version, isCurrentVersion: false });
+    expect(screen.queryByRole('button', { name: 'Add Section' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add First Section' })).toBeNull();
+    expect(
+      screen.getByText(
+        'This is an earlier version, kept as it was. Only the current version can be changed.',
+      ),
+    ).toBeTruthy();
+    // A new version still starts from the current one
+    expect(screen.getByRole('button', { name: 'New Version' })).toBeTruthy();
   });
 });

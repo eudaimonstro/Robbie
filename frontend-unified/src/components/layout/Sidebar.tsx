@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   FileText,
   GitBranch,
-  Calendar,
   Settings,
   Plus,
   ChevronRight,
@@ -18,7 +17,6 @@ import { documents as documentsApi, Document } from '../../api/client';
 const navItems = [
   { icon: FileText, label: 'Documents', path: '/' },
   { icon: GitBranch, label: 'Amendments', path: '/amendments' },
-  { icon: Calendar, label: 'Meeting Records', path: '/bylawyer-meetings' },
   { icon: Users, label: 'Live Meetings', path: '/meetings' },
   { icon: ScrollText, label: 'Minutes', path: '/minutes' },
 ];

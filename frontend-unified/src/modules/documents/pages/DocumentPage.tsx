@@ -171,6 +171,7 @@ export default function DocumentPage() {
           sectionTree={sectionTree}
           selectedSection={selectedSection}
           canEdit={canEdit}
+          isCurrentVersion={selectedVersion?.id === doc.currentVersionId}
           onSelectSection={setSelectedSection}
           onEditSection={handleEditSection}
           onDeleteSection={openDeleteDialog}

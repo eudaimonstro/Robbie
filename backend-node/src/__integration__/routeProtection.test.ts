@@ -15,12 +15,10 @@ const protectedRoutes: Array<[string, string]> = [
   ['get', `/api/versions/${ID}/tree`],
   ['get', `/api/sections/${ID}`],
   ['get', `/api/amendments/${ID}`],
-  ['get', `/api/organizations/${ID}/meetings`],
   ['get', '/api/packets/ABC123'],
   ['get', `/api/agenda-items/${ID}`],
   ['get', `/api/attachments/${ID}`],
-  ['get', '/api/robbie/sync-status/ABC123/1'],
-  ['get', `/api/bylawyer/organizations`],
+  ['get', `/api/bylawyer/organizations/${ID}/documents`],
   ['get', '/api/no-such-route'],
 ];
 

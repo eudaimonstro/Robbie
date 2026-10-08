@@ -36,13 +36,20 @@ export interface Me {
 const json = { 'Content-Type': 'application/json' };
 const bearer = (token: string) => ({ ...json, Authorization: `Bearer ${token}` });
 
+// The challenge of the latest code request, by email: sent back with the code (and with a new
+// request), so only this app can use the code it asked for
+const challenges = new Map<string, string>();
+const challengeKey = (email: string) => email.trim().toLowerCase();
+
 export async function requestCode(email: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/auth/request-code`, {
     method: 'POST',
     headers: json,
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, challenge: challenges.get(challengeKey(email)) }),
   });
   if (!response.ok) throw new Error(await errorMessage(response, "Couldn't send the code"));
+  const answer = (await response.json().catch(() => null)) as { challenge?: string } | null;
+  if (answer?.challenge) challenges.set(challengeKey(email), answer.challenge);
 }
 
 export async function verifyCode(
@@ -52,7 +59,12 @@ export async function verifyCode(
   const response = await fetch(`${API_URL}/api/auth/verify`, {
     method: 'POST',
     headers: json,
-    body: JSON.stringify({ email, code, client: 'mobile' }),
+    body: JSON.stringify({
+      email,
+      code,
+      challenge: challenges.get(challengeKey(email)),
+      client: 'mobile',
+    }),
   });
   if (!response.ok) throw new Error(await errorMessage(response, 'Verification failed'));
   return response.json();

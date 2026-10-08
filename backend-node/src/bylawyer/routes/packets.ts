@@ -11,7 +11,11 @@ import { validate } from '../../middleware/validate.js';
 import { createPacketBody, robbieCodeParam, updatePacketBody } from '../../schemas/packets.js';
 import { orgIdParam, uuidParam } from '../../schemas/common.js';
 import { logger } from '../../middleware/logger.js';
+import { ApiError } from '../../middleware/apiError.js';
+import { meetingCodeLimiter } from '../../middleware/userLimits.js';
+import { randomMeetingCode } from '../services/meetingCodes.js';
 import { deleteFiles } from '../services/fileStorage.js';
+import { HIDDEN_ATTACHMENT_FIELDS } from '../services/attachmentFields.js';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
 import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/resolvers.js';
 import { atLeast, roleNeeded } from '../../orgs/roles.js';
@@ -27,8 +31,18 @@ import { validateAction } from '../../socket/actionValidator.js';
 
 export const packetsRouter: RouterType = Router();
 
-/** The answer when a meeting code already has a packet, in any organization */
-export const CODE_IN_USE = 'That meeting code is already in use';
+/**
+ * The answer when a meeting code already has a packet, in any organization. It doesn't say
+ * whose: codes of other organizations aren't confirmed to anyone (and claiming codes is rate
+ * limited), since a code lets a guest into a meeting.
+ */
+export const CODE_UNAVAILABLE = "That meeting code can't be used. Choose another.";
+
+/** How many random codes a packet created without one tries before giving up */
+const GENERATED_CODE_ATTEMPTS = 5;
+
+const codeTaken = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
 /** The answer when the presiding officer named isn't a voting member of the organization */
 export const CHAIR_NOT_MEMBER =
@@ -54,6 +68,7 @@ const byPacket = fromParam('id', orgOfPacket);
 // What a packet response includes
 const packetInclude = {
   attachments: {
+    omit: HIDDEN_ATTACHMENT_FIELDS,
     orderBy: { position: 'asc' as const },
     include: { document: { select: { id: true, title: true, docType: true } } },
   },
@@ -61,6 +76,7 @@ const packetInclude = {
     orderBy: { position: 'asc' as const },
     include: {
       attachments: {
+        omit: HIDDEN_ATTACHMENT_FIELDS,
         orderBy: { position: 'asc' as const },
         include: { document: { select: { id: true, title: true, docType: true } } },
       },
@@ -71,8 +87,7 @@ const packetInclude = {
 /**
  * GET /api/packets/:robbieCode
  * Get the packet for a Robbie meeting. Packets are created in an organization
- * (POST /api/organizations/:orgId/packets) or by linking a live meeting
- * (POST /api/bylawyer/link-meeting), never by reading.
+ * (POST /api/organizations/:orgId/packets), never by reading.
  */
 packetsRouter.get(
   '/packets/:robbieCode',
@@ -143,27 +158,30 @@ packetsRouter.get(
 
 /**
  * POST /api/organizations/:orgId/packets
- * Create the packet for a meeting code in an organization. Codes are unique across all
- * organizations. The presiding officer defaults to the person creating it.
- * Body: { robbieCode, title?, description?, location?, scheduledFor?, chairUserId? }
+ * Schedule a meeting: create its packet in the organization, claiming its meeting code. Codes
+ * are unique across all organizations; without one, a random code is generated. A code that is
+ * taken is refused (409) without saying whose. The presiding officer defaults to the person
+ * creating it. Limited per user (meetingCodeLimiter).
+ * Body: { robbieCode?, title?, description?, location?, scheduledFor?, chairUserId? }
  */
 packetsRouter.post(
   '/organizations/:orgId/packets',
   validate({ params: orgIdParam, body: createPacketBody }),
   requireRole('secretary', fromParam('orgId', orgOfOrganization)),
+  meetingCodeLimiter,
   async (req, res) => {
-    try {
-      const { robbieCode, title, description, location, scheduledFor } = req.body;
-      const chairUserId: number | null =
-        req.body.chairUserId === undefined ? req.user!.id : req.body.chairUserId;
-      if (chairUserId !== null && !(await canPreside(req.org!.id, chairUserId))) {
-        return res.status(400).json({ error: CHAIR_NOT_MEMBER });
-      }
+    const { robbieCode, title, description, location, scheduledFor } = req.body;
+    const chairUserId: number | null =
+      req.body.chairUserId === undefined ? req.user!.id : req.body.chairUserId;
+    if (chairUserId !== null && !(await canPreside(req.org!.id, chairUserId))) {
+      throw ApiError.badRequest(CHAIR_NOT_MEMBER);
+    }
 
-      const packet = await prisma.meetingPacket.create({
+    const create = (code: string) =>
+      prisma.meetingPacket.create({
         data: {
           organizationId: req.org!.id,
-          robbieCode,
+          robbieCode: code,
           title,
           description,
           location,
@@ -173,13 +191,16 @@ packetsRouter.post(
         include: packetInclude,
       });
 
-      res.status(201).json(packet);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        return res.status(409).json({ error: CODE_IN_USE });
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const packet = await create(robbieCode ?? randomMeetingCode());
+        return res.status(201).json(packet);
+      } catch (error) {
+        if (!codeTaken(error)) throw error;
+        if (robbieCode || attempt >= GENERATED_CODE_ATTEMPTS) {
+          throw ApiError.conflict(CODE_UNAVAILABLE);
+        }
       }
-      logger.error({ err: error }, 'Error creating packet');
-      res.status(500).json({ error: 'Failed to create meeting packet' });
     }
   },
 );
@@ -223,12 +244,12 @@ packetsRouter.put(
           chairUserId,
         },
         include: {
-          attachments: {
-            orderBy: { position: 'asc' },
-          },
+          attachments: { omit: HIDDEN_ATTACHMENT_FIELDS, orderBy: { position: 'asc' } },
           agendaItems: {
             orderBy: { position: 'asc' },
-            include: { attachments: { orderBy: { position: 'asc' } } },
+            include: {
+              attachments: { omit: HIDDEN_ATTACHMENT_FIELDS, orderBy: { position: 'asc' } },
+            },
           },
         },
       });

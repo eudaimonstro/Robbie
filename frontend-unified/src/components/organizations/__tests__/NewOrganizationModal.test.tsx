@@ -49,13 +49,13 @@ describe('NewOrganizationModal', () => {
   });
 
   it("shows the server's message, such as the limit on organizations owned", async () => {
-    create.mockRejectedValueOnce(new Error('You can own at most 3 organizations'));
+    create.mockRejectedValueOnce(new Error('You can create at most 3 organizations'));
     const onClose = renderModal();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Fourth' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
 
-    expect(await screen.findByText('You can own at most 3 organizations')).toBeTruthy();
+    expect(await screen.findByText('You can create at most 3 organizations')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
 

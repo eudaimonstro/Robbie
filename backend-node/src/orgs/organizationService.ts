@@ -2,8 +2,12 @@ import { Prisma, type Organization, type OrgRole } from '../generated/prisma/cli
 import { prisma } from '../db/prisma.js';
 import { OrgError } from './orgError.js';
 
-/** A user can own at most this many organizations */
-export const MAX_OWNED_ORGANIZATIONS = 3;
+/**
+ * A user can create at most this many organizations (that still exist). Organizations someone
+ * else created and made them an owner of don't count, so nobody can use up another person's
+ * allowance.
+ */
+export const MAX_CREATED_ORGANIZATIONS = 3;
 
 export type OrganizationWithRole = Organization & { role: OrgRole };
 
@@ -48,13 +52,13 @@ export async function createOwnedOrganization(
   return prisma.$transaction(async (tx) => {
     // Hold the user's row so two creations at once can't both pass the limit
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
-    const owned = await tx.organizationMember.count({ where: { userId, role: 'owner' } });
-    if (owned >= MAX_OWNED_ORGANIZATIONS) {
-      throw new OrgError(429, `You can own at most ${MAX_OWNED_ORGANIZATIONS} organizations`);
+    const created = await tx.organization.count({ where: { createdById: userId } });
+    if (created >= MAX_CREATED_ORGANIZATIONS) {
+      throw new OrgError(429, `You can create at most ${MAX_CREATED_ORGANIZATIONS} organizations`);
     }
     try {
       const org = await tx.organization.create({
-        data: { ...data, members: { create: { userId, role: 'owner' } } },
+        data: { ...data, createdById: userId, members: { create: { userId, role: 'owner' } } },
       });
       return { ...org, role: 'owner' as const };
     } catch (error) {

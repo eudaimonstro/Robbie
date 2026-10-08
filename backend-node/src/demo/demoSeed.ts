@@ -1,6 +1,6 @@
 /**
  * The Maple Grove HOA demo from docs/mvp-roadmap.md: an organization with its people, bylaws, a
- * proposed amendment, last year's meeting record and published minutes, and the packet for this
+ * proposed amendment, last year's meeting (adjourned) with its published minutes, and the packet for this
  * year's annual meeting
  */
 
@@ -458,19 +458,6 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
           position: 0,
         },
       },
-    },
-  });
-
-  // Last year's meeting, whose minutes this year's approves
-  await tx.meeting.create({
-    data: {
-      organizationId: organization.id,
-      title: '2025 Annual Meeting',
-      meetingType: 'annual',
-      scheduledDate: new Date('2025-03-20T19:00:00-05:00'),
-      location: 'Maple Grove Clubhouse',
-      status: 'completed',
-      notes: 'Quorum was not reached; the meeting adjourned after the reports.',
     },
   });
 

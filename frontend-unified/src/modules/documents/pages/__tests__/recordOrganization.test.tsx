@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
@@ -15,16 +15,12 @@ const api = vi.hoisted(() => ({
   getTree: vi.fn(async () => []),
   getAmendment: vi.fn(),
   listAmendments: vi.fn(async () => []),
-  getMeeting: vi.fn(),
-  listVotes: vi.fn(async () => []),
 }));
 vi.mock('../../../../api/client', () => ({
   organizations: { list: api.listOrganizations },
   documents: { get: api.getDocument, list: api.listDocuments },
   versions: { list: api.listVersions, getTree: api.getTree },
   amendments: { get: api.getAmendment, list: api.listAmendments },
-  meetings: { get: api.getMeeting },
-  votes: { list: api.listVotes },
   sections: {},
 }));
 vi.mock('../../../../context/SessionContext', () => ({
@@ -37,7 +33,6 @@ const { OrganizationProvider, useOrganization } =
   await import('../../../../context/OrganizationContext');
 const { default: DocumentPage } = await import('../DocumentPage');
 const { default: AmendmentDetailPage } = await import('../AmendmentDetailPage');
-const { default: MeetingDetailPage } = await import('../MeetingDetailPage');
 
 const document = {
   id: 'd1',
@@ -107,27 +102,6 @@ describe('a record of another organization than the header shows', () => {
     expect(await screen.findByText('Header: Beta')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Beta' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Mark Passed/ })).toBeNull();
-  });
-
-  it("switches the meeting page to the meeting's organization, role and documents", async () => {
-    api.getMeeting.mockResolvedValue({
-      id: 'm1',
-      organizationId: 'b',
-      title: 'Annual Meeting',
-      meetingType: 'annual',
-      scheduledDate: '2026-11-01T00:00:00Z',
-      location: null,
-      status: 'scheduled',
-      notes: null,
-      createdAt: '2026-10-01T00:00:00Z',
-    });
-    renderAt('/bylawyer-meetings/m1', '/bylawyer-meetings/:meetingId', <MeetingDetailPage />);
-
-    expect(await screen.findByText('Header: Beta')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Beta' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Start Meeting/ })).toBeNull();
-    await waitFor(() => expect(api.listDocuments).toHaveBeenCalledWith('b'));
-    expect(api.listDocuments).not.toHaveBeenCalledWith('a');
   });
 
   it('leaves the selection alone when the user is not in the organization', async () => {
