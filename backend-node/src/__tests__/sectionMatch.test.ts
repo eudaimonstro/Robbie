@@ -10,13 +10,31 @@ const node = (
 ): SectionNode => ({ id, parentId, position, numberLabel, title });
 
 describe('matchSections', () => {
-  it('matches by number label, in any case and spacing, then by title', () => {
+  it('follows a section by its title when the bylaws are renumbered', () => {
+    // A new 4.2 went in before Quorum: the numbers moved, the titles didn't
+    const old = [node('q', '4.2', 'Quorum'), node('v', '4.3', 'Voting', 1)];
+    const imported = [
+      node('n', '4.2', 'Notice'),
+      node('q2', '4.3', 'Quorum', 1),
+      node('v2', '4.4', 'Voting', 2),
+    ];
+    expect(matchSections(old, imported)).toEqual({ q: 'q2', v: 'v2' });
+  });
+
+  it('matches label and title together first, in any case and spacing', () => {
     const old = [node('a', 'Section 4.2', 'Quorum'), node('b', '5', 'Officers', 1)];
-    const imported = [node('x', 'section  4.2', 'Meetings'), node('y', 'Article V', 'officers', 1)];
+    const imported = [node('x', 'section  4.2', 'quorum'), node('y', 'Article V', 'officers', 1)];
     expect(matchSections(old, imported)).toEqual({ a: 'x', b: 'y' });
   });
 
-  it('leaves a label or title that names more than one section on either side', () => {
+  it('matches by label alone only when neither side has a title', () => {
+    const old = [node('a', '1.1', null), node('b', '1.2', 'Dues', 1)];
+    const imported = [node('x', '1.1', null), node('y', '1.2', 'Fines', 1)];
+    // 1.2 is a different section now: its title changed
+    expect(matchSections(old, imported)).toEqual({ a: 'x' });
+  });
+
+  it('leaves a title or label that names more than one section on either side', () => {
     const old = [node('a', '1', 'General'), node('b', '2', 'General', 1)];
     const imported = [node('x', 'I', 'General'), node('y', 'II', 'Other', 1)];
     expect(matchSections(old, imported)).toEqual({});

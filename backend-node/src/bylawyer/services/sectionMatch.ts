@@ -46,8 +46,9 @@ function depths(sections: SectionNode[]): Map<string, number> {
 }
 
 /**
- * Match old sections to new ones (old id to new id): first by number label, then by title, each
- * only where the value names one section on both sides; then a section with neither, by its
+ * Match old sections to new ones (old id to new id): first by number label and title together,
+ * then by title, then by number label where neither side has a title, each only where the value
+ * names one section on both sides (of those not matched yet); then a section with neither, by its
  * position under the match of its parent (at the top, the top), when the new section there has
  * neither either. A section left unmatched is no longer in the document.
  */
@@ -72,8 +73,16 @@ export function matchSections(
       taken.add(match.id);
     }
   };
-  byValue((s) => norm(s.numberLabel));
+  // The label and the title together; then the title alone (bylaws are renumbered more often
+  // than retitled: an old 4.2 Quorum is the new 4.3 Quorum, not the new 4.2 Notice); then the
+  // label alone, only for sections without a title on either side
+  byValue((s) => {
+    const label = norm(s.numberLabel);
+    const title = norm(s.title);
+    return label && title ? `${label}\u0000${title}` : null;
+  });
   byValue((s) => norm(s.title));
+  byValue((s) => (norm(s.title) ? null : norm(s.numberLabel)));
 
   const unnamed = (s: SectionNode) => !norm(s.numberLabel) && !norm(s.title);
   const depth = depths(oldSections);

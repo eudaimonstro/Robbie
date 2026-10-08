@@ -254,6 +254,36 @@ describe('importing parsed sections', () => {
     expect(draft.body.missing).toEqual([]);
   });
 
+  it('follows a section to its new number when the import renumbers the bylaws', async () => {
+    // The fixture's "1 Name" and a "2 Quorum"; the new text puts a section before Quorum
+    const quorum = await prisma.section.create({
+      data: { versionId: f.v2, position: 1, numberLabel: '2', title: 'Quorum', content: 'Q.' },
+    });
+    const change = await prisma.amendmentChange.create({
+      data: {
+        amendmentId: f.proposed,
+        changeType: 'modify',
+        targetSectionId: quorum.id,
+        newContent: 'X',
+      },
+    });
+    const res = await importSections({
+      sections: [
+        { numberLabel: '1', title: 'Name', content: 'The name is A.', children: [] },
+        { numberLabel: '2', title: 'Notice', content: 'Notice.', children: [] },
+        { numberLabel: '3', title: 'Quorum', content: 'Quorum.', children: [] },
+      ],
+    });
+    expect(res.status).toBe(201);
+    const target = await prisma.section.findUniqueOrThrow({
+      where: {
+        id: (await prisma.amendmentChange.findUniqueOrThrow({ where: { id: change.id } }))
+          .targetSectionId!,
+      },
+    });
+    expect(target).toMatchObject({ versionId: res.body.id, numberLabel: '3', title: 'Quorum' });
+  });
+
   it('leaves the old versions as they were', async () => {
     await importSections(imported);
     expect(await prisma.section.count({ where: { versionId: f.v2 } })).toBe(2);
