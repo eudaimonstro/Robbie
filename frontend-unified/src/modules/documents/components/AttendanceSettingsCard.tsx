@@ -3,11 +3,8 @@ import { Users } from 'lucide-react';
 import { organizations as organizationsApi } from '../../../api/client';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
-import {
-  QuorumFields,
-  quorumDraftOf,
-  readQuorumDraft,
-} from '../../../components/organizations/QuorumFields';
+import { QuorumFields } from '../../../components/organizations/QuorumFields';
+import { quorumDraftOf, readQuorumDraft } from '../../../components/organizations/quorumDraft';
 import { quorumInWords, quorumIsSet } from '../../../utils/quorum';
 
 /**

@@ -6,7 +6,8 @@ import { useOrganization } from '../../context/OrganizationContext';
 import { useToast } from '../../context/ToastContext';
 import { showsOneOrganizationsRecord } from '../../utils/organizationPages';
 import { browserTimeZone } from '../../utils/timeZones';
-import { QuorumFields, quorumDraftOf, readQuorumDraft } from './QuorumFields';
+import { QuorumFields } from './QuorumFields';
+import { quorumDraftOf, readQuorumDraft } from './quorumDraft';
 
 /**
  * Create an organization with the signed-in user as its owner, and switch to it. It asks for the

@@ -10,11 +10,8 @@ import {
   type ScheduledMeeting,
 } from '../../../api/client';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
-import {
-  QuorumFields,
-  quorumDraftOf,
-  readQuorumDraft,
-} from '../../../components/organizations/QuorumFields';
+import { QuorumFields } from '../../../components/organizations/QuorumFields';
+import { quorumDraftOf, readQuorumDraft } from '../../../components/organizations/quorumDraft';
 import { MEMBERS_SETTINGS, quorumIsSet } from '../../../utils/quorum';
 
 interface SetupChecklistProps {

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { QuorumFields, quorumDraftOf, readQuorumDraft, type QuorumDraft } from '../QuorumFields';
+import { QuorumFields } from '../QuorumFields';
+import { quorumDraftOf, readQuorumDraft, type QuorumDraft } from '../quorumDraft';
 
 describe('readQuorumDraft', () => {
   it('reads the voting members and a percentage or a count', () => {

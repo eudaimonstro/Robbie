@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { generateTimestamp, type AttendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import type { MeetingRoster } from '../../../../api/client';
@@ -58,15 +58,8 @@ export function AttendancePanel({
   // the next one waits for it, or two quick taps would lose one
   const [sent, setSent] = useState<{ count: number; names: string[] } | null>(null);
   const headcountNow = `${state.headcount}|${state.headcountNames.join('\n')}`;
-  useEffect(() => {
-    if (!sent) return;
-    if (`${sent.count}|${sent.names.join('\n')}` === headcountNow) {
-      setSent(null);
-      return;
-    }
-    const timer = setTimeout(() => setSent(null), HEADCOUNT_WAIT_MS);
-    return () => clearTimeout(timer);
-  }, [sent, headcountNow]);
+  // Waiting until the meeting shows it (or the server refused it, or it took too long)
+  const waiting = sent !== null && `${sent.count}|${sent.names.join('\n')}` !== headcountNow;
 
   const entries = useMemo<Entry[]>(() => {
     if (!roster) return [];
@@ -99,6 +92,8 @@ export function AttendancePanel({
   /** Replace the headcount (the proxies held stay as they are) and wait for it to come back */
   const setHeadcount = async (next: { count: number; names: string[] }) => {
     setSent(next);
+    // Another console's change at the same moment would leave it waiting: not for long
+    setTimeout(() => setSent((current) => (current === next ? null : current)), HEADCOUNT_WAIT_MS);
     const taken = await dispatch({
       type: 'SET_HEADCOUNT',
       count: next.count,
@@ -132,7 +127,7 @@ export function AttendancePanel({
             <button
               type="button"
               className="btn-secondary btn-sm"
-              disabled={sent !== null}
+              disabled={waiting}
               onClick={() => void setHeadcount(takenOutOfRoom(state, name))}
             >
               Take {name} out of the headcount
@@ -203,7 +198,7 @@ export function AttendancePanel({
                   {!readOnly && entry.row.markable && (
                     <InviteAction
                       row={entry.row}
-                      disabled={sent !== null}
+                      disabled={waiting}
                       onCount={() => void setHeadcount(countedInRoom(state, entry.row.label))}
                       onTakeOut={() => void setHeadcount(takenOutOfRoom(state, entry.row.label))}
                     />
