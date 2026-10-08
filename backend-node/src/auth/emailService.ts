@@ -269,15 +269,6 @@ export function appUrl(): string {
   return process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 /** The longest organization or person's name an email quotes, in characters */
 export const MAX_QUOTED_NAME = 60;
 
