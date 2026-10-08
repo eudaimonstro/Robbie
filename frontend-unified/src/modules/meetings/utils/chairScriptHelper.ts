@@ -154,7 +154,7 @@ export function getChairScript(state: MeetingState): ChairScript | null {
     if (state.currentMotion.type === 'appeal' && state.lastChairRuling) {
       return {
         text: '"The chair will entertain debate on the appeal. The chair may speak first to explain the ruling."',
-        note: `Appealing: "${state.lastChairRuling.ruling}" - Vote Yea to sustain chair, Nay to overturn.`,
+        note: `Appealing: "${state.lastChairRuling.ruling}" - Yes keeps the chair's ruling, No overturns it.`,
       };
     }
 

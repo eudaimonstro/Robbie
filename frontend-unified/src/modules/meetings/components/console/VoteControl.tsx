@@ -35,7 +35,8 @@ const CHOICE_LABELS = { yea: 'Yea', nay: 'Nay', abstain: 'Abstain' } as const;
 /**
  * The vote panel: how the vote is taken, then, while it is open, the device votes, the chair's
  * count of the room, the two together, the chair's deciding vote, an admin's own vote, and
- * Close the vote
+ * Close the vote. The voting time is advisory, shown to the chair alone: the vote closes when the
+ * chair closes it.
  */
 export function VoteControl({ state, dispatch, me }: VoteControlProps) {
   const methodId = useId();
@@ -111,11 +112,13 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
         </span>
       </div>
 
+      {/* A guide for the chair only: the vote closes when the chair closes it */}
       {state.voteTimerEnd && (
         <TimerLine
           endTime={state.voteTimerEnd}
           totalSeconds={state.voteTimeLimit}
           label="Voting time"
+          expired="Time is up. Close the vote when the room has voted."
         />
       )}
 

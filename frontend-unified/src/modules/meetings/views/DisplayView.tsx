@@ -184,6 +184,9 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
           {state.unanimousConsentPending && (
             <p className="text-display-line text-ink">The chair asks: is there any objection?</p>
           )}
+          {state.votingOpen && !result && (
+            <p className="text-display-line text-ink">{howToVote(state)}</p>
+          )}
           {ruling && !result && (
             <p className="text-display-line text-ink-muted">The chair rules: {ruling.ruling}</p>
           )}
@@ -271,6 +274,18 @@ function SpeakerRail({ state, queue }: { state: MeetingState; queue: SpeakerQueu
       )}
     </aside>
   );
+}
+
+/** How the room votes now, in one line from the back of the room */
+function howToVote(state: MeetingState): string {
+  switch (state.votingMethod) {
+    case 'voice':
+      return 'Answer aloud when the chair asks.';
+    case 'ballot':
+      return 'Vote on your phone. Nobody sees how you voted.';
+    default:
+      return 'Vote on your phone, or raise your hand when the chair asks.';
+  }
 }
 
 /** The vote in progress: votes received, and the count in the room once the chair enters it */

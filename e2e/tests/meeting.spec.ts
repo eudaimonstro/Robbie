@@ -83,8 +83,8 @@ test('a scheduled meeting runs from the phones to the display, and its minutes a
     await expect(sam.getByRole('button', { name: /^Vote / })).toHaveCount(0);
 
     // The phones vote; Dana enters the show of hands and closes the vote
-    await alice.getByRole('button', { name: 'Vote yea' }).click();
-    await ben.getByRole('button', { name: 'Vote yea' }).click();
+    await alice.getByRole('button', { name: 'Vote yes' }).click();
+    await ben.getByRole('button', { name: 'Vote yes' }).click();
     await expect(dana.getByText('2 voted on devices')).toBeVisible();
     await expect(pat.getByText('2 votes received')).toBeVisible();
     await dana.getByLabel('Yea in the room').fill('9');

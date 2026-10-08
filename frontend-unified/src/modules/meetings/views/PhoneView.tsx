@@ -9,12 +9,12 @@ import { scrollBehavior } from '../../../utils/motion';
 import { QuestionCard } from '../components/QuestionCard';
 import { Stamp } from '../components/Stamp';
 import { TimerLine } from '../components/TimerLine';
-import { ProxyAcceptancePanel, ProxyRequestPanel } from '../components/participant';
 import { PhoneHeader } from '../components/phone/PhoneHeader';
 import { ActionBlock } from '../components/phone/ActionBlock';
 import { AskTheChair } from '../components/phone/AskTheChair';
 import { MinutesNotice } from '../components/phone/MinutesNotice';
 import { minutesItemUnderWay } from '../utils/minutesApproval';
+import { phoneMoment } from '../utils/phoneMoment';
 import { PhoneAgenda, SpeakerList } from '../components/phone/MeetingLists';
 
 /**
@@ -34,6 +34,14 @@ export function PhoneView() {
     if (adjourned) topRef.current?.scrollIntoView?.({ behavior: scrollBehavior(), block: 'start' });
   }, [adjourned]);
 
+  // A short buzz when the floor is given to this member, and when a vote opens: a phone in a lap
+  // is felt before it is seen
+  const myTurn = !!currentUser && state.recognizedSpeaker?.id === currentUser.id;
+  const voteOpen = state.votingOpen && currentUser?.role !== 'guest';
+  useEffect(() => {
+    if (myTurn || voteOpen) navigator.vibrate?.(200);
+  }, [myTurn, voteOpen]);
+
   if (!currentUser) return null;
 
   const me = currentUser;
@@ -43,13 +51,22 @@ export function PhoneView() {
   const result = currentResult(state, voteResult);
   const hasFloor = state.recognizedSpeaker?.id === me.id;
   // Said aloud to a screen reader as it happens: a vote or a ballot opening (the stamp says the
-  // result). The region stays on the page, so a change to its words is read.
+  // result), the floor given to this member, a motion awaiting their second, debate opening.
+  // The region stays on the page, so a change to its words is read.
   const election = state.currentElection;
+  const moment = phoneMoment(state);
+  const awaiting = state.pendingSecond;
   const opening = state.votingOpen
     ? `The vote is open${question ? `: ${question.text}` : ''}`
     : election?.votingInProgress
       ? `The ballot is open for ${election.position}`
-      : '';
+      : hasFloor
+        ? 'You have the floor'
+        : moment === 'second' && awaiting && awaiting.moverId !== me.id && !guest
+          ? `A motion awaits a second: ${awaiting.text}`
+          : moment === 'debate' && question
+            ? `Debate is open: ${question.text}`
+            : '';
   const header = (
     <PhoneHeader
       title={state.title || 'Live meeting'}
@@ -97,7 +114,6 @@ export function PhoneView() {
           />
         </section>
       )}
-      {!guest && <ProxyAcceptancePanel state={state} dispatch={dispatch} currentUser={me} />}
       {hasFloor && <FloorBanner state={state} dispatch={dispatch} />}
       {/* With the result up, or the minutes before the meeting, nothing is pending: the card
           would only say so */}
@@ -116,7 +132,6 @@ export function PhoneView() {
       </section>
       <SpeakerList state={state} />
       <PhoneAgenda state={state} />
-      {!guest && <ProxyRequestPanel state={state} dispatch={dispatch} currentUser={me} />}
       {state.meetingActive && <AskTheChair state={state} dispatch={dispatch} me={me} />}
     </div>
   );

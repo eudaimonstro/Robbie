@@ -87,11 +87,31 @@ describe('PhoneView', () => {
     renderAs(ben, voting);
     expect(screen.getByRole('heading', { name: 'Special meeting' })).toBeTruthy();
     expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
-    for (const name of ['Vote yea', 'Vote nay', 'Vote abstain']) {
+    for (const name of ['Vote yes', 'Vote no', 'Vote abstain']) {
       expect(screen.getByRole('button', { name }).className).toContain('btn-lg');
     }
     expect(screen.queryByRole('button', { name: 'Ask to speak' })).toBeNull();
     expect(screen.queryByLabelText('Motion text')).toBeNull();
+  });
+
+  it('says aloud a motion awaiting your second, and that you have the floor, with a buzz', () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+    const { rerender } = renderAs(ben, {
+      ...active,
+      pendingSecond: { ...motion, secondedBy: null },
+    });
+    const announcer = screen.getByTestId('phone-announcer');
+    expect(announcer.textContent).toBe('A motion awaits a second: Resurface the pool this spring');
+    socket.state = {
+      ...active,
+      currentMotion: motion,
+      motionStack: [motion],
+      recognizedSpeaker: ben,
+    };
+    rerender(<PhoneView />);
+    expect(announcer.textContent).toBe('You have the floor');
+    expect(vibrate).toHaveBeenCalledWith(200);
   });
 
   it('says aloud when a vote or a ballot opens, from a region already on the page', () => {
@@ -102,7 +122,7 @@ describe('PhoneView', () => {
     });
     const announcer = screen.getByTestId('phone-announcer');
     expect(announcer.getAttribute('role')).toBe('status');
-    expect(announcer.textContent).toBe('');
+    expect(announcer.textContent).toBe('Debate is open: Resurface the pool this spring');
 
     socket.state = voting;
     rerender(<PhoneView />);
@@ -128,7 +148,7 @@ describe('PhoneView', () => {
 
   it('votes, and says the vote was recorded', () => {
     renderAs(ben, voting);
-    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yes' }));
     expect(socket.dispatch).toHaveBeenCalledWith({ type: 'CAST_VOTE', vote: 'yea', voterId: 4 });
   });
 

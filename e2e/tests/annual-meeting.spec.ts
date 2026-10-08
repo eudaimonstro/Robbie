@@ -405,7 +405,7 @@ async function voteOn(
   whileOpen?: () => Promise<void>,
 ): Promise<void> {
   await dana.getByRole('button', { name: 'Open the vote' }).click();
-  for (const phone of phones) await phone.getByRole('button', { name: 'Vote yea' }).click();
+  for (const phone of phones) await phone.getByRole('button', { name: 'Vote yes' }).click();
   await expect(dana.getByText(`${phones.length} voted on devices`)).toBeVisible();
   await dana.getByLabel('Yea in the room').fill(String(room.yea));
   await dana.getByLabel('Nay in the room').fill(String(room.nay));

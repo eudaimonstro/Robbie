@@ -10,12 +10,7 @@ import type {
 import { meetingPackets } from '../../../../api/client';
 import { RoleBadge } from '../../../../components/ui/Badge';
 import { formatClockTime } from '../../../../utils/dates';
-import {
-  CommitteeReportsPanel,
-  MeetingDocumentsPanel,
-  OrderOfBusinessPanel,
-  ProxyManagementPanel,
-} from '../chair';
+import { MeetingDocumentsPanel } from '../chair';
 import { MeetingOrganizationPanel } from '../MeetingOrganizationPanel';
 import { moverLine } from '../../utils/question';
 
@@ -47,21 +42,13 @@ export function MoreArea({ state, dispatch, me, meetingCode, organizationId }: M
         />
       </summary>
       <div className="space-y-8 border-t border-rule p-5">
-        {!adjourned && (
-          <>
-            <ProxyManagementPanel state={state} dispatch={dispatch} />
-            <div className="space-y-4">
-              <OrderOfBusinessPanel state={state} dispatch={dispatch} />
-              <CommitteeReportsPanel state={state} dispatch={dispatch} />
-            </div>
-            {presides && <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />}
-          </>
+        {!adjourned && presides && (
+          <MeetingSettings state={state} dispatch={dispatch} isAdmin={isAdmin} />
         )}
         <PeopleInMeeting state={state} dispatch={dispatch} readOnly={adjourned} />
         {state.meetingStage === 'not-started' && <ReloadAgenda meetingCode={meetingCode} />}
         {isAdmin && <MeetingOrganizationPanel organizationId={organizationId} />}
         <MeetingDocumentsPanel meetingCode={meetingCode} />
-        <TabledMotions state={state} />
         <MeetingLog log={state.meetingLog} />
       </div>
     </details>
@@ -278,26 +265,6 @@ function ReloadAgenda({ meetingCode }: { meetingCode: string }) {
           {status}
         </p>
       )}
-    </section>
-  );
-}
-
-function TabledMotions({ state }: { state: MeetingState }) {
-  if (state.tabledMotions.length === 0) return null;
-  return (
-    <section className="space-y-2" aria-labelledby="tabled-heading">
-      <h4 id="tabled-heading" className="label-caps">
-        Tabled motions
-      </h4>
-      <ul className="space-y-2">
-        {state.tabledMotions.map((motion) => (
-          <li key={motion.id} className="text-sm text-ink">
-            <span className="font-medium">{motion.name}:</span> {motion.text}
-            <span className="block text-xs text-ink-muted">{moverLine(motion)}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-xs text-ink-muted">A motion to take from the table brings one back.</p>
     </section>
   );
 }
