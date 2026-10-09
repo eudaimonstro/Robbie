@@ -5,7 +5,7 @@ import { describeTextAmendment, insertsWords } from './textAmendment.js';
 
 /**
  * The motions Robbie offers, in the order a phone lists them: the ones an HOA meeting uses, each
- * correct end to end (docs/superpowers/specs/2026-10-08-meeting-rules-design.md). The one other
+ * correct end to end (docs/design/2026-10-08-meeting-rules-design.md). The one other
  * motion in MOTIONS, a request to withdraw (withdrawMotion), is made by WITHDRAW_MOTION, never
  * moved.
  */

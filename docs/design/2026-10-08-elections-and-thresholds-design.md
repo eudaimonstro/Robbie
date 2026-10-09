@@ -1,5 +1,7 @@
 # Elections, vote thresholds and voice votes
 
+Status: built (2026-10-08, #53).
+
 Batch A3 of the 2026-10-08 review (meeting-rules.md I7, I11, I12, M1, M2, X1, X2), after `2026-10-08-meeting-rules-design.md`. HOA annual meetings elect several directors on one ballot, often by acclamation, count paper ballots in the room, and amend bylaws under thresholds the bylaws or state law set. A chair who hears "aye" doesn't want to invent numbers.
 
 ## Elections

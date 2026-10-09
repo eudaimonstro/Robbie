@@ -27,7 +27,7 @@ interface NominationsPanelProps {
 const SOMEONE_ELSE = 'someone-else';
 
 /**
- * Nominations (docs/superpowers/specs/2026-10-06-in-the-room-design.md, "Elections from the
+ * Nominations (docs/design/2026-10-06-in-the-room-design.md, "Elections from the
  * chair's screen"): the chair opens them for any position at any time no election is running.
  * Nominees are anyone present who isn't a guest (members marked present included), or someone
  * not in the meeting, by name. Nominations need no second.

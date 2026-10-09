@@ -1,6 +1,6 @@
 # Board meetings and meeting notice
 
-Status: design, 2026-10-09. The last product batch of the whole-app review (`product.md` recommendations 2 and 3). Builds on the onboarding batch (voting members and quorum set at setup, the roster, people added by email) and the elections batch (vote thresholds).
+Status: built (2026-10-08, #55). The last product batch of the whole-app review (`product.md` recommendations 2 and 3). Builds on the onboarding batch (voting members and quorum set at setup, the roster, people added by email) and the elections batch (vote thresholds).
 
 ## Why
 

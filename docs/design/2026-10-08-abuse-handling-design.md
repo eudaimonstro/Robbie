@@ -1,6 +1,6 @@
 # Abuse handling
 
-Status: design, 2026-10-08. Anyone can sign up with an email address, create organizations and upload meeting attachments (PDF, DOC, DOCX, TXT, RTF, 10 MB each) that only the organization's members can see; public share links show bylaws text only, never files. The owner asked for protection against child sexual abuse material (CSAM) and pirated material. US law; a lawyer reviews the result before launch.
+Status: built (2026-10-08, #47). Anyone can sign up with an email address, create organizations and upload meeting attachments (PDF, DOC, DOCX, TXT, RTF, 10 MB each) that only the organization's members can see; public share links show bylaws text only, never files. The owner asked for protection against child sexual abuse material (CSAM) and pirated material. US law; a lawyer reviews the result before launch.
 
 ## Decisions
 

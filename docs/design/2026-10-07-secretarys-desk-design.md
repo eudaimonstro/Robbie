@@ -1,6 +1,6 @@
 # The secretary's desk (MVP Phase C)
 
-Status: design, 2026-10-07. Phase C of `docs/mvp-roadmap.md`. The server and shared half is built (`docs/superpowers/plans/2026-10-07-secretarys-desk-server.md`); the details below say where building it decided what this design left open. The client half follows (`docs/superpowers/plans/2026-10-07-secretarys-desk-clients.md`).
+Status: built (2026-10-07, #43). Phase C of `docs/mvp-roadmap.md`. The details below say where building it decided what this design left open.
 
 ## Why
 

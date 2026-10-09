@@ -1,6 +1,6 @@
 # Deploying Robbie
 
-Robbie runs on one small Linux server with Docker Compose: the app (the API, the live meetings and the web app in one image), Postgres, a backup service, and Caddy for HTTPS on `robbie.scouch.dev`. Everything the server needs is in `deploy/`; run every `docker compose` command from that directory (`/opt/robbie/deploy` on the server). The design is `docs/superpowers/specs/2026-10-07-ship-design.md`.
+Robbie runs on one small Linux server with Docker Compose: the app (the API, the live meetings and the web app in one image), Postgres, a backup service, and Caddy for HTTPS on `robbie.scouch.dev`. Everything the server needs is in `deploy/`; run every `docker compose` command from that directory (`/opt/robbie/deploy` on the server). The design is `docs/design/2026-10-07-ship-design.md`.
 
 ```
 phones, laptops, the TV ──HTTPS──▶ caddy :443 ──▶ app :3001 ──▶ db :5432 (not published)

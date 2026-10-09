@@ -1,6 +1,6 @@
 # Accounts and sessions (spec M2, part 1 of 3)
 
-Status: design, 2026-10-06
+Status: built (2026-10-06, #40).
 
 ## Why
 

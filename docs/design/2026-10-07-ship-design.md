@@ -1,6 +1,6 @@
 # Ship (MVP Phase D)
 
-Status: design, 2026-10-07. Phase D of `docs/mvp-roadmap.md`: "Dockerfile and compose with Caddy, deploy runbook, the full Playwright scenario in CI, dependency bumps." The plan is `docs/superpowers/plans/2026-10-07-ship.md`.
+Status: built (2026-10-07, #44). Phase D of `docs/mvp-roadmap.md`: "Dockerfile and compose with Caddy, deploy runbook, the full Playwright scenario in CI, dependency bumps."
 
 ## Why
 
