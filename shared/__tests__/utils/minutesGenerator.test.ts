@@ -700,3 +700,97 @@ describe('what members typed, in the minutes', () => {
     expect(markdown.split('\n')).not.toContain('# Fake heading');
   });
 });
+
+describe('the minutes of a board meeting', () => {
+  const board: MeetingState = {
+    ...initialState,
+    meetingCode: 'MAPLEB',
+    title: 'November board meeting',
+    meetingStage: 'adjourned',
+    kind: 'board',
+    board: { directors: 4 },
+    quorum: 3,
+    quorumAtCallToOrder: true,
+    // Left over from before it was a board meeting: not counted
+    headcount: 2,
+    members: [
+      { id: 1, name: 'Dana Okafor', role: 'chair', present: true, presentBy: 'device' },
+      { id: 2, name: 'Alice Brennan', role: 'member', present: true, presentBy: 'device' },
+      { id: 7, name: 'Pat Lindqvist', role: 'admin', present: true, presentBy: 'chair' },
+      { id: 3, name: 'Ben Whitaker', role: 'observer', present: true, presentBy: 'device' },
+      {
+        id: 8,
+        name: 'Grace Kim',
+        role: 'admin',
+        nonVoting: true,
+        present: true,
+        presentBy: 'device',
+      },
+      { id: 6, name: 'Sam Ortiz', role: 'guest', present: true, presentBy: 'device' },
+    ],
+    attendedIds: [1, 2, 7, 3, 8, 6],
+    agenda: [{ id: 1, title: 'Landscaping contract', status: 'completed' }],
+  };
+  const boardContext: MinutesContext = {
+    organizationName: 'Maple Grove HOA',
+    timeZone: 'America/Chicago',
+    title: 'November board meeting',
+    location: 'the clubhouse',
+    scheduledFor: '2026-11-11T00:00:00.000Z',
+    calledToOrderAt: null,
+    adjournedAt: null,
+    // The directors
+    voters: [
+      { id: 1, name: 'Dana Okafor' },
+      { id: 2, name: 'Alice Brennan' },
+      { id: 7, name: 'Pat Lindqvist' },
+      { id: 9, name: 'Elena Petrova' },
+    ],
+  };
+
+  it('list the directors present and absent, and who else attended', () => {
+    const minutes = generateMeetingMinutes(board);
+    expect(minutes.present.map((p) => p.name)).toEqual([
+      'Alice Brennan',
+      'Dana Okafor',
+      'Pat Lindqvist',
+    ]);
+    expect(minutes.alsoPresent).toEqual(['Ben Whitaker', 'Grace Kim']);
+    expect(minutes.guests).toEqual(['Sam Ortiz']);
+    expect(minutes.headcount).toBe(0);
+
+    const markdown = formatMinutesAsMarkdown(minutes, boardContext);
+    expect(markdown).toContain(
+      [
+        '## Minutes of the meeting of the Board of Directors',
+        '',
+        'November board meeting: Tuesday, November 10, 2026, at the clubhouse.',
+        '',
+        'Dana Okafor presided.',
+        '',
+        '## Attendance',
+        '',
+        '**Directors present (3):** Alice Brennan, Dana Okafor, Pat Lindqvist (marked present).',
+        '',
+        '**Directors absent (1):** Elena Petrova.',
+        '',
+        '**Also present:** Ben Whitaker, Grace Kim.',
+        '',
+        '**Guests:** Sam Ortiz.',
+        '',
+        'A quorum of the board (3 of the 4 directors) was present at the call to order.',
+      ].join('\n'),
+    );
+    expect(markdown).not.toContain('without an account');
+  });
+
+  it('say when the board had no quorum', () => {
+    const markdown = formatMinutesAsMarkdown(
+      generateMeetingMinutes({ ...board, quorumAtCallToOrder: false }),
+      boardContext,
+    );
+    expect(markdown).toContain(
+      'A quorum of the board (3 of the 4 directors) was not present at the call to order.',
+    );
+  });
+});

@@ -54,6 +54,9 @@ export { isEmailAddress } from './email.js';
 
 export {
   attendanceSummary,
+  boardQuorum,
+  isBoardMeeting,
+  takesPart,
   headcountBaseHolds,
   headcountBaseOf,
   isQuorumSet,

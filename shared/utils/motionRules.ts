@@ -126,6 +126,13 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
       'not-offered',
     );
   }
+  // The members amend the bylaws; the board only carries them out
+  if (type === 'bylawAmendment' && state.board) {
+    return out(
+      "The members amend the bylaws: a bylaw amendment isn't moved in a board meeting",
+      'not-offered',
+    );
+  }
   if (!state.meetingActive) return out('The meeting is not in session', 'not-in-session');
   if (state.adjournmentCarried) {
     return out('The meeting has voted to adjourn: the chair declares it adjourned', 'adjourning');

@@ -5,6 +5,7 @@ import {
   logRollCallComplete,
   logMemberMarkedAbsent,
 } from '../../constants/logMessages.js';
+import { takesPart } from '../../utils/attendance.js';
 import { withPresence } from './memberHandlers.js';
 import type { ActionHandler } from './types.js';
 
@@ -12,14 +13,12 @@ export const rollCallHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'START_ROLL_CALL': {
       const typedAction = action as Extract<MeetingAction, { type: 'START_ROLL_CALL' }>;
-      // Guests don't answer the roll
-      const responses: RollCallRecord[] = state.members
-        .filter((member) => member.role !== 'guest')
-        .map((member) => ({
-          memberId: member.id,
-          memberName: member.name,
-          status: 'not-responded' as const,
-        }));
+      // Guests and observers don't answer the roll
+      const responses: RollCallRecord[] = state.members.filter(takesPart).map((member) => ({
+        memberId: member.id,
+        memberName: member.name,
+        status: 'not-responded' as const,
+      }));
       return {
         ...state,
         rollCall: {

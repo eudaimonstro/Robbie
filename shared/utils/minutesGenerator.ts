@@ -25,6 +25,7 @@ import {
   votesNeeded,
 } from './voteCalculator.js';
 import { joinNames } from './elections.js';
+import { takesPart } from './attendance.js';
 import { bylawChangeView } from './bylawAmendment.js';
 
 /** An entry with where and when it happened, for grouping and ordering */
@@ -65,9 +66,15 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
   // Not who is present now: someone who arrived after the adjournment didn't attend
   const there = state.members.filter((m) => attended.has(m.id));
   const present = there
-    .filter((m) => m.role !== 'guest')
+    .filter(takesPart)
     .map((m) => ({ id: m.id, name: m.name, marked: m.presentBy === 'chair' }))
     .sort((a, b) => byName(a.name, b.name));
+  // A board meeting's observers, and a presiding officer who isn't a director
+  const alsoPresent = there
+    .filter((m) => m.role !== 'guest' && !takesPart(m))
+    .map((m) => m.name)
+    .sort(byName);
+  const board = state.board ?? null;
   const guests = there
     .filter((m) => m.role === 'guest')
     .map((m) => m.name)
@@ -125,9 +132,12 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     chairName: state.members.find((m) => m.role === 'chair')?.name ?? null,
     present,
     guests,
-    headcount: state.headcount ?? 0,
-    headcountNames: state.headcountNames ?? [],
-    proxiesHeld: state.proxiesHeld ?? 0,
+    board,
+    alsoPresent,
+    // Nobody is counted in the room, nor by proxy, in a board meeting
+    headcount: board ? 0 : (state.headcount ?? 0),
+    headcountNames: board ? [] : (state.headcountNames ?? []),
+    proxiesHeld: board ? 0 : (state.proxiesHeld ?? 0),
     quorum: state.quorum,
     quorumAtCallToOrder: state.quorumAtCallToOrder ?? null,
     items: state.agenda.map((item) => ({
@@ -533,13 +543,25 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   const lines: string[] = [];
   const paragraph = (text: string) => lines.push(text, '');
 
+  const board = minutes.board ?? null;
+  const title = context.title || minutes.title;
   paragraph(`# ${md(context.organizationName)}`);
-  paragraph(`## Minutes of the ${md(context.title || minutes.title || 'Meeting')}`);
+  paragraph(
+    board
+      ? '## Minutes of the meeting of the Board of Directors'
+      : `## Minutes of the ${md(title || 'Meeting')}`,
+  );
+  // A board meeting's own title leads the line with its date and place
+  const named = board && title ? `${md(title)}: ` : '';
   const day = context.scheduledFor ?? context.calledToOrderAt;
   if (day) {
-    paragraph(`${longDate(day, zone)}${context.location ? `, at ${md(context.location)}` : ''}.`);
+    paragraph(
+      `${named}${longDate(day, zone)}${context.location ? `, at ${md(context.location)}` : ''}.`,
+    );
   } else if (context.location) {
-    paragraph(`At ${md(context.location)}.`);
+    paragraph(`${named}At ${md(context.location)}.`);
+  } else if (named) {
+    paragraph(`${md(title)}.`);
   }
   const opening = [
     ...(minutes.chairName ? [`${md(minutes.chairName)} presided.`] : []),
@@ -553,10 +575,11 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   const members = minutes.present.map((p) =>
     p.marked ? `${md(p.name)} (marked present)` : md(p.name),
   );
+  const who = board ? 'Directors' : 'Members';
   paragraph(
     members.length > 0
-      ? `**Members present (${members.length}):** ${members.join(', ')}.`
-      : '**Members present:** none.',
+      ? `**${who} present (${members.length}):** ${members.join(', ')}.`
+      : `**${who} present:** none.`,
   );
   if (minutes.headcount > 0) {
     const named = minutes.headcountNames.map(md);
@@ -575,17 +598,30 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
       `**Proxies and absentee ballots held:** ${minutes.proxiesHeld}, counted toward the quorum.`,
     );
   }
-  if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.map(md).join(', ')}.`);
   const presentIds = new Set(minutes.present.map((p) => p.id));
   const absent = context.voters
     .filter((v) => !presentIds.has(v.id))
     .map((v) => v.name)
     .sort(byName)
     .map(md);
-  if (absent.length > 0) paragraph(`**Absent (${absent.length}):** ${absent.join(', ')}.`);
+  if (board) {
+    // The directors, then everyone else from the organization, then guests
+    if (absent.length > 0) {
+      paragraph(`**Directors absent (${absent.length}):** ${absent.join(', ')}.`);
+    }
+    const also = minutes.alsoPresent ?? [];
+    if (also.length > 0) paragraph(`**Also present:** ${also.map(md).join(', ')}.`);
+    if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.map(md).join(', ')}.`);
+  } else {
+    if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.map(md).join(', ')}.`);
+    if (absent.length > 0) paragraph(`**Absent (${absent.length}):** ${absent.join(', ')}.`);
+  }
   if (minutes.quorumAtCallToOrder !== null) {
+    const not = minutes.quorumAtCallToOrder ? '' : 'not ';
     paragraph(
-      `A quorum of ${minutes.quorum} was ${minutes.quorumAtCallToOrder ? '' : 'not '}present at the call to order.`,
+      board
+        ? `A quorum of the board (${minutes.quorum} of the ${board.directors} directors) was ${not}present at the call to order.`
+        : `A quorum of ${minutes.quorum} was ${not}present at the call to order.`,
     );
   }
 

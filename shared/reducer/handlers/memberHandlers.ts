@@ -1,5 +1,6 @@
 import type { MeetingAction, Member } from '../../types/index.js';
 import { logMemberJoined, logMemberPresenceChanged } from '../../constants/logMessages.js';
+import { takesPart } from '../../utils/attendance.js';
 import { withAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
@@ -109,12 +110,22 @@ export const memberHandler: ActionHandler = (state, action, log) => {
       const newChair = typedAction.members.some((m) => m.role === 'chair');
       const members = state.members.map((m) => {
         const update = updates.get(m.id);
-        if (update) return { ...m, name: update.name, role: update.role };
+        if (update) {
+          // A presiding officer without a vote (a board meeting's, who isn't a director)
+          const { nonVoting: _was, ...rest } = m;
+          return {
+            ...rest,
+            name: update.name,
+            role: update.role,
+            ...(update.nonVoting && { nonVoting: true }),
+          };
+        }
         // There is one chair
         return newChair && m.role === 'chair' ? { ...m, role: 'member' as const } : m;
       });
-      // A guest can neither hold nor grant a proxy: a member who became one loses theirs
-      const guests = new Set(members.filter((m) => m.role === 'guest').map((m) => m.id));
+      // Only someone who takes part can hold or grant a proxy: a member who no longer does
+      // loses theirs
+      const guests = new Set(members.filter((m) => !takesPart(m)).map((m) => m.id));
       const proxies = state.proxies.filter(
         (p) => !guests.has(p.grantedBy) && !guests.has(p.grantedTo),
       );

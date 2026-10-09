@@ -1,4 +1,26 @@
-import type { MeetingState } from '../types/index.js';
+import type { MeetingState, Member } from '../types/index.js';
+
+/**
+ * Whether a member of the meeting takes part in it: moves, seconds, votes and counts toward the
+ * quorum. Guests and observers don't, nor does a presiding officer without a vote (in a board
+ * meeting, one who isn't a director).
+ */
+export function takesPart(member: Pick<Member, 'role' | 'nonVoting'>): boolean {
+  return member.role !== 'guest' && member.role !== 'observer' && !member.nonVoting;
+}
+
+/** Whether the meeting is the board's: its directors vote (see MeetingState.board) */
+export function isBoardMeeting(state: Pick<MeetingState, 'board'>): boolean {
+  return !!state.board;
+}
+
+/**
+ * A board's quorum: the number the organization sets (its bylaws'), else a majority of its
+ * directors. At least 1.
+ */
+export function boardQuorum(directors: number, setting: number | null): number {
+  return Math.max(1, setting ?? Math.floor(directors / 2) + 1);
+}
 
 /** Who is present, and whether that makes a quorum */
 export interface AttendanceSummary {
@@ -18,6 +40,11 @@ export interface AttendanceSummary {
   hasQuorum: boolean;
   /** Guests present: they never count toward quorum */
   guests: number;
+  /**
+   * The organization's people present who don't vote in a board meeting (observers, and a
+   * presiding officer who isn't a director): they never count either
+   */
+  observers: number;
 }
 
 /**
@@ -26,14 +53,17 @@ export interface AttendanceSummary {
  * existed) count as none.
  */
 export function attendanceSummary(state: MeetingState): AttendanceSummary {
-  const voting = state.members.filter((m) => m.role !== 'guest');
+  const voting = state.members.filter(takesPart);
   const present = voting.filter((m) => m.present);
   const markedPresent = present.filter((m) => m.presentBy === 'chair').length;
   const devicePresent = present.length - markedPresent;
-  const headcount = state.headcount ?? 0;
+  // A board meeting counts its directors only: nobody is counted in the room without an
+  // account, and directors don't vote by proxy
+  const board = isBoardMeeting(state);
+  const headcount = board ? 0 : (state.headcount ?? 0);
 
   let proxies = 0;
-  if (state.proxiesCountForQuorum) {
+  if (state.proxiesCountForQuorum && !board) {
     const presentIds = new Set(present.map((m) => m.id));
     const absentIds = new Set(voting.filter((m) => !m.present).map((m) => m.id));
     proxies = (state.proxies ?? []).filter(
@@ -41,7 +71,7 @@ export function attendanceSummary(state: MeetingState): AttendanceSummary {
     ).length;
   }
 
-  const proxiesHeld = state.proxiesHeld ?? 0;
+  const proxiesHeld = board ? 0 : (state.proxiesHeld ?? 0);
   const total = devicePresent + markedPresent + headcount + proxies + proxiesHeld;
   return {
     devicePresent,
@@ -53,6 +83,7 @@ export function attendanceSummary(state: MeetingState): AttendanceSummary {
     quorum: state.quorum,
     hasQuorum: total >= state.quorum,
     guests: state.members.filter((m) => m.role === 'guest' && m.present).length,
+    observers: state.members.filter((m) => m.present && m.role !== 'guest' && !takesPart(m)).length,
   };
 }
 
