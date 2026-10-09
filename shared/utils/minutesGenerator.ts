@@ -683,10 +683,3 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
   }
   return `${lines.join('\n').trimEnd()}\n`;
 }
-
-/**
- * Format meeting minutes as JSON (for export/API)
- */
-export function formatMinutesAsJSON(minutes: MeetingMinutes): string {
-  return JSON.stringify(minutes, null, 2);
-}

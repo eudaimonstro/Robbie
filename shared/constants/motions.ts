@@ -1,4 +1,4 @@
-import type { MotionDefinition, CategoryInfo } from '../types/index.js';
+import type { MotionDefinition } from '../types/index.js';
 
 /** A motion Robbie no longer has, as an old record names it */
 export interface RetiredMotion {
@@ -223,11 +223,4 @@ export const RETIRED_MOTIONS: Record<string, RetiredMotion> = {
   limitDebate: { name: 'Limit or extend debate', vote: '2/3' },
   takeFromTable: { name: 'Take from the table', vote: 'majority' },
   reconsider: { name: 'Reconsider', vote: 'majority' },
-};
-
-export const CATEGORY_INFO: Record<string, CategoryInfo> = {
-  privileged: { color: 'purple', label: 'Privileged' },
-  incidental: { color: 'amber', label: 'Incidental' },
-  subsidiary: { color: 'blue', label: 'Subsidiary' },
-  main: { color: 'emerald', label: 'Main' },
 };

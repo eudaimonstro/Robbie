@@ -915,13 +915,6 @@ export interface MotionDefinition {
   readonly whenToUse: string;
 }
 
-export type CategoryColor = 'purple' | 'amber' | 'blue' | 'emerald';
-
-export interface CategoryInfo {
-  readonly color: CategoryColor;
-  readonly label: string;
-}
-
 // Vote calculation types
 export type VoteRequirement = 'majority' | '2/3' | 'none';
 

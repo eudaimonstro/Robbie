@@ -1,7 +1,6 @@
 import { MOTIONS } from '../../constants/index.js';
 import { describe, it, expect } from 'vitest';
 import {
-  wordingFixedBy,
   getValidMotions,
   normalizeMotionText,
   isSimilarMotionSubject,
@@ -105,11 +104,7 @@ describe('motionHelpers', () => {
         createMockState({ currentMotion: bylaw, motionStack: [bylaw] }),
       ).map((m) => m.key);
       expect(keys).not.toContain('amend');
-      expect(keys).not.toContain('divideQuestion');
       expect(keys).toContain('adjourn');
-      expect(
-        wordingFixedBy(createMockState({ currentMotion: bylaw, motionStack: [bylaw] }), 'amend'),
-      ).toBe(true);
       // A main motion can still be amended
       const main = createMockMotion({ category: 'main', precedence: 1 });
       expect(

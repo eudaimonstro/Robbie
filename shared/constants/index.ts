@@ -1,6 +1,5 @@
-export { MOTIONS, RETIRED_MOTIONS, CATEGORY_INFO, type RetiredMotion } from './motions.js';
+export { MOTIONS, RETIRED_MOTIONS, type RetiredMotion } from './motions.js';
 export { motionWords, plainMotionName, type MotionWords } from './motionWords.js';
-export type { CategoryColor } from '../types/index.js';
 export {
   MEETING_STAGES,
   DISPLAYABLE_STAGES,

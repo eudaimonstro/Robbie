@@ -201,30 +201,6 @@ export type ActionErrorCode =
   | 'NO_QUORUM'
   | 'DEBATE_CLOSED';
 
-// Auth-related types
-export interface AuthPayload {
-  email: string;
-  name: string;
-  meetingCode: string;
-}
-
-export interface VerificationPayload {
-  email: string;
-  code: string;
-  meetingCode: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  token?: string;
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-  };
-  error?: string;
-}
-
 // Socket data attached to authenticated connections
 export interface SocketData {
   userId: number;

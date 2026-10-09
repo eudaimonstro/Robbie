@@ -146,22 +146,3 @@ export function canChairVoteDecide(
     passes({ ...votes, nay: votes.nay + 1 }) !== now
   );
 }
-
-/**
- * Check if chair can cast a deciding vote
- * @param votes - Current vote counts
- * @returns Object indicating if chair can break or create a tie
- */
-export function getChairVotingOptions(votes: Votes): {
-  canBreakTie: boolean;
-  canCreateTie: boolean;
-} {
-  const { yea, nay } = votes;
-  const isTied = yea === nay;
-  const yeaAheadByOne = yea === nay + 1;
-
-  return {
-    canBreakTie: isTied,
-    canCreateTie: yeaAheadByOne,
-  };
-}

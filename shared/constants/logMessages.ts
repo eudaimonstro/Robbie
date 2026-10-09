@@ -75,10 +75,6 @@ export function logRollCallVote(memberName: string, vote: 'yea' | 'nay' | 'absta
   return `[ROLL CALL] ${memberName}: ${voteText}`;
 }
 
-export function logVoteResult(yea: number, nay: number, resultText: string): string {
-  return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.`;
-}
-
 /** A division called on a voice vote: by a member, or from the floor */
 /** A voice vote's result declared without a count: "Voice vote: the ayes have it. CARRIED." */
 export function logVoiceVoteDeclared(declared: 'ayes' | 'noes', result: string): string {
@@ -111,8 +107,6 @@ export function logAgendaItemCompleted(title: string | undefined): string {
 }
 
 // Unanimous consent
-export const LOG_UNANIMOUS_CONSENT_REQUESTED = 'Chair: "Is there any objection?"';
-
 export function logUnanimousConsentObjection(objector: string): string {
   return `${objector} objects. The question is put to a vote.`;
 }
@@ -123,15 +117,6 @@ export const LOG_ADOPTED_BY_CONSENT = 'Motion CARRIED by unanimous consent.';
 /** A motion adopted by unanimous consent, with what its adoption did after it */
 export function logAdoptedByConsent(effects = ''): string {
   return `${LOG_ADOPTED_BY_CONSENT}${effects}`;
-}
-
-// Committee reports
-export function logCommitteeReportPresented(
-  committee: string,
-  presenter: string,
-  hasRecommendations: boolean,
-): string {
-  return `${committee} report presented by ${presenter}.${hasRecommendations ? ' Recommendations made.' : ''}`;
 }
 
 // Chair rulings
@@ -153,56 +138,13 @@ export function logMinutesApprovedWithCorrections(corrections: string): string {
   return `Minutes from previous meeting approved with corrections: ${corrections}`;
 }
 
-// Nominations
-export function logNominationsOpened(position: string): string {
-  return `Chair: Nominations are now open for ${position}.`;
-}
-
+// Nominations and elections
 export function logNomination(nominatedBy: string, nomineeName: string, position: string): string {
   return `${nominatedBy} nominates ${nomineeName} for ${position}.`;
 }
 
-export function logNominationDeclined(nomineeName: string, position: string): string {
-  return `${nomineeName} declines nomination for ${position}.`;
-}
-
-export function logNominationsClosed(position: string | null): string {
-  return `Chair: Nominations for ${position} are now closed.`;
-}
-
-// Elections
-export function logElectionVotingOpen(position: string, candidateCount: number): string {
-  return `Chair: Voting is now open for ${position}. ${candidateCount} candidate(s).`;
-}
-
-export function logElectionClosed(
-  position: string,
-  resultsText: string,
-  winner: string | null,
-): string {
-  const winnerMsg = winner ? `${winner} elected.` : 'No candidate elected (majority not reached).';
-  return `Voting closed for ${position}. Results: ${resultsText}. ${winnerMsg}`;
-}
-
-export function logElected(candidateName: string, position: string): string {
-  return `Chair declares ${candidateName} elected as ${position}.`;
-}
-
 export function logElectionSetAside(position: string | null): string {
   return position ? `The election for ${position} was set aside.` : 'The election was set aside.';
-}
-
-// Inquiries
-export function logInquiryRaised(
-  askedBy: string,
-  inquiryTypeLabel: string,
-  question: string,
-): string {
-  return `${askedBy} raises ${inquiryTypeLabel}: "${question}"`;
-}
-
-export function logInquiryAnswered(inquiryTypeLabel: string, answer: string): string {
-  return `Chair answers ${inquiryTypeLabel}: "${answer}"`;
 }
 
 // Member management
@@ -226,15 +168,6 @@ export function logProxiesHeldSet(count: number): string {
   return count === 1
     ? '1 proxy or absentee ballot held.'
     : `${count} proxies and absentee ballots held.`;
-}
-
-export function logRoleChanged(
-  memberName: string,
-  oldRole: string,
-  newRole: string,
-  changedBy: string,
-): string {
-  return `${changedBy} changed ${memberName}'s role from ${oldRole} to ${newRole}.`;
 }
 
 // Quorum warning
