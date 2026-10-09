@@ -19,8 +19,20 @@ export default defineConfig({
     css: { include: [/styles\/index\.css/] },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', '**/*.d.ts', '**/*.config.*', '**/index.ts'],
+      reporter: ['text-summary', 'html'],
+      // Every source file, also those no test imports (they count as 0%)
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        '**/__tests__/**',
+        '**/*.test.{ts,tsx}',
+        '**/*.d.ts',
+        // Barrels and the entry point: nothing to test
+        '**/index.ts',
+        'src/main.tsx',
+      ],
+      // At the measured level less about two points (2026-10-08), so coverage can't drop
+      // unnoticed; raise them as it grows
+      thresholds: { statements: 76, branches: 73, functions: 71, lines: 77 },
     },
   },
 });
