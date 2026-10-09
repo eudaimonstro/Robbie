@@ -21,6 +21,8 @@ It starts its own Postgres in Docker, builds the app, seeds the Maple Grove HOA 
 npm install
 docker compose up -d                              # a development Postgres
 cp backend-node/.env.example backend-node/.env    # then set DATABASE_URL and the rest
+npm run build:shared                              # the shared package the others import
+npm run db:generate                               # the Prisma client
 npm run db:migrate
 npm run dev                                       # the server on 3001, the web app on http://localhost:5173
 ```
