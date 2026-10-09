@@ -10,9 +10,109 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels its run in progress. Pushes to main each get a group of
+# their own (by commit), so none is canceled and each green commit is published
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  ci:
+  # Fast feedback: format, lint, types, the audit and the build, without a database
+  checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build:shared
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w backend-node
+
+      - name: Audit the production dependencies
+        # Fails on high or critical findings; the moderate ones it prints are
+        # accepted in docs/security/dependency-audit.md
+        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=high
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        # ESLint fails on any warning (--max-warnings 0), then the palette check
+        run: npm run lint
+
+      - name: Type-check shared
+        run: npx tsc --noEmit -p shared/tsconfig.json
+
+      - name: Type-check backend-node
+        run: npx tsc --noEmit -p backend-node/tsconfig.json
+
+      - name: Type-check frontend-unified
+        run: npx tsc --noEmit -p frontend-unified/tsconfig.json
+
+      - name: Type-check the Playwright harness
+        run: npx tsc --noEmit -p e2e/tsconfig.json
+
+      - name: Build all
+        run: npm run build
+
+  # The unit tests of the three packages, with coverage and its thresholds
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # NODE_ENV=test is set on the test steps only: Vite reads NODE_ENV, and with it set to test
+    # a web build bundles React's development build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build:shared
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w backend-node
+
+      - name: Test shared
+        run: npm run test:coverage -w shared
+        env:
+          NODE_ENV: test
+
+      - name: Test backend-node
+        run: npm run test:coverage -w backend-node
+        env:
+          NODE_ENV: test
+
+      - name: Test frontend-unified
+        run: npm run test:coverage -w frontend-unified
+        env:
+          NODE_ENV: test
+
+  # The migrations against the schema, and backend-node's integration tests on Postgres
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -32,18 +132,20 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/robbie
+      # The same database as DATABASE_URL: this job's Postgres is a throwaway service. Locally
+      # INTEGRATION_DATABASE_URL never points at DATABASE_URL's database (CLAUDE.md)
       INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
-    # NODE_ENV=test is set on the test steps only: Vite reads NODE_ENV, and with it set to test
-    # the web build bundles React's development build
+      # Reset by the drift check; created below
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie_shadow
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 24
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -55,54 +157,25 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate -w backend-node
 
+      - name: Check the migrations match the schema
+        # Applies the migrations to a shadow database and compares the result with
+        # schema.prisma: a schema change without its migration (or the reverse) fails here
+        working-directory: backend-node
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/robbie" -c 'CREATE DATABASE robbie_shadow'
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+
       - name: Apply database migrations
         run: npm run db:deploy -w backend-node
 
-      - name: Audit the production dependencies
-        # Fails on high or critical findings; the moderate ones it prints are
-        # accepted in docs/security/dependency-audit.md
-        run: npm audit --omit=dev -w backend-node -w shared -w frontend-unified --audit-level=high
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type-check shared
-        run: npx tsc --noEmit -p shared/tsconfig.json
-
-      - name: Type-check backend-node
-        run: npx tsc --noEmit -p backend-node/tsconfig.json
-
-      - name: Type-check frontend-unified
-        run: npx tsc --noEmit -p frontend-unified/tsconfig.json
-
-      - name: Test shared
-        run: npm run test:run -w shared
-        env:
-          NODE_ENV: test
-
-      - name: Test backend-node
-        run: npm run test:run -w backend-node
-        env:
-          NODE_ENV: test
-
       - name: Integration tests backend-node
-        run: npm run test:integration -w backend-node
+        run: npm run test:integration:coverage -w backend-node
         env:
           NODE_ENV: test
-
-      - name: Test frontend-unified
-        run: npm run test:run -w frontend-unified
-        env:
-          NODE_ENV: test
-
-      - name: Build all
-        run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -122,16 +195,16 @@ jobs:
     env:
       # This job's own Postgres service; locally the harness uses the throwaway one on 55432
       E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robbie
-    # NODE_ENV=test only on the Playwright step, not the web build (see the ci job)
+    # NODE_ENV=test only on the Playwright step, not the web build (see the unit job)
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 24
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -145,9 +218,6 @@ jobs:
 
       - name: Build the web app
         run: npm run build -w frontend-unified
-
-      - name: Type-check the harness
-        run: npx tsc --noEmit -p e2e/tsconfig.json
 
       - name: Find the Playwright version
         id: playwright
@@ -185,6 +255,7 @@ jobs:
 
   image:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -208,8 +279,9 @@ jobs:
   publish:
     # Only main, and only once everything else passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [ci, e2e, image]
+    needs: [checks, unit, integration, e2e, image]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
