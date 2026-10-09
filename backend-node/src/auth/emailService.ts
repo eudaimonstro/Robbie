@@ -1,5 +1,6 @@
 /**
- * Email service: the sign-in code, and the email to someone added to an organization
+ * Email service: the sign-in code, the email to someone added to an organization, and the
+ * meeting notice (any plain-text email: sendPlainEmail)
  *
  * Supports multiple providers:
  * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
@@ -25,6 +26,9 @@
  *   EMAIL_FROM=noreply@yourdomain.com
  */
 
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
@@ -318,6 +322,79 @@ export async function sendAddedToOrganization(email: AddedToOrganizationEmail): 
 
   const messageId = await deliver({ to: email.to, ...addedToOrganizationEmail(email, appUrl()) });
   logger.info({ to: emailForLog(email.to), messageId }, 'Added-to-organization email sent');
+}
+
+/** A plain-text email to one person: no HTML, so nothing a user typed can be markup */
+export interface PlainEmail {
+  to: string;
+  subject: string;
+  text: string;
+}
+
+/** Tests: when set, plain-text emails are collected here instead of being sent */
+let plainOutbox: PlainEmail[] | null = null;
+/** Tests: the addresses whose plain-text email fails, as a provider's refusal would */
+let failingFor: ((to: string) => boolean) | null = null;
+
+/**
+ * Collect plain-text emails (the meeting notice) in memory instead of sending them, those to the
+ * addresses `fail` picks failing as a refused delivery does (tests only)
+ */
+export function capturePlainEmailsForTests(fail?: (to: string) => boolean): PlainEmail[] {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('capturePlainEmailsForTests is for tests only (NODE_ENV=test)');
+  }
+  plainOutbox = [];
+  failingFor = fail ?? null;
+  return plainOutbox;
+}
+
+/**
+ * Where the browser tests' server writes the plain-text emails it would send, one JSON file
+ * each, so a test in another process can read them: EMAIL_OUTBOX_DIR, only under NODE_ENV=test
+ * and without an email provider (nothing is delivered either way)
+ */
+function outboxDir(): string | null {
+  const dir = process.env.EMAIL_OUTBOX_DIR;
+  return dir && process.env.NODE_ENV === 'test' && emailProvider === 'development' ? dir : null;
+}
+
+/**
+ * Send one plain-text email (`what` names it in the log). Without an email provider
+ * (development only; production requires one) it is logged at debug level instead, or written
+ * to the test outbox. Throws when the provider refuses it.
+ */
+export async function sendPlainEmail(message: PlainEmail, what: string): Promise<void> {
+  if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
+    throw new Error('No email provider configured; production cannot send email');
+  }
+
+  if (plainOutbox) {
+    if (failingFor?.(message.to)) throw new Error('Delivery refused (test)');
+    plainOutbox.push(message);
+    return;
+  }
+
+  const dir = outboxDir();
+  if (dir) {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      path.join(dir, `${Date.now()}-${randomUUID()}.json`),
+      JSON.stringify(message, null, 2),
+    );
+    return;
+  }
+
+  if (emailProvider === 'development') {
+    logger.debug(
+      { to: emailForLog(message.to), subject: message.subject },
+      `${what} (no email provider configured)`,
+    );
+    return;
+  }
+
+  const messageId = await deliver(message);
+  logger.info({ to: emailForLog(message.to), messageId }, `${what} sent`);
 }
 
 /**

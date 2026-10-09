@@ -256,6 +256,18 @@ describe('organizations', () => {
     expect(read.body).toMatchObject({ eligibleVoters: 142, quorumPercent: null, quorumCount: 25 });
   });
 
+  it("set the board's quorum, or a majority of the directors with none", async () => {
+    const put = (body: object) =>
+      call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
+    expect((await put({ boardQuorum: 3 })).body).toMatchObject({ boardQuorum: 3 });
+    // Other settings leave it as it is
+    expect((await put({ quorumCount: 4 })).body).toMatchObject({ boardQuorum: 3 });
+    expect((await put({ boardQuorum: null })).body).toMatchObject({ boardQuorum: null });
+    for (const boardQuorum of [0, 26, 2.5]) {
+      expect((await put({ boardQuorum })).status, String(boardQuorum)).toBe(400);
+    }
+  });
+
   it('refuse a quorum of more people than the voting members, either way it is changed', async () => {
     // The fixture: 20 voting members, a quorum of 3
     const put = (body: object) =>

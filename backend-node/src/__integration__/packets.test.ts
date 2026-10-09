@@ -4,7 +4,9 @@ import { prisma } from '../db/prisma.js';
 import {
   CHAIR_NOT_MEMBER,
   CODE_UNAVAILABLE,
+  KIND_FIXED,
   MEETING_HELD,
+  NO_BOARD,
   packetsRouter,
 } from '../bylawyer/routes/packets.js';
 import { getFullPath, storeFile } from '../bylawyer/services/fileStorage.js';
@@ -318,6 +320,8 @@ describe('packets', () => {
       location: null,
       scheduledFor: '2026-11-01T00:00:00.000Z',
       chairUserId: null,
+      kind: 'members',
+      noticeSentAt: null,
       startedAt: null,
       endedAt: null,
       chair: null,
@@ -423,5 +427,62 @@ describe('packets', () => {
       body: { robbieCode: 'NEW002' },
     });
     expect(res.status).toBe(404);
+  });
+
+  describe('of the board', () => {
+    const schedule = (body: object) =>
+      call('post', `/api/organizations/${f.orgA.id}/packets`, {
+        cookie: f.users.secretary.cookie,
+        body,
+      });
+    const markDirector = () =>
+      prisma.organizationMember.update({
+        where: { organizationId_userId: { organizationId: f.orgA.id, userId: f.users.member.id } },
+        data: { isDirector: true },
+      });
+
+    it('need the organization to have directors', async () => {
+      let res = await schedule({ robbieCode: 'BOARD1', kind: 'board' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe(NO_BOARD);
+
+      await markDirector();
+      res = await schedule({ robbieCode: 'BOARD1', kind: 'board' });
+      expect(res.status).toBe(201);
+      expect(res.body.kind).toBe('board');
+
+      const list = await call('get', `/api/organizations/${f.orgA.id}/packets`, {
+        cookie: f.users.viewer.cookie,
+      });
+      const listed = list.body.find((p: { robbieCode: string }) => p.robbieCode === 'BOARD1');
+      expect(listed).toMatchObject({ kind: 'board', noticeSentAt: null });
+      // A meeting of the members is the default
+      expect(list.body.find((p: { robbieCode: string }) => p.robbieCode === 'ORGA01').kind).toBe(
+        'members',
+      );
+    });
+
+    it('change who votes only before the call to order', async () => {
+      const put = (kind: string) =>
+        call('put', `/api/packets/${f.packet.id}`, {
+          cookie: f.users.secretary.cookie,
+          body: { kind },
+        });
+      expect((await put('board')).status).toBe(400);
+      await markDirector();
+      const res = await put('board');
+      expect(res.status).toBe(200);
+      expect(res.body.kind).toBe('board');
+
+      await prisma.meetingPacket.update({
+        where: { id: f.packet.id },
+        data: { startedAt: new Date() },
+      });
+      const late = await put('members');
+      expect(late.status).toBe(409);
+      expect(late.body.error).toBe(KIND_FIXED);
+      // The same kind again changes nothing
+      expect((await put('board')).status).toBe(200);
+    });
   });
 });

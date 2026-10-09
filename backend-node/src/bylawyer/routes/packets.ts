@@ -21,7 +21,7 @@ import { orgOfOrganization, orgOfPacket, orgOfPacketCode } from '../../orgs/reso
 import { atLeast, roleNeeded } from '../../orgs/roles.js';
 import { listMembers } from '../../orgs/membershipService.js';
 import { getStorage } from '../../db/meetingStorage.js';
-import { agendaFromPacket, findMeetingPacket } from '../../socket/meetingPacket.js';
+import { agendaFromPacket, countDirectors, findMeetingPacket } from '../../socket/meetingPacket.js';
 import { syncLiveRoles } from '../../socket/meetingRoles.js';
 import { closeCanceledMeeting } from '../../socket/meetingLifecycle.js';
 import { getIoInstance } from '../../socket/ioInstance.js';
@@ -47,6 +47,20 @@ const codeTaken = (error: unknown) =>
 /** The answer when the presiding officer named isn't a voting member of the organization */
 export const CHAIR_NOT_MEMBER =
   'The presiding officer must be a member of the organization with the member role or above';
+
+/** The answer when a board meeting is scheduled by an organization without directors */
+export const NO_BOARD =
+  'Mark the board members on the Members page in Settings before scheduling a board meeting';
+
+/** The answer when who votes changes after the meeting was called to order */
+export const KIND_FIXED = "Who votes can't change once the meeting has been called to order";
+
+/** Refuse a board meeting of an organization with no directors */
+async function checkBoard(organizationId: string, kind: string | undefined): Promise<void> {
+  if (kind === 'board' && (await countDirectors(organizationId)) === 0) {
+    throw ApiError.badRequest(NO_BOARD);
+  }
+}
 
 /**
  * The answer when a meeting called to order is deleted: its record (the minutes, which go with
@@ -132,6 +146,8 @@ packetsRouter.get(
         location: true,
         scheduledFor: true,
         chairUserId: true,
+        kind: true,
+        noticeSentAt: true,
         startedAt: true,
         endedAt: true,
         chair: { select: { name: true } },
@@ -171,8 +187,9 @@ packetsRouter.get(
  * Schedule a meeting: create its packet in the organization, claiming its meeting code. Codes
  * are unique across all organizations; without one, a random code is generated. A code that is
  * taken is refused (409) without saying whose. The presiding officer defaults to the person
- * creating it. Limited per user (meetingCodeLimiter).
- * Body: { robbieCode?, title?, description?, location?, scheduledFor?, chairUserId? }
+ * creating it. A board meeting (kind) needs the organization to have directors. Limited per
+ * user (meetingCodeLimiter).
+ * Body: { robbieCode?, title?, description?, location?, scheduledFor?, chairUserId?, kind? }
  */
 packetsRouter.post(
   '/organizations/:orgId/packets',
@@ -180,12 +197,13 @@ packetsRouter.post(
   requireRole('secretary', fromParam('orgId', orgOfOrganization)),
   meetingCodeLimiter,
   async (req, res) => {
-    const { robbieCode, title, description, location, scheduledFor } = req.body;
+    const { robbieCode, title, description, location, scheduledFor, kind } = req.body;
     const chairUserId: number | null =
       req.body.chairUserId === undefined ? req.user!.id : req.body.chairUserId;
     if (chairUserId !== null && !(await canPreside(req.org!.id, chairUserId))) {
       throw ApiError.badRequest(CHAIR_NOT_MEMBER);
     }
+    await checkBoard(req.org!.id, kind);
 
     const create = (code: string) =>
       prisma.meetingPacket.create({
@@ -197,6 +215,7 @@ packetsRouter.post(
           location,
           scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
           chairUserId,
+          kind,
         },
         include: packetInclude,
       });
@@ -217,8 +236,9 @@ packetsRouter.post(
 
 /**
  * PUT /api/packets/:id
- * Update packet metadata
- * Body: { title?, description?, location?, scheduledFor?, chairUserId? } (null clears the description, the location or the date)
+ * Update packet metadata. Who votes (kind) changes only before the call to order, and to a
+ * board meeting only with directors; a live meeting not yet called to order follows at once.
+ * Body: { title?, description?, location?, scheduledFor?, chairUserId?, kind? } (null clears the description, the location or the date)
  */
 packetsRouter.put(
   '/packets/:id',
@@ -227,7 +247,7 @@ packetsRouter.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, description, location, scheduledFor, chairUserId } = req.body;
+      const { title, description, location, scheduledFor, chairUserId, kind } = req.body;
 
       const packet = await prisma.meetingPacket.findUnique({
         where: { id },
@@ -242,6 +262,13 @@ packetsRouter.put(
       ) {
         return res.status(400).json({ error: CHAIR_NOT_MEMBER });
       }
+      const kindChanges = kind !== undefined && kind !== packet.kind;
+      if (kindChanges && packet.startedAt) {
+        return res.status(409).json({ error: KIND_FIXED });
+      }
+      if (kindChanges && kind === 'board' && (await countDirectors(packet.organizationId)) === 0) {
+        return res.status(400).json({ error: NO_BOARD });
+      }
 
       const updated = await prisma.meetingPacket.update({
         where: { id },
@@ -252,6 +279,7 @@ packetsRouter.put(
           scheduledFor:
             scheduledFor === null ? null : scheduledFor ? new Date(scheduledFor) : undefined,
           chairUserId,
+          kind,
         },
         include: {
           attachments: { omit: HIDDEN_ATTACHMENT_FIELDS, orderBy: { position: 'asc' } },
@@ -264,7 +292,7 @@ packetsRouter.put(
         },
       });
 
-      if (chairUserId !== undefined && chairUserId !== packet.chairUserId) {
+      if ((chairUserId !== undefined && chairUserId !== packet.chairUserId) || kindChanges) {
         await syncLiveRoles(packet.robbieCode);
       }
 
@@ -437,6 +465,7 @@ packetsRouter.get(
             name: m.name,
             ...(admin && { email: m.email }),
             orgRole: m.role,
+            isDirector: !!m.isDirector,
             ...(invite && { inviteId: invite.id, inviteName: invite.name }),
           };
         }),

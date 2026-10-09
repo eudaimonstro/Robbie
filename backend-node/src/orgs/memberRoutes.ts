@@ -13,6 +13,7 @@ import {
   addMemberBody,
   addMembersBulkBody,
   changeRoleBody,
+  directorBody,
   inviteParams,
   memberParams,
   organizationMembersParams,
@@ -25,6 +26,7 @@ import {
   changeRole,
   listMembers,
   removeMember,
+  setDirector,
   type Actor,
 } from './membershipService.js';
 import { OrgError } from './orgError.js';
@@ -141,6 +143,28 @@ membersRouter.put(
       res.json({ member });
     } catch (error) {
       sendError(res, error, 'Failed to change the role');
+    }
+  },
+);
+
+// PUT /api/organizations/:id/members/:userId/director { isDirector }: put a member on the board
+// or take them off it (admin); the organization's live meetings follow at once
+membersRouter.put(
+  '/organizations/:id/members/:userId/director',
+  validate({ params: memberParams, body: directorBody }),
+  requireRole('admin', byOrganization),
+  async (req, res) => {
+    try {
+      const member = await setDirector(
+        req.params.id,
+        actorOf(req.user!, req.org!),
+        Number(req.params.userId),
+        req.body.isDirector,
+      );
+      await syncLiveMeetings(req.params.id);
+      res.json({ member });
+    } catch (error) {
+      sendError(res, error, 'Failed to change the board');
     }
   },
 );

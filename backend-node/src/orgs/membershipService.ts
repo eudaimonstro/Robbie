@@ -21,12 +21,20 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const LAST_OWNER = 'An organization needs at least one owner';
 
+/** An organization's board can have at most this many directors */
+export const MAX_DIRECTORS = 25;
+export const TOO_MANY_DIRECTORS = `A board can have at most ${MAX_DIRECTORS} members`;
+export const DIRECTOR_NEEDS_MEMBER =
+  'Only a member (or a secretary, admin or owner) can be on the board: change their role first';
+
 export interface MemberView {
   userId: number;
   name: string | null;
   /** Left out of a list for someone below admin, but for their own */
   email?: string;
   role: OrgRole;
+  /** On the board: votes in a board meeting */
+  isDirector?: boolean;
 }
 
 export interface InviteView {
@@ -141,6 +149,7 @@ export async function listMembers(
     name: row.user.name,
     ...((forAdmin || row.userId === viewerId) && { email: row.user.email }),
     role: row.role,
+    isDirector: row.isDirector,
   }));
   if (!forAdmin) return { members };
 
@@ -428,11 +437,51 @@ export async function changeRole(
     checkOwnerRule(acting, target.role, role);
     if (target.role === 'owner' && role !== 'owner') await checkAnotherOwner(tx, organizationId);
 
+    // A viewer can't be on the board
+    const isDirector = target.isDirector && role !== 'viewer';
     await tx.organizationMember.update({
       where: { organizationId_userId: { organizationId, userId } },
-      data: { role },
+      data: { role, isDirector },
     });
-    return { userId, name: target.user.name, email: target.user.email, role };
+    return { userId, name: target.user.name, email: target.user.email, role, isDirector };
+  });
+}
+
+/**
+ * Put a member on the board or take them off it (needs admin). Only members and above can be on
+ * it, and at most MAX_DIRECTORS (checked under the organization's lock).
+ */
+export async function setDirector(
+  organizationId: string,
+  actor: Actor,
+  userId: number,
+  isDirector: boolean,
+): Promise<MemberView> {
+  return prisma.$transaction(async (tx) => {
+    await lockAsActor(tx, organizationId, actor, 'admin');
+    const target = await tx.organizationMember.findUnique({
+      where: { organizationId_userId: { organizationId, userId } },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    if (!target) throw new OrgError(404, 'Not found');
+    if (isDirector && !target.isDirector) {
+      if (!atLeast(target.role, 'member')) throw new OrgError(400, DIRECTOR_NEEDS_MEMBER);
+      const directors = await tx.organizationMember.count({
+        where: { organizationId, isDirector: true },
+      });
+      if (directors >= MAX_DIRECTORS) throw new OrgError(409, TOO_MANY_DIRECTORS);
+    }
+    await tx.organizationMember.update({
+      where: { organizationId_userId: { organizationId, userId } },
+      data: { isDirector },
+    });
+    return {
+      userId,
+      name: target.user.name,
+      email: target.user.email,
+      role: target.role,
+      isDirector,
+    };
   });
 }
 

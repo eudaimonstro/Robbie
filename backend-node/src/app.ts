@@ -24,6 +24,7 @@ import {
   packetsRouter,
   attachmentsRouter,
   agendaItemsRouter,
+  noticesRouter,
   minutesRouter,
 } from './bylawyer/routes/index.js';
 import { httpLogger } from './middleware/logger.js';
@@ -162,6 +163,7 @@ app.use('/api', amendmentsRouter);
 app.use('/api', packetsRouter);
 app.use('/api', attachmentsRouter);
 app.use('/api', agendaItemsRouter);
+app.use('/api', noticesRouter);
 app.use('/api', membersRouter);
 app.use('/api', minutesRouter);
 app.use('/api', voteRulesRouter);

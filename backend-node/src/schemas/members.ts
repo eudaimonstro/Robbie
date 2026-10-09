@@ -35,3 +35,5 @@ export const addMembersBulkBody = z.object({
 });
 
 export const changeRoleBody = z.object({ role: orgRole });
+
+export const directorBody = z.object({ isDirector: z.boolean() });

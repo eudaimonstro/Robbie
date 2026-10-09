@@ -158,15 +158,24 @@ organizationsRouter.get(
   },
 );
 
-// Update the organization's name, description, attendance settings and time zone. The quorum is a
-// percentage or a count: setting one clears the other.
+// Update the organization's name, description, attendance settings (with the board's quorum, null
+// for a majority of the directors) and time zone. The quorum is a percentage or a count: setting
+// one clears the other.
 organizationsRouter.put(
   '/organizations/:id',
   validate({ params: uuidParam, body: updateOrganizationBody }),
   requireRole('admin', byOrganization),
   async (req, res) => {
     try {
-      const { name, description, eligibleVoters, quorumPercent, quorumCount, timeZone } = req.body;
+      const {
+        name,
+        description,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
+        timeZone,
+        boardQuorum,
+      } = req.body;
       // A quorum of people can't be more than vote, whichever of the two changes
       const current = await prisma.organization.findUniqueOrThrow({
         where: { id: req.params.id },
@@ -184,6 +193,7 @@ organizationsRouter.put(
         description,
         eligibleVoters,
         timeZone,
+        boardQuorum,
       };
       if (quorumPercent !== undefined) {
         data.quorumPercent = quorumPercent;
