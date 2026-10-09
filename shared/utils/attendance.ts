@@ -16,10 +16,22 @@ export function isBoardMeeting(state: Pick<MeetingState, 'board'>): boolean {
 
 /**
  * A board's quorum: the number the organization sets (its bylaws'), else a majority of its
- * directors. At least 1.
+ * directors; never more than the directors there are, and at least 1
  */
 export function boardQuorum(directors: number, setting: number | null): number {
-  return Math.max(1, setting ?? Math.floor(directors / 2) + 1);
+  const quorum = setting ?? Math.floor(directors / 2) + 1;
+  return Math.max(1, directors > 0 ? Math.min(quorum, directors) : quorum);
+}
+
+/** The most directors a board can have for its chair to take part as any director does */
+export const SMALL_BOARD = 12;
+
+/**
+ * A board meeting of no more than SMALL_BOARD directors (RONR 49:21): its chair, a director,
+ * votes on every question and may move and second, like any director
+ */
+export function smallBoard(state: Pick<MeetingState, 'board'>): boolean {
+  return !!state.board && state.board.directors <= SMALL_BOARD;
 }
 
 /** Who is present, and whether that makes a quorum */

@@ -88,3 +88,35 @@ describe('START_ROLL_CALL in a board meeting', () => {
     expect(called.rollCall?.responses.map((r) => r.memberId)).toEqual([1]);
   });
 });
+
+describe('the chair of a small board (RONR 49:21)', () => {
+  const voting = (directors: number): MeetingState => ({
+    ...initialState,
+    meetingActive: true,
+    kind: 'board',
+    board: { directors },
+    votingOpen: true,
+    members: [member(1, 'chair'), member(2, 'member')],
+  });
+
+  it('votes on every question like any director, with twelve directors or fewer', () => {
+    const state = meetingReducer(voting(5), {
+      type: 'CAST_VOTE',
+      vote: 'yea',
+      voterId: 1,
+      timestamp: '',
+    });
+    expect(state.votes.yea).toBe(1);
+    expect(state.voters).toEqual([1]);
+  });
+
+  it('votes only to decide on a larger board, as at a meeting of the members', () => {
+    const state = meetingReducer(voting(13), {
+      type: 'CAST_VOTE',
+      vote: 'yea',
+      voterId: 1,
+      timestamp: '',
+    });
+    expect(state.voters).toEqual([]);
+  });
+});

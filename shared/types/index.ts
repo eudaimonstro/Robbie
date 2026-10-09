@@ -19,6 +19,11 @@ export type MeetingKind = 'members' | 'board';
 /** A board meeting's board: how many directors it has, the quorum's denominator */
 export interface BoardInfo {
   directors: number;
+  /**
+   * The board's quorum as the organization gives it (its setting, or a majority of the
+   * directors) when it was last taken: a meeting whose quorum still is this follows a change
+   */
+  quorum?: number;
 }
 
 export interface Member {

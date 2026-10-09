@@ -25,6 +25,7 @@ import {
   headcountBaseHolds,
   isBoardMeeting,
   motionOutOfOrder,
+  smallBoard,
   takesPart,
   motionThreshold,
   remainingNominees,
@@ -257,6 +258,23 @@ function textAmendmentCheck(state: MeetingState, action: NewMotion): string | nu
   return textAmendmentProblem(pending.textAmendment.insert, change);
 }
 
+/** In a board meeting a mover or seconder from the floor is a director by their account */
+const NAME_A_DIRECTOR: ValidationResult = {
+  valid: false,
+  error: 'Name the director: mark them present if they have no phone',
+  errorCode: 'BOARD_MEETING',
+};
+
+/**
+ * In a board meeting, more votes than directors: device voters and hands in the room together
+ * (a director votes once, on a device or in the room)
+ */
+function moreVotesThanDirectors(state: MeetingState, devices: number): boolean {
+  if (!state.board) return false;
+  const floor = state.floorVotes ?? NO_VOTES;
+  return devices + floor.yea + floor.nay + floor.abstain > state.board.directors;
+}
+
 /** A person the chair names from the floor as mover or seconder: a member present, not a guest */
 function checkFloorMember(
   state: MeetingState,
@@ -290,8 +308,9 @@ function checkFloorMember(
       errorCode: 'PERMISSION_DENIED',
     };
   }
-  // The presiding officer doesn't move or second (RONR): the chair, or the admin presiding
-  if (named.role === 'chair' || named.id === recordedBy) {
+  // The presiding officer doesn't move or second (RONR): the chair, or the admin presiding;
+  // in a small board they do, as any director (RONR 49:21)
+  if ((named.role === 'chair' || named.id === recordedBy) && !smallBoard(state)) {
     return {
       valid: false,
       error:
@@ -559,7 +578,9 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       errorCode: 'PERMISSION_DENIED',
     };
   }
-  if (sender?.nonVoting && membersMaySend(action.type)) {
+  // What the presiding officer records for someone in the room (fromFloor) is presiding, and
+  // each such case checks that the sender presides
+  if (sender?.nonVoting && membersMaySend(action.type) && sent.fromFloor !== true) {
     return {
       valid: false,
       error: 'Only the directors take part in a board meeting: you preside without a vote',
@@ -602,6 +623,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           valid: false,
           error: 'Meeting is already active',
           errorCode: 'MEETING_ALREADY_ACTIVE',
+        };
+      }
+      if (state.board && state.board.directors === 0) {
+        return {
+          valid: false,
+          error:
+            'A board meeting needs its board members: an admin marks them in Settings, Members',
+          errorCode: 'NO_DIRECTORS',
         };
       }
       return { valid: true };
@@ -649,6 +678,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (action.recordedBy !== undefined && !isPresiding(state, action.recordedBy)) {
         return NOT_PRESIDING;
       }
+      // A board's directors all have accounts: the director is named (marked present first)
+      if (state.board && action.moverMemberId === undefined) return NAME_A_DIRECTOR;
       // The mover is the member named, or else the name typed
       const mover =
         action.moverMemberId !== undefined
@@ -705,6 +736,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         }
         return { valid: true };
       }
+      if (state.board) return NAME_A_DIRECTOR;
       // A typed name, or none: "a member in the room"
       return checkFloorName(action.seconderName, false);
     }
@@ -759,14 +791,27 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'VOTING_METHOD',
         };
       }
+      // A board's directors vote once each, on a device or in the room: a new vote past the
+      // directors not counted yet is refused (a vote changed is no new vote)
+      if (
+        !(action.voterId in state.voterChoices) &&
+        moreVotesThanDirectors(state, state.voters.length + 1)
+      ) {
+        return {
+          valid: false,
+          error: `Every one of the ${state.board!.directors} directors has voted, on a device or in the room`,
+          errorCode: 'BOARD_MEETING',
+        };
+      }
       // A member who has voted may change the vote until the result is announced (RONR); the
       // reducer moves the count from the old choice to the new one
       // The chair votes only when the vote would
-      // change the result. That is checked here, not taken from the client's flag.
+      // change the result. That is checked here, not taken from the client's flag. The chair of
+      // a small board votes like any director (RONR 49:21).
       {
         const voter = state.members.find((m) => m.id === action.voterId);
         // On a secret ballot the chair votes like any member (RONR)
-        if (voter?.role === 'chair' && state.votingMethod !== 'ballot') {
+        if (voter?.role === 'chair' && state.votingMethod !== 'ballot' && !smallBoard(state)) {
           // Judge on everyone else's votes, on devices and in the room, leaving out a vote the
           // chair already cast
           const previous = state.voterChoices[action.voterId];
@@ -797,6 +842,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
       }
       if (action.declared) return voiceResultDeclarable(state);
+      if (moreVotesThanDirectors(state, state.voters.length)) {
+        return {
+          valid: false,
+          error: `More votes than the ${state.board!.directors} directors: correct the count in the room`,
+          errorCode: 'BOARD_MEETING',
+        };
+      }
       // A voice vote is counted only in the room: closing it with nothing entered would decide
       // the question on no votes at all
       const floor = state.floorVotes ?? NO_VOTES;
@@ -821,7 +873,12 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // The chair's deciding vote was judged on the tally as it stood: a tally entered after
       // it could leave the chair's vote cast where it no longer decides anything
       const chair = state.members.find((m) => m.role === 'chair');
-      if (chair && state.votingMethod !== 'ballot' && state.voters.includes(chair.id)) {
+      if (
+        chair &&
+        !smallBoard(state) &&
+        state.votingMethod !== 'ballot' &&
+        state.voters.includes(chair.id)
+      ) {
         return {
           valid: false,
           error: 'The floor tally must be entered before the chair votes',
@@ -1587,6 +1644,28 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'INVALID_ACTION',
         };
       }
+      // A board's directors vote once each: on a device, or on paper
+      if (state.board) {
+        const seats = state.currentElection.seats ?? 1;
+        const sum = (counts: Record<string, number> | undefined) =>
+          Object.values(counts ?? {}).reduce((total, count) => total + count, 0);
+        const paper =
+          (action.blank ?? 0) +
+          (seats > 1
+            ? (action.ballots ?? 0)
+            : sum(action.counts) + sum(action.writeIns) + (action.illegal ?? 0));
+        const left = Math.max(
+          0,
+          state.board.directors - state.currentElection.votersWhoVoted.length,
+        );
+        if (paper > left) {
+          return {
+            valid: false,
+            error: `Only ${left} ${left === 1 ? 'director has' : 'directors have'} not voted on a device`,
+            errorCode: 'BOARD_MEETING',
+          };
+        }
+      }
       return (
         paperBallotProblem(
           state.currentElection,
@@ -1687,10 +1766,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       if (!targetMember) {
         return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
       }
-      if (targetMember.role === 'guest') {
+      if (targetMember.role === 'guest' || targetMember.role === 'observer') {
         return {
           valid: false,
-          error: 'A guest cannot take the chair',
+          error:
+            targetMember.role === 'guest'
+              ? 'A guest cannot take the chair'
+              : 'An observer cannot take the chair',
           errorCode: 'INVALID_ACTION',
         };
       }

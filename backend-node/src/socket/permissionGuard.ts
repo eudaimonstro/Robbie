@@ -8,11 +8,11 @@ const PRESIDING: Role[] = ['chair', 'admin'];
 /** Everyone who takes part: members vote, move and second; the chair and admins too */
 const TAKING_PART: Role[] = ['member', 'chair', 'admin'];
 /**
- * Guests as well: following, asking to speak and asking questions. Not observers: in a board
- * meeting the organization's people who aren't directors follow it and take no part, so they
- * are in no list at all, and everything they send is refused here.
+ * Guests and observers as well: following, asking to speak and asking questions. Observers (in
+ * a board meeting, the organization's people who aren't directors) are in no other list: they
+ * never move, second, vote or nominate, and the chair decides whom to recognize.
  */
-const EVERYONE: Role[] = ['guest', 'member', 'chair', 'admin'];
+const EVERYONE: Role[] = ['guest', 'observer', 'member', 'chair', 'admin'];
 /** Actions only the server applies (on join, disconnect and from REST routes) */
 const SERVER_ONLY: Role[] = [];
 

@@ -56,6 +56,8 @@ export {
   attendanceSummary,
   boardQuorum,
   isBoardMeeting,
+  SMALL_BOARD,
+  smallBoard,
   takesPart,
   headcountBaseHolds,
   headcountBaseOf,

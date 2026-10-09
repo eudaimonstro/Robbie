@@ -11,6 +11,7 @@ import {
   calculateVoteResult,
   motionThreshold,
 } from '../../utils/voteCalculator.js';
+import { smallBoard } from '../../utils/attendance.js';
 import { decide } from './decisions.js';
 import { decisionContext, quorumNow } from './records.js';
 import type { ActionHandler } from './types.js';
@@ -63,8 +64,14 @@ export const votingHandler: ActionHandler = (state, action, log) => {
       const voter = state.members.find((m) => m.id === typedAction.voterId);
       const isChair = voter?.role === 'chair';
 
-      // Chair can only vote on ballot votes or when it affects outcome
-      if (isChair && state.votingMethod !== 'ballot' && !typedAction.isChairDecidingVote) {
+      // Chair can only vote on ballot votes or when it affects outcome; the chair of a small
+      // board votes like any director (RONR 49:21)
+      if (
+        isChair &&
+        !smallBoard(state) &&
+        state.votingMethod !== 'ballot' &&
+        !typedAction.isChairDecidingVote
+      ) {
         return state;
       }
 

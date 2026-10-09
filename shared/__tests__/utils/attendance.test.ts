@@ -6,6 +6,7 @@ import {
   isBoardMeeting,
   isQuorumSet,
   quorumFromSettings,
+  smallBoard,
   takesPart,
 } from '../../utils/index.js';
 import type { MeetingState, Member } from '../../types/index.js';
@@ -208,5 +209,19 @@ describe('boardQuorum', () => {
   it('is the number the organization sets, at least one', () => {
     expect(boardQuorum(7, 3)).toBe(3);
     expect(boardQuorum(0, null)).toBe(1);
+  });
+
+  it('is never more than the directors there are', () => {
+    expect(boardQuorum(3, 5)).toBe(3);
+  });
+});
+
+describe('smallBoard', () => {
+  it('is a board meeting of twelve directors or fewer', () => {
+    const board = (directors: number) =>
+      ({ ...initialState, kind: 'board', board: { directors } }) as MeetingState;
+    expect(smallBoard(board(12))).toBe(true);
+    expect(smallBoard(board(13))).toBe(false);
+    expect(smallBoard(initialState)).toBe(false);
   });
 });
