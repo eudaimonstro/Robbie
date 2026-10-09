@@ -7,7 +7,7 @@ import {
   type TestInfo,
 } from '@playwright/test';
 import { resetDemo } from '../demo';
-import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
+import { PEOPLE, PHONE, capture, personPage, region, shown, toast, visibleStamp } from '../helpers';
 
 /**
  * The bylaw threshold an organization sets (Settings, Bylaw amendments) on the demo's 2026 Annual
@@ -53,7 +53,7 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
     const rule = pat.getByLabel('Bylaw amendments need');
     await expect(rule).toHaveValue('twoThirdsCast');
     await rule.selectOption({ label: 'Two thirds of all the voting members' });
-    await expect(pat.getByText('Saved what bylaw amendments need')).toBeVisible();
+    await expect(toast(pat, 'Saved what bylaw amendments need')).toBeVisible();
     await pat.reload();
     await expect(pat.getByLabel('Bylaw amendments need')).toHaveValue('twoThirdsMembers');
 
@@ -66,7 +66,9 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
     const ben = await open(PEOPLE.ben, PHONE);
     for (const phone of [alice, ben]) {
       await phone.goto(`/meetings/${CODE}`);
-      await expect(phone.getByText('The meeting has not been called to order yet.')).toBeVisible();
+      await expect(
+        region(phone, 'Your part').getByText('The meeting has not been called to order yet.'),
+      ).toBeVisible();
     }
 
     // A quorum: Dana, Alice and Ben on devices, Carmen marked present, 25 counted in the room
@@ -74,7 +76,7 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
     await expect(dana.getByRole('button', { name: 'Mark Carmen Diaz absent' })).toBeEnabled();
     await dana.getByLabel('Headcount').fill('25');
     await dana.getByRole('button', { name: 'Save the headcount' }).click();
-    await expect(dana.getByText('29 present of 142, quorum 29, met')).toBeVisible();
+    await expect(shown(dana, '29 present of 142, quorum 29, met')).toBeVisible();
     await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
     await dana.getByRole('button', { name: 'Adopt the agenda' }).click();
     await expect(dana.getByRole('button', { name: 'Adopt the agenda' })).toHaveCount(0);
@@ -97,20 +99,24 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
 
     // Everyone reads the vote it needs, in plain words, and that it is out of reach tonight
     for (const page of [dana, alice, ben, tv]) {
-      await expect(page.getByText(NEEDED).first()).toBeVisible();
-      await expect(page.getByText("Only 29 present: this can't pass").first()).toBeVisible();
+      const question = region(page, 'The question');
+      await expect(question.getByText(NEEDED, { exact: true })).toBeVisible();
+      await expect(
+        question.getByText("Only 29 present: this can't pass", { exact: true }),
+      ).toBeVisible();
     }
 
     await dana.getByRole('button', { name: 'Open the vote' }).click();
     for (const phone of [alice, ben]) {
       await phone.getByRole('button', { name: 'Vote yes' }).click();
     }
-    await expect(dana.getByText('2 voted on devices')).toBeVisible();
+    const vote = region(dana, 'Vote in progress');
+    await expect(vote.getByText('2 voted on devices')).toBeVisible();
     await dana.getByLabel('Yea in the room').fill('20');
     await dana.getByLabel('Nay in the room').fill('3');
     await dana.getByLabel('Abstain in the room').fill('0');
     await dana.getByRole('button', { name: 'Enter the count' }).click();
-    await expect(dana.getByText('95 yes votes needed: 22 so far')).toBeVisible();
+    await expect(vote.getByText('95 yes votes needed: 22 so far')).toBeVisible();
     await capture(dana, testInfo, 'threshold-console');
     await phoneShot(
       dana,
@@ -142,27 +148,27 @@ test('a bylaw amendment needs two thirds of all the members, and a voice vote is
       .getByLabel('How the vote is taken')
       .selectOption({ label: 'Voice vote or show of hands' });
     await dana.getByRole('button', { name: 'Open the vote' }).click();
-    await expect(tv.getByText('Answer aloud when the chair asks.')).toBeVisible();
+    await expect(shown(tv, 'Answer aloud when the chair asks.')).toBeVisible();
     await dana.getByRole('button', { name: 'The ayes have it' }).click();
     const carried = visibleStamp(tv, 'Carried');
     await expect(carried.caption).toContainText('By voice vote');
 
     // Ben doubts it and calls for a division from his phone: the vote is counted instead
     await ben.getByRole('button', { name: 'Call for a division' }).click();
-    await expect(dana.getByText('Vote in progress')).toBeVisible();
-    await expect(tv.getByText(/^Division: /)).toBeVisible();
+    await expect(vote).toBeVisible();
+    await expect(shown(tv, /^Division: /)).toBeVisible();
     for (const [phone, choice] of [
       [alice, 'Vote yes'],
       [ben, 'Vote no'],
     ] as const) {
       await phone.getByRole('button', { name: choice }).click();
     }
-    await expect(dana.getByText('2 voted on devices')).toBeVisible();
+    await expect(vote.getByText('2 voted on devices')).toBeVisible();
     await dana.getByLabel('Yea in the room').fill('15');
     await dana.getByLabel('Nay in the room').fill('10');
     await dana.getByLabel('Abstain in the room').fill('0');
     await dana.getByRole('button', { name: 'Enter the count' }).click();
-    await expect(dana.getByText('Together: 16 to 11')).toBeVisible();
+    await expect(vote.getByText('Together: 16 to 11')).toBeVisible();
     await dana.getByRole('button', { name: 'Close the vote' }).click();
     await expect(
       visibleStamp(tv, 'Carried').caption.getByText(

@@ -10,10 +10,14 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
+  // In CI a failed test runs once more, for its trace, and a test that passes only on the retry
+  // still fails the job: in a live meeting a flaky step is usually a timing bug a room would hit.
+  // The report marks it flaky rather than failed, and the github reporter annotates it.
   retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: !!process.env.CI,
   timeout: 60_000,
   reporter: process.env.CI
-    ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
+    ? [['list'], ['github'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : [['list']],
   globalSetup: './global-setup.ts',
   use: {

@@ -127,7 +127,8 @@ export default function PublicDocumentPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      {/* The page's content: a landmark, beside the banner above it */}
+      <main className="max-w-5xl mx-auto px-4 py-8">
         {/* Header: the title, then the version and Print, under it on phones */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
           <div className="min-w-0">
@@ -205,7 +206,7 @@ export default function PublicDocumentPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

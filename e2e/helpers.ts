@@ -2,6 +2,7 @@ import {
   expect,
   type Browser,
   type BrowserContextOptions,
+  type Locator,
   type Page,
   type TestInfo,
 } from '@playwright/test';
@@ -106,4 +107,31 @@ export function visibleStamp(page: Page, word: string) {
     word: figure.getByText(word, { exact: true }).and(figure.locator(':not([role="status"])')),
     caption: figure.locator('figcaption'),
   };
+}
+
+/**
+ * Text as the page shows it: inside its main landmark, so never a toast (the Notifications
+ * region), the route announcer, the app's header or its sidebar, and never a hidden (sr-only)
+ * live region that repeats the text for screen readers (the phone's announcer, a stamp's). Strict
+ * like any locator: two visible matches fail the test rather than one being picked.
+ */
+export function shown(
+  page: Page,
+  text: string | RegExp,
+  options: { exact?: boolean } = {},
+): Locator {
+  return page.getByRole('main').getByText(text, options).and(page.locator(':not(.sr-only)'));
+}
+
+/**
+ * A named region of a screen: the console's and the phone's "The question", the phone's "Your
+ * part" (its one action block), the console's "Vote in progress", "Approval of the minutes"
+ */
+export function region(page: Page, name: string): Locator {
+  return page.getByRole('region', { name, exact: true });
+}
+
+/** A toast's text, in the Notifications region */
+export function toast(page: Page, text: string | RegExp): Locator {
+  return region(page, 'Notifications').getByText(text);
 }
