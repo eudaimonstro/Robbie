@@ -43,6 +43,7 @@ const summary = (overrides: Partial<AttendanceSummary> = {}): AttendanceSummary 
   quorum: 29,
   hasQuorum: false,
   guests: 0,
+  observers: 0,
   ...overrides,
 });
 

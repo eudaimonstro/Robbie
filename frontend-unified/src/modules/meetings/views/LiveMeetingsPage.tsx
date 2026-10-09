@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarPlus, RefreshCw } from 'lucide-react';
+import { CalendarPlus, Mail, RefreshCw } from 'lucide-react';
 import { schedule, type ScheduledMeeting } from '../../../api/client';
 import { useSession } from '../../../context/SessionContext';
 import { atLeast } from '../../../utils/roles';
-import { formatMeetingTime } from '../../../utils/dates';
+import { formatDate, formatMeetingTime } from '../../../utils/dates';
 import { useMeetingOrganization } from '../context/OrganizationBridge';
 import { MeetingScheduler } from '../components/scheduling';
+import { SendNoticeDialog } from '../components/scheduling/SendNoticeDialog';
 import { meetingPath } from '../utils/meetingLinks';
 import { JoinMeetingScreen } from './JoinMeetingScreen';
 import { QuorumNotSet } from '../../../components/organizations/QuorumNotSet';
@@ -35,6 +36,8 @@ export function LiveMeetingsPage() {
   const [status, setStatus] = useState<string | null>(null);
   // Bumped when the scheduler closes, so a meeting just scheduled is listed
   const [refresh, setRefresh] = useState(0);
+  // The meeting whose notice is being sent, by its code
+  const [noticeFor, setNoticeFor] = useState<string | null>(null);
   // Where the focus goes when the scheduler closes: what happened, or back where it was opened
   // (the Change of that meeting, or Schedule a meeting), never the top of the page
   const returnFocus = useRef<{ code: string | null } | null>(null);
@@ -183,6 +186,15 @@ export function LiveMeetingsPage() {
                             }
                           : undefined
                       }
+                      onSendNotice={
+                        // Notice goes out before the meeting
+                        canSchedule && !meeting.startedAt
+                          ? () => {
+                              setStatus(null);
+                              setNoticeFor(meeting.robbieCode);
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </ul>
@@ -212,6 +224,21 @@ export function LiveMeetingsPage() {
 
         <JoinMeetingScreen />
       </div>
+
+      {noticeFor && (
+        <SendNoticeDialog
+          code={noticeFor}
+          isOpen
+          timeZone={currentOrganization?.timeZone}
+          onClose={() => setNoticeFor(null)}
+          onSent={(message) => {
+            setNoticeFor(null);
+            setStatus(message);
+            statusRef.current?.focus();
+            setRefresh((n) => n + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -227,6 +254,7 @@ function ScheduleRow({
   quorumSet,
   canSetQuorum = false,
   onChange,
+  onSendNotice,
 }: {
   meeting: ScheduledMeeting;
   /** The organization's: a meeting's time is the time in the room */
@@ -240,6 +268,8 @@ function ScheduleRow({
   /** An admin, who sets them */
   canSetQuorum?: boolean;
   onChange?: () => void;
+  /** A secretary sends the meeting's notice */
+  onSendNotice?: () => void;
 }) {
   const title = meeting.title || 'Untitled meeting';
   const inSession = meeting.startedAt !== null && meeting.endedAt === null;
@@ -252,7 +282,12 @@ function ScheduleRow({
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
       <div className="min-w-0">
-        <p className="font-medium text-ink">{title}</p>
+        <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+          {title}
+          {meeting.kind === 'board' && (
+            <span className="badge bg-surface-2 text-ink-muted">Board meeting</span>
+          )}
+        </p>
         <p className="text-sm text-ink-muted">
           <span>
             {meeting.scheduledFor
@@ -261,11 +296,25 @@ function ScheduleRow({
           </span>
           {meeting.chair?.name && <span>{`, ${meeting.chair.name} presiding`}</span>}
         </p>
+        {onSendNotice && meeting.noticeSentAt && (
+          <p className="text-sm text-ink-muted">{`Notice sent ${formatDate(meeting.noticeSentAt, timeZone)}`}</p>
+        )}
         {closed && <QuorumNotSet canSet={canSetQuorum} className="mt-1" />}
       </div>
       <div className="flex items-center gap-3">
         {inSession && <span className="badge-present">In session</span>}
         <span className="meeting-code text-sm text-ink-muted">{meeting.robbieCode}</span>
+        {onSendNotice && (
+          <button
+            type="button"
+            onClick={onSendNotice}
+            aria-label={`Send the notice of ${title}`}
+            className="btn-ghost btn-sm"
+          >
+            <Mail className="h-4 w-4" aria-hidden="true" />
+            Send notice
+          </button>
+        )}
         {onChange && (
           <button
             type="button"

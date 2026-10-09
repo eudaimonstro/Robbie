@@ -322,6 +322,11 @@
   @apply badge bg-caution-tint text-caution-ink;
 }
 
+/* In a board meeting, a member who isn't a director: follows, takes no part */
+@utility badge-observer {
+  @apply badge bg-surface-2 text-ink-muted;
+}
+
 /* Presence */
 @utility badge-present {
   @apply badge bg-carried-tint text-carried;
