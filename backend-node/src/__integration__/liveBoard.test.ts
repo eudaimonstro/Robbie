@@ -6,13 +6,19 @@ import { syncMeetingRoles } from '../socket/meetingRoles.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
 import { liveSockets, type FakeSocket } from './liveSockets.js';
+import { call } from './helpers.js';
+import { setIoInstance } from '../socket/ioInstance.js';
 
 const live = liveSockets();
 const stateOf = async (code: string): Promise<MeetingState> =>
   (await getStorage().getMeeting(code))!.state;
 
-// The live meetings table and its storage, as the server starts them
-beforeAll(initializeStorage);
+// The live meetings table and its storage, as the server starts them, and the server the REST
+// routes reach live meetings through
+beforeAll(async () => {
+  await initializeStorage();
+  setIoInstance(live.io as never);
+});
 
 describe('a board meeting', () => {
   let f: Fixture;
@@ -57,7 +63,7 @@ describe('a board meeting', () => {
     const state = await stateOf(f.packet.code);
     expect(state.kind).toBe('board');
     // Three directors: a majority is 2
-    expect(state.board).toEqual({ directors: 3 });
+    expect(state.board).toEqual({ directors: 3, quorum: 2 });
     expect(state.quorum).toBe(2);
     // The members' September minutes are theirs to approve, not the board's
     expect(state.previousMinutesId).toBeNull();
@@ -85,7 +91,7 @@ describe('a board meeting', () => {
     });
     await syncMeetingRoles(live.io as never, f.packet.code);
     let state = await stateOf(f.packet.code);
-    expect(state.board).toEqual({ directors: 4 });
+    expect(state.board).toEqual({ directors: 4, quorum: 3 });
     expect(state.members.find((m) => m.id === f.users.secretary.id)?.nonVoting).toBeUndefined();
 
     // After the call to order the board is the record of who could vote
@@ -96,7 +102,7 @@ describe('a board meeting', () => {
     });
     await syncMeetingRoles(live.io as never, f.packet.code);
     state = await stateOf(f.packet.code);
-    expect(state.board).toEqual({ directors: 4 });
+    expect(state.board).toEqual({ directors: 4, quorum: 3 });
   });
 
   it('becomes a meeting of the members again when the schedule says so before the call to order', async () => {
@@ -157,10 +163,6 @@ describe('a board meeting', () => {
       success: false,
       errorCode: 'PERMISSION_DENIED',
     });
-    // Nor ask for the floor
-    expect(
-      await live.dispatch(viewer, { type: 'RAISE_HAND', stance: 'pro', timestamp: '' }),
-    ).toMatchObject({ success: false, errorCode: 'PERMISSION_DENIED' });
     // The members amend the bylaws, not the board
     expect(
       await live.dispatch(member, {
@@ -177,6 +179,21 @@ describe('a board meeting', () => {
 
     await act(member, motion);
     await act(admin, { type: 'SECOND_MOTION', seconder: '' });
+    // But an owner observing may ask for the floor: the chair decides whom to recognize
+    expect(
+      await live.dispatch(viewer, {
+        type: 'RAISE_HAND',
+        stance: 'neutral',
+        member: { id: f.users.viewer.id, name: 'A viewer', role: 'observer', present: true },
+      }),
+    ).toEqual({ success: true, stateVersion: expect.any(Number) });
+    expect((await stateOf(f.packet.code)).speakerQueue).toHaveLength(1);
+    expect(
+      await live.dispatch(viewer, {
+        type: 'LOWER_HAND',
+        member: { id: f.users.viewer.id, name: 'A viewer', role: 'observer', present: true },
+      }),
+    ).toMatchObject({ success: true });
     await act(owner, { type: 'OPEN_VOTING', voteTimerEnd: null });
     await act(member, { type: 'CAST_VOTE', vote: 'yea', voterId: 0 });
     expect(
@@ -214,5 +231,75 @@ describe('a board meeting', () => {
       'A quorum of the board (2 of the 3 directors) was present at the call to order.',
     );
     expect(minutes.body).not.toContain('Directors absent');
+  });
+
+  it("follows a change of the board's quorum until the call to order, unless the chair set one", async () => {
+    const owner = live.connect(f.users.owner);
+    await live.join(owner, f.packet.code);
+    expect((await stateOf(f.packet.code)).quorum).toBe(2);
+
+    // An admin sets the board quorum in Settings: the open meeting follows
+    const put = (boardQuorum: number | null) =>
+      call('put', `/api/organizations/${f.orgA.id}`, {
+        cookie: f.users.admin.cookie,
+        body: { boardQuorum },
+      });
+    expect((await put(3)).status).toBe(200);
+    expect((await stateOf(f.packet.code)).quorum).toBe(3);
+
+    // The chair sets this meeting's quorum: a later change of the setting leaves it
+    await act(owner, { type: 'SET_QUORUM', quorum: 1 });
+    expect((await put(null)).status).toBe(200);
+    let state = await stateOf(f.packet.code);
+    expect(state.quorum).toBe(1);
+    expect(state.board).toEqual({ directors: 3, quorum: 2 });
+
+    // After the call to order nothing changes it
+    await act(owner, { type: 'SET_QUORUM', quorum: 2 });
+    await act(owner, { type: 'START_MEETING' });
+    expect((await put(3)).status).toBe(200);
+    state = await stateOf(f.packet.code);
+    expect(state.quorum).toBe(2);
+  });
+
+  it("puts the board's own previous minutes before it when it becomes a board meeting", async () => {
+    // A meeting of the members, opened: the members' September minutes are before it
+    await prisma.meetingPacket.update({ where: { id: f.packet.id }, data: { kind: 'members' } });
+    await live.join(live.connect(f.users.member), f.packet.code);
+    expect((await stateOf(f.packet.code)).previousMinutesId).toBe(f.minutes);
+
+    // The board's last meeting, with published minutes
+    const boardMeeting = await prisma.meetingPacket.create({
+      data: { organizationId: f.orgA.id, robbieCode: 'BOARD9', kind: 'board' },
+    });
+    const boardMinutes = await prisma.minutes.create({
+      data: {
+        organizationId: f.orgA.id,
+        packetId: boardMeeting.id,
+        status: 'published',
+        body: '# Org A\n\n## Minutes of the meeting of the Board of Directors\n',
+        publishedAt: new Date(),
+      },
+    });
+
+    // The schedule makes it a board meeting before the call to order
+    const res = await call('put', `/api/packets/${f.packet.id}`, {
+      cookie: f.users.secretary.cookie,
+      body: { kind: 'board' },
+    });
+    expect(res.status).toBe(200);
+    const state = await stateOf(f.packet.code);
+    expect(state.kind).toBe('board');
+    expect(state.previousMinutesId).toBe(boardMinutes.id);
+    expect(state.minutesFromPreviousMeeting).toContain('Board of Directors');
+  });
+
+  it('refuses a board quorum of more than the directors', async () => {
+    const res = await call('put', `/api/organizations/${f.orgA.id}`, {
+      cookie: f.users.admin.cookie,
+      body: { boardQuorum: 4 },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("The board quorum can't be more than the 3 board members");
   });
 });

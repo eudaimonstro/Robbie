@@ -259,7 +259,14 @@ describe('organizations', () => {
   it("set the board's quorum, or a majority of the directors with none", async () => {
     const put = (body: object) =>
       call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
+    // No more than the directors: none yet
+    expect((await put({ boardQuorum: 3 })).status).toBe(400);
+    await prisma.organizationMember.updateMany({
+      where: { organizationId: f.orgA.id, role: { not: 'viewer' } },
+      data: { isDirector: true },
+    });
     expect((await put({ boardQuorum: 3 })).body).toMatchObject({ boardQuorum: 3 });
+    expect((await put({ boardQuorum: 5 })).status).toBe(400);
     // Other settings leave it as it is
     expect((await put({ quorumCount: 4 })).body).toMatchObject({ boardQuorum: 3 });
     expect((await put({ boardQuorum: null })).body).toMatchObject({ boardQuorum: null });

@@ -146,11 +146,8 @@ export async function votersOf(
 ): Promise<{ kind: MeetingKind; board: BoardInfo | null; quorum: number }> {
   if (packet.kind === 'board') {
     const directors = await countDirectors(packet.organizationId);
-    return {
-      kind: 'board',
-      board: { directors },
-      quorum: boardQuorum(directors, packet.organization.boardQuorum),
-    };
+    const quorum = boardQuorum(directors, packet.organization.boardQuorum);
+    return { kind: 'board', board: { directors, quorum }, quorum };
   }
   const rosterVoters = await countRosterVoters(packet.organizationId);
   return {

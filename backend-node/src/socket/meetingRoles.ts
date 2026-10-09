@@ -7,6 +7,7 @@ import type {
 } from '@robbie-bylawyer/shared/types/socket';
 import type { OrgRole } from '../generated/prisma/client.js';
 import { getStorage } from '../db/meetingStorage.js';
+import { previousMinutesFor } from '../bylawyer/services/meetingMinutes.js';
 import { prisma } from '../db/prisma.js';
 import { atLeast } from '../orgs/roles.js';
 import { getIoInstance } from './ioInstance.js';
@@ -182,31 +183,51 @@ export async function updateSocketRoles(
 
 /**
  * Until the call to order, who votes follows the packet and the organization: the kind of
- * meeting, and a board's directors with the quorum that follows from them. Applied only when the
- * kind or the number of directors changed, so a quorum the chair set stays otherwise. After the
- * call to order the state keeps the board it was called to order with, for the record.
+ * meeting, and a board's directors and quorum. The quorum follows while the meeting's is still
+ * the one last taken from the organization (`board.quorum`), so a quorum the chair set stays.
+ * When the kind changes, the meeting gets the previous minutes of its own kind (the board's, or
+ * the members'). After the call to order the state keeps the board it was called to order with,
+ * for the record.
  * @returns the result of the change, or null when nothing changed
  */
 export async function syncVoters(
-  packet: Pick<MeetingPacketInfo, 'robbieCode' | 'kind' | 'organizationId' | 'organization'>,
+  packet: Pick<MeetingPacketInfo, 'id' | 'robbieCode' | 'kind' | 'organizationId' | 'organization'>,
   state: MeetingState,
 ): Promise<{ state: MeetingState; stateVersion: number; kindChanged: boolean } | null> {
   if (state.meetingActive || state.meetingStage !== 'not-started') return null;
   const kind = state.kind ?? 'members';
   if (packet.kind === 'members' && kind === 'members') return null;
   const voters = await votersOf(packet);
-  if (voters.kind === kind && voters.board?.directors === state.board?.directors) return null;
-  const result = await applyAction(packet.robbieCode, {
+  const kindChanged = voters.kind !== kind;
+  const taken = state.board?.quorum;
+  const follows = kindChanged || taken === undefined || state.quorum === taken;
+  const quorum = follows ? voters.quorum : state.quorum;
+  if (
+    !kindChanged &&
+    voters.board?.directors === state.board?.directors &&
+    voters.board?.quorum === taken &&
+    quorum === state.quorum
+  ) {
+    return null;
+  }
+  let result = await applyAction(packet.robbieCode, {
     type: 'SET_BOARD',
-    ...voters,
+    kind: voters.kind,
+    board: voters.board,
+    quorum,
     timestamp: new Date().toISOString(),
   });
   if (!result.success || !result.changed) return null;
-  return {
-    state: result.state,
-    stateVersion: result.stateVersion,
-    kindChanged: voters.kind !== kind,
-  };
+  if (kindChanged) {
+    const previous = await previousMinutesFor(packet.organizationId, packet.id, voters.kind);
+    const replaced = await applyAction(packet.robbieCode, {
+      type: 'SET_PREVIOUS_MINUTES',
+      minutes: previous?.body ?? '',
+      ...(previous && { minutesId: previous.id }),
+    });
+    if (replaced.success) result = replaced;
+  }
+  return { state: result.state, stateVersion: result.stateVersion, kindChanged };
 }
 
 /**

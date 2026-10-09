@@ -24,6 +24,8 @@ import { deleteFiles } from '../services/fileStorage.js';
 import { recordAudit } from '../services/audit.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { closeCanceledMeeting } from '../../socket/meetingLifecycle.js';
+import { countDirectors } from '../../socket/meetingPacket.js';
+import { syncOrganizationLiveRoles } from '../../socket/meetingRoles.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -181,6 +183,15 @@ organizationsRouter.put(
         where: { id: req.params.id },
         select: { eligibleVoters: true, quorumPercent: true, quorumCount: true },
       });
+      // The board's quorum is a number of its directors
+      if (typeof boardQuorum === 'number') {
+        const directors = await countDirectors(req.params.id);
+        if (boardQuorum > directors) {
+          return res.status(400).json({
+            error: `The board quorum can't be more than the ${directors} board ${directors === 1 ? 'member' : 'members'}`,
+          });
+        }
+      }
       const voters = eligibleVoters ?? current.eligibleVoters;
       const count = quorumCount ?? (quorumPercent !== undefined ? null : current.quorumCount);
       if (voters !== null && count !== null && count > voters) {
@@ -203,6 +214,14 @@ organizationsRouter.put(
         data.quorumPercent = null;
       }
       const updated = await prisma.organization.update({ where: { id: req.params.id }, data });
+      // A board meeting opened and not yet called to order takes the board's new quorum
+      if (boardQuorum !== undefined) {
+        try {
+          await syncOrganizationLiveRoles(req.params.id);
+        } catch (error) {
+          logger.error({ err: error }, "Failed to bring a live meeting's quorum up to date");
+        }
+      }
 
       res.json(updated);
     } catch (error) {
