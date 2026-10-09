@@ -1,136 +1,57 @@
-# Robbie-Bylawyer
+# Robbie
 
-A combined organizational governance platform featuring real-time parliamentary procedure management and bylaws version control.
+Robbie runs a homeowners' association meeting in the room and keeps the association's governing documents.
+
+- **In the meeting:** the chair runs it from a laptop, homeowners join on their phones by link or QR code (no app to install), a TV shows the room the question, the speakers, the votes and the results, and people without a phone or an account still count: the chair marks them present and enters the room's show of hands. Motions, amendments, elections and quorum follow Robert's Rules ([what is supported](docs/RONR_IMPLEMENTATION_STATUS.md)).
+- **Before and after:** the secretary schedules the meeting with its agenda and files and sends the notice; the bylaws are kept in versions, with amendments from draft to adoption; the minutes are drafted from the meeting when it adjourns, then edited, published and approved at the next meeting. A bylaw amendment adopted in the meeting becomes the next version of the bylaws.
 
 ## Try it
 
-Run a whole HOA meeting on your own machine. You need Docker and Node 24, and `npm install` done once.
+You need Docker and Node 24 (`.nvmrc`), and `npm install` done once.
 
 ```bash
 npm run demo
 ```
 
-It starts its own Postgres (Docker container `robbie-demo-pg`), builds the app, seeds the Maple Grove HOA demo and serves it at http://localhost:3301. Sign in with the code `000000`, each person in a separate browser profile or private window: Dana (`dana@maplegrove.example`) chairs from **Live Meetings**, **Start**; Alice and Ben (`alice@`, `ben@maplegrove.example`) take part as homeowners on phones; Morgan (`morgan@maplegrove.example`) opens the TV at http://localhost:3301/meetings/MAPLE1/display; Pat (`pat@maplegrove.example`) publishes the minutes afterward. [docs/demo.md](docs/demo.md) walks through the meeting step by step (the roadmap's acceptance scenario, `docs/mvp-roadmap.md`). Ctrl-C stops the server; `npm run demo -- --stop` stops the database too, `-- --reset` starts over and `-- --remove` deletes the demo's data.
-
-## Applications
-
-### Robbie - Parliamentary Procedure
-
-Real-time collaborative application for conducting meetings following Robert's Rules of Order.
-
-- Live meeting management with role-based views (Chair, Participant, Admin)
-- Motion tracking with proper parliamentary precedence
-- Speaker queue management
-- Voting with quorum enforcement
-
-### Bylawyer - Bylaws Version Control
-
-Document management system for organizational governing documents.
-
-- Version-controlled bylaws, standing rules, and policies
-- Amendment workflow with state machine (draft → proposed → passed/failed)
-- Section-level diffs between versions
-- Meeting and vote record keeping
-- Historical document retrieval by date
-
-## Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Start the backend and the unified frontend
-npm run dev
-```
-
-## Project Structure
-
-```
-robbie-bylawyer/
-├── shared/              # Shared TypeScript types, meeting reducer and utilities
-├── backend-node/        # Unified Express + Socket.io + Prisma backend (port 3001)
-├── frontend-unified/    # Unified React frontend for meetings and documents (port 5173)
-```
-
-## Tech Stack
-
-- **Runtime:** Node.js 24 (LTS)
-- **Frontend:** React, TypeScript, Vite, Tailwind CSS (on the design tokens in `docs/design-brief.md`)
-- **Backend:** Express, Socket.io, Prisma, PostgreSQL
-- **Testing:** Vitest, Playwright (end to end)
-- **Package Manager:** npm with workspaces
+It starts its own Postgres in Docker, builds the app, seeds the Maple Grove HOA demo and serves it at http://localhost:3301. Sign in with the code `000000`, each person in a separate browser profile or private window: Dana (`dana@maplegrove.example`) chairs from **Live Meetings**, **Start**; Alice and Ben (`alice@`, `ben@maplegrove.example`) are homeowners on phones; Morgan (`morgan@maplegrove.example`) opens the TV at http://localhost:3301/meetings/MAPLE1/display; Pat (`pat@maplegrove.example`) publishes the minutes afterward. [docs/demo.md](docs/demo.md) walks through the meeting. `npm run demo -- --stop` stops it, `-- --reset` starts over, `-- --remove` deletes its data.
 
 ## Development
 
-### Prerequisites
-
-- Node.js 24 (see `.nvmrc`)
-- npm 11 or higher
-
-### Setup
-
 ```bash
-# Clone and install
-git clone <repository-url>
-cd robbie-bylawyer
 npm install
-
-# Start PostgreSQL and apply database migrations
-docker compose up -d
+docker compose up -d                              # a development Postgres
+cp backend-node/.env.example backend-node/.env    # then set DATABASE_URL and the rest
 npm run db:migrate
-
-# Start development servers
-npm run dev
+npm run dev                                       # the server on 3001, the web app on http://localhost:5173
 ```
 
-### Available Scripts
+The monorepo has three npm workspaces: `shared/` (types, the meeting reducer, rules both sides use), `backend-node/` (Express, Socket.io, Prisma and Postgres) and `frontend-unified/` (React, Vite, Tailwind on the design tokens of [docs/design-brief.md](docs/design-brief.md)), plus the Playwright harness in `e2e/` and the production files in `deploy/`. [CLAUDE.md](CLAUDE.md) is the guide to the code: its layout, architecture, API and conventions.
 
-| Command                             | Description                                                                                                                                                       |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                       | Start the backend and the web app                                                                                                                                 |
-| `npm run build`                     | Build all packages                                                                                                                                                |
-| `npm run test`                      | Run tests                                                                                                                                                         |
-| `npm run lint`                      | ESLint, then the palette check (`scripts/check-palette.sh`)                                                                                                       |
-| `npm run e2e`                       | Playwright: build, start the API (which serves the web build as production does), reseed the demo, run the smoke tests, the screenshots and the meeting scenarios |
-| `npm run db:studio`                 | Open Prisma Studio                                                                                                                                                |
-| `npm run seed:demo -w backend-node` | Create the Maple Grove HOA demo (`-- --reset` replaces it)                                                                                                        |
-
-The demo's people sign in with the code `000000` when the server runs with `ENABLE_TEST_AUTH=true`; the seed prints their emails and roles.
-
-### End-to-end tests
-
-`npm run e2e` runs the Playwright harness in `e2e/`. It starts its own API on port 3101, which serves the production web build on its own origin with the headers production sends, on the database in `E2E_DATABASE_URL`, which defaults to a throwaway Postgres on port 55432 (it never uses `DATABASE_URL`). Every run migrates that database, clears its live meetings and reseeds the Maple Grove HOA demo, so don't point it at data you want to keep. To run it locally:
+## Tests
 
 ```bash
-# Once: the throwaway Postgres and Chromium
-docker run --rm -d --name robbie-ci-pg -p 55432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=robbie postgres:16-alpine
-npx playwright install chromium
-
-npm run e2e
+npm run test             # unit tests of the three packages (npm run test:coverage for coverage)
+npm run lint             # ESLint (no warnings allowed) and the design-token check
+npm run format:check     # Prettier
+INTEGRATION_DATABASE_URL=postgresql://... npm run test:integration -w backend-node   # a throwaway database
+npm run e2e              # Playwright: the meeting scenarios in real browsers
 ```
 
-Screenshots of the main pages in both palettes land in `e2e/test-results/`. Locally the harness reuses a server already listening on 3101, so stop a stale one first.
-
-### Design
-
-`docs/design-brief.md` is the visual language: the paper, ink and gavel tokens in a day and an evening palette, Fraunces and Public Sans, and the brief's components. The style guide at `/style-guide` (signed in) shows the tokens and components in both palettes. `npm run lint` fails on a raw Tailwind palette class, `white` or `black`, or an emoji icon in the web app.
-
-## Environment Variables
-
-Copy `backend-node/.env.example` to `backend-node/.env` and configure:
-
-### backend-node/.env
-
-```
-PORT=3001
-CLIENT_ORIGIN=http://localhost:5173
-DATABASE_URL=postgresql://...
-```
+`npm run e2e` needs a throwaway Postgres on port 55432 and Chromium; CLAUDE.md has the two commands. It migrates that database and reseeds the demo on every run.
 
 ## Deploying
 
-Robbie runs on one server with Docker Compose (the app, Postgres, nightly backups and Caddy for HTTPS). The runbook, from preparing the host to the night of a meeting, is [`docs/deploy.md`](docs/deploy.md).
+Robbie runs on one server with Docker Compose: the app (one image, built by CI), Postgres, nightly backups and Caddy for HTTPS. The runbook, from preparing the host to the night of a meeting, is [docs/deploy.md](docs/deploy.md).
+
+## Docs
+
+- [docs/mvp-roadmap.md](docs/mvp-roadmap.md): the plan, what was built, and the known gaps
+- [docs/decisions.md](docs/decisions.md): the product and hosting decisions
+- [docs/design/](docs/design/README.md): the design of each part, in the order it was built
+- [docs/RONR_IMPLEMENTATION_STATUS.md](docs/RONR_IMPLEMENTATION_STATUS.md): the motions and rules Robbie supports
+- [docs/design-brief.md](docs/design-brief.md): the visual language
+- [docs/deploy.md](docs/deploy.md), [docs/demo.md](docs/demo.md), [docs/security/dependency-audit.md](docs/security/dependency-audit.md)
 
 ## License
 
-Private - All rights reserved
+Private. All rights reserved.
