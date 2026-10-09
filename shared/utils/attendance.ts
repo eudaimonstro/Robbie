@@ -42,8 +42,6 @@ export interface AttendanceSummary {
   markedPresent: number;
   /** People in the room without an account */
   headcount: number;
-  /** Absent members represented by a present proxy holder, when proxies count for quorum */
-  proxies: number;
   /** Paper proxies and absentee ballots the chair holds */
   proxiesHeld: number;
   /** Everyone who counts toward quorum: the five above */
@@ -74,22 +72,12 @@ export function attendanceSummary(state: MeetingState): AttendanceSummary {
   const board = isBoardMeeting(state);
   const headcount = board ? 0 : (state.headcount ?? 0);
 
-  let proxies = 0;
-  if (state.proxiesCountForQuorum && !board) {
-    const presentIds = new Set(present.map((m) => m.id));
-    const absentIds = new Set(voting.filter((m) => !m.present).map((m) => m.id));
-    proxies = (state.proxies ?? []).filter(
-      (p) => presentIds.has(p.grantedTo) && absentIds.has(p.grantedBy),
-    ).length;
-  }
-
   const proxiesHeld = board ? 0 : (state.proxiesHeld ?? 0);
-  const total = devicePresent + markedPresent + headcount + proxies + proxiesHeld;
+  const total = devicePresent + markedPresent + headcount + proxiesHeld;
   return {
     devicePresent,
     markedPresent,
     headcount,
-    proxies,
     proxiesHeld,
     present: total,
     quorum: state.quorum,

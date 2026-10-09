@@ -30,7 +30,7 @@ import {
   MAX_RULING_EXPLANATION_LENGTH,
 } from './actionValidator.js';
 
-/** A person's name: a member's, a nominee's, a candidate's or a proxy's */
+/** A person's name: a member's, a nominee's or a candidate's */
 const MAX_NAME_LENGTH = MAX_FLOOR_NAME_LENGTH;
 /** A candidate's name as the tellers count it (a write-in can be longer than a member's name) */
 const MAX_CANDIDATE_LENGTH = 200;
@@ -70,7 +70,6 @@ const timerEnd = z.number().nonnegative().nullable();
 const vote = z.enum(['yea', 'nay', 'abstain']);
 const stance = z.enum(['pro', 'con', 'neutral']);
 const meetingRole = z.enum(['chair', 'admin', 'member', 'guest', 'observer']);
-const proxyScope = z.enum(['all', 'single-vote']);
 const motionType = z.enum(Object.keys(MOTIONS) as [string, ...string[]]);
 
 /**
@@ -552,62 +551,6 @@ export const ACTION_SCHEMAS = {
     timestamp,
   }),
   SET_AUTO_YIELD: z.strictObject({ type: z.literal('SET_AUTO_YIELD'), enabled: z.boolean() }),
-  SET_PROXY_SETTINGS: z.strictObject({
-    type: z.literal('SET_PROXY_SETTINGS'),
-    allowProxyVoting: z.boolean(),
-    maxProxiesPerMember: z.int().min(0).max(MAX_HEADCOUNT),
-    proxiesCountForQuorum: z.boolean(),
-    allowMemberProxyGrant: z.boolean().optional(),
-    timestamp,
-  }),
-  GRANT_PROXY: z.strictObject({
-    type: z.literal('GRANT_PROXY'),
-    proxyId: id,
-    grantedBy: id,
-    grantedTo: id,
-    grantedByName: text(MAX_NAME_LENGTH),
-    grantedToName: text(MAX_NAME_LENGTH),
-    scope: proxyScope,
-    timestamp,
-  }),
-  REVOKE_PROXY: z.strictObject({ type: z.literal('REVOKE_PROXY'), proxyId: id, timestamp }),
-  CAST_PROXY_VOTE: z.strictObject({
-    type: z.literal('CAST_PROXY_VOTE'),
-    vote,
-    forMemberId: id,
-    castById: optionalId,
-    timestamp,
-  }),
-  REQUEST_PROXY: z.strictObject({
-    type: z.literal('REQUEST_PROXY'),
-    requestId: id,
-    requestedBy: optionalId,
-    requestedByName: optionalName,
-    requestedFor: id,
-    requestedForName: text(MAX_NAME_LENGTH),
-    scope: proxyScope,
-    timestamp,
-  }),
-  ACCEPT_PROXY: z.strictObject({
-    type: z.literal('ACCEPT_PROXY'),
-    requestId: id,
-    proxyId: id,
-    acceptedBy: optionalId,
-    timestamp,
-  }),
-  DECLINE_PROXY: z.strictObject({
-    type: z.literal('DECLINE_PROXY'),
-    requestId: id,
-    reason: text(MAX_SHORT_TEXT_LENGTH).optional(),
-    declinedBy: optionalId,
-    timestamp,
-  }),
-  CANCEL_PROXY_REQUEST: z.strictObject({
-    type: z.literal('CANCEL_PROXY_REQUEST'),
-    requestId: id,
-    canceledBy: optionalId,
-    timestamp,
-  }),
 } satisfies ActionSchemaMap;
 
 /**

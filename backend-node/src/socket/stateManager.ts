@@ -48,7 +48,6 @@ const MAX_RETRIES = 3;
  */
 export const DEFERRED_WRITES: ReadonlySet<MeetingAction['type']> = new Set<MeetingAction['type']>([
   'CAST_VOTE',
-  'CAST_PROXY_VOTE',
   'CAST_BALLOT',
   'RAISE_HAND',
   'LOWER_HAND',
@@ -113,7 +112,7 @@ async function applyActionNow(
     }
 
     // Re-validate on each attempt to catch race conditions
-    // (e.g., proxy revoked between validation and execution)
+    // (e.g., the vote closed between validation and execution)
     if (validator) {
       const validation = validator(meeting.state, action);
       if (!validation.valid) {

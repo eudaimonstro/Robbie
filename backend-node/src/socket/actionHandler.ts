@@ -143,7 +143,7 @@ export async function handleDispatchAction(
     }
 
     // Quorum warning for voting actions (allow but log warning). Attendance counts members on
-    // a device or marked present, the headcount, and proxies when they count; never guests.
+    // a device or marked present, the headcount, and the proxies held; never guests.
     let votingWithoutQuorum = false;
     if (action.type === 'OPEN_VOTING') {
       const attendance = attendanceSummary(meeting.state);
@@ -223,7 +223,7 @@ export async function handleDispatchAction(
 
     // Apply action with optimistic locking
     // Pass validateAction to re-run on each retry attempt, catching race conditions
-    // (e.g., proxy revoked between initial validation and execution)
+    // (e.g., the vote closed between initial validation and execution)
     const result = await applyAction(meetingCode, enrichedAction, validateAction);
     if (!result.success) {
       callback({
@@ -231,7 +231,7 @@ export async function handleDispatchAction(
         error: result.error,
         errorCode: result.errorCode || 'INVALID_STATE',
       });
-      // Emit ACTION_REJECTED for validation failures on retry (e.g., proxy revoked)
+      // Emit ACTION_REJECTED for validation failures on retry (e.g., the vote closed)
       if (
         result.errorCode &&
         result.errorCode !== 'CONCURRENCY_CONFLICT' &&

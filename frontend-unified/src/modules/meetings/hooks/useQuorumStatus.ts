@@ -5,13 +5,12 @@ import { attendanceSummary, takesPart } from '@robbie-bylawyer/shared/utils';
 /**
  * Quorum for the meeting, counted by attendanceSummary (shared), as the server counts it: members
  * present on a device, members the chair marked present, the headcount of people without an
- * account, and proxies when they count; never guests.
+ * account, and the proxies and absentee ballots the chair holds; never guests.
  *
  * @returns
  *   - `presentCount` and `effectiveCount`: everyone who counts toward quorum
  *   - `totalMembers`: the members in the meeting who can vote (not guests)
  *   - `hasQuorum`
- *   - `proxyCount`: absent members represented by a present proxy holder
  */
 export function useQuorumStatus(state: MeetingState) {
   return useMemo(() => {
@@ -21,7 +20,6 @@ export function useQuorumStatus(state: MeetingState) {
       effectiveCount: summary.present,
       totalMembers: state.members.filter(takesPart).length,
       hasQuorum: summary.hasQuorum,
-      proxyCount: summary.proxies,
     };
   }, [state]);
 }

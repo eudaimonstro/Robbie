@@ -127,7 +127,6 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
               voters: [],
               voterChoices: {},
               floorVotes: NO_VOTES,
-              proxyVotes: [],
               divisionCalled: false,
             }
           : {}),

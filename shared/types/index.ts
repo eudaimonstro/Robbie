@@ -500,40 +500,6 @@ export interface Inquiry {
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded';
 
-// Proxy voting types
-export interface ProxyAuthorization {
-  readonly id: number;
-  readonly grantedBy: number; // Absent member's ID
-  readonly grantedTo: number; // Proxy holder's ID
-  readonly grantedByName: string; // For display
-  readonly grantedToName: string; // For display
-  readonly grantedAt: string; // Timestamp
-  readonly scope: 'all' | 'single-vote'; // For all votes or just next one
-}
-
-export interface ProxyVoteRecord {
-  readonly memberId: number; // The member whose vote this represents
-  readonly castBy: number; // The proxy holder who cast it
-  /** The choice; absent in what clients receive while a secret ballot is open */
-  readonly vote?: 'yea' | 'nay' | 'abstain';
-}
-
-// Member-initiated proxy request types
-export type ProxyRequestStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
-
-export interface PendingProxyRequest {
-  readonly id: number;
-  readonly requestedBy: number; // Member requesting the proxy
-  readonly requestedByName: string;
-  readonly requestedFor: number; // Designated proxy holder
-  readonly requestedForName: string;
-  readonly requestedAt: string;
-  readonly scope: 'all' | 'single-vote';
-  readonly status: ProxyRequestStatus;
-  readonly respondedAt?: string;
-  readonly declineReason?: string;
-}
-
 /** A voice vote declared by the chair, open to a division (MeetingState.voiceVote) */
 export interface VoiceVoteResult {
   motionId: number;
@@ -699,15 +665,6 @@ export interface MeetingState {
   dividedQuestionParts: Array<{ id: number; text: string; originalMotionId: number }>; // Pending parts from a divided motion
   rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
-  // Proxy voting
-  allowProxyVoting: boolean; // Whether proxy voting is enabled
-  maxProxiesPerMember: number; // Max proxies one member can hold (0 = unlimited)
-  proxiesCountForQuorum: boolean; // Whether proxy holders count absent members toward quorum
-  proxies: ProxyAuthorization[]; // Active proxy authorizations
-  proxyVotes: ProxyVoteRecord[]; // Proxy votes cast in current vote (reset when voting opens)
-  // Member-controlled proxy authorization
-  allowMemberProxyGrant: boolean; // Whether members can request proxies themselves
-  pendingProxyRequests: PendingProxyRequest[]; // Requests awaiting acceptance
 }
 
 // Action types
@@ -982,61 +939,7 @@ export type MeetingAction =
   | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
   | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
-  | { type: 'SET_AUTO_YIELD'; enabled: boolean }
-  // Proxy voting actions
-  | {
-      type: 'SET_PROXY_SETTINGS';
-      allowProxyVoting: boolean;
-      maxProxiesPerMember: number;
-      proxiesCountForQuorum: boolean;
-      allowMemberProxyGrant?: boolean;
-      timestamp: string;
-    }
-  | {
-      type: 'GRANT_PROXY';
-      proxyId: number;
-      grantedBy: number;
-      grantedTo: number;
-      grantedByName: string;
-      grantedToName: string;
-      scope: 'all' | 'single-vote';
-      timestamp: string;
-    }
-  | { type: 'REVOKE_PROXY'; proxyId: number; timestamp: string }
-  | {
-      type: 'CAST_PROXY_VOTE';
-      vote: 'yea' | 'nay' | 'abstain';
-      forMemberId: number;
-      castById: number;
-      timestamp: string;
-    }
-  // Member-initiated proxy request actions
-  | {
-      type: 'REQUEST_PROXY';
-      requestId: number;
-      requestedBy: number;
-      requestedByName: string;
-      requestedFor: number;
-      requestedForName: string;
-      scope: 'all' | 'single-vote';
-      timestamp: string;
-    }
-  // acceptedBy, declinedBy and canceledBy are set by the server from the signed-in user
-  | {
-      type: 'ACCEPT_PROXY';
-      requestId: number;
-      proxyId: number;
-      acceptedBy?: number;
-      timestamp: string;
-    }
-  | {
-      type: 'DECLINE_PROXY';
-      requestId: number;
-      reason?: string;
-      declinedBy?: number;
-      timestamp: string;
-    }
-  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string };
+  | { type: 'SET_AUTO_YIELD'; enabled: boolean };
 
 // Motion definition type
 export interface MotionDefinition {

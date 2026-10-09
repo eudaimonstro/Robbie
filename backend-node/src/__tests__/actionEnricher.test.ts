@@ -114,14 +114,6 @@ describe('enrichAction', () => {
       COMPLETE_ROLL_CALL: {},
       MARK_ABSENT: {},
       SET_AUTO_YIELD: {},
-      SET_PROXY_SETTINGS: {},
-      GRANT_PROXY: {},
-      REVOKE_PROXY: {},
-      CAST_PROXY_VOTE: { castById: SPOOF_ID },
-      REQUEST_PROXY: { requestedBy: SPOOF_ID, requestedByName: SPOOF_NAME },
-      ACCEPT_PROXY: { acceptedBy: SPOOF_ID },
-      DECLINE_PROXY: { declinedBy: SPOOF_ID },
-      CANCEL_PROXY_REQUEST: { canceledBy: SPOOF_ID },
     };
 
     it('has a fixture for every action type', () => {
@@ -168,11 +160,6 @@ describe('enrichAction', () => {
         NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },
         OBJECT_TO_CONSENT: { id: 'objectorId', name: 'objector' },
         AGENDA_OBJECTION: { id: 'objectorId' },
-        CAST_PROXY_VOTE: { id: 'castById' },
-        REQUEST_PROXY: { id: 'requestedBy', name: 'requestedByName' },
-        ACCEPT_PROXY: { id: 'acceptedBy' },
-        DECLINE_PROXY: { id: 'declinedBy' },
-        CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
         WITHDRAW_MOTION: { id: 'requesterId' },
         MODIFY_MOTION: { id: 'requesterId' },
         REQUEST_DIVISION: { id: 'requesterId' },
@@ -225,52 +212,6 @@ describe('enrichAction', () => {
       expect(enrich({ type: 'NOMINATE', fromFloor: true }, chair)).toMatchObject({
         fromFloor: true,
         nominatorId: 10,
-      });
-      // A chair or admin grants a proxy for the absent member it names
-      const grant = enrich({ type: 'GRANT_PROXY', grantedBy: 30, grantedTo: 40 }, chair);
-      expect(grant).toMatchObject({ grantedBy: 30, grantedTo: 40 });
-    });
-
-    it('names the members of a proxy as the meeting has them, not as the client says', () => {
-      const members: Member[] = [
-        memberInMeeting,
-        { id: 30, name: 'Absent Member', role: 'member', present: false },
-        { id: 40, name: 'Holder', role: 'member', present: true },
-      ];
-      const grant = enrichAction(
-        {
-          type: 'GRANT_PROXY',
-          proxyId: 1,
-          grantedBy: 30,
-          grantedTo: 40,
-          grantedByName: 'Spoof',
-          grantedToName: 'Spoof',
-          scope: 'all',
-          timestamp: '',
-        },
-        chair,
-        members,
-      );
-      expect(grant).toMatchObject({ grantedByName: 'Absent Member', grantedToName: 'Holder' });
-
-      const request = enrichAction(
-        {
-          type: 'REQUEST_PROXY',
-          requestId: 1,
-          requestedBy: 999,
-          requestedByName: 'Spoof',
-          requestedFor: 40,
-          requestedForName: 'Spoof',
-          scope: 'all',
-          timestamp: '',
-        },
-        member,
-        members,
-      );
-      expect(request).toMatchObject({
-        requestedBy: 20,
-        requestedByName: 'Renamed Member',
-        requestedForName: 'Holder',
       });
     });
 

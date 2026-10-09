@@ -193,19 +193,6 @@ export type ActionErrorCode =
   | 'REPORT_ALREADY_PRESENTED'
   // Rule suspension errors
   | 'SUSPENSION_NOT_FOUND'
-  // Proxy voting errors
-  | 'PROXY_VOTING_DISABLED'
-  | 'NO_PROXY_AUTHORITY'
-  | 'PROXY_NOT_FOUND'
-  | 'MAX_PROXIES_REACHED'
-  | 'PROXY_ALREADY_GRANTED'
-  | 'CANNOT_PROXY_SELF'
-  | 'RECEIVER_NOT_PRESENT'
-  // Member proxy request errors
-  | 'MEMBER_PROXY_DISABLED'
-  | 'REQUEST_PENDING'
-  | 'REQUEST_NOT_FOUND'
-  | 'REQUEST_NOT_PENDING'
   // Roll call errors
   | 'ROLL_CALL_NOT_IN_PROGRESS'
   // Meeting rules

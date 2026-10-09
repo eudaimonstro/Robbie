@@ -14,7 +14,6 @@ import {
   inquiryHandler,
   ruleSuspensionHandler,
   committeeHandler,
-  proxyHandler,
 } from './handlers/index.js';
 
 /**
@@ -188,17 +187,6 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'ADD_COMMITTEE_REPORT':
     case 'PRESENT_COMMITTEE_REPORT':
       return committeeHandler(state, action, log);
-
-    // Proxy voting
-    case 'SET_PROXY_SETTINGS':
-    case 'GRANT_PROXY':
-    case 'REVOKE_PROXY':
-    case 'CAST_PROXY_VOTE':
-    case 'REQUEST_PROXY':
-    case 'ACCEPT_PROXY':
-    case 'DECLINE_PROXY':
-    case 'CANCEL_PROXY_REQUEST':
-      return proxyHandler(state, action, log);
 
     default: {
       // Exhaustive check - TypeScript will error here if any action type is unhandled

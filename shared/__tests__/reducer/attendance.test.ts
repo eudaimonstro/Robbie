@@ -235,37 +235,6 @@ describe('attendance actions', () => {
       ]);
       expect(next.meetingLog).toEqual([]);
     });
-
-    it('revokes the proxies of a member who became a guest, held or granted', () => {
-      const proxy = (id: number, grantedBy: number, grantedTo: number) => ({
-        id,
-        grantedBy,
-        grantedTo,
-        grantedByName: `Member ${grantedBy}`,
-        grantedToName: `Member ${grantedTo}`,
-        grantedAt: '10:00',
-        scope: 'all' as const,
-      });
-      const cy: Member = { id: 3, name: 'Cy', role: 'member', present: true };
-      const withProxies: MeetingState = {
-        ...state,
-        members: [ann, bo, cy],
-        proxies: [proxy(1, 2, 1), proxy(2, 3, 1), proxy(3, 1, 3)],
-      };
-      const next = meetingReducer(withProxies, {
-        type: 'REFRESH_MEMBERS',
-        members: [{ id: 1, name: 'Ann', role: 'guest' }],
-        timestamp: '10:00',
-      });
-      // Ann can neither hold Bo's and Cy's proxies nor grant one to Cy
-      expect(next.proxies).toEqual([]);
-      const unchanged = meetingReducer(withProxies, {
-        type: 'REFRESH_MEMBERS',
-        members: [{ id: 2, name: 'Bo', role: 'admin' }],
-        timestamp: '10:00',
-      });
-      expect(unchanged.proxies).toEqual(withProxies.proxies);
-    });
   });
 
   describe('SET_MEETING_INFO', () => {

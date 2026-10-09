@@ -113,35 +113,6 @@ describe('validating floor votes', () => {
     });
   });
 
-  describe('CAST_PROXY_VOTE', () => {
-    it('is refused on a voice vote', () => {
-      const state = {
-        ...voting,
-        votingMethod: 'voice' as const,
-        allowProxyVoting: true,
-        proxies: [
-          {
-            id: 1,
-            grantedBy: 3,
-            grantedTo: 2,
-            grantedByName: 'Member 3',
-            grantedToName: 'Member 2',
-            grantedAt: '20:00',
-            scope: 'all' as const,
-          },
-        ],
-      };
-      const result = validateAction(state, {
-        type: 'CAST_PROXY_VOTE',
-        vote: 'yea',
-        forMemberId: 3,
-        castById: 2,
-        timestamp: '',
-      });
-      expect(result).toMatchObject({ valid: false, errorCode: 'VOTING_METHOD' });
-    });
-  });
-
   describe('SET_FLOOR_TALLY', () => {
     const tally = (counts: Record<string, unknown>, state = voting) =>
       validateAction(state, {

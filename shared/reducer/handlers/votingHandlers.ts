@@ -47,7 +47,6 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         voters: [],
         voterChoices: {},
         floorVotes: { yea: 0, nay: 0, abstain: 0 },
-        proxyVotes: [], // Reset proxy votes for new vote
         divisionCalled: false,
         // An appeal from a ruling comes before anything else happens
         lastChairRuling: null,
@@ -202,7 +201,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
 
       // Record every decided motion, with both parts of its vote, who moved and seconded it,
       // and where and when it was decided. A secret ballot keeps no record of who voted which
-      // way, in person or by proxy.
+      // way.
       const decided = state.currentMotion;
       if (!decided) return { ...state, votingOpen: false, voteTimerEnd: null };
       const record: CompletedMotion = {
@@ -247,7 +246,7 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         votingOpen: false,
         voteTimerEnd: null,
         divisionCalled: false,
-        ...(isBallot && { voterChoices: {}, proxyVotes: [] }),
+        ...(isBallot && { voterChoices: {} }),
         defeatedMotions,
         ...outcome.state,
       };
@@ -266,7 +265,6 @@ export const votingHandler: ActionHandler = (state, action, log) => {
                 'voters',
                 'voterChoices',
                 'floorVotes',
-                'proxyVotes',
               ]),
             }
           : null,

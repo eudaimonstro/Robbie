@@ -283,7 +283,6 @@ describe('meetingReducer', () => {
           votes: { yea: 2, nay: 1, abstain: 0 },
           voters: [2, 3, 4],
           voterChoices: { 2: 'yea', 3: 'nay', 4: 'yea' },
-          proxyVotes: [{ memberId: 4, castBy: 2, vote: 'yea' }],
           floorVotes: { yea: 4, nay: 2, abstain: 0 },
         },
         { type: 'END_MEETING', timestamp: '11:00:00' },
@@ -294,7 +293,6 @@ describe('meetingReducer', () => {
         votes: { yea: 0, nay: 0, abstain: 0 },
         voters: [],
         voterChoices: {},
-        proxyVotes: [],
         floorVotes: { yea: 0, nay: 0, abstain: 0 },
       });
       // It was never decided, so it leaves no record

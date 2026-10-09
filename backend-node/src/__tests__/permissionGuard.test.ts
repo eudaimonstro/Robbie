@@ -134,11 +134,6 @@ describe('permissionGuard', () => {
         'WITHDRAW_MOTION',
         'MODIFY_MOTION',
         'RESPOND_ROLL_CALL',
-        'CAST_PROXY_VOTE',
-        'REQUEST_PROXY',
-        'ACCEPT_PROXY',
-        'DECLINE_PROXY',
-        'CANCEL_PROXY_REQUEST',
       ] as const;
 
       it.each(memberActions)('should deny guest from performing %s', (action) => {

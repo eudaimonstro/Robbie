@@ -146,7 +146,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         votes: NO_VOTES,
         voters: [],
         voterChoices: {},
-        proxyVotes: [],
         floorVotes: NO_VOTES,
       };
       return {

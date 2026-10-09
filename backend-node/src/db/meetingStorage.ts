@@ -11,11 +11,28 @@ export interface MeetingRecord {
 }
 
 /**
- * A stored state with every field the current MeetingState has: a meeting saved before a
- * field existed gets its initial value
+ * Fields a live meeting saved by an earlier version may still carry, of features since removed:
+ * member-to-member proxies (the chair now enters the proxies held, `proxiesHeld`). Nothing reads
+ * them; they are dropped on load, so they are never published to clients or written back.
+ */
+export const RETIRED_STATE_KEYS: readonly string[] = [
+  'allowProxyVoting',
+  'maxProxiesPerMember',
+  'proxiesCountForQuorum',
+  'proxies',
+  'proxyVotes',
+  'allowMemberProxyGrant',
+  'pendingProxyRequests',
+];
+
+/**
+ * A stored state with every field the current MeetingState has, and none it no longer has: a
+ * meeting saved before a field existed gets its initial value, and a retired field is dropped
  */
 export function withDefaults(state: MeetingState): MeetingState {
-  return { ...initialState, ...state };
+  const loaded: Record<string, unknown> = { ...initialState, ...state };
+  for (const key of RETIRED_STATE_KEYS) delete loaded[key];
+  return loaded as unknown as MeetingState;
 }
 
 /** Result of state update with optimistic locking */

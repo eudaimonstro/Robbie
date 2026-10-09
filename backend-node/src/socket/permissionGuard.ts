@@ -113,17 +113,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   LOWER_HAND: EVERYONE,
   YIELD_FLOOR: EVERYONE,
   ASK_INQUIRY: EVERYONE,
-
-  // Proxy voting actions
-  SET_PROXY_SETTINGS: PRESIDING, // Admin/chair can enable/configure proxy voting
-  GRANT_PROXY: PRESIDING, // Admin/chair grants proxies on behalf of absent members
-  REVOKE_PROXY: PRESIDING, // Admin/chair can revoke proxies
-  CAST_PROXY_VOTE: TAKING_PART, // Proxy holders can cast proxy votes
-  // Member-initiated proxy request actions
-  REQUEST_PROXY: TAKING_PART, // Members can request proxies
-  ACCEPT_PROXY: TAKING_PART, // Members can accept proxy requests
-  DECLINE_PROXY: TAKING_PART, // Members can decline proxy requests
-  CANCEL_PROXY_REQUEST: TAKING_PART, // Members can cancel their own requests
 };
 
 /**

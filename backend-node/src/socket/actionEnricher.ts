@@ -49,8 +49,8 @@ const NONE: ActorFields = {};
 /**
  * Who is acting, for every action type. A client can never act as someone else: each of these
  * fields is overwritten with the signed-in user. Fields that name someone else (the speaker
- * the chair recognizes, a nominee, the absent member a proxy is granted for, the member marked
- * absent) are left alone; the permission guard and the validator decide who may name them.
+ * the chair recognizes, a nominee, the member marked absent) are left alone; the permission
+ * guard and the validator decide who may name them.
  */
 export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   START_MEETING: NONE,
@@ -126,15 +126,7 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   COMPLETE_ROLL_CALL: NONE,
   MARK_ABSENT: NONE,
   SET_AUTO_YIELD: NONE,
-  SET_PROXY_SETTINGS: NONE,
   // grantedBy names the absent member a chair or admin grants for (see permissionGuard)
-  GRANT_PROXY: NONE,
-  REVOKE_PROXY: NONE,
-  CAST_PROXY_VOTE: { id: 'castById' },
-  REQUEST_PROXY: { id: 'requestedBy', name: 'requestedByName' },
-  ACCEPT_PROXY: { id: 'acceptedBy' },
-  DECLINE_PROXY: { id: 'declinedBy' },
-  CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
 };
 
 /**
@@ -177,20 +169,6 @@ export function enrichAction(
   // client: otherwise any member could be demoted along with the handover
   if (enriched.type === 'SET_MEMBER_ROLE') {
     delete enriched.previousChairId;
-  }
-
-  // The members of a proxy are named as the meeting has them, not as the client says (the
-  // validator refuses a member the meeting doesn't have, so a name left alone goes nowhere)
-  const nameOf = (field: string, id: unknown) => {
-    const named = members.find((m) => m.id === id);
-    if (named) enriched[field] = named.name;
-  };
-  if (enriched.type === 'GRANT_PROXY') {
-    nameOf('grantedByName', enriched.grantedBy);
-    nameOf('grantedToName', enriched.grantedTo);
-  }
-  if (enriched.type === 'REQUEST_PROXY') {
-    nameOf('requestedForName', enriched.requestedFor);
   }
 
   // Server generates timestamps using shared utility for consistency
