@@ -160,6 +160,9 @@ describe('SendNoticeDialog', () => {
 
   it('words what sending came to', () => {
     expect(sentMessage(1, 0)).toBe('The notice was sent to 1 person.');
+    expect(sentMessage(0, 3)).toBe(
+      "The notice couldn't be delivered to anyone, so it wasn't sent. Try again later.",
+    );
     expect(sentMessage(5, 1)).toBe(
       "The notice was sent to 5 people. 1 email couldn't be delivered.",
     );

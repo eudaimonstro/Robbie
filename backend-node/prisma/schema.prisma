@@ -241,19 +241,20 @@ model MeetingPacket {
   @@index([organizationId])
 }
 
-// One sending of a meeting's notice: the organization's daily limit counts them
+// One sending of a meeting's notice: the organization's daily limit counts them, also after the
+// meeting is canceled (its packet goes, the record stays)
 model MeetingNotice {
-  id             String        @id @default(uuid())
+  id             String         @id @default(uuid())
   organizationId String
-  packetId       String
+  packetId       String?
   sentById       Int?
-  sentAt         DateTime      @default(now())
+  sentAt         DateTime       @default(now())
   // How many it went to, and how many of those couldn't be delivered
   recipients     Int
-  failed         Int           @default(0)
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  packet         MeetingPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
-  sentBy         User?         @relation("NoticesSent", fields: [sentById], references: [id], onDelete: SetNull)
+  failed         Int            @default(0)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packet         MeetingPacket? @relation(fields: [packetId], references: [id], onDelete: SetNull)
+  sentBy         User?          @relation("NoticesSent", fields: [sentById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, sentAt])
   @@index([packetId])

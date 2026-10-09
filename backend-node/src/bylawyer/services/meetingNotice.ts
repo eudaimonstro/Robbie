@@ -311,29 +311,39 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Send the meeting's notice to everyone (noticeRecipients), NOTICE_BATCH at a time with a pause
  * between batches. Refused after the call to order, without a date, past the organization's
- * daily limit (counted under its row lock, so two sends at once can't both pass), and when it
- * was sent before unless `confirmResend`. Records the sending (MeetingNotice) and on the packet
- * when and by whom. A recipient whose email fails is logged (by domain) and counted.
+ * daily limit, and when it was sent before unless `confirmResend` (the last two read under the
+ * organization's row lock, so two sends at once can't both pass). Records the sending
+ * (MeetingNotice, kept when the meeting is canceled, so the limit still counts it) and on the
+ * packet when and by whom. A recipient whose email fails is logged (by domain) and counted; when
+ * every email fails nothing was sent, and neither record stays.
  */
 export async function sendNotice(
   code: string,
   sender: NoticeSender,
   options: { confirmResend?: boolean } = {},
   now: Date = new Date(),
-): Promise<{ sent: number; failed: number; noticeSentAt: string }> {
+): Promise<{ sent: number; failed: number; noticeSentAt: string | null }> {
   const packet = await noticePacket(code);
   if (!packet) throw ApiError.notFound();
   const reason = cannotSend(packet);
   if (reason) throw ApiError.conflict(reason);
-  if (packet.noticeSentAt && !options.confirmResend) {
-    throw ApiError.conflict(
-      `The notice was sent on ${noticeWhen(packet.noticeSentAt, packet.organization.timeZone)}. Send it again?`,
+  const sentBefore = (at: Date) =>
+    ApiError.conflict(
+      `The notice was sent on ${noticeWhen(at, packet.organization.timeZone)}. Send it again?`,
       NOTICE_SENT_BEFORE,
     );
-  }
+  if (packet.noticeSentAt && !options.confirmResend) throw sentBefore(packet.noticeSentAt);
   const recipients = await noticeRecipients(packet.organizationId, now);
-  const record = await prisma.$transaction(async (tx) => {
+  const { record, previous } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${packet.organizationId} FOR UPDATE`;
+    // Read again under the lock: a send that took it first is a send before this one
+    const current = await tx.meetingPacket.findUnique({
+      where: { id: packet.id },
+      select: { noticeSentAt: true, noticeSentById: true, startedAt: true },
+    });
+    if (!current) throw ApiError.notFound();
+    if (current.startedAt) throw ApiError.conflict(NOTICE_AFTER_MEETING);
+    if (current.noticeSentAt && !options.confirmResend) throw sentBefore(current.noticeSentAt);
     const sent = await tx.meetingNotice.count({
       where: {
         organizationId: packet.organizationId,
@@ -345,7 +355,7 @@ export async function sendNotice(
       where: { id: packet.id },
       data: { noticeSentAt: now, noticeSentById: sender.id },
     });
-    return tx.meetingNotice.create({
+    const created = await tx.meetingNotice.create({
       data: {
         organizationId: packet.organizationId,
         packetId: packet.id,
@@ -354,6 +364,7 @@ export async function sendNotice(
         recipients: recipients.length,
       },
     });
+    return { record: created, previous: current };
   });
 
   const email = noticeEmail(contentOf(packet), sender);
@@ -382,6 +393,18 @@ export async function sendNotice(
         "A meeting notice couldn't be delivered",
       );
     });
+  }
+  // Nobody got it: it wasn't sent, and doesn't count toward the day's notices
+  if (recipients.length > 0 && failed === recipients.length) {
+    await prisma.$transaction([
+      prisma.meetingNotice.delete({ where: { id: record.id } }),
+      prisma.meetingPacket.updateMany({
+        where: { id: packet.id, noticeSentAt: now },
+        data: { noticeSentAt: previous.noticeSentAt, noticeSentById: previous.noticeSentById },
+      }),
+    ]);
+    logger.warn({ meetingCode: code, recipients: recipients.length }, 'No meeting notice went');
+    return { sent: 0, failed, noticeSentAt: null };
   }
   if (failed > 0) {
     await prisma.meetingNotice.update({ where: { id: record.id }, data: { failed } });

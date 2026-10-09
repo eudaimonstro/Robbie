@@ -238,4 +238,60 @@ describe('the meeting notice', () => {
     expect(outbox[0].text).toContain('As a member you may attend and observe');
     expect(outbox[0].text).not.toContain('No phone?');
   });
+
+  it('still counts a notice toward the day after its meeting is canceled', async () => {
+    const other = await prisma.meetingPacket.create({
+      data: {
+        organizationId: f.orgA.id,
+        robbieCode: 'ORGA03',
+        scheduledFor: new Date('2026-11-01T00:00:00Z'),
+      },
+    });
+    const sendFor = (robbieCode: string) =>
+      call('post', `/api/packets/${robbieCode}/notice`, {
+        cookie: f.users.secretary.cookie,
+        body: { confirmResend: true },
+      });
+    expect((await sendFor('ORGA03')).status).toBe(200);
+    expect(
+      (await call('delete', `/api/packets/${other.id}`, { cookie: f.users.secretary.cookie }))
+        .status,
+    ).toBe(204);
+    const kept = await prisma.meetingNotice.findMany({ where: { organizationId: f.orgA.id } });
+    expect(kept).toEqual([expect.objectContaining({ packetId: null, recipients: 6 })]);
+    expect((await sendFor(f.packet.code)).status).toBe(200);
+    expect((await sendFor(f.packet.code)).status).toBe(200);
+    // The canceled meeting's notice is the third today
+    const fourth = await sendFor(f.packet.code);
+    expect(fourth.status).toBe(429);
+  });
+
+  it("isn't sent, or counted, when every email fails", async () => {
+    for (const email of [
+      'owner@example.org',
+      'admin@example.org',
+      'secretary@example.org',
+      'member@example.org',
+      'viewer@example.org',
+      'pending@example.org',
+    ]) {
+      failing.add(email);
+    }
+    const res = await send();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ sent: 0, failed: 6, noticeSentAt: null });
+    const packet = await prisma.meetingPacket.findUniqueOrThrow({ where: { id: f.packet.id } });
+    expect(packet.noticeSentAt).toBeNull();
+    expect(await prisma.meetingNotice.count()).toBe(0);
+    // Nothing to confirm: it was never sent
+    failing.clear();
+    expect((await send()).body).toMatchObject({ sent: 6, failed: 0 });
+  });
+
+  it('is sent once when two sends start together', async () => {
+    const [a, b] = await Promise.all([send(), send()]);
+    expect([a.status, b.status].sort()).toEqual([200, 409]);
+    expect([a.body.code, b.body.code]).toContain('NOTICE_SENT_BEFORE');
+    expect(outbox).toHaveLength(6);
+  });
 });

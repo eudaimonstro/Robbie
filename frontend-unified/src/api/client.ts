@@ -390,7 +390,8 @@ export interface MeetingNotice {
 export interface NoticeSent {
   sent: number;
   failed: number;
-  noticeSentAt: string;
+  /** Null when no email went: then it wasn't sent, nor counted toward the day's notices */
+  noticeSentAt: string | null;
 }
 
 // Documents
