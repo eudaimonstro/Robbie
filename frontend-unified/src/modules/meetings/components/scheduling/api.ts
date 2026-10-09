@@ -50,6 +50,8 @@ export async function createPacket(
     scheduledFor?: string;
     /** The presiding officer; the server defaults it to the creator, and null is nobody */
     chairUserId?: number | null;
+    /** Who votes: the members (the default) or the board */
+    kind?: 'members' | 'board';
   },
 ): Promise<MeetingPacket> {
   const response = await apiFetch(`/organizations/${organizationId}/packets`, {
@@ -81,6 +83,8 @@ export async function updatePacket(
     /** null clears it */
     scheduledFor?: string | null;
     chairUserId?: number | null;
+    /** Until the meeting is called to order */
+    kind?: 'members' | 'board';
   },
 ): Promise<MeetingPacket> {
   const response = await apiFetch(`/packets/${packetId}`, {

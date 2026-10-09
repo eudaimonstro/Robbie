@@ -10,7 +10,17 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Loader2, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  Check,
+  Clock,
+  Loader2,
+  MapPin,
+  Users,
+} from 'lucide-react';
 import type { MeetingPacket } from './types';
 import { PacketBuilder } from './PacketBuilder';
 import { createPacket, deletePacket, getPacket, updatePacket } from './api';
@@ -19,6 +29,7 @@ import { formatMeetingTime, toLocalDateTimeInput } from '../../../../utils/dates
 import { useSession } from '../../../../context/SessionContext';
 import { useMeetingOrganization } from '../../context/OrganizationBridge';
 import { atLeast } from '../../../../utils/roles';
+import { MEMBERS_SETTINGS } from '../../../../utils/quorum';
 import { JoinInfoCard } from '../console/JoinInfoCard';
 
 interface MeetingSchedulerProps {
@@ -55,6 +66,8 @@ export function MeetingScheduler({
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
+  // Who votes: the members, or the board's directors
+  const [kind, setKind] = useState<'members' | 'board'>('members');
   // The presiding officer: undefined until the members load, then the scheduler when they may
   // preside; null for nobody (the admins run the meeting)
   const [chairUserId, setChairUserId] = useState<number | null | undefined>(undefined);
@@ -108,6 +121,7 @@ export function MeetingScheduler({
         setLocation(loaded.location ?? '');
         setScheduledFor(loaded.scheduledFor ? toLocalDateTimeInput(loaded.scheduledFor) : '');
         setChairUserId(loaded.chairUserId ?? null);
+        setKind(loaded.kind ?? 'members');
         setExisting(loaded.startedAt ? 'called to order' : 'ready');
       })
       .catch((err: unknown) => {
@@ -174,6 +188,7 @@ export function MeetingScheduler({
     location: location.trim() || undefined,
     scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     ...(chairUserId === undefined ? {} : { chairUserId }),
+    ...(kind === 'board' && { kind }),
   });
 
   /**
@@ -197,6 +212,7 @@ export function MeetingScheduler({
     if (chairUserId !== undefined && chairUserId !== (saved.chairUserId ?? null)) {
       changes.chairUserId = chairUserId;
     }
+    if (kind !== (saved.kind ?? 'members')) changes.kind = kind;
     return changes;
   };
 
@@ -274,6 +290,9 @@ export function MeetingScheduler({
       : null;
 
   const meetingName = title.trim() || 'The meeting';
+  // A board meeting needs board members (marked on the Members page); unknown until they load
+  const directors = presiders === null ? null : orgMembers.filter((m) => m.isDirector).length;
+  const noBoard = directors === 0;
 
   /**
    * Close after changing a meeting. A meeting already open (before the call to order) gets the
@@ -460,6 +479,55 @@ export function MeetingScheduler({
                   </p>
                 )}
               </div>
+
+              <fieldset aria-describedby="meetingKindHint">
+                <legend className="label">
+                  <Users className="mr-1 inline h-4 w-4" aria-hidden="true" />
+                  Who votes
+                </legend>
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+                  <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                    <input
+                      type="radio"
+                      name="meetingKind"
+                      value="members"
+                      className="accent-gavel"
+                      checked={kind === 'members'}
+                      onChange={() => setKind('members')}
+                    />
+                    All members
+                  </label>
+                  <label
+                    className={`flex min-h-10 items-center gap-2 text-sm ${noBoard && kind !== 'board' ? 'text-ink-muted' : 'text-ink'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="meetingKind"
+                      value="board"
+                      className="accent-gavel"
+                      checked={kind === 'board'}
+                      disabled={noBoard && kind !== 'board'}
+                      onChange={() => setKind('board')}
+                    />
+                    The board
+                  </label>
+                </div>
+                <p id="meetingKindHint" className="mt-1 text-xs text-ink-muted">
+                  {noBoard ? (
+                    <>
+                      A board meeting needs its board members. Mark them on{' '}
+                      <Link to={MEMBERS_SETTINGS} className="text-gavel hover:underline">
+                        the Members page
+                      </Link>{' '}
+                      first.
+                    </>
+                  ) : kind === 'board' ? (
+                    `The ${directors === null ? '' : `${directors} `}directors vote. Other members may attend and observe.`
+                  ) : (
+                    'An annual or special meeting: every member votes.'
+                  )}
+                </p>
+              </fieldset>
 
               <div>
                 <label htmlFor="meetingDate" className="label">
