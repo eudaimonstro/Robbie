@@ -1,6 +1,6 @@
 # Onboarding a new HOA
 
-Status: design, 2026-10-08. Batch C of the review pass: product review recommendations 1, 4, 5, 6, 7, 8 and 9, screens 12, 16 and 21, and the version-remap bug.
+Status: built (2026-10-08, #54). Batch C of the review pass: product review recommendations 1, 4, 5, 6, 7, 8 and 9, screens 12, 16 and 21, and the version-remap bug.
 
 ## Why
 

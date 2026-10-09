@@ -1,6 +1,6 @@
 # In the room (MVP Phase B)
 
-Status: design, 2026-10-06. Phase B of `docs/mvp-roadmap.md`; it also closes the "part 3" items left open by the accounts and organization-membership designs.
+Status: built (2026-10-07, #42). Phase B of `docs/mvp-roadmap.md`; it also closes the "part 3" items left open by the accounts and organization-membership designs.
 
 ## Why
 

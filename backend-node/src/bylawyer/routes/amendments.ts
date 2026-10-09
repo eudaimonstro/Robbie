@@ -628,7 +628,7 @@ amendmentsRouter.post(
           createdAt: newVersion.createdAt.toISOString(),
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof AmendmentConflictError) {
         return res.status(409).json({ error: error.message });
       }

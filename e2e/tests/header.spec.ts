@@ -18,7 +18,8 @@ test('the header fits at phone, tablet and laptop widths', async ({ page }, test
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Maple Grove HOA' })).toBeVisible();
-    const header = page.locator('header').first();
+    // The app's header: the page's banner landmark
+    const header = page.getByRole('banner');
     await expect(header.getByRole('button', { name: /Maple Grove HOA/ })).toBeVisible();
     await expectInside(header, width);
 
@@ -57,9 +58,11 @@ test('a live meeting takes the full width, with the menu in the header', async (
 
   // A meeting link (one that isn't scheduled, so nobody joins anything): the sidebar is a drawer
   await page.goto('/meetings/ZZZ999');
-  await expect(page.getByText('No meeting with that code')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'No meeting with that code' }),
+  ).toBeVisible();
   await expect(nav).not.toBeInViewport();
-  await expectInside(page.locator('header').first(), 1280);
+  await expectInside(page.getByRole('banner'), 1280);
   await menu.click();
   await expect(nav).toBeInViewport();
   await page.getByRole('button', { name: 'Close sidebar' }).click();

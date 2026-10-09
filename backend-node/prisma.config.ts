@@ -17,5 +17,8 @@ export default defineConfig({
   },
   datasource: {
     url: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '',
+    // A database `prisma migrate diff --from-migrations` may reset (CI's drift check); never
+    // one with data in it
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 });

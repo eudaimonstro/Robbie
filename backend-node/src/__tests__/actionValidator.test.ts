@@ -991,7 +991,7 @@ describe('actionValidator', () => {
       const result = validateAction(state, {
         type: 'INVALID_UNKNOWN_ACTION',
         timestamp: '',
-      } as any);
+      } as unknown as Parameters<typeof validateAction>[1]);
       expect(result.valid).toBe(false);
       expect(result.errorCode).toBe('INVALID_ACTION');
     });

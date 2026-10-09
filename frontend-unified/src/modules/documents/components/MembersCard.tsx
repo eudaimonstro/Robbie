@@ -55,13 +55,32 @@ export function MembersCard() {
     setInvites(result.invites ?? []);
   }, [orgId]);
 
+  // The first load, and again for another organization; a late answer for the previous one is
+  // dropped
   useEffect(() => {
-    load()
-      .catch((err) =>
-        setNotice({ kind: 'alert', text: messageOf(err, 'Failed to load the members') }),
+    if (!orgId) return;
+    let ignore = false;
+    membersApi
+      .list(orgId)
+      .then(
+        (result) => {
+          if (ignore) return;
+          setList(result.members);
+          setInvites(result.invites ?? []);
+        },
+        (err: unknown) => {
+          if (!ignore) {
+            setNotice({ kind: 'alert', text: messageOf(err, 'Failed to load the members') });
+          }
+        },
       )
-      .finally(() => setLoading(false));
-  }, [load]);
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [orgId]);
 
   /** Run a change, reload the list, then show the outcome or the server's message */
   const act = async (change: () => Promise<string>, fallback: string) => {

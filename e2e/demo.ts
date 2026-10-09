@@ -8,8 +8,8 @@ import { DATABASE_URL } from './env';
  * the demo's own meeting) starts from the same organization, people and schedule.
  */
 export async function resetDemo(): Promise<void> {
-  // Live meetings are kept outside Prisma (backend-node/src/db/meetingStorage.ts creates the
-  // table at startup): a reseeded organization would otherwise find old meetings under its codes
+  // The live meetings' table (LiveMeeting, written with SQL by backend-node/src/db/meetingStorage.ts)
+  // isn't the seed's: a reseeded organization would otherwise find old meetings under its codes
   const client = new pg.Client({ connectionString: DATABASE_URL });
   await client.connect();
   try {

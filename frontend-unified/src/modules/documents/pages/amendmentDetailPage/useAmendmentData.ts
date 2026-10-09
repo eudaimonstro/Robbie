@@ -77,6 +77,7 @@ export function useAmendmentData(amendmentId: string | undefined): UseAmendmentD
   useEffect(() => {
     // Another amendment: not on the page yet
     shown.current = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading from the API: the fetcher marks itself loading before its request (it is also the refresh)
     fetchAmendment();
   }, [fetchAmendment]);
 

@@ -53,11 +53,15 @@ export default defineConfig(
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
       ...reactHooks.configs.recommended.rules,
-      // React Compiler rules: existing "reset state when a prop changes" effects and manual
-      // memoization trip these. Warn until they're refactored with tests (spec M9).
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+  {
+    // A context's file exports its provider and the hook that reads it, which fast refresh
+    // can't hot-swap; a full reload of the page is fine for these few files
+    files: ['frontend-unified/src/context/**', 'frontend-unified/src/modules/*/context/**'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
   {

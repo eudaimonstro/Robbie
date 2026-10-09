@@ -1,6 +1,6 @@
 # Organization membership and authorization (spec M3, part 2 of 3)
 
-Status: design, 2026-10-06
+Status: built (2026-10-07, #41).
 
 ## Why
 

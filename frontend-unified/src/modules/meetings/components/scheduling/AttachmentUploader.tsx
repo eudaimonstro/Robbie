@@ -86,28 +86,24 @@ export function AttachmentUploader({
     }
   }
 
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
+  // Plain functions, not memoized: they call this render's uploadFiles, so a new target or
+  // onAttachmentAdded from the parent is the one an upload reports to
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
 
-      const files = Array.from(e.dataTransfer.files);
-      await uploadFiles(files);
-    },
-    [robbieCode, target],
-  );
+    const files = Array.from(e.dataTransfer.files);
+    await uploadFiles(files);
+  };
 
-  const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files ? Array.from(e.target.files) : [];
-      await uploadFiles(files);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    },
-    [robbieCode, target],
-  );
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    await uploadFiles(files);
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleDelete = async (attachmentId: string) => {
     try {
@@ -284,30 +280,32 @@ export function DocumentPicker({
   onSelect: (doc: BylawyerDocument) => void;
   onClose: () => void;
 }) {
-  const [documents, setDocuments] = useState<BylawyerDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  // The list couldn't be loaded: said, with Try again, rather than "No documents"
-  const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // The answer to one load (this organization, this attempt); anything else is still loading
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    documents: BylawyerDocument[];
+    failed: boolean;
+  } | null>(null);
+  const loadKey = `${organizationId}#${attempt}`;
+  const loading = loaded?.key !== loadKey;
+  const documents = loaded?.documents ?? [];
+  // The list couldn't be loaded: said, with Try again, rather than "No documents"
+  const failed = !loading && loaded?.failed === true;
 
   React.useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setFailed(false);
     listDocuments(organizationId)
       .then((docs) => {
-        if (!cancelled) setDocuments(docs);
+        if (!cancelled) setLoaded({ key: loadKey, documents: docs, failed: false });
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoaded({ key: loadKey, documents: [], failed: true });
       });
     return () => {
       cancelled = true;
     };
-  }, [organizationId, attempt]);
+  }, [organizationId, loadKey]);
 
   return (
     <div className="fixed inset-0 bg-ink-900/50 flex items-center justify-center z-50">

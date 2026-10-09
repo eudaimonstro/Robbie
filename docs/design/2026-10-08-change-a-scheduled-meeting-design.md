@@ -1,6 +1,6 @@
 # Change a scheduled meeting
 
-Status: design, 2026-10-08. Closes the known gap in `docs/mvp-roadmap.md`: "No UI to change a scheduled meeting's date, place or attachments after scheduling."
+Status: built (2026-10-07, #45). Closes the known gap in `docs/mvp-roadmap.md`: "No UI to change a scheduled meeting's date, place or attachments after scheduling."
 
 ## Why
 

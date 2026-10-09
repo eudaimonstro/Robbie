@@ -2478,8 +2478,8 @@ describe('meetingReducer', () => {
   describe('default case', () => {
     it('should return state unchanged for unknown action', () => {
       const state = meetingReducer(initialState, {
-        type: 'UNKNOWN_ACTION' as any,
-      });
+        type: 'UNKNOWN_ACTION',
+      } as unknown as Parameters<typeof meetingReducer>[1]);
 
       expect(state).toBe(initialState);
     });

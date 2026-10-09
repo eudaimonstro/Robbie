@@ -10,7 +10,7 @@ import {
 } from '@playwright/test';
 import { resetDemo } from '../demo';
 import { BASE_URL, EMAIL_OUTBOX } from '../env';
-import { PEOPLE, PHONE, personPage, visibleStamp } from '../helpers';
+import { PEOPLE, PHONE, personPage, region, shown, visibleStamp } from '../helpers';
 
 /**
  * Board meetings and the meeting notice on the demo: Maple Grove's board (Dana, Pat and Alice,
@@ -96,9 +96,11 @@ test('a board meeting: the directors move and vote, an observer follows, and the
     await expect(carmen).not.toBeChecked();
     await expect(pat.getByRole('checkbox', { name: 'Board member: Alice Brennan' })).toBeChecked();
     await carmen.check();
-    await expect(pat.getByText('Carmen Diaz is on the board.')).toBeVisible();
+    await expect(
+      pat.getByRole('status').filter({ hasText: 'Carmen Diaz is on the board.' }),
+    ).toBeVisible();
     await expect(carmen).toBeChecked();
-    await expect(pat.getByText('The board: 4 members, who vote in board meetings.')).toBeVisible();
+    await expect(shown(pat, 'The board: 4 members, who vote in board meetings.')).toBeVisible();
     await shots(
       pat,
       testInfo,
@@ -109,12 +111,12 @@ test('a board meeting: the directors move and vote, an observer follows, and the
 
     // Live Meetings marks the board meeting; scheduling one asks who votes
     await pat.goto('/meetings');
-    await expect(pat.getByText('Board meeting', { exact: true })).toBeVisible();
+    await expect(shown(pat, 'Board meeting', { exact: true })).toBeVisible();
     await pat.getByRole('button', { name: 'Schedule a meeting' }).click();
     await expect(pat.getByRole('radio', { name: 'All members' })).toBeChecked();
     await pat.getByRole('radio', { name: 'The board' }).check();
     await expect(
-      pat.getByText('The 4 directors vote. Other members may attend and observe.'),
+      shown(pat, 'The 4 directors vote. Other members may attend and observe.'),
     ).toBeVisible();
     await shots(pat, testInfo, 'scheduler-kind');
     await pat.getByRole('button', { name: 'Back' }).click();
@@ -125,28 +127,32 @@ test('a board meeting: the directors move and vote, an observer follows, and the
       colorScheme: 'dark',
     });
     await tv.goto(`/meetings/${BOARD}/display`);
-    await expect(tv.getByText('Maple Grove HOA, Board meeting')).toBeVisible();
+    await expect(shown(tv, 'Maple Grove HOA, Board meeting', { exact: true })).toBeVisible();
     await expect(
-      tv.getByText('The directors vote. Members may follow the meeting on their phones.'),
+      shown(tv, 'The directors vote. Members may follow the meeting on their phones.'),
     ).toBeVisible();
 
     // Dana chairs from the console; Alice, a director, and Ben, a member, on their phones
     const dana = await open(PEOPLE.dana, { viewport: { width: 1280, height: 900 } });
     await dana.goto(`/meetings/${BOARD}`);
     await expect(dana.getByRole('heading', { name: 'November board meeting' })).toBeVisible();
-    await expect(dana.getByText('Board meeting', { exact: true })).toBeVisible();
+    await expect(shown(dana, 'Board meeting', { exact: true })).toBeVisible();
     const alice = await open(PEOPLE.alice, PHONE);
     await alice.goto(`/meetings/${BOARD}`);
-    await expect(alice.getByText('The meeting has not been called to order yet.')).toBeVisible();
+    await expect(
+      region(alice, 'Your part').getByText('The meeting has not been called to order yet.'),
+    ).toBeVisible();
     const ben = await open(PEOPLE.ben, PHONE);
     await ben.goto(`/meetings/${BOARD}`);
-    await expect(ben.getByText("You're observing this board meeting.")).toBeVisible();
-    await expect(ben.getByText('Observer', { exact: true })).toBeVisible();
+    await expect(
+      region(ben, 'Your part').getByText("You're observing this board meeting."),
+    ).toBeVisible();
+    await expect(shown(ben, 'Observer', { exact: true })).toBeVisible();
 
     // Pat, a director at the TV without a phone of her own, is marked present: three of the four
     // directors, and a majority of them is the quorum. Ben observes and doesn't count.
     await dana.getByRole('button', { name: 'Mark Pat Lindqvist present' }).click();
-    await expect(dana.getByText('3 present of 4, quorum 3, met')).toBeVisible();
+    await expect(shown(dana, '3 present of 4, quorum 3, met')).toBeVisible();
     await expect(
       dana.getByRole('list', { name: 'Also present' }).getByText('Ben Whitaker'),
     ).toBeVisible();
@@ -163,13 +169,20 @@ test('a board meeting: the directors move and vote, an observer follows, and the
       .fill('I move that we hire Green Thumb Landscaping for 2027');
     await alice.getByRole('button', { name: 'Move', exact: true }).click();
     await expect(
-      ben.getByText('I move that we hire Green Thumb Landscaping for 2027', { exact: true }),
+      region(ben, 'The question').getByText(
+        'I move that we hire Green Thumb Landscaping for 2027',
+        {
+          exact: true,
+        },
+      ),
     ).toBeVisible();
     await expect(ben.getByRole('button', { name: 'Second', exact: true })).toHaveCount(0);
     await dana.getByRole('button', { name: 'Seconded from the floor' }).click();
     await dana.getByLabel('Who seconded it').selectOption({ label: 'Pat Lindqvist' });
     await dana.getByRole('button', { name: 'Record the second' }).click();
-    await expect(dana.getByText('Moved by Alice Brennan, seconded by Pat Lindqvist')).toBeVisible();
+    await expect(
+      region(dana, 'The question').getByText('Moved by Alice Brennan, seconded by Pat Lindqvist'),
+    ).toBeVisible();
 
     // Ben, observing, asks to speak: the chair decides whom to recognize
     await ben.getByRole('button', { name: 'Ask to speak' }).click();
@@ -191,9 +204,9 @@ test('a board meeting: the directors move and vote, an observer follows, and the
     // The vote: Alice on her phone, Pat's hand in the room; Ben has no vote
     await dana.getByRole('button', { name: 'Open the vote' }).click();
     await alice.getByRole('button', { name: 'Vote yes' }).click();
-    await expect(ben.getByText('The directors are voting.')).toBeVisible();
+    await expect(region(ben, 'Your part').getByText('The directors are voting.')).toBeVisible();
     await expect(ben.getByRole('button', { name: /^Vote / })).toHaveCount(0);
-    await expect(dana.getByText('1 voted on devices')).toBeVisible();
+    await expect(region(dana, 'Vote in progress').getByText('1 voted on devices')).toBeVisible();
     await shots(ben, testInfo, 'observer-phone', [
       { width: 390, height: 844, scheme: 'light' },
       { width: 1280, height: 900, scheme: 'light' },
@@ -203,7 +216,7 @@ test('a board meeting: the directors move and vote, an observer follows, and the
     await dana.getByLabel('Nay in the room').fill('0');
     await dana.getByLabel('Abstain in the room').fill('0');
     await dana.getByRole('button', { name: 'Enter the count' }).click();
-    await expect(dana.getByText('Together: 2 to 0')).toBeVisible();
+    await expect(region(dana, 'Vote in progress').getByText('Together: 2 to 0')).toBeVisible();
     await shots(dana, testInfo, 'board-console');
     await dana.getByRole('button', { name: 'Close the vote' }).click();
 
@@ -219,10 +232,10 @@ test('a board meeting: the directors move and vote, an observer follows, and the
       .getByRole('dialog', { name: 'Adjourn the meeting?' })
       .getByRole('button', { name: 'Adjourn', exact: true })
       .click();
-    await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
+    await expect(shown(dana, /^Adjourned at /)).toBeVisible();
 
     // The minutes the server drafted list the directors present and absent, and Ben
-    const draft = pat.getByRole('link', { name: /November board meeting/ }).first();
+    const draft = pat.getByRole('link', { name: /November board meeting/ });
     await expect(async () => {
       await pat.goto('/minutes');
       await expect(draft).toBeVisible({ timeout: 2_000 });
@@ -276,8 +289,8 @@ test('the notice of the annual meeting goes to every member, and prints with its
     await expect(dialog.getByLabel('The email')).toContainText(`${BASE_URL}/meetings/${ANNUAL}`);
     await shots(pat, testInfo, 'notice-preview');
     await dialog.getByRole('button', { name: 'Send', exact: true }).click();
-    await expect(pat.getByText('The notice was sent to 19 people.')).toBeVisible();
-    await expect(pat.getByText(/^Notice sent /)).toBeVisible();
+    await expect(shown(pat, 'The notice was sent to 19 people.')).toBeVisible();
+    await expect(shown(pat, /^Notice sent /)).toBeVisible();
 
     // Captured, not delivered: one plain-text email to each person, the same for all
     const sent = fs.readdirSync(EMAIL_OUTBOX).map(
@@ -326,7 +339,12 @@ test('the notice of the annual meeting goes to every member, and prints with its
     // A member can't print it
     const alice = await personPage(browser, PEOPLE.alice, PHONE);
     await alice.goto(`/meetings/${ANNUAL}/notice`);
-    await expect(alice.getByText("The meeting's notice is printed by a secretary.")).toBeVisible();
+    // The notice page is outside the app's layout: its refusal is the page's one paragraph
+    await expect(
+      alice
+        .getByRole('paragraph')
+        .filter({ hasText: "The meeting's notice is printed by a secretary." }),
+    ).toBeVisible();
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));

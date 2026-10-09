@@ -22,27 +22,38 @@ interface MeetingDocumentsPanelProps {
 }
 
 export function MeetingDocumentsPanel({ meetingCode }: MeetingDocumentsPanelProps) {
-  const [packet, setPacket] = useState<MeetingPacket | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // The answer for one meeting code; another code is still loading, so a late answer for the
+  // previous one never shows under the new one
+  const [loaded, setLoaded] = useState<{
+    code: string;
+    packet: MeetingPacket | null;
+    error: string | null;
+  } | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-
-  async function loadPacket() {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // A meeting that was never scheduled or linked has no packet (null): no documents
-      const loadedPacket = await getPacket(meetingCode);
-      setPacket(loadedPacket);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load documents');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const isLoading = loaded?.code !== meetingCode;
+  const packet = isLoading ? null : (loaded?.packet ?? null);
+  const error = isLoading ? null : (loaded?.error ?? null);
 
   useEffect(() => {
-    loadPacket();
+    let ignore = false;
+    // A meeting that was never scheduled or linked has no packet (null): no documents
+    getPacket(meetingCode).then(
+      (loadedPacket) => {
+        if (!ignore) setLoaded({ code: meetingCode, packet: loadedPacket, error: null });
+      },
+      (err: unknown) => {
+        if (!ignore) {
+          setLoaded({
+            code: meetingCode,
+            packet: null,
+            error: err instanceof Error ? err.message : 'Failed to load documents',
+          });
+        }
+      },
+    );
+    return () => {
+      ignore = true;
+    };
   }, [meetingCode]);
 
   const toggleItem = (itemId: string) => {

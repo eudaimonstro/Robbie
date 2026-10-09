@@ -1,6 +1,6 @@
 # Robbie design brief
 
-Adopted 2026-10-06 for MVP Phase B and everything after. This is the one visual language for the whole app: the documents side, the live meeting screens and the sign-in pages. New screens are built on it; existing screens move onto it as they are touched.
+Adopted 2026-10-06 for MVP Phase B and everything after. This is the one visual language for the whole app: the documents side, the live meeting screens and the sign-in pages. Every screen is on it, and new screens are built on it. `/style-guide` (signed in) shows the tokens and components in both palettes.
 
 ## The idea: the clerk's ledger
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { SectionCreate, SectionUpdate } from '../../../api/client';
 
@@ -25,10 +25,13 @@ export default function SectionEditor({
   parentLabel,
   mode,
 }: SectionEditorProps) {
-  const [numberLabel, setNumberLabel] = useState('');
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [annotation, setAnnotation] = useState('');
+  // The fields start from the section being edited, or empty for a new one. The parent mounts
+  // the editor when it opens, keyed by what it edits, so each opening starts afresh
+  const editing = mode === 'edit' ? section : undefined;
+  const [numberLabel, setNumberLabel] = useState(editing?.numberLabel || '');
+  const [title, setTitle] = useState(editing?.title || '');
+  const [content, setContent] = useState(editing?.content || '');
+  const [annotation, setAnnotation] = useState(editing?.annotation || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -38,24 +41,6 @@ export default function SectionEditor({
   const isValid = isCreateMode
     ? numberLabel.trim() !== '' && title.trim() !== ''
     : title.trim() !== '' || content.trim() !== '' || numberLabel.trim() !== '';
-
-  useEffect(() => {
-    if (isOpen) {
-      if (mode === 'edit' && section) {
-        setNumberLabel(section.numberLabel || '');
-        setTitle(section.title || '');
-        setContent(section.content || '');
-        setAnnotation(section.annotation || '');
-      } else {
-        setNumberLabel('');
-        setTitle('');
-        setContent('');
-        setAnnotation('');
-      }
-      setError(null);
-      setValidationError(null);
-    }
-  }, [isOpen, section, mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

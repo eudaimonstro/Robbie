@@ -1,6 +1,6 @@
 # Deploying Robbie
 
-Robbie runs on one small Linux server with Docker Compose: the app (the API, the live meetings and the web app in one image), Postgres, a backup service, and Caddy for HTTPS on `robbie.scouch.dev`. Everything the server needs is in `deploy/`; run every `docker compose` command from that directory (`/opt/robbie/deploy` on the server). The design is `docs/superpowers/specs/2026-10-07-ship-design.md`.
+Robbie runs on one small Linux server with Docker Compose: the app (the API, the live meetings and the web app in one image), Postgres, a backup service, and Caddy for HTTPS on `robbie.scouch.dev`. Everything the server needs is in `deploy/`; run every `docker compose` command from that directory (`/opt/robbie/deploy` on the server). The design is `docs/design/2026-10-07-ship-design.md`.
 
 ```
 phones, laptops, the TV ──HTTPS──▶ caddy :443 ──▶ app :3001 ──▶ db :5432 (not published)
@@ -13,7 +13,7 @@ CI builds the image on every pull request and publishes it from `main` as `ghcr.
 
 ## The server
 
-The target (`spec.md` M12): a DigitalOcean droplet, Ubuntu 24.04, 1 vCPU, 1.9 GiB RAM, SSH on port 4444 over Tailscale only (`ssh -p 4444 vps`).
+The target ([`decisions.md`](decisions.md), Hosting): a DigitalOcean droplet, Ubuntu 24.04, 1 vCPU, 1.9 GiB RAM, SSH on port 4444 over Tailscale only (`ssh -p 4444 vps`).
 
 ### Prepare the host (once)
 

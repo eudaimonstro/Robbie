@@ -1,6 +1,5 @@
 import type { RequestHandler } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import type { ParsedQs } from 'qs';
 
 interface ValidationSchemas {
   body?: ZodSchema;
@@ -23,7 +22,7 @@ export function validate(schemas: ValidationSchemas): RequestHandler<RouteParams
       if (schemas.query) {
         // req.query is a read-only getter in Express 5; shadow it with the parsed value
         Object.defineProperty(req, 'query', {
-          value: schemas.query.parse(req.query) as ParsedQs,
+          value: schemas.query.parse(req.query) as typeof req.query,
           writable: true,
           enumerable: true,
           configurable: true,

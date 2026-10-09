@@ -8,7 +8,7 @@ import {
 } from '@playwright/test';
 import { resetDemo } from '../demo';
 import { BASE_URL } from '../env';
-import { PEOPLE, PHONE, capture, personPage, visibleStamp } from '../helpers';
+import { PEOPLE, PHONE, capture, personPage, region, shown, visibleStamp } from '../helpers';
 
 /**
  * The roadmap's acceptance scenario (docs/mvp-roadmap.md, steps 5 to 14) on the demo's 2026
@@ -107,7 +107,7 @@ test('the annual meeting runs from the call to order to published minutes and ne
     // The TV shows the display (Morgan, a viewer, is signed in on it)
     const tv = await open(PEOPLE.morgan, { viewport: { width: 1920, height: 1080 } });
     await tv.goto(`/meetings/${CODE}/display`);
-    await expect(tv.getByText(CODE, { exact: true })).toBeVisible();
+    await expect(shown(tv, CODE, { exact: true })).toBeVisible();
     await expect(tv.getByRole('img', { name: 'Scan to join' })).toBeVisible();
 
     // Dana opens the console; Alice and Ben follow the link on their phones
@@ -118,7 +118,9 @@ test('the annual meeting runs from the call to order to published minutes and ne
     const ben = await open(PEOPLE.ben, PHONE);
     for (const phone of [alice, ben]) {
       await phone.goto(`/meetings/${CODE}`);
-      await expect(phone.getByText('The meeting has not been called to order yet.')).toBeVisible();
+      await expect(
+        region(phone, 'Your part').getByText('The meeting has not been called to order yet.'),
+      ).toBeVisible();
     }
 
     // Quorum: Dana, Alice and Ben on devices, Carmen marked present, 25 counted in the room:
@@ -127,8 +129,8 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(dana.getByRole('button', { name: 'Mark Carmen Diaz absent' })).toBeEnabled();
     await dana.getByLabel('Headcount').fill('25');
     await dana.getByRole('button', { name: 'Save the headcount' }).click();
-    await expect(dana.getByText('29 present of 142, quorum 29, met')).toBeVisible();
-    await expect(tv.getByText('Quorum met')).toBeVisible();
+    await expect(shown(dana, '29 present of 142, quorum 29, met')).toBeVisible();
+    await expect(shown(tv, 'Quorum met')).toBeVisible();
 
     // Called to order (which completes the "Call to order" item); the agenda is adopted
     await dana.getByRole('button', { name: 'Call to order', exact: true }).click();
@@ -137,16 +139,21 @@ test('the annual meeting runs from the call to order to published minutes and ne
 
     // The 2025 minutes, approved as read (console/MinutesApprovalCard.tsx, phone/MinutesNotice.tsx)
     await callNext(dana, 'Approval of the minutes of the 2025 annual meeting');
-    const approval = dana.getByRole('region', { name: 'Approval of the minutes' });
-    await expect(approval.getByText('Minutes of the 2025 Annual Meeting').first()).toBeVisible();
-    await expect(tv.getByText('Any corrections?')).toBeVisible();
+    // The minutes' title heads the card (their text below it may name the meeting too)
+    const approval = region(dana, 'Approval of the minutes');
     await expect(
-      alice.getByRole('region', { name: 'Approval of the minutes' }).getByText('Any corrections?'),
+      approval.getByText('Minutes of the 2025 Annual Meeting', { exact: true }),
+    ).toBeVisible();
+    await expect(shown(tv, 'Any corrections?')).toBeVisible();
+    await expect(
+      region(alice, 'Approval of the minutes').getByText('Any corrections?'),
     ).toBeVisible();
     await approval.getByRole('button', { name: 'Approve as read' }).click();
     await expect(approval.getByText('Minutes approved')).toBeVisible();
-    await expect(tv.getByText('Approved as read')).toBeVisible();
-    await expect(alice.getByText('Approved as read')).toBeVisible();
+    await expect(shown(tv, 'Approved as read')).toBeVisible();
+    await expect(
+      region(alice, 'Approval of the minutes').getByText('Approved as read'),
+    ).toBeVisible();
 
     // The treasurer's report: the attachment opens from the console in a new tab
     await callNext(dana, "Treasurer's report and the 2027 budget");
@@ -165,7 +172,9 @@ test('the annual meeting runs from the call to order to published minutes and ne
       .fill('I move that we approve the pool resurfacing contract');
     await alice.getByRole('button', { name: 'Move', exact: true }).click();
     await ben.getByRole('button', { name: 'Second', exact: true }).click();
-    await expect(dana.getByText('Moved by Alice Brennan, seconded by Ben Whitaker')).toBeVisible();
+    await expect(
+      region(dana, 'The question').getByText('Moved by Alice Brennan, seconded by Ben Whitaker'),
+    ).toBeVisible();
     // Both ask to speak; the display shows the queue (phone/DebateBlock.tsx,
     // chair/SpeakerQueuePanel.tsx)
     for (const phone of [ben, alice]) {
@@ -221,9 +230,10 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await form.getByRole('button', { name: 'Move', exact: true }).click();
     const words =
       'I move to amend the bylaws by modifying Section 4.2 "Quorum", as proposed in "Lower the quorum to 15%"';
-    await expect(dana.getByText(words).first()).toBeVisible();
+    const question = region(dana, 'The question');
+    await expect(question.getByText(words, { exact: true })).toBeVisible();
     await ben.getByRole('button', { name: 'Second', exact: true }).click();
-    await expect(dana.getByText('Two thirds').first()).toBeVisible();
+    await expect(question.getByText('Two thirds', { exact: true })).toBeVisible();
     // Everyone sees the text they are voting on: the console and the phones as it reads now
     // and as it would read, the TV the new text
     for (const page of [dana, alice, ben, tv]) {
@@ -246,7 +256,7 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await capture(tv, testInfo, 'bylaw-text-display');
     // 22 to 5 is more than two thirds (abstentions don't count)
     await voteOn(dana, [alice, ben], { yea: 20, nay: 5 }, async () => {
-      await expect(tv.getByText('Voting now')).toBeVisible();
+      await expect(shown(tv, 'Voting now', { exact: true })).toBeVisible();
       await fitsTheScreen(tv);
     });
     const amendment = visibleStamp(tv, 'Carried');
@@ -272,9 +282,11 @@ test('the annual meeting runs from the call to order to published minutes and ne
       .click();
     const adjourn = dana.getByRole('dialog', { name: 'Adjourn the meeting?' });
     await adjourn.getByRole('button', { name: 'Adjourn', exact: true }).click();
-    await expect(dana.getByText(/^Adjourned at /)).toBeVisible();
-    await expect(tv.getByText(/^Adjourned at /)).toBeVisible();
-    await expect(alice.getByText(/^The meeting was adjourned at /)).toBeVisible();
+    await expect(shown(dana, /^Adjourned at /)).toBeVisible();
+    await expect(shown(tv, /^Adjourned at /)).toBeVisible();
+    await expect(
+      region(alice, 'Adjourned').getByText(/^The meeting was adjourned at /),
+    ).toBeVisible();
 
     // After: the bylaws are version 2 with the new quorum (applied a moment after the vote
     // closed; documentPage/DocumentHeader.tsx lists the versions in its Version select)
@@ -286,7 +298,7 @@ test('the annual meeting runs from the call to order to published minutes and ne
         timeout: 2_000,
       });
     }).toPass({ timeout: 30_000 });
-    await expect(pat.getByText(/fifteen percent \(15%\)/).first()).toBeVisible();
+    await expect(shown(pat, /fifteen percent \(15%\)/)).toBeVisible();
     // The board's amendment is the one adopted: passed, with no second one beside it
     const after: Array<{ id: string; status: string }> = await (
       await pat.request.get(`/api/documents/${bylaws!.id}/amendments`)
@@ -296,7 +308,7 @@ test('the annual meeting runs from the call to order to published minutes and ne
 
     // Pat opens the drafted minutes, sees last year's approved, fixes a name and publishes
     // this year's
-    const draft = pat.getByRole('link', { name: /2026 Annual Meeting/ }).first();
+    const draft = pat.getByRole('link', { name: /2026 Annual Meeting/ });
     await expect(async () => {
       await pat.goto('/minutes');
       await expect(draft).toBeVisible({ timeout: 2_000 });
@@ -330,10 +342,7 @@ test('the annual meeting runs from the call to order to published minutes and ne
 
     // A member reads them as published
     await alice.goto('/minutes');
-    await alice
-      .getByRole('link', { name: /2026 Annual Meeting/ })
-      .first()
-      .click();
+    await alice.getByRole('link', { name: /2026 Annual Meeting/ }).click();
     await expect(
       alice
         .getByRole('heading', { name: /^Minutes of the 2026 Annual Meeting/ })
@@ -355,10 +364,12 @@ test('the annual meeting runs from the call to order to published minutes and ne
     expect(link).toMatch(/\/share\/[^/]+$/);
     const reader = await (await browser.newContext({ baseURL: BASE_URL })).newPage();
     await reader.goto(new URL(link).pathname);
-    await expect(reader.getByText('You are viewing a shared document (read-only)')).toBeVisible();
+    await expect(
+      reader.getByText('You are viewing a shared document (read-only)', { exact: true }),
+    ).toBeVisible();
     await expect(reader.getByRole('heading', { name: BYLAWS })).toBeVisible();
     await expect(reader.locator('option', { hasText: 'Version 2 (current)' })).toHaveCount(1);
-    await expect(reader.getByText(/fifteen percent \(15%\)/).first()).toBeVisible();
+    await expect(shown(reader, /fifteen percent \(15%\)/)).toBeVisible();
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
@@ -388,13 +399,14 @@ async function voteOn(
 ): Promise<void> {
   await dana.getByRole('button', { name: 'Open the vote' }).click();
   for (const phone of phones) await phone.getByRole('button', { name: 'Vote yes' }).click();
-  await expect(dana.getByText(`${phones.length} voted on devices`)).toBeVisible();
+  const vote = region(dana, 'Vote in progress');
+  await expect(vote.getByText(`${phones.length} voted on devices`)).toBeVisible();
   await dana.getByLabel('Yea in the room').fill(String(room.yea));
   await dana.getByLabel('Nay in the room').fill(String(room.nay));
   await dana.getByLabel('Abstain in the room').fill('0');
   await dana.getByRole('button', { name: 'Enter the count' }).click();
   await expect(
-    dana.getByText(`Together: ${phones.length + room.yea} to ${room.nay}`),
+    vote.getByText(`Together: ${phones.length + room.yea} to ${room.nay}`),
   ).toBeVisible();
   await whileOpen?.();
   await dana.getByRole('button', { name: 'Close the vote' }).click();
@@ -425,7 +437,9 @@ async function electTwoDirectors(
   await expect(
     dana.getByRole('heading', { name: 'Election for Director', exact: true }),
   ).toBeVisible();
-  await expect(tv.getByText('Election for Director, 2 seats')).toBeVisible();
+  await expect(
+    region(tv, 'The question').getByText('Election for Director, 2 seats', { exact: true }),
+  ).toBeVisible();
 
   for (const [phone, nominee] of [
     [ben, 'Alice Brennan'],
@@ -447,7 +461,7 @@ async function electTwoDirectors(
   const toolbar = dana.getByRole('toolbar', { name: "The chair's actions" });
   await toolbar.getByRole('button', { name: 'Close nominations' }).click();
   // Three nominees for two seats: a ballot, not acclamation
-  await expect(dana.getByText('Seats to fill: 2')).toBeVisible();
+  await expect(shown(dana, 'Seats to fill: 2', { exact: true })).toBeVisible();
   await expect(dana.getByRole('button', { name: 'Declare elected by acclamation' })).toHaveCount(0);
   await dana.getByRole('button', { name: 'Open the ballot' }).click();
 
@@ -461,13 +475,13 @@ async function electTwoDirectors(
   await aliceBallot.evaluate((element) => element.scrollIntoView({ block: 'center' }));
   await alice.screenshot({ path: testInfo.outputPath('election-phone.png') });
   await aliceBallot.getByRole('button', { name: 'Cast my ballot' }).click();
-  await expect(alice.getByText('Ballot recorded')).toBeVisible();
+  await expect(region(alice, 'Your part').getByText('Ballot recorded')).toBeVisible();
   const benBallot = ben.getByRole('group', { name: 'Your ballot' });
   await benBallot.getByLabel('Ben Whitaker').check();
   await benBallot.getByLabel('Carmen Diaz').check();
   await benBallot.getByRole('button', { name: 'Cast my ballot' }).click();
-  await expect(ben.getByText('Ballot recorded')).toBeVisible();
-  await expect(dana.getByText('2 ballots received on devices')).toBeVisible();
+  await expect(region(ben, 'Your part').getByText('Ballot recorded')).toBeVisible();
+  await expect(shown(dana, /^2 ballots received on devices/)).toBeVisible();
 
   // The tellers' count of the 26 paper ballots in the room (Carmen's and the 25 counted)
   const paper = dana.getByRole('form', { name: 'Paper ballots' });
@@ -490,9 +504,9 @@ async function electTwoDirectors(
 
   // 28 ballots cast: a majority is 15. Alice 19 and Ben 17 have it; Carmen 13 does not.
   await expect(
-    dana.getByText('Alice Brennan and Ben Whitaker have the vote required.', { exact: true }),
+    shown(dana, 'Alice Brennan and Ben Whitaker have the vote required.', { exact: true }),
   ).toBeVisible();
-  await expect(tv.getByText('Alice Brennan and Ben Whitaker have the vote required')).toBeVisible();
+  await expect(shown(tv, 'Alice Brennan and Ben Whitaker have the vote required')).toBeVisible();
   await capture(dana, testInfo, 'election-console');
   await capture(tv, testInfo, 'election-display-closed');
   await toolbar.getByRole('button', { name: 'Declare Alice Brennan elected' }).click();

@@ -1,5 +1,7 @@
 # Meeting rules: fewer motions, each correct end to end
 
+Status: built (2026-10-08, #52).
+
 Batch A2 of the 2026-10-08 review (meeting-rules.md C1-C4, I1-I6, I8, I10, I13, M3, M4, M6, M8, M9, M10; screens.md I1, I3, I8, M4, M6, M7, P1; product.md 1.8, 4.2-4.4). Elections, vote thresholds beyond a majority or two thirds of votes cast, and voice votes declared without counts are batch A3.
 
 ## Decision

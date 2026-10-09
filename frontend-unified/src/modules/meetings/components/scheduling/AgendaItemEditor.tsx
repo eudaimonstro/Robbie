@@ -5,7 +5,7 @@
  * time estimate and attachments. Each field is saved when it loses focus.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -69,13 +69,21 @@ export function AgendaItemEditor({
   const [presenter, setPresenter] = useState(item.presenter || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(item.estimatedMinutes?.toString() || '');
 
-  // Sync local state with prop changes
-  useEffect(() => {
-    setTitle(item.title);
-    setDescription(item.description || '');
-    setPresenter(item.presenter || '');
-    setEstimatedMinutes(item.estimatedMinutes?.toString() || '');
-  }, [item]);
+  // A saved value that changed (this editor's save coming back, or a reload) replaces that
+  // field only: text being typed in another field is kept, as it would not be if every new item
+  // object reset them all. Adjusted while rendering, as React recommends, not in an effect
+  const [saved, setSaved] = useState(item);
+  if (saved !== item) {
+    setSaved(item);
+    if (item.title !== saved.title) setTitle(item.title);
+    if ((item.description || '') !== (saved.description || '')) {
+      setDescription(item.description || '');
+    }
+    if ((item.presenter || '') !== (saved.presenter || '')) setPresenter(item.presenter || '');
+    if (item.estimatedMinutes !== saved.estimatedMinutes) {
+      setEstimatedMinutes(item.estimatedMinutes?.toString() || '');
+    }
+  }
 
   // An item always has a title: one emptied goes back to the saved one
   const handleTitleBlur = () => {

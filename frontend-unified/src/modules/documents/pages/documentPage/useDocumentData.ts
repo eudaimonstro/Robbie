@@ -158,10 +158,12 @@ export function useDocumentData(
     // Still loading: the load in flight shows it
     if (!doc || versions.length === 0) return;
     const version = versionToShow(doc, versions, versionId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL asked for another version: it is selected as its sections load
     if (version && version.id !== selectedVersion?.id) void showVersion(version);
   }, [versionId, doc, versions, selectedVersion, showVersion]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading from the API: the fetcher marks itself loading before its request (it is also the refresh)
     fetchDocument();
   }, [fetchDocument]);
 
