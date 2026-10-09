@@ -8,12 +8,15 @@ import type { MeetingKind } from '@robbie-bylawyer/shared/types';
 import { prisma } from '../../db/prisma.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { emailForLog, logger } from '../../middleware/logger.js';
-import { appUrl, quotedName, sendPlainEmail } from '../../auth/emailService.js';
+import { appUrl, quotedName, sendPlainEmails } from '../../auth/emailService.js';
 import { pending } from '../../orgs/membershipService.js';
 
 /** How many notices an organization may send in 24 hours, so it can't be used to spam */
 export const NOTICES_PER_DAY = 3;
-/** Emails sent at once, with a pause between batches, so a provider's rate isn't exceeded */
+/**
+ * Emails sent in one batch (one request to Resend), with a pause between batches, so the
+ * provider's rate isn't exceeded
+ */
 export const NOTICE_BATCH = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -358,14 +361,24 @@ export async function sendNotice(
   for (let start = 0; start < recipients.length; start += NOTICE_BATCH) {
     if (start > 0 && batchPauseMs > 0) await pause(batchPauseMs);
     const batch = recipients.slice(start, start + NOTICE_BATCH);
-    const results = await Promise.allSettled(
-      batch.map((to) => sendPlainEmail({ to, ...email }, 'Meeting notice')),
-    );
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') return;
+    let went: boolean[];
+    try {
+      went = await sendPlainEmails(
+        batch.map((to) => ({ to, ...email })),
+        'Meeting notice',
+      );
+    } catch (error) {
+      logger.error(
+        { err: error, meetingCode: code },
+        "A batch of meeting notices couldn't be sent",
+      );
+      went = batch.map(() => false);
+    }
+    went.forEach((ok, index) => {
+      if (ok) return;
       failed++;
       logger.warn(
-        { err: result.reason, to: emailForLog(batch[index]), meetingCode: code },
+        { to: emailForLog(batch[index]), meetingCode: code },
         "A meeting notice couldn't be delivered",
       );
     });

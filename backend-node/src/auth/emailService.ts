@@ -1,6 +1,6 @@
 /**
  * Email service: the sign-in code, the email to someone added to an organization, and the
- * meeting notice (any plain-text email: sendPlainEmail)
+ * meeting notice (plain-text emails in a batch: sendPlainEmails)
  *
  * Supports multiple providers:
  * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
@@ -360,41 +360,83 @@ function outboxDir(): string | null {
 }
 
 /**
- * Send one plain-text email (`what` names it in the log). Without an email provider
- * (development only; production requires one) it is logged at debug level instead, or written
- * to the test outbox. Throws when the provider refuses it.
+ * Send plain-text emails (`what` names them in the log), as one batch: Resend's batch API takes
+ * them in one request (at most 100), so a notice to a whole organization stays within its rate;
+ * SMTP sends them one after another. Without an email provider (development only; production
+ * requires one) they are logged at debug level instead, or written to the test outbox.
+ * @returns for each email, whether it went
  */
-export async function sendPlainEmail(message: PlainEmail, what: string): Promise<void> {
+export async function sendPlainEmails(messages: PlainEmail[], what: string): Promise<boolean[]> {
   if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
     throw new Error('No email provider configured; production cannot send email');
   }
+  if (messages.length === 0) return [];
 
   if (plainOutbox) {
-    if (failingFor?.(message.to)) throw new Error('Delivery refused (test)');
-    plainOutbox.push(message);
-    return;
+    return messages.map((message) => {
+      if (failingFor?.(message.to)) return false;
+      plainOutbox!.push(message);
+      return true;
+    });
   }
 
   const dir = outboxDir();
   if (dir) {
     await mkdir(dir, { recursive: true });
-    await writeFile(
-      path.join(dir, `${Date.now()}-${randomUUID()}.json`),
-      JSON.stringify(message, null, 2),
-    );
-    return;
+    for (const message of messages) {
+      await writeFile(
+        path.join(dir, `${Date.now()}-${randomUUID()}.json`),
+        JSON.stringify(message, null, 2),
+      );
+    }
+    return messages.map(() => true);
   }
 
   if (emailProvider === 'development') {
-    logger.debug(
-      { to: emailForLog(message.to), subject: message.subject },
-      `${what} (no email provider configured)`,
-    );
-    return;
+    for (const message of messages) {
+      logger.debug(
+        { to: emailForLog(message.to), subject: message.subject },
+        `${what} (no email provider configured)`,
+      );
+    }
+    return messages.map(() => true);
   }
 
-  const messageId = await deliver(message);
-  logger.info({ to: emailForLog(message.to), messageId }, `${what} sent`);
+  if (resendClient) {
+    const { data, error } = await resendClient.batch.send(
+      messages.map((message) => ({ from: EMAIL_FROM, ...message })),
+      { batchValidation: 'permissive' },
+    );
+    if (error) {
+      logger.error(
+        { err: new Error(`Resend error (${error.name}): ${error.message}`) },
+        `${what} not sent`,
+      );
+      return messages.map(() => false);
+    }
+    const failed = new Set((data?.errors ?? []).map((failure) => failure.index));
+    for (const failure of data?.errors ?? []) {
+      logger.warn(
+        { to: emailForLog(messages[failure.index]?.to ?? ''), reason: failure.message },
+        `${what} refused`,
+      );
+    }
+    logger.info({ sent: messages.length - failed.size, failed: failed.size }, `${what} sent`);
+    return messages.map((_, index) => !failed.has(index));
+  }
+
+  const results: boolean[] = [];
+  for (const message of messages) {
+    try {
+      const messageId = await deliver(message);
+      logger.info({ to: emailForLog(message.to), messageId }, `${what} sent`);
+      results.push(true);
+    } catch (error) {
+      logger.warn({ err: error, to: emailForLog(message.to) }, `${what} not sent`);
+      results.push(false);
+    }
+  }
+  return results;
 }
 
 /**
