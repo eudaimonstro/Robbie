@@ -31,7 +31,7 @@ export async function signIn(
       termsAcceptedAt: accepted ? new Date() : null,
     },
   });
-  const { token } = await createSession(user.id, 'web');
+  const { token } = await createSession(user.id);
   return { id: user.id, email, cookie: `session=${token}` };
 }
 

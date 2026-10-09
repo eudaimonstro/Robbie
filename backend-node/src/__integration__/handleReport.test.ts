@@ -29,9 +29,10 @@ import { call, signIn } from './helpers.js';
 import { socketAuth } from '../socket/socketAuth.js';
 
 /** What the socket handshake answers for a session token */
+/** A socket connecting with this session token in its cookie: the error it gets, if any */
 async function handshake(token: string): Promise<Error | undefined> {
   let result: Error | undefined;
-  const socket = { handshake: { auth: { token }, headers: {} }, data: {} };
+  const socket = { handshake: { auth: {}, headers: { cookie: `session=${token}` } }, data: {} };
   await socketAuth()(socket as never, (error?: Error) => {
     result = error;
   });

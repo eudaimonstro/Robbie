@@ -61,7 +61,6 @@ const verifyBody = z.object({
   email: z.string().max(254),
   code: z.string().max(10),
   challenge: challenge.optional(),
-  client: z.enum(['web', 'mobile']).default('web'),
 });
 const updateMeBody = z.object({ name: z.string().trim().min(2).max(100) });
 const acceptTermsBody = z.object({ version: z.string().max(40) });
@@ -94,11 +93,8 @@ authRouter.post(
 authRouter.post('/verify', verifyLimiter, validate({ body: verifyBody }), async (req, res) => {
   try {
     const user = await verifySignInCode(req.body.email, req.body.code, req.body.challenge);
-    const session = await createSession(user.id, req.body.client);
-    // Mobile keeps the token in its secure store; web gets it only as an httpOnly cookie
-    if (req.body.client === 'mobile') {
-      return res.json({ user, token: session.token });
-    }
+    const session = await createSession(user.id);
+    // The token goes out only as an httpOnly cookie
     res.cookie(SESSION_COOKIE, session.token, {
       ...sessionCookieOptions(),
       maxAge: SESSION_LIFETIME_MS,
@@ -164,7 +160,7 @@ authRouter.patch('/me', authenticate, validate({ body: updateMeBody }), async (r
 // Sign-out needs no valid session: an expired or unknown one still gets its cookie cleared
 authRouter.post('/sign-out', async (req, res) => {
   res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
-  const token = sessionTokenFrom(req.cookies?.[SESSION_COOKIE], req.headers.authorization);
+  const token = sessionTokenFrom(req.cookies?.[SESSION_COOKIE]);
   try {
     const sessionId = token ? await deleteSessionByToken(token) : null;
     if (sessionId) await disconnectSessionSockets(sessionId);

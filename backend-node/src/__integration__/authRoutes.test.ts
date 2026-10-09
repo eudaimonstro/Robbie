@@ -9,11 +9,13 @@ import { resetAccounts } from './db.js';
 
 let outbox: Array<{ to: string; code: string }>;
 
-async function signIn(email: string, client?: 'web' | 'mobile') {
+async function signIn(email: string, extra: Record<string, unknown> = {}) {
   const asked = await request(app).post('/api/auth/request-code').send({ email }).expect(200);
   const code = outbox[outbox.length - 1].code;
   const { challenge } = asked.body;
-  return request(app).post('/api/auth/verify').send({ email, code, challenge, client });
+  return request(app)
+    .post('/api/auth/verify')
+    .send({ email, code, challenge, ...extra });
 }
 
 const sessionCookie = (res: request.Response) =>
@@ -41,10 +43,11 @@ describe('auth routes', () => {
     expect(cookie).toMatch(/Path=\//);
   });
 
-  it('gives a mobile client its token in the body, and no cookie', async () => {
-    const res = await signIn('ann@example.org', 'mobile');
-    expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(sessionCookie(res)).toBeUndefined();
+  it('gives a client that asks as the retired mobile app a cookie too, never a token', async () => {
+    const res = await signIn('ann@example.org', { client: 'mobile' });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeUndefined();
+    expect(sessionCookie(res)).toMatch(/HttpOnly/i);
   });
 
   it("refuses a change from another site's page, and takes one from the app's", async () => {
@@ -74,16 +77,15 @@ describe('auth routes', () => {
     expect(orgs.headers['cache-control']).toBe('no-store');
   });
 
-  it('knows who is signed in, by cookie or bearer token', async () => {
+  it('knows who is signed in by the session cookie, and by nothing else', async () => {
     const web = await signIn('ann@example.org');
     const me = await request(app).get('/api/auth/me').set('Cookie', sessionCookie(web)!);
     expect(me.body.user.email).toBe('ann@example.org');
 
-    const mobile = await signIn('bo@example.org', 'mobile');
-    const meToo = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${mobile.body.token}`);
-    expect(meToo.body.user.email).toBe('bo@example.org');
+    // A session's token as a bearer token signs nobody in
+    const token = sessionCookie(web)!.split(';')[0].slice('session='.length);
+    const bearer = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(bearer.status).toBe(401);
 
     expect((await request(app).get('/api/auth/me')).status).toBe(401);
   });
@@ -91,7 +93,7 @@ describe('auth routes', () => {
   it('re-sends the cookie when a web session is extended', async () => {
     const userId = (await prisma.user.create({ data: { email: 'ann@example.org' } })).id;
     const lastUsed = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const { token } = await createSession(userId, 'web', lastUsed);
+    const { token } = await createSession(userId, lastUsed);
 
     const res = await request(app).get('/api/auth/me').set('Cookie', `session=${token}`);
     expect(res.status).toBe(200);
@@ -103,16 +105,6 @@ describe('auth routes', () => {
     // Used again within the hour: not extended, so no new cookie
     const again = await request(app).get('/api/auth/me').set('Cookie', `session=${token}`);
     expect(sessionCookie(again)).toBeUndefined();
-  });
-
-  it('never sends a cookie to a bearer client whose session is extended', async () => {
-    const userId = (await prisma.user.create({ data: { email: 'ann@example.org' } })).id;
-    const lastUsed = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const { token } = await createSession(userId, 'mobile', lastUsed);
-
-    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(200);
-    expect(sessionCookie(res)).toBeUndefined();
   });
 
   it('treats a JSON session cookie as no session', async () => {
@@ -142,17 +134,6 @@ describe('auth routes', () => {
     expect((await request(app).get('/api/auth/me').set('Cookie', cookie)).status).toBe(401);
   });
 
-  it('ends a mobile session on sign-out with its bearer token', async () => {
-    const token = (await signIn('ann@example.org', 'mobile')).body.token;
-    await request(app)
-      .post('/api/auth/sign-out')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    expect(
-      (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`)).status,
-    ).toBe(401);
-  });
-
   it('clears an unknown or expired cookie on sign-out', async () => {
     const res = await request(app)
       .post('/api/auth/sign-out')
@@ -165,11 +146,9 @@ describe('auth routes', () => {
 
   it('ends every session on sign-out everywhere', async () => {
     const web = sessionCookie(await signIn('ann@example.org'))!;
-    const phone = (await signIn('ann@example.org', 'mobile')).body.token;
+    const phone = sessionCookie(await signIn('ann@example.org'))!;
     await request(app).post('/api/auth/sign-out-everywhere').set('Cookie', web).expect(200);
-    expect(
-      (await request(app).get('/api/auth/me').set('Authorization', `Bearer ${phone}`)).status,
-    ).toBe(401);
+    expect((await request(app).get('/api/auth/me').set('Cookie', phone)).status).toBe(401);
   });
 
   it('answers a wrong code with 401 and the message', async () => {
