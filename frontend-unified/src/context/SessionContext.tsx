@@ -15,6 +15,7 @@ import {
   setTermsHandler,
   type SessionUser,
 } from '../api/client';
+import { normalizeEmail } from '@robbie-bylawyer/shared/utils';
 
 // 'unreachable': the session couldn't be checked (offline, or the server failed), so it is
 // neither known to be signed in nor signed out
@@ -136,14 +137,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const challenges = useRef(new Map<string, string>());
 
   const requestCode = useCallback(async (email: string) => {
-    const key = email.trim().toLowerCase();
+    const key = normalizeEmail(email);
     const answer = await auth.requestCode(email, challenges.current.get(key));
     if (answer?.challenge) challenges.current.set(key, answer.challenge);
   }, []);
 
   const verify = useCallback(
     async (email: string, code: string) => {
-      const challenge = challenges.current.get(email.trim().toLowerCase());
+      const challenge = challenges.current.get(normalizeEmail(email));
       const signedIn = await auth.verify(email, code, challenge);
       // The verify answer has only the user; whether they accepted the current terms comes from
       // me. If that check fails, ask for the terms: accepting again is harmless.

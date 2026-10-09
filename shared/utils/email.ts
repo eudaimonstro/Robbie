@@ -10,3 +10,8 @@ const EMAIL_ADDRESS =
 export function isEmailAddress(text: string): boolean {
   return text.length <= 254 && EMAIL_ADDRESS.test(text);
 }
+
+/** An email address as accounts store it and as it is compared: trimmed and lowercased */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}

@@ -5,6 +5,7 @@
  */
 
 import type { MeetingKind } from '@robbie-bylawyer/shared/types';
+import { normalizeEmail } from '@robbie-bylawyer/shared/utils';
 import { prisma } from '../../db/prisma.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { emailForLog, logger } from '../../middleware/logger.js';
@@ -248,8 +249,8 @@ export async function noticeRecipients(
       select: { email: true },
     }),
   ]);
-  const emails = new Set(members.map((m) => m.user.email.toLowerCase()));
-  const invited = invites.map((i) => i.email.toLowerCase()).filter((e) => !emails.has(e));
+  const emails = new Set(members.map((m) => normalizeEmail(m.user.email)));
+  const invited = invites.map((i) => normalizeEmail(i.email)).filter((e) => !emails.has(e));
   // An addition whose email is a suspended account's gets nothing either
   const suspended = new Set(
     (
@@ -257,7 +258,7 @@ export async function noticeRecipients(
         where: { email: { in: invited }, suspendedAt: { not: null } },
         select: { email: true },
       })
-    ).map((u) => u.email.toLowerCase()),
+    ).map((u) => normalizeEmail(u.email)),
   );
   for (const email of invited) if (!suspended.has(email)) emails.add(email);
   return [...emails].sort();

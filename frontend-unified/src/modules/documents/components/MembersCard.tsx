@@ -10,6 +10,7 @@ import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { ROLE_LABELS, assignableRoles, atLeast, type OrgRole } from '../../../utils/roles';
+import { normalizeEmail } from '@robbie-bylawyer/shared/utils';
 import { BulkAddMembers } from './BulkAddMembers';
 
 type Notice = { kind: 'status' | 'alert'; text: string };
@@ -93,7 +94,7 @@ export function MembersCard() {
   const onAdd = (e: FormEvent) => {
     e.preventDefault();
     if (!orgId) return;
-    const address = email.trim().toLowerCase();
+    const address = normalizeEmail(email);
     void act(async () => {
       const result = await membersApi.add(orgId, address, newRole, newName.trim() || undefined);
       setEmail('');

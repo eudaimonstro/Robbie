@@ -1,7 +1,7 @@
 import type { AmendmentStatus, OrgRole } from '../generated/prisma/client.js';
 import { prisma } from '../db/prisma.js';
 import { storeFile } from '../bylawyer/services/fileStorage.js';
-import { ROLES } from '../orgs/roles.js';
+import { ORG_ROLES } from '../orgs/roles.js';
 import { signIn, type TestUser } from './helpers.js';
 
 /** Everything the authorization tests act on */
@@ -55,7 +55,7 @@ export interface Fixture {
 /** Create the fixture in an empty database (see resetDatabase) */
 export async function seedFixture(): Promise<Fixture> {
   const users = {} as Record<OrgRole, TestUser>;
-  for (const role of ROLES) {
+  for (const role of ORG_ROLES) {
     users[role] = await signIn(`${role}@example.org`, { name: `A ${role}` });
   }
   const outsider = await signIn('outsider@example.org', { name: 'Outsider' });
@@ -68,7 +68,7 @@ export async function seedFixture(): Promise<Fixture> {
       // Set up, so its meetings can open
       eligibleVoters: 20,
       quorumCount: 3,
-      members: { create: ROLES.map((role) => ({ userId: users[role].id, role })) },
+      members: { create: ORG_ROLES.map((role) => ({ userId: users[role].id, role })) },
     },
   });
   const orgB = await prisma.organization.create({

@@ -42,7 +42,9 @@ export {
   textAmendmentProblem,
 } from './textAmendment.js';
 
-export { isEmailAddress } from './email.js';
+export { isEmailAddress, normalizeEmail } from './email.js';
+
+export { ORG_ROLES, atLeast, canEditAmendment, type OrgRole } from './roles.js';
 
 export {
   attendanceSummary,

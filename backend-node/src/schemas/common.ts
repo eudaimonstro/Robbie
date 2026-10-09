@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MEETING_CODE_PATTERN } from '@robbie-bylawyer/shared/constants';
 
 /** A date string that parses (ISO date or date-time); routes pass it to new Date() */
 export const dateString = z
@@ -31,7 +32,7 @@ export const meetingCode = z
   .string({ error: MEETING_CODE_FORMAT })
   .trim()
   .toUpperCase()
-  .regex(/^[A-Z0-9]{4,8}$/, MEETING_CODE_FORMAT);
+  .regex(MEETING_CODE_PATTERN, MEETING_CODE_FORMAT);
 
 export const uuidParam = z.object({
   id: z.string().uuid(),

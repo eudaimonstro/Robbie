@@ -23,3 +23,5 @@ export {
   MAX_POSITION_LENGTH,
   MAX_NAME_LENGTH,
 } from './limits.js';
+export { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from './attachments.js';
+export { MEETING_CODE_PATTERN } from './meetingCode.js';

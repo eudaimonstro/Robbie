@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash } from 'lucide-react';
-import { MEETING_CODE, meetingPath, normalizeMeetingCode } from '../utils/meetingLinks';
+import { MEETING_CODE_PATTERN } from '@robbie-bylawyer/shared/constants';
+import { meetingPath, normalizeMeetingCode } from '../utils/meetingLinks';
 
 interface JoinMeetingScreenProps {
   /** Why the visitor is here, such as a link to a meeting that doesn't exist */
@@ -19,7 +20,7 @@ export function JoinMeetingScreen({ message = null, initialCode = '' }: JoinMeet
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const normalized = normalizeMeetingCode(code);
-    if (!MEETING_CODE.test(normalized)) {
+    if (!MEETING_CODE_PATTERN.test(normalized)) {
       setInvalid(true);
       return;
     }
