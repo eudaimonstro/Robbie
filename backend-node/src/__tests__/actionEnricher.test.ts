@@ -72,15 +72,9 @@ describe('enrichAction', () => {
       OBJECT_TO_CONSENT: { objectorId: SPOOF_ID, objector: SPOOF_NAME },
       UNANIMOUS_CONSENT_PASSED: {},
       SET_VOTING_METHOD: {},
-      ADVANCE_MEETING_STAGE: {},
-      SET_MEETING_STAGE: {},
       SET_QUORUM: {},
       APPROVE_MINUTES: {},
       SET_PREVIOUS_MINUTES: {},
-      ADD_COMMITTEE_REPORT: {},
-      PRESENT_COMMITTEE_REPORT: {},
-      SUSPEND_RULE_APPROVED: {},
-      RESTORE_RULE: {},
       CHAIR_RULING: {},
       OPEN_NOMINATIONS: {},
       NOMINATE: { nominatorId: SPOOF_ID, nominatedBy: SPOOF_NAME },
@@ -105,23 +99,11 @@ describe('enrichAction', () => {
       MARK_PRESENT: {},
       SET_HEADCOUNT: {},
       WITHDRAW_MOTION: { requesterId: SPOOF_ID },
-      MODIFY_MOTION: { requesterId: SPOOF_ID },
       TAKE_UP_POSTPONED: {},
       RESUME_MEETING: {},
       REQUEST_DIVISION: { requesterId: SPOOF_ID },
-      START_ROLL_CALL: {},
-      RESPOND_ROLL_CALL: { memberId: SPOOF_ID },
-      COMPLETE_ROLL_CALL: {},
       MARK_ABSENT: {},
       SET_AUTO_YIELD: {},
-      SET_PROXY_SETTINGS: {},
-      GRANT_PROXY: {},
-      REVOKE_PROXY: {},
-      CAST_PROXY_VOTE: { castById: SPOOF_ID },
-      REQUEST_PROXY: { requestedBy: SPOOF_ID, requestedByName: SPOOF_NAME },
-      ACCEPT_PROXY: { acceptedBy: SPOOF_ID },
-      DECLINE_PROXY: { declinedBy: SPOOF_ID },
-      CANCEL_PROXY_REQUEST: { canceledBy: SPOOF_ID },
     };
 
     it('has a fixture for every action type', () => {
@@ -168,18 +150,11 @@ describe('enrichAction', () => {
         NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },
         OBJECT_TO_CONSENT: { id: 'objectorId', name: 'objector' },
         AGENDA_OBJECTION: { id: 'objectorId' },
-        CAST_PROXY_VOTE: { id: 'castById' },
-        REQUEST_PROXY: { id: 'requestedBy', name: 'requestedByName' },
-        ACCEPT_PROXY: { id: 'acceptedBy' },
-        DECLINE_PROXY: { id: 'declinedBy' },
-        CANCEL_PROXY_REQUEST: { id: 'canceledBy' },
         WITHDRAW_MOTION: { id: 'requesterId' },
-        MODIFY_MOTION: { id: 'requesterId' },
         REQUEST_DIVISION: { id: 'requesterId' },
         RAISE_HAND: { member: true },
         LOWER_HAND: { member: true },
         YIELD_FLOOR: { id: 'yieldedBy' },
-        RESPOND_ROLL_CALL: { id: 'memberId' },
         SET_MEMBER_ROLE: { id: 'changedById', name: 'changedBy' },
       });
     });
@@ -225,52 +200,6 @@ describe('enrichAction', () => {
       expect(enrich({ type: 'NOMINATE', fromFloor: true }, chair)).toMatchObject({
         fromFloor: true,
         nominatorId: 10,
-      });
-      // A chair or admin grants a proxy for the absent member it names
-      const grant = enrich({ type: 'GRANT_PROXY', grantedBy: 30, grantedTo: 40 }, chair);
-      expect(grant).toMatchObject({ grantedBy: 30, grantedTo: 40 });
-    });
-
-    it('names the members of a proxy as the meeting has them, not as the client says', () => {
-      const members: Member[] = [
-        memberInMeeting,
-        { id: 30, name: 'Absent Member', role: 'member', present: false },
-        { id: 40, name: 'Holder', role: 'member', present: true },
-      ];
-      const grant = enrichAction(
-        {
-          type: 'GRANT_PROXY',
-          proxyId: 1,
-          grantedBy: 30,
-          grantedTo: 40,
-          grantedByName: 'Spoof',
-          grantedToName: 'Spoof',
-          scope: 'all',
-          timestamp: '',
-        },
-        chair,
-        members,
-      );
-      expect(grant).toMatchObject({ grantedByName: 'Absent Member', grantedToName: 'Holder' });
-
-      const request = enrichAction(
-        {
-          type: 'REQUEST_PROXY',
-          requestId: 1,
-          requestedBy: 999,
-          requestedByName: 'Spoof',
-          requestedFor: 40,
-          requestedForName: 'Spoof',
-          scope: 'all',
-          timestamp: '',
-        },
-        member,
-        members,
-      );
-      expect(request).toMatchObject({
-        requestedBy: 20,
-        requestedByName: 'Renamed Member',
-        requestedForName: 'Holder',
       });
     });
 

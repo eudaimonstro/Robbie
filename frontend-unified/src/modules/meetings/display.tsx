@@ -2,7 +2,8 @@ import { Navigate, useParams } from 'react-router-dom';
 import { SocketProvider } from './context/SocketContext';
 import { MeetingOrganizationProvider } from './context/OrganizationBridge';
 import { DisplayView } from './views/DisplayView';
-import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
+import { MEETING_CODE_PATTERN } from '@robbie-bylawyer/shared/constants';
+import { normalizeMeetingCode } from './utils/meetingLinks';
 
 /**
  * /meetings/:code/display: the meeting on a TV or projector, joined as a display (it follows
@@ -11,7 +12,7 @@ import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 export default function MeetingDisplay() {
   const { code = '' } = useParams();
   const meetingCode = normalizeMeetingCode(code);
-  if (!MEETING_CODE.test(meetingCode)) return <Navigate to="/meetings" replace />;
+  if (!MEETING_CODE_PATTERN.test(meetingCode)) return <Navigate to="/meetings" replace />;
   return (
     <MeetingOrganizationProvider>
       <SocketProvider key={meetingCode} meetingCode={meetingCode} display>

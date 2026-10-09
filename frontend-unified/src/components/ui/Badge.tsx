@@ -59,23 +59,6 @@ export function DocumentTypeBadge({ type }: { type: string }) {
   return <Badge variant="default">{labels[type] || type}</Badge>;
 }
 
-export function MeetingTypeBadge({ type }: { type: string }) {
-  const labels: Record<string, string> = {
-    regular: 'Regular',
-    special: 'Special',
-    annual: 'Annual',
-    emergency: 'Emergency',
-  };
-  const variants: Record<string, BadgeVariant> = {
-    regular: 'default',
-    special: 'proposed',
-    annual: 'tabled',
-    emergency: 'chair',
-  };
-
-  return <Badge variant={variants[type] ?? 'default'}>{labels[type] || type}</Badge>;
-}
-
 const ROLE_LABELS: Record<MeetingRole, string> = {
   chair: 'Chair',
   admin: 'Admin',

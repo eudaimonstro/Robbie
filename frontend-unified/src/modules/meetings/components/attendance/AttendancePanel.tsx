@@ -158,7 +158,6 @@ export function AttendancePanel({
           {summary.devicePresent} on a device, {summary.markedPresent} marked present,{' '}
           {summary.headcount} counted in the room
           {summary.proxiesHeld > 0 && `, ${summary.proxiesHeld} by proxy or absentee ballot`}
-          {summary.proxies > 0 && `, ${summary.proxies} by proxy`}
         </p>
       )}
 

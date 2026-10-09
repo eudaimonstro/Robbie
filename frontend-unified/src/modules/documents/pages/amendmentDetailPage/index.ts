@@ -1,4 +1,4 @@
-export { useAmendmentData, flattenSections, getSectionLabel } from './useAmendmentData';
+export { useAmendmentData } from './useAmendmentData';
 export { AmendmentHeader } from './AmendmentHeader';
 export { AmendmentChangesList } from './AmendmentChangesList';
 export { EditAmendmentModal, AddChangeModal } from './AmendmentModals';

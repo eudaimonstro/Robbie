@@ -23,7 +23,6 @@ function decided(change: Change, overrides: Partial<CompletedMotion> = {}): Comp
     passed: true,
     voterChoices: {},
     timestamp: '',
-    reconsidered: false,
     bylawAmendment: change,
     ...overrides,
   };

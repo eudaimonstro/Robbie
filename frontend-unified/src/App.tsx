@@ -123,8 +123,6 @@ function App() {
                   <Route path="amendments" element={<AmendmentsPage />} />
                   <Route path="amendments/:amendmentId" element={<AmendmentDetailPage />} />
 
-                  {/* Bylawyer meetings (document records) */}
-
                   {/* Minutes of the organization's meetings */}
                   <Route path="minutes" element={<MinutesListPage />} />
                   <Route path="minutes/:minutesId" element={<MinutesPage />} />

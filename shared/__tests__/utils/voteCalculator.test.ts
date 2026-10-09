@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  calculateVoteResult,
-  getChairVotingOptions,
-  canChairVoteDecide,
-} from '../../utils/index.js';
+import { calculateVoteResult, canChairVoteDecide } from '../../utils/index.js';
 
 describe('voteCalculator', () => {
   describe('calculateVoteResult', () => {
@@ -90,32 +86,6 @@ describe('voteCalculator', () => {
       expect(canChairVoteDecide(votes(5, 3), '2/3')).toBe(true);
       // 6-4 falls short either way
       expect(canChairVoteDecide(votes(6, 4), '2/3')).toBe(false);
-    });
-  });
-
-  describe('getChairVotingOptions', () => {
-    it('should allow chair to break a tie', () => {
-      const result = getChairVotingOptions({ yea: 5, nay: 5, abstain: 0 });
-      expect(result.canBreakTie).toBe(true);
-      expect(result.canCreateTie).toBe(false);
-    });
-
-    it('should allow chair to create a tie when yea is ahead by one', () => {
-      const result = getChairVotingOptions({ yea: 6, nay: 5, abstain: 0 });
-      expect(result.canBreakTie).toBe(false);
-      expect(result.canCreateTie).toBe(true);
-    });
-
-    it('should not allow chair voting when neither option applies', () => {
-      const result = getChairVotingOptions({ yea: 7, nay: 5, abstain: 0 });
-      expect(result.canBreakTie).toBe(false);
-      expect(result.canCreateTie).toBe(false);
-    });
-
-    it('should not allow chair voting when nay is ahead', () => {
-      const result = getChairVotingOptions({ yea: 4, nay: 6, abstain: 0 });
-      expect(result.canBreakTie).toBe(false);
-      expect(result.canCreateTie).toBe(false);
     });
   });
 });

@@ -4,5 +4,4 @@ build/
 *.tsbuildinfo
 package-lock.json
 prisma/migrations/
-.expo/
 backend-node/src/generated/

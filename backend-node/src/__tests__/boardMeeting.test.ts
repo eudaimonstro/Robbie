@@ -164,9 +164,9 @@ describe('validating a board meeting', () => {
       });
     }
     // Presiding is still theirs
-    expect(validateAction(boardState, from(2, { type: 'START_ROLL_CALL' }))).toMatchObject({
-      valid: true,
-    });
+    expect(
+      validateAction(boardState, from(2, { type: 'SET_AUTO_YIELD', enabled: true })),
+    ).toMatchObject({ valid: true });
   });
 
   it('refuses an observer the state has, whatever their socket says', () => {
@@ -206,12 +206,9 @@ describe('validating a board meeting', () => {
     expect(floor(2).valid).toBe(false);
   });
 
-  it('refuses the count of the room and proxies', () => {
+  it('refuses the count of the room', () => {
     expect(
       validateAction(boardState, from(1, { type: 'SET_HEADCOUNT', count: 2, names: [] })),
-    ).toMatchObject({ valid: false, errorCode: 'BOARD_MEETING' });
-    expect(
-      validateAction(boardState, from(1, { type: 'SET_PROXY_SETTINGS', allowProxyVoting: true })),
     ).toMatchObject({ valid: false, errorCode: 'BOARD_MEETING' });
   });
 

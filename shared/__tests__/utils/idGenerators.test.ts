@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  generateId,
-  generateMeetingCode,
-  generateTimestamp,
-  calculateTimerEnd,
-} from '../../utils/index.js';
+import { generateId, generateTimestamp, calculateTimerEnd } from '../../utils/index.js';
 
 describe('idGenerators', () => {
   describe('generateId', () => {
@@ -18,23 +13,6 @@ describe('idGenerators', () => {
       await new Promise((resolve) => setTimeout(resolve, 2));
       const id2 = generateId();
       expect(id1).not.toBe(id2);
-    });
-  });
-
-  describe('generateMeetingCode', () => {
-    it('should return a 6 character string', () => {
-      const code = generateMeetingCode();
-      expect(code.length).toBe(6);
-    });
-
-    it('should return uppercase characters', () => {
-      const code = generateMeetingCode();
-      expect(code).toBe(code.toUpperCase());
-    });
-
-    it('should return alphanumeric characters', () => {
-      const code = generateMeetingCode();
-      expect(code).toMatch(/^[A-Z0-9]+$/);
     });
   });
 

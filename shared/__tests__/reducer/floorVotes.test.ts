@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
 import { MOTIONS } from '../../constants/index.js';
-import { getValidMotions } from '../../utils/index.js';
 import type { Election, MeetingState, Motion, VotingMethod } from '../../types/index.js';
 
 const motion = (overrides: Partial<Motion> = {}): Motion => ({
@@ -103,7 +102,7 @@ describe('floor tallies', () => {
 
 describe('the record of a vote', () => {
   it('is kept for every decided motion, with both parts and the method', () => {
-    // A recess can't be reconsidered; before, its vote left no record
+    // A recess's vote once left no record
     const recess = motion({
       ...MOTIONS.recess,
       id: 5,
@@ -126,8 +125,6 @@ describe('the record of a vote', () => {
         passed: true,
         voterChoices: state.voterChoices,
         timestamp: '20:15',
-        reconsidered: false,
-        reconsiderable: false,
         deviceVotes: { yea: 3, nay: 1, abstain: 0 },
         floorVotes: { yea: 2, nay: 0, abstain: 0 },
         method: 'standard',
@@ -143,36 +140,11 @@ describe('the record of a vote', () => {
     const state = {
       ...voting(motion(), { yea: 2, nay: 1 }, { yea: 0, nay: 0 }, 'ballot'),
       voterChoices: { 1: 'yea' as const, 2: 'yea' as const, 3: 'nay' as const },
-      proxyVotes: [{ memberId: 3, castBy: 2, vote: 'nay' as const }],
     };
     const closed = close(state);
     const record = closed.completedMotions.at(-1)!;
     expect(record).toMatchObject({ voterChoices: {}, method: 'ballot' });
-    expect(record).not.toHaveProperty('proxyVotes');
     expect(closed.voterChoices).toEqual({});
-    // The proxy choices would otherwise show who voted which way once the ballot closed
-    expect(closed.proxyVotes).toEqual([]);
-  });
-
-  it('is never offered for reconsideration, which Robbie hides', () => {
-    const record = {
-      id: 5,
-      type: 'recess',
-      name: 'Recess',
-      text: 'Recess for 10 minutes',
-      passed: true,
-      voterChoices: { 1: 'yea' as const },
-      timestamp: '20:15',
-      reconsidered: false,
-    };
-    const offered = (reconsiderable?: boolean) =>
-      getValidMotions(
-        { ...initialState, meetingActive: true, completedMotions: [{ ...record, reconsiderable }] },
-        1,
-      ).map((m) => m.key);
-    expect(offered(false)).not.toContain('reconsider');
-    expect(offered(true)).not.toContain('reconsider');
-    expect(offered(undefined)).not.toContain('reconsider');
   });
 });
 

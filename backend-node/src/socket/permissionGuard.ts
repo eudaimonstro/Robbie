@@ -35,8 +35,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   COMPLETE_AGENDA_ITEM: PRESIDING,
   REQUEST_UNANIMOUS_CONSENT: PRESIDING,
   UNANIMOUS_CONSENT_PASSED: PRESIDING,
-  ADVANCE_MEETING_STAGE: PRESIDING,
-  SET_MEETING_STAGE: PRESIDING,
   // The chair or secretary, when a bylaw sets a different quorum for this meeting
   SET_QUORUM: PRESIDING,
   APPROVE_MINUTES: PRESIDING,
@@ -51,12 +49,7 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   // The chair takes up a question postponed to later in the meeting, and ends a recess
   TAKE_UP_POSTPONED: PRESIDING,
   RESUME_MEETING: PRESIDING,
-  SUSPEND_RULE_APPROVED: PRESIDING,
-  RESTORE_RULE: PRESIDING,
   ANSWER_INQUIRY: PRESIDING,
-  PRESENT_COMMITTEE_REPORT: PRESIDING,
-  START_ROLL_CALL: PRESIDING,
-  COMPLETE_ROLL_CALL: PRESIDING,
   MARK_ABSENT: PRESIDING,
   SET_AUTO_YIELD: PRESIDING,
 
@@ -75,7 +68,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   ADD_AGENDA_ITEM: PRESIDING,
   REMOVE_AGENDA_ITEM: PRESIDING,
   REORDER_AGENDA: PRESIDING,
-  ADD_COMMITTEE_REPORT: PRESIDING,
   SET_VOTING_METHOD: PRESIDING,
 
   // Role management: only the chair can be handed over (see roleChangeHandler); the
@@ -103,8 +95,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   DECLINE_NOMINATION: TAKING_PART,
   CAST_BALLOT: TAKING_PART,
   WITHDRAW_MOTION: TAKING_PART,
-  MODIFY_MOTION: TAKING_PART,
-  RESPOND_ROLL_CALL: TAKING_PART,
   // A member doubts a voice vote (the chair records one from the floor, which the validator checks)
   REQUEST_DIVISION: TAKING_PART,
 
@@ -113,17 +103,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   LOWER_HAND: EVERYONE,
   YIELD_FLOOR: EVERYONE,
   ASK_INQUIRY: EVERYONE,
-
-  // Proxy voting actions
-  SET_PROXY_SETTINGS: PRESIDING, // Admin/chair can enable/configure proxy voting
-  GRANT_PROXY: PRESIDING, // Admin/chair grants proxies on behalf of absent members
-  REVOKE_PROXY: PRESIDING, // Admin/chair can revoke proxies
-  CAST_PROXY_VOTE: TAKING_PART, // Proxy holders can cast proxy votes
-  // Member-initiated proxy request actions
-  REQUEST_PROXY: TAKING_PART, // Members can request proxies
-  ACCEPT_PROXY: TAKING_PART, // Members can accept proxy requests
-  DECLINE_PROXY: TAKING_PART, // Members can decline proxy requests
-  CANCEL_PROXY_REQUEST: TAKING_PART, // Members can cancel their own requests
 };
 
 /**

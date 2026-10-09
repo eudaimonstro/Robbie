@@ -6,11 +6,9 @@
   "workspaces": [
     "shared",
     "backend-node",
-    "frontend-unified",
-    "mobile"
+    "frontend-unified"
   ],
   "scripts": {
-    "install:all": "npm install",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev -w backend-node",
     "dev:frontend": "npm run dev -w frontend-unified",
@@ -23,14 +21,12 @@
     "lint:palette": "bash scripts/check-palette.sh",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
-    "test": "npm run test:shared && npm run test:backend && npm run test:frontend && npm run test:mobile",
+    "test": "npm run test:shared && npm run test:backend && npm run test:frontend",
     "test:shared": "npm run test:run -w shared",
     "test:backend": "npm run test:run -w backend-node",
     "test:frontend": "npm run test:run -w frontend-unified",
-    "test:mobile": "npm run test:run -w mobile",
     "test:coverage": "npm run test:coverage -w shared && npm run test:coverage -w backend-node",
     "db:generate": "npm run db:generate -w backend-node",
-    "db:push": "npm run db:push -w backend-node",
     "db:migrate": "npm run db:migrate -w backend-node",
     "db:studio": "npm run db:studio -w backend-node",
     "e2e": "npm run build:shared && npm run build -w frontend-unified && playwright test -c e2e"
@@ -53,16 +49,12 @@
     "vite": "^8.3.2"
   },
   "overrides": {
-    "compression": "^1.8.2",
     "shell-quote": "^1.12.0",
     "prisma": {
       "mysql2": "^3.24.5"
     },
     "@prisma/config": {
       "deepmerge-ts": "^8.0.2"
-    },
-    "xcode": {
-      "uuid": "^11.1.1"
     }
   },
   "engines": {

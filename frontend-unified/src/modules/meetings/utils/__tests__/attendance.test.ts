@@ -37,7 +37,6 @@ const summary = (overrides: Partial<AttendanceSummary> = {}): AttendanceSummary 
   devicePresent: 1,
   markedPresent: 1,
   headcount: 3,
-  proxies: 0,
   proxiesHeld: 0,
   present: 5,
   quorum: 29,

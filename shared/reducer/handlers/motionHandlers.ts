@@ -13,7 +13,6 @@ import {
   logMotionMade,
   logMotionSeconded,
   logMotionWithdrawn,
-  logMotionModified,
   logQuestionPut,
   logSecondedFromFloor,
   logTakenUp,
@@ -67,12 +66,8 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     status: 'pending' as const,
     isAgendaAdoption: made.motionType === 'adoptAgenda',
     agendaAmendment: made.agendaAmendment || null,
-    ruleSuspension: made.ruleSuspension || null,
     bylawAmendment: made.bylawAmendment || null,
     moverHasSpoken: false,
-    tabledMotionId: made.tabledMotionId,
-    reconsideredMotionId: made.reconsideredMotionId,
-    dividedParts: made.dividedParts,
     ...(made.textAmendment && { textAmendment: made.textAmendment }),
     ...(made.postponeTo && { postponeTo: made.postponeTo }),
     ...(made.referTo?.trim() && { referTo: made.referTo.trim() }),
@@ -262,51 +257,6 @@ export const motionHandler: ActionHandler = (state, action, log) => {
         currentMotion: request,
         motionStack: [...state.motionStack, request],
         meetingLog: log(typedAction.timestamp, logWithdrawalAsked(motion.mover, motion.text)),
-      };
-    }
-
-    case 'MODIFY_MOTION': {
-      const typedAction = action as Extract<MeetingAction, { type: 'MODIFY_MOTION' }>;
-      // Motion maker can modify their motion before debate begins
-      const motionToModify = state.pendingSecond || state.currentMotion;
-      if (!motionToModify) {
-        return state;
-      }
-      if (motionToModify.moverId !== typedAction.requesterId) {
-        return state; // Only the mover can modify their motion
-      }
-      // Cannot modify after debate on this motion has begun (a motion awaiting a second
-      // hasn't been debated, whatever is happening on the motion below it)
-      if (motionToModify.moverHasSpoken) {
-        return state;
-      }
-
-      const modifiedMotion = {
-        ...motionToModify,
-        text: typedAction.newText,
-      };
-
-      if (state.pendingSecond) {
-        return {
-          ...state,
-          pendingSecond: modifiedMotion,
-          meetingLog: log(
-            typedAction.timestamp,
-            logMotionModified(motionToModify.mover, typedAction.newText),
-          ),
-        };
-      }
-
-      // Motion is current - update in stack too
-      const newStack = [...state.motionStack.slice(0, -1), modifiedMotion];
-      return {
-        ...state,
-        currentMotion: modifiedMotion,
-        motionStack: newStack,
-        meetingLog: log(
-          typedAction.timestamp,
-          logMotionModified(motionToModify.mover, typedAction.newText),
-        ),
       };
     }
 

@@ -13,6 +13,7 @@ import { docIdParam, orgIdParam } from '../schemas/common.js';
 import { meetingCodeParam } from '../schemas/bylawyer.js';
 import { fromParam, requireRole } from '../orgs/requireRole.js';
 import { orgOfDocument, orgOfOrganization, orgOfPacketCode } from '../orgs/resolvers.js';
+import { buildSectionTree } from './services/sectionTree.js';
 
 export const bylawyerRouter: RouterType = Router();
 
@@ -109,25 +110,7 @@ const getDocumentSections: RequestHandler<RouteParams> = async (req, res) => {
       orderBy: { position: 'asc' },
     });
 
-    // Build section tree
-    const buildTree = (parentId: string | null = null): any[] => {
-      return sections
-        .filter((s) => s.parentId === parentId)
-        .sort((a, b) => a.position - b.position)
-        .map((s) => ({
-          id: s.id,
-          versionId: s.versionId,
-          parentId: s.parentId,
-          position: s.position,
-          numberLabel: s.numberLabel,
-          title: s.title,
-          content: s.content,
-          annotation: s.annotation,
-          children: buildTree(s.id),
-        }));
-    };
-
-    res.json(buildTree());
+    res.json(buildSectionTree(sections));
   } catch (error) {
     logger.error({ err: error }, 'Error fetching document sections');
     res.status(500).json({

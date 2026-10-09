@@ -6,7 +6,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { ipKeyGenerator } from 'express-rate-limit';
 import { canSendEmail, sendSignInCode } from './emailService.js';
 import { hashSecret, newSignInCode } from './tokens.js';
-import { normalizeEmail } from './normalizeEmail.js';
+import { normalizeEmail } from '@robbie-bylawyer/shared/utils';
 import { keyedHash } from './serverSecret.js';
 import type { SessionUser } from './sessionService.js';
 
@@ -59,8 +59,6 @@ export class SignInError extends Error {
     this.name = 'SignInError';
   }
 }
-
-export { normalizeEmail };
 
 // Test sign-in: outside production, ENABLE_TEST_AUTH=true makes a fixed code sign in any email
 function isTestCode(code: string): boolean {

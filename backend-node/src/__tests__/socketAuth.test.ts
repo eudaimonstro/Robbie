@@ -49,10 +49,10 @@ describe('socketAuth', () => {
     expect(socket.data.name).toBe('');
   });
 
-  it('accepts a mobile token from the handshake', async () => {
+  it('takes no token from the handshake: only the session cookie signs a socket in', async () => {
     const { find, next } = await run(fakeSocket({ auth: { token: 'tok' } }));
-    expect(find).toHaveBeenCalledWith('tok');
-    expect(next).toHaveBeenCalledWith();
+    expect(find).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('refuses a connection with no session or an unknown one', async () => {

@@ -13,8 +13,7 @@ COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY backend-node/package.json backend-node/
 COPY frontend-unified/package.json frontend-unified/
-COPY mobile/package.json mobile/
-# The three shipped workspaces and the root's build tools (TypeScript, Vite, React): never Expo
+# The three workspaces and the root's build tools (TypeScript, Vite, React)
 RUN npm ci -w shared -w backend-node -w frontend-unified --include-workspace-root
 COPY shared shared
 COPY backend-node backend-node
@@ -41,7 +40,6 @@ COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY backend-node/package.json backend-node/
 COPY frontend-unified/package.json frontend-unified/
-COPY mobile/package.json mobile/
 RUN npm ci --omit=dev -w shared -w backend-node --include-workspace-root=false \
   && npm cache clean --force
 COPY --from=build /app/shared/dist shared/dist

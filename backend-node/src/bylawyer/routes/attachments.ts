@@ -10,6 +10,7 @@ import express, {
   type RequestHandler,
   type Router as RouterType,
 } from 'express';
+import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@robbie-bylawyer/shared/constants';
 import { prisma } from '../../db/prisma.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { validate, type RouteParams } from '../../middleware/validate.js';
@@ -70,15 +71,7 @@ const byFirstAttachment: OrgResolver = async (req) => {
 };
 
 /** The file types an upload is read as (fileStorage's validateFile checks the type it gives) */
-const UPLOAD_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'text/rtf',
-  'application/rtf',
-  'application/octet-stream',
-];
+const UPLOAD_TYPES = [...Object.keys(ATTACHMENT_TYPES), 'application/octet-stream'];
 
 /**
  * POST /api/attachments/upload
@@ -97,7 +90,7 @@ attachmentsRouter.post(
   heavyWriteLimiter,
   // Read only now, after the role check: nobody below a secretary can make the server read
   // 10 MB
-  express.raw({ type: UPLOAD_TYPES, limit: '10mb' }),
+  express.raw({ type: UPLOAD_TYPES, limit: MAX_ATTACHMENT_BYTES }),
   async (req, res) => {
     try {
       const filename = req.headers['x-filename'] as string;

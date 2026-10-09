@@ -4,37 +4,9 @@ import { NO_VOTES } from '../../utils/voteCalculator.js';
 import { decisionContext, unvotedRecord } from './records.js';
 import type { ActionHandler } from './types.js';
 
-export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
+/** The chair's ruling on a point of order */
+export const rulingHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
-    case 'SUSPEND_RULE_APPROVED': {
-      const typedAction = action as Extract<MeetingAction, { type: 'SUSPEND_RULE_APPROVED' }>;
-      return {
-        ...state,
-        suspendedRules: [...state.suspendedRules, typedAction.suspension],
-        meetingLog: log(
-          typedAction.timestamp,
-          `[RULE SUSPENDED] ${typedAction.suspension.rule}: ${typedAction.suspension.purpose}`,
-        ),
-      };
-    }
-
-    case 'RESTORE_RULE': {
-      const typedAction = action as Extract<MeetingAction, { type: 'RESTORE_RULE' }>;
-      const suspension = state.suspendedRules.find((s) => s.id === typedAction.suspensionId);
-      const updatedRules = state.suspendedRules.filter((s) => s.id !== typedAction.suspensionId);
-
-      return {
-        ...state,
-        suspendedRules: updatedRules,
-        meetingLog: suspension
-          ? log(
-              typedAction.timestamp,
-              `[RULE RESTORED] ${suspension.rule} restored to normal enforcement`,
-            )
-          : state.meetingLog,
-      };
-    }
-
     case 'CHAIR_RULING': {
       const typedAction = action as Extract<MeetingAction, { type: 'CHAIR_RULING' }>;
       // The chair rules on the point of order before the meeting (the validator allows nothing
@@ -127,7 +99,6 @@ export const ruleSuspensionHandler: ActionHandler = (state, action, log) => {
               voters: [],
               voterChoices: {},
               floorVotes: NO_VOTES,
-              proxyVotes: [],
               divisionCalled: false,
             }
           : {}),

@@ -8,6 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@robbie-bylawyer/shared/constants';
 import { logger } from '../../middleware/logger.js';
 
 // Configurable upload directory (defaults to ./uploads relative to project root)
@@ -35,29 +36,6 @@ function resolveUploadPath(...segments: string[]): string {
   }
   return full;
 }
-
-// Allowed MIME types
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'text/rtf',
-  'application/rtf',
-]);
-
-// Max file size (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-// File extensions for MIME types
-const MIME_TO_EXT: Record<string, string> = {
-  'application/pdf': '.pdf',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'text/plain': '.txt',
-  'text/rtf': '.rtf',
-  'application/rtf': '.rtf',
-};
 
 export interface StoredFile {
   storagePath: string;
@@ -100,16 +78,16 @@ export function validateFile(
   mimeType: string,
   sizeBytes: number,
 ): { valid: true } | { valid: false; error: string } {
-  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-    const allowed = Array.from(ALLOWED_MIME_TYPES).join(', ');
+  if (!Object.hasOwn(ATTACHMENT_TYPES, mimeType)) {
+    const allowed = Object.keys(ATTACHMENT_TYPES).join(', ');
     return {
       valid: false,
       error: `File type not allowed. Allowed types: ${allowed}`,
     };
   }
 
-  if (sizeBytes > MAX_FILE_SIZE) {
-    const maxMB = MAX_FILE_SIZE / (1024 * 1024);
+  if (sizeBytes > MAX_ATTACHMENT_BYTES) {
+    const maxMB = MAX_ATTACHMENT_BYTES / (1024 * 1024);
     return {
       valid: false,
       error: `File too large. Maximum size: ${maxMB}MB`,
@@ -145,7 +123,10 @@ export async function storeFile(
   // Generate unique filename
   const uuid = randomUUID();
   const safeFilename = sanitizeFilename(filename);
-  const ext = MIME_TO_EXT[mimeType] || path.extname(safeFilename) || '';
+  const ext =
+    (Object.hasOwn(ATTACHMENT_TYPES, mimeType) && ATTACHMENT_TYPES[mimeType].extension) ||
+    path.extname(safeFilename) ||
+    '';
   const storedFilename = `${uuid}${ext}`;
   const storagePath = path.join(robbieCode, storedFilename);
   const fullPath = resolveUploadPath(storagePath);
@@ -218,35 +199,4 @@ export async function deleteFiles(storagePaths: Array<string | null>): Promise<v
  */
 export function getFullPath(storagePath: string): string {
   return resolveUploadPath(storagePath);
-}
-
-/**
- * Check if a file exists
- */
-export async function fileExists(storagePath: string): Promise<boolean> {
-  try {
-    const fullPath = resolveUploadPath(storagePath);
-    await fs.access(fullPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Clean up files for a meeting (when meeting is deleted)
- */
-export async function cleanupMeetingFiles(robbieCode: string): Promise<void> {
-  // A recursive delete: refuse anything but a plain meeting code ("..", for one, would remove
-  // the directory holding the uploads)
-  if (!MEETING_DIR_PATTERN.test(robbieCode)) {
-    logger.error({ robbieCode }, 'Refused to clean up files for an invalid meeting code');
-    return;
-  }
-  try {
-    const meetingDir = resolveUploadPath(robbieCode);
-    await fs.rm(meetingDir, { recursive: true, force: true });
-  } catch (error) {
-    logger.error({ err: error, robbieCode }, 'Failed to clean up files for meeting');
-  }
 }

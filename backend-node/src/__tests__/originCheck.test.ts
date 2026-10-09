@@ -24,7 +24,7 @@ describe('originAllowed', () => {
     }
   });
 
-  it('lets a request without an Origin through (the mobile app, curl)', () => {
+  it('lets a request without an Origin through (curl, a server)', () => {
     expect(requestOriginAllowed(undefined, 'robbie.scouch.dev', allowed)).toBe(true);
     expect(requestOriginAllowed('https://evil.scouch.dev', 'robbie.scouch.dev', allowed)).toBe(
       false,

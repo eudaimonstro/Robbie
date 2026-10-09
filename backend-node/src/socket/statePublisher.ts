@@ -27,14 +27,14 @@ const presides = (role: MeetingRole) => role === 'chair' || role === 'admin';
 
 /**
  * The state as a client in this role may see it. A secret ballot stays secret: while one is
- * open, the running totals, each member's choice and each proxy's choice stay on the server,
- * and only who has voted (`voters`, for the count of ballots received) and the chair's own
- * tellers' count go out; the record of a decided ballot keeps no choices. An election's running
- * count stays on the server while its ballot is open, and the tellers' count of its paper
- * ballots goes only to the chair and admins who enter it (not to members, guests or the
- * display, which joins as a guest) until the ballot closes. The previous meeting's minutes are for
- * members: a guest (a display too) is told only that there are minutes to approve
- * (`previousMinutesId`), not what they say. Every state sent to a client goes through here.
+ * open, the running totals and each member's choice stay on the server, and only who has voted
+ * (`voters`, for the count of ballots received) and the chair's own tellers' count go out; the
+ * record of a decided ballot keeps no choices. An election's running count stays on the server
+ * while its ballot is open, and the tellers' count of its paper ballots goes only to the chair
+ * and admins who enter it (not to members, guests or the display, which joins as a guest) until
+ * the ballot closes. The previous meeting's minutes are for members: a guest (a display too) is
+ * told only that there are minutes to approve (`previousMinutesId`), not what they say. Every
+ * state sent to a client goes through here.
  */
 export function publicState(state: MeetingState, role: MeetingRole): MeetingState {
   const openBallot = ballotOpen(state);
@@ -52,11 +52,7 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
     ...(voiceUndo && {
       voiceVote: { motionId: state.voiceVote!.motionId, passed: state.voiceVote!.passed },
     }),
-    ...(openBallot && {
-      votes: NO_VOTES,
-      voterChoices: {},
-      proxyVotes: state.proxyVotes.map(({ memberId, castBy }) => ({ memberId, castBy })),
-    }),
+    ...(openBallot && { votes: NO_VOTES, voterChoices: {} }),
     ...(ballotChoices && {
       completedMotions: state.completedMotions.map((m) =>
         m.method === 'ballot' ? { ...m, voterChoices: {} } : m,
@@ -85,9 +81,7 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
 export function publicUpdate(update: StateUpdatePayload, role: MeetingRole): StateUpdatePayload {
   const { triggeredBy } = update;
   const justVoted =
-    triggeredBy &&
-    ballotOpen(update.state) &&
-    (triggeredBy.actionType === 'CAST_VOTE' || triggeredBy.actionType === 'CAST_PROXY_VOTE');
+    triggeredBy && ballotOpen(update.state) && triggeredBy.actionType === 'CAST_VOTE';
   return {
     ...update,
     state: publicState(update.state, role),
@@ -133,8 +127,8 @@ const TAIL_FIELDS: readonly StateTailField[] = ['meetingLog', 'completedMotions'
 /**
  * Where a history array's new entries start: the length of what the room has, when that is
  * still the start of the array entry for entry (the reducer keeps the entries it doesn't change,
- * so they are the same objects); 0 when anything before it changed (a decided motion marked
- * reconsidered, say), and the whole array goes out again
+ * so they are the same objects); 0 when anything before it changed (a record corrected, say),
+ * and the whole array goes out again
  */
 export function tailStart(
   previous: readonly unknown[] | undefined,

@@ -2,7 +2,7 @@ import type { OrganizationInvite, OrgRole, Prisma } from '../generated/prisma/cl
 import { prisma } from '../db/prisma.js';
 import { sendAddedToOrganization } from '../auth/emailService.js';
 import { logger } from '../middleware/logger.js';
-import { isEmailAddress } from '@robbie-bylawyer/shared/utils';
+import { isEmailAddress, normalizeEmail } from '@robbie-bylawyer/shared/utils';
 import { OrgError } from './orgError.js';
 import { atLeast, roleNeeded } from './roles.js';
 
@@ -175,7 +175,7 @@ export async function addMemberByEmail(
   now: Date = new Date(),
   rawName?: string,
 ): Promise<AddResult> {
-  const email = rawEmail.trim().toLowerCase();
+  const email = normalizeEmail(rawEmail);
   const name = rawName?.trim() || null;
 
   const outcome = await prisma.$transaction(async (tx): Promise<Outcome> => {
@@ -292,7 +292,7 @@ export async function addMembersInBulk(
   now: Date = new Date(),
 ): Promise<Array<{ email: string; status: BulkStatus }>> {
   const wanted = people.map((person) => ({
-    email: person.email.trim().toLowerCase(),
+    email: normalizeEmail(person.email),
     name: person.name?.trim() || null,
   }));
   const valid = wanted.filter((person) => isEmailAddress(person.email));
@@ -549,7 +549,7 @@ export async function addMemberBySlug(
   rawEmail: string,
   role: OrgRole,
 ): Promise<{ organization: string; email: string; role: OrgRole }> {
-  const email = rawEmail.trim().toLowerCase();
+  const email = normalizeEmail(rawEmail);
   const organization = await prisma.organization.findUnique({
     where: { slug },
     select: { id: true, name: true },

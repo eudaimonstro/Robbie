@@ -45,10 +45,8 @@ export const initialState: MeetingState = {
   agendaAdopted: false,
   agendaObjection: false,
   currentAgendaItem: null,
-  tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],
-  committeeReports: [], // Chair adds committee reports as needed
   // The previous meeting's published minutes, put before this one by the server
   minutesFromPreviousMeeting: '',
   minutesApproved: false,
@@ -59,7 +57,6 @@ export const initialState: MeetingState = {
   attendedIds: [],
   electionsSetAside: [],
   unfinishedAtAdjournment: [],
-  suspendedRules: [],
   lastChairRuling: null,
   nominations: [],
   nominationsOpen: false,
@@ -67,16 +64,5 @@ export const initialState: MeetingState = {
   currentElection: null,
   electedOfficers: [],
   inquiries: [],
-  dividedQuestionParts: [],
-  rollCall: null,
   autoYieldOnTimeExpired: false,
-  // Proxy voting defaults (disabled by default per Robert's Rules)
-  allowProxyVoting: false,
-  maxProxiesPerMember: 2, // Default limit of 2 proxies per member
-  proxiesCountForQuorum: false, // By default, proxies don't count for quorum
-  proxies: [],
-  proxyVotes: [],
-  // Member-controlled proxy authorization (disabled by default)
-  allowMemberProxyGrant: false,
-  pendingProxyRequests: [],
 };

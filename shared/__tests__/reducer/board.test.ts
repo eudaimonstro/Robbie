@@ -69,26 +69,6 @@ describe('REFRESH_MEMBERS in a board meeting', () => {
   });
 });
 
-describe('START_ROLL_CALL in a board meeting', () => {
-  it('calls only the members who take part', () => {
-    const state: MeetingState = {
-      ...initialState,
-      meetingActive: true,
-      meetingStage: 'call-to-order',
-      kind: 'board',
-      board: { directors: 2 },
-      members: [
-        member(1, 'member'),
-        member(2, 'observer'),
-        member(3, 'admin', { nonVoting: true }),
-        member(4, 'guest'),
-      ],
-    };
-    const called = meetingReducer(state, { type: 'START_ROLL_CALL', timestamp: '10:00' });
-    expect(called.rollCall?.responses.map((r) => r.memberId)).toEqual([1]);
-  });
-});
-
 describe('the chair of a small board (RONR 49:21)', () => {
   const voting = (directors: number): MeetingState => ({
     ...initialState,

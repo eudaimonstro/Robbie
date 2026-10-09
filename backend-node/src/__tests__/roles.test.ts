@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ROLES,
+  ORG_ROLES,
   atLeast,
   canEditAmendment,
   isOrgRole,
@@ -10,7 +10,7 @@ import {
 
 describe('roles', () => {
   it('ranks roles from viewer to owner', () => {
-    expect(ROLES).toEqual(['viewer', 'member', 'secretary', 'admin', 'owner']);
+    expect(ORG_ROLES).toEqual(['viewer', 'member', 'secretary', 'admin', 'owner']);
     expect(atLeast('owner', 'admin')).toBe(true);
     expect(atLeast('secretary', 'secretary')).toBe(true);
     expect(atLeast('member', 'secretary')).toBe(false);

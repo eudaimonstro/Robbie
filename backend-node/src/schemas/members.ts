@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { ORG_ROLES } from '@robbie-bylawyer/shared/utils';
 
-const orgRole = z.enum(['viewer', 'member', 'secretary', 'admin', 'owner']);
+const orgRole = z.enum(ORG_ROLES);
 
 export const organizationMembersParams = z.object({ id: z.string().uuid() });
 

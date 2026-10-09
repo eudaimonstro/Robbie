@@ -92,8 +92,6 @@ describe('share links', () => {
     const responses = [
       (await call('get', `/api/documents/${f.doc}`, { cookie })).body,
       ...(await call('get', `/api/organizations/${f.orgA.id}/documents`, { cookie })).body,
-      ...(await call('get', `/api/organizations/${f.orgA.id}/documents?page=1`, { cookie })).body
-        .data,
       ...(await call('get', `/api/bylawyer/organizations/${f.orgA.id}/documents`, { cookie })).body,
       (
         await call('put', `/api/documents/${f.doc}`, {
@@ -102,7 +100,7 @@ describe('share links', () => {
         })
       ).body,
     ];
-    expect(responses).toHaveLength(5);
+    expect(responses).toHaveLength(4);
     for (const doc of responses) {
       expect(doc).toMatchObject({ id: f.doc, shareEnabled: true });
       expect(doc).not.toHaveProperty('shareToken');

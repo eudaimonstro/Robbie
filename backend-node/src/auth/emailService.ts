@@ -440,37 +440,6 @@ export async function sendPlainEmails(messages: PlainEmail[], what: string): Pro
 }
 
 /**
- * Verify email configuration is working
- * Call this on startup to catch configuration errors early
- */
-export async function verifyEmailConfiguration(): Promise<boolean> {
-  if (emailProvider === 'development') {
-    logger.info('Email service running in development mode');
-    return true;
-  }
-
-  if (emailProvider === 'resend') {
-    // Sending-only API keys can't call read endpoints, so a real send (npm run email:test) is the check
-    logger.info('Resend API configured; run `npm run email:test` to verify delivery');
-    return true;
-  }
-
-  if (!transporter) {
-    logger.error('Email transporter not available');
-    return false;
-  }
-
-  try {
-    await transporter.verify();
-    logger.info('Email configuration verified successfully');
-    return true;
-  } catch (error) {
-    logger.error({ err: error }, 'Email configuration verification failed');
-    return false;
-  }
-}
-
-/**
  * Send a test email to confirm the provider, API key, and sender are working
  * @returns Provider message ID
  */

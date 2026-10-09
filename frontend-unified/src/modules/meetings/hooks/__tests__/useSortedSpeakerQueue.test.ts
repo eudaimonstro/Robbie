@@ -5,9 +5,8 @@ import { initialState } from '@robbie-bylawyer/shared/reducer';
 import type { SpeakerQueueEntry, Motion, MeetingState } from '@robbie-bylawyer/shared/types';
 
 // Helper to create mock state (initialState supplies fields added since these tests were written)
-const createMockState = (suspendedRules: MeetingState['suspendedRules'] = []): MeetingState => ({
+const createMockState = (): MeetingState => ({
   ...initialState,
-  suspendedRules,
   meetingActive: true,
   meetingCode: 'TEST01',
   agenda: [],
@@ -33,14 +32,12 @@ const createMockState = (suspendedRules: MeetingState['suspendedRules'] = []): M
   quorum: 3,
   meetingLog: [],
   unanimousConsentPending: false,
-  tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],
   lastChairRuling: null,
   meetingStage: 'new-business',
   minutesApproved: false,
   minutesFromPreviousMeeting: '',
-  committeeReports: [],
   nominationsOpen: false,
   currentNominationPosition: null,
   nominations: [],
@@ -68,7 +65,6 @@ const createMockMotion = (moverId: number = 1, moverHasSpoken: boolean = false):
   moverHasSpoken,
   secondedBy: 'Second User',
   needsSecond: true,
-  reconsidered: true,
   whenToUse: 'Test usage',
 });
 

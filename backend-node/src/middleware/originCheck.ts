@@ -5,7 +5,7 @@
  * request, and the socket handshake, that carry an Origin are refused unless it is the server's
  * own (the page was served from the host the request went to: a phone on the demo laptop's LAN
  * address, 127.0.0.1), the app's (APP_URL) or an allowed development origin. Without an Origin
- * (the mobile app, curl, a server) they pass: browsers always send one with these requests.
+ * (curl, a server) they pass: browsers always send one with these requests.
  */
 
 import type { RequestHandler } from 'express';

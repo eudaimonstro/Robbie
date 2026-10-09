@@ -210,10 +210,15 @@ describe('chairActions', () => {
     expect(objection.make()).toMatchObject({ type: 'OBJECT_TO_CONSENT', fromFloor: true });
   });
 
-  it('gives the chair a ruling on a call for the orders of the day', () => {
-    const state = { ...adopted, currentMotion: motion('callOrderDay', { secondedBy: null }) };
-    const actions = chairActions(state, 2);
-    expect(actions.map((a) => a.label)).toEqual(['Proceed to the orders of the day']);
+  it('lets the chair answer a request saved before requests were questions to the chair', () => {
+    // A call for the orders of the day pending in a meeting saved before it was removed
+    const request = motion('pointOrder', {
+      type: 'callOrderDay',
+      name: 'Call for Orders of the Day',
+      secondedBy: null,
+    });
+    const actions = chairActions({ ...adopted, currentMotion: request }, 2);
+    expect(actions.map((a) => a.label)).toEqual(['Acknowledge and respond']);
     expect(actions[0].make()).toMatchObject({ type: 'CHAIR_RULING', ruling: 'allow' });
   });
 

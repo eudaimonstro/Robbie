@@ -41,11 +41,6 @@ coverage/
 .nyc_output/
 .vitest/
 
-# Mobile
-mobile/.expo/
-mobile/ios/
-mobile/android/
-
 # Misc
 *.pem
 .cache/

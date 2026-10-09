@@ -19,7 +19,6 @@ const record = (method: CompletedMotion['method']): CompletedMotion => ({
   passed: true,
   voterChoices: { 2: 'yea', 3: 'nay' },
   timestamp: '20:15',
-  reconsidered: false,
   method,
 });
 
@@ -31,7 +30,6 @@ const ballot: MeetingState = {
   floorVotes: { yea: 4, nay: 2, abstain: 0 },
   voters: [2, 3, 4],
   voterChoices: { 2: 'yea', 3: 'nay', 4: 'yea' },
-  proxyVotes: [{ memberId: 4, castBy: 2, vote: 'yea' }],
 };
 
 const election: Election = {
@@ -58,11 +56,6 @@ describe('publicState', () => {
     // tellers' count is the chair's own entry
     expect(shown.voters).toEqual([2, 3, 4]);
     expect(shown.floorVotes).toEqual(ballot.floorVotes);
-  });
-
-  it('leaves out the choice of each proxy vote while a secret ballot is open', () => {
-    const shown = publicState(ballot, 'member');
-    expect(shown.proxyVotes).toEqual([{ memberId: 4, castBy: 2 }]);
   });
 
   it('leaves out the choices recorded for a decided ballot, and keeps other records', () => {
@@ -120,7 +113,6 @@ describe('publicState', () => {
     );
     const shown = publicState(adjourned, 'member');
     expect(shown.voterChoices).toEqual({});
-    expect(shown.proxyVotes).toEqual([]);
     expect(shown.votes).toEqual({ yea: 0, nay: 0, abstain: 0 });
   });
 
@@ -150,17 +142,15 @@ describe('publicState', () => {
 
 describe('publicUpdate', () => {
   it('leaves out who just voted while a secret ballot is open', () => {
-    for (const actionType of ['CAST_VOTE', 'CAST_PROXY_VOTE']) {
-      const shown = publicUpdate(
-        {
-          state: ballot,
-          stateVersion: 4,
-          triggeredBy: { actionType, userId: 2 },
-        },
-        'member',
-      );
-      expect(shown.triggeredBy, actionType).toEqual({ actionType, userId: 0 });
-    }
+    const shown = publicUpdate(
+      {
+        state: ballot,
+        stateVersion: 4,
+        triggeredBy: { actionType: 'CAST_VOTE', userId: 2 },
+      },
+      'member',
+    );
+    expect(shown.triggeredBy).toEqual({ actionType: 'CAST_VOTE', userId: 0 });
   });
 
   it('says who did anything else', () => {
@@ -201,7 +191,6 @@ describe('emitState', () => {
         ...ballot,
         votes: { yea: 0, nay: 0, abstain: 0 },
         voterChoices: {},
-        proxyVotes: [{ memberId: 4, castBy: 2 }],
       },
       stateVersion: 4,
       triggeredBy: { actionType: 'CAST_VOTE', userId: 0 },

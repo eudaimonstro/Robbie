@@ -7,7 +7,7 @@ import type {
   VoteCalculationResult,
   VoteThreshold,
 } from '../types/index.js';
-import { MOTIONS } from '../constants/motions.js';
+import { MOTIONS, RETIRED_MOTIONS } from '../constants/motions.js';
 
 export const NO_VOTES: Votes = { yea: 0, nay: 0, abstain: 0 };
 
@@ -121,7 +121,9 @@ export function motionThreshold(motion: {
 }): VoteThreshold {
   const own = motion.bylawAmendment?.voteRequired;
   if (own) return own;
-  return asThreshold(motion.vote ?? MOTIONS[motion.type]?.vote ?? 'majority');
+  return asThreshold(
+    motion.vote ?? MOTIONS[motion.type]?.vote ?? RETIRED_MOTIONS[motion.type]?.vote ?? 'majority',
+  );
 }
 
 /**
@@ -143,23 +145,4 @@ export function canChairVoteDecide(
     passes({ ...votes, yea: votes.yea + 1 }) !== now ||
     passes({ ...votes, nay: votes.nay + 1 }) !== now
   );
-}
-
-/**
- * Check if chair can cast a deciding vote
- * @param votes - Current vote counts
- * @returns Object indicating if chair can break or create a tie
- */
-export function getChairVotingOptions(votes: Votes): {
-  canBreakTie: boolean;
-  canCreateTie: boolean;
-} {
-  const { yea, nay } = votes;
-  const isTied = yea === nay;
-  const yeaAheadByOne = yea === nay + 1;
-
-  return {
-    canBreakTie: isTied,
-    canCreateTie: yeaAheadByOne,
-  };
 }

@@ -139,7 +139,6 @@ export type ActionErrorCode =
   | 'MOTION_NOT_DEBATABLE'
   | 'MOTION_RENEWAL_BLOCKED'
   | 'NOT_MOTION_MAKER'
-  | 'DEBATE_BEGUN'
   // Voting errors
   | 'VOTING_ALREADY_OPEN'
   | 'VOTING_NOT_OPEN'
@@ -188,26 +187,6 @@ export type ActionErrorCode =
   | 'MEMBER_EXISTS'
   | 'MEMBER_CONNECTED'
   | 'NAME_REQUIRED'
-  // Report errors
-  | 'REPORT_NOT_FOUND'
-  | 'REPORT_ALREADY_PRESENTED'
-  // Rule suspension errors
-  | 'SUSPENSION_NOT_FOUND'
-  // Proxy voting errors
-  | 'PROXY_VOTING_DISABLED'
-  | 'NO_PROXY_AUTHORITY'
-  | 'PROXY_NOT_FOUND'
-  | 'MAX_PROXIES_REACHED'
-  | 'PROXY_ALREADY_GRANTED'
-  | 'CANNOT_PROXY_SELF'
-  | 'RECEIVER_NOT_PRESENT'
-  // Member proxy request errors
-  | 'MEMBER_PROXY_DISABLED'
-  | 'REQUEST_PENDING'
-  | 'REQUEST_NOT_FOUND'
-  | 'REQUEST_NOT_PENDING'
-  // Roll call errors
-  | 'ROLL_CALL_NOT_IN_PROGRESS'
   // Meeting rules
   | 'MOTION_NOT_OFFERED'
   | 'IN_RECESS'
@@ -215,30 +194,6 @@ export type ActionErrorCode =
   | 'ADJOURNMENT_CARRIED'
   | 'NO_QUORUM'
   | 'DEBATE_CLOSED';
-
-// Auth-related types
-export interface AuthPayload {
-  email: string;
-  name: string;
-  meetingCode: string;
-}
-
-export interface VerificationPayload {
-  email: string;
-  code: string;
-  meetingCode: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  token?: string;
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-  };
-  error?: string;
-}
 
 // Socket data attached to authenticated connections
 export interface SocketData {

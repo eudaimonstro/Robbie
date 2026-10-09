@@ -40,9 +40,4 @@ describe('file storage paths', () => {
     await expect(storage.deleteFile('../outside.txt')).rejects.toThrow(/outside/);
     expect(await fs.readFile(path.join(root, 'outside.txt'), 'utf8')).toBe('keep me');
   });
-
-  it('never removes anything outside the uploads directory when cleaning up', async () => {
-    await storage.cleanupMeetingFiles('..');
-    expect(await fs.readFile(path.join(root, 'outside.txt'), 'utf8')).toBe('keep me');
-  });
 });

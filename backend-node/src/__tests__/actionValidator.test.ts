@@ -47,7 +47,6 @@ function createMotion(
     needsSecond: true,
     debatable: overrides.debatable ?? true,
     amendable: true,
-    reconsidered: false,
     vote: 'majority' as const,
     phrase: 'I move that...',
     help: 'Help text',
@@ -271,10 +270,9 @@ describe('actionValidator', () => {
   });
 
   describe('SECOND_MOTION by the mover', () => {
-    const pending = (suspendedRules: MeetingState['suspendedRules'] = []) => ({
+    const pending = () => ({
       ...activeMeetingState(),
       pendingSecond: { ...createMotion({ moverId: 2 }), status: 'pending' as const },
-      suspendedRules,
     });
     const second = (state: MeetingState, seconderId: number) =>
       validateAction(state, { type: 'SECOND_MOTION', seconder: 'x', seconderId, timestamp: '' });
@@ -282,19 +280,6 @@ describe('actionValidator', () => {
     it('is rejected: a member cannot second their own motion', () => {
       expect(second(pending(), 2).valid).toBe(false);
       expect(second(pending(), 3).valid).toBe(true);
-    });
-
-    it('is refused even with that rule suspended in a state saved before suspensions went', () => {
-      const suspension = {
-        id: 1,
-        rule: 'mover-cannot-second' as const,
-        purpose: '',
-        specificAction: '',
-        scope: 'meeting-remainder' as const,
-        suspendedAt: '',
-        motionId: 9,
-      };
-      expect(second(pending([suspension]), 2).valid).toBe(false);
     });
   });
 
@@ -457,24 +442,6 @@ describe('actionValidator', () => {
     });
   });
 
-  describe('SET_MEETING_STAGE', () => {
-    const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
-      validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);
-
-    it('allows moving to a stage of the order of business', () => {
-      expect(setStage('new-business').valid).toBe(true);
-    });
-
-    it('rejects a stage that is not in the order of business', () => {
-      expect(setStage('adjourned').valid).toBe(false);
-      expect(setStage('lunch').valid).toBe(false);
-    });
-
-    it('rejects a stage change before the meeting starts', () => {
-      expect(setStage('new-business', initialState).errorCode).toBe('MEETING_NOT_ACTIVE');
-    });
-  });
-
   describe('SET_QUORUM', () => {
     const setQuorum = (quorum: number) =>
       validateAction(activeMeetingState(), { type: 'SET_QUORUM', quorum, timestamp: '' });
@@ -610,15 +577,22 @@ describe('actionValidator', () => {
       });
 
       it.each([['takeFromTable'], ['reconsider'], ['suspendRules'], ['layOnTable']])(
-        'refuses %s, which Robbie does not offer, saying what to do instead',
+        'refuses %s, a motion Robbie no longer has',
         (motionType) => {
           expect(make(motionType)).toMatchObject({
             valid: false,
-            errorCode: 'MOTION_NOT_OFFERED',
-            error: expect.stringContaining("isn't offered in Robbie"),
+            errorCode: 'UNKNOWN_MOTION_TYPE',
           });
         },
       );
+
+      it('refuses moving a request to withdraw, which the mover asks for instead', () => {
+        expect(make('withdrawMotion')).toMatchObject({
+          valid: false,
+          errorCode: 'MOTION_NOT_OFFERED',
+          error: expect.stringContaining('the mover asks to withdraw'),
+        });
+      });
 
       it('accepts a bylaw amendment that names its document and change', () => {
         const bylawAmendment = { documentId: 'doc-1', changeType: 'modify', targetSectionId: 's1' };
@@ -749,7 +723,7 @@ describe('actionValidator', () => {
       });
     });
 
-    it('refuses divideQuestion, which Robbie does not offer', () => {
+    it('refuses divideQuestion, which Robbie no longer has', () => {
       const result = validateAction(state(), {
         type: 'MAKE_MOTION',
         motionType: 'divideQuestion',
@@ -758,9 +732,8 @@ describe('actionValidator', () => {
         moverId: 3,
         motionId: 9,
         timestamp: '',
-        dividedParts: ['a', 'b'],
       });
-      expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_NOT_OFFERED' });
+      expect(result).toMatchObject({ valid: false, errorCode: 'UNKNOWN_MOTION_TYPE' });
     });
 
     it('refuses amending an amendment of one', () => {
@@ -778,31 +751,6 @@ describe('actionValidator', () => {
         },
       );
       expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_PRECEDENCE_VIOLATION' });
-    });
-  });
-
-  describe('MODIFY_MOTION', () => {
-    it('refuses new words for a bylaw amendment, whose words come from its text', () => {
-      const motion = {
-        ...createMotion(),
-        type: 'bylawAmendment',
-        bylawAmendment: { documentId: 'd', changeType: 'delete' as const },
-      };
-      const state = { ...activeMeetingState(), pendingSecond: motion };
-      const result = validateAction(state, {
-        type: 'MODIFY_MOTION',
-        requesterId: 2,
-        newText: 'Fix a typo in 3.2',
-        timestamp: '',
-      });
-      expect(result).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
-      // Any other motion's mover can still change its words before debate
-      expect(
-        validateAction(
-          { ...state, pendingSecond: createMotion() },
-          { type: 'MODIFY_MOTION', requesterId: 2, newText: 'Paint it blue', timestamp: '' },
-        ).valid,
-      ).toBe(true);
     });
   });
 
@@ -911,54 +859,6 @@ describe('actionValidator', () => {
     });
   });
 
-  describe('CAST_PROXY_VOTE', () => {
-    // Member 3 gave a proxy to member 2
-    const proxyState = (overrides: Partial<MeetingState> = {}): MeetingState => ({
-      ...activeMeetingState(),
-      votingOpen: true,
-      allowProxyVoting: true,
-      currentMotion: createMotion(),
-      proxies: [
-        {
-          id: 1,
-          grantedBy: 3,
-          grantedTo: 2,
-          grantedByName: 'Member 3',
-          grantedToName: 'Member 2',
-          grantedAt: '',
-          scope: 'all',
-        },
-      ],
-      ...overrides,
-    });
-    const castForMember3 = (state: MeetingState) =>
-      validateAction(state, {
-        type: 'CAST_PROXY_VOTE',
-        vote: 'nay',
-        forMemberId: 3,
-        castById: 2,
-        timestamp: '',
-      });
-
-    it('allows the holder to vote for the member', () => {
-      expect(castForMember3(proxyState()).valid).toBe(true);
-    });
-
-    it('allows the holder to change a proxy vote', () => {
-      const state = proxyState({
-        voters: [3],
-        voterChoices: { 3: 'yea' },
-        proxyVotes: [{ memberId: 3, castBy: 2, vote: 'yea' }],
-      });
-      expect(castForMember3(state).valid).toBe(true);
-    });
-
-    it('rejects replacing a vote the member cast in person', () => {
-      const state = proxyState({ voters: [3], voterChoices: { 3: 'yea' } });
-      expect(castForMember3(state).errorCode).toBe('ALREADY_VOTED');
-    });
-  });
-
   describe('RAISE_HAND', () => {
     const debatableState = (): MeetingState => ({
       ...activeMeetingState(),
@@ -1032,256 +932,6 @@ describe('actionValidator', () => {
         stance: 'con' as DebateStance,
       });
       expect(result).toEqual({ valid: true });
-    });
-  });
-
-  describe('Proxy Voting', () => {
-    const proxyEnabledState = (): MeetingState => ({
-      ...activeMeetingState(),
-      allowProxyVoting: true,
-      allowMemberProxyGrant: true,
-      maxProxiesPerMember: 2,
-      proxies: [],
-      pendingProxyRequests: [],
-    });
-
-    describe('GRANT_PROXY', () => {
-      it('should allow valid proxy grant', () => {
-        const state = proxyEnabledState();
-        const result = validateAction(state, {
-          type: 'GRANT_PROXY',
-          proxyId: 1,
-          grantedBy: 2,
-          grantedByName: 'Member 2',
-          grantedTo: 3,
-          grantedToName: 'Member 3',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(true);
-      });
-
-      it('should reject when proxy voting disabled', () => {
-        const state = { ...proxyEnabledState(), allowProxyVoting: false };
-        const result = validateAction(state, {
-          type: 'GRANT_PROXY',
-          proxyId: 1,
-          grantedBy: 2,
-          grantedByName: 'Member 2',
-          grantedTo: 3,
-          grantedToName: 'Member 3',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('PROXY_VOTING_DISABLED');
-      });
-
-      it('should reject self-proxy', () => {
-        const state = proxyEnabledState();
-        const result = validateAction(state, {
-          type: 'GRANT_PROXY',
-          proxyId: 1,
-          grantedBy: 2,
-          grantedByName: 'Member 2',
-          grantedTo: 2,
-          grantedToName: 'Member 2',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('CANNOT_PROXY_SELF');
-      });
-
-      it('should reject when max proxies reached', () => {
-        const state: MeetingState = {
-          ...proxyEnabledState(),
-          proxies: [
-            {
-              id: 1,
-              grantedBy: 10,
-              grantedByName: 'M10',
-              grantedTo: 3,
-              grantedToName: 'M3',
-              scope: 'all',
-              grantedAt: '',
-            },
-            {
-              id: 2,
-              grantedBy: 11,
-              grantedByName: 'M11',
-              grantedTo: 3,
-              grantedToName: 'M3',
-              scope: 'all',
-              grantedAt: '',
-            },
-          ],
-        };
-        const result = validateAction(state, {
-          type: 'GRANT_PROXY',
-          proxyId: 3,
-          grantedBy: 2,
-          grantedByName: 'Member 2',
-          grantedTo: 3,
-          grantedToName: 'Member 3',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('MAX_PROXIES_REACHED');
-      });
-    });
-
-    describe('REQUEST_PROXY', () => {
-      it('should allow valid proxy request', () => {
-        const state = proxyEnabledState();
-        const result = validateAction(state, {
-          type: 'REQUEST_PROXY',
-          requestId: 1,
-          requestedBy: 2,
-          requestedByName: 'Member 2',
-          requestedFor: 3,
-          requestedForName: 'Member 3',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(true);
-      });
-
-      it('should reject when member proxy grants disabled', () => {
-        const state = { ...proxyEnabledState(), allowMemberProxyGrant: false };
-        const result = validateAction(state, {
-          type: 'REQUEST_PROXY',
-          requestId: 1,
-          requestedBy: 2,
-          requestedByName: 'Member 2',
-          requestedFor: 3,
-          requestedForName: 'Member 3',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('MEMBER_PROXY_DISABLED');
-      });
-
-      it('should reject with existing pending request', () => {
-        const state: MeetingState = {
-          ...proxyEnabledState(),
-          pendingProxyRequests: [
-            {
-              id: 1,
-              requestedBy: 2,
-              requestedByName: 'Member 2',
-              requestedFor: 3,
-              requestedForName: 'Member 3',
-              requestedAt: '',
-              scope: 'all',
-              status: 'pending',
-            },
-          ],
-        };
-        const result = validateAction(state, {
-          type: 'REQUEST_PROXY',
-          requestId: 2,
-          requestedBy: 2,
-          requestedByName: 'Member 2',
-          requestedFor: 1,
-          requestedForName: 'Member 1',
-          scope: 'all',
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('REQUEST_PENDING');
-      });
-    });
-
-    describe('ACCEPT_PROXY', () => {
-      it('should allow accepting pending request', () => {
-        const state: MeetingState = {
-          ...proxyEnabledState(),
-          pendingProxyRequests: [
-            {
-              id: 1,
-              requestedBy: 2,
-              requestedByName: 'Member 2',
-              requestedFor: 3,
-              requestedForName: 'Member 3',
-              requestedAt: '',
-              scope: 'all',
-              status: 'pending',
-            },
-          ],
-        };
-        const result = validateAction(state, {
-          type: 'ACCEPT_PROXY',
-          requestId: 1,
-          proxyId: 10,
-          timestamp: '',
-        });
-        expect(result.valid).toBe(true);
-      });
-
-      it('should reject non-existent request', () => {
-        const state = proxyEnabledState();
-        const result = validateAction(state, {
-          type: 'ACCEPT_PROXY',
-          requestId: 999,
-          proxyId: 10,
-          timestamp: '',
-        });
-        expect(result.valid).toBe(false);
-        expect(result.errorCode).toBe('REQUEST_NOT_FOUND');
-      });
-    });
-  });
-
-  describe('Roll Call', () => {
-    it('should allow starting roll call when not in progress', () => {
-      const state = activeMeetingState();
-      const result = validateAction(state, {
-        type: 'START_ROLL_CALL',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(true);
-    });
-
-    it('should reject starting roll call when already in progress', () => {
-      const state: MeetingState = {
-        ...activeMeetingState(),
-        rollCall: { inProgress: true, responses: [], startedAt: '' },
-      };
-      const result = validateAction(state, {
-        type: 'START_ROLL_CALL',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('INVALID_STATE');
-    });
-
-    it('should allow responding to roll call when in progress', () => {
-      const state: MeetingState = {
-        ...activeMeetingState(),
-        rollCall: { inProgress: true, responses: [], startedAt: '' },
-      };
-      const result = validateAction(state, {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 2,
-        status: 'present',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(true);
-    });
-
-    it('should reject responding when not in progress', () => {
-      const state = activeMeetingState();
-      const result = validateAction(state, {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 2,
-        status: 'present',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('ROLL_CALL_NOT_IN_PROGRESS');
     });
   });
 

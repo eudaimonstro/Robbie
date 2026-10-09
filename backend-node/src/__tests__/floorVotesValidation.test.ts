@@ -65,19 +65,6 @@ describe('validating floor votes', () => {
       expect(tally({ ...chairVoted, voters: [2], voterChoices: { 2: 'yea' } }).valid).toBe(true);
       expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
     });
-
-    it('is refused even with the chair voting restriction suspended in an older saved state', () => {
-      const suspension = {
-        id: 1,
-        rule: 'chair-voting-restriction' as const,
-        purpose: '',
-        specificAction: '',
-        scope: 'meeting-remainder' as const,
-        suspendedAt: '',
-        motionId: 9,
-      };
-      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(false);
-    });
   });
 
   describe('CAST_VOTE', () => {
@@ -110,35 +97,6 @@ describe('validating floor votes', () => {
         floorVotes: { yea: 0, nay: 2, abstain: 0 },
       };
       expect(validateAction(tied, chairVote).valid).toBe(true);
-    });
-  });
-
-  describe('CAST_PROXY_VOTE', () => {
-    it('is refused on a voice vote', () => {
-      const state = {
-        ...voting,
-        votingMethod: 'voice' as const,
-        allowProxyVoting: true,
-        proxies: [
-          {
-            id: 1,
-            grantedBy: 3,
-            grantedTo: 2,
-            grantedByName: 'Member 3',
-            grantedToName: 'Member 2',
-            grantedAt: '20:00',
-            scope: 'all' as const,
-          },
-        ],
-      };
-      const result = validateAction(state, {
-        type: 'CAST_PROXY_VOTE',
-        vote: 'yea',
-        forMemberId: 3,
-        castById: 2,
-        timestamp: '',
-      });
-      expect(result).toMatchObject({ valid: false, errorCode: 'VOTING_METHOD' });
     });
   });
 
@@ -251,7 +209,7 @@ describe('validating floor votes', () => {
   });
 
   describe('a motion to reconsider', () => {
-    it("is refused: Robbie doesn't offer reconsider", () => {
+    it('is refused: Robbie no longer has it', () => {
       const record = {
         id: 5,
         type: 'mainMotion',
@@ -260,8 +218,6 @@ describe('validating floor votes', () => {
         passed: true,
         voterChoices: {},
         timestamp: '20:15',
-        reconsidered: false,
-        reconsiderable: true,
       };
       const result = validateAction(
         { ...initialState, meetingActive: true, agendaAdopted: true, completedMotions: [record] },
@@ -272,11 +228,10 @@ describe('validating floor votes', () => {
           mover: 'Member 2',
           moverId: 2,
           motionId: 9,
-          reconsideredMotionId: 5,
           timestamp: '',
         },
       );
-      expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_NOT_OFFERED' });
+      expect(result).toMatchObject({ valid: false, errorCode: 'UNKNOWN_MOTION_TYPE' });
     });
   });
 });

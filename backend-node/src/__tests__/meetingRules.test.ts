@@ -43,7 +43,7 @@ describe('the meeting rules, through the server', () => {
       });
     });
 
-    it('refuses the motions Robbie hides, from a phone and from the floor', () => {
+    it('refuses the motions Robbie no longer has, from a phone and from the floor', () => {
       const s = moved(inSession(), 'alice', 'mainMotion', 'Hire a new landscaper', 'ben');
       expect(
         refusal(s, 'carl', {
@@ -52,11 +52,7 @@ describe('the meeting rules, through the server', () => {
           text: 'Table it',
           motionId: 1,
         }),
-      ).toMatchObject({
-        errorCode: 'MOTION_NOT_OFFERED',
-        error:
-          "Lay on the table isn't offered in Robbie: postpone the question to later in the meeting instead",
-      });
+      ).toMatchObject({ errorCode: 'UNKNOWN_MOTION_TYPE' });
       expect(
         refusal(s, 'dana', {
           type: 'MAKE_FLOOR_MOTION',
@@ -65,7 +61,7 @@ describe('the meeting rules, through the server', () => {
           moverName: 'Frank',
           motionId: 1,
         }),
-      ).toMatchObject({ errorCode: 'MOTION_NOT_OFFERED' });
+      ).toMatchObject({ errorCode: 'UNKNOWN_MOTION_TYPE' });
     });
   });
 
@@ -381,7 +377,6 @@ describe('what each motion does when it carries', () => {
     expect(s.completedMotions.at(-1)).toMatchObject({
       type: 'adjourn',
       disposition: 'carried',
-      reconsiderable: false,
     });
   });
 
@@ -708,16 +703,6 @@ describe('the agenda', () => {
 });
 
 describe('words that come from what a motion does', () => {
-  it('are not modified: an amendment is withdrawn and moved again', () => {
-    const s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool in May', 'ben');
-    const t = move(s, 'carl', 'amend', '', {
-      textAmendment: { form: 'strikeInsert', strike: 'May', insert: 'June' },
-    });
-    expect(
-      refusal(t, 'carl', { type: 'MODIFY_MOTION', newText: 'Strike May and insert July' }),
-    ).toMatchObject({ errorCode: 'INVALID_ACTION' });
-  });
-
   it('an appeal is in order only at once after the ruling, not once the meeting has decided something', () => {
     let s = moved(inSession(), 'alice', 'mainMotion', 'Resurface the pool', 'ben');
     s = move(s, 'carl', 'pointOrder', 'The speaker is off the subject');

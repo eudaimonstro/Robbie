@@ -1,13 +1,9 @@
-export { MOTIONS, CATEGORY_INFO } from './motions.js';
+export { MOTIONS, RETIRED_MOTIONS, type RetiredMotion } from './motions.js';
 export { motionWords, plainMotionName, type MotionWords } from './motionWords.js';
-export type { CategoryColor } from '../types/index.js';
 export {
   MEETING_STAGES,
-  DISPLAYABLE_STAGES,
   STAGE_ORDER,
   getStageLogMessage,
-  getNextStage,
-  isLastActiveStage,
   type MeetingStageInfo,
 } from './meetingStages.js';
 export * from './logMessages.js';
@@ -27,3 +23,5 @@ export {
   MAX_POSITION_LENGTH,
   MAX_NAME_LENGTH,
 } from './limits.js';
+export { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from './attachments.js';
+export { MEETING_CODE_PATTERN } from './meetingCode.js';

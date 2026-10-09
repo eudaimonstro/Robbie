@@ -25,20 +25,16 @@ export function sessionCookieOptions(): CookieOptions {
 }
 
 /**
- * The session token a request carries: a bearer token (mobile), else the cookie (web). The
- * cookie is unknown because cookie-parser turns a crafted "j:{...}" value into an object.
+ * The session token a request carries, in its session cookie. The cookie is unknown because
+ * cookie-parser turns a crafted "j:{...}" value into an object.
  */
-export function sessionTokenFrom(
-  cookie: unknown,
-  authorization: string | undefined,
-): string | null {
-  if (authorization?.startsWith('Bearer ')) return authorization.slice(7).trim() || null;
+export function sessionTokenFrom(cookie: unknown): string | null {
   return typeof cookie === 'string' && cookie ? cookie : null;
 }
 
 /** Require a signed-in user: 401 without a valid session, 503 if it can't be checked */
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
-  const token = sessionTokenFrom(req.cookies?.[SESSION_COOKIE], req.headers.authorization);
+  const token = sessionTokenFrom(req.cookies?.[SESSION_COOKIE]);
   if (!token) return res.status(401).json({ error: 'Not signed in' });
 
   try {
@@ -47,10 +43,9 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     req.user = session.user;
     req.sessionId = session.sessionId;
     req.termsVersion = session.termsVersion;
-    // The server extended the session, so extend the web cookie too, or the browser drops it
+    // The server extended the session, so extend the cookie too, or the browser drops it
     // 30 days after sign-in however active the user is
-    const bearer = req.headers.authorization?.startsWith('Bearer ');
-    if (session.extended && !bearer) {
+    if (session.extended) {
       res.cookie(SESSION_COOKIE, token, { ...sessionCookieOptions(), maxAge: SESSION_LIFETIME_MS });
     }
     next();

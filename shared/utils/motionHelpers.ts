@@ -101,36 +101,13 @@ export function wasMotionDefeated(
   return state.defeatedMotions.some((dm) => dm.type === motionType);
 }
 
-/** Why a bylaw amendment's words can't be changed in the meeting */
-export const BYLAW_WORDING_FIXED =
-  "A bylaw amendment's words come from its text: withdraw it and move it again";
-
-/**
- * Whether this motion would change a pending bylaw amendment's words: amending it, or amending
- * an amendment of it. Its words are the text the room sees and the sync applies.
- */
-export function wordingFixedBy(state: MeetingState, motionType: string): boolean {
-  const current = state.currentMotion;
-  if (!current) return false;
-  if (motionType === 'amend' || motionType === 'divideQuestion') {
-    return current.type === 'bylawAmendment';
-  }
-  if (motionType === 'amendAmendment') {
-    const amended = state.motionStack[state.motionStack.length - 2];
-    return current.type === 'amend' && amended?.type === 'bylawAmendment';
-  }
-  return false;
-}
-
 /**
  * The motions in order now, of those Robbie offers (motionOutOfOrder says why the others are
  * not), in the order a phone lists them. A motion of the agenda's defeated this meeting isn't
  * offered again; a main motion or a bylaw amendment is refused by the server only when it renews
  * a defeated one's subject or change.
- *
- * @param _currentUserId - kept for the mobile app, which passes it
  */
-export function getValidMotions(state: MeetingState, _currentUserId?: number): ValidMotion[] {
+export function getValidMotions(state: MeetingState): ValidMotion[] {
   return OFFERED_MOTIONS.filter((key) => motionOutOfOrder(state, key) === null)
     .filter(
       (key) =>

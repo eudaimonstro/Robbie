@@ -15,7 +15,6 @@ import {
   applyAmendmentQuery,
   organizationAmendmentsQuery,
 } from '../../schemas/amendments.js';
-import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { sectionLabel } from '@robbie-bylawyer/shared/utils';
 import { fromParam, requireRole } from '../../orgs/requireRole.js';
@@ -107,25 +106,8 @@ amendmentsRouter.get(
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      const where = { documentId: req.params.docId };
-
-      if (req.query.page) {
-        const pagination = getPagination(req);
-        const [amendments, total] = await Promise.all([
-          prisma.amendment.findMany({
-            where,
-            include: { changes: true },
-            orderBy: { createdAt: 'desc' },
-            skip: pagination.skip,
-            take: pagination.limit,
-          }),
-          prisma.amendment.count({ where }),
-        ]);
-        return res.json(paginatedResponse(amendments, total, pagination));
-      }
-
       const amendments = await prisma.amendment.findMany({
-        where,
+        where: { documentId: req.params.docId },
         include: { changes: true },
         orderBy: { createdAt: 'desc' },
       });
@@ -595,14 +577,6 @@ const deleteChange: RequestHandler<RouteParams> = async (req, res) => {
   }
 };
 
-amendmentsRouter.delete(
-  '/changes/:id',
-  validate({ params: uuidParam }),
-  requireRole('member', byChange),
-  deleteChange,
-);
-
-// Alternate delete endpoint
 amendmentsRouter.delete(
   '/amendment-changes/:id',
   validate({ params: uuidParam }),

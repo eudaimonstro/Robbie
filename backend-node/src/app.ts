@@ -93,7 +93,7 @@ app.use(
 );
 app.use(cookieParser() as unknown as express.RequestHandler);
 
-// A change to anything must come from the app's own pages (or from no page: mobile, curl)
+// A change to anything must come from the app's own pages (or from no page: curl, a server)
 app.use('/api', originCheck(trustedOrigins));
 
 // An uploaded file (attachments.ts) and the Word document for the bylaws import (versions.ts)

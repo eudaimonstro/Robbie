@@ -5,16 +5,13 @@ import {
   agendaHandler,
   memberHandler,
   attendanceHandler,
-  rollCallHandler,
   settingsHandler,
   motionHandler,
   votingHandler,
   consentHandler,
   electionHandler,
   inquiryHandler,
-  ruleSuspensionHandler,
-  committeeHandler,
-  proxyHandler,
+  rulingHandler,
 } from './handlers/index.js';
 
 /**
@@ -82,8 +79,6 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'END_MEETING':
     case 'SET_MEETING_INFO':
     case 'SET_BOARD':
-    case 'ADVANCE_MEETING_STAGE':
-    case 'SET_MEETING_STAGE':
     case 'RESUME_MEETING':
       return meetingLifecycleHandler(state, action, log);
 
@@ -94,7 +89,6 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'SECOND_FROM_FLOOR':
     case 'DECLINE_SECOND':
     case 'WITHDRAW_MOTION':
-    case 'MODIFY_MOTION':
     case 'TAKE_UP_POSTPONED':
       return motionHandler(state, action, log);
 
@@ -168,37 +162,13 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
 
     // Attendance
     case 'MARK_PRESENT':
+    case 'MARK_ABSENT':
     case 'SET_HEADCOUNT':
       return attendanceHandler(state, action, log);
 
-    // Roll call
-    case 'START_ROLL_CALL':
-    case 'RESPOND_ROLL_CALL':
-    case 'COMPLETE_ROLL_CALL':
-    case 'MARK_ABSENT':
-      return rollCallHandler(state, action, log);
-
-    // Rule suspension
-    case 'SUSPEND_RULE_APPROVED':
-    case 'RESTORE_RULE':
+    // The chair's ruling on a point of order
     case 'CHAIR_RULING':
-      return ruleSuspensionHandler(state, action, log);
-
-    // Committee reports
-    case 'ADD_COMMITTEE_REPORT':
-    case 'PRESENT_COMMITTEE_REPORT':
-      return committeeHandler(state, action, log);
-
-    // Proxy voting
-    case 'SET_PROXY_SETTINGS':
-    case 'GRANT_PROXY':
-    case 'REVOKE_PROXY':
-    case 'CAST_PROXY_VOTE':
-    case 'REQUEST_PROXY':
-    case 'ACCEPT_PROXY':
-    case 'DECLINE_PROXY':
-    case 'CANCEL_PROXY_REQUEST':
-      return proxyHandler(state, action, log);
+      return rulingHandler(state, action, log);
 
     default: {
       // Exhaustive check - TypeScript will error here if any action type is unhandled

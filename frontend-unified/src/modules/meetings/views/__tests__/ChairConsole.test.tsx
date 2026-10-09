@@ -151,17 +151,6 @@ describe('ChairConsole', () => {
             timestamp: '10:00:00',
           },
         ],
-        suspendedRules: [
-          {
-            id: 9,
-            rule: 'debate-rules',
-            purpose: 'Allow a longer report',
-            specificAction: 'Treasurer speaks for 10 minutes',
-            scope: 'meeting-remainder',
-            suspendedAt: '10:00:00',
-            motionId: 5,
-          },
-        ],
       };
     });
 
@@ -169,11 +158,6 @@ describe('ChairConsole', () => {
       render(<ChairConsole />);
       expect(screen.queryByText(/Is a motion to recess in order\?/)).not.toBeNull();
       expect(screen.queryByPlaceholderText('Enter your answer...')).not.toBeNull();
-    });
-
-    it('shows nothing of a rule suspended in a state saved before suspensions went', () => {
-      render(<ChairConsole />);
-      expect(screen.queryByRole('button', { name: /restore/i })).toBeNull();
     });
   });
 

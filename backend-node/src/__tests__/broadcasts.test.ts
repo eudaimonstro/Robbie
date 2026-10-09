@@ -131,13 +131,13 @@ describe('slimUpdate', () => {
     const state = voting();
     const record = { ...state.completedMotions[0], id: 1 } as MeetingState['completedMotions'][0];
     const decided = { ...state, completedMotions: [record] };
-    const reconsidered = { ...decided, completedMotions: [{ ...record, reconsidered: true }] };
+    const corrected = { ...decided, completedMotions: [{ ...record, passed: !record.passed }] };
     const sent = { version: 3, state: decided };
 
-    const slim = slimUpdate({ state: reconsidered, stateVersion: 4 }, sent);
+    const slim = slimUpdate({ state: corrected, stateVersion: 4 }, sent);
 
     expect(slim.tails?.completedMotions).toBeUndefined();
-    expect(slim.state.completedMotions).toEqual(reconsidered.completedMotions);
+    expect(slim.state.completedMotions).toEqual(corrected.completedMotions);
   });
 });
 

@@ -6,6 +6,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Upload, File, X, Link, Loader2, FileText, Download, Trash2 } from 'lucide-react';
+import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '@robbie-bylawyer/shared/constants';
 import type { Attachment, BylawyerDocument } from './types';
 import {
   uploadAttachment,
@@ -27,23 +28,12 @@ interface AttachmentUploaderProps {
   onAttachmentRemoved: (attachmentId: string) => void;
 }
 
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'text/rtf',
-  'application/rtf',
-];
-
-const TYPE_LABELS: Record<string, string> = {
-  'application/pdf': 'PDF',
-  'application/msword': 'DOC',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
-  'text/plain': 'TXT',
-  'text/rtf': 'RTF',
-  'application/rtf': 'RTF',
-};
+const TYPES = Object.values(ATTACHMENT_TYPES);
+/** "PDF, DOC, DOCX, TXT, RTF" */
+const TYPE_NAMES = [...new Set(TYPES.map((t) => t.label))].join(', ');
+/** The file picker's filter: ".pdf,.doc,.docx,.txt,.rtf" */
+const ACCEPT = [...new Set(TYPES.map((t) => t.extension))].join(',');
+const MAX_MB = MAX_ATTACHMENT_BYTES / (1024 * 1024);
 
 export function AttachmentUploader({
   robbieCode,
@@ -74,13 +64,13 @@ export function AttachmentUploader({
     setError(null);
 
     for (const file of files) {
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        setError(`File type not allowed: ${file.name}. Allowed: PDF, DOC, DOCX, TXT, RTF`);
+      if (!Object.hasOwn(ATTACHMENT_TYPES, file.type)) {
+        setError(`File type not allowed: ${file.name}. Allowed: ${TYPE_NAMES}`);
         continue;
       }
 
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`File too large: ${file.name}. Maximum: 10MB`);
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        setError(`File too large: ${file.name}. Maximum: ${MAX_MB}MB`);
         continue;
       }
 
@@ -163,7 +153,7 @@ export function AttachmentUploader({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.doc,.docx,.txt,.rtf"
+          accept={ACCEPT}
           multiple
           aria-label={`Attach files to ${targetName}`}
           onChange={handleFileSelect}
@@ -247,7 +237,7 @@ function AttachmentItem({
         <p className="text-xs text-ink-muted">
           {isFile ? (
             <>
-              {TYPE_LABELS[attachment.mimeType || ''] || 'File'}
+              {(attachment.mimeType && ATTACHMENT_TYPES[attachment.mimeType]?.label) || 'File'}
               {attachment.sizeBytes && ` - ${formatSize(attachment.sizeBytes)}`}
             </>
           ) : (

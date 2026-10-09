@@ -62,20 +62,12 @@ describe('organizations', () => {
     expect((await call('get', '/api/organizations', { cookie: nobody.cookie })).body).toEqual([]);
   });
 
-  it('leaves out inactive organizations unless asked, and pages', async () => {
+  it('leaves out inactive organizations unless asked', async () => {
     await prisma.organization.update({ where: { id: f.orgA.id }, data: { isActive: false } });
     const cookie = f.users.viewer.cookie;
     expect((await call('get', '/api/organizations', { cookie })).body).toEqual([]);
     const all = await call('get', '/api/organizations?active_only=false', { cookie });
-    expect(all.body).toHaveLength(1);
-
-    const page = await call('get', '/api/organizations?active_only=false&page=1&limit=1', {
-      cookie,
-    });
-    expect(page.body).toEqual({
-      data: [expect.objectContaining({ id: f.orgA.id, role: 'viewer' })],
-      pagination: { page: 1, limit: 1, total: 1, totalPages: 1 },
-    });
+    expect(all.body).toEqual([expect.objectContaining({ id: f.orgA.id, role: 'viewer' })]);
   });
 
   it('makes the creator the owner', async () => {

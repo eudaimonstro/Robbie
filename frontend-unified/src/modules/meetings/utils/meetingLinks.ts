@@ -1,6 +1,3 @@
-/** Meeting codes are 4 to 8 letters or digits, stored in upper case (the server's rule) */
-export const MEETING_CODE = /^[A-Z0-9]{4,8}$/;
-
 /** A code as typed or linked, in the form the server stores */
 export function normalizeMeetingCode(code: string): string {
   return code.trim().toUpperCase();

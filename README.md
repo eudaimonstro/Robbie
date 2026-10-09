@@ -22,7 +22,6 @@ Real-time collaborative application for conducting meetings following Robert's R
 - Motion tracking with proper parliamentary precedence
 - Speaker queue management
 - Voting with quorum enforcement
-- Mobile app for participants
 
 ### Bylawyer - Bylaws Version Control
 
@@ -51,7 +50,6 @@ robbie-bylawyer/
 ├── shared/              # Shared TypeScript types, meeting reducer and utilities
 ├── backend-node/        # Unified Express + Socket.io + Prisma backend (port 3001)
 ├── frontend-unified/    # Unified React frontend for meetings and documents (port 5173)
-├── mobile/              # React Native + Expo mobile app (participant)
 └── features/            # Feature specifications
 ```
 
@@ -60,8 +58,7 @@ robbie-bylawyer/
 - **Runtime:** Node.js 24 (LTS)
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS (on the design tokens in `docs/design-brief.md`)
 - **Backend:** Express, Socket.io, Prisma, PostgreSQL
-- **Mobile:** React Native, Expo
-- **Testing:** Vitest, Jest (mobile), Playwright (end to end)
+- **Testing:** Vitest, Playwright (end to end)
 - **Package Manager:** npm with workspaces
 
 ## Development

@@ -16,7 +16,6 @@ function record(
     passed: true,
     voterChoices: {},
     timestamp: '',
-    reconsidered: false,
     ...overrides,
   };
 }
@@ -511,6 +510,7 @@ describe('the minutes', () => {
           method: 'voice',
           disposition: 'failed',
         }),
+        // A motion Robbie no longer has, in a record kept from before (RETIRED_MOTIONS)
         record({
           id: 2,
           type: 'suspendRules',

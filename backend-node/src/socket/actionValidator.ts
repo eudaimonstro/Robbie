@@ -6,13 +6,8 @@
 
 import type { MeetingState, MeetingAction, MotionDetails } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
+import { MAX_FLOOR_NAME_LENGTH, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import {
-  DISPLAYABLE_STAGES,
-  MAX_FLOOR_NAME_LENGTH,
-  MOTIONS,
-} from '@robbie-bylawyer/shared/constants';
-import {
-  BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
   attendanceSummary,
@@ -54,24 +49,12 @@ export const MAX_RULING_EXPLANATION_LENGTH = 2000;
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
-/** What doesn't apply in a board meeting: the room's count, and proxies (directors vote in person) */
+/** What doesn't apply in a board meeting: the room's count (directors take part in person) */
 const NOT_IN_A_BOARD_MEETING: ReadonlyMap<MeetingAction['type'], string> = new Map<
   MeetingAction['type'],
   string
 >([
   ['SET_HEADCOUNT', 'Nobody is counted in the room in a board meeting: mark the directors present'],
-  ...(
-    [
-      'SET_PROXY_SETTINGS',
-      'GRANT_PROXY',
-      'REVOKE_PROXY',
-      'CAST_PROXY_VOTE',
-      'REQUEST_PROXY',
-      'ACCEPT_PROXY',
-      'DECLINE_PROXY',
-      'CANCEL_PROXY_REQUEST',
-    ] as const
-  ).map((type) => [type, "Directors don't vote by proxy"] as [MeetingAction['type'], string]),
 ]);
 
 /** Whether the member with this id presides: the chair, or an admin */
@@ -363,7 +346,6 @@ const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingActi
   'UNANIMOUS_CONSENT_PASSED',
   'OBJECT_TO_CONSENT',
   'WITHDRAW_MOTION',
-  'MODIFY_MOTION',
   'RAISE_HAND',
   'RECOGNIZE_SPEAKER',
   'CALL_AGENDA_ITEM',
@@ -1011,74 +993,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'The meeting is not in recess', errorCode: 'INVALID_STATE' };
       }
       return { valid: true };
-
-    case 'MODIFY_MOTION': {
-      const motionToModify = state.pendingSecond || state.currentMotion;
-      if (!motionToModify) {
-        return { valid: false, error: 'No motion to modify', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      // A bylaw amendment's words come from the change it carries, which is what the room sees
-      // and what is applied: the mover withdraws it and moves it again instead
-      if (motionToModify.type === 'bylawAmendment') {
-        return {
-          valid: false,
-          error: BYLAW_WORDING_FIXED,
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      // A motion worded from its details (an amendment's change, a postponement, a referral, a
-      // recess, a request to withdraw) is changed only by making it again: its words are what
-      // adoption applies
-      if (
-        motionToModify.textAmendment ||
-        motionToModify.postponeTo ||
-        motionToModify.referTo ||
-        motionToModify.recessUntil ||
-        motionToModify.type === 'withdrawMotion'
-      ) {
-        return {
-          valid: false,
-          error: 'Its words come from what it does: withdraw it and move it again',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (motionToModify.moverId !== action.requesterId) {
-        return {
-          valid: false,
-          error: 'Only the motion maker can modify their motion',
-          errorCode: 'NOT_MOTION_MAKER',
-        };
-      }
-      if (state.currentMotion && state.currentMotion.moverHasSpoken) {
-        return {
-          valid: false,
-          error: 'Cannot modify motion after debate has begun - use amendment instead',
-          errorCode: 'DEBATE_BEGUN',
-        };
-      }
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot modify motion while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      if (!action.newText || action.newText.trim().length === 0) {
-        return {
-          valid: false,
-          error: 'New motion text cannot be empty',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (action.newText.length > 500) {
-        return {
-          valid: false,
-          error: 'Motion text exceeds 500 character limit',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      return { valid: true };
-    }
 
     case 'RAISE_HAND': {
       // In session with nothing pending (an open forum, questions on a report), or while a
@@ -1815,33 +1729,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
-    case 'PRESENT_COMMITTEE_REPORT': {
-      const report = state.committeeReports.find((r) => r.id === action.reportId);
-      if (!report) {
-        return { valid: false, error: 'Report not found', errorCode: 'REPORT_NOT_FOUND' };
-      }
-      if (report.presented) {
-        return {
-          valid: false,
-          error: 'Report is already presented',
-          errorCode: 'REPORT_ALREADY_PRESENTED',
-        };
-      }
-      return { valid: true };
-    }
-
-    case 'RESTORE_RULE': {
-      const suspension = state.suspendedRules.find((s) => s.id === action.suspensionId);
-      if (!suspension) {
-        return {
-          valid: false,
-          error: 'Rule suspension not found',
-          errorCode: 'SUSPENSION_NOT_FOUND',
-        };
-      }
-      return { valid: true };
-    }
-
     case 'CHAIR_RULING':
       // The chair rules on a point of order, which takes no vote. A motion is decided by a vote
       // or by unanimous consent, never by a ruling, which would take it off the floor with no
@@ -1880,361 +1767,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // The reducer handles context-specific validation
       return { valid: true };
 
-    // Proxy voting actions - block modifications during voting to prevent race conditions
-    case 'SET_PROXY_SETTINGS':
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot change proxy settings while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      return { valid: true };
-
-    case 'GRANT_PROXY': {
-      if (!state.allowProxyVoting) {
-        return {
-          valid: false,
-          error: 'Proxy voting is not enabled',
-          errorCode: 'PROXY_VOTING_DISABLED',
-        };
-      }
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot grant proxy while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      if (action.grantedBy === action.grantedTo) {
-        return {
-          valid: false,
-          error: 'Cannot grant proxy to yourself',
-          errorCode: 'CANNOT_PROXY_SELF',
-        };
-      }
-      const grantingMember = state.members.find((m) => m.id === action.grantedBy);
-      if (!grantingMember) {
-        return { valid: false, error: 'Granting member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      const receivingMember = state.members.find((m) => m.id === action.grantedTo);
-      if (!receivingMember) {
-        return { valid: false, error: 'Receiving member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      if (grantingMember.role === 'guest' || receivingMember.role === 'guest') {
-        return {
-          valid: false,
-          error: 'Guests cannot hold or grant proxies',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (!receivingMember.present) {
-        return {
-          valid: false,
-          error: 'Proxy receiver must be present',
-          errorCode: 'RECEIVER_NOT_PRESENT',
-        };
-      }
-      // Check max proxies limit (0 = unlimited)
-      if (state.maxProxiesPerMember > 0) {
-        const currentProxyCount = state.proxies.filter(
-          (p) => p.grantedTo === action.grantedTo,
-        ).length;
-        if (currentProxyCount >= state.maxProxiesPerMember) {
-          return {
-            valid: false,
-            error: `Member already holds maximum ${state.maxProxiesPerMember} proxies`,
-            errorCode: 'MAX_PROXIES_REACHED',
-          };
-        }
-      }
-      // Check if granting member already has an active proxy
-      const existingProxy = state.proxies.find((p) => p.grantedBy === action.grantedBy);
-      if (existingProxy) {
-        return {
-          valid: false,
-          error: 'Member already has an active proxy',
-          errorCode: 'PROXY_ALREADY_GRANTED',
-        };
-      }
-      return { valid: true };
-    }
-
-    case 'REVOKE_PROXY': {
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot revoke proxy while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      const proxy = state.proxies.find((p) => p.id === action.proxyId);
-      if (!proxy) {
-        return { valid: false, error: 'Proxy not found', errorCode: 'PROXY_NOT_FOUND' };
-      }
-      return { valid: true };
-    }
-
-    case 'CAST_PROXY_VOTE': {
-      if (!state.allowProxyVoting) {
-        return {
-          valid: false,
-          error: 'Proxy voting is not enabled',
-          errorCode: 'PROXY_VOTING_DISABLED',
-        };
-      }
-      if (!state.votingOpen) {
-        return { valid: false, error: 'Voting is not open', errorCode: 'VOTING_NOT_OPEN' };
-      }
-      if (state.votingMethod === 'voice' && !state.divisionCalled) {
-        return {
-          valid: false,
-          error: 'This is a voice vote: the chair counts it in the room',
-          errorCode: 'VOTING_METHOD',
-        };
-      }
-      // Verify the caster has proxy authority for this member
-      const proxy = state.proxies.find(
-        (p) => p.grantedBy === action.forMemberId && p.grantedTo === action.castById,
-      );
-      if (!proxy) {
-        return {
-          valid: false,
-          error: 'No proxy authority for this member',
-          errorCode: 'NO_PROXY_AUTHORITY',
-        };
-      }
-      // A proxy may cast or change the member's vote, but not replace one cast in person
-      const votedInPerson =
-        state.voters.includes(action.forMemberId) &&
-        !state.proxyVotes.some((pv) => pv.memberId === action.forMemberId);
-      if (votedInPerson) {
-        return {
-          valid: false,
-          error: 'This member has already voted in person',
-          errorCode: 'ALREADY_VOTED',
-        };
-      }
-      return { valid: true };
-    }
-
-    // Member-initiated proxy request actions - also blocked during voting
-    case 'REQUEST_PROXY': {
-      if (!state.allowProxyVoting) {
-        return {
-          valid: false,
-          error: 'Proxy voting is not enabled',
-          errorCode: 'PROXY_VOTING_DISABLED',
-        };
-      }
-      if (!state.allowMemberProxyGrant) {
-        return {
-          valid: false,
-          error: 'Member proxy requests are not enabled',
-          errorCode: 'MEMBER_PROXY_DISABLED',
-        };
-      }
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot request proxy while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      if (action.requestedBy === action.requestedFor) {
-        return {
-          valid: false,
-          error: 'Cannot request yourself as proxy holder',
-          errorCode: 'CANNOT_PROXY_SELF',
-        };
-      }
-      const requestingMember = state.members.find((m) => m.id === action.requestedBy);
-      if (!requestingMember) {
-        return {
-          valid: false,
-          error: 'Requesting member not found',
-          errorCode: 'MEMBER_NOT_FOUND',
-        };
-      }
-      const designatedHolder = state.members.find((m) => m.id === action.requestedFor);
-      if (!designatedHolder) {
-        return {
-          valid: false,
-          error: 'Designated proxy holder not found',
-          errorCode: 'MEMBER_NOT_FOUND',
-        };
-      }
-      if (designatedHolder.role === 'guest') {
-        return {
-          valid: false,
-          error: 'Guests cannot hold proxies',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      // Check for existing pending request
-      const existingRequest = state.pendingProxyRequests.find(
-        (r) => r.requestedBy === action.requestedBy && r.status === 'pending',
-      );
-      if (existingRequest) {
-        return {
-          valid: false,
-          error: 'You already have a pending proxy request',
-          errorCode: 'REQUEST_PENDING',
-        };
-      }
-      // Check for existing active proxy
-      const existingProxy = state.proxies.find((p) => p.grantedBy === action.requestedBy);
-      if (existingProxy) {
-        return {
-          valid: false,
-          error: 'You already have an active proxy',
-          errorCode: 'PROXY_ALREADY_GRANTED',
-        };
-      }
-      return { valid: true };
-    }
-
-    case 'ACCEPT_PROXY': {
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot accept proxy while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      const request = state.pendingProxyRequests.find((r) => r.id === action.requestId);
-      if (!request) {
-        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
-      }
-      if (request.status !== 'pending') {
-        return {
-          valid: false,
-          error: 'Request is no longer pending',
-          errorCode: 'REQUEST_NOT_PENDING',
-        };
-      }
-      if (action.acceptedBy !== undefined && action.acceptedBy !== request.requestedFor) {
-        return {
-          valid: false,
-          error: 'Only the member asked can accept this request',
-          errorCode: 'PERMISSION_DENIED',
-        };
-      }
-      // Check max proxies limit
-      if (state.maxProxiesPerMember > 0) {
-        const currentCount = state.proxies.filter(
-          (p) => p.grantedTo === request.requestedFor,
-        ).length;
-        if (currentCount >= state.maxProxiesPerMember) {
-          return {
-            valid: false,
-            error: `You already hold maximum ${state.maxProxiesPerMember} proxies`,
-            errorCode: 'MAX_PROXIES_REACHED',
-          };
-        }
-      }
-      return { valid: true };
-    }
-
-    case 'DECLINE_PROXY': {
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot decline proxy while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      const request = state.pendingProxyRequests.find((r) => r.id === action.requestId);
-      if (!request) {
-        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
-      }
-      if (request.status !== 'pending') {
-        return {
-          valid: false,
-          error: 'Request is no longer pending',
-          errorCode: 'REQUEST_NOT_PENDING',
-        };
-      }
-      if (action.declinedBy !== undefined && action.declinedBy !== request.requestedFor) {
-        return {
-          valid: false,
-          error: 'Only the member asked can decline this request',
-          errorCode: 'PERMISSION_DENIED',
-        };
-      }
-      return { valid: true };
-    }
-
-    case 'CANCEL_PROXY_REQUEST': {
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot cancel proxy request while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      const request = state.pendingProxyRequests.find((r) => r.id === action.requestId);
-      if (!request) {
-        return { valid: false, error: 'Proxy request not found', errorCode: 'REQUEST_NOT_FOUND' };
-      }
-      if (request.status !== 'pending') {
-        return {
-          valid: false,
-          error: 'Request is no longer pending',
-          errorCode: 'REQUEST_NOT_PENDING',
-        };
-      }
-      // The member who asked cancels, or the chair (for a member who has left, say)
-      if (
-        action.canceledBy !== undefined &&
-        action.canceledBy !== request.requestedBy &&
-        !isPresiding(state, action.canceledBy)
-      ) {
-        return {
-          valid: false,
-          error: 'Only the member who asked or the chair can cancel this request',
-          errorCode: 'PERMISSION_DENIED',
-        };
-      }
-      return { valid: true };
-    }
-
-    // Roll call actions
-    case 'START_ROLL_CALL':
-      if (state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is already in progress',
-          errorCode: 'INVALID_STATE',
-        };
-      }
-      return { valid: true };
-
-    case 'RESPOND_ROLL_CALL': {
-      if (!state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is not in progress',
-          errorCode: 'ROLL_CALL_NOT_IN_PROGRESS',
-        };
-      }
-      const member = state.members.find((m) => m.id === action.memberId);
-      if (!member) {
-        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      return { valid: true };
-    }
-
-    case 'COMPLETE_ROLL_CALL':
-      if (!state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is not in progress',
-          errorCode: 'ROLL_CALL_NOT_IN_PROGRESS',
-        };
-      }
-      return { valid: true };
-
     case 'MARK_ABSENT': {
       const memberToMark = state.members.find((m) => m.id === action.memberId);
       if (!memberToMark) {
@@ -2247,18 +1779,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'SET_AUTO_YIELD':
       // Always valid - chair setting
       return { valid: true };
-
-    case 'SET_MEETING_STAGE': {
-      const { stage } = action;
-      if (!state.meetingActive) {
-        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
-      }
-      // Starting and adjourning the meeting set the other stages
-      if (!DISPLAYABLE_STAGES.some((s) => s.stage === stage)) {
-        return { valid: false, error: 'Unknown meeting stage', errorCode: 'INVALID_ACTION' };
-      }
-      return { valid: true };
-    }
 
     case 'SET_QUORUM':
       if (!Number.isInteger(action.quorum) || action.quorum < 1) {
@@ -2382,18 +1902,8 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'REMOVE_AGENDA_ITEM':
     case 'SET_SPEAKER_TIME_LIMIT':
     case 'SET_VOTE_TIME_LIMIT':
-    case 'ADVANCE_MEETING_STAGE':
     case 'SET_PREVIOUS_MINUTES':
-    case 'ADD_COMMITTEE_REPORT':
       return { valid: true };
-
-    case 'SUSPEND_RULE_APPROVED':
-      return {
-        valid: false,
-        error:
-          "Suspend the rules isn't offered in Robbie: the meeting follows its rules as they are",
-        errorCode: 'MOTION_NOT_OFFERED',
-      };
 
     default: {
       // Every action type needs a case above; this fails to compile if one is missing

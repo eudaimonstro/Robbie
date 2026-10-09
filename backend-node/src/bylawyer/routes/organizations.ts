@@ -8,7 +8,6 @@ import {
   updateOrganizationBody,
   listOrganizationsQuery,
 } from '../../schemas/organizations.js';
-import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { OrgError } from '../../orgs/orgError.js';
@@ -51,18 +50,7 @@ organizationsRouter.get(
       // become memberships now, as at sign-in
       await acceptPendingInvitesFor(req.user!.id);
 
-      if (req.query.page) {
-        const pagination = getPagination(req);
-        const { organizations, total } = await userOrganizations(req.user!.id, {
-          activeOnly,
-          skip: pagination.skip,
-          take: pagination.limit,
-        });
-        return res.json(paginatedResponse(organizations, total, pagination));
-      }
-
-      const { organizations } = await userOrganizations(req.user!.id, { activeOnly });
-      res.json(organizations);
+      res.json(await userOrganizations(req.user!.id, { activeOnly }));
     } catch (error) {
       logger.error({ err: error }, 'Failed to list organizations');
       res.status(500).json({ error: 'Failed to list organizations' });

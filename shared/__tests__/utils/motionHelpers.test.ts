@@ -1,7 +1,6 @@
 import { MOTIONS } from '../../constants/index.js';
 import { describe, it, expect } from 'vitest';
 import {
-  wordingFixedBy,
   getValidMotions,
   normalizeMotionText,
   isSimilarMotionSubject,
@@ -36,15 +35,12 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   quorum: 3,
   meetingLog: [],
   unanimousConsentPending: false,
-  suspendedRules: [],
-  tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],
   lastChairRuling: null,
   meetingStage: 'new-business',
   minutesApproved: false,
   minutesFromPreviousMeeting: '',
-  committeeReports: [],
   nominationsOpen: false,
   currentNominationPosition: null,
   nominations: [],
@@ -77,14 +73,10 @@ const createMockMotion = (overrides: Partial<Motion> = {}): Motion => ({
 
 describe('motionHelpers', () => {
   describe('getValidMotions', () => {
-    it('offers a point of order, and never a motion Robbie hides, when nothing is pending', () => {
+    it('offers a point of order, and never a request to withdraw, when nothing is pending', () => {
       const motionKeys = getValidMotions(createMockState()).map((m) => m.key);
       expect(motionKeys).toContain('pointOrder');
-      // Questions to the chair are asked of the chair, not moved
-      expect(motionKeys).not.toContain('pointInfo');
-      expect(motionKeys).not.toContain('questionPrivilege');
-      expect(motionKeys).not.toContain('suspendRules');
-      expect(motionKeys).not.toContain('fixTimeAdjourn');
+      expect(motionKeys).not.toContain('withdrawMotion');
     });
 
     it('should return privileged motions when their precedence is higher', () => {
@@ -111,11 +103,7 @@ describe('motionHelpers', () => {
         createMockState({ currentMotion: bylaw, motionStack: [bylaw] }),
       ).map((m) => m.key);
       expect(keys).not.toContain('amend');
-      expect(keys).not.toContain('divideQuestion');
       expect(keys).toContain('adjourn');
-      expect(
-        wordingFixedBy(createMockState({ currentMotion: bylaw, motionStack: [bylaw] }), 'amend'),
-      ).toBe(true);
       // A main motion can still be amended
       const main = createMockMotion({ category: 'main', precedence: 1 });
       expect(
@@ -144,20 +132,6 @@ describe('motionHelpers', () => {
       const motionKeys = getValidMotions(state).map((m) => m.key);
       expect(motionKeys).not.toContain('mainMotion');
       expect(motionKeys).not.toContain('bylawAmendment');
-    });
-
-    it('never offers take from the table, which Robbie hides, even with a motion tabled', () => {
-      const state = createMockState({ tabledMotions: [createMockMotion()] });
-      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
-    });
-
-    it('should not offer take from the table while a motion is pending', () => {
-      const state = createMockState({
-        tabledMotions: [createMockMotion()],
-        currentMotion: createMockMotion({ precedence: 1 }),
-        motionStack: [createMockMotion({ precedence: 1 })],
-      });
-      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
     });
 
     it('should not offer a bylaw amendment while another motion is pending', () => {
@@ -286,37 +260,12 @@ describe('motionHelpers', () => {
       expect(getValidMotions(state).map((m) => m.key)).not.toContain('amendAmendment');
     });
 
-    it('never offers reconsider, which Robbie hides', () => {
-      const state = createMockState({
-        completedMotions: [
-          {
-            id: 1,
-            type: 'mainMotion',
-            text: 'Test',
-            passed: true,
-            voterChoices: { 1: 'yea', 2: 'nay' },
-            reconsidered: false,
-          },
-        ],
-      });
-      expect(getValidMotions(state, 1).map((m) => m.key)).not.toContain('reconsider');
-      expect(getValidMotions(state, 2).map((m) => m.key)).not.toContain('reconsider');
-    });
-
     it('should keep offering main motions after one is defeated', () => {
       // Only a substantially similar motion is barred; the validator checks the subject
       const state = createMockState({
         defeatedMotions: [{ type: 'mainMotion', text: 'Test', timestamp: '10:00:00' }],
       });
       expect(getValidMotions(state).map((m) => m.key)).toContain('mainMotion');
-    });
-
-    it('should not offer a defeated take from the table again', () => {
-      const state = createMockState({
-        tabledMotions: [createMockMotion()],
-        defeatedMotions: [{ type: 'takeFromTable', text: 'Test', timestamp: '10:00:00' }],
-      });
-      expect(getValidMotions(state).map((m) => m.key)).not.toContain('takeFromTable');
     });
   });
 

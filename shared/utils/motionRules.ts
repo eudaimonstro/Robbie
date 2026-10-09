@@ -5,8 +5,9 @@ import { describeTextAmendment, insertsWords } from './textAmendment.js';
 
 /**
  * The motions Robbie offers, in the order a phone lists them: the ones an HOA meeting uses, each
- * correct end to end (docs/superpowers/specs/2026-10-08-meeting-rules-design.md). The rest of
- * MOTIONS is kept for the records and saved meetings that name them, and refused.
+ * correct end to end (docs/superpowers/specs/2026-10-08-meeting-rules-design.md). The one other
+ * motion in MOTIONS, a request to withdraw (withdrawMotion), is made by WITHDRAW_MOTION, never
+ * moved.
  */
 export const OFFERED_MOTIONS: readonly string[] = [
   'mainMotion',
@@ -25,21 +26,9 @@ export const OFFERED_MOTIONS: readonly string[] = [
   'appeal',
 ];
 
-/** What to do instead of a motion Robbie doesn't offer */
-const INSTEAD: Record<string, string> = {
-  layOnTable: 'postpone the question to later in the meeting instead',
-  takeFromTable: 'the chair takes up a postponed question instead',
-  reconsider: 'a decision stands until a later meeting changes it',
-  suspendRules: 'the meeting follows its rules as they are',
-  divideQuestion: 'amend the motion, or move its parts as separate motions',
-  objectionConsideration: 'vote the motion down, or postpone it indefinitely',
-  callOrderDay: 'raise a point of order, or ask the chair',
-  fixTimeAdjourn: 'adjourn, and schedule the next meeting',
-  limitDebate: 'the chair sets the speaking time, and close debate ends it',
-  pointInfo: 'ask the chair your question',
-  questionPrivilege: 'ask the chair: a question of privilege is a request the chair answers',
-  withdrawMotion: 'the mover asks to withdraw their motion',
-};
+/** Why a bylaw amendment's words can't be changed in the meeting */
+const BYLAW_WORDING_FIXED =
+  "A bylaw amendment's words come from its text: withdraw it and move it again";
 
 /** Why a motion can't be made now, and what kind of reason it is */
 export interface OutOfOrder {
@@ -119,10 +108,10 @@ const out = (reason: string, kind: OutOfOrder['kind']): OutOfOrder => ({ reason,
 export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder | null {
   const definition = MOTIONS[type];
   if (!definition) return out(`Unknown motion: ${type}`, 'unknown');
+  // The one motion not offered: a request to withdraw, which WITHDRAW_MOTION makes
   if (!isOffered(type)) {
-    const instead = INSTEAD[type];
     return out(
-      `${named(type)} isn't offered in Robbie${instead ? `: ${instead}` : ''}`,
+      `${named(type)} isn't offered in Robbie: the mover asks to withdraw their motion`,
       'not-offered',
     );
   }
@@ -209,10 +198,7 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
         return out('An amendment of the amendment is pending: decide it first', 'precedence');
       }
       if (current.type === 'bylawAmendment') {
-        return out(
-          "A bylaw amendment's words come from its text: withdraw it and move it again",
-          'precedence',
-        );
+        return out(BYLAW_WORDING_FIXED, 'precedence');
       }
       if (current.type === 'adoptAgenda') {
         return out('Use Amend the agenda to change the agenda', 'precedence');
@@ -228,10 +214,7 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
         return out('Amend the amendment applies to a pending amendment', 'precedence');
       }
       if (state.motionStack.at(-2)?.type === 'bylawAmendment') {
-        return out(
-          "A bylaw amendment's words come from its text: withdraw it and move it again",
-          'precedence',
-        );
+        return out(BYLAW_WORDING_FIXED, 'precedence');
       }
       return current.textAmendment && !insertsWords(current.textAmendment)
         ? out('The amendment inserts no words to amend', 'precedence')

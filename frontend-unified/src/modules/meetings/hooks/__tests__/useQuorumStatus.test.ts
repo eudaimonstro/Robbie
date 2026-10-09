@@ -23,7 +23,6 @@ describe('useQuorumStatus', () => {
       effectiveCount: 4,
       totalMembers: 3,
       hasQuorum: true,
-      proxyCount: 0,
     });
   });
 

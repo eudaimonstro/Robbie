@@ -15,7 +15,8 @@ import { MeetingOrganizationProvider, useMeetingOrganization } from './context/O
 import { LiveMeetingsPage } from './views/LiveMeetingsPage';
 import { MeetingApp } from './views/MeetingApp';
 import { JoinMeetingScreen } from './views/JoinMeetingScreen';
-import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
+import { MEETING_CODE_PATTERN } from '@robbie-bylawyer/shared/constants';
+import { normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
 import { atLeast } from '../../utils/roles';
 import { ATTENDANCE_SETTINGS } from '../../utils/quorum';
@@ -163,7 +164,7 @@ function ReconnectingBanner({ onReconnect }: { onReconnect: () => void }) {
 function LiveMeetingRoute() {
   const { code = '' } = useParams();
   const meetingCode = normalizeMeetingCode(code);
-  if (!MEETING_CODE.test(meetingCode)) return <Navigate to="/meetings" replace />;
+  if (!MEETING_CODE_PATTERN.test(meetingCode)) return <Navigate to="/meetings" replace />;
   // A new code is a new meeting: a fresh provider, so nothing of the last one shows
   return (
     <SocketProvider key={meetingCode} meetingCode={meetingCode}>
@@ -183,7 +184,3 @@ export default function MeetingsModule() {
     </MeetingOrganizationProvider>
   );
 }
-
-// Re-export for use in other parts of the app if needed
-export { SocketProvider, useSocket } from './context/SocketContext';
-export { MeetingOrganizationProvider, useMeetingOrganization } from './context/OrganizationBridge';

@@ -20,8 +20,7 @@ export function quorumNow(state: MeetingState): boolean {
 /**
  * The record of a motion disposed of without a vote of its own: adopted by unanimous consent,
  * withdrawn, dead for want of a second, postponed, referred or ruled out of order. It has no
- * votes, so nobody is on its prevailing side; only an adopted one keeps its motion's reconsider
- * flag. A motion amended keeps the words it was moved with too.
+ * votes. A motion amended keeps the words it was moved with too.
  */
 export function unvotedRecord(
   state: MeetingState,
@@ -43,8 +42,6 @@ export function unvotedRecord(
     passed: adopted,
     voterChoices: {},
     timestamp,
-    reconsidered: false,
-    reconsiderable: adopted && motion.reconsidered,
     mover: motion.mover,
     moverId: motion.moverId,
     ...(motion.secondedBy ? { seconder: motion.secondedBy } : {}),

@@ -15,7 +15,7 @@ import type {
 } from '../types/index.js';
 import { PUT_BY_CHAIR } from '../constants/floor.js';
 import { logElectionSetAside } from '../constants/logMessages.js';
-import { MOTIONS } from '../constants/motions.js';
+import { MOTIONS, RETIRED_MOTIONS } from '../constants/motions.js';
 import { plainMotionName } from '../constants/motionWords.js';
 import {
   NO_VOTES,
@@ -208,7 +208,8 @@ const counted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
  * became of the chair's decision instead.
  */
 function requiredText(motion: CompletedMotion): string {
-  if (motion.type === 'appeal' || !MOTIONS[motion.type]) return '';
+  if (motion.type === 'appeal' || !(MOTIONS[motion.type] || RETIRED_MOTIONS[motion.type]))
+    return '';
   const threshold = motionThreshold(motion);
   const needed = votesNeeded(threshold);
   if (needed !== null) {
@@ -681,11 +682,4 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
     lines.push('');
   }
   return `${lines.join('\n').trimEnd()}\n`;
-}
-
-/**
- * Format meeting minutes as JSON (for export/API)
- */
-export function formatMinutesAsJSON(minutes: MeetingMinutes): string {
-  return JSON.stringify(minutes, null, 2);
 }

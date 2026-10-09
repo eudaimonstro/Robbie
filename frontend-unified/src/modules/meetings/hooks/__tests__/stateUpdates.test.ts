@@ -11,7 +11,6 @@ const decided = (id: number): CompletedMotion => ({
   passed: true,
   voterChoices: {},
   timestamp: '7:00 PM',
-  reconsidered: false,
   method: 'standard',
 });
 

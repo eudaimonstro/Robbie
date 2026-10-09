@@ -9,9 +9,9 @@ import 'dotenv/config';
 import { parseArgs } from 'node:util';
 import { prisma } from '../db/prisma.js';
 import { addMemberBySlug } from '../orgs/membershipService.js';
-import { ROLES, isOrgRole } from '../orgs/roles.js';
+import { ORG_ROLES, isOrgRole } from '../orgs/roles.js';
 
-const usage = `Usage: npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <${ROLES.join('|')}>`;
+const usage = `Usage: npm run org:add-member -w backend-node -- --org <slug> --email <email> --role <${ORG_ROLES.join('|')}>`;
 
 const { values } = parseArgs({
   options: {

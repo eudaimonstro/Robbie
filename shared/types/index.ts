@@ -74,19 +74,14 @@ export interface Motion {
   needsSecond: boolean;
   debatable: boolean;
   amendable: boolean;
-  reconsidered: boolean;
   vote: 'majority' | '2/3' | 'none';
   phrase: string;
   help: string;
   whenToUse: string;
   isAgendaAdoption?: boolean;
   agendaAmendment?: AgendaAmendment | null;
-  ruleSuspension?: Partial<RuleSuspension> | null;
   bylawAmendment?: BylawAmendment | null; // For bylawAmendment motion type
   moverHasSpoken?: boolean;
-  tabledMotionId?: number;
-  reconsideredMotionId?: number;
-  dividedParts?: string[]; // For divideQuestion motion - the parts to split into
   /**
    * Made by someone in the room and recorded by the chair (MAKE_FLOOR_MOTION): mover is the
    * member named, with their id, or a typed name with moverId 0
@@ -136,11 +131,7 @@ export type Postponement = { kind: 'next-meeting' } | { kind: 'later'; when: str
 /** The details some motions need, with the motion that names them */
 export interface MotionDetails {
   agendaAmendment?: AgendaAmendment;
-  ruleSuspension?: Partial<RuleSuspension>;
   bylawAmendment?: BylawAmendment;
-  tabledMotionId?: number;
-  reconsideredMotionId?: number;
-  dividedParts?: string[];
   textAmendment?: TextAmendment;
   postponeTo?: Postponement;
   referTo?: string;
@@ -155,6 +146,24 @@ export interface AgendaAmendment {
   fromIndex?: number;
   toIndex?: number;
 }
+
+/** A section of a version with its subsections in position order, as the section tree routes answer it */
+export interface SectionNode {
+  id: string;
+  versionId: string;
+  parentId: string | null;
+  position: number;
+  numberLabel: string | null;
+  title: string | null;
+  content: string | null;
+  annotation: string | null;
+  children: SectionNode[];
+}
+
+/** A section as a share link shows it: without annotations, the organization's own commentary */
+export type SharedSectionNode = Omit<SectionNode, 'annotation' | 'children'> & {
+  children: SharedSectionNode[];
+};
 
 // Bylaw amendment types for Bylawyer integration
 export type BylawChangeType = 'add' | 'modify' | 'delete' | 'renumber';
@@ -199,15 +208,6 @@ export interface BylawAmendment {
   voteRequired?: VoteThreshold;
 }
 
-export interface CommitteeReport {
-  id: number;
-  committee: string;
-  presenter: string;
-  summary: string;
-  recommendations?: string;
-  presented: boolean;
-}
-
 export interface MeetingLogEntry {
   readonly time: string;
   readonly message: string;
@@ -236,29 +236,6 @@ export type MeetingStage =
   | 'announcements'
   | 'adjourned';
 
-export type SuspendableRule =
-  | 'pro-con-alternation'
-  | 'second-requirement'
-  | 'motion-precedence'
-  | 'amendment-depth'
-  | 'motion-renewal'
-  | 'chair-voting-restriction'
-  | 'motion-maker-priority'
-  | 'mover-cannot-second'
-  | 'debate-rules'
-  | 'order-of-business';
-
-export interface RuleSuspension {
-  id: number;
-  rule: SuspendableRule;
-  purpose: string;
-  specificAction: string;
-  scope: 'single-action' | 'meeting-remainder';
-  suspendedAt: string;
-  actionCompleted?: boolean;
-  motionId: number;
-}
-
 export interface CompletedMotion {
   readonly id: number;
   readonly type: string;
@@ -268,19 +245,15 @@ export interface CompletedMotion {
   /** Each device vote by member; empty for a secret ballot */
   readonly voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
   readonly timestamp: string;
-  /** Whether a motion to reconsider has brought this vote back */
-  readonly reconsidered: boolean;
-  /** A bylaw amendment's change: the text decided, for the sync, the minutes and reconsideration */
+  /** A bylaw amendment's change: the text decided, for the sync and the minutes */
   readonly bylawAmendment?: BylawAmendment;
-  readonly mover?: string; // Restored with the motion if it is reconsidered
+  readonly mover?: string;
   readonly moverId?: number;
-  // The two parts of the vote, and how it was taken. Records made before these existed, which
-  // were only of motions that can be reconsidered, have none of them.
+  // The two parts of the vote, and how it was taken. Records made before these existed have
+  // none of them.
   readonly deviceVotes?: Votes;
   readonly floorVotes?: Votes;
   readonly method?: VotingMethod;
-  /** Whether the motion can be reconsidered (its definition's reconsidered flag) */
-  readonly reconsiderable?: boolean;
   // What the minutes need. Records made before these existed have none of them.
   /** Who seconded it */
   readonly seconder?: string;
@@ -498,42 +471,6 @@ export interface Inquiry {
   answeredAt?: string;
 }
 
-export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded';
-
-// Proxy voting types
-export interface ProxyAuthorization {
-  readonly id: number;
-  readonly grantedBy: number; // Absent member's ID
-  readonly grantedTo: number; // Proxy holder's ID
-  readonly grantedByName: string; // For display
-  readonly grantedToName: string; // For display
-  readonly grantedAt: string; // Timestamp
-  readonly scope: 'all' | 'single-vote'; // For all votes or just next one
-}
-
-export interface ProxyVoteRecord {
-  readonly memberId: number; // The member whose vote this represents
-  readonly castBy: number; // The proxy holder who cast it
-  /** The choice; absent in what clients receive while a secret ballot is open */
-  readonly vote?: 'yea' | 'nay' | 'abstain';
-}
-
-// Member-initiated proxy request types
-export type ProxyRequestStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
-
-export interface PendingProxyRequest {
-  readonly id: number;
-  readonly requestedBy: number; // Member requesting the proxy
-  readonly requestedByName: string;
-  readonly requestedFor: number; // Designated proxy holder
-  readonly requestedForName: string;
-  readonly requestedAt: string;
-  readonly scope: 'all' | 'single-vote';
-  readonly status: ProxyRequestStatus;
-  readonly respondedAt?: string;
-  readonly declineReason?: string;
-}
-
 /** A voice vote declared by the chair, open to a division (MeetingState.voiceVote) */
 export interface VoiceVoteResult {
   motionId: number;
@@ -560,20 +497,6 @@ export interface PostponedQuestion {
 export interface AgendaAdoptionRecord {
   readonly how: 'consent' | 'motion';
   readonly decidedAt?: string;
-}
-
-export interface RollCallRecord {
-  memberId: number;
-  memberName: string;
-  status: AttendanceStatus;
-  respondedAt?: string;
-}
-
-export interface RollCallState {
-  inProgress: boolean;
-  startedAt?: string;
-  completedAt?: string;
-  responses: RollCallRecord[];
 }
 
 // State type
@@ -631,7 +554,6 @@ export interface MeetingState {
   agendaAdopted: boolean;
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
-  tabledMotions: Motion[];
   defeatedMotions: Array<{
     type: string;
     text: string;
@@ -640,7 +562,6 @@ export interface MeetingState {
     bylawAmendment?: BylawAmendment;
   }>;
   completedMotions: CompletedMotion[];
-  committeeReports: CommitteeReport[];
   /** The previous meeting's published minutes (Markdown), put before this meeting */
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
@@ -658,7 +579,6 @@ export interface MeetingState {
   electionsSetAside: ElectionSetAsideRecord[];
   /** Business left unfinished when the meeting last adjourned */
   unfinishedAtAdjournment: UnfinishedBusinessRecord[];
-  suspendedRules: RuleSuspension[];
   /** The latest ruling, while an appeal from it is in order (at once, before anything else) */
   lastChairRuling: ChairRulingNote | null;
   /** The meeting is in recess: since when (the chair's clock), and until when if set */
@@ -696,18 +616,7 @@ export interface MeetingState {
   currentElection: Election | null;
   electedOfficers: Officer[];
   inquiries: Inquiry[];
-  dividedQuestionParts: Array<{ id: number; text: string; originalMotionId: number }>; // Pending parts from a divided motion
-  rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
-  // Proxy voting
-  allowProxyVoting: boolean; // Whether proxy voting is enabled
-  maxProxiesPerMember: number; // Max proxies one member can hold (0 = unlimited)
-  proxiesCountForQuorum: boolean; // Whether proxy holders count absent members toward quorum
-  proxies: ProxyAuthorization[]; // Active proxy authorizations
-  proxyVotes: ProxyVoteRecord[]; // Proxy votes cast in current vote (reset when voting opens)
-  // Member-controlled proxy authorization
-  allowMemberProxyGrant: boolean; // Whether members can request proxies themselves
-  pendingProxyRequests: PendingProxyRequest[]; // Requests awaiting acceptance
 }
 
 // Action types
@@ -810,17 +719,11 @@ export type MeetingAction =
       timestamp: string;
     }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
-  | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
-  | { type: 'SET_MEETING_STAGE'; stage: MeetingStage; timestamp: string }
   | { type: 'SET_QUORUM'; quorum: number; timestamp: string }
   // Approve the previous minutes as read, or with the corrections the chair enters
   | { type: 'APPROVE_MINUTES'; corrections?: string; at?: string; timestamp: string }
   // Server-only: the previous meeting's published minutes, and which they are
   | { type: 'SET_PREVIOUS_MINUTES'; minutes: string; minutesId?: string }
-  | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
-  | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
-  | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string }
-  | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string }
   | {
       type: 'CHAIR_RULING';
       ruling: 'sustain' | 'overrule' | 'allow' | 'deny';
@@ -970,7 +873,6 @@ export type MeetingAction =
       at?: string;
       timestamp: string;
     }
-  | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
   // The chair takes up a question postponed to later in the meeting (its main motion's id)
   | { type: 'TAKE_UP_POSTPONED'; motionId: number; timestamp: string }
   // The chair ends a recess
@@ -978,65 +880,8 @@ export type MeetingAction =
   // A member calls for a division on a voice vote: it is counted instead (RONR 29). With fromFloor
   // the chair records it for someone in the room. requesterId is set by the server.
   | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
-  | { type: 'START_ROLL_CALL'; timestamp: string }
-  | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
-  | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
-  | { type: 'SET_AUTO_YIELD'; enabled: boolean }
-  // Proxy voting actions
-  | {
-      type: 'SET_PROXY_SETTINGS';
-      allowProxyVoting: boolean;
-      maxProxiesPerMember: number;
-      proxiesCountForQuorum: boolean;
-      allowMemberProxyGrant?: boolean;
-      timestamp: string;
-    }
-  | {
-      type: 'GRANT_PROXY';
-      proxyId: number;
-      grantedBy: number;
-      grantedTo: number;
-      grantedByName: string;
-      grantedToName: string;
-      scope: 'all' | 'single-vote';
-      timestamp: string;
-    }
-  | { type: 'REVOKE_PROXY'; proxyId: number; timestamp: string }
-  | {
-      type: 'CAST_PROXY_VOTE';
-      vote: 'yea' | 'nay' | 'abstain';
-      forMemberId: number;
-      castById: number;
-      timestamp: string;
-    }
-  // Member-initiated proxy request actions
-  | {
-      type: 'REQUEST_PROXY';
-      requestId: number;
-      requestedBy: number;
-      requestedByName: string;
-      requestedFor: number;
-      requestedForName: string;
-      scope: 'all' | 'single-vote';
-      timestamp: string;
-    }
-  // acceptedBy, declinedBy and canceledBy are set by the server from the signed-in user
-  | {
-      type: 'ACCEPT_PROXY';
-      requestId: number;
-      proxyId: number;
-      acceptedBy?: number;
-      timestamp: string;
-    }
-  | {
-      type: 'DECLINE_PROXY';
-      requestId: number;
-      reason?: string;
-      declinedBy?: number;
-      timestamp: string;
-    }
-  | { type: 'CANCEL_PROXY_REQUEST'; requestId: number; canceledBy?: number; timestamp: string };
+  | { type: 'SET_AUTO_YIELD'; enabled: boolean };
 
 // Motion definition type
 export interface MotionDefinition {
@@ -1047,18 +892,10 @@ export interface MotionDefinition {
   readonly needsSecond: boolean;
   readonly debatable: boolean;
   readonly amendable: boolean;
-  readonly reconsidered: boolean;
   readonly vote: 'majority' | '2/3' | 'none';
   readonly phrase: string;
   readonly help: string;
   readonly whenToUse: string;
-}
-
-export type CategoryColor = 'purple' | 'amber' | 'blue' | 'emerald';
-
-export interface CategoryInfo {
-  readonly color: CategoryColor;
-  readonly label: string;
 }
 
 // Vote calculation types

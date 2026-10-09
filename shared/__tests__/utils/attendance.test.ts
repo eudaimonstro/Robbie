@@ -39,7 +39,6 @@ describe('attendanceSummary', () => {
       devicePresent: 2,
       markedPresent: 1,
       headcount: 2,
-      proxies: 0,
       proxiesHeld: 0,
       present: 5,
       quorum: 5,
@@ -55,27 +54,6 @@ describe('attendanceSummary', () => {
       members: [{ id: 1, name: 'A', role: 'member' as const, present: true }],
     };
     expect(attendanceSummary(state).devicePresent).toBe(1);
-  });
-
-  it('counts absent members represented by a present proxy holder, when proxies count', () => {
-    const proxy = {
-      id: 1,
-      grantedBy: 2,
-      grantedTo: 1,
-      grantedByName: 'Member 2',
-      grantedToName: 'Member 1',
-      grantedAt: '10:00',
-      scope: 'all' as const,
-    };
-    const state: MeetingState = {
-      ...initialState,
-      quorum: 2,
-      members: [member(1, true), member(2, false)],
-      proxies: [proxy],
-    };
-    expect(attendanceSummary(state)).toMatchObject({ proxies: 0, present: 1, hasQuorum: false });
-    const counting = { ...state, proxiesCountForQuorum: true };
-    expect(attendanceSummary(counting)).toMatchObject({ proxies: 1, present: 2, hasQuorum: true });
   });
 
   it('reads a state saved before the headcount existed', () => {
@@ -181,7 +159,6 @@ describe('attendanceSummary in a board meeting', () => {
       devicePresent: 1,
       markedPresent: 1,
       headcount: 0,
-      proxies: 0,
       proxiesHeld: 0,
       present: 2,
       quorum: 3,

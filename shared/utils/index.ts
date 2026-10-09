@@ -1,13 +1,7 @@
-export {
-  generateId,
-  generateMeetingCode,
-  generateTimestamp,
-  calculateTimerEnd,
-} from './idGenerators.js';
+export { generateId, generateTimestamp, calculateTimerEnd } from './idGenerators.js';
 
 export {
   calculateVoteResult,
-  getChairVotingOptions,
   canChairVoteDecide,
   motionThreshold,
   thresholdFromSetting,
@@ -20,8 +14,6 @@ export {
 
 export {
   getValidMotions,
-  wordingFixedBy,
-  BYLAW_WORDING_FIXED,
   normalizeMotionText,
   isSimilarMotionSubject,
   wasMotionDefeated,
@@ -50,7 +42,9 @@ export {
   textAmendmentProblem,
 } from './textAmendment.js';
 
-export { isEmailAddress } from './email.js';
+export { isEmailAddress, normalizeEmail } from './email.js';
+
+export { ORG_ROLES, atLeast, canEditAmendment, type OrgRole } from './roles.js';
 
 export {
   attendanceSummary,
@@ -67,29 +61,9 @@ export {
   type QuorumSettings,
 } from './attendance.js';
 
-export {
-  generateMeetingMinutes,
-  formatMinutesAsMarkdown,
-  formatMinutesAsJSON,
-} from './minutesGenerator.js';
+export { generateMeetingMinutes, formatMinutesAsMarkdown } from './minutesGenerator.js';
 
-export {
-  getMotionHistory,
-  filterMotionHistory,
-  getMotionTypes,
-  getMotionHistoryStats,
-  type HistoricalMotion,
-  type MotionHistoryFilters,
-  type MotionOutcome,
-} from './motionHistoryHelper.js';
-
-export {
-  calculateStanceBalance,
-  canRemoveSelfFromQueue,
-  formatWaitTime,
-  sortSpeakerQueue,
-  type StanceBalance,
-} from './speakerQueueHelper.js';
+export { sortSpeakerQueue } from './speakerQueueHelper.js';
 
 export {
   MAX_SECTION_DEPTH,

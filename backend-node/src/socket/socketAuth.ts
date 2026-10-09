@@ -19,19 +19,15 @@ function readCookie(header: string | undefined, name: string): string | null {
 }
 
 /**
- * Socket.io middleware: accept a connection only with a valid session, from the web cookie or
- * a mobile token in the handshake, and record who it is on socket.data
+ * Socket.io middleware: accept a connection only with a valid session, from the session cookie,
+ * and record who it is on socket.data
  */
 export function socketAuth(find: typeof findSession = findSession) {
   // Socket.io ignores this promise, so nothing may throw out of it: a rejection would be
   // unhandled and stop the server
   return async (socket: Socket, next: (error?: Error) => void) => {
     try {
-      const fromHandshake = socket.handshake.auth?.token;
-      const token =
-        typeof fromHandshake === 'string' && fromHandshake
-          ? fromHandshake
-          : readCookie(socket.handshake.headers.cookie, SESSION_COOKIE);
+      const token = readCookie(socket.handshake.headers.cookie, SESSION_COOKIE);
       if (!token) return next(new Error('Not signed in'));
 
       const session = await find(token);

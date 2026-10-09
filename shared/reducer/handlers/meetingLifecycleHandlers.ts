@@ -1,10 +1,5 @@
 import type { AgendaItem, MeetingAction, UnfinishedBusinessRecord } from '../../types/index.js';
 import {
-  getNextStage,
-  getStageLogMessage,
-  isLastActiveStage,
-} from '../../constants/meetingStages.js';
-import {
   LOG_MEETING_CALLED_TO_ORDER,
   LOG_MEETING_ADJOURNED,
   LOG_MEETING_RESUMED,
@@ -146,14 +141,12 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         votes: NO_VOTES,
         voters: [],
         voterChoices: {},
-        proxyVotes: [],
         floorVotes: NO_VOTES,
       };
       return {
         ...state,
         meetingActive: false,
         meetingStage: 'adjourned',
-        suspendedRules: [],
         currentAgendaItem: null,
         agenda: state.agenda.map((a) =>
           completes(a) ? { ...a, status: 'completed' as const } : a,
@@ -166,7 +159,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         pendingSecond: null,
         currentMotion: null,
         motionStack: [],
-        dividedQuestionParts: [],
         votingOpen: false,
         voteTimerEnd: null,
         ...voteCleared,
@@ -230,34 +222,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         kind: typedAction.kind,
         board: typedAction.board,
         quorum: typedAction.quorum,
-      };
-    }
-
-    case 'ADVANCE_MEETING_STAGE': {
-      const typedAction = action as Extract<MeetingAction, { type: 'ADVANCE_MEETING_STAGE' }>;
-      // Adjourning ends the meeting (END_MEETING), so advancing stops at the last stage of
-      // business rather than moving to 'adjourned' with the meeting still active
-      if (isLastActiveStage(state.meetingStage) || state.meetingStage === 'adjourned') {
-        return state;
-      }
-      const nextStage = getNextStage(state.meetingStage);
-      if (!nextStage) return state;
-      const stageMessage = getStageLogMessage(nextStage);
-      return {
-        ...state,
-        meetingStage: nextStage,
-        meetingLog: stageMessage ? log(typedAction.timestamp, stageMessage) : state.meetingLog,
-      };
-    }
-
-    case 'SET_MEETING_STAGE': {
-      const typedAction = action as Extract<MeetingAction, { type: 'SET_MEETING_STAGE' }>;
-      if (typedAction.stage === state.meetingStage) return state;
-      const stageMessage = getStageLogMessage(typedAction.stage);
-      return {
-        ...state,
-        meetingStage: typedAction.stage,
-        meetingLog: stageMessage ? log(typedAction.timestamp, stageMessage) : state.meetingLog,
       };
     }
 

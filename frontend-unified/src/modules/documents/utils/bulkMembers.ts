@@ -3,7 +3,7 @@ export const MAX_BULK_PEOPLE = 500;
 /** The longest name a person can have (the meeting's MAX_NAME_LENGTH) */
 export const MAX_PERSON_NAME = 100;
 
-import { isEmailAddress } from '@robbie-bylawyer/shared/utils';
+import { isEmailAddress, normalizeEmail } from '@robbie-bylawyer/shared/utils';
 
 /**
  * One pasted line, read: the person on it (with what came after the email, left out: another
@@ -52,7 +52,7 @@ export function readPastedPeople(text: string): PastedLine[] {
       continue;
     }
     const found = emails[0] ?? '';
-    const email = found.replace(/\.$/, '').toLowerCase();
+    const email = normalizeEmail(found.replace(/\.$/, ''));
     if (!isEmailAddress(email)) {
       lines.push({ line, text: trimmed, problem: "That email address isn't complete" });
       continue;

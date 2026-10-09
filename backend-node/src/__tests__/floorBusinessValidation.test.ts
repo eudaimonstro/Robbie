@@ -143,10 +143,10 @@ describe('business from the floor', () => {
         valid: false,
         errorCode: 'UNKNOWN_MOTION_TYPE',
       });
-      // A motion Robbie doesn't offer
-      expect(floorMotion({ motionType: 'takeFromTable', tabledMotionId: 42 })).toMatchObject({
+      // A motion Robbie no longer has
+      expect(floorMotion({ motionType: 'takeFromTable' })).toMatchObject({
         valid: false,
-        errorCode: 'MOTION_NOT_OFFERED',
+        errorCode: 'UNKNOWN_MOTION_TYPE',
       });
       // Renewing a motion defeated this meeting
       const defeated = {
@@ -193,27 +193,12 @@ describe('business from the floor', () => {
       });
     });
 
-    it('refuses the mover seconding their own motion, whatever a saved state suspended', () => {
+    it('refuses the mover seconding their own motion', () => {
       expect(second({ seconderMemberId: alice.id })).toEqual({
         valid: false,
         error: 'The mover cannot second their own motion',
         errorCode: 'INVALID_ACTION',
       });
-      const suspended: MeetingState = {
-        ...awaiting,
-        suspendedRules: [
-          {
-            id: 1,
-            rule: 'mover-cannot-second',
-            purpose: '',
-            specificAction: '',
-            scope: 'meeting-remainder',
-            suspendedAt: '',
-            motionId: 1,
-          },
-        ],
-      };
-      expect(second({ seconderMemberId: alice.id }, suspended)).toMatchObject({ valid: false });
     });
 
     it('needs a seconder the meeting has present, who is not the chair or a guest', () => {

@@ -18,6 +18,3 @@ docs
 features
 spec.md
 deploy/backups
-# The lockfile check needs every workspace's manifest, mobile's too, and nothing else of it
-mobile/*
-!mobile/package.json

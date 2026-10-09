@@ -6,8 +6,6 @@ export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 // Extend a session at most this often, so busy clients don't write on every request
 const EXTEND_AFTER_MS = 60 * 60 * 1000;
 
-export type SessionClient = 'web' | 'mobile';
-
 export interface SessionUser {
   id: number;
   email: string;
@@ -19,14 +17,16 @@ export interface ActiveSession {
   user: SessionUser;
   /** The terms version the user last accepted (see TERMS_VERSION in shared), or null */
   termsVersion: string | null;
-  /** True when this use pushed expiresAt out, so a web cookie should be re-sent to match */
+  /** True when this use pushed expiresAt out, so the cookie should be re-sent to match */
   extended: boolean;
 }
 
-/** Start a session; the token is returned once and only its hash is stored */
+/**
+ * Start a session; the token is returned once and only its hash is stored. Every session is the
+ * web's, in a cookie (the column `client` remains from the retired Expo app's bearer tokens).
+ */
 export async function createSession(
   userId: number,
-  client: SessionClient,
   now: Date = new Date(),
 ): Promise<{ token: string; sessionId: string; expiresAt: Date }> {
   const token = newSessionToken();
@@ -35,7 +35,7 @@ export async function createSession(
     data: {
       tokenHash: hashSecret(token),
       userId,
-      client,
+      client: 'web',
       createdAt: now,
       lastUsedAt: now,
       expiresAt,
