@@ -19,8 +19,8 @@ const LABELS = { yea: 'Yes', nay: 'No', abstain: 'Abstain' } as const;
 
 /**
  * The vote on a phone: three 56px buttons (Yes, No, Abstain). A secret ballot's choices never
- * reach the phone, so "Vote recorded" comes from voters. The voting time is the chair's guide, not shown here: the vote closes when
- * the chair closes it.
+ * reach the phone, so "Vote recorded" comes from voters. The voting time is the chair's guide,
+ * not shown here: the vote closes when the chair closes it.
  */
 export function VoteBlock({ state, dispatch, me }: VoteBlockProps) {
   const method = votingMethodNow(state);
