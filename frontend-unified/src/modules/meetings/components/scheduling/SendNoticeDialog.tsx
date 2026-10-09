@@ -5,6 +5,7 @@ import Modal from '../../../../components/ui/Modal';
 import { HttpError, meetingPackets, type MeetingNotice } from '../../../../api/client';
 import { formatDateTime } from '../../../../utils/dates';
 import { count as plural } from '../../../../utils/plural';
+import { sentMessage } from '../../utils/notice';
 
 interface SendNoticeDialogProps {
   /** The meeting's code */
@@ -17,15 +18,10 @@ interface SendNoticeDialogProps {
   timeZone?: string;
 }
 
-/** What sending came to, in a sentence */
-export function sentMessage(sent: number, failed: number): string {
-  const to = `The notice was sent to ${plural(sent, 'person', 'people')}.`;
-  return failed > 0 ? `${to} ${plural(failed, 'email')} couldn't be delivered.` : to;
-}
-
 /**
  * Send notice: the email as it will go out (to whom, the subject and the text), then Send. A
- * notice sent before says when and by whom, and Send it again sends it once more.
+ * notice sent before says when and by whom, and Send it again sends it once more. Mounted for
+ * one meeting at a time (a key on its code), so it starts empty each time it opens.
  */
 export function SendNoticeDialog({
   code,
@@ -44,9 +40,6 @@ export function SendNoticeDialog({
   useEffect(() => {
     if (!isOpen) return;
     let canceled = false;
-    setNotice(null);
-    setProblem(null);
-    setSentMeanwhile(false);
     meetingPackets
       .notice(code)
       .then((loaded) => {

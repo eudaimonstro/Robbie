@@ -227,6 +227,7 @@ export function LiveMeetingsPage() {
 
       {noticeFor && (
         <SendNoticeDialog
+          key={noticeFor}
           code={noticeFor}
           isOpen
           timeZone={currentOrganization?.timeZone}

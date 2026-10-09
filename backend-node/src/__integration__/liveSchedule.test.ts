@@ -60,6 +60,7 @@ describe('the roster of a meeting', () => {
       name: 'A viewer',
       email: 'viewer@example.org',
       orgRole: 'viewer',
+      isDirector: false,
     });
     expect(res.body.invites).toEqual([
       { id: f.invite, name: 'Pat Pending', email: 'pending@example.org', role: 'member' },
@@ -123,6 +124,7 @@ describe('the roster of a meeting', () => {
       userId: f.users.viewer.id,
       name: 'A viewer',
       orgRole: 'viewer',
+      isDirector: false,
       inviteId: joined.id,
       inviteName: 'Vee Ewer',
     });
@@ -140,6 +142,7 @@ describe('the roster of a meeting', () => {
         userId: f.users.viewer.id,
         name: 'A viewer',
         orgRole: 'viewer',
+        isDirector: false,
       });
       expect(JSON.stringify(res.body)).not.toContain('@example.org');
     }

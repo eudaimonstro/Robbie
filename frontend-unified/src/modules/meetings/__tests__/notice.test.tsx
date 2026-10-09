@@ -13,7 +13,8 @@ vi.mock('../components/QrCode', () => ({
 }));
 
 const { default: NoticePrintPage } = await import('../notice');
-const { SendNoticeDialog, sentMessage } = await import('../components/scheduling/SendNoticeDialog');
+const { SendNoticeDialog } = await import('../components/scheduling/SendNoticeDialog');
+const { sentMessage } = await import('../utils/notice');
 const { HttpError } = await import('../../../api/client');
 
 const notice: MeetingNotice = {
