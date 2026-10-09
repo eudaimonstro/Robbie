@@ -501,3 +501,17 @@ describe('DisplayView', () => {
     expect(screen.queryByText('Carried')).toBeNull();
   });
 });
+
+describe('DisplayView of a board meeting', () => {
+  it('names it, counts the directors, and asks nobody to be counted in the room', () => {
+    socket.state = { ...scheduled, kind: 'board', board: { directors: 5 }, quorum: 3 };
+    render(<DisplayView />);
+    expect(screen.getByText('Maple Grove HOA, Board meeting')).toBeTruthy();
+    expect(
+      screen.getByText('The directors vote. Members may follow the meeting on their phones.'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/No phone\?/)).toBeNull();
+    expect(screen.getByText('Directors')).toBeTruthy();
+    expect(screen.getByText('5')).toBeTruthy();
+  });
+});

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
-import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
+import { attendanceSummary, takesPart } from '@robbie-bylawyer/shared/utils';
 
 /**
  * Quorum for the meeting, counted by attendanceSummary (shared), as the server counts it: members
@@ -19,7 +19,7 @@ export function useQuorumStatus(state: MeetingState) {
     return {
       presentCount: summary.present,
       effectiveCount: summary.present,
-      totalMembers: state.members.filter((m) => m.role !== 'guest').length,
+      totalMembers: state.members.filter(takesPart).length,
       hasQuorum: summary.hasQuorum,
       proxyCount: summary.proxies,
     };

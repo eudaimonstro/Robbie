@@ -3,6 +3,7 @@ import {
   floorOpenForDebate,
   generateTimestamp,
   joinNames,
+  takesPart,
   winnersOf,
 } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
@@ -35,7 +36,7 @@ function Note({ children }: { children: ReactNode }) {
  * result, a member may also call for a division (RONR 29:7), until other business comes up
  */
 export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
-  if (state.voiceVote && !state.votingOpen && me.role !== 'guest') {
+  if (state.voiceVote && !state.votingOpen && takesPart(me)) {
     return (
       <div className="space-y-3">
         <div className="space-y-2 rounded-lg border border-rule p-4">
@@ -62,6 +63,7 @@ function MomentAction({ state, dispatch, me }: ActionBlockProps) {
   if (me.role === 'guest') {
     return <GuestBlock state={state} dispatch={dispatch} me={me} moment={moment} />;
   }
+  if (!takesPart(me)) return <ObserverBlock state={state} me={me} moment={moment} />;
 
   switch (moment) {
     case 'lobby':
@@ -247,6 +249,35 @@ function ElectionWaiting({ state }: { state: MeetingState }) {
  * A guest follows the meeting, asks to speak while a motion is debated, and asks the chair a
  * question (below, as members do): the only things the server lets a guest do
  */
+/**
+ * In a board meeting, a member who isn't a director: they follow it, and take no part (no motion,
+ * second, vote or request for the floor)
+ */
+function ObserverBlock({
+  state,
+  me,
+  moment,
+}: Omit<ActionBlockProps, 'dispatch'> & { moment: PhoneMoment }) {
+  if (moment === 'adjourned') return null;
+  const voting = state.votingOpen || !!state.currentElection?.votingInProgress;
+  return (
+    <div className="space-y-3">
+      <p className="font-semibold text-ink">You&apos;re observing this board meeting.</p>
+      {moment === 'lobby' ? (
+        <LobbyNote state={state} me={me} />
+      ) : (
+        <p className="text-sm text-ink-muted">
+          {voting
+            ? 'The directors are voting.'
+            : moment === 'recess'
+              ? 'The board is in recess.'
+              : 'The directors move, second and vote. You can follow everything here.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment: PhoneMoment }) {
   if (moment === 'adjourned') return null;
   if (moment === 'lobby') return <LobbyNote state={state} me={me} />;

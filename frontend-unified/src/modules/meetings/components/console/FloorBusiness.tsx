@@ -1,6 +1,11 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_FLOOR_NAME_LENGTH, motionWords } from '@robbie-bylawyer/shared/constants';
-import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
+import {
+  generateId,
+  generateTimestamp,
+  getValidMotions,
+  takesPart,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
@@ -11,17 +16,13 @@ import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/moti
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the
- * meeting, on a device or marked present, never a guest, the presiding officer or the one
+ * meeting, on a device or marked present, never a guest or an observer (or, in a board meeting,
+ * anyone who isn't a director), the presiding officer or the one
  * recording it (an admin at the console): the server refuses them
  */
 function floorMembers(state: MeetingState, presidingId: number | null, meId: number | null) {
   return state.members.filter(
-    (m) =>
-      m.present &&
-      m.role !== 'guest' &&
-      m.role !== 'chair' &&
-      m.id !== presidingId &&
-      m.id !== meId,
+    (m) => m.present && takesPart(m) && m.role !== 'chair' && m.id !== presidingId && m.id !== meId,
   );
 }
 

@@ -20,9 +20,11 @@ export function LobbyNote({ state, me }: { state: MeetingState; me: Member }) {
   const chair = state.members.find((m) => m.role === 'chair');
   const when = startsAt(state.scheduledFor);
   const guest = me.role === 'guest';
+  // An observer is told they observe above this
+  const observer = me.role === 'observer' || !!me.nonVoting;
   return (
     <div className="space-y-2">
-      {me.present && (
+      {me.present && !observer && (
         <p className="flex items-center gap-2 font-semibold text-carried">
           <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
           {guest ? "You're here as a guest." : "You're checked in."}

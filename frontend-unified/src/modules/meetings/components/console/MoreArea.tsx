@@ -190,6 +190,7 @@ function PeopleInMeeting({
               {!readOnly &&
                 person.role !== 'chair' &&
                 person.role !== 'guest' &&
+                person.role !== 'observer' &&
                 person.presentBy === 'device' &&
                 (handingTo === person.id ? (
                   <>

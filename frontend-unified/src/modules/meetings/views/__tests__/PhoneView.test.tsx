@@ -652,3 +652,38 @@ describe('PhoneView', () => {
     expect((container.firstChild as HTMLElement).className).toContain('safe-area-inset-bottom');
   });
 });
+
+describe('PhoneView for an observer of a board meeting', () => {
+  const observer: Member = { ...ben, role: 'observer' };
+  const board: MeetingState = {
+    ...voting,
+    kind: 'board',
+    board: { directors: 2 },
+    members: [dana, alice, observer],
+  };
+
+  it('says they observe, and offers no vote, motion, hand or question', () => {
+    renderAs(observer, board);
+    expect(screen.getByText("You're observing this board meeting.")).toBeTruthy();
+    expect(screen.getByText('The directors are voting.')).toBeTruthy();
+    expect(screen.getByText('Observer')).toBeTruthy();
+    expect(screen.queryAllByRole('button', { name: /^Vote / })).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /Ask to speak|Raise/ })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Ask the chair' })).toBeNull();
+    // The question is theirs to read
+    expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
+  });
+
+  it('says so before the call to order too', () => {
+    renderAs(observer, { ...board, meetingActive: false, votingOpen: false });
+    expect(screen.getByText("You're observing this board meeting.")).toBeTruthy();
+    expect(screen.getByText('The meeting has not been called to order yet.')).toBeTruthy();
+    expect(screen.queryByText("You're checked in.")).toBeNull();
+  });
+
+  it('lets a director vote', () => {
+    renderAs(alice, board);
+    expect(screen.queryByText("You're observing this board meeting.")).toBeNull();
+    expect(screen.getByRole('button', { name: 'Vote yes' })).toBeTruthy();
+  });
+});

@@ -98,13 +98,16 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
 
   // The chair votes only when that would change the result, judged on the devices and the room
   // together, as the server judges it; on a secret ballot the chair votes like anyone
+  // A presiding officer who isn't a director (a board meeting's) has no vote at all
   const chairMayDecide =
     me?.role === 'chair' &&
+    !me.nonVoting &&
     (method === 'standard' || method === 'rollcall') &&
     !iVoted &&
     canChairVoteDecide(combined, requirement);
   const ownVote =
     me !== null &&
+    !me.nonVoting &&
     method !== 'voice' &&
     (me.role === 'admin' || (me.role === 'chair' && method === 'ballot'));
   // The server judged the chair's vote on the count in the room as it stood, so once the chair

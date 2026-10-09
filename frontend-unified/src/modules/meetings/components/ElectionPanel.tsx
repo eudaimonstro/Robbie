@@ -6,6 +6,7 @@ import {
   generateId,
   generateTimestamp,
   joinNames,
+  takesPart,
   winnersOf,
 } from '@robbie-bylawyer/shared/utils';
 import { NoQuorumDialog } from './console/NoQuorumDialog';
@@ -201,7 +202,7 @@ export function ElectionPanel({
   }
 
   const voted = election.votersWhoVoted.includes(currentUser.id);
-  const canVote = currentUser.role !== 'guest';
+  const canVote = takesPart(currentUser);
   const seats = election.seats ?? 1;
 
   if (election.votingInProgress) {

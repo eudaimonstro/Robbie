@@ -68,6 +68,25 @@ describe('the console top bar', () => {
   });
 });
 
+describe('the console top bar of a board meeting', () => {
+  it('says it is a board meeting', () => {
+    const board = { ...state, kind: 'board' as const, board: { directors: 5 }, quorum: 3 };
+    render(
+      <ConsoleTopBar
+        state={board}
+        attendance={attendanceSummary(board)}
+        eligible={5}
+        startedAt={null}
+        meetingCode="MAPLEB"
+        onJoinInfo={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Board meeting')).toBeTruthy();
+    // The chair is the one director present; nobody is counted in the room
+    expect(screen.getByText('1 present of 5, quorum 3, not met')).toBeTruthy();
+  });
+});
+
 describe('the join card', () => {
   it('gives the code, the link and its QR code', () => {
     render(<JoinInfoCard code="MAPLE1" />);

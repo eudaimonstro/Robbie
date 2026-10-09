@@ -59,7 +59,9 @@ export function ChairConsole() {
   const nowRef = useRef<HTMLDivElement>(null);
   // Read again as people join: someone added by email who signs in now is a member
   const { roster, error: rosterError } = useRoster(meetingCode, true, state.members.length);
-  const eligible = useEligibleVoters(state.organizationId, roster);
+  // A board meeting's are its directors
+  const organizationEligible = useEligibleVoters(state.organizationId, roster);
+  const eligible = state.board?.directors ?? organizationEligible;
   // Loaded again at the call to order and the adjournment, for the start time
   const packet = usePacket(meetingCode, state.meetingActive);
   const voteResult = useVoteResults(state.meetingLog);

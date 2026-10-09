@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { generateTimestamp, takesPart } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import { useSocket } from '../context/SocketContext';
 import { useVoteResults } from '../hooks/useVoteResults';
@@ -37,7 +37,7 @@ export function PhoneView() {
   // A short buzz when the floor is given to this member, and when a vote opens: a phone in a lap
   // is felt before it is seen
   const myTurn = !!currentUser && state.recognizedSpeaker?.id === currentUser.id;
-  const voteOpen = state.votingOpen && currentUser?.role !== 'guest';
+  const voteOpen = state.votingOpen && !!currentUser && takesPart(currentUser);
   useEffect(() => {
     if (myTurn || voteOpen) navigator.vibrate?.(200);
   }, [myTurn, voteOpen]);
@@ -46,6 +46,8 @@ export function PhoneView() {
 
   const me = currentUser;
   const guest = me.role === 'guest';
+  // Guests and a board meeting's observers follow the meeting without a vote
+  const votes = takesPart(me);
   const question = describeQuestion(state);
   // A decision stays at the top until the next question comes up
   const result = currentResult(state, voteResult);
@@ -62,7 +64,7 @@ export function PhoneView() {
       ? `The ballot is open for ${election.position}`
       : hasFloor
         ? 'You have the floor'
-        : moment === 'second' && awaiting && awaiting.moverId !== me.id && !guest
+        : moment === 'second' && awaiting && awaiting.moverId !== me.id && votes
           ? `A motion awaits a second: ${awaiting.text}`
           : moment === 'debate' && question
             ? `Debate is open: ${question.text}`
@@ -72,8 +74,9 @@ export function PhoneView() {
       title={state.title || 'Live meeting'}
       item={stageLabel(state)}
       guest={guest}
+      observer={me.role === 'observer'}
       onLeave={leaveMeeting}
-      confirmLeave={state.meetingActive && !guest}
+      confirmLeave={state.meetingActive && votes}
       onMenu={openMenu ?? undefined}
     />
   );
@@ -127,7 +130,9 @@ export function PhoneView() {
       </section>
       <SpeakerList state={state} />
       <PhoneAgenda state={state} />
-      {state.meetingActive && <AskTheChair state={state} dispatch={dispatch} me={me} />}
+      {state.meetingActive && me.role !== 'observer' && (
+        <AskTheChair state={state} dispatch={dispatch} me={me} />
+      )}
     </div>
   );
 }

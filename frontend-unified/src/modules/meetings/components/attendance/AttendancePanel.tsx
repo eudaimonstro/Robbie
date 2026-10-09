@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   generateTimestamp,
   headcountBaseOf,
+  takesPart,
   type AttendanceSummary,
 } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
@@ -72,24 +73,30 @@ export function AttendancePanel({
     latest.current = state;
   }, [state]);
 
+  // A board meeting counts its directors, in person: nobody is counted in the room
+  const board = !!state.board;
   const entries = useMemo<Entry[]>(() => {
     if (!roster) return [];
-    const members = rosterRows(roster, state.members).map((row) => ({
+    const members = rosterRows(roster, state.members, board).map((row) => ({
       kind: 'member' as const,
       row,
     }));
-    const invites = inviteRows(roster, state.headcountInvites ?? []).map((row) => ({
-      kind: 'invite' as const,
-      row,
-    }));
+    const invites = board
+      ? []
+      : inviteRows(roster, state.headcountInvites ?? []).map((row) => ({
+          kind: 'invite' as const,
+          row,
+        }));
     return [...members, ...invites].sort((a, b) => byName.compare(nameOf(a), nameOf(b)));
-  }, [roster, state.members, state.headcountInvites]);
+  }, [roster, state.members, state.headcountInvites, board]);
   const query = find.trim().toLowerCase();
   const shown = query
     ? entries.filter((entry) => nameOf(entry).toLowerCase().includes(query))
     : entries;
   const guests = state.members.filter((m) => m.role === 'guest' && m.present);
-  const twice = countedTwice(state.members, roster, state);
+  // In a board meeting: the observers, and a presiding officer who isn't a director
+  const alsoPresent = state.members.filter((m) => m.present && m.role !== 'guest' && !takesPart(m));
+  const twice = board ? [] : countedTwice(state.members, roster, state);
 
   const markPresent = (row: RosterRow) =>
     dispatch({ type: 'MARK_PRESENT', userId: row.userId, timestamp: generateTimestamp() });
@@ -141,13 +148,19 @@ export function AttendancePanel({
       <h3 id="attendance-heading" className="label-caps">
         Attendance
       </h3>
-      <AttendanceBlock summary={summary} eligible={eligible} />
-      <p className="text-xs tabular-nums text-ink-muted">
-        {summary.devicePresent} on a device, {summary.markedPresent} marked present,{' '}
-        {summary.headcount} counted in the room
-        {summary.proxiesHeld > 0 && `, ${summary.proxiesHeld} by proxy or absentee ballot`}
-        {summary.proxies > 0 && `, ${summary.proxies} by proxy`}
-      </p>
+      <AttendanceBlock summary={summary} eligible={eligible} board={board} />
+      {board ? (
+        <p className="text-xs tabular-nums text-ink-muted">
+          Directors: {summary.devicePresent} on a device, {summary.markedPresent} marked present
+        </p>
+      ) : (
+        <p className="text-xs tabular-nums text-ink-muted">
+          {summary.devicePresent} on a device, {summary.markedPresent} marked present,{' '}
+          {summary.headcount} counted in the room
+          {summary.proxiesHeld > 0 && `, ${summary.proxiesHeld} by proxy or absentee ballot`}
+          {summary.proxies > 0 && `, ${summary.proxies} by proxy`}
+        </p>
+      )}
 
       {!readOnly &&
         twice.map(({ name, who }) => (
@@ -170,7 +183,7 @@ export function AttendancePanel({
 
       <div className="space-y-2">
         <label htmlFor={findId} className="label">
-          Find a member
+          {board ? 'Find a director' : 'Find a member'}
         </label>
         <input
           id={findId}
@@ -186,7 +199,7 @@ export function AttendancePanel({
           <p className="text-sm text-ink-muted">Loading the roster...</p>
         ) : (
           <ul
-            aria-label="Voting members"
+            aria-label={board ? 'Directors' : 'Voting members'}
             className="max-h-64 divide-y divide-rule overflow-y-auto scrollbar-thin"
           >
             {shown.map((entry) =>
@@ -234,7 +247,7 @@ export function AttendancePanel({
         )}
       </div>
 
-      {!readOnly && (
+      {!readOnly && !board && (
         <HeadcountForm
           headcount={state.headcount}
           names={state.headcountNames}
@@ -244,6 +257,23 @@ export function AttendancePanel({
           eligible={eligible}
           dispatch={dispatch}
         />
+      )}
+
+      {alsoPresent.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="label-caps">Also present ({alsoPresent.length})</h4>
+          <ul aria-label="Also present" className="flex flex-wrap gap-2">
+            {alsoPresent.map((person) => (
+              <li key={person.id} className="badge-observer">
+                {person.name}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-muted">
+            Members who aren&apos;t directors observe the board meeting. They don&apos;t vote or
+            count toward quorum.
+          </p>
+        </div>
       )}
 
       {guests.length > 0 && (
