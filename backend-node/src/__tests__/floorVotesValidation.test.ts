@@ -191,8 +191,31 @@ describe('validating floor votes', () => {
     const ballots = (counts: unknown, state = electing) =>
       validateAction(state, { type: 'SET_FLOOR_BALLOTS', counts, timestamp: '' } as MeetingAction);
 
-    it('takes a count for each candidate, written in or not, while ballots are open', () => {
-      expect(ballots({ Ann: 6, 'Write-in Name': 1 }).valid).toBe(true);
+    it('takes a count for each candidate, and names written in apart, while ballots are open', () => {
+      expect(ballots({ Ann: 6 }).valid).toBe(true);
+      expect(
+        validateAction(electing, {
+          type: 'SET_FLOOR_BALLOTS',
+          counts: { Ann: 6 },
+          writeIns: { 'Write-in Name': 1 },
+          blank: 2,
+          illegal: 1,
+          timestamp: '',
+        }).valid,
+      ).toBe(true);
+      // A name not on the ballot is a write-in, and a candidate is not one
+      expect(ballots({ Ann: 6, 'Write-in Name': 1 })).toMatchObject({
+        valid: false,
+        error: 'Enter a name not on the ballot as a write-in',
+      });
+      expect(
+        validateAction(electing, {
+          type: 'SET_FLOOR_BALLOTS',
+          counts: {},
+          writeIns: { ann: 1 },
+          timestamp: '',
+        }).valid,
+      ).toBe(false);
       expect(ballots({ Ann: 1 }, initialState)).toMatchObject({
         valid: false,
         errorCode: 'NO_ELECTION',

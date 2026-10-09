@@ -18,3 +18,6 @@ export { agendaItemsRouter } from './agenda-items.js';
 
 // The minutes of scheduled meetings
 export { minutesRouter } from './minutes.js';
+
+// What the organization's bylaws require to amend them
+export { voteRulesRouter } from './voteRules.js';

@@ -12,6 +12,7 @@ import {
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
 import { NO_VOTES } from '../../utils/voteCalculator.js';
+import { ballotsNotMinuted, electionHistory, seatsOpen } from '../../utils/elections.js';
 import { decisionContext, quorumNow, withPresentAttended } from './records.js';
 import type { ActionHandler } from './types.js';
 
@@ -85,7 +86,14 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
       // election with the count of each ballot already closed
       const { agendaItemId } = decisionContext(state, undefined);
       const under = agendaItemId !== undefined ? { agendaItemId } : {};
-      const ballots = state.currentElection?.ballots ?? [];
+      // The ballots not already minuted with someone they elected, and the seats still open (also
+      // one, once a seat of the election has been filled)
+      const { ballots, ballotTotals } = ballotsNotMinuted(state);
+      const seats = seatsOpen(state);
+      const electionId = electionHistory(state).id;
+      const partlyFilled = state.electedOfficers.some(
+        (o) => electionId !== null && o.electionId === electionId,
+      );
       const unfinishedRecords: UnfinishedBusinessRecord[] = [
         ...(position
           ? [
@@ -93,6 +101,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
                 kind: 'election' as const,
                 position,
                 ...(ballots.length > 0 ? { ballots } : {}),
+                ...(ballotTotals.length > 0 ? { ballotTotals } : {}),
+                ...(seats > 1 || partlyFilled ? { seats } : {}),
                 ...under,
               },
             ]
@@ -150,6 +160,8 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ),
         nominationsOpen: false,
         currentNominationPosition: null,
+        openSeats: null,
+        continuingElection: null,
         currentElection: null,
         pendingSecond: null,
         currentMotion: null,

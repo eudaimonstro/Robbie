@@ -1,4 +1,5 @@
 import type {
+  Election,
   ElectionSetAsideRecord,
   MeetingAction,
   Nomination,
@@ -10,20 +11,57 @@ import {
   logFloorNomination,
   logNomination,
 } from '../../constants/logMessages.js';
+import {
+  acclamationCandidates,
+  ballotsNotMinuted,
+  countBallot,
+  electedTo,
+  electionHistory,
+  joinNames,
+  remainingNominees,
+  seatsOpen,
+  winnersOf,
+} from '../../utils/elections.js';
 import { decisionContext } from './records.js';
 import type { ActionHandler } from './types.js';
+
+/** A count of nothing for each candidate */
+function zeros(candidates: Election['candidates']): Record<string, number> {
+  return Object.fromEntries(candidates.map((c) => [c.name, 0]));
+}
 
 export const electionHandler: ActionHandler = (state, action, log) => {
   switch (action.type) {
     case 'OPEN_NOMINATIONS': {
       const typedAction = action as Extract<MeetingAction, { type: 'OPEN_NOMINATIONS' }>;
+      // Reopened for the position in hand, its seats stand, and with seats still open after a
+      // ballot it is the same election; otherwise the seats given (one)
+      const between = state.currentElection;
+      const reopened =
+        (between?.position ?? state.currentNominationPosition) === typedAction.position;
+      const seats = between
+        ? (between.seats ?? 1)
+        : reopened
+          ? (state.openSeats ?? 1)
+          : (typedAction.seats ?? 1);
       return {
         ...state,
         nominationsOpen: true,
         currentNominationPosition: typedAction.position,
+        openSeats: seats,
+        currentElection: null,
+        continuingElection: between
+          ? {
+              id: between.id,
+              ...(between.ballots ? { ballots: between.ballots } : {}),
+              ...(between.ballotTotals ? { ballotTotals: between.ballotTotals } : {}),
+            }
+          : reopened
+            ? (state.continuingElection ?? null)
+            : null,
         meetingLog: log(
           typedAction.timestamp,
-          `Chair: Nominations are now open for ${typedAction.position}.`,
+          `Chair: Nominations are now open for ${typedAction.position}${seats > 1 ? ` (${seats} seats)` : ''}.`,
         ),
       };
     }
@@ -86,25 +124,51 @@ export const electionHandler: ActionHandler = (state, action, log) => {
 
     case 'START_ELECTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'START_ELECTION' }>;
-      // Gather candidates from nominations for this position (excluding declined)
-      const candidates = state.nominations
-        .filter((n) => n.position === typedAction.position && !n.declined)
-        .map((n) => ({ name: n.nomineeName, id: n.nomineeId }))
-        // Remove duplicates
-        .filter(
-          (candidate, index, self) => index === self.findIndex((c) => c.name === candidate.name),
-        );
-
-      const election = {
-        id: typedAction.electionId,
+      const open = state.currentElection;
+      // The next ballot of an election with seats still open: its candidates, less those elected
+      if (open) {
+        return {
+          ...state,
+          currentElection: {
+            ...open,
+            votingInProgress: true,
+            ballotResults: zeros(open.candidates),
+            votersWhoVoted: [],
+            floorBallots: {},
+            floorWriteIns: {},
+            floorBlank: 0,
+            floorIllegal: 0,
+            floorBallotCount: 0,
+            winners: [],
+            elected: null,
+          },
+          meetingLog: log(
+            typedAction.timestamp,
+            `Chair: Ballot ${(open.ballots ?? []).length + 1} is now open for ${open.position}.`,
+          ),
+        };
+      }
+      // The nominees, less anyone declined or already elected to the position
+      const candidates = remainingNominees(state, typedAction.position).map((name) => ({
+        name,
+        id:
+          state.nominations.find(
+            (n) => n.position === typedAction.position && n.nomineeName === name,
+          )?.nomineeId ?? 0,
+      }));
+      const seats = state.openSeats ?? 1;
+      // Seats left open by an acclamation or an earlier ballot: the same election goes on
+      const continuing = state.continuingElection;
+      const election: Election = {
+        id: continuing?.id ?? typedAction.electionId,
+        ...(continuing?.ballots ? { ballots: continuing.ballots } : {}),
+        ...(continuing?.ballotTotals ? { ballotTotals: continuing.ballotTotals } : {}),
         position: typedAction.position,
         candidates,
         requiredVotes: typedAction.requiredVotes,
         votingInProgress: true,
-        ballotResults: candidates.reduce(
-          (acc, c) => ({ ...acc, [c.name]: 0 }),
-          {} as Record<string, number>,
-        ),
+        ...(seats > 1 ? { seats } : {}),
+        ballotResults: zeros(candidates),
         votersWhoVoted: [],
         floorBallots: {},
         elected: null,
@@ -116,30 +180,38 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         currentElection: election,
         nominationsOpen: false,
         currentNominationPosition: null,
+        openSeats: null,
+        continuingElection: null,
         meetingLog: log(
           typedAction.timestamp,
-          `Chair: Voting is now open for ${typedAction.position}. ${candidates.length} candidate(s).`,
+          `Chair: Voting is now open for ${typedAction.position}. ${candidates.length} candidate(s)${seats > 1 ? `, ${seats} seats` : ''}.`,
         ),
       };
     }
 
     case 'CAST_BALLOT': {
       const typedAction = action as Extract<MeetingAction, { type: 'CAST_BALLOT' }>;
-      if (!state.currentElection || !state.currentElection.votingInProgress) return state;
+      const election = state.currentElection;
+      if (!election || !election.votingInProgress) return state;
 
       // Check if voter has already voted
-      if (state.currentElection.votersWhoVoted.includes(typedAction.voterId)) return state;
+      if (election.votersWhoVoted.includes(typedAction.voterId)) return state;
 
+      // One ballot, marking one name or several (up to the seats), each once
+      const names = [
+        ...new Set(
+          typedAction.candidateNames ??
+            (typedAction.candidateName ? [typedAction.candidateName] : []),
+        ),
+      ];
+      const ballotResults = { ...election.ballotResults };
+      for (const name of names) ballotResults[name] = (ballotResults[name] ?? 0) + 1;
       return {
         ...state,
         currentElection: {
-          ...state.currentElection,
-          ballotResults: {
-            ...state.currentElection.ballotResults,
-            [typedAction.candidateName]:
-              (state.currentElection.ballotResults[typedAction.candidateName] || 0) + 1,
-          },
-          votersWhoVoted: [...state.currentElection.votersWhoVoted, typedAction.voterId],
+          ...election,
+          ballotResults,
+          votersWhoVoted: [...election.votersWhoVoted, typedAction.voterId],
         },
       };
     }
@@ -149,121 +221,68 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       if (!state.currentElection) return state;
       return {
         ...state,
-        currentElection: { ...state.currentElection, floorBallots: typedAction.counts },
+        currentElection: {
+          ...state.currentElection,
+          floorBallots: typedAction.counts,
+          floorWriteIns: typedAction.writeIns ?? {},
+          floorBlank: typedAction.blank ?? 0,
+          floorIllegal: typedAction.illegal ?? 0,
+          floorBallotCount: typedAction.ballots ?? 0,
+        },
       };
     }
 
     case 'CLOSE_ELECTION': {
       const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_ELECTION' }>;
-      if (!state.currentElection) return state;
+      const election = state.currentElection;
+      if (!election) return state;
 
-      // Ballots on devices and the tellers' count of paper ballots together
-      const floorBallots = state.currentElection.floorBallots ?? {};
-      const results = { ...state.currentElection.ballotResults };
-      for (const [name, count] of Object.entries(floorBallots)) {
-        results[name] = (results[name] ?? 0) + count;
-      }
-      // Every ballot's count is kept for the minutes, whatever comes of it
-      const ballots = [...(state.currentElection.ballots ?? []), results];
-      const totalVotes =
-        state.currentElection.votersWhoVoted.length +
-        Object.values(floorBallots).reduce((sum, count) => sum + count, 0);
-      const requiredVotes = state.currentElection.requiredVotes;
-
-      // Calculate winner based on vote requirement
-      let winner: string | null = null;
-      const sortedCandidates = Object.entries(results).sort((a, b) => b[1] - a[1]);
-
-      // With no ballots cast there is no result to declare, by any rule
-      if (sortedCandidates.length > 0 && totalVotes > 0) {
-        const topCandidate = sortedCandidates[0];
-        const topVotes = topCandidate[1];
-
-        if (requiredVotes === 'majority') {
-          if (topVotes > totalVotes / 2) {
-            winner = topCandidate[0];
-          }
-        } else if (requiredVotes === '2/3') {
-          if (topVotes >= (totalVotes * 2) / 3) {
-            winner = topCandidate[0];
-          }
-        } else {
-          // plurality
-          winner = topCandidate[0];
-        }
-      }
-
-      // Determine if each result is a write-in
-      const officialCandidateNames = new Set(state.currentElection.candidates.map((c) => c.name));
-      const resultsText = sortedCandidates
-        .map(([name, votes]) => {
-          const isWriteIn = !officialCandidateNames.has(name);
-          return `${name}${isWriteIn ? ' (write-in)' : ''}: ${votes} vote(s)`;
-        })
+      // Ballots on devices and the tellers' count of paper ballots together. Every ballot's
+      // count and totals are kept for the minutes, whatever comes of it.
+      const { results, totals, winners, next, tied } = countBallot(election);
+      const ballots = [...(election.ballots ?? []), results];
+      const ballotTotals = [...(election.ballotTotals ?? []), totals];
+      const writeIns = new Set(next.filter((c) => c.writeIn).map((c) => c.name));
+      const resultsText = Object.entries(results)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(
+          ([name, votes]) => `${name}${writeIns.has(name) ? ' (write-in)' : ''}: ${votes} vote(s)`,
+        )
         .join(', ');
+      const closedLine = `Voting closed for ${election.position}. Results: ${resultsText}. ${totals.cast} ballot(s) cast.`;
 
-      // Check for tie at the top
-      const topVotes = sortedCandidates[0]?.[1] ?? 0;
-      const tiedCandidates = sortedCandidates.filter(([, votes]) => votes === topVotes);
-      // Candidates level at 0 (no ballots) are not a tie to run off
-      const hasTie = tiedCandidates.length > 1 && topVotes > 0;
-      const needsRunoff = hasTie && (requiredVotes === 'plurality' || !winner);
-
-      if (needsRunoff) {
-        const tiedCandidateInfo = tiedCandidates.map(([name]) => {
-          const officialCandidate = state.currentElection!.candidates.find((c) => c.name === name);
-          const member = state.members.find((m) => m.name === name);
-          return { name, id: officialCandidate?.id ?? member?.id ?? 0 };
-        });
-
-        const runoffRound = (state.currentElection.runoffRound ?? 0) + 1;
-        const tiedNames = tiedCandidates.map(([name]) => name).join(', ');
-
+      // RONR: balloting continues until the seats are filled, and no candidate is dropped, so
+      // with nobody elected the next ballot opens at once (nothing else could move it on). Under
+      // a plurality, a tie at the top is run off among the tied.
+      if (winners.length === 0) {
+        const ballot = ballots.length + 1;
+        const runoff = tied.length > 0;
         return {
           ...state,
           currentElection: {
-            ...state.currentElection,
-            candidates: tiedCandidateInfo,
-            ballotResults: {},
+            ...election,
+            candidates: next,
+            ballotResults: zeros(next),
             votersWhoVoted: [],
             floorBallots: {},
+            floorWriteIns: {},
+            floorBlank: 0,
+            floorIllegal: 0,
+            floorBallotCount: 0,
             ballots,
+            ballotTotals,
+            winners: [],
             votingInProgress: true,
             elected: null,
-            isRunoff: true,
-            runoffRound,
-          },
-          meetingLog: log(
-            typedAction.timestamp,
-            `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. TIE between: ${tiedNames}. Runoff vote (round ${runoffRound}) now open.`,
-          ),
-        };
-      }
-
-      // RONR: balloting continues until a candidate has the required vote, and no candidate is
-      // dropped, so open the next ballot instead of leaving the election closed with no one
-      // elected (nothing could move it on from there)
-      if (!winner) {
-        const ballot = (state.currentElection.runoffRound ?? 0) + 2;
-        return {
-          ...state,
-          currentElection: {
-            ...state.currentElection,
-            ballotResults: state.currentElection.candidates.reduce(
-              (acc, c) => ({ ...acc, [c.name]: 0 }),
-              {} as Record<string, number>,
-            ),
-            votersWhoVoted: [],
-            floorBallots: {},
-            ballots,
-            votingInProgress: true,
-            elected: null,
+            ...(runoff ? { isRunoff: true } : {}),
             // Counts the repeated ballots (the first ballot is round 0)
-            runoffRound: ballot - 1,
+            runoffRound: (election.runoffRound ?? 0) + 1,
           },
           meetingLog: log(
             typedAction.timestamp,
-            `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. No candidate received the required ${requiredVotes} vote. Ballot ${ballot} is now open.`,
+            runoff
+              ? `${closedLine} TIE between: ${joinNames(tied)}. Ballot ${ballot} is now open.`
+              : `${closedLine} No candidate received the required ${election.requiredVotes} vote. Ballot ${ballot} is now open.`,
           ),
         };
       }
@@ -271,61 +290,130 @@ export const electionHandler: ActionHandler = (state, action, log) => {
       return {
         ...state,
         currentElection: {
-          ...state.currentElection,
+          ...election,
+          candidates: next,
           // The tally the result rests on, device and paper ballots together, for the result,
           // the declaration and the minutes
           ballotResults: results,
           ballots,
+          ballotTotals,
           votingInProgress: false,
-          elected: winner,
+          winners,
+          elected: winners[0],
         },
         meetingLog: log(
           typedAction.timestamp,
-          `Voting closed for ${state.currentElection.position}. Results: ${resultsText}. ${winner} elected.`,
+          `${closedLine} ${joinNames(winners)} ${winners.length > 1 ? 'have' : 'has'} the vote required.`,
         ),
       };
     }
 
     case 'DECLARE_ELECTED': {
       const typedAction = action as Extract<MeetingAction, { type: 'DECLARE_ELECTED' }>;
-      if (!state.currentElection) return state;
+      const election = state.currentElection;
+      if (!election) return state;
+      const winners = winnersOf(election);
+      const name = typedAction.candidateName;
+      // Nobody is elected twice
+      if (!winners.includes(name) || electedTo(state, election.position).includes(name)) {
+        return state;
+      }
 
-      // Check if candidate is an official nominee
-      const nominatedCandidate = state.currentElection.candidates.find(
-        (c) => c.name === typedAction.candidateName,
-      );
-
-      // Check if candidate received any votes
-      const hasVotes = typedAction.candidateName in state.currentElection.ballotResults;
-
-      // Allow declaring if they're a nominated candidate OR received write-in votes
-      if (!nominatedCandidate && !hasVotes) return state;
-
-      const memberId =
-        nominatedCandidate?.id ??
-        state.members.find((m) => m.name === typedAction.candidateName)?.id ??
-        0;
-
-      const isWriteIn = !nominatedCandidate;
-      const ballots = state.currentElection.ballots ?? [];
+      const candidate = election.candidates.find((c) => c.name === name);
+      const memberId = candidate?.id || state.members.find((m) => m.name === name)?.id || 0;
+      const ballots = election.ballots ?? [];
       const officer: Officer = {
-        position: state.currentElection.position,
-        name: typedAction.candidateName,
+        position: election.position,
+        name,
         memberId,
         electedAt: typedAction.timestamp,
         ...(ballots.length > 0 ? { ballots } : {}),
-        requiredVotes: state.currentElection.requiredVotes,
+        ...(election.ballotTotals?.length ? { ballotTotals: election.ballotTotals } : {}),
+        requiredVotes: election.requiredVotes,
+        electionId: election.id,
+        ...(candidate?.writeIn ? { writeIn: true as const } : {}),
         ...decisionContext(state, typedAction.at),
       };
 
-      const writeInNote = isWriteIn ? ' (write-in candidate)' : '';
+      // The other winners await their declaration; once they are declared, the seats still
+      // open take another ballot, among the candidates not elected
+      const stillWinning = winners.filter((w) => w !== name);
+      const seats = (election.seats ?? 1) - 1;
+      const currentElection: Election | null =
+        stillWinning.length > 0 || seats > 0
+          ? {
+              ...election,
+              seats,
+              candidates: election.candidates.filter((c) => c.name !== name),
+              winners: stillWinning,
+              elected: stillWinning[0] ?? null,
+            }
+          : null;
+
+      const writeInNote = candidate?.writeIn ? ' (write-in candidate)' : '';
       return {
         ...state,
         electedOfficers: [...state.electedOfficers, officer],
-        currentElection: null,
+        currentElection,
         meetingLog: log(
           typedAction.timestamp,
-          `Chair declares ${typedAction.candidateName}${writeInNote} elected as ${officer.position}.`,
+          `Chair declares ${name}${writeInNote} elected as ${officer.position}.`,
+        ),
+      };
+    }
+
+    case 'ELECT_BY_ACCLAMATION': {
+      const typedAction = action as Extract<MeetingAction, { type: 'ELECT_BY_ACCLAMATION' }>;
+      const acclaimed = acclamationCandidates(state);
+      if (!acclaimed) return state;
+      const { position, names, seats } = acclaimed;
+      const election = state.currentElection;
+      const context = decisionContext(state, typedAction.at);
+      // The election these seats belong to: the ballot's, one carried through nominations
+      // reopened, or a new one
+      const history = electionHistory(state);
+      const electionId = history.id ?? typedAction.electionId;
+      const officers: Officer[] = names.map((name) => {
+        const candidate = election?.candidates.find((c) => c.name === name);
+        const nominee = state.nominations.find(
+          (n) => n.position === position && n.nomineeName === name && !n.declined,
+        );
+        return {
+          position,
+          name,
+          memberId:
+            candidate?.id ||
+            nominee?.nomineeId ||
+            state.members.find((m) => m.name === name)?.id ||
+            0,
+          electedAt: typedAction.timestamp,
+          ...(history.ballots.length ? { ballots: history.ballots } : {}),
+          ...(history.ballotTotals.length ? { ballotTotals: history.ballotTotals } : {}),
+          electionId,
+          acclamation: true as const,
+          ...(candidate?.writeIn ? { writeIn: true as const } : {}),
+          ...context,
+        };
+      });
+      // Fewer nominees than seats leaves the rest open, for nominations again (or set aside)
+      const left = seats - names.length;
+      return {
+        ...state,
+        electedOfficers: [...state.electedOfficers, ...officers],
+        currentElection: null,
+        currentNominationPosition: left > 0 ? position : null,
+        openSeats: left > 0 ? left : null,
+        continuingElection:
+          left > 0
+            ? {
+                id: electionId,
+                ...(history.ballots.length ? { ballots: history.ballots } : {}),
+                ...(history.ballotTotals.length ? { ballotTotals: history.ballotTotals } : {}),
+              }
+            : null,
+        meetingLog: log(
+          typedAction.timestamp,
+          `Chair declares ${joinNames(names)} elected as ${position}, by acclamation.`,
         ),
       };
     }
@@ -336,12 +424,16 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         return state;
       }
       const position = state.currentElection?.position ?? state.currentNominationPosition;
-      // The minutes record it, with the count of each ballot already closed (the open ballot's
-      // count, never announced, goes with it)
-      const ballots = state.currentElection?.ballots ?? [];
+      // The minutes record it, with the count of each ballot already closed and not already
+      // minuted with someone it elected (the open ballot's count, never announced, goes with it),
+      // and the seats left unfilled
+      const { ballots, ballotTotals } = ballotsNotMinuted(state);
+      const seats = seatsOpen(state);
       const setAside: ElectionSetAsideRecord = {
         position,
         ...(ballots.length > 0 ? { ballots } : {}),
+        ...(ballotTotals.length > 0 ? { ballotTotals } : {}),
+        ...(seats > 1 ? { seats } : {}),
         timestamp,
         ...decisionContext(state, at),
       };
@@ -351,6 +443,8 @@ export const electionHandler: ActionHandler = (state, action, log) => {
         ...state,
         nominationsOpen: false,
         currentNominationPosition: null,
+        openSeats: null,
+        continuingElection: null,
         currentElection: null,
         electionsSetAside: [...(state.electionsSetAside ?? []), setAside],
         meetingLog: log(timestamp, logElectionSetAside(position)),

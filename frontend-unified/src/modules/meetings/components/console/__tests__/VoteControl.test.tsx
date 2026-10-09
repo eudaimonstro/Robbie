@@ -140,6 +140,61 @@ describe('VoteControl', () => {
     );
   });
 
+  it('lets the chair declare a voice vote by what the room said, on a majority question only', () => {
+    const voice = { ...voting, votingMethod: 'voice' as const, votes: initialState.votes };
+    const { unmount } = render(<VoteControl state={voice} dispatch={dispatch} me={dana} />);
+    fireEvent.click(screen.getByRole('button', { name: 'The ayes have it' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'CLOSE_VOTING', declared: 'ayes' }),
+    );
+    expect(screen.getByRole('button', { name: 'The noes have it' })).toBeTruthy();
+    unmount();
+
+    // Two thirds is counted
+    const closeDebate = {
+      ...MOTIONS.previousQuestion,
+      ...motion,
+      type: 'previousQuestion',
+      vote: '2/3' as const,
+    };
+    render(
+      <VoteControl
+        state={{ ...voice, currentMotion: closeDebate, motionStack: [closeDebate] }}
+        dispatch={dispatch}
+        me={dana}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'The ayes have it' })).toBeNull();
+    expect(screen.getByText('Counted in the room: enter the count below.')).toBeTruthy();
+  });
+
+  it('says how many yes votes a question of all the voting members needs', () => {
+    const bylaw: Motion = {
+      ...MOTIONS.bylawAmendment,
+      ...motion,
+      type: 'bylawAmendment',
+      vote: '2/3',
+      bylawAmendment: {
+        documentId: 'd',
+        changeType: 'delete',
+        voteRequired: { fraction: '2/3', of: 'members', members: 142 },
+      },
+    };
+    render(
+      <VoteControl
+        state={{
+          ...voting,
+          currentMotion: bylaw,
+          motionStack: [bylaw],
+          floorVotes: { yea: 60, nay: 4, abstain: 0 },
+        }}
+        dispatch={dispatch}
+        me={dana}
+      />,
+    );
+    expect(screen.getByText('95 yes votes needed: 62 so far')).toBeTruthy();
+  });
+
   it('closes a voice vote only once the show of hands is entered', () => {
     const voice = { ...voting, votingMethod: 'voice' as const, votes: initialState.votes };
     const { unmount } = render(<VoteControl state={voice} dispatch={dispatch} me={dana} />);

@@ -1,9 +1,13 @@
 import type {
+  BylawAmendment,
+  BylawAmendmentVote,
   CompletedMotion,
   Votes,
   VoteRequirement,
   VoteCalculationResult,
+  VoteThreshold,
 } from '../types/index.js';
+import { MOTIONS } from '../constants/motions.js';
 
 export const NO_VOTES: Votes = { yea: 0, nay: 0, abstain: 0 };
 
@@ -23,25 +27,51 @@ export function completedMotionVotes(motion: CompletedMotion): Votes {
   return counts;
 }
 
+/** A requirement as a threshold of the votes cast ("none" is a majority, as it always was) */
+function asThreshold(requirement: VoteRequirement | VoteThreshold): VoteThreshold {
+  if (typeof requirement === 'object') return requirement;
+  return { fraction: requirement === '2/3' ? '2/3' : 'majority', of: 'cast' };
+}
+
+/**
+ * The yes votes a threshold of all the voting members needs (RONR 44:9): more than half of them
+ * for a majority (72 of 142), at least two thirds for two thirds (95 of 142), and never fewer
+ * than one. Null for a threshold of the votes cast, which depends on the votes.
+ */
+export function votesNeeded(threshold: VoteThreshold): number | null {
+  if (threshold.of !== 'members') return null;
+  const members = Math.max(0, Math.floor(threshold.members ?? 0));
+  const needed =
+    threshold.fraction === '2/3' ? Math.ceil((members * 2) / 3) : Math.floor(members / 2) + 1;
+  return Math.max(1, needed);
+}
+
+/** Whether the yes votes reach the fraction of the votes cast (abstentions left out) */
+function carriesAmongCast(yea: number, nay: number, fraction: VoteThreshold['fraction']): boolean {
+  const total = yea + nay;
+  // RONR: a majority is more than half of the votes cast; two thirds is at least two thirds of
+  // them. Integer comparisons avoid floating-point edge cases.
+  return fraction === '2/3' ? total > 0 && yea * 3 >= total * 2 : yea * 2 > total;
+}
+
 /**
  * Calculate whether a vote passes based on the vote requirement
  * @param votes - The vote counts
- * @param requirement - The vote requirement ('majority', '2/3', or 'none')
+ * @param requirement - 'majority', '2/3' or 'none' of the votes cast, or a threshold, which may
+ *   be of all the voting members: then the yes votes must reach the number needed (an abstention
+ *   helps no more than a no) and carry among the votes cast too
  * @returns Calculation result with pass/fail and vote details
  */
 export function calculateVoteResult(
   votes: Votes,
-  requirement: VoteRequirement,
+  requirement: VoteRequirement | VoteThreshold,
 ): VoteCalculationResult {
   const { yea, nay, abstain } = votes;
   const total = yea + nay; // Abstentions don't count toward total per Robert's Rules
-
-  // Calculate threshold based on requirement
-  const threshold = requirement === '2/3' ? total * (2 / 3) : total / 2;
-
-  // RONR: a majority is more than half of the votes cast; two-thirds is at least
-  // two-thirds of the votes cast. Integer comparisons avoid floating-point edge cases.
-  const passed = requirement === '2/3' ? total > 0 && yea * 3 >= total * 2 : yea * 2 > total;
+  const threshold = asThreshold(requirement);
+  const needed = votesNeeded(threshold);
+  const passed =
+    carriesAmongCast(yea, nay, threshold.fraction) && (needed === null || yea >= needed);
 
   return {
     passed,
@@ -49,9 +79,49 @@ export function calculateVoteResult(
     nay,
     abstain,
     total,
-    threshold,
-    requirement,
+    threshold: needed ?? (threshold.fraction === '2/3' ? total * (2 / 3) : total / 2),
+    requirement: threshold.fraction,
+    ...(needed !== null ? { needed } : {}),
   };
+}
+
+/** The threshold an organization's setting for bylaw amendments gives, with its members counted */
+export function thresholdFromSetting(setting: BylawAmendmentVote, members: number): VoteThreshold {
+  switch (setting) {
+    case 'majorityCast':
+      return { fraction: 'majority', of: 'cast' };
+    case 'majorityMembers':
+      return { fraction: 'majority', of: 'members', members };
+    case 'twoThirdsMembers':
+      return { fraction: '2/3', of: 'members', members };
+    default:
+      return { fraction: '2/3', of: 'cast' };
+  }
+}
+
+/**
+ * A threshold in words, for the question card: "Majority", "Two thirds", or of all the members
+ * "Two thirds of all 142 voting members: 95 votes needed"
+ */
+export function thresholdText(threshold: VoteThreshold): string {
+  const fraction = threshold.fraction === '2/3' ? 'Two thirds' : 'Majority';
+  const needed = votesNeeded(threshold);
+  if (needed === null) return fraction;
+  return `${fraction} of all ${threshold.members ?? 0} voting members: ${needed} ${needed === 1 ? 'vote' : 'votes'} needed`;
+}
+
+/**
+ * The vote a motion (or a decided motion's record) needs: a bylaw amendment's own, stamped from
+ * the organization's setting when it was moved; otherwise its definition's, of the votes cast
+ */
+export function motionThreshold(motion: {
+  type: string;
+  vote?: VoteRequirement;
+  bylawAmendment?: BylawAmendment | null;
+}): VoteThreshold {
+  const own = motion.bylawAmendment?.voteRequired;
+  if (own) return own;
+  return asThreshold(motion.vote ?? MOTIONS[motion.type]?.vote ?? 'majority');
 }
 
 /**
@@ -62,7 +132,10 @@ export function calculateVoteResult(
  *   chair's vote
  * @param requirement - The vote requirement of the pending question
  */
-export function canChairVoteDecide(votes: Votes, requirement: VoteRequirement): boolean {
+export function canChairVoteDecide(
+  votes: Votes,
+  requirement: VoteRequirement | VoteThreshold,
+): boolean {
   if (votes.yea + votes.nay === 0) return false;
   const passes = (v: Votes) => calculateVoteResult(v, requirement).passed;
   const now = passes(votes);

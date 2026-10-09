@@ -102,7 +102,7 @@ describe('demo seed', () => {
     });
     expect(lastYear.minutes?.body).toContain('## Minutes of the 2025 Annual Meeting');
     // Something for this year's meeting to approve: the motions it could make without a quorum
-    expect(lastYear.minutes?.body).toContain('Carried on a voice vote');
+    expect(lastYear.minutes?.body).toContain('Carried by voice vote');
     expect(await prisma.meetingPacket.count({ where: { organizationId: org.id } })).toBe(2);
   });
 

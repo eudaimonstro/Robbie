@@ -17,6 +17,8 @@ export interface VoteResult {
   parts: { device: { yea: number; nay: number }; floor: { yea: number; nay: number } } | null;
   /** The tally as the room reads it: "On devices 12 to 3, in the room 9 to 2: 21 to 5" */
   tally: string;
+  /** A voice vote the chair declared without a count: the tally is "By voice vote" */
+  declared?: 'ayes' | 'noes';
 }
 
 // The parts of a closed vote's line when the chair entered a floor tally:
@@ -36,9 +38,10 @@ export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | nul
   const match = entry.message.match(VOTE_LINE);
   if (!match) return null;
 
-  const yea = parseInt(match[1], 10);
-  const nay = parseInt(match[2], 10);
-  const outcome = match[3].replace("Chair's decision ", '') as VoteResult['outcome'];
+  const declared = match[3] as 'ayes' | 'noes' | undefined;
+  const yea = declared ? 0 : parseInt(match[1], 10);
+  const nay = declared ? 0 : parseInt(match[2], 10);
+  const outcome = match[4].replace("Chair's decision ", '') as VoteResult['outcome'];
 
   const partsMatch = entry.message.match(PARTS);
   const parts = partsMatch
@@ -48,9 +51,11 @@ export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | nul
       }
     : null;
   const total = `${yea} to ${nay}`;
-  const tally = parts
-    ? `On devices ${parts.device.yea} to ${parts.device.nay}, in the room ${parts.floor.yea} to ${parts.floor.nay}: ${total}`
-    : total;
+  const tally = declared
+    ? 'By voice vote'
+    : parts
+      ? `On devices ${parts.device.yea} to ${parts.device.nay}, in the room ${parts.floor.yea} to ${parts.floor.nay}: ${total}`
+      : total;
 
   // The question put before the vote (other entries, such as a quorum warning, may come between)
   const question = meetingLog
@@ -67,6 +72,7 @@ export function parseVoteResult(meetingLog: MeetingLogEntry[]): VoteResult | nul
     timestamp: entry.time,
     parts,
     tally,
+    ...(declared ? { declared } : {}),
   };
 }
 

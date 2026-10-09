@@ -21,6 +21,7 @@ import { NoOrganizations } from '../../../components/organizations/NoOrganizatio
 import { MembersCard } from '../components/MembersCard';
 import { AttendanceSettingsCard } from '../components/AttendanceSettingsCard';
 import { TimeZoneCard } from '../components/TimeZoneCard';
+import { BylawVoteCard } from '../components/BylawVoteCard';
 import { DeleteOrganizationDialog } from '../components/DeleteOrganizationDialog';
 import { formatDate } from '../../../utils/dates';
 import { scrollBehavior } from '../../../utils/motion';
@@ -221,6 +222,9 @@ export default function SettingsPage() {
 
             {/* The time zone the minutes give times in, beside the attendance settings */}
             <TimeZoneCard key={`time-zone-${currentOrganization.id}`} />
+
+            {/* What amending the bylaws needs, which meetings put on the question */}
+            <BylawVoteCard key={`bylaw-vote-${currentOrganization.id}`} />
 
             {/* Keyed so a switch starts the card afresh, without the previous members.
                 /settings#members comes here (the setup checklist) */}

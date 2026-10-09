@@ -1,6 +1,7 @@
 import type { OrgRole } from '../utils/roles';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import type { ParsedSection } from '@robbie-bylawyer/shared/utils';
+import type { BylawAmendmentVote } from '@robbie-bylawyer/shared/types';
 
 const API_BASE = '/api';
 
@@ -283,6 +284,12 @@ export const organizations = {
       body: JSON.stringify(data),
     }),
   delete: (id: string) => request<void>(`/organizations/${id}`, { method: 'DELETE' }),
+  /** What the organization's bylaws require to amend them (admin) */
+  setVoteRules: (id: string, rules: { bylawAmendmentVote: BylawAmendmentVote }) =>
+    request<{ bylawAmendmentVote: BylawAmendmentVote }>(`/organizations/${id}/vote-rules`, {
+      method: 'PUT',
+      body: JSON.stringify(rules),
+    }),
 };
 
 // Members of an organization
@@ -524,6 +531,8 @@ export interface Organization {
   quorumCount?: number | null;
   /** Where its meetings are held, as an IANA name: the minutes give times there */
   timeZone?: string;
+  /** What its bylaws require to amend them (two thirds of the votes cast when absent) */
+  bylawAmendmentVote?: BylawAmendmentVote;
 }
 
 export interface OrganizationCreate {

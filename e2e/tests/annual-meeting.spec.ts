@@ -259,30 +259,10 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await capture(alice, testInfo, 'annual-phone');
     await capture(tv, testInfo, 'annual-display');
 
-    // The election of two directors: one election per seat (an election elects one person)
+    // The election of two directors on one ballot: three nominees, the phones and the paper
+    // ballots counted in the room, and both winners declared in turn
     await callNext(dana, 'Election of two directors');
-    await elect(dana, {
-      position: 'Director, seat 1',
-      nominator: ben,
-      nominee: 'Alice Brennan',
-      fromTheFloor: 'Carmen Diaz',
-      voters: [alice, ben],
-      inTheRoom: { 'Alice Brennan': 15, 'Carmen Diaz': 8 },
-    });
-    await expect(visibleStamp(tv, 'Elected').caption).toContainText(
-      'Alice Brennan, Director, seat 1',
-    );
-    await elect(dana, {
-      position: 'Director, seat 2',
-      nominator: alice,
-      nominee: 'Ben Whitaker',
-      fromTheFloor: 'Carmen Diaz',
-      voters: [alice, ben],
-      inTheRoom: { 'Ben Whitaker': 14, 'Carmen Diaz': 9 },
-    });
-    await expect(visibleStamp(tv, 'Elected').caption).toContainText(
-      'Ben Whitaker, Director, seat 2',
-    );
+    await electTwoDirectors(dana, alice, ben, tv, testInfo);
 
     // Dana adjourns at the last item
     await callNext(dana, 'Adjournment');
@@ -331,8 +311,10 @@ test('the annual meeting runs from the call to order to published minutes and ne
     await expect(minutes).toContainText('Section 4.2');
     await expect(minutes).toContainText('As adopted, Section 4.2 "Quorum" reads:');
     await expect(minutes).toContainText(LOWER_QUORUM);
-    await expect(minutes).toContainText('Director, seat 1');
-    await expect(minutes).toContainText('Director, seat 2');
+    // One election, one ballot, two directors (minutesGenerator.ts, electionText)
+    await expect(minutes).toContainText(
+      'Ballot 1, 28 ballots cast (1 blank ballot not counted, 1 illegal ballot): Alice Brennan 19, Ben Whitaker 17, Carmen Diaz 13, Hector Ramos (write-in) 2. Alice Brennan and Ben Whitaker were elected.',
+    );
     // Ben goes by Benjamin in the record. Publish saves the text as typed first, without waiting
     // for the autosave (MinutesPage.tsx)
     const text = pat.getByLabel('Minutes text');
@@ -425,57 +407,102 @@ async function fitsTheScreen(tv: Page): Promise<void> {
 }
 
 /**
- * One election (NominationsPanel.tsx, ElectionPanel.tsx, console/ElectionCard.tsx): nominations
- * from a phone and from the floor, ballots on the phones and paper ballots counted in the room,
- * and the winner declared
+ * The election of two directors (NominationsPanel.tsx, ElectionPanel.tsx, console/ElectionCard.tsx):
+ * nominations for two seats from the phones and from the floor, ballots of up to two names on the
+ * phones, the paper ballots counted in the room (a name written in, a blank and a spoiled
+ * ballot), and the two with a majority declared one at a time, the TV stamping each
  */
-async function elect(
+async function electTwoDirectors(
   dana: Page,
-  election: {
-    position: string;
-    nominator: Page;
-    nominee: string;
-    fromTheFloor: string;
-    voters: Page[];
-    inTheRoom: Record<string, number>;
-  },
+  alice: Page,
+  ben: Page,
+  tv: Page,
+  testInfo: TestInfo,
 ): Promise<void> {
-  const { position, nominator, nominee, fromTheFloor, voters, inTheRoom } = election;
-  await dana.getByLabel('Open nominations for').fill(position);
+  await dana.getByLabel('Open nominations for').fill('Director');
+  await dana.getByLabel('Seats', { exact: true }).fill('2');
   await dana.getByRole('button', { name: 'Open nominations' }).click();
-  await expect(dana.getByRole('heading', { name: `Election for ${position}` })).toBeVisible();
+  await expect(
+    dana.getByRole('heading', { name: 'Election for Director', exact: true }),
+  ).toBeVisible();
+  await expect(tv.getByText('Election for Director, 2 seats')).toBeVisible();
 
-  const fromPhone = nominator.getByRole('form', { name: 'Nominate' });
-  await fromPhone.getByLabel('Nominee').selectOption({ label: nominee });
-  await fromPhone.getByRole('button', { name: 'Nominate' }).click();
+  for (const [phone, nominee] of [
+    [ben, 'Alice Brennan'],
+    [alice, 'Ben Whitaker'],
+  ] as const) {
+    const form = phone.getByRole('form', { name: 'Nominate' });
+    await form.getByLabel('Nominee').selectOption({ label: nominee });
+    await form.getByRole('button', { name: 'Nominate' }).click();
+  }
   const floor = dana.getByRole('form', { name: 'Nominate from the floor' });
-  await floor.getByLabel('Nominee').selectOption({ label: fromTheFloor });
+  await floor.getByLabel('Nominee').selectOption({ label: 'Carmen Diaz' });
   await floor.getByRole('button', { name: 'Nominate from the floor' }).click();
-  // The console lists this seat's nominations only (the meeting log, hidden, has them as well)
   const nominations = dana.getByRole('list', { name: 'Nominations' }).getByRole('listitem');
-  await expect(nominations).toHaveCount(2);
-  await expect(nominations.filter({ hasText: nominee })).toContainText('Nominated by');
-  await expect(nominations.filter({ hasText: fromTheFloor })).toContainText(
+  await expect(nominations).toHaveCount(3);
+  await expect(nominations.filter({ hasText: 'Carmen Diaz' })).toContainText(
     'Nominated from the floor',
   );
 
-  // The toolbar has the election's next step, as the election card does
   const toolbar = dana.getByRole('toolbar', { name: "The chair's actions" });
   await toolbar.getByRole('button', { name: 'Close nominations' }).click();
+  // Three nominees for two seats: a ballot, not acclamation
+  await expect(dana.getByText('Seats to fill: 2')).toBeVisible();
+  await expect(dana.getByRole('button', { name: 'Declare elected by acclamation' })).toHaveCount(0);
   await dana.getByRole('button', { name: 'Open the ballot' }).click();
-  for (const voter of voters) {
-    await voter
-      .getByRole('group', { name: 'Your ballot' })
-      .getByRole('button', { name: `Vote for ${nominee}` })
-      .click();
-    await expect(voter.getByText('Ballot recorded')).toBeVisible();
+
+  // Each phone marks up to two names
+  const aliceBallot = alice.getByRole('group', { name: 'Your ballot' });
+  await expect(aliceBallot.getByText('Choose up to 2')).toBeVisible();
+  await aliceBallot.getByLabel('Alice Brennan').check();
+  await aliceBallot.getByLabel('Ben Whitaker').check();
+  await expect(aliceBallot.getByLabel('Carmen Diaz')).toBeDisabled();
+  // The ballot in the middle of the phone's screen, clear of its sticky header
+  await aliceBallot.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  await alice.screenshot({ path: testInfo.outputPath('election-phone.png') });
+  await aliceBallot.getByRole('button', { name: 'Cast my ballot' }).click();
+  await expect(alice.getByText('Ballot recorded')).toBeVisible();
+  const benBallot = ben.getByRole('group', { name: 'Your ballot' });
+  await benBallot.getByLabel('Ben Whitaker').check();
+  await benBallot.getByLabel('Carmen Diaz').check();
+  await benBallot.getByRole('button', { name: 'Cast my ballot' }).click();
+  await expect(ben.getByText('Ballot recorded')).toBeVisible();
+  await expect(dana.getByText('2 ballots received on devices')).toBeVisible();
+
+  // The tellers' count of the 26 paper ballots in the room (Carmen's and the 25 counted)
+  const paper = dana.getByRole('form', { name: 'Paper ballots' });
+  await paper.getByLabel('Paper ballots counted, not counting blank ones').fill('26');
+  for (const [name, count] of [
+    ['Alice Brennan', 18],
+    ['Ben Whitaker', 15],
+    ['Carmen Diaz', 12],
+  ] as const) {
+    await paper.getByLabel(`${name} in the room`).fill(String(count));
   }
-  await expect(dana.getByText(`${voters.length} ballots received on devices`)).toBeVisible();
-  for (const [name, count] of Object.entries(inTheRoom)) {
-    await dana.getByLabel(`${name} in the room`).fill(String(count));
-  }
-  await dana.getByRole('button', { name: 'Enter the paper ballots' }).click();
+  await paper.getByRole('button', { name: 'Add a name written in' }).click();
+  await paper.getByLabel('Name written in').fill('Hector Ramos');
+  await paper.getByLabel('Votes').fill('2');
+  await paper.getByLabel('Blank ballots').fill('1');
+  await paper.getByLabel('Spoiled ballots').fill('1');
+  await paper.getByRole('button', { name: 'Enter the paper ballots' }).click();
+  await expect(paper.getByLabel('Name written in')).toHaveValue('Hector Ramos');
   await toolbar.getByRole('button', { name: 'Close the ballot' }).click();
-  await expect(dana.getByText(`${nominee} has the vote required.`)).toBeVisible();
-  await toolbar.getByRole('button', { name: `Declare ${nominee} elected` }).click();
+
+  // 28 ballots cast: a majority is 15. Alice 19 and Ben 17 have it; Carmen 13 does not.
+  await expect(
+    dana.getByText('Alice Brennan and Ben Whitaker have the vote required.', { exact: true }),
+  ).toBeVisible();
+  await expect(tv.getByText('Alice Brennan and Ben Whitaker have the vote required')).toBeVisible();
+  await capture(dana, testInfo, 'election-console');
+  await capture(tv, testInfo, 'election-display-closed');
+  await toolbar.getByRole('button', { name: 'Declare Alice Brennan elected' }).click();
+  await expect(visibleStamp(tv, 'Elected').caption).toContainText('Alice Brennan, Director');
+  await toolbar.getByRole('button', { name: 'Declare Ben Whitaker elected' }).click();
+  await expect(visibleStamp(tv, 'Elected').caption).toContainText(
+    'Alice Brennan and Ben Whitaker, Director',
+  );
+  await expect(visibleStamp(tv, 'Elected').caption).toContainText(
+    'Alice Brennan 19, Ben Whitaker 17, Carmen Diaz 13, Hector Ramos (write-in) 2',
+  );
+  await capture(tv, testInfo, 'election-display');
 }

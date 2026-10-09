@@ -1,4 +1,5 @@
 import type {
+  BallotTotals,
   ChairRulingRecord,
   CompletedMotion,
   ElectionSetAsideRecord,
@@ -16,7 +17,14 @@ import { PUT_BY_CHAIR } from '../constants/floor.js';
 import { logElectionSetAside } from '../constants/logMessages.js';
 import { MOTIONS } from '../constants/motions.js';
 import { plainMotionName } from '../constants/motionWords.js';
-import { NO_VOTES, addVotes, completedMotionVotes } from './voteCalculator.js';
+import {
+  NO_VOTES,
+  addVotes,
+  completedMotionVotes,
+  motionThreshold,
+  votesNeeded,
+} from './voteCalculator.js';
+import { joinNames } from './elections.js';
 import { bylawChangeView } from './bylawAmendment.js';
 
 /** An entry with where and when it happened, for grouping and ordering */
@@ -82,7 +90,19 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
   for (const motion of state.completedMotions) {
     if (!onTheAgenda(motion)) add({ kind: 'motion', motion }, motion);
   }
-  for (const officer of state.electedOfficers) add({ kind: 'election', officer }, officer);
+  // Officers one election chose together (several seats) are one entry, where the first was
+  // declared
+  const elections = new Map<number, Officer[]>();
+  for (const officer of state.electedOfficers) {
+    const together = officer.electionId !== undefined ? elections.get(officer.electionId) : null;
+    if (together) {
+      together.push(officer);
+      continue;
+    }
+    const officers = [officer];
+    if (officer.electionId !== undefined) elections.set(officer.electionId, officers);
+    add({ kind: 'election', officer, officers }, officer);
+  }
   for (const setAside of state.electionsSetAside ?? []) {
     add({ kind: 'setAside', setAside }, setAside);
   }
@@ -173,12 +193,19 @@ function sentence(text: string): string {
 const counted = (votes: Votes) => votes.yea + votes.nay + votes.abstain > 0;
 
 /**
- * ", two thirds required" when the motion needed more than a majority. An appeal's result says
- * what became of the chair's decision instead.
+ * ", two thirds required" when the motion needed more than a majority of the votes cast, or
+ * ", two thirds of all 142 voting members required (95 votes)". An appeal's result says what
+ * became of the chair's decision instead.
  */
 function requiredText(motion: CompletedMotion): string {
-  if (motion.type === 'appeal') return '';
-  return MOTIONS[motion.type]?.vote === '2/3' ? ', two thirds required' : '';
+  if (motion.type === 'appeal' || !MOTIONS[motion.type]) return '';
+  const threshold = motionThreshold(motion);
+  const needed = votesNeeded(threshold);
+  if (needed !== null) {
+    const fraction = threshold.fraction === '2/3' ? 'two thirds' : 'a majority';
+    return `, ${fraction} of all ${threshold.members ?? 0} voting members required (${needed} ${needed === 1 ? 'vote' : 'votes'})`;
+  }
+  return threshold.fraction === '2/3' ? ', two thirds required' : '';
 }
 
 /**
@@ -201,8 +228,9 @@ function voteText(motion: CompletedMotion): string {
   const abstaining = total.abstain > 0 ? `, ${total.abstain} abstaining` : '';
   const required = requiredText(motion);
   if (motion.method === 'voice') {
-    const count = counted(floor) ? `, ${floor.yea} to ${floor.nay}` : '';
-    return `${result} on a voice vote${required}${count}${abstaining}.`;
+    // Declared by the chair ("the ayes have it"), or counted in the room
+    const count = !motion.declared && counted(floor) ? `, ${floor.yea} to ${floor.nay}` : '';
+    return `${result} by voice vote${required}${count}${abstaining}.`;
   }
   const how =
     motion.method === 'ballot'
@@ -349,36 +377,80 @@ function rulingText(ruling: ChairRulingRecord): string {
 
 type Ballots = ReadonlyArray<Record<string, number>> | undefined;
 
-/** "Ballot 1: Carmen Diaz 18, Ray Castillo 9" for each ballot: counts only, the most first */
-function ballotTallies(ballots: Ballots): string[] {
+/** "27 ballots cast (1 blank ballot not counted, 1 illegal ballot)" */
+function castText(totals: BallotTotals): string {
+  const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`;
+  const notes = [
+    ...(totals.blank ? [`${count(totals.blank, 'blank ballot')} not counted`] : []),
+    ...(totals.illegal ? [count(totals.illegal, 'illegal ballot')] : []),
+  ];
+  return `${count(totals.cast, 'ballot')} cast${notes.length > 0 ? ` (${notes.join(', ')})` : ''}`;
+}
+
+/**
+ * "Ballot 1, 27 ballots cast: Carmen Diaz 18, Ray Castillo 9" for each ballot: counts only, the
+ * most first, a name written in marked so (records made before the totals were kept have none)
+ */
+function ballotTallies(ballots: Ballots, totals?: readonly BallotTotals[]): string[] {
   return (ballots ?? []).map((counts, index) => {
+    const own = totals?.[index];
+    const writeIns = new Set(own?.writeIns ?? []);
     const tally = Object.entries(counts)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([name, count]) => `${md(name)} ${count}`)
+      .map(([name, count]) => `${md(name)}${writeIns.has(name) ? ' (write-in)' : ''} ${count}`)
       .join(', ');
-    return `Ballot ${index + 1}: ${tally}`;
+    return `Ballot ${index + 1}${own ? `, ${castText(own)}` : ''}: ${tally}`;
   });
 }
 
-/** "Carmen Diaz was elected.", with the vote required when it was not a majority */
-function electedText(officer: Officer): string {
-  switch (officer.requiredVotes) {
+/** "Carmen Diaz was elected.", "Alice and Ben were elected, two thirds required." */
+function electedText(officers: Officer[]): string {
+  const names = joinNames(
+    officers.map((o) => `${md(o.name)}${o.writeIn ? ' (a write-in candidate)' : ''}`),
+  );
+  const verb = officers.length > 1 ? 'were elected' : 'was elected';
+  if (officers.every((o) => o.acclamation)) return `${names} ${verb} by acclamation.`;
+  switch (officers[0].requiredVotes) {
     case '2/3':
-      return `${md(officer.name)} was elected, two thirds required.`;
+      return `${names} ${verb}, two thirds required.`;
     case 'plurality':
-      return `${md(officer.name)} was elected by a plurality.`;
+      return `${names} ${verb} by a plurality.`;
     default:
-      return `${md(officer.name)} was elected.`;
+      return `${names} ${verb}.`;
   }
 }
 
-function electionText(officer: Officer): string {
-  const ballots = ballotTallies(officer.ballots).map((tally) => `${tally}.`);
-  return [`**Election for ${md(officer.position)}.**`, ...ballots, electedText(officer)].join(' ');
+/**
+ * One election: each ballot's count with who it elected, then anyone elected by acclamation
+ * (fewer nominees than seats, or as many)
+ */
+function electionText(officers: Officer[]): string {
+  const longest = officers.reduce((a, o) =>
+    (o.ballots?.length ?? 0) > (a.ballots?.length ?? 0) ? o : a,
+  );
+  const lines = [`**Election for ${md(officers[0].position)}.**`];
+  // Elected by acclamation after this many ballots (before any, or between them)
+  const acclaimedAfter = (count: number) => {
+    const acclaimed = officers.filter((o) => o.acclamation && (o.ballots?.length ?? 0) === count);
+    if (acclaimed.length > 0) lines.push(electedText(acclaimed));
+  };
+  acclaimedAfter(0);
+  ballotTallies(longest.ballots, longest.ballotTotals).forEach((tally, index) => {
+    lines.push(`${tally}.`);
+    const chosen = officers.filter((o) => !o.acclamation && (o.ballots?.length ?? 0) === index + 1);
+    if (chosen.length > 0) lines.push(electedText(chosen));
+    acclaimedAfter(index + 1);
+  });
+  // Records made before ballots were kept
+  const unballoted = officers.filter((o) => !o.acclamation && !o.ballots?.length);
+  if (unballoted.length > 0) lines.push(electedText(unballoted));
+  return lines.join(' ');
 }
 
 function setAsideText(setAside: ElectionSetAsideRecord): string {
-  const ballots = ballotTallies(setAside.ballots).map((tally) => `${tally}.`);
+  const ballots = ballotTallies(setAside.ballots, setAside.ballotTotals).map(
+    (tally) => `${tally}.`,
+  );
   const position = setAside.position === null ? null : md(setAside.position);
   return [logElectionSetAside(position), ...ballots].join(' ');
 }
@@ -386,8 +458,11 @@ function setAsideText(setAside: ElectionSetAsideRecord): string {
 /** 'the motion "Repave the lot" (Main motion, moved by Pat and seconded by Carmen)' and the like */
 function unfinishedText(record: UnfinishedBusinessRecord): string {
   if (record.kind === 'election') {
-    const ballots = ballotTallies(record.ballots);
-    return `the election for ${md(record.position)}${ballots.length > 0 ? ` (${ballots.join('; ')})` : ''}`;
+    const seats = record.seats
+      ? [`${record.seats} ${record.seats === 1 ? 'seat' : 'seats'} still open`]
+      : [];
+    const notes = [...seats, ...ballotTallies(record.ballots, record.ballotTotals)];
+    return `the election for ${md(record.position)}${notes.length > 0 ? ` (${notes.join('; ')})` : ''}`;
   }
   const moved = record.mover === PUT_BY_CHAIR ? 'put by the chair' : `moved by ${md(record.mover)}`;
   const seconded = record.seconder
@@ -428,7 +503,7 @@ function entryText(entry: MinutesEntry, zone: string): string {
     case 'ruling':
       return rulingText(entry.ruling);
     case 'election':
-      return electionText(entry.officer);
+      return electionText(entry.officers ?? [entry.officer]);
     case 'setAside':
       return setAsideText(entry.setAside);
     case 'minutes':
@@ -441,6 +516,8 @@ function entryText(entry: MinutesEntry, zone: string): string {
  * meeting to order", "Meeting called to order")
  */
 const CALL_TO_ORDER = /^\W*(?:\d+\W*)?(?:(?:the\s+)?meeting\s+)?call(?:ed)?\b[^.]*\bto order\W*$/i;
+/** An agenda item that is a report ("Treasurer's report", "Committee reports") */
+const REPORT = /\breports?\b/i;
 /** An agenda item that is the adjournment and nothing else ("Adjournment", "Adjourn the meeting") */
 const ADJOURNMENT = /^\W*(?:\d+\W*)?adjourn(?:ment)?(?:\s+(?:of\s+)?the\s+meeting)?\W*$/i;
 
@@ -532,7 +609,14 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
     // The agenda's own number, whichever items are left out
     paragraph(`### ${index + 1}. ${md(item.title)}`);
     if (item.entries.length === 0) {
-      paragraph(item.status === 'pending' ? 'Not taken up.' : 'No action was taken.');
+      // A report taken up and heard, with no motion on it, was received (RONR 51:5)
+      paragraph(
+        item.status === 'pending'
+          ? 'Not taken up.'
+          : REPORT.test(item.title)
+            ? 'Report received.'
+            : 'No action was taken.',
+      );
     }
     for (const entry of item.entries) paragraph(entryText(entry, zone));
   });

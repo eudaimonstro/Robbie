@@ -2300,7 +2300,11 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'Secretary',
-          candidates: [{ name: 'Alice', id: 1 }], // Only Alice nominated
+          // Only Alice nominated; Charlie was written in on paper
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Charlie', id: 0, writeIn: true },
+          ],
           requiredVotes: 'majority',
           votingInProgress: false,
           ballotResults: { Alice: 2, Charlie: 4 }, // Charlie is write-in with more votes
@@ -2328,7 +2332,10 @@ describe('meetingReducer', () => {
         currentElection: {
           id: 1,
           position: 'Treasurer',
-          candidates: [{ name: 'Alice', id: 1 }],
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'External Person', id: 0, writeIn: true },
+          ],
           requiredVotes: 'plurality',
           votingInProgress: false,
           ballotResults: { 'External Person': 5 }, // Write-in not in members list
@@ -2349,17 +2356,22 @@ describe('meetingReducer', () => {
     });
   });
 
-  describe('CAST_BALLOT with write-ins', () => {
-    it('should accept write-in votes', () => {
+  describe('CAST_BALLOT for several seats', () => {
+    it('counts one ballot, marking each name once', () => {
       const stateWithElection: MeetingState = {
         ...initialState,
         currentElection: {
           id: 1,
-          position: 'President',
-          candidates: [{ name: 'Alice', id: 1 }], // Only Alice nominated
+          position: 'Director',
+          candidates: [
+            { name: 'Alice', id: 1 },
+            { name: 'Ben', id: 2 },
+            { name: 'Carmen', id: 3 },
+          ],
           requiredVotes: 'majority',
           votingInProgress: true,
-          ballotResults: {},
+          seats: 2,
+          ballotResults: { Alice: 0, Ben: 0, Carmen: 0 },
           votersWhoVoted: [],
           elected: null,
         },
@@ -2367,11 +2379,12 @@ describe('meetingReducer', () => {
 
       const state = meetingReducer(stateWithElection, {
         type: 'CAST_BALLOT',
-        candidateName: 'WriteIn Candidate', // Not nominated
+        candidateNames: ['Alice', 'Carmen', 'Alice'],
         voterId: 5,
       });
 
-      expect(state.currentElection?.ballotResults['WriteIn Candidate']).toBe(1);
+      expect(state.currentElection?.ballotResults).toEqual({ Alice: 1, Ben: 0, Carmen: 1 });
+      expect(state.currentElection?.votersWhoVoted).toEqual([5]);
     });
   });
 
@@ -2385,8 +2398,9 @@ describe('meetingReducer', () => {
           candidates: [{ name: 'Alice', id: 1 }],
           requiredVotes: 'plurality',
           votingInProgress: true,
-          ballotResults: { Alice: 3, 'Bob WriteIn': 2 },
-          votersWhoVoted: [1, 2, 3, 4, 5],
+          ballotResults: { Alice: 3 },
+          floorWriteIns: { 'Bob WriteIn': 2 },
+          votersWhoVoted: [1, 2, 3],
           elected: null,
         },
       };
@@ -2429,13 +2443,13 @@ describe('meetingReducer', () => {
       expect(state.currentElection?.isRunoff).toBe(true);
       expect(state.currentElection?.runoffRound).toBe(1);
       expect(state.currentElection?.candidates).toHaveLength(2);
-      expect(state.currentElection?.ballotResults).toEqual({});
+      expect(state.currentElection?.ballotResults).toEqual({ Alice: 0, Bob: 0 });
       expect(state.currentElection?.votersWhoVoted).toEqual([]);
       expect(state.meetingLog[0].message).toContain('TIE');
-      expect(state.meetingLog[0].message).toContain('Runoff vote (round 1)');
+      expect(state.meetingLog[0].message).toContain('Ballot 2 is now open');
     });
 
-    it('should trigger runoff when majority vote is tied at top without winner', () => {
+    it('keeps every candidate on the next ballot when a majority vote is tied at the top (RONR 46:32)', () => {
       const stateWithElection: MeetingState = {
         ...initialState,
         currentElection: {
@@ -2460,9 +2474,13 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentElection?.votingInProgress).toBe(true);
-      expect(state.currentElection?.isRunoff).toBe(true);
-      expect(state.currentElection?.candidates).toHaveLength(2); // Only tied candidates
-      expect(state.currentElection?.candidates?.map((c) => c.name)).toEqual(['Alice', 'Bob']);
+      expect(state.currentElection?.isRunoff).toBeUndefined();
+      // Nobody is dropped
+      expect(state.currentElection?.candidates?.map((c) => c.name)).toEqual([
+        'Alice',
+        'Bob',
+        'Charlie',
+      ]);
     });
 
     it('should NOT trigger runoff when there is a clear majority winner', () => {
@@ -2519,7 +2537,7 @@ describe('meetingReducer', () => {
       });
 
       expect(state.currentElection?.runoffRound).toBe(2);
-      expect(state.meetingLog[0].message).toContain('round 2');
+      expect(state.meetingLog[0].message).toContain('TIE');
     });
   });
 

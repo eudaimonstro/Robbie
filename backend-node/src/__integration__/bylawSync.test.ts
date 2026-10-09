@@ -455,6 +455,108 @@ describe('bylaw sync in a live meeting', () => {
       currentTitle: 'Name',
       currentContent: 'The name is A.',
       newContent: 'The name is A Prime.',
+      // The organization's rule for amending its bylaws, two thirds of the votes cast unless set
+      voteRequired: { fraction: '2/3', of: 'cast' },
+    });
+  });
+
+  it("carries the organization's rule for amending its bylaws as it stands when moved", async () => {
+    const { member } = await meetingUnderWay();
+    // A device can't say what the motion needs: the shape is refused at the door
+    const forged = await live.dispatch(member, {
+      timestamp: '',
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename',
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'x',
+        voteRequired: { fraction: 'majority', of: 'cast' },
+      },
+    });
+    expect(forged).toMatchObject({ success: false, errorCode: 'VALIDATION_FAILED' });
+
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { bylawAmendmentVote: 'twoThirdsMembers', eligibleVoters: 142 },
+    });
+    await act(member, {
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename',
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    expect((await pendingSecond())?.bylawAmendment?.voteRequired).toEqual({
+      fraction: '2/3',
+      of: 'members',
+      members: 142,
+    });
+  });
+
+  it('refuses a share of all the voting members when there are none', async () => {
+    const { member } = await meetingUnderWay();
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { bylawAmendmentVote: 'majorityMembers', eligibleVoters: null },
+    });
+    await prisma.organizationMember.updateMany({
+      where: { organizationId: f.orgA.id },
+      data: { role: 'viewer' },
+    });
+    const res = await live.dispatch(member, {
+      timestamp: '',
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename',
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    expect(res).toMatchObject({
+      success: false,
+      error:
+        'The bylaws need a share of all the voting members, and the organization has none: set the voting members in Settings',
+    });
+  });
+
+  it('counts the voting members on the roster when the organization gives no number', async () => {
+    const { member } = await meetingUnderWay();
+    await prisma.organization.update({
+      where: { id: f.orgA.id },
+      data: { bylawAmendmentVote: 'majorityMembers', eligibleVoters: null },
+    });
+    await act(member, {
+      type: 'MAKE_MOTION',
+      motionType: 'bylawAmendment',
+      text: 'Rename',
+      motionId: 0,
+      bylawAmendment: {
+        documentId: f.doc,
+        changeType: 'modify',
+        targetSectionId: f.section,
+        newContent: 'The name is A Prime.',
+      },
+    });
+    const voters = await prisma.organizationMember.count({
+      where: { organizationId: f.orgA.id, role: { not: 'viewer' } },
+    });
+    expect((await pendingSecond())?.bylawAmendment?.voteRequired).toEqual({
+      fraction: 'majority',
+      of: 'members',
+      members: voters,
     });
   });
 

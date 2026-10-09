@@ -289,9 +289,10 @@ export async function handleDispatchAction(
     }
 
     // Post-action: Sync bylaw amendments to Bylawyer once decided, on a vote or by unanimous
-    // consent
+    // consent. A voice vote declared without a count never decides a bylaw amendment (the
+    // validator refuses it), and a division could still undo it, so it is never synced.
     if (
-      enrichedAction.type === 'CLOSE_VOTING' ||
+      (enrichedAction.type === 'CLOSE_VOTING' && !enrichedAction.declared) ||
       enrichedAction.type === 'UNANIMOUS_CONSENT_PASSED'
     ) {
       try {

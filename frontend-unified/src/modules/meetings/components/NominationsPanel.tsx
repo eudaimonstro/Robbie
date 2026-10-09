@@ -1,6 +1,6 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_NAME_LENGTH, MAX_POSITION_LENGTH } from '@robbie-bylawyer/shared/constants';
-import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { MAX_SEATS, generateId, generateTimestamp, winnersOf } from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
 interface NominationsPanelProps {
@@ -34,9 +34,11 @@ export function NominationsPanel({
   embedded = false,
 }: NominationsPanelProps) {
   const positionId = useId();
+  const seatsId = useId();
   const nomineeId = useId();
   const nameId = useId();
   const [position, setPosition] = useState('');
+  const [seats, setSeats] = useState('1');
   const [nominee, setNominee] = useState('');
   const [name, setName] = useState('');
 
@@ -48,16 +50,34 @@ export function NominationsPanel({
   const nominations = state.nominations.filter((n) => n.position === openPosition);
   const canNominate = currentUser.role !== 'guest';
 
+  const seatCount = Number(seats);
+  const seatsValid = Number.isInteger(seatCount) && seatCount >= 1 && seatCount <= MAX_SEATS;
   const openNominations = (e: FormEvent) => {
     e.preventDefault();
-    if (!position.trim()) return;
+    if (!position.trim() || !seatsValid) return;
     dispatch({
       type: 'OPEN_NOMINATIONS',
       position: position.trim(),
+      ...(seatCount > 1 ? { seats: seatCount } : {}),
       timestamp: generateTimestamp(),
     });
     setPosition('');
+    setSeats('1');
   };
+
+  // Nominations closed with the ballot still to open (or seats left after an acclamation): the
+  // chair may reopen them for the same position, which keeps its seats
+  // (or seats still open between ballots, with nobody awaiting the declaration)
+  const election = state.currentElection;
+  const between = !!election && !election.votingInProgress && winnersOf(election).length === 0;
+  const inHand = state.nominationsOpen
+    ? null
+    : between
+      ? election.position
+      : !election && state.currentNominationPosition;
+  const reopen = () =>
+    inHand &&
+    dispatch({ type: 'OPEN_NOMINATIONS', position: inHand, timestamp: generateTimestamp() });
 
   const nominate = (e: FormEvent) => {
     e.preventDefault();
@@ -90,46 +110,73 @@ export function NominationsPanel({
   const canOpen =
     isChair &&
     !state.nominationsOpen &&
-    !state.currentElection &&
+    (!election || between) &&
     !state.currentMotion &&
     !state.pendingSecond &&
     state.meetingStage !== 'adjourned';
+  // One election at a time: with a position in hand, only it can be reopened
+  const canOpenNew = canOpen && !inHand;
   const showElected = !embedded && state.electedOfficers.length > 0;
   const showNone = !embedded && !isChair && !openPosition && state.electedOfficers.length === 0;
   if (embedded && !canOpen && !openPosition) return null;
 
   const body = (
     <>
-      {canOpen && (
+      {canOpenNew && (
         <form onSubmit={openNominations} className="space-y-2">
-          <label htmlFor={positionId} className="label">
-            Open nominations for
-          </label>
           <div className="flex gap-2">
-            <input
-              id={positionId}
-              className="input min-w-0 flex-1"
-              placeholder="Director, Treasurer..."
-              maxLength={MAX_POSITION_LENGTH}
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            />
-            <button
-              type="submit"
-              className="btn-secondary btn-sm shrink-0 whitespace-nowrap"
-              disabled={!position.trim()}
-            >
-              Open nominations
-            </button>
+            <div className="min-w-0 flex-1">
+              <label htmlFor={positionId} className="label">
+                Open nominations for
+              </label>
+              <input
+                id={positionId}
+                className="input"
+                placeholder="Director, Treasurer..."
+                maxLength={MAX_POSITION_LENGTH}
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+              />
+            </div>
+            <div className="w-20 shrink-0">
+              <label htmlFor={seatsId} className="label">
+                Seats
+              </label>
+              <input
+                id={seatsId}
+                className="input tabular-nums"
+                inputMode="numeric"
+                value={seats}
+                onChange={(e) => setSeats(e.target.value)}
+              />
+            </div>
           </div>
+          {!seatsValid && (
+            <p role="alert" className="text-sm text-gavel">
+              {`Seats are a whole number from 1 to ${MAX_SEATS}`}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="btn-secondary btn-sm"
+            disabled={!position.trim() || !seatsValid}
+          >
+            Open nominations
+          </button>
         </form>
+      )}
+      {canOpen && inHand && (
+        <button type="button" className="btn-ghost btn-sm" onClick={reopen}>
+          {`Reopen nominations for ${inHand}`}
+        </button>
       )}
 
       {openPosition && (
         <div className="space-y-3">
           <p role="status" className="text-sm text-ink">
-            Nominations are open for <span className="font-semibold">{openPosition}</span>. They
-            need no second, and members may nominate themselves.
+            Nominations are open for <span className="font-semibold">{openPosition}</span>
+            {(state.openSeats ?? 1) > 1 && `, ${state.openSeats} seats`}. They need no second, and
+            members may nominate themselves.
           </p>
 
           {canNominate && (
