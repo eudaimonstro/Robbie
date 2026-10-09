@@ -30,6 +30,7 @@ const variantClasses: Record<BadgeVariant, string> = {
   admin: 'badge-admin',
   member: 'badge-member',
   guest: 'badge-guest',
+  observer: 'badge-observer',
   present: 'badge-present',
   marked: 'badge-marked',
   absent: 'badge-absent',
@@ -80,6 +81,7 @@ const ROLE_LABELS: Record<MeetingRole, string> = {
   admin: 'Admin',
   member: 'Member',
   guest: 'Guest',
+  observer: 'Observer',
 };
 
 /** A person's role in a live meeting */

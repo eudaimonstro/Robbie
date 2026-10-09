@@ -45,6 +45,7 @@ const KEEPS_DIVISION_OPEN: ReadonlySet<MeetingAction['type']> = new Set<MeetingA
   'SET_MEMBER_PRESENCE',
   'REFRESH_MEMBERS',
   'SET_MEETING_INFO',
+  'SET_BOARD',
   'SET_PREVIOUS_MINUTES',
   'SET_MEMBER_ROLE',
   'MARK_PRESENT',
@@ -80,6 +81,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'START_MEETING':
     case 'END_MEETING':
     case 'SET_MEETING_INFO':
+    case 'SET_BOARD':
     case 'ADVANCE_MEETING_STAGE':
     case 'SET_MEETING_STAGE':
     case 'RESUME_MEETING':

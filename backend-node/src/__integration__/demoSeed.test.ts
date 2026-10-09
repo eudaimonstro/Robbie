@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import { prisma } from '../db/prisma.js';
 import {
+  DEMO_BOARD_MEETING_CODE,
   DEMO_MEETING_CODE,
   DEMO_PAST_MEETING_CODE,
   DEMO_SLUG,
@@ -103,7 +104,27 @@ describe('demo seed', () => {
     expect(lastYear.minutes?.body).toContain('## Minutes of the 2025 Annual Meeting');
     // Something for this year's meeting to approve: the motions it could make without a quorum
     expect(lastYear.minutes?.body).toContain('Carried by voice vote');
-    expect(await prisma.meetingPacket.count({ where: { organizationId: org.id } })).toBe(2);
+
+    // The board: Dana, Pat and Alice, who meet in November with Dana presiding
+    expect(
+      members
+        .filter((m) => m.isDirector)
+        .map((m) => m.user.name)
+        .sort(),
+    ).toEqual(['Alice Brennan', 'Dana Okafor', 'Pat Lindqvist']);
+    const board = await prisma.meetingPacket.findUniqueOrThrow({
+      where: { robbieCode: DEMO_BOARD_MEETING_CODE },
+      include: { agendaItems: true },
+    });
+    expect(board).toMatchObject({
+      organizationId: org.id,
+      kind: 'board',
+      title: 'November board meeting',
+      chairUserId: dana?.userId,
+      startedAt: null,
+    });
+    expect(board.agendaItems).toHaveLength(5);
+    expect(await prisma.meetingPacket.count({ where: { organizationId: org.id } })).toBe(3);
   });
 
   it('refuses to run again without reset', async () => {

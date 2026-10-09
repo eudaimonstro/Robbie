@@ -23,14 +23,17 @@ model Organization {
 
   // How many voting members the organization has (for an HOA, lots or units): the quorum
   // denominator. Null until set: a meeting can't open before it and the quorum are set.
-  eligibleVoters Int?
+  eligibleVoters     Int?
   // Quorum: a percentage of eligibleVoters, or a fixed count. Null until set, then one of the two.
-  quorumPercent  Int?
-  quorumCount    Int?
+  quorumPercent      Int?
+  quorumCount        Int?
   // Where its meetings are held, as an IANA name: the minutes give times there
-  timeZone       String @default("America/Chicago")
+  timeZone           String             @default("America/Chicago")
   // The vote its bylaws require to amend them: stamped on each bylaw amendment moved in a meeting
   bylawAmendmentVote BylawAmendmentVote @default(twoThirdsCast)
+  // The board's quorum, a number of directors, when its bylaws set one: null is a majority of the
+  // directors (OrganizationMember.isDirector)
+  boardQuorum        Int?
 
   // Who created it: only the organizations a user created count toward their limit, not those
   // someone else made them an owner of
@@ -42,6 +45,7 @@ model Organization {
   invites   OrganizationInvite[]
   packets   MeetingPacket[]
   minutes   Minutes[]
+  notices   MeetingNotice[]
 }
 
 // What a bylaw amendment needs: two thirds or a majority, of the votes cast or of all the
@@ -192,13 +196,20 @@ model AmendmentChange {
 // Meeting Packet & Agenda System
 // ============================================
 
+// Who votes in a meeting: the members (an annual or special meeting of the members), or the
+// board (its directors)
+enum MeetingKind {
+  members
+  board
+}
+
 // Meeting packet (collection of meeting-level documents and agenda)
 model MeetingPacket {
-  id             String    @id @default(uuid())
+  id             String      @id @default(uuid())
   // The organization the meeting belongs to: the only record of which organization a live
   // meeting (robbieCode) belongs to
   organizationId String
-  robbieCode     String    @unique // Links to Robbie meeting code
+  robbieCode     String      @unique // Links to Robbie meeting code
   title          String?
   description    String?
   // Where the meeting is held
@@ -206,14 +217,21 @@ model MeetingPacket {
   scheduledFor   DateTime?
   // The presiding officer: chairs the live meeting
   chairUserId    Int?
+  // Who votes: the members, or the board's directors
+  kind           MeetingKind @default(members)
+  // When the notice of the meeting was last emailed to the members, and by whom
+  noticeSentAt   DateTime?
+  noticeSentById Int?
   // When the live meeting was called to order and adjourned
   startedAt      DateTime?
   endedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  chair           User?               @relation(fields: [chairUserId], references: [id], onDelete: SetNull)
+  chair           User?               @relation("PacketChair", fields: [chairUserId], references: [id], onDelete: SetNull)
+  noticeSentBy    User?               @relation("NoticesSentLast", fields: [noticeSentById], references: [id], onDelete: SetNull)
+  notices         MeetingNotice[]
   attachments     Attachment[]
   agendaItems     MeetingAgendaItem[]
   // Its own minutes, and the minutes it approved
@@ -221,6 +239,25 @@ model MeetingPacket {
   minutesApproved Minutes[]           @relation("MinutesApprovedAt")
 
   @@index([organizationId])
+}
+
+// One sending of a meeting's notice: the organization's daily limit counts them, also after the
+// meeting is canceled (its packet goes, the record stays)
+model MeetingNotice {
+  id             String         @id @default(uuid())
+  organizationId String
+  packetId       String?
+  sentById       Int?
+  sentAt         DateTime       @default(now())
+  // How many it went to, and how many of those couldn't be delivered
+  recipients     Int
+  failed         Int            @default(0)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packet         MeetingPacket? @relation(fields: [packetId], references: [id], onDelete: SetNull)
+  sentBy         User?          @relation("NoticesSent", fields: [sentById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, sentAt])
+  @@index([packetId])
 }
 
 // Pre-planned agenda item (stored before meeting starts)
@@ -295,7 +332,9 @@ model User {
   memberships          OrganizationMember[]
   invitesSent          OrganizationInvite[]
   amendments           Amendment[]
-  chairing             MeetingPacket[]
+  chairing             MeetingPacket[]      @relation("PacketChair")
+  noticesSentLast      MeetingPacket[]      @relation("NoticesSentLast")
+  noticesSent          MeetingNotice[]      @relation("NoticesSent")
   minutesUpdated       Minutes[]            @relation("MinutesUpdatedBy")
   minutesPublished     Minutes[]            @relation("MinutesPublishedBy")
   minutesRevisions     MinutesRevision[]
@@ -351,6 +390,8 @@ model OrganizationMember {
   organizationId String
   userId         Int
   role           OrgRole
+  // A member of the board: votes in a board meeting (only with the member role or above)
+  isDirector     Boolean      @default(false)
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)

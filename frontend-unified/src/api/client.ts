@@ -312,6 +312,12 @@ export const members = {
       method: 'PUT',
       body: JSON.stringify({ role }),
     }),
+  /** Put a member on the board or take them off it (admin) */
+  setDirector: (orgId: string, userId: number, isDirector: boolean) =>
+    request<{ member: OrgMember }>(`/organizations/${orgId}/members/${userId}/director`, {
+      method: 'PUT',
+      body: JSON.stringify({ isDirector }),
+    }),
   /** Remove a member, or leave the organization when userId is the signed-in user's */
   remove: (orgId: string, userId: number) =>
     request<void>(`/organizations/${orgId}/members/${userId}`, { method: 'DELETE' }),
@@ -336,7 +342,57 @@ export const meetingPackets = {
   /** Replace the live agenda with the schedule's, before the meeting is called to order */
   reloadAgenda: (code: string) =>
     request<{ live: boolean }>(`/packets/${code}/reload-agenda`, { method: 'POST' }),
+  /** The meeting's notice as the signed-in secretary would send it (and print it). Not cached. */
+  notice: (code: string) => request<MeetingNotice>(`/packets/${code}/notice`, {}, false),
+  /** Email the notice to every member; confirmResend when it was sent before */
+  sendNotice: (code: string, confirmResend = false) =>
+    request<NoticeSent>(`/packets/${code}/notice`, {
+      method: 'POST',
+      body: JSON.stringify(confirmResend ? { confirmResend } : {}),
+    }),
 };
+
+/** Who votes in a meeting: the members, or the board's directors */
+export type MeetingKind = 'members' | 'board';
+
+/** A meeting's notice: what the email says and the printed notice shows */
+export interface MeetingNotice {
+  code: string;
+  organization: string;
+  title: string;
+  kind: MeetingKind;
+  /** When, in the organization's time zone; null without a date */
+  when: string | null;
+  day: string | null;
+  scheduledFor: string | null;
+  location: string | null;
+  agenda: Array<{ title: string; attachments: string[] }>;
+  attachments: string[];
+  /** The meeting's page */
+  link: string;
+  footer: string;
+  subject: string;
+  /** The email, in plain text */
+  text: string;
+  /** How many people it goes to */
+  recipients: number;
+  noticeSentAt: string | null;
+  noticeSentBy: string | null;
+  /** Notices the organization sent in the last 24 hours, of `limit` */
+  sentToday: number;
+  limit: number;
+  /** Whether it can be sent now, and why not */
+  sendable: boolean;
+  reason: string | null;
+}
+
+/** What sending a notice did */
+export interface NoticeSent {
+  sent: number;
+  failed: number;
+  /** Null when no email went: then it wasn't sent, nor counted toward the day's notices */
+  noticeSentAt: string | null;
+}
 
 // Documents
 export const documents = {
@@ -533,6 +589,8 @@ export interface Organization {
   timeZone?: string;
   /** What its bylaws require to amend them (two thirds of the votes cast when absent) */
   bylawAmendmentVote?: BylawAmendmentVote;
+  /** The board's quorum, a number of directors; null is a majority of them */
+  boardQuorum?: number | null;
 }
 
 export interface OrganizationCreate {
@@ -557,6 +615,8 @@ export interface OrganizationUpdate {
   quorumPercent?: number;
   quorumCount?: number;
   timeZone?: string;
+  /** The board's quorum; null for a majority of the directors */
+  boardQuorum?: number | null;
 }
 
 /** One of the signed-in user's organizations, with their role in it */
@@ -570,6 +630,8 @@ export interface OrgMember {
   /** For admins, and for the member themselves */
   email?: string;
   role: OrgRole;
+  /** On the board: votes in a board meeting */
+  isDirector?: boolean;
 }
 
 /** An addition by email that waits until that email first signs in */
@@ -602,6 +664,10 @@ export interface ScheduledMeeting {
   scheduledFor: string | null;
   /** The presiding officer, who chairs the live meeting; null when the admins run it */
   chairUserId: number | null;
+  /** Who votes: the members, or the board (members when absent) */
+  kind?: MeetingKind;
+  /** When its notice was last emailed */
+  noticeSentAt?: string | null;
   /** When the meeting was called to order and adjourned */
   startedAt: string | null;
   endedAt: string | null;
@@ -615,6 +681,8 @@ export interface RosterMember {
   /** Sent to admins only */
   email?: string;
   orgRole: OrgRole;
+  /** On the board: votes in a board meeting */
+  isDirector?: boolean;
   /**
    * The addition by email they joined by, and the name it gave (to those who mark people
    * present): someone counted in the room before they signed in is found counted twice by it

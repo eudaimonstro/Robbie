@@ -69,7 +69,7 @@ const timerEnd = z.number().nonnegative().nullable();
 
 const vote = z.enum(['yea', 'nay', 'abstain']);
 const stance = z.enum(['pro', 'con', 'neutral']);
-const meetingRole = z.enum(['chair', 'admin', 'member', 'guest']);
+const meetingRole = z.enum(['chair', 'admin', 'member', 'guest', 'observer']);
 const proxyScope = z.enum(['all', 'single-vote']);
 const motionType = z.enum(Object.keys(MOTIONS) as [string, ...string[]]);
 
@@ -82,6 +82,7 @@ const member = z.object({
   id,
   name: text(MAX_NAME_LENGTH),
   role: meetingRole,
+  nonVoting: z.boolean().optional(),
   present: z.boolean(),
   presentBy: z.enum(['device', 'chair']).optional(),
 });
@@ -509,6 +510,7 @@ export const ACTION_SCHEMAS = {
   }),
   RELOAD_AGENDA: serverOnly,
   SET_MEETING_INFO: serverOnly,
+  SET_BOARD: serverOnly,
   WITHDRAW_MOTION: z.strictObject({
     type: z.literal('WITHDRAW_MOTION'),
     requesterId: optionalId,

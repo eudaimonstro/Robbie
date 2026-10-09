@@ -1,6 +1,12 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_NAME_LENGTH, MAX_POSITION_LENGTH } from '@robbie-bylawyer/shared/constants';
-import { MAX_SEATS, generateId, generateTimestamp, winnersOf } from '@robbie-bylawyer/shared/utils';
+import {
+  generateId,
+  generateTimestamp,
+  MAX_SEATS,
+  takesPart,
+  winnersOf,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 
 interface NominationsPanelProps {
@@ -44,11 +50,15 @@ export function NominationsPanel({
 
   const openPosition = state.nominationsOpen ? state.currentNominationPosition : null;
   const candidates = useMemo(
+    // Anyone present from the organization, an observer of a board meeting too (a member of the
+    // organization); never a guest
     () => state.members.filter((m) => m.present && m.role !== 'guest'),
     [state.members],
   );
   const nominations = state.nominations.filter((n) => n.position === openPosition);
-  const canNominate = currentUser.role !== 'guest';
+  // A member nominates; the chair or an admin presiding records a nomination from the floor,
+  // a presiding officer without a vote too
+  const canNominate = takesPart(currentUser) || isChair;
 
   const seatCount = Number(seats);
   const seatsValid = Number.isInteger(seatCount) && seatCount >= 1 && seatCount <= MAX_SEATS;

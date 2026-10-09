@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { initialState } from '../../reducer/index.js';
-import { attendanceSummary, isQuorumSet, quorumFromSettings } from '../../utils/index.js';
+import {
+  attendanceSummary,
+  boardQuorum,
+  isBoardMeeting,
+  isQuorumSet,
+  quorumFromSettings,
+  smallBoard,
+  takesPart,
+} from '../../utils/index.js';
 import type { MeetingState, Member } from '../../types/index.js';
 
 const member = (id: number, present: boolean, extra: Partial<Member> = {}): Member => ({
@@ -37,6 +45,7 @@ describe('attendanceSummary', () => {
       quorum: 5,
       hasQuorum: true,
       guests: 1,
+      observers: 0,
     });
   });
 
@@ -132,5 +141,87 @@ describe('quorumFromSettings', () => {
     expect(
       quorumFromSettings({ eligibleVoters: null, quorumPercent: null, quorumCount: null }, 9),
     ).toBe(3);
+  });
+});
+
+describe('takesPart', () => {
+  it('is everyone but guests, observers and a presiding officer without a vote', () => {
+    expect(takesPart(member(1, true))).toBe(true);
+    expect(takesPart(member(1, true, { role: 'chair' }))).toBe(true);
+    expect(takesPart(member(1, true, { role: 'admin' }))).toBe(true);
+    expect(takesPart(member(1, true, { role: 'guest' }))).toBe(false);
+    expect(takesPart(member(1, true, { role: 'observer' }))).toBe(false);
+    expect(takesPart(member(1, true, { role: 'admin', nonVoting: true }))).toBe(false);
+    expect(takesPart(member(1, true, { role: 'chair', nonVoting: true }))).toBe(false);
+  });
+});
+
+describe('attendanceSummary in a board meeting', () => {
+  const board: MeetingState = {
+    ...initialState,
+    kind: 'board',
+    board: { directors: 5 },
+    quorum: 3,
+    // Left from before it was a board meeting: none of it applies
+    headcount: 4,
+    proxiesHeld: 2,
+    members: [
+      member(1, true, { role: 'chair' }),
+      member(2, true, { presentBy: 'chair' }),
+      member(3, false),
+      member(4, true, { role: 'admin', nonVoting: true }),
+      member(5, true, { role: 'observer' }),
+      member(6, true, { role: 'observer' }),
+      member(7, true, { role: 'guest' }),
+    ],
+  };
+
+  it('counts only the directors present, never the room, proxies or observers', () => {
+    expect(attendanceSummary(board)).toEqual({
+      devicePresent: 1,
+      markedPresent: 1,
+      headcount: 0,
+      proxies: 0,
+      proxiesHeld: 0,
+      present: 2,
+      quorum: 3,
+      hasQuorum: false,
+      guests: 1,
+      observers: 3,
+    });
+  });
+
+  it('knows a board meeting by its board', () => {
+    expect(isBoardMeeting(board)).toBe(true);
+    expect(isBoardMeeting(initialState)).toBe(false);
+    expect(isBoardMeeting({ ...initialState, kind: 'members', board: null })).toBe(false);
+  });
+});
+
+describe('boardQuorum', () => {
+  it('is a majority of the directors', () => {
+    expect(boardQuorum(5, null)).toBe(3);
+    expect(boardQuorum(4, null)).toBe(3);
+    expect(boardQuorum(3, null)).toBe(2);
+    expect(boardQuorum(1, null)).toBe(1);
+  });
+
+  it('is the number the organization sets, at least one', () => {
+    expect(boardQuorum(7, 3)).toBe(3);
+    expect(boardQuorum(0, null)).toBe(1);
+  });
+
+  it('is never more than the directors there are', () => {
+    expect(boardQuorum(3, 5)).toBe(3);
+  });
+});
+
+describe('smallBoard', () => {
+  it('is a board meeting of twelve directors or fewer', () => {
+    const board = (directors: number) =>
+      ({ ...initialState, kind: 'board', board: { directors } }) as MeetingState;
+    expect(smallBoard(board(12))).toBe(true);
+    expect(smallBoard(board(13))).toBe(false);
+    expect(smallBoard(initialState)).toBe(false);
   });
 });

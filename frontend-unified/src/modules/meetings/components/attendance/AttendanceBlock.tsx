@@ -7,18 +7,25 @@ interface AttendanceBlockProps {
   eligible: number | null;
   /** In a console panel, or on the display at 1080p */
   size?: 'panel' | 'display';
+  /** A board meeting: the eligible are its directors */
+  board?: boolean;
 }
 
 /**
  * Attendance you can read from the door (docs/design-brief.md): present, quorum and eligible in
  * Fraunces with labels beneath, and a line saying whether quorum is met
  */
-export function AttendanceBlock({ summary, eligible, size = 'panel' }: AttendanceBlockProps) {
+export function AttendanceBlock({
+  summary,
+  eligible,
+  size = 'panel',
+  board = false,
+}: AttendanceBlockProps) {
   const display = size === 'display';
   const figures = [
     { label: 'Present', value: String(summary.present) },
     { label: 'Quorum', value: String(summary.quorum) },
-    { label: 'Eligible', value: eligible === null ? '-' : String(eligible) },
+    { label: board ? 'Directors' : 'Eligible', value: eligible === null ? '-' : String(eligible) },
   ];
   return (
     <div>

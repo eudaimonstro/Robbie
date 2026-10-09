@@ -24,16 +24,29 @@ vi.mock('../socket/meetingPacket.js', () => ({
           title: null,
           scheduledFor: null,
           chairUserId: null,
-          organization: { name: 'Org', eligibleVoters: 20, quorumPercent: null, quorumCount: 3 },
+          kind: 'members',
+          organization: {
+            name: 'Org',
+            eligibleVoters: 20,
+            quorumPercent: null,
+            quorumCount: 3,
+            boardQuorum: null,
+          },
           agendaItems: [],
         }
       : null,
-  findPerson: async () => ({ name: 'Member', email: 'm@x.org', orgRole: 'member' }),
-  countRosterVoters: async () => 1,
+  findPerson: async () => ({
+    name: 'Member',
+    email: 'm@x.org',
+    orgRole: 'member',
+    isDirector: false,
+  }),
+  votersOf: async () => ({ kind: 'members', board: null, quorum: 3 }),
   stateFromPacket: () => initialState,
 }));
 vi.mock('../socket/meetingRoles.js', () => ({
-  deriveMeetingRole: () => 'member',
+  deriveMeetingSeat: () => ({ role: 'member' }),
+  syncVoters: async () => null,
   staleRoles: async () => [],
   updateSocketRoles: async () => {},
 }));

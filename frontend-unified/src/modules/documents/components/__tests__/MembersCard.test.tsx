@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   changeRole: vi.fn(async () => ({})),
   remove: vi.fn(async () => {}),
   cancelInvite: vi.fn(async () => {}),
+  setDirector: vi.fn(async () => ({})),
 }));
 vi.mock('../../../../api/client', () => ({ members: api }));
 const orgState = vi.hoisted(() => ({
@@ -271,5 +272,52 @@ describe('MembersCard', () => {
     render(<MembersCard />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel adding new@example.org' }));
     await waitFor(() => expect(api.cancelInvite).toHaveBeenCalledWith('o1', 'i1'));
+  });
+
+  describe('the board', () => {
+    it('lets an admin mark the board members, only members and above', async () => {
+      api.list.mockResolvedValue({
+        members: [
+          ...people.members,
+          { userId: 9, name: 'Morgan Lee', email: 'morgan@maplegrove.example', role: 'viewer' },
+        ],
+      });
+      render(<MembersCard />);
+      await screen.findByText('Alice Brennan');
+      expect(
+        screen.getByText(
+          'Mark the board members: they vote in board meetings, and the other members may observe.',
+        ),
+      ).toBeTruthy();
+      // An admin marks an owner too, whose role only an owner changes
+      expect(screen.getByRole('checkbox', { name: 'Board member: Pat Lindqvist' })).toBeTruthy();
+      expect(screen.queryByRole('checkbox', { name: 'Board member: Morgan Lee' })).toBeNull();
+
+      api.list.mockResolvedValue({
+        members: people.members.map((m) => (m.userId === 4 ? { ...m, isDirector: true } : m)),
+      });
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Board member: Alice Brennan' }));
+      await waitFor(() => expect(api.setDirector).toHaveBeenCalledWith('o1', 4, true));
+      expect(await screen.findByText('Alice Brennan is on the board.')).toBeTruthy();
+      expect(
+        (screen.getByRole('checkbox', { name: 'Board member: Alice Brennan' }) as HTMLInputElement)
+          .checked,
+      ).toBe(true);
+      expect(screen.getByText('The board: 1 member, who vote in board meetings.')).toBeTruthy();
+    });
+
+    it('shows everyone else who is on the board', async () => {
+      orgState.currentOrganization = { ...orgState.currentOrganization, role: 'member' };
+      api.list.mockResolvedValue({
+        members: [
+          { userId: 1, name: 'Pat Lindqvist', role: 'owner', isDirector: true },
+          { userId: 4, name: 'Alice Brennan', role: 'member' },
+        ],
+      });
+      render(<MembersCard />);
+      await screen.findByText('Alice Brennan');
+      expect(screen.queryByRole('checkbox')).toBeNull();
+      expect(screen.getAllByText('Board')).toHaveLength(1);
+    });
   });
 });

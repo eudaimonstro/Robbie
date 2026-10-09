@@ -8,6 +8,8 @@ interface PhoneHeaderProps {
   /** Where the meeting is: the agenda item before it, "In session", "Adjourned" */
   item: string | null;
   guest: boolean;
+  /** A board meeting's observer: an Observer badge */
+  observer?: boolean;
   /** Leave the meeting and return to the app (a live meeting hides the app's sidebar) */
   onLeave?: () => void;
   /** Ask first: a member leaving a meeting in session stops counting toward the quorum */
@@ -24,6 +26,7 @@ export function PhoneHeader({
   title,
   item,
   guest,
+  observer = false,
   onLeave,
   confirmLeave = false,
   onMenu,
@@ -49,6 +52,7 @@ export function PhoneHeader({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {guest && <RoleBadge role="guest" />}
+          {observer && <RoleBadge role="observer" />}
           {onLeave && (
             <button
               type="button"

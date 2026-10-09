@@ -9,7 +9,7 @@ import {
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useSession } from '../../../context/SessionContext';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
-import { ROLE_LABELS, assignableRoles, type OrgRole } from '../../../utils/roles';
+import { ROLE_LABELS, assignableRoles, atLeast, type OrgRole } from '../../../utils/roles';
 import { BulkAddMembers } from './BulkAddMembers';
 
 type Notice = { kind: 'status' | 'alert'; text: string };
@@ -112,6 +112,20 @@ export function MembersCard() {
     }, 'Failed to change the role');
   };
 
+  // The board: members and above, marked by an admin; they vote in board meetings
+  const directors = list.filter((m) => m.isDirector).length;
+  const onSetDirector = (member: OrgMember, isDirector: boolean) => {
+    if (!orgId) return;
+    // The box shows the change at once; the list loaded after it says how it came out
+    setList((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, isDirector } : m)));
+    void act(async () => {
+      await membersApi.setDirector(orgId, member.userId, isDirector);
+      return isDirector
+        ? `${nameOf(member)} is on the board.`
+        : `${nameOf(member)} is no longer on the board.`;
+    }, 'Failed to change the board');
+  };
+
   const onRemove = () => {
     const member = removing;
     setRemoving(null);
@@ -148,6 +162,14 @@ export function MembersCard() {
           </p>
         )}
 
+        {!loading && (isAdmin || directors > 0) && (
+          <p className="text-sm text-ink-muted">
+            {directors === 0
+              ? 'Mark the board members: they vote in board meetings, and the other members may observe.'
+              : `The board: ${directors} ${directors === 1 ? 'member' : 'members'}, who vote in board meetings.`}
+          </p>
+        )}
+
         {loading ? (
           <p className="text-sm text-ink-muted">Loading members...</p>
         ) : (
@@ -167,37 +189,55 @@ export function MembersCard() {
                   {member.email && (
                     <p className="text-sm text-ink-muted truncate">{member.email}</p>
                   )}
-                </div>
-                {canChangeRole(member.role) ? (
-                  <div className="flex items-center gap-2">
-                    <select
-                      aria-label={`Role of ${nameOf(member)}`}
-                      className="select w-auto text-sm py-1"
-                      value={member.role}
-                      disabled={busy}
-                      onChange={(e) => onChangeRole(member, e.target.value as OrgRole)}
-                    >
-                      {assignable.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
-                    {canRemove(member) && (
-                      <button
-                        type="button"
-                        aria-label={`Remove ${nameOf(member)}`}
-                        className="btn-ghost btn-sm text-gavel"
+                  {isAdmin && atLeast(member.role, 'member') && (
+                    <label className="mt-1 flex min-h-8 items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        className="accent-gavel"
+                        aria-label={`Board member: ${nameOf(member)}`}
+                        checked={!!member.isDirector}
                         disabled={busy}
-                        onClick={() => setRemoving(member)}
+                        onChange={(e) => onSetDirector(member, e.target.checked)}
+                      />
+                      Board member
+                    </label>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!(isAdmin && atLeast(member.role, 'member')) && member.isDirector && (
+                    <span className="badge bg-gavel-tint text-ink">Board</span>
+                  )}
+                  {canChangeRole(member.role) ? (
+                    <>
+                      <select
+                        aria-label={`Role of ${nameOf(member)}`}
+                        className="select w-auto text-sm py-1"
+                        value={member.role}
+                        disabled={busy}
+                        onChange={(e) => onChangeRole(member, e.target.value as OrgRole)}
                       >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <span className="badge bg-surface-2 text-ink">{ROLE_LABELS[member.role]}</span>
-                )}
+                        {assignable.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </option>
+                        ))}
+                      </select>
+                      {canRemove(member) && (
+                        <button
+                          type="button"
+                          aria-label={`Remove ${nameOf(member)}`}
+                          className="btn-ghost btn-sm text-gavel"
+                          disabled={busy}
+                          onClick={() => setRemoving(member)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <span className="badge bg-surface-2 text-ink">{ROLE_LABELS[member.role]}</span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

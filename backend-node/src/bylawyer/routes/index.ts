@@ -15,6 +15,7 @@ export { publicRouter } from './public.js';
 export { packetsRouter } from './packets.js';
 export { attachmentsRouter } from './attachments.js';
 export { agendaItemsRouter } from './agenda-items.js';
+export { noticesRouter } from './notices.js';
 
 // The minutes of scheduled meetings
 export { minutesRouter } from './minutes.js';

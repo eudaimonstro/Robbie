@@ -39,7 +39,8 @@ export function DisplayView() {
   const { availableOrganizations } = useMeetingOrganization();
   const organization = availableOrganizations.find((o) => o.id === state.organizationId) ?? null;
   const { roster } = useRoster(meetingCode, isConnected);
-  const eligible = eligibleCount(organization, roster);
+  // A board meeting's are its directors
+  const eligible = state.board?.directors ?? eligibleCount(organization, roster);
   const beforeMeeting = !state.meetingActive && state.meetingStage !== 'adjourned';
   // Once joined, a dropped connection keeps the last screen up while the socket reconnects
   // A meeting canceled while open is gone: the display says so (nothing on it is interactive)
@@ -57,7 +58,11 @@ export function DisplayView() {
         ) : (
           <>
             <header className="shrink-0 space-y-1">
-              {organization && <p className={LABEL}>{organization.name}</p>}
+              {(organization || state.board) && (
+                <p className={LABEL}>
+                  {[organization?.name, state.board && 'Board meeting'].filter(Boolean).join(', ')}
+                </p>
+              )}
               <h1 className="font-serif-soft text-display-line font-semibold text-ink">
                 {state.title || 'Meeting'}
               </h1>
@@ -76,6 +81,7 @@ export function DisplayView() {
                 meetingCode={meetingCode}
                 attendance={attendance}
                 eligible={eligible}
+                board={!!state.board}
               />
             )}
           </>
@@ -100,7 +106,8 @@ function BeforeMeeting({
   meetingCode,
   attendance,
   eligible,
-}: AttendanceProps & { meetingCode: string }) {
+  board,
+}: AttendanceProps & { meetingCode: string; board: boolean }) {
   const link = joinUrl(meetingCode);
   return (
     <div className="display-gap flex flex-1 flex-col justify-center gap-16">
@@ -114,14 +121,17 @@ function BeforeMeeting({
             <p className={LABEL}>Code</p>
             <p className="meeting-code text-display-number text-ink">{meetingCode}</p>
           </div>
-          {/* For the owners who won't scan anything: the headcount is how they count */}
+          {/* For the owners who won't scan anything: the headcount is how they count. A board
+              counts its directors, and members follow it. */}
           <p className="text-display-line text-ink">
-            No phone? You still count: the chair will count you in the room.
+            {board
+              ? 'The directors vote. Members may follow the meeting on their phones.'
+              : 'No phone? You still count: the chair will count you in the room.'}
           </p>
         </div>
         <QrCode value={link} label="Scan to join" size={360} className="display-qr" />
       </div>
-      <AttendanceBlock summary={attendance} eligible={eligible} size="display" />
+      <AttendanceBlock summary={attendance} eligible={eligible} size="display" board={board} />
     </div>
   );
 }
@@ -198,7 +208,12 @@ function InSession({ state, attendance, eligible }: AttendanceProps & { state: M
         </div>
       </div>
       <footer className="grid shrink-0 grid-cols-[1fr_auto] items-end gap-12 border-t border-rule pt-8">
-        <AttendanceBlock summary={attendance} eligible={eligible} size="display" />
+        <AttendanceBlock
+          summary={attendance}
+          eligible={eligible}
+          size="display"
+          board={!!state.board}
+        />
         <VoteBand state={state} />
       </footer>
     </>

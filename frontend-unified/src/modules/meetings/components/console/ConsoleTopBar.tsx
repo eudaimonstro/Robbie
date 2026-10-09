@@ -51,6 +51,7 @@ export function ConsoleTopBar({
       <h2 className="min-w-0 max-w-[50%] shrink-0 truncate font-serif-soft text-title font-semibold text-ink">
         {state.title || 'Live meeting'}
       </h2>
+      {state.board && <span className="badge shrink-0 bg-gavel-tint text-ink">Board meeting</span>}
       <span className="label-caps min-w-0 truncate" title={stageLabel(state)}>
         {stageLabel(state)}
       </span>

@@ -209,3 +209,20 @@ describe('motionOutOfOrder', () => {
     expect(reason(pending(), 'adoptAgenda')).toBe('The agenda is adopted');
   });
 });
+
+describe('a board meeting', () => {
+  const board = pending([], { kind: 'board', board: { directors: 5 } });
+
+  it('refuses a bylaw amendment, which the members make', () => {
+    expect(motionOutOfOrder(board, 'bylawAmendment')).toEqual({
+      reason: "The members amend the bylaws: a bylaw amendment isn't moved in a board meeting",
+      kind: 'not-offered',
+    });
+    expect(offered(board)).not.toContain('bylawAmendment');
+    expect(offered(board)).toContain('mainMotion');
+  });
+
+  it('offers it in a meeting of the members', () => {
+    expect(offered(pending())).toContain('bylawAmendment');
+  });
+});

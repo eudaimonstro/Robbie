@@ -48,6 +48,8 @@ export const updateOrganizationBody = z
     quorumPercent: quorumPercent.optional(),
     quorumCount: quorumCount.optional(),
     timeZone: timeZoneName.optional(),
+    // The board's quorum, a number of directors; null is a majority of them
+    boardQuorum: z.number().int().min(1).max(25).nullable().optional(),
   })
   .refine((body) => body.quorumPercent === undefined || body.quorumCount === undefined, {
     message: ONE_QUORUM,

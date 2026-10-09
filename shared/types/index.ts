@@ -3,14 +3,38 @@
 /**
  * A person's role in a live meeting, derived from the organization at every join: the
  * presiding officer is the chair, secretaries and above are admins, members are members, and
- * everyone else (viewers, people outside the organization) is a guest
+ * everyone else (viewers, people outside the organization) is a guest. In a board meeting the
+ * directors are the members, and the organization's other members and viewers are observers:
+ * they follow the meeting as a member does but take no part in it (no motion, second, vote or
+ * request for the floor).
  */
-export type MeetingRole = 'chair' | 'admin' | 'member' | 'guest';
+export type MeetingRole = 'chair' | 'admin' | 'member' | 'guest' | 'observer';
+
+/**
+ * Who votes in a meeting: the members (an annual or special meeting of the members), or the
+ * board, whose directors vote
+ */
+export type MeetingKind = 'members' | 'board';
+
+/** A board meeting's board: how many directors it has, the quorum's denominator */
+export interface BoardInfo {
+  directors: number;
+  /**
+   * The board's quorum as the organization gives it (its setting, or a majority of the
+   * directors) when it was last taken: a meeting whose quorum still is this follows a change
+   */
+  quorum?: number;
+}
 
 export interface Member {
   id: number;
   name: string;
   role: MeetingRole;
+  /**
+   * In a board meeting, a presiding officer (the chair, or an admin) who isn't a director: they
+   * keep the console but don't vote, move or second, and never count toward the quorum
+   */
+  nonVoting?: boolean;
   present: boolean;
   /**
    * Why a present member is present: their device is connected, or the chair or secretary
@@ -561,6 +585,13 @@ export interface MeetingState {
   organizationId: string | null;
   title: string;
   scheduledFor: string | null;
+  /** Who votes: the members (also when absent, in a state saved before it existed) or the board */
+  kind?: MeetingKind;
+  /**
+   * A board meeting's board (null or absent for a meeting of the members): its directors' count,
+   * kept up to date until the call to order, then the record of it
+   */
+  board?: BoardInfo | null;
   members: Member[];
   quorum: number;
   /** People in the room without an account, counted by the chair, and the names given */
@@ -889,7 +920,7 @@ export type MeetingAction =
   // Server-only: names and roles as the organization has them now, refreshed at each join
   | {
       type: 'REFRESH_MEMBERS';
-      members: Array<{ id: number; name: string; role: MeetingRole }>;
+      members: Array<{ id: number; name: string; role: MeetingRole; nonVoting?: boolean }>;
       timestamp: string;
     }
   // The chair marks a person from the organization's roster present. The server fills in
@@ -917,6 +948,15 @@ export type MeetingAction =
       organizationId: string;
       title: string;
       scheduledFor: string | null;
+      timestamp: string;
+    }
+  // Server-only: who votes, from the packet and the organization, until the call to order: the
+  // kind of meeting, the board (null for a meeting of the members) and the quorum that follows
+  | {
+      type: 'SET_BOARD';
+      kind: MeetingKind;
+      board: BoardInfo | null;
+      quorum: number;
       timestamp: string;
     }
   // The mover withdraws a motion awaiting a second, or asks to withdraw the pending one (the
@@ -1086,6 +1126,13 @@ export interface MeetingMinutes {
   present: Array<{ id: number; name: string; marked: boolean }>;
   /** Guests present at any point, by name */
   guests: string[];
+  /** A board meeting's board, whose directors voted (null or absent: the members voted) */
+  board?: BoardInfo | null;
+  /**
+   * In a board meeting, the organization's people present who don't vote (observers, and a
+   * presiding officer who isn't a director), by name
+   */
+  alsoPresent?: string[];
   /** People present without an account, and the names given for them */
   headcount: number;
   headcountNames: string[];
@@ -1116,6 +1163,9 @@ export interface MinutesContext {
   scheduledFor: string | null;
   calledToOrderAt: string | null;
   adjournedAt: string | null;
-  /** The organization's voting members (member role and above), for the absent list */
+  /**
+   * The organization's voting members (member role and above), for the absent list; in a board
+   * meeting, its directors
+   */
   voters: Array<{ id: number; name: string }>;
 }

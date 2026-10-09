@@ -2,17 +2,19 @@
  * Minutes: written from a meeting's live record and what its packet and organization say
  */
 
-import type { MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
+import type { MeetingKind, MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
 import { formatMinutesAsMarkdown, generateMeetingMinutes } from '@robbie-bylawyer/shared/utils';
 import { getStorage } from '../../db/meetingStorage.js';
 import { prisma } from '../../db/prisma.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { logger } from '../../middleware/logger.js';
+import { DIRECTORS } from '../../socket/meetingPacket.js';
 
 /**
  * What the minutes need from outside the meeting state: the organization's name and time zone,
  * the meeting's title, place and times from its packet, and the organization's voting members
- * (member role and above) for the absent list. Null when the packet is gone.
+ * (member role and above; in a board meeting, its directors) for the absent list. Null when the
+ * packet is gone.
  */
 export async function minutesContext(packetId: string): Promise<MinutesContext | null> {
   const packet = await prisma.meetingPacket.findUnique({
@@ -24,15 +26,20 @@ export async function minutesContext(packetId: string): Promise<MinutesContext |
       scheduledFor: true,
       startedAt: true,
       endedAt: true,
+      kind: true,
       organization: { select: { name: true, timeZone: true } },
     },
   });
   if (!packet) return null;
+  // A board meeting's absent are its directors not present
   const voters = await prisma.organizationMember.findMany({
-    where: {
-      organizationId: packet.organizationId,
-      role: { in: ['member', 'secretary', 'admin', 'owner'] },
-    },
+    where:
+      packet.kind === 'board'
+        ? { organizationId: packet.organizationId, ...DIRECTORS }
+        : {
+            organizationId: packet.organizationId,
+            role: { in: ['member', 'secretary', 'admin', 'owner'] },
+          },
     select: { userId: true, user: { select: { name: true, email: true } } },
   });
   return {
@@ -85,15 +92,18 @@ export async function draftMinutesOnAdjournment(
 }
 
 /**
- * The minutes to put before a meeting: the organization's most recent published minutes, not
- * yet approved and not the meeting's own (the latest meeting first, then the latest published)
+ * The minutes to put before a meeting: the organization's most recent published minutes of a
+ * meeting of the same kind (the board approves the board's minutes, the members the members'),
+ * not yet approved and not the meeting's own (the latest meeting first, then the latest
+ * published)
  */
 export function previousMinutesFor(
   organizationId: string,
   packetId: string,
+  kind: MeetingKind = 'members',
 ): Promise<{ id: string; body: string } | null> {
   return prisma.minutes.findFirst({
-    where: { organizationId, status: 'published', packetId: { not: packetId } },
+    where: { organizationId, status: 'published', packetId: { not: packetId }, packet: { kind } },
     orderBy: [
       { packet: { scheduledFor: { sort: 'desc', nulls: 'last' } } },
       { publishedAt: 'desc' },

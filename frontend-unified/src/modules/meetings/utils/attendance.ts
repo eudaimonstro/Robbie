@@ -1,5 +1,5 @@
 import type { Member } from '@robbie-bylawyer/shared/types';
-import type { AttendanceSummary } from '@robbie-bylawyer/shared/utils';
+import { takesPart, type AttendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingRoster, Organization } from '../../../api/client';
 import { atLeast } from '../../../utils/roles';
 
@@ -15,14 +15,18 @@ export interface RosterRow {
 const byName = new Intl.Collator(undefined, { sensitivity: 'base' });
 
 /**
- * The organization's voting members (the member role and above) and how each stands in the
- * meeting: present on a connected device, marked present by the chair, absent, or not joined.
- * Viewers are left out: they join as guests and never count.
+ * The organization's voting members (the member role and above; in a board meeting, its
+ * directors) and how each stands in the meeting: present on a connected device, marked present
+ * by the chair, absent, or not joined. Viewers are left out: they join as guests and never count.
  */
-export function rosterRows(roster: MeetingRoster, members: Member[]): RosterRow[] {
+export function rosterRows(
+  roster: MeetingRoster,
+  members: Member[],
+  directorsOnly = false,
+): RosterRow[] {
   const inMeeting = new Map(members.map((m) => [m.id, m]));
   return roster.members
-    .filter((person) => atLeast(person.orgRole, 'member'))
+    .filter((person) => atLeast(person.orgRole, 'member') && (!directorsOnly || person.isDirector))
     .map((person) => {
       const member = inMeeting.get(person.userId);
       const status: RosterStatus = !member
@@ -156,7 +160,7 @@ export function countedTwice(
   );
   const found: CountedTwice[] = [];
   for (const member of members) {
-    if (member.role === 'guest' || !member.present) continue;
+    if (!takesPart(member) || !member.present) continue;
     const invite = joinedBy.get(member.id);
     if (invite?.id && headcountInvites.includes(invite.id)) {
       found.push({ name: member.name, who: { inviteId: invite.id, name: invite.name ?? null } });

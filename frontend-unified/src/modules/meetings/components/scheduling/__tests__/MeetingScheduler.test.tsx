@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render as renderPlain, screen, waitFor } from '@testing-library/react';
 import { HttpError } from '../../../../../api/client';
 
 const api = vi.hoisted(() => ({
@@ -73,6 +75,9 @@ const bridge = vi.hoisted(() => {
 vi.mock('../../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
 
 const { MeetingScheduler } = await import('../MeetingScheduler');
+
+/** The scheduler links to the Members page, so it renders in a router */
+const render = (ui: ReactElement) => renderPlain(ui, { wrapper: MemoryRouter });
 
 const packet = (robbieCode: string) => ({
   id: 'p1',
@@ -662,5 +667,56 @@ describe('MeetingScheduler, changing a scheduled meeting', () => {
     change();
     expect(await screen.findByText('This meeting is no longer on the schedule.')).toBeTruthy();
     expect(screen.queryByLabelText('Meeting title')).toBeNull();
+  });
+
+  describe('who votes', () => {
+    const board = {
+      members: people.members.map((m) => (m.userId === 2 ? { ...m, isDirector: true } : m)),
+    };
+
+    it('schedules a meeting of the members unless the board is chosen', async () => {
+      membersApi.list.mockResolvedValue(board);
+      await schedule();
+      expect((screen.getByRole('radio', { name: 'All members' }) as HTMLInputElement).checked).toBe(
+        true,
+      );
+      fireEvent.click(screen.getByRole('radio', { name: 'The board' }));
+      expect(
+        screen.getByText('The 1 directors vote. Other members may attend and observe.'),
+      ).toBeTruthy();
+      next();
+      await screen.findByText('Agenda builder');
+      expect(api.createPacket).toHaveBeenCalledWith(
+        'org-1',
+        expect.objectContaining({ kind: 'board' }),
+      );
+    });
+
+    it("says why the board can't be chosen without board members, and where to mark them", async () => {
+      await schedule();
+      const radio = screen.getByRole('radio', { name: 'The board' }) as HTMLInputElement;
+      expect(radio.disabled).toBe(true);
+      expect(screen.getByRole('link', { name: 'the Members page' }).getAttribute('href')).toBe(
+        '/settings#members',
+      );
+    });
+
+    it("changes a scheduled meeting's kind", async () => {
+      membersApi.list.mockResolvedValue(board);
+      api.getPacket.mockResolvedValue({ ...packet('MAPLEB'), title: 'Board', kind: 'board' });
+      render(<MeetingScheduler meetingCode="MAPLEB" onBack={vi.fn()} onJoinMeeting={vi.fn()} />);
+      await screen.findByRole('option', { name: 'Dana Okafor' });
+      expect((screen.getByRole('radio', { name: 'The board' }) as HTMLInputElement).checked).toBe(
+        true,
+      );
+      fireEvent.click(screen.getByRole('radio', { name: 'All members' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next: the agenda' }));
+      await waitFor(() =>
+        expect(api.updatePacket).toHaveBeenCalledWith(
+          'p1',
+          expect.objectContaining({ kind: 'members' }),
+        ),
+      );
+    });
   });
 });

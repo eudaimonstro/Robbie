@@ -652,3 +652,53 @@ describe('PhoneView', () => {
     expect((container.firstChild as HTMLElement).className).toContain('safe-area-inset-bottom');
   });
 });
+
+describe('PhoneView for an observer of a board meeting', () => {
+  const observer: Member = { ...ben, role: 'observer' };
+  const board: MeetingState = {
+    ...voting,
+    kind: 'board',
+    board: { directors: 2 },
+    members: [dana, alice, observer],
+  };
+
+  it('says they observe, and offers no vote or motion, only a question for the chair', () => {
+    renderAs(observer, board);
+    expect(screen.getByText("You're observing this board meeting.")).toBeTruthy();
+    expect(screen.getByText('The directors are voting.')).toBeTruthy();
+    expect(screen.getByText('Observer')).toBeTruthy();
+    expect(screen.queryAllByRole('button', { name: /^Vote / })).toHaveLength(0);
+    expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
+    // The question is theirs to read
+    expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
+  });
+
+  it('lets them ask to speak in debate, and the chair decides', () => {
+    renderAs(observer, { ...board, votingOpen: false });
+    expect(
+      screen.getByText(/You can ask to speak: the chair decides whom to recognize/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
+    expect(socket.dispatch).toHaveBeenCalledWith({
+      type: 'RAISE_HAND',
+      member: observer,
+      stance: 'neutral',
+    });
+    expect(screen.queryByRole('button', { name: 'Second' })).toBeNull();
+    expect(screen.queryByLabelText('Motion text')).toBeNull();
+    expect(screen.queryByRole('button', { name: /point of order/i })).toBeNull();
+  });
+
+  it('says so before the call to order too', () => {
+    renderAs(observer, { ...board, meetingActive: false, votingOpen: false });
+    expect(screen.getByText("You're observing this board meeting.")).toBeTruthy();
+    expect(screen.getByText('The meeting has not been called to order yet.')).toBeTruthy();
+    expect(screen.queryByText("You're checked in.")).toBeNull();
+  });
+
+  it('lets a director vote', () => {
+    renderAs(alice, board);
+    expect(screen.queryByText("You're observing this board meeting.")).toBeNull();
+    expect(screen.getByRole('button', { name: 'Vote yes' })).toBeTruthy();
+  });
+});

@@ -21,6 +21,14 @@ const bridge = vi.hoisted(() => ({
   },
 }));
 vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
+vi.mock('../../components/scheduling/SendNoticeDialog', () => ({
+  SendNoticeDialog: ({ code, onSent }: { code: string; onSent: (message: string) => void }) => (
+    <div>
+      <p>{`Notice of ${code}`}</p>
+      <button onClick={() => onSent('The notice was sent to 142 people.')}>Send it</button>
+    </div>
+  ),
+}));
 vi.mock('../../components/scheduling', () => ({
   MeetingScheduler: ({
     onBack,
@@ -300,5 +308,40 @@ describe('LiveMeetingsPage', () => {
         await screen.findByRole('button', { name: 'Schedule a meeting' }),
       );
     });
+  });
+
+  it('marks a board meeting, and lets a secretary send the notice of one not yet held', async () => {
+    bridge.currentOrganization = { ...bridge.currentOrganization!, role: 'secretary' };
+    schedule.list.mockResolvedValue([
+      meeting({
+        id: 'p9',
+        robbieCode: 'MAPLEB',
+        title: 'November board meeting',
+        kind: 'board',
+        noticeSentAt: '2026-10-08T15:00:00.000Z',
+      }),
+      meeting({ startedAt: '2026-10-21T00:05:00.000Z' }),
+    ]);
+    renderPage();
+    expect(await screen.findByText('Board meeting')).toBeTruthy();
+    expect(screen.getByText(/^Notice sent Oct 8, 2026/)).toBeTruthy();
+    // Called to order: its notice has gone by
+    expect(
+      screen.queryByRole('button', { name: 'Send the notice of 2026 Annual Meeting' }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Send the notice of November board meeting' }),
+    );
+    expect(screen.getByText('Notice of MAPLEB')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Send it' }));
+    expect(await screen.findByText('The notice was sent to 142 people.')).toBeTruthy();
+    expect(screen.queryByText('Notice of MAPLEB')).toBeNull();
+  });
+
+  it('offers no notice to members', async () => {
+    schedule.list.mockResolvedValue([meeting()]);
+    renderPage();
+    await screen.findByText('2026 Annual Meeting');
+    expect(screen.queryByRole('button', { name: /Send the notice/ })).toBeNull();
   });
 });

@@ -101,6 +101,7 @@ describe('enrichAction', () => {
       SET_MEMBER_PRESENCE: {},
       REFRESH_MEMBERS: {},
       SET_MEETING_INFO: {},
+      SET_BOARD: {},
       MARK_PRESENT: {},
       SET_HEADCOUNT: {},
       WITHDRAW_MOTION: { requesterId: SPOOF_ID },

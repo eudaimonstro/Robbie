@@ -106,9 +106,9 @@ export async function prepareBylawMotion(
     const { bylawAmendment: _ignored, ...rest } = action;
     return { action: rest as MeetingAction };
   }
-  // The validator refuses a bylaw amendment without its change
+  // The validator refuses a bylaw amendment without its change, and any in a board meeting
   const sent = action.bylawAmendment;
-  if (!sent) return { action };
+  if (!sent || state.board) return { action };
 
   const packet = await prisma.meetingPacket.findUnique({
     where: { robbieCode: meetingCode },

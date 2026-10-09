@@ -55,6 +55,14 @@ describeRules('member rules', [
     ok: 200,
   },
   {
+    method: 'put',
+    route: '/organizations/:id/members/:userId/director',
+    path: (f) => `/api/organizations/${f.orgA.id}/members/${f.users.member.id}/director`,
+    body: () => ({ isDirector: true }),
+    min: 'admin',
+    ok: 200,
+  },
+  {
     method: 'delete',
     route: '/organizations/:id/members/:userId',
     path: (f) => `/api/organizations/${f.orgA.id}/members/${f.users.viewer.id}`,
@@ -445,6 +453,7 @@ describe('members', () => {
           name: 'A admin',
           email: 'admin@example.org',
           role: 'owner',
+          isDirector: false,
         },
       });
       const stepDown = await call('put', member(f.users.owner.id), {
@@ -466,6 +475,7 @@ describe('members', () => {
         name: 'A viewer',
         email: 'viewer@example.org',
         role: 'viewer',
+        isDirector: false,
       });
       expect(asViewer.body).not.toHaveProperty('invites');
 
@@ -486,6 +496,7 @@ describe('members', () => {
           userId: res.body.members[1].userId,
           name: res.body.members[1].name,
           role: res.body.members[1].role,
+          isDirector: false,
           ...(res.body.members[1].userId === f.users[role].id && {
             email: `${role}@example.org`,
           }),
@@ -746,6 +757,61 @@ describe('members', () => {
       await expect(
         addMemberBySlug('no-such-org', 'eve@example.org', 'owner'),
       ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('the board', () => {
+    const director = (userId: number) => `${member(userId)}/director`;
+    const setDirector = (userId: number, isDirector: boolean) =>
+      call('put', director(userId), { cookie: f.users.admin.cookie, body: { isDirector } });
+
+    it('is marked by an admin, and listed with the members', async () => {
+      const res = await setDirector(f.users.member.id, true);
+      expect(res.status).toBe(200);
+      expect(res.body.member).toMatchObject({ userId: f.users.member.id, isDirector: true });
+
+      const list = await call('get', members(), { cookie: f.users.viewer.cookie });
+      const listed = list.body.members.find(
+        (m: { userId: number }) => m.userId === f.users.member.id,
+      );
+      expect(listed).toMatchObject({ isDirector: true, role: 'member' });
+      expect(list.body.members.filter((m: { isDirector: boolean }) => m.isDirector)).toHaveLength(
+        1,
+      );
+
+      expect((await setDirector(f.users.member.id, false)).body.member.isDirector).toBe(false);
+    });
+
+    it('takes only members and above', async () => {
+      const res = await setDirector(f.users.viewer.id, true);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/^Only a member/);
+    });
+
+    it('loses a director made a viewer', async () => {
+      await setDirector(f.users.member.id, true);
+      await call('put', member(f.users.member.id), {
+        cookie: f.users.admin.cookie,
+        body: { role: 'viewer' },
+      });
+      const row = await prisma.organizationMember.findUniqueOrThrow({
+        where: { organizationId_userId: { organizationId: f.orgA.id, userId: f.users.member.id } },
+      });
+      expect(row.isDirector).toBe(false);
+    });
+
+    it('has at most 25 directors', async () => {
+      for (let i = 0; i < 25; i++) {
+        const user = await signIn(`director${i}@example.org`);
+        await prisma.organizationMember.create({
+          data: { organizationId: f.orgA.id, userId: user.id, role: 'member', isDirector: true },
+        });
+      }
+      const res = await setDirector(f.users.member.id, true);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('A board can have at most 25 members');
+      // Taking one off is fine
+      expect((await setDirector(f.users.member.id, false)).status).toBe(200);
     });
   });
 });

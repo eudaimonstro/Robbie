@@ -3,10 +3,16 @@
  * organization, title, date, presiding officer, quorum and agenda.
  */
 
-import type { AgendaItem, MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
+import type {
+  AgendaItem,
+  BoardInfo,
+  MeetingAction,
+  MeetingKind,
+  MeetingState,
+} from '@robbie-bylawyer/shared/types';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
-import { quorumFromSettings } from '@robbie-bylawyer/shared/utils';
-import type { OrgRole } from '../generated/prisma/client.js';
+import { boardQuorum, quorumFromSettings } from '@robbie-bylawyer/shared/utils';
+import type { OrgRole, Prisma } from '../generated/prisma/client.js';
 import { prisma } from '../db/prisma.js';
 import { logger } from '../middleware/logger.js';
 
@@ -18,6 +24,8 @@ export interface MeetingPacketInfo {
   title: string | null;
   scheduledFor: Date | null;
   chairUserId: number | null;
+  /** Who votes: the members, or the board's directors */
+  kind: MeetingKind;
   /** When the meeting adjourned (null until it does, and again if called to order again) */
   endedAt: Date | null;
   organization: {
@@ -25,16 +33,22 @@ export interface MeetingPacketInfo {
     eligibleVoters: number | null;
     quorumPercent: number | null;
     quorumCount: number | null;
+    /** The board's quorum when the bylaws set one; null is a majority of the directors */
+    boardQuorum: number | null;
   };
   /** In position order */
   agendaItems: Array<{ id: string; title: string }>;
 }
 
-/** A person as a meeting sees them: their name, and their role in the organization if any */
+/**
+ * A person as a meeting sees them: their name, their role in the organization if any, and
+ * whether they are on its board
+ */
 export interface MeetingPerson {
   name: string | null;
   email: string;
   orgRole: OrgRole | null;
+  isDirector: boolean;
 }
 
 /** The packet with this meeting code, or null: a code without a packet is no meeting */
@@ -48,9 +62,16 @@ export function findMeetingPacket(meetingCode: string): Promise<MeetingPacketInf
       title: true,
       scheduledFor: true,
       chairUserId: true,
+      kind: true,
       endedAt: true,
       organization: {
-        select: { name: true, eligibleVoters: true, quorumPercent: true, quorumCount: true },
+        select: {
+          name: true,
+          eligibleVoters: true,
+          quorumPercent: true,
+          quorumCount: true,
+          boardQuorum: true,
+        },
       },
       agendaItems: { select: { id: true, title: true }, orderBy: { position: 'asc' } },
     },
@@ -67,23 +88,73 @@ export async function findPerson(
     select: {
       name: true,
       email: true,
-      memberships: { where: { organizationId }, select: { role: true } },
+      memberships: { where: { organizationId }, select: { role: true, isDirector: true } },
     },
   });
   if (!user) return null;
-  return { name: user.name, email: user.email, orgRole: user.memberships[0]?.role ?? null };
+  const membership = user.memberships[0];
+  return {
+    name: user.name,
+    email: user.email,
+    orgRole: membership?.role ?? null,
+    isDirector: membership?.isDirector ?? false,
+  };
 }
 
 /** The organization roles and names of these users; users who aren't members are left out */
 export async function findOrgPeople(
   organizationId: string,
   userIds: number[],
-): Promise<Map<number, { role: OrgRole; name: string | null; email: string }>> {
+): Promise<
+  Map<number, { role: OrgRole; name: string | null; email: string; isDirector: boolean }>
+> {
   const rows = await prisma.organizationMember.findMany({
     where: { organizationId, userId: { in: userIds } },
-    select: { userId: true, role: true, user: { select: { name: true, email: true } } },
+    select: {
+      userId: true,
+      role: true,
+      isDirector: true,
+      user: { select: { name: true, email: true } },
+    },
   });
-  return new Map(rows.map((row) => [row.userId, { role: row.role, ...row.user }]));
+  return new Map(
+    rows.map((row) => [row.userId, { role: row.role, isDirector: row.isDirector, ...row.user }]),
+  );
+}
+
+/**
+ * The organization's directors: members marked as on the board, with the member role or above
+ * (a viewer can't be one; the flag of someone made a viewer since is ignored)
+ */
+export const DIRECTORS: Prisma.OrganizationMemberWhereInput = {
+  isDirector: true,
+  role: { in: ['member', 'secretary', 'admin', 'owner'] },
+};
+
+/** How many directors the organization has */
+export function countDirectors(organizationId: string): Promise<number> {
+  return prisma.organizationMember.count({ where: { organizationId, ...DIRECTORS } });
+}
+
+/**
+ * Who votes in the meeting, as the packet and the organization say now: the kind, the board (for
+ * a board meeting: its directors) and the quorum. A meeting of the members has the quorum its
+ * settings give; a board's is the organization's board quorum, or a majority of the directors.
+ */
+export async function votersOf(
+  packet: Pick<MeetingPacketInfo, 'kind' | 'organizationId' | 'organization'>,
+): Promise<{ kind: MeetingKind; board: BoardInfo | null; quorum: number }> {
+  if (packet.kind === 'board') {
+    const directors = await countDirectors(packet.organizationId);
+    const quorum = boardQuorum(directors, packet.organization.boardQuorum);
+    return { kind: 'board', board: { directors, quorum }, quorum };
+  }
+  const rosterVoters = await countRosterVoters(packet.organizationId);
+  return {
+    kind: 'members',
+    board: null,
+    quorum: quorumFromSettings(packet.organization, rosterVoters),
+  };
 }
 
 /** The organization's members with the member role or above: the default quorum base */
@@ -103,15 +174,20 @@ export function agendaFromPacket(items: MeetingPacketInfo['agendaItems']): Agend
   }));
 }
 
-/** A new live meeting's state, made from its packet */
-export function stateFromPacket(packet: MeetingPacketInfo, rosterVoters: number): MeetingState {
+/** A new live meeting's state, made from its packet and who votes in it (votersOf) */
+export function stateFromPacket(
+  packet: MeetingPacketInfo,
+  voters: { kind: MeetingKind; board: BoardInfo | null; quorum: number },
+): MeetingState {
   return {
     ...initialState,
     meetingCode: packet.robbieCode,
     organizationId: packet.organizationId,
     title: packet.title ?? '',
     scheduledFor: packet.scheduledFor?.toISOString() ?? null,
-    quorum: quorumFromSettings(packet.organization, rosterVoters),
+    kind: voters.kind,
+    board: voters.board,
+    quorum: voters.quorum,
     agenda: agendaFromPacket(packet.agendaItems),
   };
 }

@@ -20,6 +20,10 @@ export const PEOPLE = {
   /** Members: homeowners */
   alice: 'alice@maplegrove.example',
   ben: 'ben@maplegrove.example',
+  /** A member without a phone, in the scenarios */
+  carmen: 'carmen@maplegrove.example',
+  /** Secretary: the treasurer, not on the board */
+  ray: 'ray@maplegrove.example',
   /** Viewers: a display, and a guest in a meeting */
   morgan: 'morgan@maplegrove.example',
   sam: 'sam@maplegrove.example',

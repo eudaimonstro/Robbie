@@ -1,5 +1,6 @@
 /**
- * Email service: the sign-in code, and the email to someone added to an organization
+ * Email service: the sign-in code, the email to someone added to an organization, and the
+ * meeting notice (plain-text emails in a batch: sendPlainEmails)
  *
  * Supports multiple providers:
  * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
@@ -25,6 +26,9 @@
  *   EMAIL_FROM=noreply@yourdomain.com
  */
 
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
@@ -318,6 +322,121 @@ export async function sendAddedToOrganization(email: AddedToOrganizationEmail): 
 
   const messageId = await deliver({ to: email.to, ...addedToOrganizationEmail(email, appUrl()) });
   logger.info({ to: emailForLog(email.to), messageId }, 'Added-to-organization email sent');
+}
+
+/** A plain-text email to one person: no HTML, so nothing a user typed can be markup */
+export interface PlainEmail {
+  to: string;
+  subject: string;
+  text: string;
+}
+
+/** Tests: when set, plain-text emails are collected here instead of being sent */
+let plainOutbox: PlainEmail[] | null = null;
+/** Tests: the addresses whose plain-text email fails, as a provider's refusal would */
+let failingFor: ((to: string) => boolean) | null = null;
+
+/**
+ * Collect plain-text emails (the meeting notice) in memory instead of sending them, those to the
+ * addresses `fail` picks failing as a refused delivery does (tests only)
+ */
+export function capturePlainEmailsForTests(fail?: (to: string) => boolean): PlainEmail[] {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('capturePlainEmailsForTests is for tests only (NODE_ENV=test)');
+  }
+  plainOutbox = [];
+  failingFor = fail ?? null;
+  return plainOutbox;
+}
+
+/**
+ * Where the browser tests' server writes the plain-text emails it would send, one JSON file
+ * each, so a test in another process can read them: EMAIL_OUTBOX_DIR, only under NODE_ENV=test
+ * and without an email provider (nothing is delivered either way)
+ */
+function outboxDir(): string | null {
+  const dir = process.env.EMAIL_OUTBOX_DIR;
+  return dir && process.env.NODE_ENV === 'test' && emailProvider === 'development' ? dir : null;
+}
+
+/**
+ * Send plain-text emails (`what` names them in the log), as one batch: Resend's batch API takes
+ * them in one request (at most 100), so a notice to a whole organization stays within its rate;
+ * SMTP sends them one after another. Without an email provider (development only; production
+ * requires one) they are logged at debug level instead, or written to the test outbox.
+ * @returns for each email, whether it went
+ */
+export async function sendPlainEmails(messages: PlainEmail[], what: string): Promise<boolean[]> {
+  if (emailProvider === 'development' && process.env.NODE_ENV === 'production') {
+    throw new Error('No email provider configured; production cannot send email');
+  }
+  if (messages.length === 0) return [];
+
+  if (plainOutbox) {
+    return messages.map((message) => {
+      if (failingFor?.(message.to)) return false;
+      plainOutbox!.push(message);
+      return true;
+    });
+  }
+
+  const dir = outboxDir();
+  if (dir) {
+    await mkdir(dir, { recursive: true });
+    for (const message of messages) {
+      await writeFile(
+        path.join(dir, `${Date.now()}-${randomUUID()}.json`),
+        JSON.stringify(message, null, 2),
+      );
+    }
+    return messages.map(() => true);
+  }
+
+  if (emailProvider === 'development') {
+    for (const message of messages) {
+      logger.debug(
+        { to: emailForLog(message.to), subject: message.subject },
+        `${what} (no email provider configured)`,
+      );
+    }
+    return messages.map(() => true);
+  }
+
+  if (resendClient) {
+    const { data, error } = await resendClient.batch.send(
+      messages.map((message) => ({ from: EMAIL_FROM, ...message })),
+      { batchValidation: 'permissive' },
+    );
+    if (error) {
+      logger.error(
+        { err: new Error(`Resend error (${error.name}): ${error.message}`) },
+        `${what} not sent`,
+      );
+      return messages.map(() => false);
+    }
+    const failed = new Set((data?.errors ?? []).map((failure) => failure.index));
+    for (const failure of data?.errors ?? []) {
+      logger.warn(
+        { to: emailForLog(messages[failure.index]?.to ?? ''), reason: failure.message },
+        `${what} refused`,
+      );
+    }
+    logger.info({ sent: messages.length - failed.size, failed: failed.size }, `${what} sent`);
+    return messages.map((_, index) => !failed.has(index));
+  }
+
+  const results: boolean[] = [];
+  for (const message of messages) {
+    try {
+      const messageId = await deliver(message);
+      logger.info({ to: emailForLog(message.to), messageId }, `${what} sent`);
+      results.push(true);
+    } catch (error) {
+      logger.warn({ err: error, to: emailForLog(message.to) }, `${what} not sent`);
+      results.push(false);
+    }
+  }
+  return results;
 }
 
 /**

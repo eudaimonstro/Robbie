@@ -49,6 +49,8 @@ export interface MeetingPacket {
   scheduledFor?: string;
   /** The presiding officer, who chairs the live meeting; null when the admins run it */
   chairUserId?: number | null;
+  /** Who votes: the members, or the board's directors */
+  kind?: 'members' | 'board';
   /** When the meeting was called to order and adjourned */
   startedAt?: string | null;
   endedAt?: string | null;

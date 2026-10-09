@@ -33,6 +33,7 @@ const StyleGuidePage = lazy(() => import('./pages/StyleGuidePage'));
 // Lazy load meetings module
 const MeetingsModule = lazy(() => import('./modules/meetings'));
 const MeetingDisplay = lazy(() => import('./modules/meetings/display'));
+const NoticePrintPage = lazy(() => import('./modules/meetings/notice'));
 
 function App() {
   return (
@@ -61,6 +62,17 @@ function App() {
                       <OrganizationProvider>
                         <MeetingDisplay />
                       </OrganizationProvider>
+                    </RequireSession>
+                  }
+                />
+
+                {/* A meeting's notice to print and post: signed in (a secretary), without the
+                    app's chrome. It outranks meetings/* too. */}
+                <Route
+                  path="/meetings/:code/notice"
+                  element={
+                    <RequireSession>
+                      <NoticePrintPage />
                     </RequireSession>
                   }
                 />

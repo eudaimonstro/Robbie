@@ -1,6 +1,12 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { MAX_FLOOR_NAME_LENGTH, motionWords } from '@robbie-bylawyer/shared/constants';
-import { generateId, generateTimestamp, getValidMotions } from '@robbie-bylawyer/shared/utils';
+import {
+  generateId,
+  generateTimestamp,
+  getValidMotions,
+  smallBoard,
+  takesPart,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
@@ -11,17 +17,18 @@ import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/moti
 
 /**
  * The people the chair can name as moving or seconding from the floor: members present in the
- * meeting, on a device or marked present, never a guest, the presiding officer or the one
+ * meeting, on a device or marked present, never a guest or an observer (or, in a board meeting,
+ * anyone who isn't a director), the presiding officer or the one
  * recording it (an admin at the console): the server refuses them
  */
 function floorMembers(state: MeetingState, presidingId: number | null, meId: number | null) {
+  // In a small board the chair moves and seconds like any director (RONR 49:21)
+  const presidersToo = smallBoard(state);
   return state.members.filter(
     (m) =>
       m.present &&
-      m.role !== 'guest' &&
-      m.role !== 'chair' &&
-      m.id !== presidingId &&
-      m.id !== meId,
+      takesPart(m) &&
+      (presidersToo || (m.role !== 'chair' && m.id !== presidingId && m.id !== meId)),
   );
 }
 
@@ -111,7 +118,9 @@ function FloorMotionForm({
     ? []
     : members.filter((m) => !query || m.name.toLowerCase().includes(query)).slice(0, 6);
   const made = motionFromDraft(kind, draft, state);
-  const ready = mover !== null || who.trim() !== '';
+  // A board's directors all have accounts: the mover is one of them, never a name typed
+  const board = !!state.board;
+  const ready = mover !== null || (!board && who.trim() !== '');
 
   // Closes once the server has recorded it; refused, it stays open with what was typed
   const record = async (e: FormEvent) => {
@@ -173,7 +182,7 @@ function FloorMotionForm({
           className="input"
           autoComplete="off"
           maxLength={MAX_FLOOR_NAME_LENGTH}
-          placeholder="Find a member present, or type a name"
+          placeholder={board ? 'Find a director present' : 'Find a member present, or type a name'}
           value={who}
           onChange={(e) => {
             setWho(e.target.value);
@@ -209,7 +218,9 @@ function FloorMotionForm({
         ) : (
           query && (
             <p className="text-sm text-ink-muted">
-              Nobody present by that name: the motion is recorded with the name as typed.
+              {board
+                ? 'No director present by that name: mark them present first.'
+                : 'Nobody present by that name: the motion is recorded with the name as typed.'}
             </p>
           )
         )}
@@ -258,6 +269,8 @@ export function FloorSecondForm({
   const [refused, setRefused] = useState(false);
   const moverId = state.pendingSecond?.moverId;
   const members = floorMembers(state, presidingId, meId).filter((m) => m.id !== moverId);
+  // A board's seconder is a director, named
+  const board = !!state.board;
 
   // Closes once the server has recorded it; refused, it stays open with the choice made
   const record = async (e: FormEvent) => {
@@ -286,7 +299,7 @@ export function FloorSecondForm({
           Who seconded it
         </label>
         <select id={whoId} className="select" value={who} onChange={(e) => setWho(e.target.value)}>
-          <option value="">A member in the room</option>
+          <option value="">{board ? 'Choose the director' : 'A member in the room'}</option>
           {members.map((member) => (
             <option key={member.id} value={String(member.id)}>
               {member.name}
@@ -296,7 +309,7 @@ export function FloorSecondForm({
       </div>
       {refused && <Refused fallback="The second was not recorded. Try again." />}
       <div className="flex gap-2">
-        <button type="submit" className="btn-primary btn-sm" disabled={sending}>
+        <button type="submit" className="btn-primary btn-sm" disabled={sending || (board && !who)}>
           Record the second
         </button>
         <button type="button" className="btn-ghost btn-sm" onClick={onDone}>

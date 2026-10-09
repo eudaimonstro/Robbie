@@ -14,6 +14,8 @@ export const initialState: MeetingState = {
   organizationId: null,
   title: '',
   scheduledFor: null,
+  kind: 'members',
+  board: null,
   members: [], // Members are added dynamically when users join
   quorum: 3,
   headcount: 0,

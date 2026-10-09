@@ -108,7 +108,8 @@ describe('permissionGuard', () => {
         'ADD_MEMBER',
         'SET_MEMBER_PRESENCE',
         'REFRESH_MEMBERS',
-        'RELOAD_AGENDA',
+        'SET_MEETING_INFO',
+        'SET_BOARD',
         'SET_MEETING_INFO',
         'SET_PREVIOUS_MINUTES',
       ] as const;

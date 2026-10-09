@@ -1,6 +1,11 @@
 import { useId, useState, type FormEvent } from 'react';
 import { MAX_MOTION_TEXT_LENGTH } from '@robbie-bylawyer/shared/constants';
-import { generateId, generateTimestamp, motionOutOfOrder } from '@robbie-bylawyer/shared/utils';
+import {
+  generateId,
+  generateTimestamp,
+  motionOutOfOrder,
+  takesPart,
+} from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type { MeetingDispatch } from '../../types/socket';
 
@@ -19,7 +24,7 @@ export function RaisePointOfOrder({ state, dispatch, me }: RaisePointOfOrderProp
   const id = useId();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  if (me.role === 'guest' || motionOutOfOrder(state, 'pointOrder')) return null;
+  if (!takesPart(me) || motionOutOfOrder(state, 'pointOrder')) return null;
 
   const raise = async (e: FormEvent) => {
     e.preventDefault();

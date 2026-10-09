@@ -24,6 +24,8 @@ import { deleteFiles } from '../services/fileStorage.js';
 import { recordAudit } from '../services/audit.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { closeCanceledMeeting } from '../../socket/meetingLifecycle.js';
+import { countDirectors } from '../../socket/meetingPacket.js';
+import { syncOrganizationLiveRoles } from '../../socket/meetingRoles.js';
 
 export const organizationsRouter: RouterType = Router();
 
@@ -158,20 +160,38 @@ organizationsRouter.get(
   },
 );
 
-// Update the organization's name, description, attendance settings and time zone. The quorum is a
-// percentage or a count: setting one clears the other.
+// Update the organization's name, description, attendance settings (with the board's quorum, null
+// for a majority of the directors) and time zone. The quorum is a percentage or a count: setting
+// one clears the other.
 organizationsRouter.put(
   '/organizations/:id',
   validate({ params: uuidParam, body: updateOrganizationBody }),
   requireRole('admin', byOrganization),
   async (req, res) => {
     try {
-      const { name, description, eligibleVoters, quorumPercent, quorumCount, timeZone } = req.body;
+      const {
+        name,
+        description,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
+        timeZone,
+        boardQuorum,
+      } = req.body;
       // A quorum of people can't be more than vote, whichever of the two changes
       const current = await prisma.organization.findUniqueOrThrow({
         where: { id: req.params.id },
         select: { eligibleVoters: true, quorumPercent: true, quorumCount: true },
       });
+      // The board's quorum is a number of its directors
+      if (typeof boardQuorum === 'number') {
+        const directors = await countDirectors(req.params.id);
+        if (boardQuorum > directors) {
+          return res.status(400).json({
+            error: `The board quorum can't be more than the ${directors} board ${directors === 1 ? 'member' : 'members'}`,
+          });
+        }
+      }
       const voters = eligibleVoters ?? current.eligibleVoters;
       const count = quorumCount ?? (quorumPercent !== undefined ? null : current.quorumCount);
       if (voters !== null && count !== null && count > voters) {
@@ -184,6 +204,7 @@ organizationsRouter.put(
         description,
         eligibleVoters,
         timeZone,
+        boardQuorum,
       };
       if (quorumPercent !== undefined) {
         data.quorumPercent = quorumPercent;
@@ -193,6 +214,14 @@ organizationsRouter.put(
         data.quorumPercent = null;
       }
       const updated = await prisma.organization.update({ where: { id: req.params.id }, data });
+      // A board meeting opened and not yet called to order takes the board's new quorum
+      if (boardQuorum !== undefined) {
+        try {
+          await syncOrganizationLiveRoles(req.params.id);
+        } catch (error) {
+          logger.error({ err: error }, "Failed to bring a live meeting's quorum up to date");
+        }
+      }
 
       res.json(updated);
     } catch (error) {

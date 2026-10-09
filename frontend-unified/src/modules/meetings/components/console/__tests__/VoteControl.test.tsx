@@ -70,6 +70,34 @@ describe('VoteControl', () => {
     expect(screen.getByText('Together: 11 to 2')).toBeTruthy();
   });
 
+  it("offers no vote to a presiding officer who isn't a director", () => {
+    const tied = {
+      ...voting,
+      kind: 'board' as const,
+      board: { directors: 5 },
+      votes: { yea: 1, nay: 3, abstain: 0 },
+      voters: [3, 4, 5, 6],
+      floorVotes: { yea: 2, nay: 0, abstain: 0 },
+    };
+    const { unmount } = render(
+      <VoteControl state={tied} dispatch={dispatch} me={{ ...dana, nonVoting: true }} />,
+    );
+    expect(screen.queryByText(/The chair may vote/)).toBeNull();
+    unmount();
+    render(<VoteControl state={tied} dispatch={dispatch} me={{ ...pat, nonVoting: true }} />);
+    expect(screen.queryByRole('button', { name: 'Vote yea' })).toBeNull();
+  });
+
+  it('lets the chair of a small board vote like any director (RONR 49:21)', () => {
+    const board = { ...voting, kind: 'board' as const, board: { directors: 5 } };
+    render(<VoteControl state={board} dispatch={dispatch} me={dana} />);
+    expect(screen.queryByText(/The chair may vote/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Vote yea' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'CAST_VOTE', vote: 'yea', voterId: 2 }),
+    );
+  });
+
   it('offers the chair a deciding vote, judged on both counts', () => {
     const tied = {
       ...voting,

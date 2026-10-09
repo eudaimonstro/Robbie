@@ -16,13 +16,13 @@ import { scheduleReconcile } from './presenceReconciler.js';
 import { handleDisconnect } from './disconnectHandler.js';
 import { emitState, publicState } from './statePublisher.js';
 import {
-  countRosterVoters,
   findMeetingPacket,
   findPerson,
   stateFromPacket,
+  votersOf,
   type MeetingPacketInfo,
 } from './meetingPacket.js';
-import { deriveMeetingRole, staleRoles, updateSocketRoles } from './meetingRoles.js';
+import { deriveMeetingSeat, staleRoles, syncVoters, updateSocketRoles } from './meetingRoles.js';
 import { previousMinutesFor } from '../bylawyer/services/meetingMinutes.js';
 import { logger } from '../middleware/logger.js';
 import { meetingCode as meetingCodeSchema } from '../schemas/common.js';
@@ -48,6 +48,8 @@ export const DISPLAY_FOR_MEMBERS = "Only the organization's members can open the
 export const MEETING_ENDED = 'This meeting has adjourned';
 export const QUORUM_NOT_SET =
   "The meeting can't open yet: the organization's voting members and quorum aren't set. An admin sets them in Settings.";
+export const NO_DIRECTORS =
+  "This board meeting can't open: the organization has no board members. An admin marks them in Settings, Members.";
 /** The answer when a join fails for a reason of the server's (the details go to the log) */
 export const JOIN_FAILED = "Couldn't join the meeting. Try again.";
 /** When a client tries again after a join failed for a reason of the server's */
@@ -61,10 +63,16 @@ export const JOIN_RETRY_MS = 3000;
  * previous meeting's minutes are put before it. A meeting not yet open doesn't open (null)
  * until the organization has set its voting members and quorum: its quorum would be a guess.
  */
-/** A live meeting as a join opened it: changed when opening it changed its state */
-type OpenedMeeting = MeetingRecord & { changed?: boolean };
+/**
+ * A live meeting as a join opened it: changed when opening it changed its state, and kindChanged
+ * when who votes changed (everyone's role is derived again)
+ */
+type OpenedMeeting = MeetingRecord & { changed?: boolean; kindChanged?: boolean };
 
-async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting | null> {
+/** Why a meeting doesn't open: the organization isn't set up, or a board has no directors */
+type NotOpened = { refused: 'QUORUM_NOT_SET' | 'NO_DIRECTORS' };
+
+async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting | NotOpened> {
   const storage = getStorage();
   let existing = await storage.getMeeting(packet.robbieCode);
   if (existing?.state.organizationId && existing.state.organizationId !== packet.organizationId) {
@@ -77,14 +85,23 @@ async function openMeeting(packet: MeetingPacketInfo): Promise<OpenedMeeting | n
   }
   let meeting: OpenedMeeting;
   if (!existing) {
-    if (!isQuorumSet(packet.organization)) return null;
-    const rosterVoters = await countRosterVoters(packet.organizationId);
-    meeting = await storage.getOrCreateMeeting(
-      packet.robbieCode,
-      stateFromPacket(packet, rosterVoters),
-    );
+    if (!isQuorumSet(packet.organization)) return { refused: 'QUORUM_NOT_SET' };
+    const voters = await votersOf(packet);
+    if (voters.board && voters.board.directors === 0) return { refused: 'NO_DIRECTORS' };
+    meeting = await storage.getOrCreateMeeting(packet.robbieCode, stateFromPacket(packet, voters));
   } else if (existing.state.organizationId) {
     meeting = existing;
+    // Before the call to order, who votes follows the packet (its kind changed) and the board
+    const voters = await syncVoters(packet, existing.state);
+    if (voters) {
+      meeting = {
+        ...existing,
+        state: voters.state,
+        stateVersion: voters.stateVersion,
+        changed: true,
+        kindChanged: voters.kindChanged,
+      };
+    }
   } else {
     const result = await applyAction(packet.robbieCode, {
       type: 'SET_MEETING_INFO',
@@ -113,7 +130,7 @@ async function withPreviousMinutes(
     return meeting;
   }
   try {
-    const previous = await previousMinutesFor(packet.organizationId, packet.id);
+    const previous = await previousMinutesFor(packet.organizationId, packet.id, packet.kind);
     if (!previous) return meeting;
     const result = await applyAction(packet.robbieCode, {
       type: 'SET_PREVIOUS_MINUTES',
@@ -139,6 +156,13 @@ async function latestState(
 ): Promise<{ state: MeetingState; stateVersion: number }> {
   const now = await getMeetingState(meetingCode);
   return now && now.stateVersion >= known.stateVersion ? now : known;
+}
+
+/** The answer to a join when the meeting doesn't open */
+function refusal({ refused }: NotOpened): JoinMeetingResponse {
+  return refused === 'NO_DIRECTORS'
+    ? { success: false, error: NO_DIRECTORS, errorCode: 'NO_DIRECTORS' }
+    : { success: false, error: QUORUM_NOT_SET, errorCode: 'QUORUM_NOT_SET' };
 }
 
 /** A join refused for too many attempts: when the client may try again */
@@ -222,8 +246,8 @@ export async function handleJoinMeeting(
         await handleDisconnect(socket, io, 'disconnect');
       }
       const meeting = await openMeeting(packet);
-      if (!meeting) {
-        callback({ success: false, error: QUORUM_NOT_SET, errorCode: 'QUORUM_NOT_SET' });
+      if ('refused' in meeting) {
+        callback(refusal(meeting));
         return;
       }
       socket.data.meetingCode = meetingCode;
@@ -258,10 +282,10 @@ export async function handleJoinMeeting(
       callback({ success: false, error: NAME_FIRST, errorCode: 'NAME_REQUIRED' });
       return;
     }
-    const role = deriveMeetingRole(packet.chairUserId, person.orgRole, userId);
+    const { role, nonVoting } = deriveMeetingSeat(packet, person, userId);
     const meeting = await openMeeting(packet);
-    if (!meeting) {
-      callback({ success: false, error: QUORUM_NOT_SET, errorCode: 'QUORUM_NOT_SET' });
+    if ('refused' in meeting) {
+      callback(refusal(meeting));
       return;
     }
 
@@ -273,7 +297,14 @@ export async function handleJoinMeeting(
 
     // Join the room
     socket.join(roomName);
-    const memberData: Member = { id: userId, name, role, present: true, presentBy: 'device' };
+    const memberData: Member = {
+      id: userId,
+      name,
+      role,
+      ...(nonVoting && { nonVoting }),
+      present: true,
+      presentBy: 'device',
+    };
     roomManager.addMember(meetingCode, socket.id, memberData);
 
     const timestamp = new Date().toISOString();
@@ -307,16 +338,21 @@ export async function handleJoinMeeting(
     // checked at most once a minute; other members keep their names (one taken in the meeting
     // stays)
     const self = currentState.members.find((m) => m.id === userId);
-    const selfChanged = !!self && (self.name !== name || self.role !== role);
+    const selfChanged =
+      !!self && (self.name !== name || self.role !== role || !!self.nonVoting !== !!nonVoting);
     const stateChair = currentState.members.find((m) => m.role === 'chair')?.id ?? null;
     const others = await staleRoles(
       meetingCode,
       packet,
       currentState.members.filter((m) => m.id !== userId),
-      // A chair shown who no longer presides
-      selfChanged || (stateChair !== null && stateChair !== packet.chairUserId),
+      // A chair shown who no longer presides, or a meeting whose kind changed
+      selfChanged ||
+        !!meeting.kindChanged ||
+        (stateChair !== null && stateChair !== packet.chairUserId),
     );
-    const changes = selfChanged ? [{ id: userId, name, role }, ...others] : others;
+    const changes = selfChanged
+      ? [{ id: userId, name, role, ...(nonVoting && { nonVoting }) }, ...others]
+      : others;
     if (changes.length > 0) {
       track(
         await applyAction(meetingCode, { type: 'REFRESH_MEMBERS', members: changes, timestamp }),

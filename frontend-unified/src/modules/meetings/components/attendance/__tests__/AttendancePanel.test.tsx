@@ -342,3 +342,64 @@ describe('AttendancePanel', () => {
     expect(within(roll).getByText('Carmen Diaz')).toBeTruthy();
   });
 });
+
+describe('AttendancePanel in a board meeting', () => {
+  const boardRoster: MeetingRoster = {
+    members: roster.members.map((m) =>
+      [2, 3, 5].includes(m.userId) ? { ...m, isDirector: true } : m,
+    ),
+    invites: roster.invites,
+  };
+  const board: MeetingState = {
+    ...state,
+    kind: 'board',
+    board: { directors: 3 },
+    quorum: 2,
+    members: [
+      { id: 2, name: 'Dana Okafor', role: 'chair', present: true, presentBy: 'device' },
+      { id: 3, name: 'Alice Brennan', role: 'member', present: true, presentBy: 'chair' },
+      { id: 4, name: 'Ben Whitaker', role: 'observer', present: true, presentBy: 'device' },
+      {
+        id: 7,
+        name: 'Pat Lindqvist',
+        role: 'admin',
+        nonVoting: true,
+        present: true,
+        presentBy: 'device',
+      },
+      { id: 11, name: 'Sam Ortiz', role: 'guest', present: true, presentBy: 'device' },
+    ],
+  };
+
+  it('lists the directors, the others present apart, and no count of the room', () => {
+    render(
+      <AttendancePanel
+        state={board}
+        dispatch={dispatch}
+        summary={attendanceSummary(board)}
+        roster={boardRoster}
+        rosterError={null}
+        eligible={3}
+      />,
+    );
+    const directors = screen.getByRole('list', { name: 'Directors' });
+    expect(
+      within(directors)
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('p')?.textContent),
+    ).toEqual(['Alice Brennan', 'Carmen Diaz', 'Dana Okafor']);
+    expect(screen.getByLabelText('Find a director')).toBeTruthy();
+    expect(screen.getByText('Directors: 1 on a device, 1 marked present')).toBeTruthy();
+    expect(screen.getByText('Directors', { selector: 'dt' })).toBeTruthy();
+    const also = screen.getByRole('list', { name: 'Also present' });
+    expect(
+      within(also)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Ben Whitaker', 'Pat Lindqvist']);
+    // Nobody is counted in the room, and nobody added by email is listed
+    expect(screen.queryByText('Rosa Alvarez')).toBeNull();
+    expect(screen.queryByText(/counted in the room/)).toBeNull();
+    expect(screen.queryByLabelText(/headcount/i)).toBeNull();
+  });
+});

@@ -3,6 +3,7 @@ import {
   floorOpenForDebate,
   generateTimestamp,
   joinNames,
+  takesPart,
   winnersOf,
 } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
@@ -35,7 +36,7 @@ function Note({ children }: { children: ReactNode }) {
  * result, a member may also call for a division (RONR 29:7), until other business comes up
  */
 export function ActionBlock({ state, dispatch, me }: ActionBlockProps) {
-  if (state.voiceVote && !state.votingOpen && me.role !== 'guest') {
+  if (state.voiceVote && !state.votingOpen && takesPart(me)) {
     return (
       <div className="space-y-3">
         <div className="space-y-2 rounded-lg border border-rule p-4">
@@ -61,6 +62,9 @@ function MomentAction({ state, dispatch, me }: ActionBlockProps) {
   const moment = phoneMoment(state);
   if (me.role === 'guest') {
     return <GuestBlock state={state} dispatch={dispatch} me={me} moment={moment} />;
+  }
+  if (!takesPart(me)) {
+    return <ObserverBlock state={state} dispatch={dispatch} me={me} moment={moment} />;
   }
 
   switch (moment) {
@@ -247,6 +251,66 @@ function ElectionWaiting({ state }: { state: MeetingState }) {
  * A guest follows the meeting, asks to speak while a motion is debated, and asks the chair a
  * question (below, as members do): the only things the server lets a guest do
  */
+/**
+ * In a board meeting, a member who isn't a director: they follow it, may ask to speak (the chair
+ * decides whom to recognize) and ask the chair a question, and don't move, second or vote
+ */
+function ObserverBlock({
+  state,
+  dispatch,
+  me,
+  moment,
+}: ActionBlockProps & { moment: PhoneMoment }) {
+  if (moment === 'adjourned') return null;
+  const voting = state.votingOpen || !!state.currentElection?.votingInProgress;
+  return (
+    <div className="space-y-3">
+      <p className="font-semibold text-ink">You&apos;re observing this board meeting.</p>
+      {moment === 'lobby' ? (
+        <LobbyNote state={state} me={me} />
+      ) : voting ? (
+        <p className="text-sm text-ink-muted">The directors are voting.</p>
+      ) : moment === 'recess' ? (
+        <p className="text-sm text-ink-muted">The board is in recess.</p>
+      ) : (
+        <>
+          <p className="text-sm text-ink-muted">
+            The directors move, second and vote. You can ask to speak: the chair decides whom to
+            recognize.
+          </p>
+          <SpeakingHand state={state} dispatch={dispatch} me={me} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Asking to speak, for those who take no other part: a guest, a board meeting's observer */
+function SpeakingHand({ state, dispatch, me }: ActionBlockProps) {
+  const waiting = state.speakerQueue.some((entry) => entry.member.id === me.id);
+  return waiting ? (
+    <button
+      type="button"
+      className="btn-secondary btn-lg w-full"
+      onClick={() => dispatch({ type: 'LOWER_HAND', member: me })}
+    >
+      Withdraw the request
+    </button>
+  ) : !floorOpenForDebate(state) ? (
+    <p className="text-sm text-ink-muted">
+      You can ask to speak while the floor is open for debate.
+    </p>
+  ) : (
+    <button
+      type="button"
+      className="btn-primary btn-lg w-full"
+      onClick={() => dispatch({ type: 'RAISE_HAND', member: me, stance: 'neutral' })}
+    >
+      Ask to speak
+    </button>
+  );
+}
+
 function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment: PhoneMoment }) {
   if (moment === 'adjourned') return null;
   if (moment === 'lobby') return <LobbyNote state={state} me={me} />;
@@ -261,34 +325,13 @@ function GuestBlock({ state, dispatch, me, moment }: ActionBlockProps & { moment
       </Note>
     );
   }
-  const waiting = state.speakerQueue.some((entry) => entry.member.id === me.id);
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">
         You are a guest: you can follow the meeting, ask to speak and ask the chair a question.
         Guests don&apos;t move, second or vote.
       </p>
-      {waiting ? (
-        <button
-          type="button"
-          className="btn-secondary btn-lg w-full"
-          onClick={() => dispatch({ type: 'LOWER_HAND', member: me })}
-        >
-          Withdraw the request
-        </button>
-      ) : !floorOpenForDebate(state) ? (
-        <p className="text-sm text-ink-muted">
-          You can ask to speak while the floor is open for debate.
-        </p>
-      ) : (
-        <button
-          type="button"
-          className="btn-primary btn-lg w-full"
-          onClick={() => dispatch({ type: 'RAISE_HAND', member: me, stance: 'neutral' })}
-        >
-          Ask to speak
-        </button>
-      )}
+      <SpeakingHand state={state} dispatch={dispatch} me={me} />
     </div>
   );
 }
