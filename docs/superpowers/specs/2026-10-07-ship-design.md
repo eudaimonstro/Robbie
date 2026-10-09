@@ -6,7 +6,7 @@ Status: design, 2026-10-07. Phase D of `docs/mvp-roadmap.md`: "Dockerfile and co
 
 After Phase C the app can run an HOA meeting end to end, but only on a developer's machine. Nothing builds an image, nothing has ever run `node dist/index.js` against a production install, and the web app has never been served by Express under its security headers: development uses Vite, and the Playwright harness uses `vite preview`. This phase puts Robbie on `https://robbie.scouch.dev` on one small VPS, with backups, a runbook a non-developer could follow on the night of a meeting, and CI that proves the image starts, serves the app and restores from a backup.
 
-`spec.md` M12 already surveyed the target and decided several things (hosting, Resend, Caddy, the domain); this design follows it and says where it differs.
+`spec.md` M12 already surveyed the target and decided several things (hosting, Resend, Caddy, the domain; they are in `docs/decisions.md` now, and `spec.md` is in git history); this design follows it and says where it differs.
 
 ## Decisions
 

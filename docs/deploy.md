@@ -13,7 +13,7 @@ CI builds the image on every pull request and publishes it from `main` as `ghcr.
 
 ## The server
 
-The target (`spec.md` M12): a DigitalOcean droplet, Ubuntu 24.04, 1 vCPU, 1.9 GiB RAM, SSH on port 4444 over Tailscale only (`ssh -p 4444 vps`).
+The target ([`decisions.md`](decisions.md), Hosting): a DigitalOcean droplet, Ubuntu 24.04, 1 vCPU, 1.9 GiB RAM, SSH on port 4444 over Tailscale only (`ssh -p 4444 vps`).
 
 ### Prepare the host (once)
 
