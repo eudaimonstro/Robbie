@@ -1,7 +1,7 @@
 import type { OrgRole } from '../utils/roles';
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
 import type { ParsedSection } from '@robbie-bylawyer/shared/utils';
-import type { BylawAmendmentVote } from '@robbie-bylawyer/shared/types';
+import type { BylawAmendmentVote, SectionNode } from '@robbie-bylawyer/shared/types';
 
 const API_BASE = '/api';
 
@@ -769,9 +769,8 @@ export interface Section {
   annotation: string | null;
 }
 
-export interface SectionTree extends Section {
-  children: SectionTree[];
-}
+/** A section with its subsections, as the section tree routes answer it */
+export type SectionTree = SectionNode;
 
 export interface SectionCreate {
   parentId?: string;

@@ -8,8 +8,30 @@ import {
   Version,
 } from '../../generated/prisma/client.js';
 import { planAmendment } from './amendmentPlan.js';
+import { nestSections } from './sectionTree.js';
 
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
+
+/** A section's words: its label, title and text */
+interface SectionText {
+  numberLabel: string | null;
+  title: string | null;
+  content: string | null;
+}
+
+/** A section of an amendment's preview: the document as it would read, marked where it changed */
+export interface PreviewSection extends SectionText {
+  id: string;
+  parentId: string | null;
+  position: number;
+  annotation: string | null;
+  modified: boolean;
+  added: boolean;
+  deleted: boolean;
+  /** The words before the amendment changed them, when it did */
+  previous: SectionText | null;
+  children: PreviewSection[];
+}
 
 /** The amendment can't be applied to the document's current version as written */
 export class AmendmentConflictError extends Error {
@@ -325,7 +347,7 @@ export class AmendmentService {
     }
   }
 
-  async previewAmendment(amendment: AmendmentWithChanges): Promise<any[]> {
+  async previewAmendment(amendment: AmendmentWithChanges): Promise<PreviewSection[]> {
     // Get document
     const document = await prisma.document.findUnique({
       where: { id: amendment.documentId },
@@ -346,15 +368,14 @@ export class AmendmentService {
     }
 
     // The text of a section before the amendment changed it
-    type Previous = { numberLabel: string | null; title: string | null; content: string | null };
-    const before = (s: {
-      numberLabel: string | null;
-      title: string | null;
-      content: string | null;
-    }) => ({ numberLabel: s.numberLabel, title: s.title, content: s.content }) as Previous;
+    const before = (s: SectionText): SectionText => ({
+      numberLabel: s.numberLabel,
+      title: s.title,
+      content: s.content,
+    });
 
     // Build a mutable copy of the section tree; `previous` is set when a change touches it
-    const sectionsCopy = currentVersion.sections.map((s) => ({
+    const sectionsCopy: Omit<PreviewSection, 'children'>[] = currentVersion.sections.map((s) => ({
       id: s.id,
       parentId: s.parentId,
       position: s.position,
@@ -365,7 +386,7 @@ export class AmendmentService {
       modified: false,
       added: false,
       deleted: false,
-      previous: null as Previous | null,
+      previous: null,
     }));
 
     // Apply changes to the copy
@@ -422,17 +443,6 @@ export class AmendmentService {
       }
     }
 
-    // Build tree from flat list
-    const buildTree = (parentId: string | null = null): any[] => {
-      return sectionsCopy
-        .filter((s) => s.parentId === parentId)
-        .sort((a, b) => a.position - b.position)
-        .map((s) => ({
-          ...s,
-          children: buildTree(s.id),
-        }));
-    };
-
-    return buildTree();
+    return nestSections(sectionsCopy, (s, children: PreviewSection[]) => ({ ...s, children }));
   }
 }

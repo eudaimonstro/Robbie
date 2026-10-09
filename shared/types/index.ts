@@ -147,6 +147,24 @@ export interface AgendaAmendment {
   toIndex?: number;
 }
 
+/** A section of a version with its subsections in position order, as the section tree routes answer it */
+export interface SectionNode {
+  id: string;
+  versionId: string;
+  parentId: string | null;
+  position: number;
+  numberLabel: string | null;
+  title: string | null;
+  content: string | null;
+  annotation: string | null;
+  children: SectionNode[];
+}
+
+/** A section as a share link shows it: without annotations, the organization's own commentary */
+export type SharedSectionNode = Omit<SectionNode, 'annotation' | 'children'> & {
+  children: SharedSectionNode[];
+};
+
 // Bylaw amendment types for Bylawyer integration
 export type BylawChangeType = 'add' | 'modify' | 'delete' | 'renumber';
 

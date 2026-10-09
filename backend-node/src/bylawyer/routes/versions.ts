@@ -35,6 +35,7 @@ import { recordAudit } from '../services/audit.js';
 import { currentVersionOnly, versionDeleteProblem } from '../services/versionRules.js';
 import { remapOpenAmendments } from '../services/amendmentService.js';
 import { matchSections } from '../services/sectionMatch.js';
+import { buildSectionTree } from '../services/sectionTree.js';
 
 export const versionsRouter: RouterType = Router();
 
@@ -45,26 +46,6 @@ export const DOCX_AT_ONCE = 2;
 export const DOCX_BUSY = 'The server is reading other Word documents. Try again in a moment.';
 const docxSlots = concurrencyLimit(DOCX_AT_ONCE, DOCX_BUSY);
 const byVersion = fromParam('id', orgOfVersion);
-
-// Build nested section tree from flat list
-function buildSectionTree(sections: Section[], parentId: string | null = null): any[] {
-  const result = sections
-    .filter((s) => s.parentId === parentId)
-    .sort((a, b) => a.position - b.position)
-    .map((section) => ({
-      id: section.id,
-      versionId: section.versionId,
-      parentId: section.parentId,
-      position: section.position,
-      numberLabel: section.numberLabel,
-      title: section.title,
-      content: section.content,
-      annotation: section.annotation,
-      children: buildSectionTree(sections, section.id),
-    }));
-
-  return result;
-}
 
 // Render full text from sections
 function renderFullText(sections: Section[], parentId: string | null = null, depth = 0): string {

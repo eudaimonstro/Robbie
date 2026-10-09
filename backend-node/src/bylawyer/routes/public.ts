@@ -1,31 +1,11 @@
 import { Router, type Router as RouterType } from 'express';
 import { prisma } from '../../db/prisma.js';
-import type { Section } from '../../generated/prisma/client.js';
 import { logger } from '../../middleware/logger.js';
+import { buildSharedSectionTree } from '../services/sectionTree.js';
 import { validate } from '../../middleware/validate.js';
 import { shareParams, shareSearchQuery, shareVersionParams } from '../../schemas/public.js';
 
 export const publicRouter: RouterType = Router();
-
-// Build nested section tree from flat list. Annotations are internal commentary, so share
-// links leave them out.
-function buildSectionTree(sections: Section[], parentId: string | null = null): any[] {
-  const result = sections
-    .filter((s) => s.parentId === parentId)
-    .sort((a, b) => a.position - b.position)
-    .map((section) => ({
-      id: section.id,
-      versionId: section.versionId,
-      parentId: section.parentId,
-      position: section.position,
-      numberLabel: section.numberLabel,
-      title: section.title,
-      content: section.content,
-      children: buildSectionTree(sections, section.id),
-    }));
-
-  return result;
-}
 
 // Get shared document by token
 // Each route checks its token, version and query (400 for a malformed one, not a 500)
@@ -83,7 +63,7 @@ publicRouter.get('/share/:token', validate({ params: shareParams }), async (req,
             effectiveDate: currentVersion.effectiveDate?.toISOString() || null,
             adoptedAt: currentVersion.adoptedAt?.toISOString() || null,
             notes: currentVersion.notes,
-            sections: buildSectionTree(currentVersion.sections),
+            sections: buildSharedSectionTree(currentVersion.sections),
           }
         : null,
     });
@@ -126,7 +106,7 @@ publicRouter.get(
         effectiveDate: version.effectiveDate?.toISOString() || null,
         adoptedAt: version.adoptedAt?.toISOString() || null,
         notes: version.notes,
-        sections: buildSectionTree(version.sections),
+        sections: buildSharedSectionTree(version.sections),
       });
     } catch (error) {
       logger.error({ err: error }, 'Failed to get version');
