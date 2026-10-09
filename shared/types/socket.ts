@@ -123,6 +123,10 @@ export type ActionErrorCode =
   // Meeting state errors
   | 'MEETING_ALREADY_ACTIVE'
   | 'MEETING_NOT_ACTIVE'
+  // The organization hasn't set its voting members and quorum, so the meeting can't open
+  | 'QUORUM_NOT_SET'
+  // The counts changed on another screen since a SET_HEADCOUNT was made from them
+  | 'HEADCOUNT_CHANGED'
   // Motion errors
   | 'UNKNOWN_MOTION_TYPE'
   | 'MOTION_PRECEDENCE_VIOLATION'

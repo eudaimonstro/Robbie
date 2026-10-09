@@ -23,6 +23,11 @@ function renderModal(onClose = vi.fn()) {
   return onClose;
 }
 
+function fillQuorum() {
+  fireEvent.change(screen.getByLabelText('Voting members'), { target: { value: '40' } });
+  fireEvent.change(screen.getByLabelText('Quorum percentage'), { target: { value: '25' } });
+}
+
 describe('NewOrganizationModal', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -35,6 +40,8 @@ describe('NewOrganizationModal', () => {
     fireEvent.change(screen.getByLabelText('Description (optional)'), {
       target: { value: '142 lots' },
     });
+    fireEvent.change(screen.getByLabelText('Voting members'), { target: { value: '142' } });
+    fireEvent.change(screen.getByLabelText('Quorum percentage'), { target: { value: '20' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
 
     await waitFor(() => expect(orgContext.setCurrentOrganization).toHaveBeenCalledWith(created));
@@ -43,9 +50,28 @@ describe('NewOrganizationModal', () => {
       name: 'Maple Grove HOA',
       description: '142 lots',
       timeZone: 'America/Chicago',
+      eligibleVoters: 142,
+      quorumPercent: 20,
     });
     expect(orgContext.refreshOrganizations).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('asks for the voting members and the quorum before creating it', () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Oak Hollow' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Give the number of voting members: a whole number, 1 or more',
+    );
+    fireEvent.change(screen.getByLabelText('Voting members'), { target: { value: '40' } });
+    fireEvent.click(screen.getByLabelText('A number of people'));
+    fireEvent.change(screen.getByLabelText('Quorum count'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
+    expect(screen.getByRole('alert').textContent).toBe(
+      'The quorum is a whole number of people, 1 or more',
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("shows the server's message, such as the limit on organizations owned", async () => {
@@ -53,6 +79,7 @@ describe('NewOrganizationModal', () => {
     const onClose = renderModal();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Fourth' } });
+    fillQuorum();
     fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
 
     expect(await screen.findByText('You can create at most 3 organizations')).toBeTruthy();
@@ -66,6 +93,7 @@ describe('NewOrganizationModal', () => {
     renderModal();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Maple Grove HOA' } });
+    fillQuorum();
     fireEvent.click(screen.getByRole('button', { name: 'Create organization' }));
 
     expect(await screen.findByText('An organization with that name already exists')).toBeTruthy();

@@ -93,6 +93,43 @@ describe('organizations', () => {
     expect(membership.role).toBe('owner');
     const list = await call('get', '/api/organizations', { cookie: ann.cookie });
     expect(list.body).toEqual([expect.objectContaining({ id: res.body.id, role: 'owner' })]);
+    // Nothing set: no quorum of 3 nobody chose
+    expect(res.body).toMatchObject({
+      eligibleVoters: null,
+      quorumPercent: null,
+      quorumCount: null,
+    });
+  });
+
+  it('takes the voting members and the quorum when it is created', async () => {
+    const ann = await signIn('ann@example.org');
+    const percent = await call('post', '/api/organizations', {
+      cookie: ann.cookie,
+      body: { name: 'Maple Grove', eligibleVoters: 142, quorumPercent: 20 },
+    });
+    expect(percent.status).toBe(201);
+    expect(percent.body).toMatchObject({
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
+    });
+
+    const count = await call('post', '/api/organizations', {
+      cookie: ann.cookie,
+      body: { name: 'Oak Hollow', eligibleVoters: 40, quorumCount: 10 },
+    });
+    expect(count.body).toMatchObject({ eligibleVoters: 40, quorumPercent: null, quorumCount: 10 });
+
+    for (const body of [
+      { name: 'Both', eligibleVoters: 40, quorumPercent: 20, quorumCount: 10 },
+      { name: 'Zero', eligibleVoters: 0, quorumCount: 10 },
+      { name: 'Over', eligibleVoters: 40, quorumPercent: 101 },
+      // A quorum of more people than vote
+      { name: 'More', eligibleVoters: 40, quorumCount: 41 },
+    ]) {
+      const res = await call('post', '/api/organizations', { cookie: ann.cookie, body });
+      expect(res.status, JSON.stringify(body)).toBe(400);
+    }
   });
 
   it('lets a user create at most 3 organizations', async () => {
@@ -198,13 +235,6 @@ describe('organizations', () => {
     expect(files.map((file) => fs.existsSync(file))).toEqual([false, false, true]);
   });
 
-  it('start with a quorum of 3', async () => {
-    const res = await call('get', `/api/organizations/${f.orgA.id}`, {
-      cookie: f.users.viewer.cookie,
-    });
-    expect(res.body).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 });
-  });
-
   it('set the voting members and the quorum, as a percentage or a count', async () => {
     const put = (body: object) =>
       call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
@@ -220,13 +250,23 @@ describe('organizations', () => {
     const count = await put({ quorumCount: 25 });
     expect(count.body).toMatchObject({ eligibleVoters: 142, quorumPercent: null, quorumCount: 25 });
 
-    const roster = await put({ eligibleVoters: null });
-    expect(roster.body).toMatchObject({ eligibleVoters: null, quorumCount: 25 });
-
     const read = await call('get', `/api/organizations/${f.orgA.id}`, {
       cookie: f.users.viewer.cookie,
     });
-    expect(read.body).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 25 });
+    expect(read.body).toMatchObject({ eligibleVoters: 142, quorumPercent: null, quorumCount: 25 });
+  });
+
+  it('refuse a quorum of more people than the voting members, either way it is changed', async () => {
+    // The fixture: 20 voting members, a quorum of 3
+    const put = (body: object) =>
+      call('put', `/api/organizations/${f.orgA.id}`, { cookie: f.users.admin.cookie, body });
+    const more = await put({ quorumCount: 21 });
+    expect(more.status).toBe(400);
+    expect(more.body).toEqual({
+      error: "The quorum can't be more people than the 20 voting members",
+    });
+    expect((await put({ eligibleVoters: 2 })).status).toBe(400);
+    expect((await put({ eligibleVoters: 30, quorumCount: 25 })).status).toBe(200);
   });
 
   it('refuse attendance settings out of range, or the quorum set both ways', async () => {
@@ -237,6 +277,8 @@ describe('organizations', () => {
       { quorumCount: 0 },
       { quorumCount: null },
       { eligibleVoters: 0 },
+      // The voting members are a number from the bylaws, never unset again
+      { eligibleVoters: null },
       { quorumPercent: 20, quorumCount: 5 },
     ]) {
       const res = await call('put', `/api/organizations/${f.orgA.id}`, {
@@ -246,7 +288,7 @@ describe('organizations', () => {
       expect(res.status, JSON.stringify(body)).toBe(400);
     }
     const org = await prisma.organization.findUniqueOrThrow({ where: { id: f.orgA.id } });
-    expect(org).toMatchObject({ eligibleVoters: null, quorumPercent: null, quorumCount: 3 });
+    expect(org).toMatchObject({ eligibleVoters: 20, quorumPercent: null, quorumCount: 3 });
   });
 
   it("keep their meetings in the creator's time zone, or Chicago's without one", async () => {

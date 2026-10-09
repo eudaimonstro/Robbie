@@ -213,6 +213,42 @@ describe('new versions', () => {
     expect(root?.annotation).toBe('Internal note');
   });
 
+  it("point the document's open amendments at the new version's sections", async () => {
+    const proposedChange = await prisma.amendmentChange.create({
+      data: {
+        amendmentId: f.proposed,
+        changeType: 'modify',
+        targetSectionId: f.child,
+        newContent: 'The short name is B.',
+      },
+    });
+    // A decided amendment names the sections it was decided on
+    const passedChange = await prisma.amendmentChange.create({
+      data: { amendmentId: f.passed, changeType: 'modify', targetSectionId: f.section },
+    });
+
+    const res = await call('post', `/api/documents/${f.doc}/versions`, {
+      cookie: f.users.secretary.cookie,
+      body: {},
+    });
+    expect(res.status).toBe(201);
+    const sections = await prisma.section.findMany({ where: { versionId: res.body.id } });
+    const copyOf = (label: string) => sections.find((s) => s.numberLabel === label)!.id;
+
+    const changeTarget = async (id: string) =>
+      (await prisma.amendmentChange.findUniqueOrThrow({ where: { id } })).targetSectionId;
+    expect(await changeTarget(f.change)).toBe(copyOf('1'));
+    expect(await changeTarget(proposedChange.id)).toBe(copyOf('1.1'));
+    expect(await changeTarget(passedChange.id)).toBe(f.section);
+
+    // The draft's preview shows its change again
+    const preview = await call('get', `/api/amendments/${f.draft}/preview`, {
+      cookie: f.users.member.cookie,
+    });
+    expect(preview.status).toBe(200);
+    expect(preview.body.sections[0]).toMatchObject({ content: 'The name is A2.', modified: true });
+  });
+
   it('can not repeat a number', async () => {
     await expect(
       prisma.version.create({ data: { documentId: f.doc, versionNumber: 2 } }),

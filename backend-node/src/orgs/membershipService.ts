@@ -2,11 +2,19 @@ import type { OrganizationInvite, OrgRole, Prisma } from '../generated/prisma/cl
 import { prisma } from '../db/prisma.js';
 import { sendAddedToOrganization } from '../auth/emailService.js';
 import { logger } from '../middleware/logger.js';
+import { isEmailAddress } from '@robbie-bylawyer/shared/utils';
 import { OrgError } from './orgError.js';
 import { atLeast, roleNeeded } from './roles.js';
 
-/** An organization may add this many people by email in 24 hours */
+/** An organization may add (and email) this many people one at a time in 24 hours */
 export const MAX_ADDS_PER_DAY = 20;
+/** At most this many people in one bulk addition */
+export const MAX_BULK_PEOPLE = 500;
+/**
+ * An organization may add this many people in bulk in 24 hours. A bulk addition emails nobody,
+ * so it isn't the abuse an emailed addition can be (each costs only a row), but it is bounded.
+ */
+export const MAX_BULK_ADDS_PER_DAY = 1000;
 /** A pending addition lapses if the email doesn't sign in within this long */
 export const INVITE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -24,6 +32,8 @@ export interface MemberView {
 export interface InviteView {
   id: string;
   email: string;
+  /** The name whoever added them gave, if any */
+  name: string | null;
   role: OrgRole;
   createdAt: Date;
 }
@@ -54,12 +64,13 @@ type Tx = Prisma.TransactionClient;
 const inviteView = (invite: OrganizationInvite): InviteView => ({
   id: invite.id,
   email: invite.email,
+  name: invite.name,
   role: invite.role,
   createdAt: invite.createdAt,
 });
 
 /** Additions that can still become memberships: not accepted, not canceled, not lapsed */
-function pending(now: Date): Prisma.OrganizationInviteWhereInput {
+export function pending(now: Date): Prisma.OrganizationInviteWhereInput {
   return {
     acceptedAt: null,
     canceledAt: null,
@@ -142,9 +153,10 @@ export async function listMembers(
 
 /**
  * Add someone to an organization by email. An email with an account becomes a member at once;
- * one without waits until it first signs in. Adding a pending email again changes its role.
- * The person is emailed, except when only the role of a pending addition changes; a failed
- * email doesn't undo the addition.
+ * one without waits until it first signs in. Adding a pending email again changes its role (and
+ * its name, when one is given). The person is emailed, except when only a pending addition
+ * changes; a failed email doesn't undo the addition. The name, for someone without an account,
+ * is what the roster shows before they sign in and where their name step starts.
  */
 export async function addMemberByEmail(
   organizationId: string,
@@ -152,8 +164,10 @@ export async function addMemberByEmail(
   rawEmail: string,
   role: OrgRole,
   now: Date = new Date(),
+  rawName?: string,
 ): Promise<AddResult> {
   const email = rawEmail.trim().toLowerCase();
+  const name = rawName?.trim() || null;
 
   const outcome = await prisma.$transaction(async (tx): Promise<Outcome> => {
     const acting = await lockAsActor(tx, organizationId, actor, 'admin');
@@ -177,14 +191,15 @@ export async function addMemberByEmail(
         checkOwnerRule(acting, waiting.role);
         const invite = await tx.organizationInvite.update({
           where: { id: waiting.id },
-          data: { role },
+          data: { role, ...(name && { name }) },
         });
         return { status: 'updated', invite: inviteView(invite) };
       }
     }
 
+    // Only additions that emailed someone: a bulk addition emails nobody (see addMembersInBulk)
     const today = await tx.organizationInvite.count({
-      where: { organizationId, createdAt: { gt: new Date(now.getTime() - DAY_MS) } },
+      where: { organizationId, emailed: true, createdAt: { gt: new Date(now.getTime() - DAY_MS) } },
     });
     if (today >= MAX_ADDS_PER_DAY) {
       throw new OrgError(
@@ -197,6 +212,7 @@ export async function addMemberByEmail(
       data: {
         organizationId,
         email,
+        name,
         role,
         invitedById: actor.id,
         createdAt: now,
@@ -233,6 +249,166 @@ export async function addMemberByEmail(
     emailSent = false;
   }
   return { ...outcome, emailSent };
+}
+
+/** One person in a bulk addition: an email, and the name to show until they sign in */
+export interface BulkPerson {
+  email: string;
+  name?: string;
+}
+
+/**
+ * What a bulk addition did with each line, in the order given: invited (waiting to sign in, with
+ * or without an account: the answer doesn't say which), updated (already waiting: the role and
+ * name changed), member (already a member), or refused on its own: invalid (not an email
+ * address), duplicate (listed earlier), owner-only (waiting to join as an owner, which only an
+ * owner changes)
+ */
+export type BulkStatus = 'invited' | 'updated' | 'member' | 'invalid' | 'duplicate' | 'owner-only';
+
+/**
+ * Add many people at once with one role, in one transaction, emailing nobody. Everyone not yet a
+ * member becomes a pending addition, those with an account too: nobody is made a member behind
+ * their back, and the answer doesn't tell who has an account. A pending addition becomes a
+ * membership when its email signs in, lists its organizations, or joins one of the
+ * organization's meetings (acceptPendingInvites). A pending addition already there gets the role
+ * and the name. Each bad line is answered on its own; the rest are added. A list that would pass
+ * the bulk limit for the day adds nobody.
+ */
+export async function addMembersInBulk(
+  organizationId: string,
+  actor: Actor,
+  people: BulkPerson[],
+  role: OrgRole,
+  now: Date = new Date(),
+): Promise<Array<{ email: string; status: BulkStatus }>> {
+  const wanted = people.map((person) => ({
+    email: person.email.trim().toLowerCase(),
+    name: person.name?.trim() || null,
+  }));
+  const valid = wanted.filter((person) => isEmailAddress(person.email));
+  const emails = [...new Set(valid.map((person) => person.email))];
+
+  return prisma.$transaction(async (tx) => {
+    const acting = await lockAsActor(tx, organizationId, actor, 'admin');
+    checkOwnerRule(acting, role);
+
+    const memberEmails = new Set(
+      (
+        await tx.organizationMember.findMany({
+          where: { organizationId, user: { email: { in: emails } } },
+          select: { user: { select: { email: true } } },
+        })
+      ).map((membership) => membership.user.email),
+    );
+    const waiting = await tx.organizationInvite.findMany({
+      where: { organizationId, email: { in: emails }, ...pending(now) },
+      orderBy: { createdAt: 'desc' },
+    });
+    const waitingOf = new Map<string, OrganizationInvite>();
+    for (const invite of waiting) {
+      if (!waitingOf.has(invite.email)) waitingOf.set(invite.email, invite);
+    }
+    // Only an owner changes a pending addition as owner (or makes one)
+    const ownerOnly = (invite: OrganizationInvite | undefined) =>
+      !!invite && invite.role === 'owner' && acting.role !== 'owner';
+
+    const seen = new Set<string>();
+    const statuses = wanted.map(({ email }): BulkStatus => {
+      if (!isEmailAddress(email)) return 'invalid';
+      if (seen.has(email)) return 'duplicate';
+      seen.add(email);
+      if (memberEmails.has(email)) return 'member';
+      const invite = waitingOf.get(email);
+      if (ownerOnly(invite)) return 'owner-only';
+      return invite ? 'updated' : 'invited';
+    });
+
+    const creating = statuses.filter((status) => status === 'invited');
+    const today = await tx.organizationInvite.count({
+      where: {
+        organizationId,
+        emailed: false,
+        createdAt: { gt: new Date(now.getTime() - DAY_MS) },
+      },
+    });
+    if (today + creating.length > MAX_BULK_ADDS_PER_DAY) {
+      const left = Math.max(0, MAX_BULK_ADDS_PER_DAY - today);
+      throw new OrgError(
+        429,
+        `This organization can add ${MAX_BULK_ADDS_PER_DAY} people a day this way. ${left} more can be added today.`,
+      );
+    }
+
+    const additions: Prisma.OrganizationInviteCreateManyInput[] = [];
+    for (const [index, { email, name }] of wanted.entries()) {
+      const status = statuses[index];
+      if (status === 'updated') {
+        await tx.organizationInvite.update({
+          where: { id: waitingOf.get(email)!.id },
+          data: { role, ...(name && { name }) },
+        });
+      } else if (status === 'invited') {
+        additions.push({
+          organizationId,
+          email,
+          name,
+          role,
+          invitedById: actor.id,
+          emailed: false,
+          createdAt: now,
+        });
+      }
+    }
+    await tx.organizationInvite.createMany({ data: additions });
+    return wanted.map(({ email }, index) => ({ email, status: statuses[index] }));
+  });
+}
+
+/**
+ * Turn a signed-in user's pending additions into memberships: when they list their
+ * organizations or join a meeting, as at sign-in (someone with an account, added in bulk)
+ */
+export async function acceptPendingInvitesFor(
+  userId: number,
+  now: Date = new Date(),
+): Promise<number> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
+  if (!user) return 0;
+  const waiting = await prisma.organizationInvite.count({
+    where: { email: user.email, ...pending(now) },
+  });
+  if (waiting === 0) return 0;
+  return prisma.$transaction((tx) => acceptPendingInvites(tx, user, now));
+}
+
+/**
+ * The name given for a user's email when they were added by email, the latest first: where a
+ * new user's name step starts. Only additions that were live (pending, or accepted): never one
+ * canceled, nor one that lapsed unaccepted. Null when they have a name already or none was given.
+ */
+export async function suggestedNameFor(
+  user: { email: string; name: string | null },
+  now: Date = new Date(),
+): Promise<string | null> {
+  if (user.name) return null;
+  const invite = await prisma.organizationInvite.findFirst({
+    where: {
+      email: user.email,
+      name: { not: null },
+      canceledAt: null,
+      OR: [
+        { acceptedAt: { not: null } },
+        { createdAt: { gt: new Date(now.getTime() - INVITE_LIFETIME_MS) } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { name: true },
+  });
+  return invite?.name ?? null;
 }
 
 /** Change a member's role, keeping the owner rules */

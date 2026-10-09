@@ -12,6 +12,7 @@ import { getPagination, paginatedResponse } from '../../middleware/pagination.js
 import { logger } from '../../middleware/logger.js';
 import { heavyWriteLimiter } from '../../middleware/userLimits.js';
 import { OrgError } from '../../orgs/orgError.js';
+import { acceptPendingInvitesFor } from '../../orgs/membershipService.js';
 import {
   createOwnedOrganization,
   slugTaken,
@@ -44,6 +45,9 @@ organizationsRouter.get(
   async (req, res) => {
     try {
       const activeOnly = req.query.active_only !== 'false';
+      // Additions by email waiting for this user (a bulk addition of someone with an account)
+      // become memberships now, as at sign-in
+      await acceptPendingInvitesFor(req.user!.id);
 
       if (req.query.page) {
         const pagination = getPagination(req);
@@ -72,7 +76,15 @@ organizationsRouter.post(
   heavyWriteLimiter,
   async (req, res) => {
     try {
-      const { name, slug: providedSlug, description, timeZone } = req.body;
+      const {
+        name,
+        slug: providedSlug,
+        description,
+        timeZone,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
+      } = req.body;
       const slug = providedSlug || generateSlug(name);
 
       // Check for existing slug
@@ -86,6 +98,9 @@ organizationsRouter.post(
         slug,
         description,
         timeZone,
+        eligibleVoters,
+        quorumPercent,
+        quorumCount,
       });
       res.status(201).json(org);
     } catch (error) {
@@ -152,6 +167,18 @@ organizationsRouter.put(
   async (req, res) => {
     try {
       const { name, description, eligibleVoters, quorumPercent, quorumCount, timeZone } = req.body;
+      // A quorum of people can't be more than vote, whichever of the two changes
+      const current = await prisma.organization.findUniqueOrThrow({
+        where: { id: req.params.id },
+        select: { eligibleVoters: true, quorumPercent: true, quorumCount: true },
+      });
+      const voters = eligibleVoters ?? current.eligibleVoters;
+      const count = quorumCount ?? (quorumPercent !== undefined ? null : current.quorumCount);
+      if (voters !== null && count !== null && count > voters) {
+        return res
+          .status(400)
+          .json({ error: `The quorum can't be more people than the ${voters} voting members` });
+      }
       const data: Prisma.OrganizationUpdateInput = {
         name,
         description,

@@ -127,6 +127,7 @@ export function generateMeetingMinutes(state: MeetingState): MeetingMinutes {
     guests,
     headcount: state.headcount ?? 0,
     headcountNames: state.headcountNames ?? [],
+    proxiesHeld: state.proxiesHeld ?? 0,
     quorum: state.quorum,
     quorumAtCallToOrder: state.quorumAtCallToOrder ?? null,
     items: state.agenda.map((item) => ({
@@ -568,6 +569,11 @@ export function formatMinutesAsMarkdown(minutes: MeetingMinutes, context: Minute
         `**Also present without an account (${minutes.headcount}):** ${named.join(', ')}${rest}.`,
       );
     }
+  }
+  if ((minutes.proxiesHeld ?? 0) > 0) {
+    paragraph(
+      `**Proxies and absentee ballots held:** ${minutes.proxiesHeld}, counted toward the quorum.`,
+    );
   }
   if (minutes.guests.length > 0) paragraph(`**Guests:** ${minutes.guests.map(md).join(', ')}.`);
   const presentIds = new Set(minutes.present.map((p) => p.id));

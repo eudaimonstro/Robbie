@@ -164,9 +164,12 @@
     outline-color: var(--gavel);
   }
 
+  /* A hint, never mistaken for something typed: italic, a little lighter than muted ink */
   input::placeholder,
   textarea::placeholder {
     color: var(--ink-muted);
+    font-style: italic;
+    opacity: 0.85;
   }
 
   body {
@@ -334,7 +337,7 @@
 
 @utility input {
   /* Form inputs: 44px tall on phones; the focus ring is the base one, with a gavel border */
-  @apply w-full px-3 py-2 max-md:min-h-11 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:border-gavel;
+  @apply w-full px-3 py-2 max-md:min-h-11 rounded-lg border border-rule bg-surface text-ink font-body placeholder:text-ink-muted focus:border-gavel placeholder:italic;
 }
 
 @utility input-error {
@@ -763,5 +766,30 @@
 
   .print-break-before {
     break-before: page;
+  }
+}
+
+/*
+ * The display on a short screen (a 720p or 768p TV or projector): the same screen at a smaller
+ * scale, so the join block and the attendance fit before the meeting, and the question and the
+ * attendance in session. Unlayered, so it wins over the utilities it adjusts.
+ */
+@media (max-height: 800px) {
+  :root {
+    --text-display-question: 3rem;
+    --text-display-line: 1.75rem;
+    --text-display-number: 4rem;
+    --text-display-label: 1.25rem;
+  }
+  .display-screen {
+    gap: 1.25rem;
+    padding: 1.5rem 2.5rem;
+  }
+  .display-gap {
+    gap: 1.5rem;
+  }
+  .display-qr {
+    width: 240px;
+    height: 240px;
   }
 }

@@ -1,16 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const api = vi.hoisted(() => ({
   listDocuments: vi.fn(async (): Promise<unknown[]> => []),
   listSchedule: vi.fn(async (): Promise<unknown[]> => []),
   listForOrganization: vi.fn(async (): Promise<unknown[]> => []),
+  listMembers: vi.fn(async (): Promise<unknown> => ({ members: [] })),
+  createDocument: vi.fn(),
+  updateOrganization: vi.fn(async () => ({})),
 }));
 vi.mock('../../../../api/client', () => ({
-  documents: { list: api.listDocuments },
+  documents: { list: api.listDocuments, create: api.createDocument },
   schedule: { list: api.listSchedule },
   amendments: { listForOrganization: api.listForOrganization },
+  members: { list: api.listMembers },
+  organizations: { update: api.updateOrganization },
 }));
 const orgState = vi.hoisted(() => ({
   rank: ['viewer', 'member', 'secretary', 'admin', 'owner'],
@@ -19,13 +24,18 @@ const orgState = vi.hoisted(() => ({
     name: 'Maple Grove HOA',
     role: 'viewer',
     timeZone: 'America/Chicago' as string | undefined,
+    eligibleVoters: 142 as number | null,
+    quorumPercent: 20 as number | null,
+    quorumCount: null as number | null,
   },
+  refreshOrganizations: vi.fn(async () => {}),
 }));
 vi.mock('../../../../context/OrganizationContext', () => ({
   useOrganization: () => ({
     currentOrganization: orgState.currentOrganization,
     organizations: [orgState.currentOrganization],
     loading: false,
+    refreshOrganizations: orgState.refreshOrganizations,
   }),
   useCan: (min: string) =>
     orgState.rank.indexOf(orgState.currentOrganization.role) >= orgState.rank.indexOf(min),
@@ -42,7 +52,10 @@ const { default: HomePage } = await import('../HomePage');
 function renderHome() {
   render(
     <MemoryRouter>
-      <HomePage />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/documents/:id/import" element={<p>Import page</p>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -67,7 +80,11 @@ describe('HomePage', () => {
       name: 'Maple Grove HOA',
       role: 'viewer',
       timeZone: 'America/Chicago',
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
     };
+    api.listMembers.mockReset().mockResolvedValue({ members: [] });
     api.listDocuments.mockReset().mockResolvedValue([]);
     api.listSchedule.mockReset().mockResolvedValue([]);
     api.listForOrganization.mockReset().mockResolvedValue([]);
@@ -115,6 +132,94 @@ describe('HomePage', () => {
     // Before the documents, in the page's order (a phone shows it first)
     const documents = await screen.findByRole('region', { name: 'Documents' });
     expect(next.compareDocumentPosition(documents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('has no way into the next meeting until the voting members and quorum are set', async () => {
+    orgState.currentOrganization = {
+      ...orgState.currentOrganization,
+      role: 'admin',
+      eligibleVoters: null,
+      quorumPercent: null,
+      quorumCount: 3,
+    };
+    api.listSchedule.mockResolvedValueOnce([annual]);
+    renderHome();
+    const next = await screen.findByRole('region', { name: 'Next meeting' });
+    await within(next).findByText(/can.t open until the voting members and quorum are set/);
+    expect(within(next).queryByRole('link', { name: 'Join 2026 Annual Meeting' })).toBeNull();
+    expect(within(next).getByRole('link', { name: 'Set them in Settings' })).toBeTruthy();
+  });
+
+  it('gives a new organization four setup steps that tick themselves off', async () => {
+    orgState.currentOrganization = {
+      ...orgState.currentOrganization,
+      role: 'owner',
+      eligibleVoters: null,
+      quorumPercent: null,
+      quorumCount: null,
+    };
+    api.listMembers.mockResolvedValue({ members: [{ userId: 7 }], invites: [] });
+    api.listDocuments.mockResolvedValue([
+      // A bylaws document with no version yet: its import is the next step
+      { id: 'd1', title: 'Bylaws', docType: 'bylaws', currentVersionId: null, createdAt: '' },
+    ]);
+    renderHome();
+    const setup = await screen.findByRole('region', { name: 'Set up Maple Grove HOA' });
+    const step = (name: string) => within(setup).getByText(name, { exact: false }).closest('li')!;
+    expect(
+      within(step('1. Voting members and quorum')).getByLabelText('Voting members'),
+    ).toBeTruthy();
+    expect(
+      within(step('3. Members')).getByRole('link', { name: 'Add people' }).getAttribute('href'),
+    ).toBe('/settings#members');
+    expect(
+      within(step('4. The first meeting')).getByRole('link', { name: 'Schedule a meeting' }),
+    ).toBeTruthy();
+
+    // The quorum, set right here
+    fireEvent.change(within(setup).getByLabelText('Voting members'), { target: { value: '60' } });
+    fireEvent.change(within(setup).getByLabelText('Quorum percentage'), {
+      target: { value: '25' },
+    });
+    fireEvent.click(within(setup).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.updateOrganization).toHaveBeenCalledWith('o1', {
+        eligibleVoters: 60,
+        quorumPercent: 25,
+      }),
+    );
+    expect(orgState.refreshOrganizations).toHaveBeenCalled();
+
+    // The bylaws document waiting for its text: Import
+    fireEvent.click(within(setup).getByRole('button', { name: 'Add the bylaws' }));
+    expect(await screen.findByText('Import page')).toBeTruthy();
+    expect(api.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('creates the bylaws document for the bylaws step when there is none', async () => {
+    orgState.currentOrganization = { ...orgState.currentOrganization, role: 'secretary' };
+    api.createDocument.mockResolvedValueOnce({ id: 'd9' });
+    renderHome();
+    const setup = await screen.findByRole('region', { name: 'Set up Maple Grove HOA' });
+    // Set up already: done, and a secretary isn't asked to do an admin's steps
+    expect(within(setup).getAllByText('Done')).toHaveLength(1);
+    expect(within(setup).getByText('An admin adds the owners in Settings.')).toBeTruthy();
+    fireEvent.click(within(setup).getByRole('button', { name: 'Add the bylaws' }));
+    expect(await screen.findByText('Import page')).toBeTruthy();
+    expect(api.createDocument).toHaveBeenCalledWith('o1', { title: 'Bylaws', docType: 'bylaws' });
+  });
+
+  it('shows no setup steps once all four are done, nor to a member', async () => {
+    orgState.currentOrganization = { ...orgState.currentOrganization, role: 'admin' };
+    api.listMembers.mockResolvedValue({ members: [{ userId: 7 }, { userId: 8 }] });
+    api.listDocuments.mockResolvedValue([
+      { id: 'd1', title: 'Bylaws', docType: 'bylaws', currentVersionId: 'v1', createdAt: '' },
+    ]);
+    api.listSchedule.mockResolvedValue([annual]);
+    renderHome();
+    await screen.findByRole('link', { name: 'Join 2026 Annual Meeting' });
+    await waitFor(() => expect(api.listMembers).toHaveBeenCalled());
+    expect(screen.queryByRole('region', { name: /Set up/ })).toBeNull();
   });
 
   it('asks the organization for its pending amendments in one request', async () => {

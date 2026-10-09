@@ -15,6 +15,9 @@ const bridge = vi.hoisted(() => ({
     slug: string;
     role: string;
     timeZone?: string;
+    eligibleVoters?: number | null;
+    quorumPercent?: number | null;
+    quorumCount?: number | null;
   },
 }));
 vi.mock('../../context/OrganizationBridge', () => ({ useMeetingOrganization: () => bridge }));
@@ -66,7 +69,45 @@ describe('LiveMeetingsPage', () => {
       name: 'Maple Grove HOA',
       slug: 'maple-grove-hoa',
       role: 'member',
+      eligibleVoters: 142,
+      quorumPercent: 20,
+      quorumCount: null,
     };
+  });
+
+  it('has no way into a meeting until the voting members and quorum are set, and says so', async () => {
+    // The old default: 3 people, and no voting members
+    bridge.currentOrganization = {
+      ...bridge.currentOrganization!,
+      role: 'admin',
+      eligibleVoters: null,
+      quorumPercent: null,
+      quorumCount: 3,
+    };
+    schedule.list.mockResolvedValueOnce([
+      meeting(),
+      // Opened on the console, not yet called to order: it has its live state, so it opens
+      meeting({ id: 'p3', robbieCode: 'OPEN01', title: 'Special meeting', open: true }),
+      // Called to order before: it has its live state, so it opens
+      meeting({
+        id: 'p2',
+        robbieCode: 'BOARD1',
+        title: 'Board meeting',
+        startedAt: '2026-10-21T00:05:00.000Z',
+      }),
+    ]);
+    renderPage();
+    expect(
+      await screen.findByText(
+        /This meeting can.t open until the voting members and quorum are set/,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Start 2026 Annual Meeting' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Set them in Settings' }).getAttribute('href')).toBe(
+      '/settings#attendance',
+    );
+    expect(screen.getByRole('link', { name: 'Join Board meeting' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Start Special meeting' })).toBeTruthy();
   });
 
   it("lists the organization's schedule: Start for the presiding officer, Join for others", async () => {

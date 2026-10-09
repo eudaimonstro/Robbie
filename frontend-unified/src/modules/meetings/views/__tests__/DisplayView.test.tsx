@@ -121,6 +121,18 @@ describe('DisplayView', () => {
     expect(screen.getByRole('img', { name: 'Scan to join' }).getAttribute('width')).toBe('360');
     // Three on devices and three counted in the room, of 142; 29 needed
     expect(screen.getByText('Need 23 more')).toBeTruthy();
+    // For the owners who won't scan anything
+    expect(
+      screen.getByText('No phone? You still count: the chair will count you in the room.'),
+    ).toBeTruthy();
+  });
+
+  it('shows the proxies and absentee ballots held apart from the people here', () => {
+    socket.state = { ...inSession, proxiesHeld: 21 };
+    render(<DisplayView />);
+    expect(screen.getByText('6 here, 21 by proxy or absentee ballot')).toBeTruthy();
+    expect(screen.getByText('Need 2 more')).toBeTruthy();
+    expect(screen.queryByText(/No phone\?/)).toBeNull();
   });
 
   it('says when the meeting starts, under the title', () => {

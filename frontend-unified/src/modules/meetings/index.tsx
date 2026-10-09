@@ -11,12 +11,14 @@ import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { SocketProvider, useSocket } from './context/SocketContext';
-import { MeetingOrganizationProvider } from './context/OrganizationBridge';
+import { MeetingOrganizationProvider, useMeetingOrganization } from './context/OrganizationBridge';
 import { LiveMeetingsPage } from './views/LiveMeetingsPage';
 import { MeetingApp } from './views/MeetingApp';
 import { JoinMeetingScreen } from './views/JoinMeetingScreen';
 import { MEETING_CODE, normalizeMeetingCode } from './utils/meetingLinks';
 import { useToast } from '../../context/ToastContext';
+import { atLeast } from '../../utils/roles';
+import { ATTENDANCE_SETTINGS } from '../../utils/quorum';
 
 function MeetingsContent() {
   const {
@@ -30,15 +32,18 @@ function MeetingsContent() {
     meetingCode,
   } = useSocket();
   const { showToast } = useToast();
+  const { currentOrganization } = useMeetingOrganization();
   // A link to a meeting that isn't scheduled (or a code typed wrong): the code box says so
   const notFound = joinError?.code === 'MEETING_NOT_FOUND';
+  // The organization hasn't set its voting members and quorum: the screen says so, with the way
+  const quorumNotSet = joinError?.code === 'QUORUM_NOT_SET';
 
   // Forward socket errors to toast notifications
   useEffect(() => {
-    if (error && !notFound) {
+    if (error && !notFound && !quorumNotSet) {
       showToast('error', error);
     }
-  }, [error, notFound, showToast]);
+  }, [error, notFound, quorumNotSet, showToast]);
 
   // Canceled while it was open: the meeting is gone, and the way on is the schedule
   if (canceled) {
@@ -60,6 +65,28 @@ function MeetingsContent() {
     return (
       <div className="max-w-md mx-auto py-12">
         <JoinMeetingScreen message={joinError.message} initialCode={meetingCode} />
+      </div>
+    );
+  }
+
+  if (!isConnected && quorumNotSet) {
+    return (
+      <div className="max-w-md mx-auto py-12">
+        <div className="card p-8 text-center">
+          <p role="alert" className="text-ink mb-4">
+            {joinError.message}
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {currentOrganization && atLeast(currentOrganization.role, 'admin') && (
+              <Link to={ATTENDANCE_SETTINGS} className="btn-primary btn-sm">
+                Set them in Settings
+              </Link>
+            )}
+            <Link to="/meetings" className="btn-secondary btn-sm">
+              Live Meetings
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

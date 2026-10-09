@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { attendanceSummary } from '@robbie-bylawyer/shared/utils';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
@@ -18,7 +18,7 @@ const roster: MeetingRoster = {
     { userId: 5, name: 'Carmen Diaz', email: 'carmen@maplegrove.example', orgRole: 'member' },
     { userId: 9, name: 'Morgan Lee', email: 'morgan@maplegrove.example', orgRole: 'viewer' },
   ],
-  invites: [],
+  invites: [{ id: 'i1', name: 'Rosa Alvarez', role: 'member' }],
 };
 
 const state: MeetingState = {
@@ -37,9 +37,23 @@ const state: MeetingState = {
 
 const dispatch = vi.fn();
 
+function panel(current: MeetingState, readOnly = false) {
+  return (
+    <AttendancePanel
+      state={current}
+      dispatch={dispatch}
+      summary={attendanceSummary(current)}
+      roster={roster}
+      rosterError={null}
+      eligible={142}
+      readOnly={readOnly}
+    />
+  );
+}
+
 function renderPanel(overrides: Partial<MeetingState> = {}, readOnly = false) {
   const current = { ...state, ...overrides };
-  render(
+  return render(
     <AttendancePanel
       state={current}
       dispatch={dispatch}
@@ -101,7 +115,7 @@ describe('AttendancePanel', () => {
     ).toBe(true);
   });
 
-  it('counts the people without an account, with the names given', () => {
+  it('counts the people without an account, with the names given', async () => {
     renderPanel();
     fireEvent.change(screen.getByLabelText('Headcount'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText(/Names for the minutes/), {
@@ -111,7 +125,7 @@ describe('AttendancePanel', () => {
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SET_HEADCOUNT', count: 3, names: ['Dee Park', 'Eli Ross'] }),
     );
-    expect(toast.showToast).toHaveBeenCalledWith('success', 'Headcount saved');
+    await waitFor(() => expect(toast.showToast).toHaveBeenCalledWith('success', 'Headcount saved'));
   });
 
   it('changes nothing once the meeting is adjourned', () => {
@@ -148,6 +162,170 @@ describe('AttendancePanel', () => {
     expect((screen.getByLabelText(/Names for the minutes/) as HTMLTextAreaElement).value).toBe(
       'Dee Park',
     );
+  });
+
+  it('counts someone added by email who has not signed in in the room, by their addition', async () => {
+    const { rerender } = renderPanel({ headcount: 2, headcountNames: ['Dee Park'] });
+    const roll = screen.getByRole('list', { name: 'Voting members' });
+    const rosa = within(roll).getByText('Rosa Alvarez').closest('li')!;
+    expect(within(rosa).getByText('Added, not yet signed in')).toBeTruthy();
+
+    fireEvent.click(within(rosa).getByRole('button', { name: 'Mark Rosa Alvarez present' }));
+    await waitFor(() =>
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SET_HEADCOUNT',
+          count: 3,
+          names: ['Dee Park', 'Rosa Alvarez'],
+          invites: ['i1'],
+          // Made from the counts this screen has: the server refuses it if they moved on
+          base: { count: 2, names: ['Dee Park'], proxiesHeld: 0, invites: [] },
+        }),
+      ),
+    );
+    // The proxies held are left as the meeting has them
+    expect(dispatch.mock.calls[0][0]).not.toHaveProperty('proxiesHeld');
+
+    rerender(
+      panel({
+        ...state,
+        headcount: 3,
+        headcountNames: ['Dee Park', 'Rosa Alvarez'],
+        headcountInvites: ['i1'],
+      }),
+    );
+    const counted = within(screen.getByRole('list', { name: 'Voting members' }))
+      .getByText('Rosa Alvarez')
+      .closest('li')!;
+    expect(within(counted).getByText('Counted in the room')).toBeTruthy();
+    fireEvent.click(within(counted).getByRole('button', { name: 'Mark Rosa Alvarez absent' }));
+    await waitFor(() =>
+      expect(dispatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'SET_HEADCOUNT',
+          count: 2,
+          names: ['Dee Park'],
+          invites: [],
+        }),
+      ),
+    );
+  });
+
+  it('counts a tap again from the new counts when another screen changed them first', async () => {
+    // Refused: another console counted someone in the meantime
+    dispatch.mockResolvedValueOnce(false).mockResolvedValue(true);
+    const { rerender } = renderPanel({ headcount: 2, headcountNames: [] });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Rosa Alvarez present' }));
+    await waitFor(() => expect(dispatch).toHaveBeenCalledTimes(1));
+    // The meeting's new counts arrive
+    rerender(panel({ ...state, headcount: 5, headcountNames: ['Eli'] }));
+    await waitFor(() => expect(dispatch).toHaveBeenCalledTimes(2));
+    expect(dispatch.mock.calls[1][0]).toMatchObject({
+      count: 6,
+      names: ['Eli', 'Rosa Alvarez'],
+      invites: ['i1'],
+      base: { count: 5, names: ['Eli'], proxiesHeld: 0, invites: [] },
+    });
+  });
+
+  it('says when someone counted in the room is now here as a member, and takes them out', async () => {
+    const joined: MeetingRoster = {
+      ...roster,
+      members: [
+        ...roster.members,
+        {
+          userId: 7,
+          name: 'Rosie A',
+          orgRole: 'member',
+          inviteId: 'i1',
+          inviteName: 'Rosa Alvarez',
+        },
+      ],
+    };
+    const current: MeetingState = {
+      ...state,
+      headcount: 2,
+      headcountNames: ['Rosa Alvarez'],
+      headcountInvites: ['i1'],
+      members: [
+        ...state.members,
+        { id: 7, name: 'Rosie A', role: 'member', present: true, presentBy: 'device' },
+      ],
+    };
+    render(
+      <AttendancePanel
+        state={current}
+        dispatch={dispatch}
+        summary={attendanceSummary(current)}
+        roster={joined}
+        rosterError={null}
+        eligible={142}
+      />,
+    );
+    expect(
+      screen.getByText('Rosie A is counted in the room and is now here as a member.'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Take Rosie A out of the headcount' }));
+    await waitFor(() =>
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SET_HEADCOUNT', count: 1, names: [], invites: [] }),
+      ),
+    );
+  });
+
+  it('counts the proxies and absentee ballots held, shown apart, never more than the voting members', async () => {
+    renderPanel({ headcount: 3, proxiesHeld: 21 });
+    expect(
+      screen.getByText(
+        '1 on a device, 1 marked present, 3 counted in the room, 21 by proxy or absentee ballot',
+      ),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Proxies and absentee ballots held'), {
+      target: { value: '143' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save the headcount' }));
+    expect(
+      screen.getByText(
+        "The proxies and absentee ballots held can't be more than the 142 voting members",
+      ),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Proxies and absentee ballots held'), {
+      target: { value: '25' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save the headcount' }));
+    await waitFor(() =>
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'SET_HEADCOUNT', count: 3, proxiesHeld: 25 }),
+      ),
+    );
+  });
+
+  it('keeps what is typed when another screen changes the counts, and says when a save was refused', async () => {
+    const { rerender } = renderPanel({ headcount: 3 });
+    fireEvent.change(screen.getByLabelText('Headcount'), { target: { value: '10' } });
+    // Another console counts someone: the typing stays
+    rerender(panel({ ...state, headcount: 4, headcountNames: ['Eli'] }));
+    expect((screen.getByLabelText('Headcount') as HTMLInputElement).value).toBe('10');
+
+    dispatch.mockResolvedValueOnce(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Save the headcount' }));
+    expect(
+      await screen.findByText(
+        'The counts changed on another screen (they are above). Check yours and save again.',
+      ),
+    ).toBeTruthy();
+    // Made from the counts the typing started from
+    expect(dispatch.mock.calls[0][0]).toMatchObject({
+      count: 10,
+      base: { count: 3, names: [], proxiesHeld: 0, invites: [] },
+    });
+    expect((screen.getByLabelText('Headcount') as HTMLInputElement).value).toBe('10');
+    // Saved again, from the counts the meeting has now
+    fireEvent.click(screen.getByRole('button', { name: 'Save the headcount' }));
+    await waitFor(() => expect(dispatch).toHaveBeenCalledTimes(2));
+    expect(dispatch.mock.calls[1][0]).toMatchObject({
+      base: { count: 4, names: ['Eli'], proxiesHeld: 0, invites: [] },
+    });
   });
 
   it('lists the guests apart', () => {

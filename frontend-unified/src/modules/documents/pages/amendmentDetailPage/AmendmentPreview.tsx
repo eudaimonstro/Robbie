@@ -34,6 +34,8 @@ const anchorOf = (section: PreviewSection) => `section-${section.id}`;
  */
 export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
   const [sections, setSections] = useState<PreviewSection[] | null>(null);
+  // Sections it changes that the current version no longer has, by label
+  const [missing, setMissing] = useState<string[]>([]);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -41,7 +43,10 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
     amendmentsApi
       .preview(amendmentId)
       .then((preview) => {
-        if (!canceled) setSections(preview.sections);
+        if (!canceled) {
+          setSections(preview.sections);
+          setMissing(preview.missing ?? []);
+        }
       })
       .catch(() => {
         if (!canceled) setFailed(true);
@@ -56,7 +61,12 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
 
   return (
     <div className="card p-4 sm:p-5">
-      <ChangeSummary sections={sections} />
+      <ChangeSummary sections={sections} quiet={missing.length > 0} />
+      {missing.length > 0 && (
+        <p className="mt-2 rounded-sm bg-caution-tint px-3 py-2 text-sm text-caution-ink">
+          No longer in the bylaws, so not shown here: {missing.join(', ')}.
+        </p>
+      )}
       <p className="mt-2 text-sm text-ink-muted">
         The document as it would read if this amendment were adopted: added sections are marked,
         removed ones struck through, and changed ones can show the words that change.
@@ -79,13 +89,14 @@ export function AmendmentPreview({ amendmentId }: { amendmentId: string }) {
  * What the amendment does, in a line ("1 changed (Section 4.2), 1 removed (Section 6), 1 added
  * (Section 7)"), each section a link that brings it into view
  */
-function ChangeSummary({ sections }: { sections: PreviewSection[] }) {
+function ChangeSummary({ sections, quiet }: { sections: PreviewSection[]; quiet: boolean }) {
   const found = sectionsByChange(sections);
   const groups = (['changed', 'removed', 'added'] as const).filter(
     (change) => found[change].length > 0,
   );
   if (groups.length === 0) {
-    return <p className="font-medium text-ink">No changes yet.</p>;
+    // With changes to sections no longer in the bylaws, they say what there is
+    return quiet ? null : <p className="font-medium text-ink">No changes yet.</p>;
   }
 
   const jumpTo = (section: PreviewSection) => {

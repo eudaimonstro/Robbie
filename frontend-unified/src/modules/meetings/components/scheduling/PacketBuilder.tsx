@@ -365,7 +365,7 @@ export function PacketBuilder({ packet, onPacketUpdate }: PacketBuilderProps) {
             type="text"
             value={newItemTitle}
             onChange={(e) => setNewItemTitle(e.target.value)}
-            placeholder="Treasurer's report"
+            placeholder="e.g. Treasurer's report"
             aria-label="New agenda item"
             maxLength={500}
             className="input flex-1"

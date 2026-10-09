@@ -46,6 +46,51 @@ describe('validating attendance actions', () => {
       expect(headcount(MAX_HEADCOUNT).valid).toBe(true);
     });
 
+    it('refuses a change made from counts the meeting no longer has, with its own code', () => {
+      const now: MeetingState = {
+        ...state,
+        headcount: 3,
+        headcountNames: ['Dee'],
+        proxiesHeld: 2,
+        headcountInvites: ['i1'],
+      };
+      const change = (base: object) =>
+        validateAction(now, {
+          type: 'SET_HEADCOUNT',
+          count: 4,
+          names: ['Dee', 'Eli'],
+          base,
+          timestamp: '',
+        } as MeetingAction);
+      expect(change({ count: 3, names: ['Dee'], proxiesHeld: 2, invites: ['i1'] }).valid).toBe(
+        true,
+      );
+      for (const base of [
+        { count: 2, names: ['Dee'], proxiesHeld: 2, invites: ['i1'] },
+        { count: 3, names: [], proxiesHeld: 2, invites: ['i1'] },
+        { count: 3, names: ['Dee'], proxiesHeld: 0, invites: ['i1'] },
+        { count: 3, names: ['Dee'], proxiesHeld: 2, invites: [] },
+      ]) {
+        expect(change(base), JSON.stringify(base)).toMatchObject({
+          valid: false,
+          errorCode: 'HEADCOUNT_CHANGED',
+        });
+      }
+    });
+
+    it('counts each person added by email it lists', () => {
+      const action = (count: number) =>
+        validateAction(state, {
+          type: 'SET_HEADCOUNT',
+          count,
+          names: [],
+          invites: ['i1', 'i2'],
+          timestamp: '',
+        } as MeetingAction);
+      expect(action(2).valid).toBe(true);
+      expect(action(1)).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
+    });
+
     it.each([
       [-1, []],
       [1.5, []],

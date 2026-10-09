@@ -1,5 +1,12 @@
 import { prisma } from '../../db/prisma.js';
-import { Amendment, AmendmentChange, Prisma, Version } from '../../generated/prisma/client.js';
+import { sectionLabel } from '@robbie-bylawyer/shared/utils';
+import {
+  Amendment,
+  AmendmentChange,
+  Prisma,
+  Section,
+  Version,
+} from '../../generated/prisma/client.js';
 import { planAmendment } from './amendmentPlan.js';
 
 export type AmendmentWithChanges = Amendment & { changes: AmendmentChange[] };
@@ -23,41 +30,56 @@ export class AmendmentAppliedError extends Error {
 type Tx = Prisma.TransactionClient;
 
 /**
- * Point the changes of a document's other draft and proposed amendments at the sections of the
- * version just made (idMap: old section id to new), where those sections still exist
+ * Point the changes of a document's draft and proposed amendments (but `except`, the one being
+ * applied) at the sections of the version just made: `idMap` takes each section of the version
+ * it replaced (`replaced`) to its new id, where it has one. A change whose section has no match
+ * in the new version keeps the old id, so it no longer applies as written, and its section's
+ * label if it had none (targetLabel), so the amendment can say which section is gone.
+ * Every new version calls this: applying an amendment, a copy, an import.
  */
-async function remapOpenAmendments(
+export async function remapOpenAmendments(
   tx: Tx,
-  applied: Amendment,
+  documentId: string,
   versionId: string,
+  replaced: Section[],
   idMap: Record<string, string>,
+  except?: string,
 ): Promise<void> {
+  const oldOf = new Map(replaced.map((section) => [section.id, section]));
   const changes = await tx.amendmentChange.findMany({
     where: {
-      targetSectionId: { in: Object.keys(idMap) },
+      targetSectionId: { in: [...oldOf.keys()] },
       amendment: {
-        documentId: applied.documentId,
-        id: { not: applied.id },
+        documentId,
+        ...(except && { id: { not: except } }),
         status: { in: ['draft', 'proposed'] },
       },
     },
-    select: { id: true, targetSectionId: true },
+    select: { id: true, targetSectionId: true, targetLabel: true },
   });
   if (changes.length === 0) return;
   const remaining = new Set(
     (
       await tx.section.findMany({
-        where: { versionId, id: { in: changes.map((c) => idMap[c.targetSectionId!]) } },
+        where: {
+          versionId,
+          id: { in: changes.map((c) => idMap[c.targetSectionId!]).filter(Boolean) },
+        },
         select: { id: true },
       })
     ).map((section) => section.id),
   );
   for (const change of changes) {
     const newId = idMap[change.targetSectionId!];
-    if (remaining.has(newId)) {
+    if (newId && remaining.has(newId)) {
       await tx.amendmentChange.update({
         where: { id: change.id },
         data: { targetSectionId: newId },
+      });
+    } else if (!change.targetLabel) {
+      await tx.amendmentChange.update({
+        where: { id: change.id },
+        data: { targetLabel: sectionLabel(oldOf.get(change.targetSectionId!)!) },
       });
     }
   }
@@ -164,7 +186,14 @@ export class AmendmentService {
         // version this one replaces: their changes now name its sections by their new ids, so
         // they can still be previewed, moved and applied. A section this one deleted has no new
         // id, and its changes keep the old one (they no longer apply as written).
-        await remapOpenAmendments(tx, amendment, newVersion.id, idMap);
+        await remapOpenAmendments(
+          tx,
+          amendment.documentId,
+          newVersion.id,
+          oldSections,
+          idMap,
+          amendment.id,
+        );
 
         // Record the resulting version. The decision date stays the vote's, not the apply's.
         await tx.amendment.update({

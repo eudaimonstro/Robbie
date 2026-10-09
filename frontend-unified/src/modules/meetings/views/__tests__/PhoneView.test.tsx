@@ -83,6 +83,29 @@ describe('PhoneView', () => {
     socket.error = null;
   });
 
+  it("says in one card before the call to order that you're checked in, when and who chairs", () => {
+    const lobby: MeetingState = {
+      ...active,
+      meetingActive: false,
+      agendaAdopted: false,
+      scheduledFor: '2026-10-21T00:00:00.000Z',
+    };
+    renderAs(alice, lobby);
+    const part = screen.getByRole('region', { name: 'Your part' });
+    expect(within(part).getByText("You're checked in.")).toBeTruthy();
+    expect(within(part).getByText('The meeting has not been called to order yet.')).toBeTruthy();
+    expect(within(part).getByText(/Dana Okafor chairs it\./).textContent).toMatch(
+      /^It starts at .*7:00\sPM\. Dana Okafor chairs it\.$/,
+    );
+    // No second card saying nothing is before the meeting
+    expect(screen.queryByText('Nothing is before the meeting yet.')).toBeNull();
+    expect(screen.queryByText('No question is pending.')).toBeNull();
+    cleanup();
+
+    renderAs(sam, lobby);
+    expect(screen.getByText("You're here as a guest.")).toBeTruthy();
+  });
+
   it('shows the question and three vote buttons while the vote is open, and nothing else to do', () => {
     renderAs(ben, voting);
     expect(screen.getByRole('heading', { name: 'Special meeting' })).toBeTruthy();

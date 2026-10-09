@@ -20,15 +20,34 @@ function safeNext(next: string | null): string {
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Try again.';
 
+/** The meeting a sign-in is for, when it came from a meeting's link or QR code */
+function meetingCodeOf(next: string): string | null {
+  const match = next.match(/^\/meetings\/([A-Za-z0-9]{4,8})(?:\/display)?\/?(?:[?#].*)?$/);
+  return match?.[1] ? match[1].toUpperCase() : null;
+}
+
 export default function SignInPage() {
-  const { status, user, termsAccepted, requestCode, verify, setName, acceptTerms, signOut } =
-    useSession();
+  const {
+    status,
+    user,
+    termsAccepted,
+    suggestedName,
+    requestCode,
+    verify,
+    setName,
+    acceptTerms,
+    signOut,
+  } = useSession();
   const [searchParams] = useSearchParams();
   const next = safeNext(searchParams.get('next'));
+  const meetingCode = meetingCodeOf(next);
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [name, setNameInput] = useState('');
+  // Null until typed: the name given when they were added by email, if any, until then
+  const [typedName, setNameInput] = useState<string | null>(null);
+  const name = typedName ?? suggestedName ?? '';
+  const [resent, setResent] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,7 +72,15 @@ export default function SignInPage() {
     e.preventDefault();
     run(async () => {
       await requestCode(email.trim());
+      setResent(false);
       setCodeSent(true);
+    });
+  };
+  const onSendNewCode = () => {
+    run(async () => {
+      await requestCode(email.trim());
+      setCode('');
+      setResent(true);
     });
   };
   const onVerify = (e: FormEvent) => {
@@ -79,7 +106,7 @@ export default function SignInPage() {
     run(async () => {
       await signOut();
       setEmail('');
-      setNameInput('');
+      setNameInput(null);
       setAgreed(false);
     });
   };
@@ -92,9 +119,19 @@ export default function SignInPage() {
         <div className="flex items-center gap-2 mb-6">
           <Scale className="w-6 h-6 text-gavel" aria-hidden="true" />
           <h1 className="text-xl font-heading font-bold text-ink">
-            {step === 'name' ? 'Welcome' : 'Sign in to Robbie'}
+            {step === 'name'
+              ? 'Welcome'
+              : meetingCode
+                ? `Sign in to join meeting ${meetingCode}`
+                : 'Sign in to Robbie'}
           </h1>
         </div>
+        {meetingCode && step !== 'name' && (
+          <p className="mb-4 text-sm text-ink-muted">
+            Sign in with your email to follow the meeting and vote on this phone. Robbie emails you
+            a code: there is no password.
+          </p>
+        )}
 
         {step === 'email' && (
           <form onSubmit={onSendCode} className="space-y-4">
@@ -120,8 +157,9 @@ export default function SignInPage() {
 
         {step === 'code' && (
           <form onSubmit={onVerify} className="space-y-4">
-            <p className="text-sm text-ink-muted">
-              We sent a 6-digit code to {email.trim()}. It works for 15 minutes.
+            <p role="status" className="text-sm text-ink-muted">
+              {resent ? 'We sent a new code to' : 'We sent a 6-digit code to'} {email.trim()}. It
+              works for 15 minutes.
             </p>
             <div>
               <label htmlFor="code" className="label">
@@ -135,11 +173,27 @@ export default function SignInPage() {
                 maxLength={6}
                 required
                 value={code}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'code-problem' : undefined}
                 onChange={(e) => setCode(e.target.value)}
               />
+              {/* By the field it is about */}
+              {error && (
+                <p id="code-problem" role="alert" className="mt-1 text-sm text-gavel">
+                  {error}
+                </p>
+              )}
             </div>
             <button type="submit" className="btn-primary w-full" disabled={busy}>
               Sign in
+            </button>
+            <button
+              type="button"
+              className="btn-secondary w-full"
+              disabled={busy}
+              onClick={onSendNewCode}
+            >
+              Send a new code
             </button>
             <button
               type="button"
@@ -147,6 +201,7 @@ export default function SignInPage() {
               onClick={() => {
                 setCodeSent(false);
                 setCode('');
+                setError(null);
               }}
             >
               Use a different email
@@ -191,9 +246,14 @@ export default function SignInPage() {
           </form>
         )}
 
-        {error && (
+        {error && step !== 'code' && (
           <p role="alert" className="mt-4 text-sm text-gavel">
             {error}
+          </p>
+        )}
+        {meetingCode && step !== 'name' && (
+          <p className="mt-6 border-t border-rule pt-4 text-sm text-ink-muted">
+            No phone? You still count: the chair will count you in the room.
           </p>
         )}
       </div>

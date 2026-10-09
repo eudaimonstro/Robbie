@@ -1,5 +1,5 @@
 /**
- * Email service for sending verification codes
+ * Email service: the sign-in code, and the email to someone added to an organization
  *
  * Supports multiple providers:
  * - SMTP (any provider: Gmail, Outlook, custom SMTP servers)
@@ -122,72 +122,47 @@ async function deliver(message: OutgoingEmail): Promise<string | undefined> {
 // check (startupCheck), which logs that error.
 logger.info({ emailProvider }, 'Email service initialized');
 
+/** The brand's day palette (docs/design-brief.md), for the one email with a page */
+const PAPER = '#F7F3EC';
+const SURFACE = '#FFFDF9';
+const INK = '#1C1A17';
+const INK_MUTED = '#5B564E';
+const RULE = '#E4DDD1';
+const GAVEL = '#8B2E25';
+
 /**
- * Generate HTML email template for verification code
+ * The sign-in code email. The code leads the subject, so a phone shows it in the notification
+ * (and offers it as the one-time code) without opening the mail. The page is the app's paper,
+ * ink and gavel; the text says the same for mail that shows no pages.
  */
-function generateEmailHtml(code: string): string {
-  return `
-<!DOCTYPE html>
-<html>
+export function signInCodeEmail(code: string): { subject: string; text: string; html: string } {
+  const text = `${code} is your Robbie code.
+
+Type it on the sign-in page to sign in to Robbie. It works for 15 minutes.
+
+If you didn't ask for a code, you can ignore this email: nobody can sign in without it.
+
+Robbie
+`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Code</title>
+  <title>${code} is your Robbie code</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 32px 24px; text-align: center;">
-      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">Robbie</h1>
-      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Parliamentary Procedure Made Easy</p>
-    </div>
-
-    <!-- Content -->
-    <div style="padding: 32px 24px;">
-      <h2 style="color: #18181b; margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Your Verification Code</h2>
-      <p style="color: #52525b; margin: 0 0 24px 0; font-size: 15px; line-height: 1.6;">
-        Enter this code to sign in to Robbie:
-      </p>
-
-      <!-- Code Box -->
-      <div style="background-color: #f4f4f5; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
-        <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #4f46e5; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">${code}</span>
-      </div>
-
-      <p style="color: #71717a; margin: 0; font-size: 13px; line-height: 1.5;">
-        This code expires in <strong>15 minutes</strong>. If you didn't request this code, you can safely ignore this email.
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background-color: #fafafa; padding: 16px 24px; border-top: 1px solid #e4e4e7;">
-      <p style="color: #a1a1aa; margin: 0; font-size: 12px; text-align: center;">
-        &copy; ${new Date().getFullYear()} Robbie. Powered by Robert's Rules of Order.
-      </p>
-    </div>
+<body style="margin: 0; padding: 24px 16px; background-color: ${PAPER}; color: ${INK}; font-family: 'Public Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+  <div style="max-width: 440px; margin: 0 auto; background-color: ${SURFACE}; border: 1px solid ${RULE}; border-radius: 12px; padding: 28px 24px;">
+    <p style="margin: 0 0 20px 0; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 600; color: ${INK};">Robbie</p>
+    <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5;">Type this code on the sign-in page to sign in to Robbie:</p>
+    <p style="margin: 0 0 16px 0; padding: 16px 0; border-top: 2px solid ${GAVEL}; border-bottom: 1px solid ${RULE}; text-align: center; font-size: 36px; font-weight: 600; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: ${INK};">${code}</p>
+    <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.5;">It works for 15 minutes.</p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: ${INK_MUTED};">If you didn't ask for a code, you can ignore this email: nobody can sign in without it.</p>
   </div>
 </body>
 </html>
 `;
-}
-
-/**
- * Generate plain text email for verification code
- */
-function generateEmailText(code: string): string {
-  return `Your Verification Code for Robbie
-
-Enter this code to sign in to Robbie:
-
-${code}
-
-This code expires in 15 minutes.
-
-If you didn't request this code, you can safely ignore this email.
-
----
-Robbie - Parliamentary Procedure Made Easy
-`;
+  return { subject: `${code} is your Robbie code`, text, html };
 }
 
 // Tests: when set, codes are collected here instead of being sent
@@ -230,12 +205,7 @@ export async function sendSignInCode(email: string, code: string): Promise<void>
   }
 
   try {
-    const messageId = await deliver({
-      to: email,
-      subject: 'Your Robbie sign-in code',
-      text: generateEmailText(code),
-      html: generateEmailHtml(code),
-    });
+    const messageId = await deliver({ to: email, ...signInCodeEmail(code) });
     logger.info({ to: emailForLog(email), messageId }, 'Sign-in email sent');
   } catch (error) {
     logger.error({ err: error }, 'Failed to send sign-in email');
@@ -285,9 +255,11 @@ export function quotedName(name: string): string {
 }
 
 /**
- * The added-to-organization email, in plain text only. The organization's and the adder's names
- * come from users (anyone can make an organization and add an email), so they are quoted and
- * capped (quotedName), and the adder is named by the email address they signed in with too.
+ * The added-to-organization email, in plain text only: who added them, what Robbie is for the
+ * organization, what to do (nothing yet, or sign in with this address), whom to ask, and what to
+ * do about a stranger's addition, so it reads as no phishing does. The organization's and the
+ * adder's names come from users (anyone can make an organization and add an email), so they are
+ * quoted and capped (quotedName), and the adder is named by their email address too.
  */
 export function addedToOrganizationEmail(
   email: AddedToOrganizationEmail,
@@ -301,15 +273,23 @@ export function addedToOrganizationEmail(
     subject: `You were added to the organization ${organization} on Robbie`,
     text: `${addedBy} added you to the organization ${organization} on Robbie.
 
-Sign in with this email address to see it:
+Robbie is where ${organization} keeps its bylaws and minutes and runs its meetings. You can read
+them there, and at a meeting you can follow along and vote on your phone. There is nothing to
+install.
+
+You don't need to do anything now. To look around, or to be ready before the next meeting,
+sign in with this email address (${email.to}) at:
 
 ${url}
 
-If you don't know this organization, you can leave it in Robbie's Settings, or ignore this
-email.
+Robbie emails you a 6-digit code each time you sign in: there is no password.
 
----
-Robbie - Parliamentary Procedure Made Easy
+Questions? Write to ${email.addedByEmail}.
+
+If you don't know ${organization}, you can ignore this email, or leave the organization in
+Robbie's Settings after signing in.
+
+Robbie
 `,
   };
 }

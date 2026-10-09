@@ -17,6 +17,9 @@ import EmptyState from '../../../components/ui/EmptyState';
 import ErrorState from '../../../components/ui/ErrorState';
 import { NoOrganizations } from '../../../components/organizations/NoOrganizations';
 import { StatusBadge, DocumentTypeBadge } from '../../../components/ui/Badge';
+import { SetupChecklist } from '../components/SetupChecklist';
+import { QuorumNotSet } from '../../../components/organizations/QuorumNotSet';
+import { quorumIsSet } from '../../../utils/quorum';
 
 /** One part of the page as loaded: not yet, its data, or the failure */
 type Part<T> = { data: T } | { failed: true } | null;
@@ -36,6 +39,8 @@ function settle<T>(promise: Promise<T>): Promise<Part<T>> {
 export default function HomePage() {
   const { currentOrganization, organizations: orgs, loading: orgLoading } = useOrganization();
   const orgId = currentOrganization?.id;
+  // Setting the organization up is the secretary's and the admins' work
+  const canSetUp = useCan('secretary');
   const [documents, setDocuments] = useState<Part<Document[]>>(null);
   const [pending, setPending] = useState<Part<Amendment[]>>(null);
   const [meetings, setMeetings] = useState<Part<ScheduledMeeting[]>>(null);
@@ -81,7 +86,22 @@ export default function HomePage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <h2 className="page-title">{currentOrganization.name}</h2>
 
-      <NextMeeting part={meetings} upcoming={upcoming} timeZone={timeZone} onRetry={retry} />
+      {canSetUp && documents && 'data' in documents && meetings && 'data' in meetings && (
+        <SetupChecklist
+          key={currentOrganization.id}
+          organization={currentOrganization}
+          documents={documents.data}
+          meetings={meetings.data}
+        />
+      )}
+
+      <NextMeeting
+        part={meetings}
+        upcoming={upcoming}
+        timeZone={timeZone}
+        onRetry={retry}
+        quorumSet={quorumIsSet(currentOrganization)}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Documents" className="lg:col-span-2">
@@ -135,13 +155,17 @@ function NextMeeting({
   upcoming,
   timeZone,
   onRetry,
+  quorumSet,
 }: {
   part: Part<ScheduledMeeting[]>;
   upcoming: ScheduledMeeting[] | null;
   timeZone?: string;
   onRetry: () => void;
+  /** Whether the organization set its voting members and quorum: a meeting opens only then */
+  quorumSet: boolean;
 }) {
   const { user } = useSession();
+  const canSetQuorum = useCan('admin');
   const [next, ...later] = upcoming ?? [];
 
   let body: ReactNode;
@@ -185,13 +209,17 @@ function NextMeeting({
               <p className="mt-1 text-sm text-ink-muted">{next.chair.name} presiding</p>
             )}
           </div>
-          <Link
-            to={`/meetings/${next.robbieCode}`}
-            aria-label={`${action} ${title}`}
-            className="btn-primary w-full sm:w-auto"
-          >
-            {action}
-          </Link>
+          {quorumSet || inSession || next.open ? (
+            <Link
+              to={`/meetings/${next.robbieCode}`}
+              aria-label={`${action} ${title}`}
+              className="btn-primary w-full sm:w-auto"
+            >
+              {action}
+            </Link>
+          ) : (
+            <QuorumNotSet canSet={canSetQuorum} />
+          )}
         </div>
         {later.length > 0 && (
           <ul className="mt-4 space-y-1 border-t border-rule pt-3 text-sm">

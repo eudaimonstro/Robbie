@@ -47,6 +47,14 @@ export function AttendanceBlock({ summary, eligible, size = 'panel' }: Attendanc
       >
         {quorumLine(summary)}
       </p>
+      {/* The room can check the paper count apart from the people it can see (the console
+          says it in its own line) */}
+      {display && summary.proxiesHeld > 0 && (
+        <p className="mt-1 text-display-label tabular-nums text-ink-muted">
+          {summary.present - summary.proxiesHeld} here, {summary.proxiesHeld} by proxy or absentee
+          ballot
+        </p>
+      )}
     </div>
   );
 }

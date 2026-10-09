@@ -282,6 +282,9 @@ describe('packets', () => {
     const create = (robbieCode: string, data: object) =>
       prisma.meetingPacket.create({ data: { organizationId: org, robbieCode, ...data } });
     await create('SOON01', { scheduledFor: new Date('2026-11-01') });
+    // Opened (a live state) but not called to order: open, as the server lets it be
+    await prisma.liveMeeting.deleteMany({ where: { code: 'ORGA01' } });
+    await prisma.liveMeeting.create({ data: { code: 'ORGA01', currentState: {} } });
     await create('LATER1', { scheduledFor: new Date('2026-12-01') });
     await create('DONE01', {
       scheduledFor: new Date('2026-09-01'),
@@ -318,7 +321,10 @@ describe('packets', () => {
       startedAt: null,
       endedAt: null,
       chair: null,
+      open: false,
     });
+    expect(res.body.find((p: { robbieCode: string }) => p.robbieCode === 'ORGA01').open).toBe(true);
+    await prisma.liveMeeting.deleteMany({ where: { code: 'ORGA01' } });
   });
 
   it('record where the meeting is held', async () => {

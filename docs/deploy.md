@@ -206,6 +206,10 @@ docker compose build app && docker compose up -d --wait
 
 Known `npm audit` findings, the overrides that fix the others, and how to check again before an upgrade are in [`security/dependency-audit.md`](security/dependency-audit.md).
 
+### Release notes
+
+- **Onboarding (October 2026):** a meeting opens only once its organization has set its voting members and quorum. Every organization made before this release has neither (its old quorum was a silent 3), so before its next meeting an admin opens **Settings**, **Attendance** and sets them from the bylaws; only an admin can. A meeting already open when you upgrade goes on.
+
 ## Rollback
 
 1. Set `ROBBIE_IMAGE=robbie:previous` in `.env` (the image you tagged before upgrading), or the `:sha-<7 characters>` tag of the build you want, then:
@@ -296,7 +300,7 @@ CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`
 - No upgrades. `curl -s https://robbie.scouch.dev/api/health` is healthy; `df -h /` has room.
 - A backup: `docker compose run --rm backup once`, copied off the server (the `rsync` under "Backups").
 - In Robbie, on **Live Meetings** (`/meetings`): the meeting is on the schedule with the right presiding officer, time and place, its agenda and its attachments. The agenda has an item for the minutes, such as "Approval of the minutes of the 2025 annual meeting".
-- **Settings**, **Attendance**: the number of voting members and the quorum are right.
+- **Settings**, **Attendance**: the number of voting members and the quorum are right. Until they are set, no meeting can open.
 - **Minutes**: last year's minutes are published, so the meeting can approve them.
 - A real sign-in with an email the app hasn't seen: the code arrives within a minute.
 - Sign in on the laptops for the TV and for the chair now (a sign-in lasts 30 days), so nobody waits for a code at the venue.
@@ -314,8 +318,9 @@ CI restores a backup into a fresh stack on every pull request (`deploy/smoke.sh`
 **During the meeting** (the chair's console)
 
 - **People arriving late:** after the call to order the display shows the business, not the QR code; **Join info** on the console shows the code and the QR code again.
-- **A member without a phone:** under **Attendance**, find them in the roster and choose **Mark present**. They count for the quorum and the minutes.
+- **A member without a phone:** under **Attendance**, find them in the roster and choose **Mark present**. They count for the quorum and the minutes. Someone added by email who never signed in is on the roster as "Added, not yet signed in": **Mark present** counts them in the room by name (the headcount and its names go up by one). If they sign in later in the meeting, the panel says they are counted twice and takes them out of the headcount with one tap.
 - **People in the room without an account:** enter how many under **Headcount**, optionally their names for the minutes, then **Save the headcount**. They count for the quorum. A new headcount replaces the last.
+- **Paper proxies and absentee ballots:** enter how many are held under **Proxies and absentee ballots held** (same form, **Save the headcount**). They count toward the quorum and show apart on the console, the TV ("40 here, 21 by proxy or absentee ballot") and in the minutes.
 - **Votes:** members vote on their phones. For people voting by show of hands, enter the counts under **In the room** and choose **Enter the count** before **Close the vote**. With the method **Voice vote or show of hands**, the vote can't close until the count is in.
 - **Elections:** the tellers' count of paper ballots goes under **Paper ballots in the room**, then **Enter the paper ballots**.
 - **The minutes:** at the minutes item, the console asks "Are there any corrections to the minutes?"; choose **Approve as read** or **Approve with corrections** (type the corrections).

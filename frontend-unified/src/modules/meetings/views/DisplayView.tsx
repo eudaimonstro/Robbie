@@ -49,7 +49,7 @@ export function DisplayView() {
     <div className="dark relative min-h-screen overflow-hidden bg-paper font-body text-ink">
       <Grain />
       {/* The screen's height and no more: nothing on a TV scrolls */}
-      <main className="relative flex h-screen flex-col gap-10 px-16 py-12">
+      <main className="display-screen relative flex h-screen flex-col gap-10 px-16 py-12">
         {!showMeeting ? (
           <p className="m-auto text-display-line text-ink-muted">
             {canceled ?? joinError?.message ?? 'Connecting to the meeting...'}
@@ -103,8 +103,8 @@ function BeforeMeeting({
 }: AttendanceProps & { meetingCode: string }) {
   const link = joinUrl(meetingCode);
   return (
-    <div className="flex flex-1 flex-col justify-center gap-16">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-16">
+    <div className="display-gap flex flex-1 flex-col justify-center gap-16">
+      <div className="display-gap grid grid-cols-[1fr_auto] items-center gap-16">
         <div className="space-y-10">
           <div className="space-y-2">
             <p className={LABEL}>Join at</p>
@@ -114,8 +114,12 @@ function BeforeMeeting({
             <p className={LABEL}>Code</p>
             <p className="meeting-code text-display-number text-ink">{meetingCode}</p>
           </div>
+          {/* For the owners who won't scan anything: the headcount is how they count */}
+          <p className="text-display-line text-ink">
+            No phone? You still count: the chair will count you in the room.
+          </p>
         </div>
-        <QrCode value={link} label="Scan to join" size={360} />
+        <QrCode value={link} label="Scan to join" size={360} className="display-qr" />
       </div>
       <AttendanceBlock summary={attendance} eligible={eligible} size="display" />
     </div>

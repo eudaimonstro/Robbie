@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 const api = vi.hoisted(() => ({
   list: vi.fn(),
   add: vi.fn(),
+  addBulk: vi.fn(),
   changeRole: vi.fn(async () => ({})),
   remove: vi.fn(async () => {}),
   cancelInvite: vi.fn(async () => {}),
@@ -35,7 +36,10 @@ const people = {
     { userId: 2, name: 'Dana Okafor', email: 'dana@maplegrove.example', role: 'admin' },
     { userId: 4, name: 'Alice Brennan', email: 'alice@maplegrove.example', role: 'member' },
   ],
-  invites: [{ id: 'i1', email: 'new@example.org', role: 'member', createdAt: '' }],
+  invites: [
+    { id: 'i1', email: 'new@example.org', role: 'member', createdAt: '' },
+    { id: 'i2', email: 'rosa@example.org', name: 'Rosa Alvarez', role: 'member', createdAt: '' },
+  ],
 };
 
 function addByEmail(email: string, role?: string) {
@@ -84,7 +88,73 @@ describe('MembersCard', () => {
     expect(
       await screen.findByText('kim@example.org will join as Member the first time they sign in.'),
     ).toBeTruthy();
-    expect(api.add).toHaveBeenCalledWith('o1', 'kim@example.org', 'member');
+    expect(api.add).toHaveBeenCalledWith('o1', 'kim@example.org', 'member', undefined);
+  });
+
+  it('takes a name for someone added by email, shown until they sign in', async () => {
+    api.add.mockResolvedValueOnce({
+      status: 'invited',
+      invite: { id: 'i3', email: 'kim@example.org', name: 'Kim Lee', role: 'member' },
+      emailSent: true,
+    });
+    render(<MembersCard />);
+    // A pending addition with a name shows it beside the email
+    expect(await screen.findByText('Rosa Alvarez')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: ' Kim Lee ' } });
+    addByEmail('kim@example.org');
+    await waitFor(() =>
+      expect(api.add).toHaveBeenCalledWith('o1', 'kim@example.org', 'member', 'Kim Lee'),
+    );
+  });
+
+  it('adds several people from a pasted list, after a preview of each line', async () => {
+    api.addBulk.mockResolvedValueOnce({
+      results: [
+        { email: 'carmen@example.org', status: 'invited' },
+        { email: 'rosa@example.org', status: 'updated' },
+      ],
+    });
+    render(<MembersCard />);
+    await screen.findByText('Alice Brennan');
+    fireEvent.click(screen.getByRole('button', { name: 'Add several people' }));
+    fireEvent.change(screen.getByLabelText('People, one per line'), {
+      target: {
+        value: [
+          'Carmen Diaz, carmen@example.org',
+          'Alice Brennan <alice@maplegrove.example>',
+          'Rosa Alvarez\trosa@example.org',
+          'Name, Email',
+        ].join('\n'),
+      },
+    });
+    expect(screen.getByRole('status').textContent).toBe(
+      '1 person to add, 1 waiting to sign in, 1 already a member, 1 line to fix',
+    );
+    const list = screen.getByRole('list', { name: 'The list, line by line' });
+    expect(within(list).getByText('Already a member')).toBeTruthy();
+    expect(within(list).getByText('No email address on this line')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Role for everyone on the list'), {
+      target: { value: 'secretary' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add 2 people' }));
+
+    await waitFor(() =>
+      expect(api.addBulk).toHaveBeenCalledWith(
+        'o1',
+        [
+          { email: 'carmen@example.org', name: 'Carmen Diaz' },
+          { email: 'rosa@example.org', name: 'Rosa Alvarez' },
+        ],
+        'secretary',
+      ),
+    );
+    expect(
+      await screen.findByText(
+        'Added 1 person as Secretary. Updated 1 waiting addition. 1 line left out to fix.',
+      ),
+    ).toBeTruthy();
+    // The list is read again with them
+    expect(api.list).toHaveBeenCalledTimes(2);
   });
 
   it("says when the email couldn't be sent", async () => {
@@ -173,6 +243,28 @@ describe('MembersCard', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Alice Brennan' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('o1', 4));
+  });
+
+  it("says which lines the server didn't add, and leaves out a spreadsheet's other columns", async () => {
+    api.addBulk.mockResolvedValueOnce({
+      results: [
+        { email: 'a@example.org', status: 'invited' },
+        { email: 'boss@example.org', status: 'owner-only' },
+      ],
+    });
+    render(<MembersCard />);
+    await screen.findByText('Alice Brennan');
+    fireEvent.click(screen.getByRole('button', { name: 'Add several people' }));
+    fireEvent.change(screen.getByLabelText('People, one per line'), {
+      target: { value: 'Ann Lee\ta@example.org\tLot 12\nboss@example.org' },
+    });
+    expect(screen.getByText('Left out: Lot 12')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add 2 people' }));
+    expect(
+      await screen.findByText(
+        'Added 1 person as Member. Only an owner can change boss@example.org, waiting to join as an owner.',
+      ),
+    ).toBeTruthy();
   });
 
   it('cancels a pending addition', async () => {

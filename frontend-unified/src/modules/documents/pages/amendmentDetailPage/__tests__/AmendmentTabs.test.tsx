@@ -202,4 +202,18 @@ describe('AmendmentTabs', () => {
     expect(await screen.findByText('No changes yet.')).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'The changes' })).toBeNull();
   });
+
+  it('names the sections it changes that are no longer in the bylaws, in place of No changes yet', async () => {
+    api.preview.mockResolvedValueOnce({
+      ...preview,
+      sections: [section({ id: 's1', numberLabel: 'Article I', title: 'Name' })],
+      missing: ['9 "Gone"'],
+    });
+    renderTabs(amendment('proposed'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(
+      await screen.findByText('No longer in the bylaws, so not shown here: 9 "Gone".'),
+    ).toBeTruthy();
+    expect(screen.queryByText('No changes yet.')).toBeNull();
+  });
 });

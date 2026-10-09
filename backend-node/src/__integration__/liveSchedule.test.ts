@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
+import { initialState } from '@robbie-bylawyer/shared/reducer';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { setIoInstance } from '../socket/ioInstance.js';
@@ -44,6 +45,7 @@ describe('the roster of a meeting', () => {
   let f: Fixture;
   beforeEach(async () => {
     await resetDatabase();
+    await resetLiveMeetings();
     f = await seedFixture();
   });
 
@@ -59,11 +61,75 @@ describe('the roster of a meeting', () => {
       email: 'viewer@example.org',
       orgRole: 'viewer',
     });
-    expect(res.body.invites).toEqual([{ email: 'pending@example.org', role: 'member' }]);
+    expect(res.body.invites).toEqual([
+      { id: f.invite, name: 'Pat Pending', email: 'pending@example.org', role: 'member' },
+    ]);
   });
 
-  it('keeps emails and pending additions to admins', async () => {
-    // A secretary chairing the meeting, a member, a viewer
+  it('gives the names of pending additions to secretaries and the presiding officer', async () => {
+    await prisma.organizationInvite.createMany({
+      data: [
+        // A viewer added by email would join as a guest: not on the roster
+        { organizationId: f.orgA.id, email: 'v@example.org', name: 'Vi Ewer', role: 'viewer' },
+        // Lapsed
+        {
+          organizationId: f.orgA.id,
+          email: 'old@example.org',
+          name: 'Old',
+          role: 'member',
+          createdAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+        },
+      ],
+    });
+    await prisma.meetingPacket.update({
+      where: { id: f.packet.id },
+      data: { chairUserId: f.users.member.id },
+    });
+    for (const user of [f.users.secretary, f.users.member]) {
+      const res = await call('get', `/api/packets/${f.packet.code}/roster`, {
+        cookie: user.cookie,
+      });
+      expect(res.body.invites).toEqual([{ id: f.invite, name: 'Pat Pending', role: 'member' }]);
+      expect(JSON.stringify(res.body)).not.toContain('@example.org');
+    }
+    const viewer = await call('get', `/api/packets/${f.packet.code}/roster`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(viewer.body.invites).toEqual([]);
+  });
+
+  it('gives the chair of the live meeting the pending additions, and the addition each member joined by', async () => {
+    const joined = await prisma.organizationInvite.create({
+      data: {
+        organizationId: f.orgA.id,
+        email: 'viewer@example.org',
+        name: 'Vee Ewer',
+        role: 'viewer',
+        acceptedAt: new Date(),
+      },
+    });
+    // The viewer was handed the chair in the live meeting
+    await getStorage().getOrCreateMeeting(f.packet.code, {
+      ...initialState,
+      meetingCode: f.packet.code,
+      organizationId: f.orgA.id,
+      members: [{ id: f.users.viewer.id, name: 'A viewer', role: 'chair', present: true }],
+    });
+    const res = await call('get', `/api/packets/${f.packet.code}/roster`, {
+      cookie: f.users.viewer.cookie,
+    });
+    expect(res.body.invites).toEqual([{ id: f.invite, name: 'Pat Pending', role: 'member' }]);
+    expect(res.body.members[0]).toEqual({
+      userId: f.users.viewer.id,
+      name: 'A viewer',
+      orgRole: 'viewer',
+      inviteId: joined.id,
+      inviteName: 'Vee Ewer',
+    });
+  });
+
+  it('keeps emails to admins', async () => {
+    // A secretary, a member, a viewer
     for (const user of [f.users.secretary, f.users.member, f.users.viewer]) {
       const res = await call('get', `/api/packets/${f.packet.code}/roster`, {
         cookie: user.cookie,
@@ -76,7 +142,6 @@ describe('the roster of a meeting', () => {
         orgRole: 'viewer',
       });
       expect(JSON.stringify(res.body)).not.toContain('@example.org');
-      expect(res.body.invites).toEqual([]);
     }
   });
 });

@@ -137,6 +137,19 @@ describe('MeetingScheduler', () => {
     });
   });
 
+  it('hints, never with what looks typed, and nudges for a place', async () => {
+    await schedule();
+    const place = screen.getByLabelText('Place') as HTMLInputElement;
+    expect(place.placeholder).toBe('e.g. the clubhouse');
+    expect((screen.getByLabelText('Meeting title') as HTMLInputElement).placeholder).toBe(
+      'e.g. Annual meeting',
+    );
+    const nudge = 'Add the place: members see it with the meeting, and it heads the minutes.';
+    expect(screen.getByText(nudge).id).toBe(place.getAttribute('aria-describedby'));
+    fireEvent.change(place, { target: { value: 'The clubhouse' } });
+    expect(screen.queryByText(nudge)).toBeNull();
+  });
+
   it('records where the meeting is held', async () => {
     await schedule();
     fireEvent.change(screen.getByLabelText('Place'), {

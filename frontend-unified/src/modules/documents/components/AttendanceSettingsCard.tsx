@@ -1,14 +1,15 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Users } from 'lucide-react';
-import { organizations as organizationsApi, type OrganizationUpdate } from '../../../api/client';
+import { organizations as organizationsApi } from '../../../api/client';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
-
-type QuorumKind = 'percent' | 'count';
+import { QuorumFields } from '../../../components/organizations/QuorumFields';
+import { quorumDraftOf, readQuorumDraft } from '../../../components/organizations/quorumDraft';
+import { quorumInWords, quorumIsSet } from '../../../utils/quorum';
 
 /**
  * The organization's voting members and quorum, which every meeting starts from (a meeting can
- * still change its own quorum). Admins edit them.
+ * still change its own quorum). Admins edit them; until they are set, no meeting can open.
  */
 export function AttendanceSettingsCard() {
   const { currentOrganization, refreshOrganizations } = useOrganization();
@@ -17,9 +18,7 @@ export function AttendanceSettingsCard() {
   if (!currentOrganization) return null;
 
   const org = currentOrganization;
-  const quorumText = org.quorumPercent
-    ? `${org.quorumPercent}% of the voting members`
-    : `${org.quorumCount ?? 3} people`;
+  const set = quorumIsSet(org);
 
   return (
     <div className="card">
@@ -35,17 +34,22 @@ export function AttendanceSettingsCard() {
             aria-label="Edit attendance"
             onClick={() => setEditing(true)}
           >
-            Edit
+            {set ? 'Edit' : 'Set them'}
           </button>
         )}
       </div>
       <div className="space-y-4 p-4 sm:p-6">
+        {!set && !editing && (
+          <p className="rounded-lg bg-caution-tint px-3 py-2 text-sm text-caution-ink">
+            {isAdmin
+              ? 'Set the voting members and the quorum from your bylaws: no meeting can open until they are set.'
+              : 'An admin sets the voting members and the quorum here: no meeting can open until they are set.'}
+          </p>
+        )}
         {editing ? (
           <AttendanceForm
             organizationId={org.id}
-            eligibleVoters={org.eligibleVoters ?? null}
-            quorumPercent={org.quorumPercent ?? null}
-            quorumCount={org.quorumCount ?? null}
+            initial={quorumDraftOf(set ? org : null)}
             onDone={async (saved) => {
               if (saved) await refreshOrganizations();
               setEditing(false);
@@ -55,13 +59,11 @@ export function AttendanceSettingsCard() {
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
               <dt className="text-sm text-ink-muted">Voting members</dt>
-              <dd className="font-medium text-ink">
-                {org.eligibleVoters ?? 'Counted from the members list'}
-              </dd>
+              <dd className="font-medium text-ink">{set ? org.eligibleVoters : 'Not set'}</dd>
             </div>
             <div>
               <dt className="text-sm text-ink-muted">Quorum</dt>
-              <dd className="font-medium text-ink">{quorumText}</dd>
+              <dd className="font-medium text-ink">{set ? quorumInWords(org) : 'Not set'}</dd>
             </div>
           </dl>
         )}
@@ -76,51 +78,30 @@ export function AttendanceSettingsCard() {
 
 function AttendanceForm({
   organizationId,
-  eligibleVoters,
-  quorumPercent,
-  quorumCount,
+  initial,
   onDone,
 }: {
   organizationId: string;
-  eligibleVoters: number | null;
-  quorumPercent: number | null;
-  quorumCount: number | null;
+  initial: ReturnType<typeof quorumDraftOf>;
   onDone: (saved: boolean) => Promise<void>;
 }) {
-  const votersId = useId();
-  const quorumId = useId();
   const { showToast } = useToast();
-  const [voters, setVoters] = useState(eligibleVoters ? String(eligibleVoters) : '');
-  const [kind, setKind] = useState<QuorumKind>(quorumPercent ? 'percent' : 'count');
-  const [quorum, setQuorum] = useState(String(quorumPercent ?? quorumCount ?? 3));
+  const [draft, setDraft] = useState(initial);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const eligible = voters.trim() === '' ? null : Number(voters);
-    if (eligible !== null && (!Number.isInteger(eligible) || eligible < 1)) {
-      setProblem('Voting members is a whole number, 1 or more, or empty to count the members list');
+    const settings = readQuorumDraft(draft);
+    if ('problem' in settings) {
+      setProblem(settings.problem);
       return;
     }
-    const value = Number(quorum);
-    if (kind === 'percent' && (!Number.isInteger(value) || value < 1 || value > 100)) {
-      setProblem('The quorum is a percentage from 1 to 100');
-      return;
-    }
-    if (kind === 'count' && (!Number.isInteger(value) || value < 1)) {
-      setProblem('The quorum is a whole number of people, 1 or more');
-      return;
-    }
-    // Setting the quorum one way clears the other on the server
-    const body: OrganizationUpdate = {
-      eligibleVoters: eligible,
-      ...(kind === 'percent' ? { quorumPercent: value } : { quorumCount: value }),
-    };
     setProblem(null);
     setSaving(true);
     try {
-      await organizationsApi.update(organizationId, body);
+      // Setting the quorum one way clears the other on the server
+      await organizationsApi.update(organizationId, settings.body);
       showToast('success', 'Attendance settings saved');
       await onDone(true);
     } catch (err) {
@@ -131,55 +112,7 @@ function AttendanceForm({
 
   return (
     <form onSubmit={(e) => void save(e)} className="space-y-4">
-      <div>
-        <label htmlFor={votersId} className="label">
-          Voting members
-        </label>
-        <input
-          id={votersId}
-          className="input tabular-nums"
-          inputMode="numeric"
-          value={voters}
-          onChange={(e) => setVoters(e.target.value)}
-        />
-        <p className="mt-1 text-xs text-ink-muted">
-          How many lots or units vote (142, say). Leave it empty to count the members list.
-        </p>
-      </div>
-      <fieldset className="space-y-2">
-        <legend className="label">Quorum</legend>
-        <label className="flex items-center gap-2 text-sm text-ink">
-          <input
-            type="radio"
-            name="quorum-kind"
-            checked={kind === 'percent'}
-            onChange={() => setKind('percent')}
-          />
-          A percentage of the voting members
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink">
-          <input
-            type="radio"
-            name="quorum-kind"
-            checked={kind === 'count'}
-            onChange={() => setKind('count')}
-          />
-          A number of people
-        </label>
-        <div className="flex items-center gap-2">
-          <label htmlFor={quorumId} className="sr-only">
-            {kind === 'percent' ? 'Quorum percentage' : 'Quorum count'}
-          </label>
-          <input
-            id={quorumId}
-            className="input w-32 tabular-nums"
-            inputMode="numeric"
-            value={quorum}
-            onChange={(e) => setQuorum(e.target.value)}
-          />
-          <span className="text-sm text-ink-muted">{kind === 'percent' ? '%' : 'people'}</span>
-        </div>
-      </fieldset>
+      <QuorumFields value={draft} onChange={setDraft} />
       {problem && (
         <p role="alert" className="text-sm text-gavel">
           {problem}

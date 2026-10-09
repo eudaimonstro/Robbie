@@ -7,7 +7,12 @@ import {
 } from '../auth/emailService.js';
 import { requestSignInCode, verifySignInCode } from '../auth/signInService.js';
 import type { OrgRole } from '../generated/prisma/client.js';
-import { MAX_ADDS_PER_DAY, addMemberBySlug } from '../orgs/membershipService.js';
+import {
+  MAX_ADDS_PER_DAY,
+  MAX_BULK_ADDS_PER_DAY,
+  MAX_BULK_PEOPLE,
+  addMemberBySlug,
+} from '../orgs/membershipService.js';
 import { membersRouter } from '../orgs/memberRoutes.js';
 import { resetDatabase } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -32,6 +37,14 @@ describeRules('member rules', [
     body: () => ({ email: 'new@example.org', role: 'member' }),
     min: 'admin',
     ok: 201,
+  },
+  {
+    method: 'post',
+    route: '/organizations/:id/members/bulk',
+    path: (f) => `/api/organizations/${f.orgA.id}/members/bulk`,
+    body: () => ({ people: [{ email: 'new@example.org' }], role: 'member' }),
+    min: 'admin',
+    ok: 200,
   },
   {
     method: 'put',
@@ -201,6 +214,48 @@ describe('members', () => {
       expect(await prisma.organizationMember.count({ where: { userId: dee.id } })).toBe(0);
     });
 
+    it('keeps the name given for someone not yet signed in, and starts their name step from it', async () => {
+      const res = await call('post', members(), {
+        cookie: f.users.admin.cookie,
+        body: { email: 'cy@example.org', role: 'member', name: '  Cy Young ' },
+      });
+      expect(res.body).toMatchObject({
+        status: 'invited',
+        invite: { email: 'cy@example.org', name: 'Cy Young' },
+      });
+      // Adding again changes the name too
+      await call('post', members(), {
+        cookie: f.users.admin.cookie,
+        body: { email: 'cy@example.org', role: 'member', name: 'Cyrus Young' },
+      });
+      const list = await call('get', members(), { cookie: f.users.admin.cookie });
+      expect(list.body.invites).toContainEqual(
+        expect.objectContaining({ email: 'cy@example.org', name: 'Cyrus Young' }),
+      );
+
+      const codes = captureEmailsForTests();
+      const asked = await call('post', '/api/auth/request-code', {
+        body: { email: 'cy@example.org' },
+      });
+      const verified = await call('post', '/api/auth/verify', {
+        body: { email: 'cy@example.org', code: codes[0].code, challenge: asked.body.challenge },
+      });
+      expect(verified.status).toBe(200);
+      expect(verified.body).toMatchObject({
+        user: { email: 'cy@example.org', name: null },
+        suggestedName: 'Cyrus Young',
+      });
+      const cookie = String(verified.headers['set-cookie']).split(';')[0];
+      const me = await call('get', '/api/auth/me', { cookie });
+      expect(me.body).toMatchObject({ suggestedName: 'Cyrus Young' });
+
+      // Once named, nothing is suggested
+      await call('patch', '/api/auth/me', { cookie, body: { name: 'Cy' } });
+      expect((await call('get', '/api/auth/me', { cookie })).body).not.toHaveProperty(
+        'suggestedName',
+      );
+    });
+
     it('keeps the addition when the email fails to send', async () => {
       // Production without an email provider can't send
       process.env.NODE_ENV = 'production';
@@ -209,6 +264,132 @@ describe('members', () => {
       expect(res.status).toBe(201);
       expect(res.body).toMatchObject({ status: 'invited', emailSent: false });
       expect(await prisma.organizationInvite.count({ where: { email: 'cy@example.org' } })).toBe(1);
+    });
+  });
+
+  describe('adding several people at once', () => {
+    const bulk = (cookie: string, body: object) =>
+      call('post', `${members()}/bulk`, { cookie, body });
+
+    it('adds each person as waiting to sign in, emails nobody, and says the same of everyone', async () => {
+      const bo = await signIn('bo@example.org', { name: 'Bo' });
+      const res = await bulk(f.users.admin.cookie, {
+        role: 'member',
+        people: [
+          { email: 'Carmen.Diaz@Example.org', name: 'Carmen Diaz' },
+          // Has an account: the answer doesn't say so, and they aren't added behind their back
+          { email: 'bo@example.org', name: 'Bo Brown' },
+          { email: 'member@example.org' },
+          { email: 'pending@example.org', name: 'Pat P.' },
+          { email: 'eli@example.org' },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        results: [
+          { email: 'carmen.diaz@example.org', status: 'invited' },
+          { email: 'bo@example.org', status: 'invited' },
+          { email: 'member@example.org', status: 'member' },
+          { email: 'pending@example.org', status: 'updated' },
+          { email: 'eli@example.org', status: 'invited' },
+        ],
+      });
+      expect(mail).toEqual([]);
+      expect(await roleOf(bo.id)).toBeNull();
+      const carmen = await prisma.organizationInvite.findFirstOrThrow({
+        where: { email: 'carmen.diaz@example.org' },
+      });
+      expect(carmen).toMatchObject({ name: 'Carmen Diaz', role: 'member', emailed: false });
+      const pending = await prisma.organizationInvite.findUniqueOrThrow({
+        where: { id: f.invite },
+      });
+      expect(pending).toMatchObject({ name: 'Pat P.', role: 'member' });
+
+      // Bo becomes a member the next time Robbie lists his organizations, and keeps his name
+      const list = await call('get', '/api/organizations', { cookie: bo.cookie });
+      expect(list.body).toEqual([expect.objectContaining({ id: f.orgA.id, role: 'member' })]);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: bo.id } })).name).toBe('Bo');
+    });
+
+    it("doesn't count toward the emailed additions' daily limit", async () => {
+      const people = Array.from({ length: 30 }, (_, i) => ({ email: `p${i}@example.org` }));
+      expect((await bulk(f.users.admin.cookie, { role: 'member', people })).status).toBe(200);
+      expect((await add(f.users.admin.cookie, 'single@example.org', 'member')).status).toBe(201);
+    });
+
+    it('answers a bad line on its own and adds the rest', async () => {
+      // A pending addition as owner, which only an owner changes
+      await prisma.organizationInvite.create({
+        data: { organizationId: f.orgA.id, email: 'boss@example.org', role: 'owner' },
+      });
+      const res = await bulk(f.users.admin.cookie, {
+        role: 'member',
+        people: [
+          { email: 'a@example.org' },
+          { email: 'A@example.org' },
+          { email: 'not an email' },
+          { email: 'pat@example' },
+          { email: 'boss@example.org' },
+          { email: 'b@example.org' },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.results).toEqual([
+        { email: 'a@example.org', status: 'invited' },
+        { email: 'a@example.org', status: 'duplicate' },
+        { email: 'not an email', status: 'invalid' },
+        { email: 'pat@example', status: 'invalid' },
+        { email: 'boss@example.org', status: 'owner-only' },
+        { email: 'b@example.org', status: 'invited' },
+      ]);
+      const boss = await prisma.organizationInvite.findFirstOrThrow({
+        where: { email: 'boss@example.org' },
+      });
+      expect(boss.role).toBe('owner');
+    });
+
+    it('refuses a list that is too long or empty, or a name too long, and adds nothing', async () => {
+      const many = Array.from({ length: MAX_BULK_PEOPLE + 1 }, (_, i) => ({
+        email: `p${i}@example.org`,
+      }));
+      for (const people of [many, [], [{ email: 'a@example.org', name: 'x'.repeat(101) }]]) {
+        const res = await bulk(f.users.admin.cookie, { role: 'member', people });
+        expect(res.status, JSON.stringify(people).slice(0, 80)).toBe(400);
+      }
+      expect(await prisma.organizationInvite.count({ where: { organizationId: f.orgA.id } })).toBe(
+        1,
+      );
+    });
+
+    it('gives the owner role only from an owner', async () => {
+      const res = await bulk(f.users.admin.cookie, {
+        role: 'owner',
+        people: [{ email: 'boss@example.org' }],
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it('holds its own daily limit', async () => {
+      await prisma.organizationInvite.createMany({
+        data: Array.from({ length: MAX_BULK_ADDS_PER_DAY - 1 }, (_, i) => ({
+          organizationId: f.orgA.id,
+          email: `earlier${i}@example.org`,
+          role: 'member' as const,
+          emailed: false,
+        })),
+      });
+      const refused = await bulk(f.users.admin.cookie, {
+        role: 'member',
+        people: [{ email: 'a@example.org' }, { email: 'b@example.org' }],
+      });
+      expect(refused.status).toBe(429);
+      expect(refused.body).toEqual({
+        error: `This organization can add ${MAX_BULK_ADDS_PER_DAY} people a day this way. 1 more can be added today.`,
+      });
+      expect(
+        (await bulk(f.users.admin.cookie, { role: 'member', people: [{ email: 'a@example.org' }] }))
+          .status,
+      ).toBe(200);
     });
   });
 

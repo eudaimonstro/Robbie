@@ -138,7 +138,75 @@ describe('attendance actions', () => {
       expect(corrected.meetingLog.at(-1)?.message).toBe('1 person present without an account.');
     });
 
+    it('replaces the proxies and absentee ballots held when given, and keeps them when not', () => {
+      const held = meetingReducer(state, {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: [],
+        proxiesHeld: 21,
+        timestamp: '10:00',
+      });
+      expect(held.proxiesHeld).toBe(21);
+      expect(held.meetingLog.at(-1)?.message).toBe('21 proxies and absentee ballots held.');
+
+      const kept = meetingReducer(held, {
+        type: 'SET_HEADCOUNT',
+        count: 4,
+        names: [],
+        timestamp: '10:05',
+      });
+      expect(kept.proxiesHeld).toBe(21);
+      expect(kept.headcount).toBe(4);
+      expect(kept.meetingLog.at(-1)?.message).toBe('4 people present without an account.');
+
+      const one = meetingReducer(kept, {
+        type: 'SET_HEADCOUNT',
+        count: 4,
+        names: [],
+        proxiesHeld: 1,
+        timestamp: '10:10',
+      });
+      expect(one.proxiesHeld).toBe(1);
+      expect(one.meetingLog.at(-1)?.message).toBe('1 proxy or absentee ballot held.');
+    });
+
+    it('keeps the people added by email counted in the room, by invite, until replaced', () => {
+      const counted = meetingReducer(state, {
+        type: 'SET_HEADCOUNT',
+        count: 2,
+        names: ['Rosa Alvarez'],
+        invites: ['i1', 'i2'],
+        timestamp: '10:00',
+      });
+      expect(counted.headcountInvites).toEqual(['i1', 'i2']);
+      const kept = meetingReducer(counted, {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: ['Rosa Alvarez'],
+        timestamp: '10:05',
+      });
+      expect(kept.headcountInvites).toEqual(['i1', 'i2']);
+      const sameButInvites = meetingReducer(kept, {
+        type: 'SET_HEADCOUNT',
+        count: 3,
+        names: ['Rosa Alvarez'],
+        invites: ['i2'],
+        timestamp: '10:10',
+      });
+      expect(sameButInvites.headcountInvites).toEqual(['i2']);
+    });
+
     it('logs nothing when nothing changes', () => {
+      const unchanged = { ...state, headcount: 2, headcountNames: ['Dee'], proxiesHeld: 5 };
+      expect(
+        meetingReducer(unchanged, {
+          type: 'SET_HEADCOUNT',
+          count: 2,
+          names: ['Dee'],
+          proxiesHeld: 5,
+          timestamp: '10:00',
+        }),
+      ).toBe(unchanged);
       const same = { ...state, headcount: 2, headcountNames: ['Dee'] };
       const next = meetingReducer(same, {
         type: 'SET_HEADCOUNT',

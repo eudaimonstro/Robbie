@@ -31,8 +31,8 @@ The meeting code is **MAPLE1**. For Alice and Ben, a narrow window works, or a r
 
 1. Morgan: open the display. It shows the meeting name, MAPLE1 and a QR code.
 2. Dana: **Live Meetings**, then **Start** on 2026 Annual Meeting. The console opens.
-3. Alice and Ben: **Live Meetings**, then **Join** (or the QR code, or `/meetings/MAPLE1`). Their phones say the meeting has not been called to order yet.
-4. Dana, under **Attendance**: **Mark present** beside Carmen Diaz (she has no phone), then **Headcount** 25 and **Save the headcount**. The console reads "29 present of 142, quorum 29, met"; the display shows **Quorum met**.
+3. Alice and Ben: **Live Meetings**, then **Join** (or the QR code, or `/meetings/MAPLE1`). Their phones say they're checked in and the meeting has not been called to order yet.
+4. Dana, under **Attendance**: **Mark present** beside Carmen Diaz (she has no phone), then **Headcount** 25 and **Save the headcount**. (Harold Becker and Rosa Alvarez are on the roster as "Added, not yet signed in": Pat added them by email and they haven't signed in. **Mark present** would count them in the room by name.) The console reads "29 present of 142, quorum 29, met"; the display shows **Quorum met**.
 
 **Business** (the console's toolbar always shows the next step)
 
