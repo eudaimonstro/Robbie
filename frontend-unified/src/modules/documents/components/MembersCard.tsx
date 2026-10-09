@@ -116,6 +116,8 @@ export function MembersCard() {
   const directors = list.filter((m) => m.isDirector).length;
   const onSetDirector = (member: OrgMember, isDirector: boolean) => {
     if (!orgId) return;
+    // The box shows the change at once; the list loaded after it says how it came out
+    setList((prev) => prev.map((m) => (m.userId === member.userId ? { ...m, isDirector } : m)));
     void act(async () => {
       await membersApi.setDirector(orgId, member.userId, isDirector);
       return isDirector
@@ -187,10 +189,8 @@ export function MembersCard() {
                   {member.email && (
                     <p className="text-sm text-ink-muted truncate">{member.email}</p>
                   )}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  {isAdmin && atLeast(member.role, 'member') ? (
-                    <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                  {isAdmin && atLeast(member.role, 'member') && (
+                    <label className="mt-1 flex min-h-8 items-center gap-2 text-sm text-ink">
                       <input
                         type="checkbox"
                         className="accent-gavel"
@@ -201,8 +201,11 @@ export function MembersCard() {
                       />
                       Board member
                     </label>
-                  ) : (
-                    member.isDirector && <span className="badge bg-gavel-tint text-ink">Board</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!(isAdmin && atLeast(member.role, 'member')) && member.isDirector && (
+                    <span className="badge bg-gavel-tint text-ink">Board</span>
                   )}
                   {canChangeRole(member.role) ? (
                     <>

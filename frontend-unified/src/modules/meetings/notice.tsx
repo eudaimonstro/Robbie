@@ -127,14 +127,14 @@ export default function NoticePrintPage() {
           />
           <div className="mt-4 min-w-0 sm:mt-0">
             <h2 id="take-part" className="card-title flex items-center gap-2">
-              <Smartphone className="h-5 w-5" aria-hidden="true" />
+              <Smartphone className="h-5 w-5 shrink-0" aria-hidden="true" />
               How to take part with your phone
             </h2>
             <ol className="mt-3 list-decimal space-y-1 pl-5 text-ink">
               <li>Point your phone&apos;s camera at the code, or go to the address below.</li>
               <li>
-                Sign in with your email address. Robbie emails you a 6-digit code: there is no
-                password.
+                Sign in with your email address. Robbie emails you a{' '}
+                <span className="whitespace-nowrap">6-digit</span> code: there is no password.
               </li>
               <li>
                 {board

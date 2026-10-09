@@ -106,7 +106,7 @@ export function SendNoticeDialog({
           <pre
             aria-label="The email"
             tabIndex={0}
-            className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-rule bg-surface-2 p-4 font-sans text-sm leading-relaxed text-ink"
+            className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-rule bg-surface-2 p-4 font-body text-sm leading-relaxed text-ink"
           >
             {notice.text}
           </pre>
