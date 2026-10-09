@@ -23,6 +23,8 @@ Sign in with the email, then the code **000000** (no email is sent). Give each p
 | Morgan Lee    | `morgan@maplegrove.example` | The TV: http://localhost:3301/meetings/MAPLE1/display            |
 | Pat Lindqvist | `pat@maplegrove.example`    | The secretary: the schedule before, the minutes after (any time) |
 
+Dana, Pat and Alice are the board (Settings, **Members**, the **Board member** boxes). Ray Castillo (`ray@maplegrove.example`), the treasurer, is a secretary who isn't on it.
+
 The meeting code is **MAPLE1**. For Alice and Ben, a narrow window works, or a real phone on the same Wi-Fi: the server listens on every interface and `npm run demo` prints the machine's address. The QR code holds the address the display was opened from, so for phones open the display at `http://<that address>:3301/meetings/MAPLE1/display` and scan it.
 
 ## The meeting
@@ -61,5 +63,17 @@ The meeting code is **MAPLE1**. For Alice and Ben, a narrow window works, or a r
 
 12. Pat: the bylaws (in the sidebar) now show **Version 2 (Current)** with the 15% quorum. It can take a few seconds after the vote.
 13. Pat: **Minutes**, then 2026 Annual Meeting (Draft). Edit the text under **Minutes text** (the preview follows), then **Publish**. Alice can now read them under **Minutes**; the 2025 minutes show as Approved.
+
+## A board meeting
+
+The board meets in November: **November board meeting**, code **MAPLEB**, with Dana presiding. Only the directors vote, and a majority of them (2 of 3) is the quorum.
+
+1. Morgan: open http://localhost:3301/meetings/MAPLEB/display. It says **Board meeting** and counts **Directors**, not the room.
+2. Dana: **Live Meetings**, then **Start** on November board meeting. The console's top bar says **Board meeting**; there is no headcount.
+3. Alice (a director) and Ben (a member, not a director): join MAPLEB on their phones. Ben's phone says "You're observing this board meeting." and offers no motion, second, vote or hand; the console lists him under **Also present**.
+4. Dana: **Mark present** beside Pat (with Dana and Alice: "3 present of 3, quorum 2, met"), **Call to order**, **Adopt the agenda**, and call an item. Alice moves; Dana records Pat's second (**Seconded from the floor**, Pat Lindqvist); **Open the vote**; Alice votes on her phone and Dana enters Pat's hand under **In the room** (at most the directors not voting on a device). **Close the vote**, then **Adjourn**.
+5. Pat: **Minutes**, November board meeting: "Minutes of the meeting of the Board of Directors", with the directors present and absent and Ben under **Also present**.
+
+A bylaw amendment can't be moved at a board meeting: the members amend the bylaws. Ray joins with the console but has no vote. Before a meeting, Pat can **Send notice** from Live Meetings: the demo has no email provider, so nothing is sent, and **Print the notice** gives the page to post, with its QR code.
 
 To run it again: `npm run demo -- --reset`.

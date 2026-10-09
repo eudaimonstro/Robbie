@@ -62,7 +62,7 @@ From here on, work as `deploy`: `sudo -iu deploy`.
 ### DNS
 
 - `robbie.scouch.dev` has an A record to the server's public address (157.245.128.187) in Cloudflare, **DNS only** (gray cloud), so Let's Encrypt's HTTP challenge reaches Caddy. Check: `dig +short robbie.scouch.dev` prints `157.245.128.187`.
-- Email: in Resend, add and verify the domain `robbie.scouch.dev`, and add its DKIM (`resend._domainkey.robbie`), SPF and bounce MX (`send.robbie`) records in Cloudflare (Resend can add them itself). Add a DMARC record: `_dmarc.robbie` TXT `v=DMARC1; p=none;`. Create a **sending-only** API key for that domain.
+- Email: in Resend, add and verify the domain `robbie.scouch.dev`, and add its DKIM (`resend._domainkey.robbie`), SPF and bounce MX (`send.robbie`) records in Cloudflare (Resend can add them itself). Add a DMARC record: `_dmarc.robbie` TXT `v=DMARC1; p=none;`. Create a **sending-only** API key for that domain. A meeting notice emails every member of an organization at once (one batch request to Resend per 50 people, a second apart; an organization sends at most 3 notices a day): check that the Resend plan's daily and monthly limits cover the largest organization's notice, which is one email per member.
 
 ## First deploy
 
@@ -412,5 +412,6 @@ Keep every preserved folder and its manifest at least until the manifest's `keep
 - **The app restarts in a loop:** `docker compose logs app` names every missing setting (the database, an email provider, `EMAIL_FROM`, `APP_URL`) and refuses `ENABLE_TEST_AUTH=true`.
 - **No certificate:** the A record must be DNS only and point here, and ports 80 and 443 open (`sudo ufw status`); `docker compose logs caddy`.
 - **Sign-in codes don't arrive:** the Resend dashboard's logs; the domain's DNS records verified; the test email under "First deploy".
+- **A notice says some emails couldn't be delivered:** the server logs each by its domain ("A meeting notice couldn't be delivered"), and Resend's dashboard has the reason (a bounced address, the plan's limit).
 - **Everyone gets "Too many requests":** `TRUST_PROXY` must be 1 (compose sets it; a warning at start-up says when it isn't).
 - **`docker compose pull` is refused:** a private package needs `docker login ghcr.io` (under "First deploy"); a token that expired needs a new one.
