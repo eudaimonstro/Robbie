@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
+import { useState, useMemo, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { isFocusPath } from './focusMode';
@@ -30,10 +30,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const phone = useMediaQuery(BELOW_MD);
   const drawer = focus || phone;
 
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
+  // Close the sidebar on a route change (the drawer): adjusted while rendering, not in an effect
+  const [shownPath, setShownPath] = useState(location.pathname);
+  if (shownPath !== location.pathname) {
+    setShownPath(location.pathname);
     setSidebarOpen(false);
-  }, [location.pathname]);
+  }
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocType, setNewDocType] = useState<'bylaws' | 'standing_rules' | 'policy'>('bylaws');
   const [creating, setCreating] = useState(false);

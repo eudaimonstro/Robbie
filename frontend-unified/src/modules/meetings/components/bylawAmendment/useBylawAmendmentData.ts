@@ -26,6 +26,7 @@ function flattenSections(sectionList: SectionTree[], depth = 0): FlatSection[] {
 }
 
 const NO_AMENDMENTS: Amendment[] = [];
+const NO_SECTIONS: FlatSection[] = [];
 
 interface BylawAmendmentData {
   linkedOrg: MeetingOrganizationResponse | null;
@@ -46,9 +47,12 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
   const { showToast } = useToast();
   const [linkedOrg, setLinkedOrg] = useState<MeetingOrganizationResponse | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [flatSections, setFlatSections] = useState<FlatSection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingSections, setLoadingSections] = useState(false);
+  // The sections of one document: another document's never show while its own load
+  const [loadedSections, setLoadedSections] = useState<{
+    documentId: string;
+    list: FlatSection[];
+  }>({ documentId: '', list: NO_SECTIONS });
   const [error, setError] = useState<string | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
   const [loadedProposed, setLoadedProposed] = useState<{
@@ -62,8 +66,7 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
       try {
         const data = await bylawSync.getMeetingOrganization(meetingCode);
         setLinkedOrg(data);
-      } catch (err) {
-        console.error('Error fetching linked organization:', err);
+      } catch {
         setError('Could not connect to server');
         showToast('error', 'Could not connect to server');
       } finally {
@@ -84,35 +87,33 @@ export function useBylawAmendmentData(meetingCode: string): BylawAmendmentData {
         if (data.length > 0) {
           setSelectedDocumentId(data[0].id);
         }
-      } catch (err) {
-        console.error('Error fetching documents:', err);
+      } catch {
         showToast('error', 'Failed to load documents');
       }
     }
     fetchDocuments();
   }, [linkedOrg, showToast]);
 
-  // Fetch sections when document is selected
+  // The selected document's sections
   useEffect(() => {
-    if (!selectedDocumentId) {
-      setFlatSections([]);
-      return;
-    }
-
-    async function fetchSections() {
-      setLoadingSections(true);
-      try {
-        const data = await bylawSync.getDocumentSections(selectedDocumentId);
-        setFlatSections(flattenSections(data));
-      } catch (err) {
-        console.error('Error fetching sections:', err);
-        showToast('error', 'Failed to load document sections');
-      } finally {
-        setLoadingSections(false);
-      }
-    }
-    fetchSections();
+    if (!selectedDocumentId) return;
+    let current = true;
+    bylawSync
+      .getDocumentSections(selectedDocumentId)
+      .then(flattenSections, () => {
+        if (current) showToast('error', 'Failed to load document sections');
+        return NO_SECTIONS;
+      })
+      .then((list) => {
+        if (current) setLoadedSections({ documentId: selectedDocumentId, list });
+      });
+    return () => {
+      current = false;
+    };
   }, [selectedDocumentId, showToast]);
+  const flatSections =
+    loadedSections.documentId === selectedDocumentId ? loadedSections.list : NO_SECTIONS;
+  const loadingSections = !!selectedDocumentId && loadedSections.documentId !== selectedDocumentId;
 
   // The document's proposed amendments, drafted and proposed ahead of the meeting: kept with
   // the document they are for, so another document's never show while its own load

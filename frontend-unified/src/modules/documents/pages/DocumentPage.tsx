@@ -210,14 +210,17 @@ export default function DocumentPage() {
       <PendingAmendmentsPanel amendments={amendments} documentId={documentId!} />
 
       {/* Section Editor Modal */}
-      <SectionEditor
-        isOpen={editorOpen}
-        onClose={() => setEditorOpen(false)}
-        onSave={onSaveSection}
-        section={editingSection || undefined}
-        parentLabel={parentSection?.numberLabel || parentSection?.title || undefined}
-        mode={editorMode}
-      />
+      {editorOpen && (
+        <SectionEditor
+          key={`${editorMode}:${editingSection?.id ?? parentSection?.id ?? 'top'}`}
+          isOpen
+          onClose={() => setEditorOpen(false)}
+          onSave={onSaveSection}
+          section={editingSection || undefined}
+          parentLabel={parentSection?.numberLabel || parentSection?.title || undefined}
+          mode={editorMode}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <ConfirmDialog
@@ -246,9 +249,10 @@ export default function DocumentPage() {
       />
 
       {/* Share Modal */}
-      {doc && (
+      {doc && shareModalOpen && (
         <ShareModal
-          isOpen={shareModalOpen}
+          key={doc.id}
+          isOpen
           onClose={() => setShareModalOpen(false)}
           documentId={doc.id}
           documentTitle={doc.title}

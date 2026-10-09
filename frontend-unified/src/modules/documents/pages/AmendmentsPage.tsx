@@ -35,10 +35,7 @@ export default function AmendmentsPage() {
   const selectedDocument = (documentId && documents.find((d) => d.id === documentId)) || null;
 
   useEffect(() => {
-    if (!orgId) {
-      setLoading(false);
-      return;
-    }
+    if (!orgId) return;
     let canceled = false;
     const fetchData = async () => {
       try {
@@ -80,7 +77,8 @@ export default function AmendmentsPage() {
     return doc?.title || 'Unknown document';
   };
 
-  if (loading) {
+  // No organization: nothing to load
+  if (loading && orgId) {
     return <LoadingPage label="Loading the amendments..." />;
   }
 

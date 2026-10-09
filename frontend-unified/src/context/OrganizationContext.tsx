@@ -76,6 +76,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading from the API: the fetcher marks itself loading before its request (it is also the refresh)
     refreshOrganizations();
   }, [refreshOrganizations]);
 

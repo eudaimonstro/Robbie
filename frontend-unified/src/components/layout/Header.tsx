@@ -18,14 +18,20 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  // The answer to one search (this organization, this query); any other search is in flight
+  const [answer, setAnswer] = useState<{ key: string; results: SearchHit[] } | null>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
   // Below the xl breakpoint the search box is an icon button that opens it over the header
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The current organization's bylaws, from 2 characters
+  const organizationId = currentOrganization?.id;
+  const query = searchQuery.trim();
+  const searchKey = organizationId && query.length >= 2 ? `${organizationId}\n${query}` : null;
+  const isSearching = searchKey !== null && answer?.key !== searchKey;
+  const searchResults = searchKey !== null && answer?.key === searchKey ? answer.results : [];
 
   // Close search dropdown on outside click
   useEffect(() => {
@@ -40,46 +46,27 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Debounced search. A new query or organization (or the search cleared) drops an answer
+  // already on its way: it is for a search nobody is looking at any more
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    // The current organization's bylaws, from 2 characters
-    const organizationId = currentOrganization?.id;
-    const query = searchQuery.trim();
-    if (!organizationId || query.length < 2) {
-      setSearchResults([]);
-      setShowSearchResults(false);
-      setIsSearching(false);
-      return;
-    }
-
-    // Set when the query or the organization changes (or the search is cleared): an answer
-    // already on its way is for a search nobody is looking at any more, and is dropped
+    if (!searchKey || !organizationId) return;
     let stale = false;
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const result = await searchApi.query(organizationId, query);
         if (stale) return;
-        setSearchResults(result.results);
+        setAnswer({ key: searchKey, results: result.results });
         setShowSearchResults(true);
       } catch {
-        if (!stale) setSearchResults([]);
-      } finally {
-        if (!stale) setIsSearching(false);
+        if (!stale) setAnswer({ key: searchKey, results: [] });
       }
     }, 300);
 
     return () => {
       stale = true;
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
+      clearTimeout(timer);
     };
-  }, [searchQuery, currentOrganization?.id]);
+  }, [searchKey, organizationId, query]);
 
   // The document opens at the section: it is selected and scrolled into view there
   const handleSearchResultClick = (hit: SearchHit) => {
@@ -91,7 +78,6 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
 
   const clearSearch = () => {
     setSearchQuery('');
-    setSearchResults([]);
     setShowSearchResults(false);
   };
 
@@ -147,7 +133,11 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
               ref={searchInputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                // Too short to search: the results close until the next answer
+                if (e.target.value.trim().length < 2) setShowSearchResults(false);
+              }}
               onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
               onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
               placeholder="Search documents..."
@@ -174,7 +164,7 @@ export default function Header({ onMenuClick, menuAlways = false }: HeaderProps)
           )}
 
           {/* Search Results Dropdown */}
-          {showSearchResults && (
+          {showSearchResults && searchKey !== null && (
             <div className="absolute top-full inset-x-4 md:inset-x-6 xl:inset-x-auto xl:left-0 mt-1 xl:w-96 bg-surface border border-rule rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
               {isSearching ? (
                 <div className="p-4 text-center text-ink-muted text-sm">Searching...</div>

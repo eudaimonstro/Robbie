@@ -51,6 +51,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!orgId) return;
     let canceled = false;
+    // Another organization, or Try again: each part shows as loading until its answer
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a new load starts
     setDocuments(null);
     setPending(null);
     setMeetings(null);

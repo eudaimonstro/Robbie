@@ -25,23 +25,28 @@ export default function ShareModal({
   const [regenerating, setRegenerating] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
-  async function fetchShareStatus() {
-    try {
-      setLoading(true);
-      const status = await documentsApi.getShareStatus(documentId);
-      setShareStatus(status);
-    } catch {
-      showToast('error', 'Failed to load sharing status');
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // The parent mounts the modal when it opens, keyed by the document, so each opening starts
+  // loading; a late answer for a closed modal or another document is dropped
   useEffect(() => {
-    if (isOpen) {
-      fetchShareStatus();
-    }
-  }, [isOpen, documentId]);
+    if (!isOpen) return;
+    let ignore = false;
+    documentsApi
+      .getShareStatus(documentId)
+      .then(
+        (status) => {
+          if (!ignore) setShareStatus(status);
+        },
+        () => {
+          if (!ignore) showToast('error', 'Failed to load sharing status');
+        },
+      )
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, documentId, showToast]);
 
   const handleEnableSharing = async () => {
     try {

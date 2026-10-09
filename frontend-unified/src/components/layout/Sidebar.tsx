@@ -48,36 +48,38 @@ export default function Sidebar({ onNewDocument, onClose, drawer = false }: Side
   const { currentOrganization } = useOrganization();
   // Documents are created by secretaries and above
   const canCreate = useCan('secretary');
-  const [documents, setDocuments] = useState<Document[]>([]);
-  // The list couldn't be loaded: said in the list's place, not shown as no documents. Quietly,
-  // since the list reloads on every page: a toast would come back on each one.
-  const [failed, setFailed] = useState(false);
+  // The current organization's list, or that it couldn't be loaded: said in the list's place,
+  // not shown as no documents. Quietly, since the list reloads on every page: a toast would come
+  // back on each one. Another organization's answer is never shown.
+  const [loaded, setLoaded] = useState<{
+    organizationId: string;
+    documents: Document[];
+    failed: boolean;
+  } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [expandedDocs, setExpandedDocs] = useState(true);
+  const organizationId = currentOrganization?.id;
+  const shown = organizationId && loaded?.organizationId === organizationId ? loaded : null;
+  const documents = shown?.documents ?? [];
+  const failed = shown?.failed ?? false;
 
   // Reload on navigation too: creating a document navigates to it, and deleting one navigates
   // away. The client caches the list and clears the cache on any write, so this is cheap.
   useEffect(() => {
-    if (!currentOrganization) {
-      setDocuments([]);
-      setFailed(false);
-      return;
-    }
+    if (!organizationId) return;
     let canceled = false;
-    documentsApi.list(currentOrganization.id).then(
+    documentsApi.list(organizationId).then(
       (list) => {
-        if (canceled) return;
-        setDocuments(list);
-        setFailed(false);
+        if (!canceled) setLoaded({ organizationId, documents: list, failed: false });
       },
       () => {
-        if (!canceled) setFailed(true);
+        if (!canceled) setLoaded({ organizationId, documents: [], failed: true });
       },
     );
     return () => {
       canceled = true;
     };
-  }, [currentOrganization, location.pathname, attempt]);
+  }, [organizationId, location.pathname, attempt]);
 
   const isActive = (path: string) => {
     if (path === '/') {

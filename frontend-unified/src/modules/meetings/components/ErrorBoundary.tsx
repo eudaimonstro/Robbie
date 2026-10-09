@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Log error to console for debugging
+    // eslint-disable-next-line no-console -- the page shows the fallback; the error itself goes to the console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 

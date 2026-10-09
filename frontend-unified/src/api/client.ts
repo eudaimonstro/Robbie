@@ -212,6 +212,7 @@ async function request<T>(
 
         if (retries && shouldRetry(response.status, attempt, isGet)) {
           const delay = getRetryDelay(attempt);
+          // eslint-disable-next-line no-console -- a retry is invisible otherwise; the console is where a developer looks for it
           console.warn(
             `Request failed with ${response.status}, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
           );
@@ -255,6 +256,7 @@ async function request<T>(
         (err instanceof TypeError || (err as Error).message === 'Failed to fetch')
       ) {
         const delay = getRetryDelay(attempt);
+        // eslint-disable-next-line no-console -- a retry is invisible otherwise; the console is where a developer looks for it
         console.warn(
           `Network error, retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
         );

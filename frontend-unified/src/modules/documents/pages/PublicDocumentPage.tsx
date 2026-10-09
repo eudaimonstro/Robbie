@@ -57,6 +57,7 @@ export default function PublicDocumentPage() {
   }, [shareToken]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading from the API: the fetcher marks itself loading before its request (it is also the refresh)
     fetchDocument();
   }, [fetchDocument]);
 

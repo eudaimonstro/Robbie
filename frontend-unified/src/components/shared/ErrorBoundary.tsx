@@ -22,6 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // eslint-disable-next-line no-console -- the page shows the fallback; the error itself goes to the console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 

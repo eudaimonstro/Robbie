@@ -17,7 +17,7 @@
     "build:shared": "npm run build -w shared",
     "build:backend": "npm run build -w backend-node",
     "build:frontend": "npm run build -w frontend-unified",
-    "lint": "eslint . && npm run lint:palette",
+    "lint": "eslint . --max-warnings 0 && npm run lint:palette",
     "lint:palette": "bash scripts/check-palette.sh",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
