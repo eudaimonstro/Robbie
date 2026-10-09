@@ -48,8 +48,3 @@ export const docIdParam = z.object({
 export const versionIdParam = z.object({
   versionId: z.string().uuid(),
 });
-
-export const paginationQuery = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
-});

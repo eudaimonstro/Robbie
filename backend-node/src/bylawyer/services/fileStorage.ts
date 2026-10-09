@@ -219,34 +219,3 @@ export async function deleteFiles(storagePaths: Array<string | null>): Promise<v
 export function getFullPath(storagePath: string): string {
   return resolveUploadPath(storagePath);
 }
-
-/**
- * Check if a file exists
- */
-export async function fileExists(storagePath: string): Promise<boolean> {
-  try {
-    const fullPath = resolveUploadPath(storagePath);
-    await fs.access(fullPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Clean up files for a meeting (when meeting is deleted)
- */
-export async function cleanupMeetingFiles(robbieCode: string): Promise<void> {
-  // A recursive delete: refuse anything but a plain meeting code ("..", for one, would remove
-  // the directory holding the uploads)
-  if (!MEETING_DIR_PATTERN.test(robbieCode)) {
-    logger.error({ robbieCode }, 'Refused to clean up files for an invalid meeting code');
-    return;
-  }
-  try {
-    const meetingDir = resolveUploadPath(robbieCode);
-    await fs.rm(meetingDir, { recursive: true, force: true });
-  } catch (error) {
-    logger.error({ err: error, robbieCode }, 'Failed to clean up files for meeting');
-  }
-}

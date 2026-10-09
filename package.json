@@ -9,7 +9,6 @@
     "frontend-unified"
   ],
   "scripts": {
-    "install:all": "npm install",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev -w backend-node",
     "dev:frontend": "npm run dev -w frontend-unified",
@@ -28,7 +27,6 @@
     "test:frontend": "npm run test:run -w frontend-unified",
     "test:coverage": "npm run test:coverage -w shared && npm run test:coverage -w backend-node",
     "db:generate": "npm run db:generate -w backend-node",
-    "db:push": "npm run db:push -w backend-node",
     "db:migrate": "npm run db:migrate -w backend-node",
     "db:studio": "npm run db:studio -w backend-node",
     "e2e": "npm run build:shared && npm run build -w frontend-unified && playwright test -c e2e"

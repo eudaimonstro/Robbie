@@ -10,7 +10,6 @@ import {
   searchQuery,
 } from '../../schemas/documents.js';
 import { searchOrganization } from '../services/search.js';
-import { getPagination, paginatedResponse } from '../../middleware/pagination.js';
 import { logger } from '../../middleware/logger.js';
 import { ApiError } from '../../middleware/apiError.js';
 import { recordAudit } from '../services/audit.js';
@@ -40,25 +39,8 @@ documentsRouter.get(
         return res.status(404).json({ error: 'Organization not found' });
       }
 
-      const where = { organizationId: req.params.orgId };
-
-      if (req.query.page) {
-        const pagination = getPagination(req);
-        const [documents, total] = await Promise.all([
-          prisma.document.findMany({
-            where,
-            omit: withoutShareToken,
-            orderBy: { title: 'asc' },
-            skip: pagination.skip,
-            take: pagination.limit,
-          }),
-          prisma.document.count({ where }),
-        ]);
-        return res.json(paginatedResponse(documents, total, pagination));
-      }
-
       const documents = await prisma.document.findMany({
-        where,
+        where: { organizationId: req.params.orgId },
         omit: withoutShareToken,
         orderBy: { title: 'asc' },
       });

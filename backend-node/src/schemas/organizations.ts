@@ -58,6 +58,4 @@ export const updateOrganizationBody = z
 
 export const listOrganizationsQuery = z.object({
   active_only: z.enum(['true', 'false']).optional(),
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
 });

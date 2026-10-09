@@ -14,26 +14,14 @@ export type OrganizationWithRole = Organization & { role: OrgRole };
 /** The user's organizations by name, each with the user's role */
 export async function userOrganizations(
   userId: number,
-  options: { activeOnly?: boolean; skip?: number; take?: number } = {},
-): Promise<{ organizations: OrganizationWithRole[]; total: number }> {
-  const where: Prisma.OrganizationMemberWhereInput = {
-    userId,
-    ...(options.activeOnly ? { organization: { isActive: true } } : {}),
-  };
-  const [memberships, total] = await prisma.$transaction([
-    prisma.organizationMember.findMany({
-      where,
-      include: { organization: true },
-      orderBy: { organization: { name: 'asc' } },
-      skip: options.skip,
-      take: options.take,
-    }),
-    prisma.organizationMember.count({ where }),
-  ]);
-  return {
-    organizations: memberships.map((m) => ({ ...m.organization, role: m.role })),
-    total,
-  };
+  options: { activeOnly?: boolean } = {},
+): Promise<OrganizationWithRole[]> {
+  const memberships = await prisma.organizationMember.findMany({
+    where: { userId, ...(options.activeOnly ? { organization: { isActive: true } } : {}) },
+    include: { organization: true },
+    orderBy: { organization: { name: 'asc' } },
+  });
+  return memberships.map((m) => ({ ...m.organization, role: m.role }));
 }
 
 /** The answer when an organization's slug is taken */

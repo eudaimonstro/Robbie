@@ -113,13 +113,6 @@ describeRules('amendment rules', [
   },
   {
     method: 'delete',
-    route: '/changes/:id',
-    path: (f) => `/api/changes/${f.change}`,
-    min: 'member',
-    ok: 204,
-  },
-  {
-    method: 'delete',
     route: '/amendment-changes/:id',
     path: (f) => `/api/amendment-changes/${f.change}`,
     min: 'member',
@@ -229,7 +222,6 @@ describe('amendment drafts', () => {
         cookie,
         body: { changeType: 'delete', targetSectionId: f.section },
       }),
-      await call('delete', `/api/changes/${change.id}`, { cookie }),
       await call('delete', `/api/amendment-changes/${change.id}`, { cookie }),
     ];
     for (const res of refusals) {
@@ -273,7 +265,6 @@ describe('amendment drafts', () => {
         cookie,
         body: { changeType: 'delete', targetSectionId: f.section },
       }),
-      await call('delete', `/api/changes/${change.id}`, { cookie }),
       await call('delete', `/api/amendment-changes/${change.id}`, { cookie }),
       await call('delete', `/api/amendments/${f.proposed}`, { cookie }),
     ];
