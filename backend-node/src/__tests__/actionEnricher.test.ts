@@ -79,8 +79,6 @@ describe('enrichAction', () => {
       SET_PREVIOUS_MINUTES: {},
       ADD_COMMITTEE_REPORT: {},
       PRESENT_COMMITTEE_REPORT: {},
-      SUSPEND_RULE_APPROVED: {},
-      RESTORE_RULE: {},
       CHAIR_RULING: {},
       OPEN_NOMINATIONS: {},
       NOMINATE: { nominatorId: SPOOF_ID, nominatedBy: SPOOF_NAME },

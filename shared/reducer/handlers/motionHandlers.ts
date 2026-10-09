@@ -67,7 +67,6 @@ function makeMotion(state: MeetingState, made: NewMotion, log: Log): MeetingStat
     status: 'pending' as const,
     isAgendaAdoption: made.motionType === 'adoptAgenda',
     agendaAmendment: made.agendaAmendment || null,
-    ruleSuspension: made.ruleSuspension || null,
     bylawAmendment: made.bylawAmendment || null,
     moverHasSpoken: false,
     tabledMotionId: made.tabledMotionId,

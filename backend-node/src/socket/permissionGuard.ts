@@ -51,8 +51,6 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   // The chair takes up a question postponed to later in the meeting, and ends a recess
   TAKE_UP_POSTPONED: PRESIDING,
   RESUME_MEETING: PRESIDING,
-  SUSPEND_RULE_APPROVED: PRESIDING,
-  RESTORE_RULE: PRESIDING,
   ANSWER_INQUIRY: PRESIDING,
   PRESENT_COMMITTEE_REPORT: PRESIDING,
   START_ROLL_CALL: PRESIDING,

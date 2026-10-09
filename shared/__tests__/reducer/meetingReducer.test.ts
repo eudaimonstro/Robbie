@@ -1606,30 +1606,6 @@ describe('meetingReducer', () => {
     });
   });
 
-  describe('SUSPEND_RULE_APPROVED', () => {
-    it('should add rule suspension', () => {
-      const suspension = {
-        id: 1,
-        rule: 'debate-rules' as const,
-        purpose: 'Speed up meeting',
-        specificAction: 'Limit debate to 5 minutes',
-        scope: 'meeting-remainder' as const,
-        suspendedAt: '10:20:00',
-        actionCompleted: false,
-        motionId: 5,
-      };
-
-      const state = meetingReducer(initialState, {
-        type: 'SUSPEND_RULE_APPROVED',
-        suspension,
-        timestamp: '10:20:00',
-      });
-
-      expect(state.suspendedRules).toHaveLength(1);
-      expect(state.suspendedRules[0].rule).toBe('debate-rules');
-    });
-  });
-
   describe('ADVANCE_MEETING_STAGE at the end of the order of business', () => {
     it('stays at the last stage; only adjourning (END_MEETING) ends the meeting', () => {
       const atAnnouncements: MeetingState = {
@@ -1723,45 +1699,6 @@ describe('meetingReducer', () => {
         { type: 'SET_MEMBER_ROLE', targetMemberId: 2, newRole: 'chair', timestamp: '' },
       );
       expect(state.members.filter((m) => m.role === 'chair').map((m) => m.id)).toEqual([2]);
-    });
-  });
-
-  describe('RESTORE_RULE', () => {
-    it('should remove rule suspension', () => {
-      const stateWithSuspension: MeetingState = {
-        ...initialState,
-        suspendedRules: [
-          {
-            id: 1,
-            rule: 'debate-rules',
-            purpose: 'Speed up meeting',
-            specificAction: 'Limit debate',
-            scope: 'meeting-remainder',
-            suspendedAt: '10:20:00',
-            actionCompleted: false,
-            motionId: 5,
-          },
-        ],
-      };
-
-      const state = meetingReducer(stateWithSuspension, {
-        type: 'RESTORE_RULE',
-        suspensionId: 1,
-        timestamp: '10:30:00',
-      });
-
-      expect(state.suspendedRules).toHaveLength(0);
-      expect(state.meetingLog.some((l) => l.message.includes('RULE RESTORED'))).toBe(true);
-    });
-
-    it('should handle non-existent suspension ID', () => {
-      const state = meetingReducer(initialState, {
-        type: 'RESTORE_RULE',
-        suspensionId: 999,
-        timestamp: '10:30:00',
-      });
-
-      expect(state.suspendedRules).toHaveLength(0);
     });
   });
 

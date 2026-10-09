@@ -271,10 +271,9 @@ describe('actionValidator', () => {
   });
 
   describe('SECOND_MOTION by the mover', () => {
-    const pending = (suspendedRules: MeetingState['suspendedRules'] = []) => ({
+    const pending = () => ({
       ...activeMeetingState(),
       pendingSecond: { ...createMotion({ moverId: 2 }), status: 'pending' as const },
-      suspendedRules,
     });
     const second = (state: MeetingState, seconderId: number) =>
       validateAction(state, { type: 'SECOND_MOTION', seconder: 'x', seconderId, timestamp: '' });
@@ -282,19 +281,6 @@ describe('actionValidator', () => {
     it('is rejected: a member cannot second their own motion', () => {
       expect(second(pending(), 2).valid).toBe(false);
       expect(second(pending(), 3).valid).toBe(true);
-    });
-
-    it('is refused even with that rule suspended in a state saved before suspensions went', () => {
-      const suspension = {
-        id: 1,
-        rule: 'mover-cannot-second' as const,
-        purpose: '',
-        specificAction: '',
-        scope: 'meeting-remainder' as const,
-        suspendedAt: '',
-        motionId: 9,
-      };
-      expect(second(pending([suspension]), 2).valid).toBe(false);
     });
   });
 

@@ -152,7 +152,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         ...state,
         meetingActive: false,
         meetingStage: 'adjourned',
-        suspendedRules: [],
         currentAgendaItem: null,
         agenda: state.agenda.map((a) =>
           completes(a) ? { ...a, status: 'completed' as const } : a,

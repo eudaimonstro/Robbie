@@ -79,18 +79,6 @@ export function logVoteResult(yea: number, nay: number, resultText: string): str
   return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.`;
 }
 
-export function logVoteResultWithExtras(
-  yea: number,
-  nay: number,
-  resultText: string,
-  suspensionLog: string,
-  restoredLog: string,
-  objectionLog: string,
-  reconsideredLog: string,
-): string {
-  return `Vote: Yea ${yea}, Nay ${nay}. ${resultText}.${suspensionLog}${restoredLog}${objectionLog}${reconsideredLog}`;
-}
-
 /** A division called on a voice vote: by a member, or from the floor */
 /** A voice vote's result declared without a count: "Voice vote: the ayes have it. CARRIED." */
 export function logVoiceVoteDeclared(declared: 'ayes' | 'noes', result: string): string {
@@ -156,11 +144,6 @@ export function logChairRuled(
   motionText: string,
 ): string {
   return `${LOG_CHAIR_RULED} ${ruling}${explanation ? ` - ${explanation}` : ''} (Re: ${motionText})`;
-}
-
-// Rule suspension
-export function logRuleSuspended(rule: string, purpose: string): string {
-  return `[RULE SUSPENDED] ${rule}: ${purpose}`;
 }
 
 // Minutes

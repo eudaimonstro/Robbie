@@ -210,38 +210,6 @@ describe('business from the floor', () => {
         'The chair puts the question: "Approve: Pool hours" (Main Motion).',
       );
     });
-
-    it('leaves a suspended second requirement for the next motion that needs it', () => {
-      const suspended: MeetingState = {
-        ...inSession,
-        suspendedRules: [
-          {
-            id: 1,
-            rule: 'second-requirement',
-            purpose: 'Move quickly',
-            specificAction: 'One motion without a second',
-            scope: 'single-action',
-            suspendedAt: '20:00',
-            motionId: 1,
-          },
-        ],
-      };
-      const state = meetingReducer(suspended, {
-        type: 'MAKE_MOTION',
-        motionType: 'mainMotion',
-        text: 'Approve: Pool hours',
-        mover: '',
-        moverId: dana.id,
-        motionId: 8,
-        putByChair: true,
-        timestamp: '20:15',
-      });
-      expect(state.currentMotion).toMatchObject({ id: 8, putByChair: true });
-      expect(state.suspendedRules).toEqual(suspended.suspendedRules);
-      expect(lastLog(state)).toBe(
-        'The chair puts the question: "Approve: Pool hours" (Main Motion).',
-      );
-    });
   });
 
   describe('the first chance to speak', () => {

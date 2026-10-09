@@ -81,7 +81,6 @@ export interface Motion {
   whenToUse: string;
   isAgendaAdoption?: boolean;
   agendaAmendment?: AgendaAmendment | null;
-  ruleSuspension?: Partial<RuleSuspension> | null;
   bylawAmendment?: BylawAmendment | null; // For bylawAmendment motion type
   moverHasSpoken?: boolean;
   tabledMotionId?: number;
@@ -136,7 +135,6 @@ export type Postponement = { kind: 'next-meeting' } | { kind: 'later'; when: str
 /** The details some motions need, with the motion that names them */
 export interface MotionDetails {
   agendaAmendment?: AgendaAmendment;
-  ruleSuspension?: Partial<RuleSuspension>;
   bylawAmendment?: BylawAmendment;
   tabledMotionId?: number;
   reconsideredMotionId?: number;
@@ -235,29 +233,6 @@ export type MeetingStage =
   | 'new-business'
   | 'announcements'
   | 'adjourned';
-
-export type SuspendableRule =
-  | 'pro-con-alternation'
-  | 'second-requirement'
-  | 'motion-precedence'
-  | 'amendment-depth'
-  | 'motion-renewal'
-  | 'chair-voting-restriction'
-  | 'motion-maker-priority'
-  | 'mover-cannot-second'
-  | 'debate-rules'
-  | 'order-of-business';
-
-export interface RuleSuspension {
-  id: number;
-  rule: SuspendableRule;
-  purpose: string;
-  specificAction: string;
-  scope: 'single-action' | 'meeting-remainder';
-  suspendedAt: string;
-  actionCompleted?: boolean;
-  motionId: number;
-}
 
 export interface CompletedMotion {
   readonly id: number;
@@ -624,7 +599,6 @@ export interface MeetingState {
   electionsSetAside: ElectionSetAsideRecord[];
   /** Business left unfinished when the meeting last adjourned */
   unfinishedAtAdjournment: UnfinishedBusinessRecord[];
-  suspendedRules: RuleSuspension[];
   /** The latest ruling, while an appeal from it is in order (at once, before anything else) */
   lastChairRuling: ChairRulingNote | null;
   /** The meeting is in recess: since when (the chair's clock), and until when if set */
@@ -776,8 +750,6 @@ export type MeetingAction =
   | { type: 'SET_PREVIOUS_MINUTES'; minutes: string; minutesId?: string }
   | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
   | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
-  | { type: 'SUSPEND_RULE_APPROVED'; suspension: RuleSuspension; timestamp: string }
-  | { type: 'RESTORE_RULE'; suspensionId: number; timestamp: string }
   | {
       type: 'CHAIR_RULING';
       ruling: 'sustain' | 'overrule' | 'allow' | 'deny';

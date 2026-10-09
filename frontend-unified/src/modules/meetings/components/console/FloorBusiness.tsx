@@ -95,7 +95,7 @@ function FloorMotionForm({
   const whoId = useId();
   const kinds = useMemo(
     () =>
-      // Motions with details of their own (a bylaw change, a rule to suspend) are made on a
+      // Motions with details of their own (a bylaw change, an agenda change) are made on a
       // device, where their forms are
       getValidMotions(state)
         .map((m) => m.key)

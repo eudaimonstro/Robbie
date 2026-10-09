@@ -94,8 +94,6 @@ export const ACTOR_FIELDS: Record<MeetingAction['type'], ActorFields> = {
   SET_PREVIOUS_MINUTES: NONE,
   ADD_COMMITTEE_REPORT: NONE,
   PRESENT_COMMITTEE_REPORT: NONE,
-  SUSPEND_RULE_APPROVED: NONE,
-  RESTORE_RULE: NONE,
   CHAIR_RULING: NONE,
   OPEN_NOMINATIONS: NONE,
   NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },

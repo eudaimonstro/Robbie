@@ -12,7 +12,7 @@ import {
   consentHandler,
   electionHandler,
   inquiryHandler,
-  ruleSuspensionHandler,
+  rulingHandler,
   committeeHandler,
 } from './handlers/index.js';
 
@@ -177,11 +177,9 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'MARK_ABSENT':
       return rollCallHandler(state, action, log);
 
-    // Rule suspension
-    case 'SUSPEND_RULE_APPROVED':
-    case 'RESTORE_RULE':
+    // The chair's ruling on a point of order
     case 'CHAIR_RULING':
-      return ruleSuspensionHandler(state, action, log);
+      return rulingHandler(state, action, log);
 
     // Committee reports
     case 'ADD_COMMITTEE_REPORT':

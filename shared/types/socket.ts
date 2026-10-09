@@ -191,8 +191,6 @@ export type ActionErrorCode =
   // Report errors
   | 'REPORT_NOT_FOUND'
   | 'REPORT_ALREADY_PRESENTED'
-  // Rule suspension errors
-  | 'SUSPENSION_NOT_FOUND'
   // Roll call errors
   | 'ROLL_CALL_NOT_IN_PROGRESS'
   // Meeting rules

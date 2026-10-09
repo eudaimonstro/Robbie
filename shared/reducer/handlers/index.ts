@@ -10,6 +10,6 @@ export { votingHandler } from './votingHandlers.js';
 export { consentHandler } from './consentHandlers.js';
 export { electionHandler } from './electionHandlers.js';
 export { inquiryHandler } from './inquiryHandlers.js';
-export { ruleSuspensionHandler } from './ruleSuspensionHandlers.js';
+export { rulingHandler } from './rulingHandlers.js';
 export { committeeHandler } from './committeeHandlers.js';
 export type { ActionHandler } from './types.js';

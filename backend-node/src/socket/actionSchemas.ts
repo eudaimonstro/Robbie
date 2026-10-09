@@ -36,7 +36,7 @@ const MAX_NAME_LENGTH = MAX_FLOOR_NAME_LENGTH;
 const MAX_CANDIDATE_LENGTH = 200;
 /** An office, a committee */
 const MAX_TITLE_LENGTH = MAX_POSITION_LENGTH;
-/** A question to the chair, a rule suspension's purpose, a reason */
+/** A question to the chair, a reason */
 const MAX_SHORT_TEXT_LENGTH = 500;
 /** The chair's answer to a question */
 const MAX_ANSWER_LENGTH = 1000;
@@ -84,28 +84,6 @@ const member = z.object({
   nonVoting: z.boolean().optional(),
   present: z.boolean(),
   presentBy: z.enum(['device', 'chair']).optional(),
-});
-
-const ruleSuspension = z.strictObject({
-  id,
-  rule: z.enum([
-    'pro-con-alternation',
-    'second-requirement',
-    'motion-precedence',
-    'amendment-depth',
-    'motion-renewal',
-    'chair-voting-restriction',
-    'motion-maker-priority',
-    'mover-cannot-second',
-    'debate-rules',
-    'order-of-business',
-  ]),
-  purpose: text(MAX_SHORT_TEXT_LENGTH),
-  specificAction: text(MAX_SHORT_TEXT_LENGTH),
-  scope: z.enum(['single-action', 'meeting-remainder']),
-  suspendedAt: timestamp,
-  actionCompleted: z.boolean().optional(),
-  motionId: id,
 });
 
 const agendaAmendment = z.strictObject({
@@ -162,7 +140,6 @@ const motionDetails = {
   referTo: text(MAX_TITLE_LENGTH).optional(),
   recessUntil: text(MAX_WHEN_LENGTH).optional(),
   agendaAmendment: agendaAmendment.optional(),
-  ruleSuspension: ruleSuspension.partial().optional(),
   bylawAmendment: bylawAmendment.optional(),
   tabledMotionId: optionalId,
   reconsideredMotionId: optionalId,
@@ -378,12 +355,6 @@ export const ACTION_SCHEMAS = {
     reportId: id,
     timestamp,
   }),
-  SUSPEND_RULE_APPROVED: z.strictObject({
-    type: z.literal('SUSPEND_RULE_APPROVED'),
-    suspension: ruleSuspension,
-    timestamp,
-  }),
-  RESTORE_RULE: z.strictObject({ type: z.literal('RESTORE_RULE'), suspensionId: id, timestamp }),
   CHAIR_RULING: z.strictObject({
     type: z.literal('CHAIR_RULING'),
     ruling: z.enum(['sustain', 'overrule', 'allow', 'deny']),

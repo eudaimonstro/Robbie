@@ -36,7 +36,6 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   quorum: 3,
   meetingLog: [],
   unanimousConsentPending: false,
-  suspendedRules: [],
   tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],

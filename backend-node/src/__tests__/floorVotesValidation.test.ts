@@ -65,19 +65,6 @@ describe('validating floor votes', () => {
       expect(tally({ ...chairVoted, voters: [2], voterChoices: { 2: 'yea' } }).valid).toBe(true);
       expect(tally({ ...chairVoted, votingMethod: 'ballot' }).valid).toBe(true);
     });
-
-    it('is refused even with the chair voting restriction suspended in an older saved state', () => {
-      const suspension = {
-        id: 1,
-        rule: 'chair-voting-restriction' as const,
-        purpose: '',
-        specificAction: '',
-        scope: 'meeting-remainder' as const,
-        suspendedAt: '',
-        motionId: 9,
-      };
-      expect(tally({ ...chairVoted, suspendedRules: [suspension] }).valid).toBe(false);
-    });
   });
 
   describe('CAST_VOTE', () => {

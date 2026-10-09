@@ -1818,18 +1818,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
-    case 'RESTORE_RULE': {
-      const suspension = state.suspendedRules.find((s) => s.id === action.suspensionId);
-      if (!suspension) {
-        return {
-          valid: false,
-          error: 'Rule suspension not found',
-          errorCode: 'SUSPENSION_NOT_FOUND',
-        };
-      }
-      return { valid: true };
-    }
-
     case 'CHAIR_RULING':
       // The chair rules on a point of order, which takes no vote. A motion is decided by a vote
       // or by unanimous consent, never by a ruling, which would take it off the floor with no
@@ -2055,14 +2043,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'SET_PREVIOUS_MINUTES':
     case 'ADD_COMMITTEE_REPORT':
       return { valid: true };
-
-    case 'SUSPEND_RULE_APPROVED':
-      return {
-        valid: false,
-        error:
-          "Suspend the rules isn't offered in Robbie: the meeting follows its rules as they are",
-        errorCode: 'MOTION_NOT_OFFERED',
-      };
 
     default: {
       // Every action type needs a case above; this fails to compile if one is missing
