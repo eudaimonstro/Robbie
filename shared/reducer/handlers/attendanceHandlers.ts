@@ -1,6 +1,7 @@
 import type { MeetingAction } from '../../types/index.js';
 import {
   logHeadcountSet,
+  logMemberMarkedAbsent,
   logMemberMarkedPresent,
   logProxiesHeldSet,
 } from '../../constants/logMessages.js';
@@ -62,6 +63,22 @@ export const attendanceHandler: ActionHandler = (state, action, log) => {
         proxiesHeld: held,
         headcountInvites: invites,
         meetingLog,
+      };
+    }
+
+    case 'MARK_ABSENT': {
+      const typedAction = action as Extract<MeetingAction, { type: 'MARK_ABSENT' }>;
+      const member = state.members.find((m) => m.id === typedAction.memberId);
+      if (!member) return state;
+      return {
+        ...state,
+        members: state.members.map((m) =>
+          m.id === typedAction.memberId ? withPresence(m, false) : m,
+        ),
+        meetingLog: log(
+          typedAction.timestamp,
+          logMemberMarkedAbsent(member.name, typedAction.excused),
+        ),
       };
     }
 

@@ -101,10 +101,6 @@ export function wasMotionDefeated(
   return state.defeatedMotions.some((dm) => dm.type === motionType);
 }
 
-/** Why a bylaw amendment's words can't be changed in the meeting */
-export const BYLAW_WORDING_FIXED =
-  "A bylaw amendment's words come from its text: withdraw it and move it again";
-
 /**
  * The motions in order now, of those Robbie offers (motionOutOfOrder says why the others are
  * not), in the order a phone lists them. A motion of the agenda's defeated this meeting isn't

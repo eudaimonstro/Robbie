@@ -271,15 +271,4 @@ describe('attendance actions', () => {
       expect(next.currentAgendaItem).toBeNull();
     });
   });
-
-  describe('START_ROLL_CALL', () => {
-    it('leaves guests out of the roll', () => {
-      const withGuest: MeetingState = {
-        ...state,
-        members: [ann, { id: 9, name: 'Guest', role: 'guest', present: true }],
-      };
-      const next = meetingReducer(withGuest, { type: 'START_ROLL_CALL', timestamp: '10:00' });
-      expect(next.rollCall?.responses.map((r) => r.memberId)).toEqual([1]);
-    });
-  });
 });

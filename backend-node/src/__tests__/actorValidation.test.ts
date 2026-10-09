@@ -135,12 +135,6 @@ describe('who may act', () => {
         changedById: 9,
         timestamp: '',
       },
-      RESPOND_ROLL_CALL: {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 9,
-        status: 'present',
-        timestamp: '',
-      },
       NOMINATE: {
         type: 'NOMINATE',
         position: 'Director',
@@ -159,7 +153,6 @@ describe('who may act', () => {
       },
       AGENDA_OBJECTION: { type: 'AGENDA_OBJECTION', objectorId: 9, timestamp: '' },
       WITHDRAW_MOTION: { type: 'WITHDRAW_MOTION', requesterId: 9, timestamp: '' },
-      MODIFY_MOTION: { type: 'MODIFY_MOTION', requesterId: 9, newText: 'Resurface', timestamp: '' },
       REQUEST_DIVISION: { type: 'REQUEST_DIVISION', requesterId: 9, timestamp: '' },
     };
 
@@ -172,7 +165,6 @@ describe('who may act', () => {
         unanimousConsentPending: true,
         nominationsOpen: true,
         currentNominationPosition: 'Director',
-        rollCall: { inProgress: true, responses: [] },
       };
       for (const action of Object.values(asGuest)) {
         expect(validateAction(inOrder, action), action.type).toMatchObject({

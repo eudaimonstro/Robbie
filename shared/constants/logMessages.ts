@@ -65,10 +65,6 @@ export function logTakenUp(text: string): string {
 /** The chair ends a recess */
 export const LOG_MEETING_RESUMED = 'The meeting resumes.';
 
-export function logMotionModified(mover: string, newText: string): string {
-  return `${mover} modifies motion to: "${newText}"`;
-}
-
 // Voting
 export function logRollCallVote(memberName: string, vote: 'yea' | 'nay' | 'abstain'): string {
   const voteText = vote.charAt(0).toUpperCase() + vote.slice(1);
@@ -173,18 +169,7 @@ export function logProxiesHeldSet(count: number): string {
 // Quorum warning
 export const LOG_QUORUM_WARNING = 'Warning: Vote opened without quorum present';
 
-// Roll call attendance
-export const LOG_ROLL_CALL_STARTED = 'Chair: The Secretary will now call the roll.';
-
-export function logRollCallResponse(name: string, status: string): string {
-  const statusText = status === 'present' ? 'Present' : status === 'excused' ? 'Excused' : 'Absent';
-  return `[ROLL CALL] ${name}: ${statusText}`;
-}
-
-export function logRollCallComplete(present: number, absent: number, excused: number): string {
-  return `Roll call complete: ${present} present, ${absent} absent, ${excused} excused.`;
-}
-
+// Attendance
 export function logMemberMarkedAbsent(name: string, excused: boolean): string {
   return excused ? `${name} marked as excused absence.` : `${name} marked absent.`;
 }

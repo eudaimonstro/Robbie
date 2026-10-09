@@ -40,8 +40,6 @@ const MAX_TITLE_LENGTH = MAX_POSITION_LENGTH;
 const MAX_SHORT_TEXT_LENGTH = 500;
 /** The chair's answer to a question */
 const MAX_ANSWER_LENGTH = 1000;
-/** A committee report's summary or recommendations */
-const MAX_REPORT_LENGTH = 2000;
 /** A clock time without a date (generateTimestamp), or an ISO time */
 const MAX_TIMESTAMP_LENGTH = 64;
 /** A Bylawyer id (a UUID) */
@@ -148,15 +146,6 @@ const ballotCounts = z
     count,
   )
   .refine((counts) => Object.keys(counts).length <= MAX_BALLOT_CANDIDATES, 'Too many names');
-
-const committeeReport = z.strictObject({
-  id,
-  committee: text(MAX_TITLE_LENGTH),
-  presenter: text(MAX_NAME_LENGTH),
-  summary: text(MAX_REPORT_LENGTH),
-  recommendations: text(MAX_REPORT_LENGTH).optional(),
-  presented: z.boolean(),
-});
 
 /** An action only the server applies: no client payload is accepted */
 const serverOnly = z.never();
@@ -313,22 +302,6 @@ export const ACTION_SCHEMAS = {
     type: z.literal('SET_VOTING_METHOD'),
     method: z.enum(['standard', 'voice', 'ballot', 'rollcall']),
   }),
-  ADVANCE_MEETING_STAGE: timed('ADVANCE_MEETING_STAGE'),
-  SET_MEETING_STAGE: z.strictObject({
-    type: z.literal('SET_MEETING_STAGE'),
-    stage: z.enum([
-      'not-started',
-      'call-to-order',
-      'minutes-approval',
-      'reports',
-      'special-orders',
-      'unfinished-business',
-      'new-business',
-      'announcements',
-      'adjourned',
-    ]),
-    timestamp,
-  }),
   SET_QUORUM: z.strictObject({
     type: z.literal('SET_QUORUM'),
     quorum: z.int().min(0).max(MAX_HEADCOUNT),
@@ -341,15 +314,6 @@ export const ACTION_SCHEMAS = {
     timestamp,
   }),
   SET_PREVIOUS_MINUTES: serverOnly,
-  ADD_COMMITTEE_REPORT: z.strictObject({
-    type: z.literal('ADD_COMMITTEE_REPORT'),
-    report: committeeReport,
-  }),
-  PRESENT_COMMITTEE_REPORT: z.strictObject({
-    type: z.literal('PRESENT_COMMITTEE_REPORT'),
-    reportId: id,
-    timestamp,
-  }),
   CHAIR_RULING: z.strictObject({
     type: z.literal('CHAIR_RULING'),
     ruling: z.enum(['sustain', 'overrule', 'allow', 'deny']),
@@ -484,12 +448,6 @@ export const ACTION_SCHEMAS = {
     at: timestamp.optional(),
     timestamp,
   }),
-  MODIFY_MOTION: z.strictObject({
-    type: z.literal('MODIFY_MOTION'),
-    requesterId: optionalId,
-    newText: text(MAX_MOTION_TEXT_LENGTH),
-    timestamp,
-  }),
   TAKE_UP_POSTPONED: z.strictObject({
     type: z.literal('TAKE_UP_POSTPONED'),
     motionId: id,
@@ -502,14 +460,6 @@ export const ACTION_SCHEMAS = {
     fromFloor: z.boolean().optional(),
     timestamp,
   }),
-  START_ROLL_CALL: timed('START_ROLL_CALL'),
-  RESPOND_ROLL_CALL: z.strictObject({
-    type: z.literal('RESPOND_ROLL_CALL'),
-    memberId: optionalId,
-    status: z.enum(['present', 'absent', 'excused', 'not-responded']),
-    timestamp,
-  }),
-  COMPLETE_ROLL_CALL: timed('COMPLETE_ROLL_CALL'),
   MARK_ABSENT: z.strictObject({
     type: z.literal('MARK_ABSENT'),
     memberId: id,

@@ -14,7 +14,6 @@ export {
 
 export {
   getValidMotions,
-  BYLAW_WORDING_FIXED,
   normalizeMotionText,
   isSimilarMotionSubject,
   wasMotionDefeated,

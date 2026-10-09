@@ -22,7 +22,6 @@ describe('permissionGuard', () => {
         'COMPLETE_AGENDA_ITEM',
         'REQUEST_UNANIMOUS_CONSENT',
         'UNANIMOUS_CONSENT_PASSED',
-        'ADVANCE_MEETING_STAGE',
         'APPROVE_MINUTES',
         'OPEN_NOMINATIONS',
         'CLOSE_NOMINATIONS',
@@ -32,9 +31,6 @@ describe('permissionGuard', () => {
         'ELECT_BY_ACCLAMATION',
         'SET_ASIDE_ELECTION',
         'ANSWER_INQUIRY',
-        'PRESENT_COMMITTEE_REPORT',
-        'START_ROLL_CALL',
-        'COMPLETE_ROLL_CALL',
         'MARK_ABSENT',
         'SET_AUTO_YIELD',
         'MARK_PRESENT',
@@ -82,7 +78,6 @@ describe('permissionGuard', () => {
         'ADD_AGENDA_ITEM',
         'REMOVE_AGENDA_ITEM',
         'REORDER_AGENDA',
-        'ADD_COMMITTEE_REPORT',
         'SET_VOTING_METHOD',
         'SET_MEMBER_ROLE',
         'SET_QUORUM',
@@ -130,8 +125,6 @@ describe('permissionGuard', () => {
         'DECLINE_NOMINATION',
         'CAST_BALLOT',
         'WITHDRAW_MOTION',
-        'MODIFY_MOTION',
-        'RESPOND_ROLL_CALL',
       ] as const;
 
       it.each(memberActions)('should deny guest from performing %s', (action) => {

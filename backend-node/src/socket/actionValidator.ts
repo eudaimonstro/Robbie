@@ -6,13 +6,8 @@
 
 import type { MeetingState, MeetingAction, MotionDetails } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
+import { MAX_FLOOR_NAME_LENGTH, MOTIONS } from '@robbie-bylawyer/shared/constants';
 import {
-  DISPLAYABLE_STAGES,
-  MAX_FLOOR_NAME_LENGTH,
-  MOTIONS,
-} from '@robbie-bylawyer/shared/constants';
-import {
-  BYLAW_WORDING_FIXED,
   NO_VOTES,
   addVotes,
   attendanceSummary,
@@ -351,7 +346,6 @@ const WAITS_FOR_RULING: ReadonlySet<MeetingAction['type']> = new Set<MeetingActi
   'UNANIMOUS_CONSENT_PASSED',
   'OBJECT_TO_CONSENT',
   'WITHDRAW_MOTION',
-  'MODIFY_MOTION',
   'RAISE_HAND',
   'RECOGNIZE_SPEAKER',
   'CALL_AGENDA_ITEM',
@@ -999,74 +993,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
         return { valid: false, error: 'The meeting is not in recess', errorCode: 'INVALID_STATE' };
       }
       return { valid: true };
-
-    case 'MODIFY_MOTION': {
-      const motionToModify = state.pendingSecond || state.currentMotion;
-      if (!motionToModify) {
-        return { valid: false, error: 'No motion to modify', errorCode: 'NO_CURRENT_MOTION' };
-      }
-      // A bylaw amendment's words come from the change it carries, which is what the room sees
-      // and what is applied: the mover withdraws it and moves it again instead
-      if (motionToModify.type === 'bylawAmendment') {
-        return {
-          valid: false,
-          error: BYLAW_WORDING_FIXED,
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      // A motion worded from its details (an amendment's change, a postponement, a referral, a
-      // recess, a request to withdraw) is changed only by making it again: its words are what
-      // adoption applies
-      if (
-        motionToModify.textAmendment ||
-        motionToModify.postponeTo ||
-        motionToModify.referTo ||
-        motionToModify.recessUntil ||
-        motionToModify.type === 'withdrawMotion'
-      ) {
-        return {
-          valid: false,
-          error: 'Its words come from what it does: withdraw it and move it again',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (motionToModify.moverId !== action.requesterId) {
-        return {
-          valid: false,
-          error: 'Only the motion maker can modify their motion',
-          errorCode: 'NOT_MOTION_MAKER',
-        };
-      }
-      if (state.currentMotion && state.currentMotion.moverHasSpoken) {
-        return {
-          valid: false,
-          error: 'Cannot modify motion after debate has begun - use amendment instead',
-          errorCode: 'DEBATE_BEGUN',
-        };
-      }
-      if (state.votingOpen) {
-        return {
-          valid: false,
-          error: 'Cannot modify motion while voting is in progress',
-          errorCode: 'VOTING_IN_PROGRESS',
-        };
-      }
-      if (!action.newText || action.newText.trim().length === 0) {
-        return {
-          valid: false,
-          error: 'New motion text cannot be empty',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      if (action.newText.length > 500) {
-        return {
-          valid: false,
-          error: 'Motion text exceeds 500 character limit',
-          errorCode: 'INVALID_ACTION',
-        };
-      }
-      return { valid: true };
-    }
 
     case 'RAISE_HAND': {
       // In session with nothing pending (an open forum, questions on a report), or while a
@@ -1803,21 +1729,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
     }
 
-    case 'PRESENT_COMMITTEE_REPORT': {
-      const report = state.committeeReports.find((r) => r.id === action.reportId);
-      if (!report) {
-        return { valid: false, error: 'Report not found', errorCode: 'REPORT_NOT_FOUND' };
-      }
-      if (report.presented) {
-        return {
-          valid: false,
-          error: 'Report is already presented',
-          errorCode: 'REPORT_ALREADY_PRESENTED',
-        };
-      }
-      return { valid: true };
-    }
-
     case 'CHAIR_RULING':
       // The chair rules on a point of order, which takes no vote. A motion is decided by a vote
       // or by unanimous consent, never by a ruling, which would take it off the floor with no
@@ -1856,42 +1767,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       // The reducer handles context-specific validation
       return { valid: true };
 
-    // Roll call actions
-    case 'START_ROLL_CALL':
-      if (state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is already in progress',
-          errorCode: 'INVALID_STATE',
-        };
-      }
-      return { valid: true };
-
-    case 'RESPOND_ROLL_CALL': {
-      if (!state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is not in progress',
-          errorCode: 'ROLL_CALL_NOT_IN_PROGRESS',
-        };
-      }
-      const member = state.members.find((m) => m.id === action.memberId);
-      if (!member) {
-        return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
-      }
-      return { valid: true };
-    }
-
-    case 'COMPLETE_ROLL_CALL':
-      if (!state.rollCall?.inProgress) {
-        return {
-          valid: false,
-          error: 'Roll call is not in progress',
-          errorCode: 'ROLL_CALL_NOT_IN_PROGRESS',
-        };
-      }
-      return { valid: true };
-
     case 'MARK_ABSENT': {
       const memberToMark = state.members.find((m) => m.id === action.memberId);
       if (!memberToMark) {
@@ -1904,18 +1779,6 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'SET_AUTO_YIELD':
       // Always valid - chair setting
       return { valid: true };
-
-    case 'SET_MEETING_STAGE': {
-      const { stage } = action;
-      if (!state.meetingActive) {
-        return { valid: false, error: 'Meeting is not active', errorCode: 'MEETING_NOT_ACTIVE' };
-      }
-      // Starting and adjourning the meeting set the other stages
-      if (!DISPLAYABLE_STAGES.some((s) => s.stage === stage)) {
-        return { valid: false, error: 'Unknown meeting stage', errorCode: 'INVALID_ACTION' };
-      }
-      return { valid: true };
-    }
 
     case 'SET_QUORUM':
       if (!Number.isInteger(action.quorum) || action.quorum < 1) {
@@ -2039,9 +1902,7 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'REMOVE_AGENDA_ITEM':
     case 'SET_SPEAKER_TIME_LIMIT':
     case 'SET_VOTE_TIME_LIMIT':
-    case 'ADVANCE_MEETING_STAGE':
     case 'SET_PREVIOUS_MINUTES':
-    case 'ADD_COMMITTEE_REPORT':
       return { valid: true };
 
     default: {

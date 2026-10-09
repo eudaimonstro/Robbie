@@ -38,14 +38,6 @@ export const MEETING_STAGES: readonly MeetingStageInfo[] = [
 ] as const;
 
 /**
- * Stages that should be displayed in the Order of Business UI
- * (excludes not-started and adjourned)
- */
-export const DISPLAYABLE_STAGES = MEETING_STAGES.filter(
-  (s) => s.stage !== 'not-started' && s.stage !== 'adjourned',
-);
-
-/**
  * Get the stage order array for navigation
  */
 export const STAGE_ORDER: readonly MeetingStage[] = MEETING_STAGES.map((s) => s.stage);
@@ -55,20 +47,4 @@ export const STAGE_ORDER: readonly MeetingStage[] = MEETING_STAGES.map((s) => s.
  */
 export function getStageLogMessage(stage: MeetingStage): string {
   return MEETING_STAGES.find((s) => s.stage === stage)?.logMessage || '';
-}
-
-/**
- * Get the next stage in the order
- */
-export function getNextStage(currentStage: MeetingStage): MeetingStage {
-  const currentIndex = STAGE_ORDER.indexOf(currentStage);
-  const nextIndex = Math.min(currentIndex + 1, STAGE_ORDER.length - 1);
-  return STAGE_ORDER[nextIndex];
-}
-
-/**
- * Check if this is the last stage before adjournment
- */
-export function isLastActiveStage(stage: MeetingStage): boolean {
-  return stage === 'announcements';
 }

@@ -164,9 +164,9 @@ describe('validating a board meeting', () => {
       });
     }
     // Presiding is still theirs
-    expect(validateAction(boardState, from(2, { type: 'START_ROLL_CALL' }))).toMatchObject({
-      valid: true,
-    });
+    expect(
+      validateAction(boardState, from(2, { type: 'SET_AUTO_YIELD', enabled: true })),
+    ).toMatchObject({ valid: true });
   });
 
   it('refuses an observer the state has, whatever their socket says', () => {

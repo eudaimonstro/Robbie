@@ -26,6 +26,10 @@ export const OFFERED_MOTIONS: readonly string[] = [
   'appeal',
 ];
 
+/** Why a bylaw amendment's words can't be changed in the meeting */
+const BYLAW_WORDING_FIXED =
+  "A bylaw amendment's words come from its text: withdraw it and move it again";
+
 /** Why a motion can't be made now, and what kind of reason it is */
 export interface OutOfOrder {
   reason: string;
@@ -194,10 +198,7 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
         return out('An amendment of the amendment is pending: decide it first', 'precedence');
       }
       if (current.type === 'bylawAmendment') {
-        return out(
-          "A bylaw amendment's words come from its text: withdraw it and move it again",
-          'precedence',
-        );
+        return out(BYLAW_WORDING_FIXED, 'precedence');
       }
       if (current.type === 'adoptAgenda') {
         return out('Use Amend the agenda to change the agenda', 'precedence');
@@ -213,10 +214,7 @@ export function motionOutOfOrder(state: MeetingState, type: string): OutOfOrder 
         return out('Amend the amendment applies to a pending amendment', 'precedence');
       }
       if (state.motionStack.at(-2)?.type === 'bylawAmendment') {
-        return out(
-          "A bylaw amendment's words come from its text: withdraw it and move it again",
-          'precedence',
-        );
+        return out(BYLAW_WORDING_FIXED, 'precedence');
       }
       return current.textAmendment && !insertsWords(current.textAmendment)
         ? out('The amendment inserts no words to amend', 'precedence')

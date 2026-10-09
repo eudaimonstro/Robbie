@@ -2,11 +2,8 @@ export { MOTIONS, RETIRED_MOTIONS, type RetiredMotion } from './motions.js';
 export { motionWords, plainMotionName, type MotionWords } from './motionWords.js';
 export {
   MEETING_STAGES,
-  DISPLAYABLE_STAGES,
   STAGE_ORDER,
   getStageLogMessage,
-  getNextStage,
-  isLastActiveStage,
   type MeetingStageInfo,
 } from './meetingStages.js';
 export * from './logMessages.js';

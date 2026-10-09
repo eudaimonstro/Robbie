@@ -47,7 +47,6 @@ export const initialState: MeetingState = {
   currentAgendaItem: null,
   defeatedMotions: [],
   completedMotions: [],
-  committeeReports: [], // Chair adds committee reports as needed
   // The previous meeting's published minutes, put before this one by the server
   minutesFromPreviousMeeting: '',
   minutesApproved: false,
@@ -65,6 +64,5 @@ export const initialState: MeetingState = {
   currentElection: null,
   electedOfficers: [],
   inquiries: [],
-  rollCall: null,
   autoYieldOnTimeExpired: false,
 };

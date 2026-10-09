@@ -139,7 +139,6 @@ export type ActionErrorCode =
   | 'MOTION_NOT_DEBATABLE'
   | 'MOTION_RENEWAL_BLOCKED'
   | 'NOT_MOTION_MAKER'
-  | 'DEBATE_BEGUN'
   // Voting errors
   | 'VOTING_ALREADY_OPEN'
   | 'VOTING_NOT_OPEN'
@@ -188,11 +187,6 @@ export type ActionErrorCode =
   | 'MEMBER_EXISTS'
   | 'MEMBER_CONNECTED'
   | 'NAME_REQUIRED'
-  // Report errors
-  | 'REPORT_NOT_FOUND'
-  | 'REPORT_ALREADY_PRESENTED'
-  // Roll call errors
-  | 'ROLL_CALL_NOT_IN_PROGRESS'
   // Meeting rules
   | 'MOTION_NOT_OFFERED'
   | 'IN_RECESS'

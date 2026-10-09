@@ -510,82 +510,6 @@ describe('meetingReducer', () => {
     });
   });
 
-  describe('MODIFY_MOTION', () => {
-    it('should allow mover to modify a motion pending a second', () => {
-      const stateWithPending: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        pendingSecond: createMockMotion({ moverId: 1, mover: 'Alice', text: 'Original text' }),
-      };
-
-      const state = meetingReducer(stateWithPending, {
-        type: 'MODIFY_MOTION',
-        requesterId: 1,
-        newText: 'Modified text',
-        timestamp: '10:06:00',
-      });
-
-      expect(state.pendingSecond?.text).toBe('Modified text');
-      expect(state.meetingLog[state.meetingLog.length - 1].message).toContain('modifies');
-    });
-
-    it('should allow mover to modify current motion before debate begins', () => {
-      const motion = createMockMotion({ moverId: 2, mover: 'Bob', moverHasSpoken: false });
-      const stateWithMotion: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        currentMotion: motion,
-        motionStack: [motion],
-      };
-
-      const state = meetingReducer(stateWithMotion, {
-        type: 'MODIFY_MOTION',
-        requesterId: 2,
-        newText: 'New motion text',
-        timestamp: '10:07:00',
-      });
-
-      expect(state.currentMotion?.text).toBe('New motion text');
-      expect(state.motionStack[0].text).toBe('New motion text');
-    });
-
-    it('should not allow non-mover to modify a motion', () => {
-      const stateWithPending: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        pendingSecond: createMockMotion({ moverId: 1, text: 'Original' }),
-      };
-
-      const state = meetingReducer(stateWithPending, {
-        type: 'MODIFY_MOTION',
-        requesterId: 99,
-        newText: 'Modified',
-        timestamp: '10:06:00',
-      });
-
-      expect(state.pendingSecond?.text).toBe('Original');
-    });
-
-    it('should not allow modification after debate has begun', () => {
-      const motion = createMockMotion({ moverId: 1, moverHasSpoken: true, text: 'Original' });
-      const stateAfterDebate: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        currentMotion: motion,
-        motionStack: [motion],
-      };
-
-      const state = meetingReducer(stateAfterDebate, {
-        type: 'MODIFY_MOTION',
-        requesterId: 1,
-        newText: 'Modified',
-        timestamp: '10:08:00',
-      });
-
-      expect(state.currentMotion?.text).toBe('Original');
-    });
-  });
-
   describe('CAST_VOTE', () => {
     it('should record a yea vote', () => {
       const votingState: MeetingState = {
@@ -1242,23 +1166,6 @@ describe('meetingReducer', () => {
     });
   });
 
-  describe('ADVANCE_MEETING_STAGE', () => {
-    it('should advance to the next meeting stage', () => {
-      const activeState: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        meetingStage: 'call-to-order',
-      };
-
-      const state = meetingReducer(activeState, {
-        type: 'ADVANCE_MEETING_STAGE',
-        timestamp: '10:10:00',
-      });
-
-      expect(state.meetingStage).toBe('minutes-approval');
-    });
-  });
-
   describe('REQUEST_UNANIMOUS_CONSENT', () => {
     it('should set unanimous consent pending', () => {
       const stateWithMotion: MeetingState = {
@@ -1541,87 +1448,6 @@ describe('meetingReducer', () => {
     });
   });
 
-  describe('ADD_COMMITTEE_REPORT', () => {
-    it('should add committee report', () => {
-      const stateWithoutReports: MeetingState = {
-        ...initialState,
-        committeeReports: [],
-      };
-      const report = {
-        id: 1,
-        committee: 'Finance',
-        presenter: 'Jane Doe',
-        summary: 'The budget is balanced.',
-        recommendations: 'Continue current spending levels.',
-        presented: false,
-      };
-
-      const state = meetingReducer(stateWithoutReports, {
-        type: 'ADD_COMMITTEE_REPORT',
-        report,
-      });
-
-      expect(state.committeeReports).toHaveLength(1);
-      expect(state.committeeReports[0].committee).toBe('Finance');
-    });
-  });
-
-  describe('PRESENT_COMMITTEE_REPORT', () => {
-    it('should mark report as presented', () => {
-      const stateWithReport: MeetingState = {
-        ...initialState,
-        committeeReports: [
-          {
-            id: 1,
-            committee: 'Finance',
-            presenter: 'Jane Doe',
-            content: 'Report content',
-            recommendations: 'Some recommendations',
-            presented: false,
-          },
-        ],
-      };
-
-      const state = meetingReducer(stateWithReport, {
-        type: 'PRESENT_COMMITTEE_REPORT',
-        reportId: 1,
-        timestamp: '10:15:00',
-      });
-
-      expect(state.committeeReports[0].presented).toBe(true);
-      expect(state.meetingLog.some((l) => l.message.includes('Finance'))).toBe(true);
-    });
-
-    it('should return unchanged state if report not found', () => {
-      const state = meetingReducer(initialState, {
-        type: 'PRESENT_COMMITTEE_REPORT',
-        reportId: 999,
-        timestamp: '10:15:00',
-      });
-
-      expect(state).toBe(initialState);
-    });
-  });
-
-  describe('ADVANCE_MEETING_STAGE at the end of the order of business', () => {
-    it('stays at the last stage; only adjourning (END_MEETING) ends the meeting', () => {
-      const atAnnouncements: MeetingState = {
-        ...initialState,
-        meetingActive: true,
-        meetingStage: 'announcements',
-      };
-      const state = meetingReducer(atAnnouncements, {
-        type: 'ADVANCE_MEETING_STAGE',
-        timestamp: '11:00:00',
-      });
-
-      // It used to move to 'adjourned' with the meeting still active, and each further
-      // advance logged "Meeting adjourned" again
-      expect(state.meetingStage).toBe('announcements');
-      expect(state.meetingLog).toEqual(atAnnouncements.meetingLog);
-    });
-  });
-
   describe('agenda item bookkeeping', () => {
     const agenda = [
       { id: 1, title: 'Budget', status: 'pending' as const },
@@ -1652,23 +1478,6 @@ describe('meetingReducer', () => {
   });
 
   describe('motion and role bookkeeping', () => {
-    it('lets the mover reword a motion awaiting a second while debate on another goes on', () => {
-      // Debate has begun on the main motion; the amendment awaiting a second is untouched
-      const mainMotion = createMockMotion({ id: 1, moverHasSpoken: true });
-      const amendment = createMockMotion({ id: 2, type: 'amend', moverId: 3, status: 'pending' });
-      const state = meetingReducer(
-        {
-          ...initialState,
-          meetingActive: true,
-          currentMotion: mainMotion,
-          motionStack: [mainMotion],
-          pendingSecond: amendment,
-        },
-        { type: 'MODIFY_MOTION', requesterId: 3, newText: 'by striking "blue"', timestamp: '' },
-      );
-      expect(state.pendingSecond?.text).toBe('by striking "blue"');
-    });
-
     it('makes a motion that needs no second the active question', () => {
       const state = meetingReducer(
         { ...initialState, meetingActive: true },
@@ -2627,86 +2436,6 @@ describe('meetingReducer', () => {
       });
 
       expect(state).toBe(stateWithMembers);
-    });
-  });
-
-  describe('START_ROLL_CALL', () => {
-    it('should initialize roll call with all members', () => {
-      const stateWithMembers: MeetingState = {
-        ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'chair', present: false },
-          { id: 2, name: 'Bob', role: 'member', present: false },
-        ],
-      };
-
-      const state = meetingReducer(stateWithMembers, {
-        type: 'START_ROLL_CALL',
-        timestamp: '10:00:00',
-      });
-
-      expect(state.rollCall).not.toBeNull();
-      expect(state.rollCall?.inProgress).toBe(true);
-      expect(state.rollCall?.responses).toHaveLength(2);
-      expect(state.rollCall?.responses[0].status).toBe('not-responded');
-      expect(state.meetingLog[0].message).toContain('call the roll');
-    });
-  });
-
-  describe('RESPOND_ROLL_CALL', () => {
-    it('should record response and update member presence', () => {
-      const stateWithRollCall: MeetingState = {
-        ...initialState,
-        members: [{ id: 1, name: 'Alice', role: 'chair', present: false }],
-        rollCall: {
-          inProgress: true,
-          startedAt: '10:00:00',
-          responses: [{ memberId: 1, memberName: 'Alice', status: 'not-responded' }],
-        },
-      };
-
-      const state = meetingReducer(stateWithRollCall, {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 1,
-        status: 'present',
-        timestamp: '10:01:00',
-      });
-
-      expect(state.rollCall?.responses[0].status).toBe('present');
-      expect(state.members[0].present).toBe(true);
-      expect(state.meetingLog[0].message).toContain('Alice: Present');
-    });
-  });
-
-  describe('COMPLETE_ROLL_CALL', () => {
-    it('should complete roll call and log summary', () => {
-      const stateWithRollCall: MeetingState = {
-        ...initialState,
-        members: [
-          { id: 1, name: 'Alice', role: 'chair', present: true },
-          { id: 2, name: 'Bob', role: 'member', present: true },
-          { id: 3, name: 'Charlie', role: 'member', present: false },
-        ],
-        rollCall: {
-          inProgress: true,
-          startedAt: '10:00:00',
-          responses: [
-            { memberId: 1, memberName: 'Alice', status: 'present' },
-            { memberId: 2, memberName: 'Bob', status: 'present' },
-            { memberId: 3, memberName: 'Charlie', status: 'excused' },
-          ],
-        },
-      };
-
-      const state = meetingReducer(stateWithRollCall, {
-        type: 'COMPLETE_ROLL_CALL',
-        timestamp: '10:05:00',
-      });
-
-      expect(state.rollCall?.inProgress).toBe(false);
-      expect(state.rollCall?.completedAt).toBe('10:05:00');
-      expect(state.meetingLog[0].message).toContain('2 present');
-      expect(state.meetingLog[0].message).toContain('1 excused');
     });
   });
 

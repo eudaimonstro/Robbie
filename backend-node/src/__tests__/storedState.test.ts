@@ -26,6 +26,8 @@ describe('withDefaults (a live meeting loaded from the database)', () => {
       suspendedRules: [{ id: 1, rule: 'debate-rules', scope: 'meeting-remainder' }],
       tabledMotions: [],
       dividedQuestionParts: [],
+      rollCall: { inProgress: true, responses: [] },
+      committeeReports: [],
     } as unknown as MeetingState;
     const loaded = withDefaults(saved) as unknown as Record<string, unknown>;
     for (const key of RETIRED_STATE_KEYS) {

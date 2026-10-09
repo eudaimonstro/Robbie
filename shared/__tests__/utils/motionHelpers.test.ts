@@ -41,7 +41,6 @@ const createMockState = (overrides: Partial<MeetingState> = {}): MeetingState =>
   meetingStage: 'new-business',
   minutesApproved: false,
   minutesFromPreviousMeeting: '',
-  committeeReports: [],
   nominationsOpen: false,
   currentNominationPosition: null,
   nominations: [],

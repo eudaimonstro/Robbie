@@ -442,24 +442,6 @@ describe('actionValidator', () => {
     });
   });
 
-  describe('SET_MEETING_STAGE', () => {
-    const setStage = (stage: string, state: MeetingState = activeMeetingState()) =>
-      validateAction(state, { type: 'SET_MEETING_STAGE', stage, timestamp: '' } as never);
-
-    it('allows moving to a stage of the order of business', () => {
-      expect(setStage('new-business').valid).toBe(true);
-    });
-
-    it('rejects a stage that is not in the order of business', () => {
-      expect(setStage('adjourned').valid).toBe(false);
-      expect(setStage('lunch').valid).toBe(false);
-    });
-
-    it('rejects a stage change before the meeting starts', () => {
-      expect(setStage('new-business', initialState).errorCode).toBe('MEETING_NOT_ACTIVE');
-    });
-  });
-
   describe('SET_QUORUM', () => {
     const setQuorum = (quorum: number) =>
       validateAction(activeMeetingState(), { type: 'SET_QUORUM', quorum, timestamp: '' });
@@ -772,31 +754,6 @@ describe('actionValidator', () => {
     });
   });
 
-  describe('MODIFY_MOTION', () => {
-    it('refuses new words for a bylaw amendment, whose words come from its text', () => {
-      const motion = {
-        ...createMotion(),
-        type: 'bylawAmendment',
-        bylawAmendment: { documentId: 'd', changeType: 'delete' as const },
-      };
-      const state = { ...activeMeetingState(), pendingSecond: motion };
-      const result = validateAction(state, {
-        type: 'MODIFY_MOTION',
-        requesterId: 2,
-        newText: 'Fix a typo in 3.2',
-        timestamp: '',
-      });
-      expect(result).toMatchObject({ valid: false, errorCode: 'INVALID_ACTION' });
-      // Any other motion's mover can still change its words before debate
-      expect(
-        validateAction(
-          { ...state, pendingSecond: createMotion() },
-          { type: 'MODIFY_MOTION', requesterId: 2, newText: 'Paint it blue', timestamp: '' },
-        ).valid,
-      ).toBe(true);
-    });
-  });
-
   describe('SECOND_MOTION', () => {
     it('should allow seconding when motion is pending', () => {
       const state: MeetingState = {
@@ -975,56 +932,6 @@ describe('actionValidator', () => {
         stance: 'con' as DebateStance,
       });
       expect(result).toEqual({ valid: true });
-    });
-  });
-
-  describe('Roll Call', () => {
-    it('should allow starting roll call when not in progress', () => {
-      const state = activeMeetingState();
-      const result = validateAction(state, {
-        type: 'START_ROLL_CALL',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(true);
-    });
-
-    it('should reject starting roll call when already in progress', () => {
-      const state: MeetingState = {
-        ...activeMeetingState(),
-        rollCall: { inProgress: true, responses: [], startedAt: '' },
-      };
-      const result = validateAction(state, {
-        type: 'START_ROLL_CALL',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('INVALID_STATE');
-    });
-
-    it('should allow responding to roll call when in progress', () => {
-      const state: MeetingState = {
-        ...activeMeetingState(),
-        rollCall: { inProgress: true, responses: [], startedAt: '' },
-      };
-      const result = validateAction(state, {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 2,
-        status: 'present',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(true);
-    });
-
-    it('should reject responding when not in progress', () => {
-      const state = activeMeetingState();
-      const result = validateAction(state, {
-        type: 'RESPOND_ROLL_CALL',
-        memberId: 2,
-        status: 'present',
-        timestamp: '',
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errorCode).toBe('ROLL_CALL_NOT_IN_PROGRESS');
     });
   });
 

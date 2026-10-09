@@ -190,15 +190,6 @@ export interface BylawAmendment {
   voteRequired?: VoteThreshold;
 }
 
-export interface CommitteeReport {
-  id: number;
-  committee: string;
-  presenter: string;
-  summary: string;
-  recommendations?: string;
-  presented: boolean;
-}
-
 export interface MeetingLogEntry {
   readonly time: string;
   readonly message: string;
@@ -462,8 +453,6 @@ export interface Inquiry {
   answeredAt?: string;
 }
 
-export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'not-responded';
-
 /** A voice vote declared by the chair, open to a division (MeetingState.voiceVote) */
 export interface VoiceVoteResult {
   motionId: number;
@@ -490,20 +479,6 @@ export interface PostponedQuestion {
 export interface AgendaAdoptionRecord {
   readonly how: 'consent' | 'motion';
   readonly decidedAt?: string;
-}
-
-export interface RollCallRecord {
-  memberId: number;
-  memberName: string;
-  status: AttendanceStatus;
-  respondedAt?: string;
-}
-
-export interface RollCallState {
-  inProgress: boolean;
-  startedAt?: string;
-  completedAt?: string;
-  responses: RollCallRecord[];
 }
 
 // State type
@@ -569,7 +544,6 @@ export interface MeetingState {
     bylawAmendment?: BylawAmendment;
   }>;
   completedMotions: CompletedMotion[];
-  committeeReports: CommitteeReport[];
   /** The previous meeting's published minutes (Markdown), put before this meeting */
   minutesFromPreviousMeeting: string;
   minutesApproved: boolean;
@@ -624,7 +598,6 @@ export interface MeetingState {
   currentElection: Election | null;
   electedOfficers: Officer[];
   inquiries: Inquiry[];
-  rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
 }
 
@@ -728,15 +701,11 @@ export type MeetingAction =
       timestamp: string;
     }
   | { type: 'SET_VOTING_METHOD'; method: VotingMethod }
-  | { type: 'ADVANCE_MEETING_STAGE'; timestamp: string }
-  | { type: 'SET_MEETING_STAGE'; stage: MeetingStage; timestamp: string }
   | { type: 'SET_QUORUM'; quorum: number; timestamp: string }
   // Approve the previous minutes as read, or with the corrections the chair enters
   | { type: 'APPROVE_MINUTES'; corrections?: string; at?: string; timestamp: string }
   // Server-only: the previous meeting's published minutes, and which they are
   | { type: 'SET_PREVIOUS_MINUTES'; minutes: string; minutesId?: string }
-  | { type: 'ADD_COMMITTEE_REPORT'; report: CommitteeReport }
-  | { type: 'PRESENT_COMMITTEE_REPORT'; reportId: number; timestamp: string }
   | {
       type: 'CHAIR_RULING';
       ruling: 'sustain' | 'overrule' | 'allow' | 'deny';
@@ -886,7 +855,6 @@ export type MeetingAction =
       at?: string;
       timestamp: string;
     }
-  | { type: 'MODIFY_MOTION'; requesterId: number; newText: string; timestamp: string }
   // The chair takes up a question postponed to later in the meeting (its main motion's id)
   | { type: 'TAKE_UP_POSTPONED'; motionId: number; timestamp: string }
   // The chair ends a recess
@@ -894,9 +862,6 @@ export type MeetingAction =
   // A member calls for a division on a voice vote: it is counted instead (RONR 29). With fromFloor
   // the chair records it for someone in the room. requesterId is set by the server.
   | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
-  | { type: 'START_ROLL_CALL'; timestamp: string }
-  | { type: 'RESPOND_ROLL_CALL'; memberId: number; status: AttendanceStatus; timestamp: string }
-  | { type: 'COMPLETE_ROLL_CALL'; timestamp: string }
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
   | { type: 'SET_AUTO_YIELD'; enabled: boolean };
 
