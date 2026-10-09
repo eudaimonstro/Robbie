@@ -130,9 +130,7 @@ export function PhoneView() {
       </section>
       <SpeakerList state={state} />
       <PhoneAgenda state={state} />
-      {state.meetingActive && me.role !== 'observer' && (
-        <AskTheChair state={state} dispatch={dispatch} me={me} />
-      )}
+      {state.meetingActive && <AskTheChair state={state} dispatch={dispatch} me={me} />}
     </div>
   );
 }

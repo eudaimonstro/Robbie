@@ -50,11 +50,15 @@ export function NominationsPanel({
 
   const openPosition = state.nominationsOpen ? state.currentNominationPosition : null;
   const candidates = useMemo(
-    () => state.members.filter((m) => m.present && takesPart(m)),
+    // Anyone present from the organization, an observer of a board meeting too (a member of the
+    // organization); never a guest
+    () => state.members.filter((m) => m.present && m.role !== 'guest'),
     [state.members],
   );
   const nominations = state.nominations.filter((n) => n.position === openPosition);
-  const canNominate = takesPart(currentUser);
+  // A member nominates; the chair or an admin presiding records a nomination from the floor,
+  // a presiding officer without a vote too
+  const canNominate = takesPart(currentUser) || isChair;
 
   const seatCount = Number(seats);
   const seatsValid = Number.isInteger(seatCount) && seatCount >= 1 && seatCount <= MAX_SEATS;

@@ -19,8 +19,11 @@ vi.mock('../../../../context/OrganizationContext', () => ({
   useOrganization: () => orgState,
   useCan: () => orgState.isAdmin,
 }));
-const api = vi.hoisted(() => ({ update: vi.fn() }));
-vi.mock('../../../../api/client', () => ({ organizations: { update: api.update } }));
+const api = vi.hoisted(() => ({ update: vi.fn(), listMembers: vi.fn() }));
+vi.mock('../../../../api/client', () => ({
+  organizations: { update: api.update },
+  members: { list: api.listMembers },
+}));
 vi.mock('../../../../context/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 
 const { AttendanceSettingsCard } = await import('../AttendanceSettingsCard');
@@ -34,6 +37,14 @@ describe('AttendanceSettingsCard', () => {
     orgState.currentOrganization.quorumCount = null;
     orgState.currentOrganization.boardQuorum = null;
     api.update.mockResolvedValue({});
+    // Five board members
+    api.listMembers.mockResolvedValue({
+      members: [1, 2, 3, 4, 5, 6].map((userId) => ({
+        userId,
+        role: 'member',
+        isDirector: userId < 6,
+      })),
+    });
   });
 
   it('shows the voting members and the quorum every meeting starts from', () => {
@@ -99,6 +110,13 @@ describe('AttendanceSettingsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(
       screen.getByText('The board quorum is a whole number of board members, from 1 to 25'),
+    ).toBeTruthy();
+    // No more than the five board members
+    await screen.findByText(/\(5 members, marked on the Members page\)/);
+    fireEvent.change(screen.getByLabelText('Board quorum (optional)'), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      screen.getByText("The board quorum can't be more than the 5 board members"),
     ).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Board quorum (optional)'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

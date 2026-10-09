@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Users } from 'lucide-react';
-import { organizations as organizationsApi } from '../../../api/client';
+import { members as membersApi, organizations as organizationsApi } from '../../../api/client';
 import { useCan, useOrganization } from '../../../context/OrganizationContext';
 import { useToast } from '../../../context/ToastContext';
 import { QuorumFields } from '../../../components/organizations/QuorumFields';
@@ -104,6 +104,22 @@ function AttendanceForm({
   const [boardQuorum, setBoardQuorum] = useState(
     initialBoardQuorum === null ? '' : String(initialBoardQuorum),
   );
+  // The board members, whom the board's quorum can't outnumber (null until loaded)
+  const [directors, setDirectors] = useState<number | null>(null);
+  useEffect(() => {
+    let canceled = false;
+    membersApi
+      .list(organizationId)
+      .then(({ members }) => {
+        if (!canceled) setDirectors(members.filter((m) => m.isDirector).length);
+      })
+      .catch(() => {
+        // The server checks it anyway
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [organizationId]);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -118,6 +134,12 @@ function AttendanceForm({
     const board = boardQuorum.trim() === '' ? null : Number(boardQuorum);
     if (board !== null && (!Number.isInteger(board) || board < 1 || board > 25)) {
       setProblem('The board quorum is a whole number of board members, from 1 to 25');
+      return;
+    }
+    if (board !== null && directors !== null && board > directors) {
+      setProblem(
+        `The board quorum can't be more than the ${directors} board ${directors === 1 ? 'member' : 'members'}`,
+      );
       return;
     }
     setProblem(null);
@@ -154,7 +176,10 @@ function AttendanceForm({
         />
         <p id="boardQuorumHint" className="mt-1 text-xs text-ink-muted">
           How many board members make a quorum at a board meeting, if your bylaws say. Leave it
-          empty for a majority of the board.
+          empty for a majority of the board
+          {directors === null
+            ? '.'
+            : ` (${directors} ${directors === 1 ? 'member' : 'members'}, marked on the Members page).`}
         </p>
       </div>
       {problem && (

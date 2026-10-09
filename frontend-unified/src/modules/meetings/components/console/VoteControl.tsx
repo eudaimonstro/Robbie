@@ -12,6 +12,7 @@ import {
   canChairVoteDecide,
   generateTimestamp,
   motionThreshold,
+  smallBoard,
   votesNeeded,
   votingMethodNow,
 } from '@robbie-bylawyer/shared/utils';
@@ -99,9 +100,12 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
   // The chair votes only when that would change the result, judged on the devices and the room
   // together, as the server judges it; on a secret ballot the chair votes like anyone
   // A presiding officer who isn't a director (a board meeting's) has no vote at all
+  // The chair of a small board votes like any director (RONR 49:21), below
+  const chairVotes = me?.role === 'chair' && smallBoard(state);
   const chairMayDecide =
     me?.role === 'chair' &&
     !me.nonVoting &&
+    !chairVotes &&
     (method === 'standard' || method === 'rollcall') &&
     !iVoted &&
     canChairVoteDecide(combined, requirement);
@@ -109,11 +113,12 @@ function OpenVote({ state, dispatch, me }: VoteControlProps) {
     me !== null &&
     !me.nonVoting &&
     method !== 'voice' &&
-    (me.role === 'admin' || (me.role === 'chair' && method === 'ballot'));
+    (me.role === 'admin' || chairVotes || (me.role === 'chair' && method === 'ballot'));
   // The server judged the chair's vote on the count in the room as it stood, so once the chair
   // has voted (outside a secret ballot) the count can no longer change
   const chair = state.members.find((m) => m.role === 'chair');
-  const tallyLocked = !!chair && method !== 'ballot' && state.voters.includes(chair.id);
+  const tallyLocked =
+    !!chair && !smallBoard(state) && method !== 'ballot' && state.voters.includes(chair.id);
   // A voice vote is counted only in the room: the server refuses to close it on no count
   const closeBlocked = method === 'voice' && !floorEntered;
   // The bottom button closes a counted vote; a voice vote declared above needs no count

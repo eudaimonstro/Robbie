@@ -662,16 +662,31 @@ describe('PhoneView for an observer of a board meeting', () => {
     members: [dana, alice, observer],
   };
 
-  it('says they observe, and offers no vote, motion, hand or question', () => {
+  it('says they observe, and offers no vote or motion, only a question for the chair', () => {
     renderAs(observer, board);
     expect(screen.getByText("You're observing this board meeting.")).toBeTruthy();
     expect(screen.getByText('The directors are voting.')).toBeTruthy();
     expect(screen.getByText('Observer')).toBeTruthy();
     expect(screen.queryAllByRole('button', { name: /^Vote / })).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: /Ask to speak|Raise/ })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Ask the chair' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Ask the chair' })).toBeTruthy();
     // The question is theirs to read
     expect(screen.getByText('Resurface the pool this spring')).toBeTruthy();
+  });
+
+  it('lets them ask to speak in debate, and the chair decides', () => {
+    renderAs(observer, { ...board, votingOpen: false });
+    expect(
+      screen.getByText(/You can ask to speak: the chair decides whom to recognize/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask to speak' }));
+    expect(socket.dispatch).toHaveBeenCalledWith({
+      type: 'RAISE_HAND',
+      member: observer,
+      stance: 'neutral',
+    });
+    expect(screen.queryByRole('button', { name: 'Second' })).toBeNull();
+    expect(screen.queryByLabelText('Motion text')).toBeNull();
+    expect(screen.queryByRole('button', { name: /point of order/i })).toBeNull();
   });
 
   it('says so before the call to order too', () => {
