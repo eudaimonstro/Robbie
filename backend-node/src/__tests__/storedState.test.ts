@@ -39,6 +39,25 @@ describe('withDefaults (a live meeting loaded from the database)', () => {
     expect(loaded.meetingCode).toBe('OLD123');
   });
 
+  it("drops them from a declared voice vote's undo, which a division puts back", () => {
+    const saved = {
+      ...initialState,
+      voiceVote: {
+        motionId: 5,
+        passed: true,
+        undo: { votingOpen: true, voterChoices: {}, proxyVotes: [{ memberId: 2, castBy: 3 }] },
+      },
+    } as unknown as MeetingState;
+    const loaded = withDefaults(saved);
+    expect(loaded.voiceVote).toEqual({
+      motionId: 5,
+      passed: true,
+      undo: { votingOpen: true, voterChoices: {} },
+    });
+    // The saved state itself is left as it was
+    expect(saved.voiceVote?.undo).toHaveProperty('proxyVotes');
+  });
+
   it('retires no field the current state has', () => {
     for (const key of RETIRED_STATE_KEYS) expect(initialState).not.toHaveProperty(key);
   });

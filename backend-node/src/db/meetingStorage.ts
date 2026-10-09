@@ -34,11 +34,18 @@ export const RETIRED_STATE_KEYS: readonly string[] = [
 
 /**
  * A stored state with every field the current MeetingState has, and none it no longer has: a
- * meeting saved before a field existed gets its initial value, and a retired field is dropped
+ * meeting saved before a field existed gets its initial value, and a retired field is dropped,
+ * from the state and from a declared voice vote's undo (which a division spreads back into it)
  */
 export function withDefaults(state: MeetingState): MeetingState {
   const loaded: Record<string, unknown> = { ...initialState, ...state };
   for (const key of RETIRED_STATE_KEYS) delete loaded[key];
+  const voiceVote = loaded.voiceVote as MeetingState['voiceVote'];
+  if (voiceVote?.undo) {
+    const undo: Record<string, unknown> = { ...voiceVote.undo };
+    for (const key of RETIRED_STATE_KEYS) delete undo[key];
+    loaded.voiceVote = { ...voiceVote, undo };
+  }
   return loaded as unknown as MeetingState;
 }
 
