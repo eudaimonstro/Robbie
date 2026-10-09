@@ -1,7 +1,7 @@
 import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { findMeetingPacket, findOrgPeople } from './meetingPacket.js';
-import { deriveMeetingRole } from './meetingRoles.js';
+import { deriveMeetingSeat } from './meetingRoles.js';
 import { roomManager } from './roomManager.js';
 
 type Prepared = { action: MeetingAction } | { error: string; errorCode: ActionErrorCode };
@@ -42,7 +42,11 @@ export async function prepareAttendanceAction(
           id: action.userId,
           // Someone marked present may never have signed in to set a name
           name: person.name ?? person.email.split('@')[0],
-          role: deriveMeetingRole(packet.chairUserId, person.role, action.userId),
+          ...deriveMeetingSeat(
+            packet,
+            { orgRole: person.role, isDirector: person.isDirector },
+            action.userId,
+          ),
           present: true,
         },
       },

@@ -23,7 +23,9 @@ import {
   electedTo,
   floorOpenForDebate,
   headcountBaseHolds,
+  isBoardMeeting,
   motionOutOfOrder,
+  takesPart,
   motionThreshold,
   remainingNominees,
   winnersOf,
@@ -34,7 +36,7 @@ import {
   type OutOfOrder,
 } from '@robbie-bylawyer/shared/utils';
 import { ACTOR_FIELDS } from './actionEnricher.js';
-import { checkPermission, isServerOnly } from './permissionGuard.js';
+import { checkPermission, isServerOnly, membersMaySend } from './permissionGuard.js';
 
 /** The most people the chair can count in the room without an account */
 export const MAX_HEADCOUNT = 100_000;
@@ -51,10 +53,25 @@ export const MAX_RULING_EXPLANATION_LENGTH = 2000;
 /** The voting methods (see VotingMethod) */
 const VOTING_METHODS = ['standard', 'voice', 'ballot', 'rollcall'];
 
-/** Whether the member with this id is in the meeting as a guest */
-function isGuest(state: MeetingState, memberId: number): boolean {
-  return state.members.some((m) => m.id === memberId && m.role === 'guest');
-}
+/** What doesn't apply in a board meeting: the room's count, and proxies (directors vote in person) */
+const NOT_IN_A_BOARD_MEETING: ReadonlyMap<MeetingAction['type'], string> = new Map<
+  MeetingAction['type'],
+  string
+>([
+  ['SET_HEADCOUNT', 'Nobody is counted in the room in a board meeting: mark the directors present'],
+  ...(
+    [
+      'SET_PROXY_SETTINGS',
+      'GRANT_PROXY',
+      'REVOKE_PROXY',
+      'CAST_PROXY_VOTE',
+      'REQUEST_PROXY',
+      'ACCEPT_PROXY',
+      'DECLINE_PROXY',
+      'CANCEL_PROXY_REQUEST',
+    ] as const
+  ).map((type) => [type, "Directors don't vote by proxy"] as [MeetingAction['type'], string]),
+]);
 
 /** Whether the member with this id presides: the chair, or an admin */
 function isPresiding(state: MeetingState, memberId: number | undefined): boolean {
@@ -259,6 +276,17 @@ function checkFloorMember(
     return {
       valid: false,
       error: as === 'mover' ? 'Guests cannot make motions' : 'Guests cannot second motions',
+      errorCode: 'PERMISSION_DENIED',
+    };
+  }
+  // In a board meeting only the directors move and second
+  if (!takesPart(named)) {
+    return {
+      valid: false,
+      error:
+        as === 'mover'
+          ? 'Only the directors make motions in a board meeting'
+          : 'Only the directors second motions in a board meeting',
       errorCode: 'PERMISSION_DENIED',
     };
   }
@@ -505,19 +533,44 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
   }
 
   // The role a socket carries can be stale (a membership removed since it joined, a recovered
-  // socket), so the state's role decides: a sender the meeting has as a guest can't take part
-  const actorField = ACTOR_FIELDS[action.type]?.id;
-  const actorId = actorField ? (action as Record<string, unknown>)[actorField] : undefined;
-  if (
-    typeof actorId === 'number' &&
-    !checkPermission('guest', action.type) &&
-    isGuest(state, actorId)
-  ) {
+  // socket, a director's seat given or taken away), so the state's member decides: a sender the
+  // meeting has as a guest or an observer sends only what that role may, and a presiding
+  // officer without a vote (a board meeting's, who isn't a director) only what presides
+  const actor = ACTOR_FIELDS[action.type];
+  const sent = action as Record<string, unknown>;
+  const actorId = actor?.id
+    ? sent[actor.id]
+    : actor?.member
+      ? (sent.member as { id?: unknown } | undefined)?.id
+      : undefined;
+  const sender =
+    typeof actorId === 'number' ? state.members.find((m) => m.id === actorId) : undefined;
+  if (sender?.role === 'guest' && !checkPermission('guest', action.type)) {
     return {
       valid: false,
       error: 'Guests can follow the meeting but not take part in this',
       errorCode: 'PERMISSION_DENIED',
     };
+  }
+  if (sender?.role === 'observer' && !checkPermission('observer', action.type)) {
+    return {
+      valid: false,
+      error: "Observers follow a board meeting but don't take part in it",
+      errorCode: 'PERMISSION_DENIED',
+    };
+  }
+  if (sender?.nonVoting && membersMaySend(action.type)) {
+    return {
+      valid: false,
+      error: 'Only the directors take part in a board meeting: you preside without a vote',
+      errorCode: 'PERMISSION_DENIED',
+    };
+  }
+
+  // A board meeting counts its directors only, in person
+  const notForTheBoard = isBoardMeeting(state) ? NOT_IN_A_BOARD_MEETING.get(action.type) : null;
+  if (notForTheBoard) {
+    return { valid: false, error: notForTheBoard, errorCode: 'BOARD_MEETING' };
   }
 
   // In a recess nothing happens but the chair resuming (or adjourning) and the count of the
@@ -781,6 +834,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           error: `Each count must be a whole number from 0 to ${MAX_FLOOR_COUNT}`,
           errorCode: 'INVALID_ACTION',
         };
+      }
+      // In a board meeting the room is the directors without a phone: no more hands than the
+      // directors who haven't voted on a device
+      if (state.board) {
+        const left = Math.max(0, state.board.directors - state.voters.length);
+        if (action.yea + action.nay + action.abstain > left) {
+          return {
+            valid: false,
+            error: `Only ${left} ${left === 1 ? 'director is' : 'directors are'} not voting on a device`,
+            errorCode: 'BOARD_MEETING',
+          };
+        }
       }
       return { valid: true };
     }
@@ -1296,7 +1361,10 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'ALREADY_NOMINATED',
         };
       }
-      if (action.nomineeId && isGuest(state, action.nomineeId)) {
+      if (
+        action.nomineeId &&
+        state.members.some((m) => m.id === action.nomineeId && m.role === 'guest')
+      ) {
         return {
           valid: false,
           error: 'Guests cannot be nominated',
@@ -2130,6 +2198,14 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           errorCode: 'NOT_A_MEMBER',
         };
       }
+      // A board meeting's attendance is its directors'
+      if (isBoardMeeting(state) && !takesPart(action.member)) {
+        return {
+          valid: false,
+          error: 'Only the directors are marked present in a board meeting',
+          errorCode: 'BOARD_MEETING',
+        };
+      }
       const existing = state.members.find((m) => m.id === action.userId);
       if (existing?.present && existing.presentBy === 'chair') {
         return {
@@ -2193,6 +2269,17 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
     case 'REFRESH_MEMBERS':
     case 'SET_MEETING_INFO':
       // Server-only, from the organization's roster and the packet
+      return { valid: true };
+
+    case 'SET_BOARD':
+      // Server-only: who votes is settled at the call to order
+      if (state.meetingActive || state.meetingStage !== 'not-started') {
+        return {
+          valid: false,
+          error: 'Who votes is settled once the meeting is called to order',
+          errorCode: 'MEETING_ALREADY_ACTIVE',
+        };
+      }
       return { valid: true };
 
     case 'REORDER_AGENDA': {

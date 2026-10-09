@@ -7,7 +7,11 @@ type Role = MeetingRole;
 const PRESIDING: Role[] = ['chair', 'admin'];
 /** Everyone who takes part: members vote, move and second; the chair and admins too */
 const TAKING_PART: Role[] = ['member', 'chair', 'admin'];
-/** Guests as well: following, asking to speak and asking questions */
+/**
+ * Guests as well: following, asking to speak and asking questions. Not observers: in a board
+ * meeting the organization's people who aren't directors follow it and take no part, so they
+ * are in no list at all, and everything they send is refused here.
+ */
 const EVERYONE: Role[] = ['guest', 'member', 'chair', 'admin'];
 /** Actions only the server applies (on join, disconnect and from REST routes) */
 const SERVER_ONLY: Role[] = [];
@@ -84,6 +88,7 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   REFRESH_MEMBERS: SERVER_ONLY,
   RELOAD_AGENDA: SERVER_ONLY,
   SET_MEETING_INFO: SERVER_ONLY,
+  SET_BOARD: SERVER_ONLY,
   // The server loads the previous meeting's published minutes (see joinHandler)
   SET_PREVIOUS_MINUTES: SERVER_ONLY,
 
@@ -136,6 +141,15 @@ export function checkPermission(role: Role, actionType: MeetingAction['type']): 
   }
 
   return allowedRoles.includes(role);
+}
+
+/**
+ * Whether members may send this action: taking part (moving, seconding, voting, asking for the
+ * floor), as opposed to presiding. A presiding officer without a vote (in a board meeting, one
+ * who isn't a director) may send only the others; the validator refuses these from them.
+ */
+export function membersMaySend(actionType: MeetingAction['type']): boolean {
+  return PERMISSIONS[actionType]?.includes('member') ?? false;
 }
 
 /** Whether only the server applies this action (on join, disconnect and from REST routes) */

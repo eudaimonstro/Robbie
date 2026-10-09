@@ -125,6 +125,10 @@ export type ActionErrorCode =
   | 'MEETING_NOT_ACTIVE'
   // The organization hasn't set its voting members and quorum, so the meeting can't open
   | 'QUORUM_NOT_SET'
+  // A board meeting of an organization with no directors can't open
+  | 'NO_DIRECTORS'
+  // Something that doesn't apply in a board meeting (the room's count, proxies)
+  | 'BOARD_MEETING'
   // The counts changed on another screen since a SET_HEADCOUNT was made from them
   | 'HEADCOUNT_CHANGED'
   // Motion errors

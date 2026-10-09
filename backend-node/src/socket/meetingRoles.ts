@@ -1,5 +1,5 @@
 import type { Server } from 'socket.io';
-import type { MeetingRole, MeetingState, Member } from '@robbie-bylawyer/shared/types';
+import type { MeetingKind, MeetingRole, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -10,7 +10,12 @@ import { getStorage } from '../db/meetingStorage.js';
 import { prisma } from '../db/prisma.js';
 import { atLeast } from '../orgs/roles.js';
 import { getIoInstance } from './ioInstance.js';
-import { findMeetingPacket, findOrgPeople } from './meetingPacket.js';
+import {
+  findMeetingPacket,
+  findOrgPeople,
+  votersOf,
+  type MeetingPacketInfo,
+} from './meetingPacket.js';
 import { roomManager } from './roomManager.js';
 import { applyAction, getMeetingState } from './stateManager.js';
 import { emitState, publicUpdate } from './statePublisher.js';
@@ -27,6 +32,20 @@ export interface RoleChange {
   id: number;
   name: string;
   role: MeetingRole;
+  /** A presiding officer without a vote (in a board meeting, one who isn't a director) */
+  nonVoting?: boolean;
+}
+
+/** A person's place in a live meeting: their role, and whether they preside without a vote */
+export interface MeetingSeat {
+  role: MeetingRole;
+  nonVoting?: true;
+}
+
+/** What a person's seat depends on in the meeting: who presides, and who votes */
+export interface SeatPacket {
+  chairUserId: number | null;
+  kind?: MeetingKind;
 }
 
 /**
@@ -45,11 +64,36 @@ export function deriveMeetingRole(
 }
 
 /**
+ * A person's seat in a live meeting. In a meeting of the members, the role deriveMeetingRole
+ * gives. In a board meeting the directors (members and above marked as on the board) are its
+ * members, and admins when they are secretaries or above; the presiding officer chairs; a
+ * secretary or above who isn't a director keeps the console (admin) without a vote, as does a
+ * presiding officer who isn't one; everyone else in the organization (members, viewers)
+ * observes; people outside it are guests.
+ */
+export function deriveMeetingSeat(
+  packet: SeatPacket,
+  person: { orgRole: OrgRole | null; isDirector: boolean },
+  userId: number,
+): MeetingSeat {
+  const { orgRole } = person;
+  if (packet.kind !== 'board')
+    return { role: deriveMeetingRole(packet.chairUserId, orgRole, userId) };
+  if (!orgRole) return { role: 'guest' };
+  const director = person.isDirector && atLeast(orgRole, 'member');
+  const presiding = atLeast(orgRole, 'member') && packet.chairUserId === userId;
+  if (presiding) return director ? { role: 'chair' } : { role: 'chair', nonVoting: true };
+  if (director) return { role: atLeast(orgRole, 'secretary') ? 'admin' : 'member' };
+  if (atLeast(orgRole, 'secretary')) return { role: 'admin', nonVoting: true };
+  return { role: 'observer' };
+}
+
+/**
  * The members whose role differs from what the organization gives them now, each with the
  * name the meeting has for them (a member's name is refreshed only when they join)
  */
 export async function roleChanges(
-  packet: { organizationId: string; chairUserId: number | null },
+  packet: { organizationId: string } & SeatPacket,
   members: readonly Member[],
 ): Promise<RoleChange[]> {
   if (members.length === 0) return [];
@@ -58,8 +102,15 @@ export async function roleChanges(
     members.map((m) => m.id),
   );
   return members.flatMap((m) => {
-    const role = deriveMeetingRole(packet.chairUserId, people.get(m.id)?.role ?? null, m.id);
-    return role !== m.role ? [{ id: m.id, name: m.name, role }] : [];
+    const person = people.get(m.id);
+    const seat = deriveMeetingSeat(
+      packet,
+      { orgRole: person?.role ?? null, isDirector: person?.isDirector ?? false },
+      m.id,
+    );
+    return seat.role !== m.role || !!seat.nonVoting !== !!m.nonVoting
+      ? [{ id: m.id, name: m.name, ...seat }]
+      : [];
   });
 }
 
@@ -80,7 +131,7 @@ const sweptAt = new Map<string, number>();
  */
 export async function staleRoles(
   meetingCode: string,
-  packet: { organizationId: string; chairUserId: number | null },
+  packet: { organizationId: string } & SeatPacket,
   members: readonly Member[],
   force = false,
 ): Promise<RoleChange[]> {
@@ -130,8 +181,38 @@ export async function updateSocketRoles(
 }
 
 /**
+ * Until the call to order, who votes follows the packet and the organization: the kind of
+ * meeting, and a board's directors with the quorum that follows from them. Applied only when the
+ * kind or the number of directors changed, so a quorum the chair set stays otherwise. After the
+ * call to order the state keeps the board it was called to order with, for the record.
+ * @returns the result of the change, or null when nothing changed
+ */
+export async function syncVoters(
+  packet: Pick<MeetingPacketInfo, 'robbieCode' | 'kind' | 'organizationId' | 'organization'>,
+  state: MeetingState,
+): Promise<{ state: MeetingState; stateVersion: number; kindChanged: boolean } | null> {
+  if (state.meetingActive || state.meetingStage !== 'not-started') return null;
+  const kind = state.kind ?? 'members';
+  if (packet.kind === 'members' && kind === 'members') return null;
+  const voters = await votersOf(packet);
+  if (voters.kind === kind && voters.board?.directors === state.board?.directors) return null;
+  const result = await applyAction(packet.robbieCode, {
+    type: 'SET_BOARD',
+    ...voters,
+    timestamp: new Date().toISOString(),
+  });
+  if (!result.success || !result.changed) return null;
+  return {
+    state: result.state,
+    stateVersion: result.stateVersion,
+    kindChanged: voters.kind !== kind,
+  };
+}
+
+/**
  * Bring every member's name and role in a live meeting into line with the organization and
- * the packet (after the presiding officer changes, say).
+ * the packet (after the presiding officer changes, say), and before the call to order who votes
+ * (a director marked or a meeting's kind changed).
  * @returns the state after the change, or null if nothing changed
  */
 export async function syncMeetingRoles(
@@ -142,15 +223,18 @@ export async function syncMeetingRoles(
   const meeting = packet ? await getStorage().getMeeting(meetingCode) : null;
   if (!packet || !meeting) return null;
 
+  const voters = await syncVoters(packet, meeting.state);
   const changes = await roleChanges(packet, meeting.state.members);
   sweptAt.set(meetingCode, Date.now());
-  if (changes.length === 0) return null;
+  if (changes.length === 0) {
+    return voters && { state: voters.state, stateVersion: voters.stateVersion };
+  }
   const result = await applyAction(meetingCode, {
     type: 'REFRESH_MEMBERS',
     members: changes,
     timestamp: new Date().toISOString(),
   });
-  if (!result.success) return null;
+  if (!result.success) return voters && { state: voters.state, stateVersion: voters.stateVersion };
   await updateSocketRoles(io, meetingCode, changes);
   return { state: result.state, stateVersion: result.stateVersion };
 }
