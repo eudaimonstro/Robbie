@@ -50,7 +50,6 @@ robbie-bylawyer/
 ├── shared/              # Shared TypeScript types, meeting reducer and utilities
 ├── backend-node/        # Unified Express + Socket.io + Prisma backend (port 3001)
 ├── frontend-unified/    # Unified React frontend for meetings and documents (port 5173)
-└── features/            # Feature specifications
 ```
 
 ## Tech Stack

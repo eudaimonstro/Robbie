@@ -41,7 +41,6 @@ robbie-bylawyer/
 │               ├── hooks/      # useQuorumStatus, useRoster, usePacket, useSortedSpeakerQueue, useVoteResults
 │               └── context/    # SocketContext for real-time
 ├── deploy/              # Production: compose.yaml (app, db, backup, caddy), Caddyfile, settings, backup/restore, smoke.sh
-└── features/            # Feature specifications for Bylawyer
 ```
 
 ## Commands
@@ -323,24 +322,3 @@ VITE_SERVER_URL=  # Leave unset; only the meeting socket reads it, to connect to
 13. **Design brief:** UI follows `docs/design-brief.md` (adopted for Phase B of `docs/mvp-roadmap.md` and everything after); the whole web app is on it.
 
 14. **Design tokens (web):** `docs/design-brief.md` is authoritative for look and feel. Use the tokens from `frontend-unified/src/styles/index.css` (`bg-paper`, `bg-surface`, `bg-surface-2`, `text-ink`, `text-ink-muted`, `border-rule`, `bg-gavel`, `text-carried`, `text-caution-ink` for caution text, and the `-tint`s) and its utilities (`btn-primary`/`btn-secondary`/`btn-ghost`, `card`, `badge-*`, `input`, `label-caps`, `page-title`, `card-title`, `meeting-code`, `animate-reveal`/`-stamp`/`-count-pulse`/`-crossfade`); they flip with `.dark` on any element, so a subtree can be forced into the evening palette. Text links are `text-gavel hover:underline`; native checkboxes and radios use `accent-gavel`. Tailwind's own palette is switched off (`--color-*: initial`) and the old `primary-`, `secondary-`, `accent-`, `success-`, `danger-` and `meeting-` scales are gone: the only colors are the tokens and the fixed numbered shades around them (`gavel-*`, `ink-*`, `carried-*`, `caution-*`, the same in both palettes, for overlays and hovers). Never raw Tailwind palette classes, `white` or `black`, or emoji icons (lucide only): `scripts/check-palette.sh` fails `npm run lint` on them. Its allowlist (`scripts/palette-allowlist.txt`) is empty and only shrinks; never add a file to it. `/style-guide` shows everything.
-
-## Feature Specifications
-
-Features for Bylawyer are stored in `features/` directory:
-
-```
-features/
-├── manifest.json           # Index of all feature files
-├── api_organizations.json  # Organization CRUD
-├── api_documents.json      # Document CRUD
-├── api_versions.json       # Version management & diffs
-├── api_sections.json       # Section hierarchy
-├── api_amendments.json     # Amendment workflow
-├── api_meetings.json       # Meetings & votes
-├── ui_forms.json           # Form components
-├── ui_navigation.json      # Navigation/routing
-├── styles.json             # Visual styling
-└── e2e_workflows.json      # End-to-end tests
-```
-
-Each feature has: `category`, `description`, `steps[]`, `passes` (boolean)

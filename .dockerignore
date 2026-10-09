@@ -15,6 +15,5 @@ frontend-unified/vite.config.js
 frontend-unified/vite.config.d.ts
 e2e
 docs
-features
 spec.md
 deploy/backups
