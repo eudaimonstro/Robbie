@@ -162,7 +162,7 @@ function AttachmentRow({ attachment }: { attachment: Attachment }) {
           target="_blank"
           rel="noopener noreferrer"
           className="p-1 text-gavel hover:text-ink"
-          title="View in Bylawyer"
+          title="Open the document"
         >
           <ExternalLink size={16} />
         </a>

@@ -183,7 +183,3 @@ export default function MeetingsModule() {
     </MeetingOrganizationProvider>
   );
 }
-
-// Re-export for use in other parts of the app if needed
-export { SocketProvider, useSocket } from './context/SocketContext';
-export { MeetingOrganizationProvider, useMeetingOrganization } from './context/OrganizationBridge';
