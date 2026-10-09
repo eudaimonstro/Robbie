@@ -171,6 +171,23 @@ test('a board meeting: the directors move and vote, an observer follows, and the
     await dana.getByRole('button', { name: 'Record the second' }).click();
     await expect(dana.getByText('Moved by Alice Brennan, seconded by Pat Lindqvist')).toBeVisible();
 
+    // Ben, observing, asks to speak: the chair decides whom to recognize
+    await ben.getByRole('button', { name: 'Ask to speak' }).click();
+    await expect(ben.getByRole('button', { name: 'Withdraw the request' })).toBeVisible();
+    await expect(
+      dana.getByRole('button', { name: 'Recognize Ben Whitaker to speak' }),
+    ).toBeVisible();
+    await ben.getByRole('button', { name: 'Withdraw the request' }).click();
+
+    // Ray, the treasurer, keeps the console without a vote (he isn't on the board), and records
+    // what someone in the room does: an objection to adopting it without a vote
+    const ray = await open(PEOPLE.ray, { viewport: { width: 1280, height: 900 } });
+    await ray.goto(`/meetings/${BOARD}`);
+    await expect(ray.getByRole('heading', { name: 'November board meeting' })).toBeVisible();
+    await dana.getByRole('button', { name: 'Ask for unanimous consent' }).click();
+    await ray.getByRole('button', { name: 'Objection from the floor' }).click();
+    await expect(dana.getByRole('button', { name: 'Open the vote' })).toBeVisible();
+
     // The vote: Alice on her phone, Pat's hand in the room; Ben has no vote
     await dana.getByRole('button', { name: 'Open the vote' }).click();
     await alice.getByRole('button', { name: 'Vote yes' }).click();
@@ -221,7 +238,7 @@ test('a board meeting: the directors move and vote, an observer follows, and the
       ),
     ).toBeVisible();
     await expect(minutes.getByText('Directors absent (1): Carmen Diaz.')).toBeVisible();
-    await expect(minutes.getByText('Also present: Ben Whitaker.')).toBeVisible();
+    await expect(minutes.getByText('Also present: Ben Whitaker, Ray Castillo.')).toBeVisible();
     await expect(
       minutes.getByText(
         'A quorum of the board (3 of the 4 directors) was present at the call to order.',
