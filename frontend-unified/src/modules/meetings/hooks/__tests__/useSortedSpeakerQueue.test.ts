@@ -32,7 +32,6 @@ const createMockState = (): MeetingState => ({
   quorum: 3,
   meetingLog: [],
   unanimousConsentPending: false,
-  tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],
   lastChairRuling: null,
@@ -67,7 +66,6 @@ const createMockMotion = (moverId: number = 1, moverHasSpoken: boolean = false):
   moverHasSpoken,
   secondedBy: 'Second User',
   needsSecond: true,
-  reconsidered: true,
   whenToUse: 'Test usage',
 });
 

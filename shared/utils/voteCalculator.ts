@@ -7,7 +7,7 @@ import type {
   VoteCalculationResult,
   VoteThreshold,
 } from '../types/index.js';
-import { MOTIONS } from '../constants/motions.js';
+import { MOTIONS, RETIRED_MOTIONS } from '../constants/motions.js';
 
 export const NO_VOTES: Votes = { yea: 0, nay: 0, abstain: 0 };
 
@@ -121,7 +121,9 @@ export function motionThreshold(motion: {
 }): VoteThreshold {
   const own = motion.bylawAmendment?.voteRequired;
   if (own) return own;
-  return asThreshold(motion.vote ?? MOTIONS[motion.type]?.vote ?? 'majority');
+  return asThreshold(
+    motion.vote ?? MOTIONS[motion.type]?.vote ?? RETIRED_MOTIONS[motion.type]?.vote ?? 'majority',
+  );
 }
 
 /**

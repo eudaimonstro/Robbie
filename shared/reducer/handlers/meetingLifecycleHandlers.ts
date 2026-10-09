@@ -164,7 +164,6 @@ export const meetingLifecycleHandler: ActionHandler = (state, action, log) => {
         pendingSecond: null,
         currentMotion: null,
         motionStack: [],
-        dividedQuestionParts: [],
         votingOpen: false,
         voteTimerEnd: null,
         ...voteCleared,

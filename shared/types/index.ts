@@ -74,7 +74,6 @@ export interface Motion {
   needsSecond: boolean;
   debatable: boolean;
   amendable: boolean;
-  reconsidered: boolean;
   vote: 'majority' | '2/3' | 'none';
   phrase: string;
   help: string;
@@ -83,9 +82,6 @@ export interface Motion {
   agendaAmendment?: AgendaAmendment | null;
   bylawAmendment?: BylawAmendment | null; // For bylawAmendment motion type
   moverHasSpoken?: boolean;
-  tabledMotionId?: number;
-  reconsideredMotionId?: number;
-  dividedParts?: string[]; // For divideQuestion motion - the parts to split into
   /**
    * Made by someone in the room and recorded by the chair (MAKE_FLOOR_MOTION): mover is the
    * member named, with their id, or a typed name with moverId 0
@@ -136,9 +132,6 @@ export type Postponement = { kind: 'next-meeting' } | { kind: 'later'; when: str
 export interface MotionDetails {
   agendaAmendment?: AgendaAmendment;
   bylawAmendment?: BylawAmendment;
-  tabledMotionId?: number;
-  reconsideredMotionId?: number;
-  dividedParts?: string[];
   textAmendment?: TextAmendment;
   postponeTo?: Postponement;
   referTo?: string;
@@ -243,19 +236,15 @@ export interface CompletedMotion {
   /** Each device vote by member; empty for a secret ballot */
   readonly voterChoices: Record<number, 'yea' | 'nay' | 'abstain'>;
   readonly timestamp: string;
-  /** Whether a motion to reconsider has brought this vote back */
-  readonly reconsidered: boolean;
-  /** A bylaw amendment's change: the text decided, for the sync, the minutes and reconsideration */
+  /** A bylaw amendment's change: the text decided, for the sync and the minutes */
   readonly bylawAmendment?: BylawAmendment;
-  readonly mover?: string; // Restored with the motion if it is reconsidered
+  readonly mover?: string;
   readonly moverId?: number;
-  // The two parts of the vote, and how it was taken. Records made before these existed, which
-  // were only of motions that can be reconsidered, have none of them.
+  // The two parts of the vote, and how it was taken. Records made before these existed have
+  // none of them.
   readonly deviceVotes?: Votes;
   readonly floorVotes?: Votes;
   readonly method?: VotingMethod;
-  /** Whether the motion can be reconsidered (its definition's reconsidered flag) */
-  readonly reconsiderable?: boolean;
   // What the minutes need. Records made before these existed have none of them.
   /** Who seconded it */
   readonly seconder?: string;
@@ -572,7 +561,6 @@ export interface MeetingState {
   agendaAdopted: boolean;
   agendaObjection: boolean;
   currentAgendaItem: AgendaItem | null;
-  tabledMotions: Motion[];
   defeatedMotions: Array<{
     type: string;
     text: string;
@@ -636,7 +624,6 @@ export interface MeetingState {
   currentElection: Election | null;
   electedOfficers: Officer[];
   inquiries: Inquiry[];
-  dividedQuestionParts: Array<{ id: number; text: string; originalMotionId: number }>; // Pending parts from a divided motion
   rollCall: RollCallState | null;
   autoYieldOnTimeExpired: boolean; // Auto-yield floor when speaker time expires
 }
@@ -922,7 +909,6 @@ export interface MotionDefinition {
   readonly needsSecond: boolean;
   readonly debatable: boolean;
   readonly amendable: boolean;
-  readonly reconsidered: boolean;
   readonly vote: 'majority' | '2/3' | 'none';
   readonly phrase: string;
   readonly help: string;

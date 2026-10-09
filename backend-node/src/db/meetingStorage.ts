@@ -12,9 +12,9 @@ export interface MeetingRecord {
 
 /**
  * Fields a live meeting saved by an earlier version may still carry, of features since removed:
- * member-to-member proxies (the chair now enters the proxies held, `proxiesHeld`) and rule
- * suspensions. Nothing reads them; they are dropped on load, so they are never published to
- * clients or written back.
+ * member-to-member proxies (the chair now enters the proxies held, `proxiesHeld`), rule
+ * suspensions, and the tabled and divided questions of motions Robbie no longer has. Nothing
+ * reads them; they are dropped on load, so they are never published to clients or written back.
  */
 export const RETIRED_STATE_KEYS: readonly string[] = [
   'allowProxyVoting',
@@ -25,6 +25,8 @@ export const RETIRED_STATE_KEYS: readonly string[] = [
   'allowMemberProxyGrant',
   'pendingProxyRequests',
   'suspendedRules',
+  'tabledMotions',
+  'dividedQuestionParts',
 ];
 
 /**

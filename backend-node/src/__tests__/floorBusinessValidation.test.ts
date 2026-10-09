@@ -143,10 +143,10 @@ describe('business from the floor', () => {
         valid: false,
         errorCode: 'UNKNOWN_MOTION_TYPE',
       });
-      // A motion Robbie doesn't offer
-      expect(floorMotion({ motionType: 'takeFromTable', tabledMotionId: 42 })).toMatchObject({
+      // A motion Robbie no longer has
+      expect(floorMotion({ motionType: 'takeFromTable' })).toMatchObject({
         valid: false,
-        errorCode: 'MOTION_NOT_OFFERED',
+        errorCode: 'UNKNOWN_MOTION_TYPE',
       });
       // Renewing a motion defeated this meeting
       const defeated = {

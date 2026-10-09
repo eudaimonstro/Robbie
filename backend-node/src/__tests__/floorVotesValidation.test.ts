@@ -209,7 +209,7 @@ describe('validating floor votes', () => {
   });
 
   describe('a motion to reconsider', () => {
-    it("is refused: Robbie doesn't offer reconsider", () => {
+    it('is refused: Robbie no longer has it', () => {
       const record = {
         id: 5,
         type: 'mainMotion',
@@ -218,8 +218,6 @@ describe('validating floor votes', () => {
         passed: true,
         voterChoices: {},
         timestamp: '20:15',
-        reconsidered: false,
-        reconsiderable: true,
       };
       const result = validateAction(
         { ...initialState, meetingActive: true, agendaAdopted: true, completedMotions: [record] },
@@ -230,11 +228,10 @@ describe('validating floor votes', () => {
           mover: 'Member 2',
           moverId: 2,
           motionId: 9,
-          reconsideredMotionId: 5,
           timestamp: '',
         },
       );
-      expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_NOT_OFFERED' });
+      expect(result).toMatchObject({ valid: false, errorCode: 'UNKNOWN_MOTION_TYPE' });
     });
   });
 });

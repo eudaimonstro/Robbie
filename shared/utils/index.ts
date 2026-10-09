@@ -74,16 +74,6 @@ export {
 } from './minutesGenerator.js';
 
 export {
-  getMotionHistory,
-  filterMotionHistory,
-  getMotionTypes,
-  getMotionHistoryStats,
-  type HistoricalMotion,
-  type MotionHistoryFilters,
-  type MotionOutcome,
-} from './motionHistoryHelper.js';
-
-export {
   calculateStanceBalance,
   canRemoveSelfFromQueue,
   formatWaitTime,

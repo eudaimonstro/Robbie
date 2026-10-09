@@ -112,7 +112,7 @@ export const BYLAW_WORDING_FIXED =
 export function wordingFixedBy(state: MeetingState, motionType: string): boolean {
   const current = state.currentMotion;
   if (!current) return false;
-  if (motionType === 'amend' || motionType === 'divideQuestion') {
+  if (motionType === 'amend') {
     return current.type === 'bylawAmendment';
   }
   if (motionType === 'amendAmendment') {

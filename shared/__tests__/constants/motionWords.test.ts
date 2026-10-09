@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MOTIONS, motionWords, plainMotionName } from '../../constants/index.js';
+import { MOTIONS, RETIRED_MOTIONS, motionWords, plainMotionName } from '../../constants/index.js';
 
 describe('motionWords', () => {
   it('gives every motion a sentence-case name and one short line', () => {
@@ -24,5 +24,16 @@ describe('motionWords', () => {
     expect(plainMotionName('Refer to Committee')).toBe('Refer to a committee or the board');
     expect(plainMotionName('Refer to a Committee')).toBe('Refer to a committee');
     expect(plainMotionName('Ratify the Contract', 'noSuchMotion')).toBe('Ratify the contract');
+  });
+
+  it('names a motion Robbie no longer has, from a meeting or record saved before', () => {
+    expect(motionWords('layOnTable').name).toBe('Lay on the table');
+    expect(plainMotionName('Objection to Consideration', 'objectionConsideration')).toBe(
+      'Object to considering it',
+    );
+    for (const [key, { name }] of Object.entries(RETIRED_MOTIONS)) {
+      expect(name.slice(1), key).toBe(name.slice(1).toLowerCase());
+      expect(MOTIONS[key], key).toBeUndefined();
+    }
   });
 });

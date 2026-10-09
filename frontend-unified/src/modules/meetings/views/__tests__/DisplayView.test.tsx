@@ -360,7 +360,6 @@ describe('DisplayView', () => {
           passed: true,
           voterChoices: {},
           timestamp: '7:45:00 PM',
-          reconsidered: false,
         },
       ],
     };

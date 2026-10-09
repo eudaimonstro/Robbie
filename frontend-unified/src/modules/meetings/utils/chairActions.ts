@@ -75,16 +75,13 @@ function rulings(state: MeetingState, motionType: string): ChairAction[] {
         ruling('overrule', 'Rule the point not well taken', 'overrule', 'secondary'),
       ];
     }
-    case 'questionPrivilege':
     case 'withdrawMotion':
       return [
         ruling('allow', 'Allow the request', 'allow', 'primary'),
         ruling('deny', 'Deny the request', 'deny', 'secondary'),
       ];
-    case 'callOrderDay':
-      return [ruling('orders-of-the-day', 'Proceed to the orders of the day', 'allow', 'primary')];
     default:
-      // A point of information: the chair answers it or has it answered
+      // A request saved before requests were questions to the chair: the chair answers it
       return [ruling('acknowledge', 'Acknowledge and respond', 'allow', 'primary')];
   }
 }

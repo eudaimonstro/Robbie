@@ -336,7 +336,6 @@ describe('minutes', () => {
           passed: true,
           voterChoices: {},
           timestamp: '',
-          reconsidered: false,
           deviceVotes: { yea: 2, nay: 0, abstain: 0 },
           floorVotes: { yea: 9, nay: 2, abstain: 0 },
           method: 'standard',

@@ -24,6 +24,8 @@ describe('withDefaults (a live meeting loaded from the database)', () => {
       allowMemberProxyGrant: false,
       pendingProxyRequests: [],
       suspendedRules: [{ id: 1, rule: 'debate-rules', scope: 'meeting-remainder' }],
+      tabledMotions: [],
+      dividedQuestionParts: [],
     } as unknown as MeetingState;
     const loaded = withDefaults(saved) as unknown as Record<string, unknown>;
     for (const key of RETIRED_STATE_KEYS) {

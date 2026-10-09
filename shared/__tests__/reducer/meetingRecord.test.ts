@@ -99,8 +99,6 @@ describe('the meeting record', () => {
         passed: false,
         voterChoices: {},
         timestamp: '7:21:00 PM',
-        reconsidered: false,
-        reconsiderable: false,
         mover: 'Bo',
         moverId: 2,
         disposition: 'no-second',
@@ -137,7 +135,6 @@ describe('the meeting record', () => {
         id: 7,
         disposition: 'withdrawn',
         seconder: 'Cy',
-        reconsiderable: false,
         withPermission: true,
       }),
     ]);
@@ -165,7 +162,6 @@ describe('the meeting record', () => {
         agendaItemId: 3,
         decidedAt: AT,
         voterChoices: {},
-        reconsiderable: MOTIONS.mainMotion.reconsidered,
       }),
     ]);
   });

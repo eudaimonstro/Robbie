@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MOTIONS } from '../../constants/index.js';
+import { MOTIONS, RETIRED_MOTIONS } from '../../constants/index.js';
 import { initialState } from '../../reducer/index.js';
 import { getValidMotions, motionOutOfOrder, OFFERED_MOTIONS } from '../../utils/index.js';
 import type { MeetingState, Motion } from '../../types/index.js';
@@ -32,26 +32,14 @@ const reason = (state: MeetingState, type: string) => motionOutOfOrder(state, ty
 const offered = (state: MeetingState) => getValidMotions(state).map((m) => m.key);
 
 describe('motionOutOfOrder', () => {
-  it('refuses every motion Robbie hides, saying what to do instead', () => {
+  it('refuses every motion Robbie no longer has, and moving a request to withdraw', () => {
     const state = pending([motion('mainMotion')]);
-    expect(reason(state, 'layOnTable')).toBe(
-      "Lay on the table isn't offered in Robbie: postpone the question to later in the meeting instead",
-    );
-    for (const type of [
-      'takeFromTable',
-      'reconsider',
-      'suspendRules',
-      'divideQuestion',
-      'objectionConsideration',
-      'callOrderDay',
-      'fixTimeAdjourn',
-      'limitDebate',
-      'pointInfo',
-      'questionPrivilege',
-      'withdrawMotion',
-    ]) {
-      expect(motionOutOfOrder(state, type)?.kind, type).toBe('not-offered');
+    for (const type of Object.keys(RETIRED_MOTIONS)) {
+      expect(motionOutOfOrder(state, type)?.kind, type).toBe('unknown');
     }
+    expect(reason(state, 'withdrawMotion')).toBe(
+      "Permission to withdraw isn't offered in Robbie: the mover asks to withdraw their motion",
+    );
     // Every motion offered somewhere is one Robbie keeps
     for (const type of Object.keys(MOTIONS)) {
       if (!OFFERED_MOTIONS.includes(type)) {

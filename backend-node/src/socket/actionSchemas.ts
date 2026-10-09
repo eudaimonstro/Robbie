@@ -50,8 +50,6 @@ const MAX_ID_LENGTH = 64;
 const MAX_HEADCOUNT_NAMES = 500;
 /** The most candidates in a floor ballot count */
 const MAX_BALLOT_CANDIDATES = 100;
-/** The most parts a question can be divided into */
-const MAX_DIVIDED_PARTS = 20;
 /** The longest a speaker or vote timer can run, in seconds (a day) */
 const MAX_TIME_LIMIT_SECONDS = 86_400;
 
@@ -141,9 +139,6 @@ const motionDetails = {
   recessUntil: text(MAX_WHEN_LENGTH).optional(),
   agendaAmendment: agendaAmendment.optional(),
   bylawAmendment: bylawAmendment.optional(),
-  tabledMotionId: optionalId,
-  reconsideredMotionId: optionalId,
-  dividedParts: z.array(text(MAX_MOTION_TEXT_LENGTH)).max(MAX_DIVIDED_PARTS).optional(),
 };
 
 /** Counts by candidate name: names bounded, and none that is a prototype key */

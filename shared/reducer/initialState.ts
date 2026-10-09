@@ -45,7 +45,6 @@ export const initialState: MeetingState = {
   agendaAdopted: false,
   agendaObjection: false,
   currentAgendaItem: null,
-  tabledMotions: [],
   defeatedMotions: [],
   completedMotions: [],
   committeeReports: [], // Chair adds committee reports as needed
@@ -66,7 +65,6 @@ export const initialState: MeetingState = {
   currentElection: null,
   electedOfficers: [],
   inquiries: [],
-  dividedQuestionParts: [],
   rollCall: null,
   autoYieldOnTimeExpired: false,
 };

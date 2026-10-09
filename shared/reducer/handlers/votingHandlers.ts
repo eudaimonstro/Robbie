@@ -214,8 +214,6 @@ export const votingHandler: ActionHandler = (state, action, log) => {
         passed,
         voterChoices: isBallot || declared ? {} : state.voterChoices,
         timestamp: typedAction.timestamp,
-        reconsidered: false,
-        reconsiderable: decided.reconsidered,
         deviceVotes,
         floorVotes,
         method: state.divisionCalled ? 'standard' : state.votingMethod,

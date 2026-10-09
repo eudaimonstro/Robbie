@@ -127,8 +127,8 @@ const TAIL_FIELDS: readonly StateTailField[] = ['meetingLog', 'completedMotions'
 /**
  * Where a history array's new entries start: the length of what the room has, when that is
  * still the start of the array entry for entry (the reducer keeps the entries it doesn't change,
- * so they are the same objects); 0 when anything before it changed (a decided motion marked
- * reconsidered, say), and the whole array goes out again
+ * so they are the same objects); 0 when anything before it changed (a record corrected, say),
+ * and the whole array goes out again
  */
 export function tailStart(
   previous: readonly unknown[] | undefined,

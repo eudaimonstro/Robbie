@@ -47,7 +47,6 @@ function createMotion(
     needsSecond: true,
     debatable: overrides.debatable ?? true,
     amendable: true,
-    reconsidered: false,
     vote: 'majority' as const,
     phrase: 'I move that...',
     help: 'Help text',
@@ -596,15 +595,22 @@ describe('actionValidator', () => {
       });
 
       it.each([['takeFromTable'], ['reconsider'], ['suspendRules'], ['layOnTable']])(
-        'refuses %s, which Robbie does not offer, saying what to do instead',
+        'refuses %s, a motion Robbie no longer has',
         (motionType) => {
           expect(make(motionType)).toMatchObject({
             valid: false,
-            errorCode: 'MOTION_NOT_OFFERED',
-            error: expect.stringContaining("isn't offered in Robbie"),
+            errorCode: 'UNKNOWN_MOTION_TYPE',
           });
         },
       );
+
+      it('refuses moving a request to withdraw, which the mover asks for instead', () => {
+        expect(make('withdrawMotion')).toMatchObject({
+          valid: false,
+          errorCode: 'MOTION_NOT_OFFERED',
+          error: expect.stringContaining('the mover asks to withdraw'),
+        });
+      });
 
       it('accepts a bylaw amendment that names its document and change', () => {
         const bylawAmendment = { documentId: 'doc-1', changeType: 'modify', targetSectionId: 's1' };
@@ -735,7 +741,7 @@ describe('actionValidator', () => {
       });
     });
 
-    it('refuses divideQuestion, which Robbie does not offer', () => {
+    it('refuses divideQuestion, which Robbie no longer has', () => {
       const result = validateAction(state(), {
         type: 'MAKE_MOTION',
         motionType: 'divideQuestion',
@@ -744,9 +750,8 @@ describe('actionValidator', () => {
         moverId: 3,
         motionId: 9,
         timestamp: '',
-        dividedParts: ['a', 'b'],
       });
-      expect(result).toMatchObject({ valid: false, errorCode: 'MOTION_NOT_OFFERED' });
+      expect(result).toMatchObject({ valid: false, errorCode: 'UNKNOWN_MOTION_TYPE' });
     });
 
     it('refuses amending an amendment of one', () => {

@@ -557,7 +557,6 @@ describe('the meeting in words', () => {
       type: 'mainMotion',
       name: 'Main Motion',
       voterChoices: {},
-      reconsidered: false,
     };
     const state: MeetingState = {
       ...initialState,

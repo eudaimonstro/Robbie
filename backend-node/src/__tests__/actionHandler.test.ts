@@ -51,7 +51,6 @@ const question = {
   needsSecond: true,
   debatable: true,
   amendable: true,
-  reconsidered: true,
   vote: 'majority' as const,
   phrase: '',
   help: '',

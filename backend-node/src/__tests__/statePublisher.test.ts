@@ -19,7 +19,6 @@ const record = (method: CompletedMotion['method']): CompletedMotion => ({
   passed: true,
   voterChoices: { 2: 'yea', 3: 'nay' },
   timestamp: '20:15',
-  reconsidered: false,
   method,
 });
 
