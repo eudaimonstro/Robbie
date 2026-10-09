@@ -6,8 +6,7 @@
   "workspaces": [
     "shared",
     "backend-node",
-    "frontend-unified",
-    "mobile"
+    "frontend-unified"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -23,11 +22,10 @@
     "lint:palette": "bash scripts/check-palette.sh",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
-    "test": "npm run test:shared && npm run test:backend && npm run test:frontend && npm run test:mobile",
+    "test": "npm run test:shared && npm run test:backend && npm run test:frontend",
     "test:shared": "npm run test:run -w shared",
     "test:backend": "npm run test:run -w backend-node",
     "test:frontend": "npm run test:run -w frontend-unified",
-    "test:mobile": "npm run test:run -w mobile",
     "test:coverage": "npm run test:coverage -w shared && npm run test:coverage -w backend-node",
     "db:generate": "npm run db:generate -w backend-node",
     "db:push": "npm run db:push -w backend-node",
@@ -60,9 +58,6 @@
     },
     "@prisma/config": {
       "deepmerge-ts": "^8.0.2"
-    },
-    "xcode": {
-      "uuid": "^11.1.1"
     }
   },
   "engines": {

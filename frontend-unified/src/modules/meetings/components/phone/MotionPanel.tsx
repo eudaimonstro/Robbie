@@ -40,12 +40,12 @@ export function MotionPanel({ state, dispatch, me, othersOnly = false }: MotionP
   const [refused, setRefused] = useState(false);
 
   const validMotions = useMemo(() => {
-    const valid = getValidMotions(state, me.id);
+    const valid = getValidMotions(state);
     // An election holds the floor: only a privileged or incidental motion may interrupt it (the
     // server refuses the rest)
     if (!electionUnderway(state)) return valid;
     return valid.filter((m) => m.category === 'privileged' || m.category === 'incidental');
-  }, [state, me.id]);
+  }, [state]);
   const mainInOrder = !othersOnly && validMotions.some((m) => m.key === 'mainMotion');
   const others = validMotions.map((m) => m.key).filter((key) => key !== 'mainMotion');
 

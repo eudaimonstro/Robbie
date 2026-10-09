@@ -16,7 +16,6 @@ export default defineConfig(
       '**/playwright-report/**',
       '**/*.config.*',
       'backend-node/src/generated/**',
-      'mobile/**',
       // Agents' git worktrees (other branches' code, linted on their own branch)
       '.claude/**',
     ],

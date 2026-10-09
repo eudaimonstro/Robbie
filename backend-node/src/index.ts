@@ -41,7 +41,7 @@ const io = new Server<
     credentials: true,
   },
   // CORS doesn't stop a WebSocket from another site's page: its handshake is refused unless it
-  // comes from the app's own pages (or from no page: the mobile app)
+  // comes from the app's own pages (or from no page: curl, a server)
   allowRequest: (req, callback) =>
     callback(null, requestOriginAllowed(req.headers.origin, req.headers.host, trustedOrigins)),
   // No connection state recovery: it kept every update for two minutes and replayed them all to

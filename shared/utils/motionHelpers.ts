@@ -127,10 +127,8 @@ export function wordingFixedBy(state: MeetingState, motionType: string): boolean
  * not), in the order a phone lists them. A motion of the agenda's defeated this meeting isn't
  * offered again; a main motion or a bylaw amendment is refused by the server only when it renews
  * a defeated one's subject or change.
- *
- * @param _currentUserId - kept for the mobile app, which passes it
  */
-export function getValidMotions(state: MeetingState, _currentUserId?: number): ValidMotion[] {
+export function getValidMotions(state: MeetingState): ValidMotion[] {
   return OFFERED_MOTIONS.filter((key) => motionOutOfOrder(state, key) === null)
     .filter(
       (key) =>

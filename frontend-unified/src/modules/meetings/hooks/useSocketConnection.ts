@@ -181,7 +181,7 @@ export function useSocketConnection(
     };
 
     const join = () => {
-      // Members join with the code alone, as the mobile app does; a display says it is one
+      // Members join with the code alone; a display says it is one
       const payload = display ? { meetingCode, display: true } : { meetingCode };
       newSocket.emit('JOIN_MEETING', payload, (response) => {
         isConnectingRef.current = false;

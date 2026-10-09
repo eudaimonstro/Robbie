@@ -299,8 +299,7 @@ describe('motionHelpers', () => {
           },
         ],
       });
-      expect(getValidMotions(state, 1).map((m) => m.key)).not.toContain('reconsider');
-      expect(getValidMotions(state, 2).map((m) => m.key)).not.toContain('reconsider');
+      expect(getValidMotions(state).map((m) => m.key)).not.toContain('reconsider');
     });
 
     it('should keep offering main motions after one is defeated', () => {

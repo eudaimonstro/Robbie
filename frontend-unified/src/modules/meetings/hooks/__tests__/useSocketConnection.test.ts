@@ -311,7 +311,7 @@ describe('useSocketConnection joins', () => {
 
   const joined = { success: true, state: initialState, stateVersion: 1 };
 
-  it('joins with the code alone, as the mobile app does', () => {
+  it('joins with the code alone', () => {
     const { handlers, socket } = socketAnswering(joined);
     renderHook(() => useSocketConnection('DEMO', () => {}));
     act(() => handlers.connect());

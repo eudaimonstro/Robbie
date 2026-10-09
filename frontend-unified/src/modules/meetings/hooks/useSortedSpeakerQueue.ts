@@ -8,8 +8,8 @@ import type {
 import { sortSpeakerQueue } from '@robbie-bylawyer/shared/utils';
 
 /**
- * The speaker queue in the order the chair will call it (`sortSpeakerQueue` in shared, which
- * the mobile app uses too): the mover first if they haven't spoken, then alternating for and
+ * The speaker queue in the order the chair will call it (`sortSpeakerQueue` in shared): the
+ * mover first if they haven't spoken, then alternating for and
  * against in turn, then the order hands went up.
  *
  * @example
