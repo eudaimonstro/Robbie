@@ -9,6 +9,7 @@ import 'dotenv/config';
 import { parseArgs } from 'node:util';
 import { prisma } from '../db/prisma.js';
 import {
+  DEMO_BOARD_MEETING_CODE,
   DEMO_MEETING_CODE,
   DEMO_PAST_MEETING_CODE,
   DEMO_PEOPLE,
@@ -21,12 +22,13 @@ const { values } = parseArgs({ options: { reset: { type: 'boolean', default: fal
 try {
   const summary = await seedDemo({ reset: values.reset });
   console.log(
-    `Created Maple Grove HOA (${DEMO_SLUG}): ${summary.people} people, bylaws version 1 with ${summary.sections} sections, a proposed amendment, the 2025 annual meeting with its published minutes (${DEMO_PAST_MEETING_CODE}), and the packet for meeting ${DEMO_MEETING_CODE} with ${summary.agendaItems} agenda items.`,
+    `Created Maple Grove HOA (${DEMO_SLUG}): ${summary.people} people, bylaws version 1 with ${summary.sections} sections, a proposed amendment, the 2025 annual meeting with its published minutes (${DEMO_PAST_MEETING_CODE}), the packet for meeting ${DEMO_MEETING_CODE} with ${summary.agendaItems} agenda items, and the board's November meeting (${DEMO_BOARD_MEETING_CODE}).`,
   );
   console.log('');
   console.log('People (all have accepted the current terms):');
   for (const person of DEMO_PEOPLE) {
-    console.log(`  ${person.role.padEnd(9)} ${person.name} <${person.email}>`);
+    const board = person.director ? ', on the board' : '';
+    console.log(`  ${person.role.padEnd(9)} ${person.name} <${person.email}>${board}`);
   }
   console.log('');
   console.log(

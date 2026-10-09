@@ -59,6 +59,8 @@ describe('a board meeting', () => {
     // Three directors: a majority is 2
     expect(state.board).toEqual({ directors: 3 });
     expect(state.quorum).toBe(2);
+    // The members' September minutes are theirs to approve, not the board's
+    expect(state.previousMinutesId).toBeNull();
     for (const [user, role, nonVoting] of expected) {
       const member = state.members.find((m) => m.id === user.id);
       expect(member?.role, user.email).toBe(role);

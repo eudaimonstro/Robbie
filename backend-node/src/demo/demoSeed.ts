@@ -1,7 +1,7 @@
 /**
- * The Maple Grove HOA demo from docs/mvp-roadmap.md: an organization with its people, bylaws, a
- * proposed amendment, last year's meeting (adjourned) with its published minutes, and the packet for this
- * year's annual meeting
+ * The Maple Grove HOA demo from docs/mvp-roadmap.md: an organization with its people (three of
+ * them its board), bylaws, a proposed amendment, last year's meeting (adjourned) with its
+ * published minutes, the packet for this year's annual meeting, and next month's board meeting
  */
 
 import { TERMS_VERSION } from '@robbie-bylawyer/shared/constants';
@@ -13,6 +13,8 @@ export const DEMO_SLUG = 'maple-grove-hoa';
 export const DEMO_MEETING_CODE = 'MAPLE1';
 /** Last year's annual meeting, whose minutes this year's approves */
 export const DEMO_PAST_MEETING_CODE = 'MAPLE25';
+/** The board's November meeting: its directors vote, and the members may observe */
+export const DEMO_BOARD_MEETING_CODE = 'MAPLEB';
 
 const CLUBHOUSE = 'Maple Grove Clubhouse, 400 Maple Grove Drive';
 
@@ -66,14 +68,19 @@ export interface DemoPerson {
   email: string;
   name: string;
   role: OrgRole;
+  /** On the board: votes in board meetings */
+  director?: boolean;
 }
 
-/** Pat keeps the records (owner), Dana chairs (admin), Ray is the treasurer (secretary) */
+/**
+ * Pat keeps the records (owner), Dana chairs (admin), Ray is the treasurer (secretary). The
+ * board is Dana, Pat and Alice; Ray keeps the console at a board meeting without a vote.
+ */
 export const DEMO_PEOPLE: readonly DemoPerson[] = [
-  { email: 'pat@maplegrove.example', name: 'Pat Lindqvist', role: 'owner' },
-  { email: 'dana@maplegrove.example', name: 'Dana Okafor', role: 'admin' },
+  { email: 'pat@maplegrove.example', name: 'Pat Lindqvist', role: 'owner', director: true },
+  { email: 'dana@maplegrove.example', name: 'Dana Okafor', role: 'admin', director: true },
   { email: 'ray@maplegrove.example', name: 'Ray Castillo', role: 'secretary' },
-  { email: 'alice@maplegrove.example', name: 'Alice Brennan', role: 'member' },
+  { email: 'alice@maplegrove.example', name: 'Alice Brennan', role: 'member', director: true },
   { email: 'ben@maplegrove.example', name: 'Ben Whitaker', role: 'member' },
   { email: 'carmen@maplegrove.example', name: 'Carmen Diaz', role: 'member' },
   { email: 'david@maplegrove.example', name: 'David Nguyen', role: 'member' },
@@ -306,6 +313,15 @@ const AGENDA = [
   { title: 'Adjournment', estimatedMinutes: 1 },
 ];
 
+/** The board meeting's agenda */
+const BOARD_AGENDA: Array<{ title: string; estimatedMinutes?: number; presenter?: string }> = [
+  { title: 'Call to order', estimatedMinutes: 1 },
+  { title: "Treasurer's report", estimatedMinutes: 10, presenter: 'Ray Castillo' },
+  { title: 'Landscaping contract for 2027', estimatedMinutes: 15 },
+  { title: 'Pool hours for the winter', estimatedMinutes: 10 },
+  { title: 'Adjournment', estimatedMinutes: 1 },
+];
+
 export interface DemoSeedSummary {
   organizationId: string;
   people: number;
@@ -331,7 +347,9 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<DemoS
   if (existing) await deleteOrganization(existing.id);
 
   const codeTaken = await prisma.meetingPacket.findFirst({
-    where: { robbieCode: { in: [DEMO_MEETING_CODE, DEMO_PAST_MEETING_CODE] } },
+    where: {
+      robbieCode: { in: [DEMO_MEETING_CODE, DEMO_PAST_MEETING_CODE, DEMO_BOARD_MEETING_CODE] },
+    },
     select: { robbieCode: true },
   });
   if (codeTaken) {
@@ -390,7 +408,11 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
       // The clubhouse is in Chicago's time zone; the minutes give their times there
       timeZone: 'America/Chicago',
       members: {
-        create: DEMO_PEOPLE.map((person) => ({ userId: idOf(person.email), role: person.role })),
+        create: DEMO_PEOPLE.map((person) => ({
+          userId: idOf(person.email),
+          role: person.role,
+          isDirector: !!person.director,
+        })),
       },
     },
   });
@@ -520,6 +542,22 @@ async function create(tx: Tx): Promise<DemoSeedSummary> {
       // The president presides
       chairUserId: idOf('dana@maplegrove.example'),
       agendaItems: { create: AGENDA.map((item, position) => ({ ...item, position })) },
+    },
+  });
+
+  // Next month's board meeting: Dana presides, the three directors vote (a majority of them is
+  // the quorum), and the other members may observe
+  await tx.meetingPacket.create({
+    data: {
+      organizationId: organization.id,
+      robbieCode: DEMO_BOARD_MEETING_CODE,
+      kind: 'board',
+      title: 'November board meeting',
+      description: 'The monthly meeting of the board of directors.',
+      location: CLUBHOUSE,
+      scheduledFor: new Date('2026-11-10T19:00:00-06:00'),
+      chairUserId: idOf('dana@maplegrove.example'),
+      agendaItems: { create: BOARD_AGENDA.map((item, position) => ({ ...item, position })) },
     },
   });
 

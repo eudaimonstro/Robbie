@@ -130,7 +130,7 @@ async function withPreviousMinutes(
     return meeting;
   }
   try {
-    const previous = await previousMinutesFor(packet.organizationId, packet.id);
+    const previous = await previousMinutesFor(packet.organizationId, packet.id, packet.kind);
     if (!previous) return meeting;
     const result = await applyAction(packet.robbieCode, {
       type: 'SET_PREVIOUS_MINUTES',

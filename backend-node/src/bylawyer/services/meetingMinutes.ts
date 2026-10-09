@@ -2,7 +2,7 @@
  * Minutes: written from a meeting's live record and what its packet and organization say
  */
 
-import type { MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
+import type { MeetingKind, MeetingState, MinutesContext } from '@robbie-bylawyer/shared/types';
 import { formatMinutesAsMarkdown, generateMeetingMinutes } from '@robbie-bylawyer/shared/utils';
 import { getStorage } from '../../db/meetingStorage.js';
 import { prisma } from '../../db/prisma.js';
@@ -92,15 +92,18 @@ export async function draftMinutesOnAdjournment(
 }
 
 /**
- * The minutes to put before a meeting: the organization's most recent published minutes, not
- * yet approved and not the meeting's own (the latest meeting first, then the latest published)
+ * The minutes to put before a meeting: the organization's most recent published minutes of a
+ * meeting of the same kind (the board approves the board's minutes, the members the members'),
+ * not yet approved and not the meeting's own (the latest meeting first, then the latest
+ * published)
  */
 export function previousMinutesFor(
   organizationId: string,
   packetId: string,
+  kind: MeetingKind = 'members',
 ): Promise<{ id: string; body: string } | null> {
   return prisma.minutes.findFirst({
-    where: { organizationId, status: 'published', packetId: { not: packetId } },
+    where: { organizationId, status: 'published', packetId: { not: packetId }, packet: { kind } },
     orderBy: [
       { packet: { scheduledFor: { sort: 'desc', nulls: 'last' } } },
       { publishedAt: 'desc' },
