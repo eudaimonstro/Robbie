@@ -120,7 +120,10 @@ export function shown(
   text: string | RegExp,
   options: { exact?: boolean } = {},
 ): Locator {
-  return page.getByRole('main').getByText(text, options).and(page.locator(':not(.sr-only)'));
+  return page
+    .getByRole('main')
+    .getByText(text, options)
+    .and(page.locator(':not(.sr-only):not(.sr-only *)'));
 }
 
 /**

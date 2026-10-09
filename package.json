@@ -29,7 +29,7 @@
     "db:generate": "npm run db:generate -w backend-node",
     "db:migrate": "npm run db:migrate -w backend-node",
     "db:studio": "npm run db:studio -w backend-node",
-    "e2e": "npm run build:shared && npm run build -w frontend-unified && playwright test -c e2e"
+    "e2e": "npm run db:generate && npm run build:shared && npm run build -w frontend-unified && playwright test -c e2e"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

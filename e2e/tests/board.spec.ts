@@ -339,7 +339,12 @@ test('the notice of the annual meeting goes to every member, and prints with its
     // A member can't print it
     const alice = await personPage(browser, PEOPLE.alice, PHONE);
     await alice.goto(`/meetings/${ANNUAL}/notice`);
-    await expect(alice.getByText("The meeting's notice is printed by a secretary.")).toBeVisible();
+    // The notice page is outside the app's layout: its refusal is the page's one paragraph
+    await expect(
+      alice
+        .getByRole('paragraph')
+        .filter({ hasText: "The meeting's notice is printed by a secretary." }),
+    ).toBeVisible();
   } finally {
     const opened = browser.contexts().filter((context) => !before.has(context));
     await Promise.all(opened.map((context) => context.close()));
