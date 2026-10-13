@@ -469,7 +469,12 @@ export interface Inquiry {
   answer?: string;
   answeredBy?: string;
   answeredAt?: string;
+  /** Settled without a written answer: the chair answered aloud, or no answer was needed */
+  closed?: InquiryClosed;
 }
+
+/** How the chair settled a question without writing an answer (CLOSE_INQUIRY) */
+export type InquiryClosed = 'aloud' | 'dismissed';
 
 /** A voice vote declared by the chair, open to a division (MeetingState.voiceVote) */
 export interface VoiceVoteResult {
@@ -815,6 +820,15 @@ export type MeetingAction =
       inquiryId: number;
       answer: string;
       answeredBy: string;
+      timestamp: string;
+    }
+  // The chair settles a question without writing an answer: answered aloud, or dismissed as
+  // needing none. answeredBy is set by the server.
+  | {
+      type: 'CLOSE_INQUIRY';
+      inquiryId: number;
+      how: InquiryClosed;
+      answeredBy?: string;
       timestamp: string;
     }
   | {

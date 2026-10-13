@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { awaitingAnswer, generateId, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type {
   InquiryType,
   MeetingAction,
@@ -27,11 +27,11 @@ export function AskTheChair({ state, dispatch, me }: AskTheChairProps) {
   const questionId = useId();
   const [kind, setKind] = useState<InquiryType>('parliamentary');
   const [question, setQuestion] = useState('');
-  const waiting = state.inquiries.filter((i) => !i.answer && i.askerId === me.id).length;
+  const waiting = state.inquiries.filter((i) => awaitingAnswer(i) && i.askerId === me.id).length;
   const answered = useMemo(
     () =>
       state.inquiries
-        .filter((i) => i.answer)
+        .filter((i) => !awaitingAnswer(i))
         .slice(-5)
         .reverse(),
     [state.inquiries],

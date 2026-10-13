@@ -71,6 +71,7 @@ export const UNDO_RULES: Record<MeetingAction['type'], UndoRule> = {
   TAKE_UP_POSTPONED: 'step',
   RESUME_MEETING: 'step',
   ANSWER_INQUIRY: 'keeps',
+  CLOSE_INQUIRY: 'keeps',
   MARK_ABSENT: 'keeps',
   MARK_PRESENT: 'keeps',
   SET_HEADCOUNT: 'keeps',

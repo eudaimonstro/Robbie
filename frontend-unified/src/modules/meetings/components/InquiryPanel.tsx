@@ -1,6 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
-import type { MeetingState, MeetingAction, Member } from '@robbie-bylawyer/shared/types';
+import { awaitingAnswer, generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import type {
+  InquiryClosed,
+  MeetingState,
+  MeetingAction,
+  Member,
+} from '@robbie-bylawyer/shared/types';
 import { inquiryKind } from '../utils/inquiryKinds';
 
 interface InquiryPanelProps {
@@ -31,15 +36,19 @@ export function InquiryPanel({ state, dispatch, currentUser }: InquiryPanelProps
     [dispatch, answerText, currentUser.name],
   );
 
+  // Answered aloud, or needing no answer: off the list without writing one
+  const close = (inquiryId: number, how: InquiryClosed) =>
+    dispatch({ type: 'CLOSE_INQUIRY', inquiryId, how, timestamp: generateTimestamp() });
+
   const unansweredInquiries = useMemo(
-    () => state.inquiries.filter((inq) => !inq.answer),
+    () => state.inquiries.filter(awaitingAnswer),
     [state.inquiries],
   );
-  // The last five answered, the latest first
+  // The last five answered (or settled), the latest first
   const recentAnsweredInquiries = useMemo(
     () =>
       state.inquiries
-        .filter((inq) => inq.answer)
+        .filter((inq) => !awaitingAnswer(inq))
         .slice(-5)
         .reverse(),
     [state.inquiries],
@@ -82,6 +91,22 @@ export function InquiryPanel({ state, dispatch, currentUser }: InquiryPanelProps
                   Answer
                 </button>
               </div>
+              <div className="mt-1 flex gap-1">
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => close(inquiry.id, 'aloud')}
+                >
+                  Answered aloud
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-sm"
+                  onClick={() => close(inquiry.id, 'dismissed')}
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -106,10 +131,19 @@ export function AnsweredQuestions({ inquiries }: { inquiries: MeetingState['inqu
           <p className="text-ink">
             <span className="font-medium">Q:</span> {inquiry.question}
           </p>
-          <p className="mt-1 text-ink">
-            <span className="font-medium">A:</span> {inquiry.answer}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">Answered by {inquiry.answeredBy}</p>
+          {inquiry.answer ? (
+            <>
+              <p className="mt-1 text-ink">
+                <span className="font-medium">A:</span> {inquiry.answer}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">Answered by {inquiry.answeredBy}</p>
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-ink-muted">
+              {inquiry.closed === 'aloud' ? 'Answered aloud' : 'No answer needed'}
+              {inquiry.answeredBy && ` (${inquiry.answeredBy})`}
+            </p>
+          )}
         </div>
       ))}
     </div>

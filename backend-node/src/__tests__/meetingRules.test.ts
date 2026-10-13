@@ -954,3 +954,40 @@ describe('review fixes', () => {
     ]);
   });
 });
+
+describe('questions for the chair', () => {
+  const asked = () =>
+    act(inSession(), 'alice', {
+      type: 'ASK_INQUIRY',
+      inquiryType: 'information',
+      question: 'How much is in the reserve fund?',
+      askedBy: '',
+      askerId: 0,
+      inquiryId: 1,
+    });
+
+  it('are answered aloud or dismissed by the chair, once, and then never answered in writing', () => {
+    const s = asked();
+    const id = s.inquiries[0].id;
+    const close = { type: 'CLOSE_INQUIRY', inquiryId: id, how: 'aloud' } as const;
+    expect(refusal(s, 'alice', close)).toMatchObject({ errorCode: 'PERMISSION_DENIED' });
+    const closed = act(s, 'dana', close);
+    expect(closed.inquiries[0]).toMatchObject({ closed: 'aloud', answeredBy: 'Dana Okafor' });
+    expect(refusal(closed, 'dana', { ...close, how: 'dismissed' })).toMatchObject({
+      errorCode: 'INQUIRY_ALREADY_ANSWERED',
+    });
+    expect(
+      refusal(closed, 'dana', { type: 'ANSWER_INQUIRY', inquiryId: id, answer: 'About $80,000' }),
+    ).toMatchObject({ errorCode: 'INQUIRY_ALREADY_ANSWERED' });
+  });
+
+  it('never go in the minutes, settled or not', () => {
+    const s = asked();
+    const dismissed = act(s, 'dana', {
+      type: 'CLOSE_INQUIRY',
+      inquiryId: s.inquiries[0].id,
+      how: 'dismissed',
+    });
+    expect(minutesOf(dismissed)).not.toContain('reserve fund');
+  });
+});

@@ -159,6 +159,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     // Inquiries
     case 'ASK_INQUIRY':
     case 'ANSWER_INQUIRY':
+    case 'CLOSE_INQUIRY':
       return inquiryHandler(state, action, log);
 
     // Members

@@ -17,6 +17,7 @@ import {
   countBallot,
   electedTo,
   floorOpenForDebate,
+  awaitingAnswer,
   headcountBaseHolds,
   isBoardMeeting,
   motionOutOfOrder,
@@ -371,6 +372,7 @@ const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAct
   'LOWER_HAND',
   'ASK_INQUIRY',
   'ANSWER_INQUIRY',
+  'CLOSE_INQUIRY',
   'SET_SPEAKER_TIME_LIMIT',
   'SET_VOTE_TIME_LIMIT',
   'SET_VOTING_METHOD',
@@ -1677,19 +1679,20 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
-    case 'ANSWER_INQUIRY': {
+    case 'ANSWER_INQUIRY':
+    case 'CLOSE_INQUIRY': {
       const inquiry = state.inquiries.find((i) => i.id === action.inquiryId);
       if (!inquiry) {
         return { valid: false, error: 'Inquiry not found', errorCode: 'INQUIRY_NOT_FOUND' };
       }
-      if (inquiry.answer) {
+      if (!awaitingAnswer(inquiry)) {
         return {
           valid: false,
           error: 'Inquiry is already answered',
           errorCode: 'INQUIRY_ALREADY_ANSWERED',
         };
       }
-      if (action.answer && action.answer.length > 1000) {
+      if (action.type === 'ANSWER_INQUIRY' && action.answer && action.answer.length > 1000) {
         return {
           valid: false,
           error: 'Answer exceeds 1000 character limit',

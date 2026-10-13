@@ -95,3 +95,5 @@ export {
   winnersOf,
   type BallotCount,
 } from './elections.js';
+
+export { awaitingAnswer } from './inquiries.js';
