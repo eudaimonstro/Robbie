@@ -376,6 +376,8 @@ const IN_RECESS_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAct
   'SET_VOTING_METHOD',
   'SET_AUTO_YIELD',
   'SET_MEMBER_ROLE',
+  // The vote that carried the recess, closed by mistake
+  'UNDO_LAST_STEP',
 ]);
 
 /** What can happen once an adjournment has carried: the chair declares the meeting adjourned */
@@ -388,6 +390,7 @@ const ADJOURNING_ALLOWED: ReadonlySet<MeetingAction['type']> = new Set<MeetingAc
   'SET_HEADCOUNT',
   'LOWER_HAND',
   'SET_MEMBER_ROLE',
+  'UNDO_LAST_STEP',
 ]);
 
 /** Business from the floor is recorded by the chair or an admin presiding */
@@ -1111,6 +1114,13 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
           error: 'Objection already registered',
           errorCode: 'OBJECTION_ALREADY_REGISTERED',
         };
+      }
+      return { valid: true };
+
+    case 'UNDO_LAST_STEP':
+      // The last step, until the meeting moves on (shared/reducer/undo.ts)
+      if (!state.meetingActive || !state.lastStep?.undo) {
+        return { valid: false, error: 'Nothing to undo', errorCode: 'INVALID_STATE' };
       }
       return { valid: true };
 

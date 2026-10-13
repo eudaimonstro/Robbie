@@ -478,6 +478,18 @@ export interface VoiceVoteResult {
   undo?: Partial<MeetingState>;
 }
 
+/**
+ * The chair's last step, while it can still be undone (MeetingState.lastStep): a click at the
+ * console the chair didn't mean, put back as if it never happened. `undo` is what the step
+ * changed, as it was before, and `added` the fields it set that weren't there; both stay on the
+ * server, and clients receive only the type.
+ */
+export interface LastStep {
+  type: MeetingAction['type'];
+  undo?: Partial<MeetingState>;
+  added?: string[];
+}
+
 /** A recess, as the minutes record it */
 export interface RecessRecord {
   /** When it began and ended, by the server's clock (ISO) */
@@ -599,6 +611,8 @@ export interface MeetingState {
    * server to put back if a division is called; clients don't receive it.
    */
   voiceVote?: VoiceVoteResult | null;
+  /** The chair's last step, while it can be undone (shared/reducer/undo.ts) */
+  lastStep?: LastStep | null;
   /** The seats to fill for the position nominations are (or were) open for; one when absent */
   openSeats?: number | null;
   /**
@@ -883,7 +897,9 @@ export type MeetingAction =
   // the chair records it for someone in the room. requesterId is set by the server.
   | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
   | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
-  | { type: 'SET_AUTO_YIELD'; enabled: boolean };
+  | { type: 'SET_AUTO_YIELD'; enabled: boolean }
+  // The chair takes back their last step, a click they didn't mean (shared/reducer/undo.ts)
+  | { type: 'UNDO_LAST_STEP'; timestamp: string };
 
 // Motion definition type
 export interface MotionDefinition {

@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { stepName } from '@robbie-bylawyer/shared/constants';
+import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { useSocket } from '../context/SocketContext';
 import { useRoster } from '../hooks/useRoster';
 import { useEligibleVoters } from '../hooks/useEligibleVoters';
@@ -149,6 +151,15 @@ export function ChairConsole() {
                   : setSecondingId(state.pendingSecond?.id ?? null)
               }
               onConfirm={setConfirming}
+              undo={
+                state.lastStep
+                  ? {
+                      name: stepName(state.lastStep.type),
+                      onUndo: () =>
+                        dispatch({ type: 'UNDO_LAST_STEP', timestamp: generateTimestamp() }),
+                    }
+                  : undefined
+              }
             />
             {seconding && (
               <FloorSecondForm

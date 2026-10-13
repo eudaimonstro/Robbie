@@ -19,6 +19,7 @@ describe('permissionGuard', () => {
         'CHAIR_RULING',
         'ADOPT_AGENDA',
         'WITHDRAW_AGENDA_OBJECTION',
+        'UNDO_LAST_STEP',
         'CALL_AGENDA_ITEM',
         'COMPLETE_AGENDA_ITEM',
         'REQUEST_UNANIMOUS_CONSENT',

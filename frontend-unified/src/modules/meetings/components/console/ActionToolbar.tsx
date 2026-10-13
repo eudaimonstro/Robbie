@@ -1,3 +1,4 @@
+import { Undo2 } from 'lucide-react';
 import type { MeetingAction } from '@robbie-bylawyer/shared/types';
 import type { ChairAction, FloorAction } from '../../utils/chairActions';
 
@@ -9,6 +10,8 @@ interface ActionToolbarProps {
   onFloor?: (id: FloorAction['id']) => void;
   /** An action that asks first (Adjourn): the console confirms it, then dispatches */
   onConfirm?: (action: ChairAction) => void;
+  /** The chair's last step, while it can be taken back: what it was, and taking it back */
+  undo?: { name: string; onUndo: () => void };
 }
 
 /** The chair's actions that are in order now, under the question card */
@@ -18,8 +21,9 @@ export function ActionToolbar({
   floor = [],
   onFloor,
   onConfirm,
+  undo,
 }: ActionToolbarProps) {
-  if (actions.length === 0 && floor.length === 0) return null;
+  if (actions.length === 0 && floor.length === 0 && !undo) return null;
   // Adjourn, as an alternative, comes last; as the expected next step it stays first
   const adjourn = actions.findIndex((a) => a.id === 'adjourn' && a.tone === 'secondary');
   const before = adjourn < 0 ? actions : actions.slice(0, adjourn);
@@ -54,6 +58,13 @@ export function ActionToolbar({
         </button>
       ))}
       {after.map(button)}
+      {/* Out of the way of the next step, at the end of the row */}
+      {undo && (
+        <button type="button" className="btn-ghost ml-auto" onClick={undo.onUndo}>
+          <Undo2 className="h-4 w-4" aria-hidden="true" />
+          Undo: {undo.name}
+        </button>
+      )}
     </div>
   );
 }

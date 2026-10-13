@@ -237,4 +237,11 @@ describe('the action toolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ask for unanimous consent' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'REQUEST_UNANIMOUS_CONSENT', timestamp: '' });
   });
+
+  it("offers to undo the chair's last step, even with nothing else to do (a vote open)", () => {
+    const onUndo = vi.fn();
+    render(<ActionToolbar dispatch={dispatch} actions={[]} undo={{ name: 'No second', onUndo }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo: No second' }));
+    expect(onUndo).toHaveBeenCalled();
+  });
 });

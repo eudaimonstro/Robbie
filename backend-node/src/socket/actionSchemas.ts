@@ -268,6 +268,7 @@ export const ACTION_SCHEMAS = {
     type: z.literal('WITHDRAW_AGENDA_OBJECTION'),
     timestamp,
   }),
+  UNDO_LAST_STEP: z.strictObject({ type: z.literal('UNDO_LAST_STEP'), timestamp }),
   CALL_AGENDA_ITEM: z.strictObject({ type: z.literal('CALL_AGENDA_ITEM'), id, timestamp }),
   COMPLETE_AGENDA_ITEM: z.strictObject({
     type: z.literal('COMPLETE_AGENDA_ITEM'),
