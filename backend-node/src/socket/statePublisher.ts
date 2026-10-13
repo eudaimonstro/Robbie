@@ -45,9 +45,15 @@ export function publicState(state: MeetingState, role: MeetingRole): MeetingStat
   const hideMinutes = role === 'guest' && !!state.minutesFromPreviousMeeting;
   // What a declared voice vote's division would put back stays on the server
   const voiceUndo = !!state.voiceVote?.undo;
-  if (!openBallot && !ballotChoices && !openElection && !hideMinutes && !voiceUndo) return state;
+  // And what undoing the chair's last step would put back (a ballot's choices, say): the console
+  // learns only that there is a step to undo
+  const stepUndo = !!state.lastStep?.undo;
+  if (!openBallot && !ballotChoices && !openElection && !hideMinutes && !voiceUndo && !stepUndo) {
+    return state;
+  }
   return {
     ...state,
+    ...(stepUndo && { lastStep: { type: state.lastStep!.type } }),
     ...(hideMinutes && { minutesFromPreviousMeeting: '' }),
     ...(voiceUndo && {
       voiceVote: { motionId: state.voiceVote!.motionId, passed: state.voiceVote!.passed },

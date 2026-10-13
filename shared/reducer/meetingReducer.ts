@@ -13,6 +13,7 @@ import {
   inquiryHandler,
   rulingHandler,
 } from './handlers/index.js';
+import { settleLastStep, undoLastStep } from './undo.js';
 
 /**
  * A request for unanimous consent is on the question the chair named (RONR 4:58): it ends when a
@@ -56,6 +57,8 @@ const KEEPS_DIVISION_OPEN: ReadonlySet<MeetingAction['type']> = new Set<MeetingA
   'SET_SPEAKER_TIME_LIMIT',
   'SET_VOTE_TIME_LIMIT',
   'SET_AUTO_YIELD',
+  // Undoing a step taken after the declaration leaves it open to a division again
+  'UNDO_LAST_STEP',
 ]);
 
 function settleDivision(state: MeetingState, action: MeetingAction): MeetingState {
@@ -64,7 +67,11 @@ function settleDivision(state: MeetingState, action: MeetingAction): MeetingStat
 }
 
 export function meetingReducer(state: MeetingState, action: MeetingAction): MeetingState {
-  return settleDivision(settleConsent(applyAction(state, action)), action);
+  return settleLastStep(
+    state,
+    settleDivision(settleConsent(applyAction(state, action)), action),
+    action,
+  );
 }
 
 function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
@@ -170,6 +177,10 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     // The chair's ruling on a point of order
     case 'CHAIR_RULING':
       return rulingHandler(state, action, log);
+
+    // The chair takes back their last step
+    case 'UNDO_LAST_STEP':
+      return undoLastStep(state, log, action.timestamp);
 
     default: {
       // Exhaustive check - TypeScript will error here if any action type is unhandled

@@ -25,3 +25,4 @@ export {
 } from './limits.js';
 export { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from './attachments.js';
 export { MEETING_CODE_PATTERN } from './meetingCode.js';
+export { STEP_NAMES, stepName } from './stepNames.js';

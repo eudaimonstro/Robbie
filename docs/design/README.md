@@ -15,3 +15,4 @@ In the order they were built:
 9. [Elections and thresholds](2026-10-08-elections-and-thresholds-design.md) (#53): several seats on one ballot, acclamation, write-ins, the organization's bylaw threshold, and voice votes.
 10. [Onboarding](2026-10-08-onboarding-design.md) (#54): quorum at setup, a setup checklist, bulk adding, the roster's people who haven't signed in, and proxies in the quorum.
 11. [Board meetings and notice](2026-10-09-board-meetings-and-notice-design.md) (#55): meetings of the directors with observers, and the meeting notice by email and on paper.
+12. [Undo the chair's last step](2026-10-13-undo-last-step-design.md): taking back a button the chair didn't mean, until the meeting moves on.

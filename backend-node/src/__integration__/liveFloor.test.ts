@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import type { MeetingState } from '@robbie-bylawyer/shared/types';
 import { getStorage, initializeStorage } from '../db/meetingStorage.js';
+import { pool } from '../db/client.js';
 import { prisma } from '../db/prisma.js';
 import { resetDatabase, resetLiveMeetings } from './db.js';
 import { seedFixture, type Fixture } from './fixtures.js';
@@ -72,6 +73,40 @@ describe('business from the floor in a live meeting', () => {
       'A owner moves from the floor: "Resurface the pool this spring" (Main Motion). Awaiting second.',
       'Seconded from the floor.',
     ]);
+  });
+
+  it('undoes a motion recorded by mistake, keeping what it would put back off the phones', async () => {
+    await live.dispatch(chair, {
+      type: 'MAKE_FLOOR_MOTION',
+      motionType: 'mainMotion',
+      text: 'Resurface the pool this spring',
+      moverName: 'Frank Ruiz',
+      motionId: 1,
+      timestamp: '',
+    });
+    // Stored with what undoing puts back; sent with only what the step was
+    const stored = await pool.query('SELECT current_state FROM meetings WHERE code = $1', [
+      f.packet.code,
+    ]);
+    expect(stored.rows[0].current_state.lastStep.undo).toHaveProperty('pendingSecond', null);
+    const sent = live.broadcasts
+      .filter((b) => b.event === 'STATE_UPDATE')
+      .map((b) => (b.payload as { state: MeetingState }).state.lastStep);
+    expect(sent.at(-1)).toEqual({ type: 'MAKE_FLOOR_MOTION' });
+
+    expect(await live.dispatch(member, { type: 'UNDO_LAST_STEP', timestamp: '' })).toMatchObject({
+      success: false,
+      errorCode: 'PERMISSION_DENIED',
+    });
+    expect(await live.dispatch(chair, { type: 'UNDO_LAST_STEP', timestamp: '' })).toMatchObject({
+      success: true,
+    });
+    const state = await stateOf(f.packet.code);
+    expect(state.pendingSecond).toBeNull();
+    expect(state.lastStep).toBeNull();
+    expect(state.meetingLog.at(-1)?.message).toBe(
+      'The chair undid recording the motion from the floor.',
+    );
   });
 
   it("refuses a member's floor motion and floor second", async () => {

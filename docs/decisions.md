@@ -17,6 +17,7 @@ Several of these were first written down in `spec.md`, the finishing spec of 202
 - **Live updates are coalesced and slimmed, not replayed (2026-10-08, #50).** The server sends a room the latest state at most every quarter second, compressed, with the meeting log and the decided motions as only what was added since (`StateUpdatePayload.tails`). Replaying actions to clients instead would leak secret ballots.
 - **Versions are the record (2026-10-08, #48).** Only a document's current version changes; earlier versions stay as adopted. Deleting a document, an earlier version or an organization is a real delete that leaves an `AuditEntry`, not a soft delete.
 - **Minutes are their own record (2026-10-07, #43).** One Markdown text per meeting (draft, published, approved), written from the meeting's records, not a versioned document.
+- **The chair can undo a mis-click (2026-10-13).** The console's last step, the chair's own, can be undone until the meeting moves on; a member's business and anything that reaches outside the meeting (adjourning, approving minutes, a bylaw amendment decided) can't. The log says it was undone; the minutes never record it. `docs/design/2026-10-13-undo-last-step-design.md`.
 - **The notice is a courtesy (2026-10-08, #55).** Robbie emails and prints a meeting's notice; the bylaws and state law set the official one.
 - **Abuse handling is a script, not a screen (2026-10-08, #47).** Reported files are preserved and removed from the server with `handleReport` (`docs/deploy.md`, "Handling a report").
 

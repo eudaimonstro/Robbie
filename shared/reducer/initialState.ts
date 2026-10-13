@@ -58,6 +58,7 @@ export const initialState: MeetingState = {
   electionsSetAside: [],
   unfinishedAtAdjournment: [],
   lastChairRuling: null,
+  lastStep: null,
   nominations: [],
   nominationsOpen: false,
   currentNominationPosition: null,

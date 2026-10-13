@@ -46,6 +46,12 @@ export function withDefaults(state: MeetingState): MeetingState {
     for (const key of RETIRED_STATE_KEYS) delete undo[key];
     loaded.voiceVote = { ...voiceVote, undo };
   }
+  const lastStep = loaded.lastStep as MeetingState['lastStep'];
+  if (lastStep?.undo) {
+    const undo: Record<string, unknown> = { ...lastStep.undo };
+    for (const key of RETIRED_STATE_KEYS) delete undo[key];
+    loaded.lastStep = { ...lastStep, undo };
+  }
   return loaded as unknown as MeetingState;
 }
 

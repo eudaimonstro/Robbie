@@ -54,6 +54,8 @@ const PERMISSIONS: Record<MeetingAction['type'], Role[]> = {
   ANSWER_INQUIRY: PRESIDING,
   MARK_ABSENT: PRESIDING,
   SET_AUTO_YIELD: PRESIDING,
+  // The chair takes back their last step (shared/reducer/undo.ts)
+  UNDO_LAST_STEP: PRESIDING,
 
   // Attendance: the chair or secretary marks people present and counts the room
   MARK_PRESENT: PRESIDING,
