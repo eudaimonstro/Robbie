@@ -1792,9 +1792,18 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       return { valid: true };
 
     case 'MARK_ABSENT': {
-      const memberToMark = state.members.find((m) => m.id === action.memberId);
-      if (!memberToMark) {
+      if (state.members.some((m) => m.id === action.memberId)) return { valid: true };
+      // Someone who hasn't joined: the server fills in member from the organization's roster
+      // (see attendanceActions.ts)
+      if (!action.member || action.member.id !== action.memberId) {
         return { valid: false, error: 'Member not found', errorCode: 'MEMBER_NOT_FOUND' };
+      }
+      if (isBoardMeeting(state) && !takesPart(action.member)) {
+        return {
+          valid: false,
+          error: 'Only the directors are marked absent in a board meeting',
+          errorCode: 'BOARD_MEETING',
+        };
       }
       return { valid: true };
     }
