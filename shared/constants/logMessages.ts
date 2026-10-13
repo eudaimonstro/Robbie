@@ -93,6 +93,7 @@ export function logSpeakerYields(name: string | undefined): string {
 // Agenda
 export const LOG_AGENDA_ADOPTED = 'Agenda adopted by unanimous consent.';
 export const LOG_AGENDA_OBJECTION = 'Objection raised to agenda.';
+export const LOG_AGENDA_OBJECTION_WITHDRAWN = 'The objection to the agenda is withdrawn.';
 
 export function logAgendaItemCalled(title: string | undefined): string {
   return `Chair calls: "${title}"`;

@@ -696,6 +696,8 @@ export type MeetingAction =
   | { type: 'ADOPT_AGENDA'; confirmedWithoutQuorum?: boolean; at?: string; timestamp: string }
   // objectorId is set by the server from the signed-in user
   | { type: 'AGENDA_OBJECTION'; objectorId?: number; timestamp: string }
+  // The objector takes it back (or the chair recorded it by mistake): consent is asked again
+  | { type: 'WITHDRAW_AGENDA_OBJECTION'; timestamp: string }
   | { type: 'CALL_AGENDA_ITEM'; id: number; timestamp: string }
   | { type: 'COMPLETE_AGENDA_ITEM'; id: number; timestamp: string }
   | { type: 'REORDER_AGENDA'; fromIndex: number; toIndex: number }

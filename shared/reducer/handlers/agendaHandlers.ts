@@ -2,6 +2,7 @@ import type { MeetingAction } from '../../types/index.js';
 import {
   LOG_AGENDA_ADOPTED,
   LOG_AGENDA_OBJECTION,
+  LOG_AGENDA_OBJECTION_WITHDRAWN,
   logAgendaItemCalled,
   logAgendaItemCompleted,
 } from '../../constants/logMessages.js';
@@ -59,6 +60,16 @@ export const agendaHandler: ActionHandler = (state, action, log) => {
         ...state,
         agendaObjection: true,
         meetingLog: log(typedAction.timestamp, LOG_AGENDA_OBJECTION),
+      };
+    }
+
+    case 'WITHDRAW_AGENDA_OBJECTION': {
+      const typedAction = action as Extract<MeetingAction, { type: 'WITHDRAW_AGENDA_OBJECTION' }>;
+      // As if nobody had objected: the chair asks again whether there is any objection
+      return {
+        ...state,
+        agendaObjection: false,
+        meetingLog: log(typedAction.timestamp, LOG_AGENDA_OBJECTION_WITHDRAWN),
       };
     }
 

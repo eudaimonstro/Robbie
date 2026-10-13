@@ -439,8 +439,19 @@ function actionsInOrder(state: MeetingState, presidingId: number | null): ChairA
   }
 
   if (!state.agendaAdopted) {
-    // After an objection, a member moves to adopt or amend the agenda
-    if (state.agendaObjection) return [adjourn('secondary')];
+    // After an objection, a member moves to adopt or amend the agenda (a motion from the
+    // floor), unless the objector takes it back: then the chair asks for consent again
+    if (state.agendaObjection) {
+      return [
+        {
+          id: 'withdraw-agenda-objection',
+          label: 'The objection is withdrawn',
+          tone: 'secondary',
+          make: () => ({ type: 'WITHDRAW_AGENDA_OBJECTION', timestamp: generateTimestamp() }),
+        },
+        adjourn('secondary'),
+      ];
+    }
     return [
       {
         id: 'adopt-agenda',
