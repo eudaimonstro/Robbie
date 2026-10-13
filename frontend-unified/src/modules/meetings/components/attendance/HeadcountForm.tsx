@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useState, type FocusEvent, type FormEvent } from 'react';
 import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import type { HeadcountBase, MeetingAction } from '@robbie-bylawyer/shared/types';
 import { useToast } from '../../../../context/ToastContext';
@@ -37,7 +37,8 @@ interface Draft {
 /**
  * People in the room without an account: how many, and their names when they want them in the
  * minutes; and the paper proxies and absentee ballots held, which count toward quorum too.
- * Saving replaces them (SET_HEADCOUNT). Untouched, the form shows the meeting's counts as they
+ * Saving replaces them (SET_HEADCOUNT): with Enter or Save, or by leaving the form (clicking
+ * anywhere outside it), never between its fields. Untouched, the form shows the meeting's counts as they
  * change; once someone types, it keeps what they typed (another screen's Mark present doesn't
  * wipe it), and a save made from counts that changed meanwhile is refused and said so.
  */
@@ -66,8 +67,7 @@ export function HeadcountForm({
   };
   const edit = (change: Partial<Omit<Draft, 'from'>>) => setDraft({ ...shown, ...change });
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const save = async () => {
     const value = countOf(shown.count);
     if (value === null) {
       setProblem('The headcount is a whole number, 0 or more');
@@ -122,8 +122,20 @@ export function HeadcountForm({
     showToast('success', 'Headcount saved');
   };
 
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void save();
+  };
+
+  // Focus leaving the form (not moving between its fields) saves what was typed
+  const onBlur = (e: FocusEvent<HTMLFormElement>) => {
+    if (!draft || saving) return;
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    void save();
+  };
+
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3">
+    <form onSubmit={onSubmit} onBlur={onBlur} className="space-y-3">
       {/* The two counts side by side, so the roster stays near the top of the console */}
       <div className="grid grid-cols-2 items-end gap-3">
         <div>
