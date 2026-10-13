@@ -159,6 +159,50 @@ describe('ChairConsole', () => {
       expect(screen.queryByText(/Is a motion to recess in order\?/)).not.toBeNull();
       expect(screen.queryByPlaceholderText('Enter your answer...')).not.toBeNull();
     });
+
+    it('puts a question waiting for an answer first, above the attendance', () => {
+      render(<ChairConsole />);
+      const questions = screen.getByRole('region', { name: 'Questions for the chair' });
+      const attendance = screen.getByRole('region', { name: 'Attendance' });
+      expect(
+        questions.compareDocumentPosition(attendance) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('keeps answered questions below the agenda', () => {
+      socket.state = {
+        ...socket.state,
+        inquiries: socket.state.inquiries.map((i) => ({
+          ...i,
+          answer: 'Yes',
+          answeredBy: 'Admin',
+        })),
+      };
+      render(<ChairConsole />);
+      const questions = screen.getByRole('region', { name: 'Questions for the chair' });
+      const attendance = screen.getByRole('region', { name: 'Attendance' });
+      expect(
+        attendance.compareDocumentPosition(questions) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+  });
+
+  it('puts an open vote right under the question, above who is waiting to speak', () => {
+    socket.state = { ...active, currentMotion: motion, motionStack: [motion], votingOpen: true };
+    render(<ChairConsole />);
+    const vote = screen.getByRole('heading', { name: 'Vote in progress' });
+    const queue = screen.getByRole('region', { name: /Speaker queue/ });
+    expect(vote.compareDocumentPosition(queue) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('moves the join card aside once the meeting is called to order', () => {
+    socket.state = active;
+    render(<ChairConsole />);
+    const join = screen.getByRole('region', { name: 'Join' });
+    const attendance = screen.getByRole('region', { name: 'Attendance' });
+    expect(
+      attendance.compareDocumentPosition(join) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   describe('adjourning', () => {

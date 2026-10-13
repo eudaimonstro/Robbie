@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import {
   generateTimestamp,
   headcountBaseOf,
@@ -65,6 +66,14 @@ export function AttendancePanel({
 }: AttendancePanelProps) {
   const findId = useId();
   const [find, setFind] = useState('');
+  // The roster and headcount are the call to order's work: open until then, folded away after
+  // (one click opens them for someone arriving late), so the console fits on the screen
+  const [open, setOpen] = useState(!state.meetingActive);
+  const [wasActive, setWasActive] = useState(state.meetingActive);
+  if (wasActive !== state.meetingActive) {
+    setWasActive(state.meetingActive);
+    setOpen(!state.meetingActive);
+  }
   // A tap's change on its way: the next waits for it
   const [busy, setBusy] = useState(false);
   // The meeting as it is now, for a change counted again after a refusal
@@ -180,90 +189,108 @@ export function AttendancePanel({
           </div>
         ))}
 
-      <div className="space-y-2">
-        <label htmlFor={findId} className="label">
-          {board ? 'Find a director' : 'Find a member'}
-        </label>
-        <input
-          id={findId}
-          className="input"
-          value={find}
-          onChange={(e) => setFind(e.target.value)}
-        />
-        {rosterError ? (
-          <p role="alert" className="text-sm text-gavel">
-            {rosterError}
-          </p>
-        ) : !roster ? (
-          <p className="text-sm text-ink-muted">Loading the roster...</p>
-        ) : (
-          <ul
-            aria-label={board ? 'Directors' : 'Voting members'}
-            className="max-h-64 divide-y divide-rule overflow-y-auto scrollbar-thin"
-          >
-            {shown.map((entry) =>
-              entry.kind === 'member' ? (
-                <li key={entry.row.userId} className="flex items-center justify-between gap-3 py-2">
-                  <div className="min-w-0 space-y-1">
-                    <p className="truncate text-sm font-medium text-ink">{entry.row.name}</p>
-                    <StatusBadge status={entry.row.status} />
-                  </div>
-                  {!readOnly && (
-                    <RowAction
-                      row={entry.row}
-                      onMarkPresent={markPresent}
-                      onMarkAbsent={markAbsent}
-                    />
-                  )}
-                </li>
-              ) : (
-                <li
-                  key={entry.row.inviteId}
-                  className="flex items-center justify-between gap-3 py-2"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="truncate text-sm font-medium text-ink">{entry.row.label}</p>
-                    {entry.row.status === 'counted' ? (
-                      <span className="block text-xs text-carried">Counted in the room</span>
-                    ) : (
-                      <span className="block text-xs text-ink-muted">Added, not yet signed in</span>
+      <details
+        open={open}
+        onToggle={(e) => setOpen(e.currentTarget.open)}
+        className="group space-y-5"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-gavel hover:underline">
+          {board ? 'Directors' : readOnly ? 'Roster' : 'Roster and headcount'}
+          <ChevronDown
+            className="h-4 w-4 transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <div className="space-y-2">
+          <label htmlFor={findId} className="label">
+            {board ? 'Find a director' : 'Find a member'}
+          </label>
+          <input
+            id={findId}
+            className="input"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+          />
+          {rosterError ? (
+            <p role="alert" className="text-sm text-gavel">
+              {rosterError}
+            </p>
+          ) : !roster ? (
+            <p className="text-sm text-ink-muted">Loading the roster...</p>
+          ) : (
+            <ul
+              aria-label={board ? 'Directors' : 'Voting members'}
+              className="max-h-64 divide-y divide-rule overflow-y-auto scrollbar-thin"
+            >
+              {shown.map((entry) =>
+                entry.kind === 'member' ? (
+                  <li
+                    key={entry.row.userId}
+                    className="flex items-center justify-between gap-3 py-2"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-medium text-ink">{entry.row.name}</p>
+                      <StatusBadge status={entry.row.status} />
+                    </div>
+                    {!readOnly && (
+                      <RowAction
+                        row={entry.row}
+                        onMarkPresent={markPresent}
+                        onMarkAbsent={markAbsent}
+                      />
                     )}
-                  </div>
-                  {!readOnly && (
-                    <InviteAction
-                      row={entry.row}
-                      disabled={busy}
-                      onCount={() => void changeHeadcount((now) => countedInRoom(now, entry.row))}
-                      onTakeOut={() =>
-                        void changeHeadcount((now) => takenOutOfRoom(now, entry.row))
-                      }
-                    />
-                  )}
-                </li>
-              ),
-            )}
-          </ul>
-        )}
-        {/* Most voting members never have an account: the roster can't list them, the headcount counts them */}
-        {roster && !board && eligible !== null && eligible > entries.length && (
-          <p className="text-xs text-ink-muted">
-            {entries.length} of the {eligible} voting members are in Robbie (an account, or added by
-            email).{!readOnly && ' Count the others who are here in the headcount below.'}
-          </p>
-        )}
-      </div>
+                  </li>
+                ) : (
+                  <li
+                    key={entry.row.inviteId}
+                    className="flex items-center justify-between gap-3 py-2"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-medium text-ink">{entry.row.label}</p>
+                      {entry.row.status === 'counted' ? (
+                        <span className="block text-xs text-carried">Counted in the room</span>
+                      ) : (
+                        <span className="block text-xs text-ink-muted">
+                          Added, not yet signed in
+                        </span>
+                      )}
+                    </div>
+                    {!readOnly && (
+                      <InviteAction
+                        row={entry.row}
+                        disabled={busy}
+                        onCount={() => void changeHeadcount((now) => countedInRoom(now, entry.row))}
+                        onTakeOut={() =>
+                          void changeHeadcount((now) => takenOutOfRoom(now, entry.row))
+                        }
+                      />
+                    )}
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+          {/* Most voting members never have an account: the roster can't list them, the headcount counts them */}
+          {roster && !board && eligible !== null && eligible > entries.length && (
+            <p className="text-xs text-ink-muted">
+              {entries.length} of the {eligible} voting members are in Robbie (an account, or added
+              by email).{!readOnly && ' Count the others who are here in the headcount below.'}
+            </p>
+          )}
+        </div>
 
-      {!readOnly && !board && (
-        <HeadcountForm
-          headcount={state.headcount}
-          names={state.headcountNames}
-          proxiesHeld={state.proxiesHeld ?? 0}
-          invitesCounted={(state.headcountInvites ?? []).length}
-          base={headcountBaseOf(state)}
-          eligible={eligible}
-          dispatch={dispatch}
-        />
-      )}
+        {!readOnly && !board && (
+          <HeadcountForm
+            headcount={state.headcount}
+            names={state.headcountNames}
+            proxiesHeld={state.proxiesHeld ?? 0}
+            invitesCounted={(state.headcountInvites ?? []).length}
+            base={headcountBaseOf(state)}
+            eligible={eligible}
+            dispatch={dispatch}
+          />
+        )}
+      </details>
 
       {alsoPresent.length > 0 && (
         <div className="space-y-2">
