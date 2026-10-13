@@ -69,15 +69,18 @@ export const attendanceHandler: ActionHandler = (state, action, log) => {
     case 'MARK_ABSENT': {
       const typedAction = action as Extract<MeetingAction, { type: 'MARK_ABSENT' }>;
       const member = state.members.find((m) => m.id === typedAction.memberId);
-      if (!member) return state;
+      // Someone who hasn't joined comes from the roster (the server fills it in), absent: never
+      // among those who attended
+      const fromRoster = typedAction.member;
+      if (!member && (!fromRoster || fromRoster.id !== typedAction.memberId)) return state;
       return {
         ...state,
-        members: state.members.map((m) =>
-          m.id === typedAction.memberId ? withPresence(m, false) : m,
-        ),
+        members: member
+          ? state.members.map((m) => (m.id === typedAction.memberId ? withPresence(m, false) : m))
+          : [...state.members, withPresence(fromRoster!, false)],
         meetingLog: log(
           typedAction.timestamp,
-          logMemberMarkedAbsent(member.name, typedAction.excused),
+          logMemberMarkedAbsent((member ?? fromRoster!).name, typedAction.excused),
         ),
       };
     }

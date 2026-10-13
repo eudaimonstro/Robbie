@@ -469,6 +469,7 @@ export const ACTION_SCHEMAS = {
     type: z.literal('MARK_ABSENT'),
     memberId: id,
     excused: z.boolean(),
+    member: member.optional(),
     timestamp,
   }),
   SET_AUTO_YIELD: z.strictObject({ type: z.literal('SET_AUTO_YIELD'), enabled: z.boolean() }),

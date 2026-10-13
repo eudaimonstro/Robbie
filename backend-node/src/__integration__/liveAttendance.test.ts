@@ -67,6 +67,44 @@ describe('attendance in a live meeting', () => {
     expect(res).toMatchObject({ success: false, errorCode: 'NOT_A_MEMBER' });
   });
 
+  it('marks absent someone who has not joined, without counting them as having attended', async () => {
+    await live.dispatch(chair, { type: 'START_MEETING', timestamp: '' });
+    const res = await live.dispatch(chair, {
+      type: 'MARK_ABSENT',
+      memberId: f.users.owner.id,
+      excused: false,
+      // Forged: the person comes from the roster
+      member: { id: f.users.owner.id, name: 'Forged', role: 'chair', present: true },
+      timestamp: '',
+    });
+    expect(res.success).toBe(true);
+    const state = await stateOf(f.packet.code);
+    expect(state.members.find((m) => m.id === f.users.owner.id)).toEqual({
+      id: f.users.owner.id,
+      name: 'A owner',
+      role: 'admin',
+      present: false,
+    });
+    expect(state.attendedIds).not.toContain(f.users.owner.id);
+    expect(state.meetingLog.at(-1)?.message).toBe('A owner marked absent.');
+
+    // They arrive after all, on their phone
+    const owner = live.connect(f.users.owner);
+    await live.join(owner, f.packet.code);
+    const arrived = (await stateOf(f.packet.code)).members.find((m) => m.id === f.users.owner.id);
+    expect(arrived).toMatchObject({ present: true, presentBy: 'device' });
+  });
+
+  it('refuses to mark absent someone outside the roster', async () => {
+    const res = await live.dispatch(chair, {
+      type: 'MARK_ABSENT',
+      memberId: f.outsider.id,
+      excused: false,
+      timestamp: '',
+    });
+    expect(res).toMatchObject({ success: false, errorCode: 'MEMBER_NOT_FOUND' });
+  });
+
   it("refuses a member's MARK_PRESENT", async () => {
     const member = live.connect(f.users.member);
     await live.join(member, f.packet.code);
