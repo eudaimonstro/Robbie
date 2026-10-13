@@ -103,6 +103,16 @@ describe('AttendancePanel', () => {
     );
   });
 
+  it('marks absent someone who has not joined, without marking them present first', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Carmen Diaz absent' }));
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'MARK_ABSENT', memberId: 5, excused: false }),
+    );
+    // Someone already absent is marked present, not absent again
+    expect(screen.queryByRole('button', { name: 'Mark Ben Whitaker absent' })).toBeNull();
+  });
+
   it('marks absent someone the chair marked, but not someone whose device is here', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Mark Alice Brennan absent' }));

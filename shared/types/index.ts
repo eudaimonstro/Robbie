@@ -880,7 +880,14 @@ export type MeetingAction =
   // A member calls for a division on a voice vote: it is counted instead (RONR 29). With fromFloor
   // the chair records it for someone in the room. requesterId is set by the server.
   | { type: 'REQUEST_DIVISION'; requesterId?: number; fromFloor?: boolean; timestamp: string }
-  | { type: 'MARK_ABSENT'; memberId: number; excused: boolean; timestamp: string }
+  // member is set by the server from the organization's roster, for someone who hasn't joined
+  | {
+      type: 'MARK_ABSENT';
+      memberId: number;
+      excused: boolean;
+      member?: Member;
+      timestamp: string;
+    }
   | { type: 'SET_AUTO_YIELD'; enabled: boolean };
 
 // Motion definition type

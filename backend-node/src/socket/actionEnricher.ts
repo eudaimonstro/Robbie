@@ -150,8 +150,9 @@ export function enrichAction(
     if (speaker) enriched.member = speaker;
   }
 
-  // The person marked present comes from the organization's roster, never from a client
-  if (enriched.type === 'MARK_PRESENT') {
+  // The person marked present (or absent before joining) comes from the organization's roster,
+  // never from a client
+  if (enriched.type === 'MARK_PRESENT' || enriched.type === 'MARK_ABSENT') {
     delete enriched.member;
   }
 

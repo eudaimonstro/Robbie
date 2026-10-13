@@ -337,7 +337,7 @@ function RowAction({
       </button>
     );
   }
-  return (
+  const present = (
     <button
       type="button"
       className="btn-secondary btn-sm"
@@ -346,6 +346,21 @@ function RowAction({
     >
       Mark present
     </button>
+  );
+  if (row.status === 'absent') return present;
+  // Not joined: the chair finds them in the room, or records that they aren't here
+  return (
+    <div className="flex shrink-0 gap-1">
+      {present}
+      <button
+        type="button"
+        className="btn-ghost btn-sm"
+        onClick={() => onMarkAbsent(row)}
+        aria-label={`Mark ${row.name} absent`}
+      >
+        Mark absent
+      </button>
+    </div>
   );
 }
 
