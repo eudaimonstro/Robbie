@@ -33,6 +33,7 @@ describe('permissionGuard', () => {
         'ELECT_BY_ACCLAMATION',
         'SET_ASIDE_ELECTION',
         'ANSWER_INQUIRY',
+        'CLOSE_INQUIRY',
         'MARK_ABSENT',
         'SET_AUTO_YIELD',
         'MARK_PRESENT',

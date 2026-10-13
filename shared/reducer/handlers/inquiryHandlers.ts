@@ -65,6 +65,32 @@ export const inquiryHandler: ActionHandler = (state, action, log) => {
       };
     }
 
+    case 'CLOSE_INQUIRY': {
+      const typedAction = action as Extract<MeetingAction, { type: 'CLOSE_INQUIRY' }>;
+      const inquiry = state.inquiries.find((inq) => inq.id === typedAction.inquiryId);
+      if (!inquiry) return state;
+      const label = inquiryLabel(inquiry.type);
+      return {
+        ...state,
+        inquiries: state.inquiries.map((inq) =>
+          inq.id === typedAction.inquiryId
+            ? {
+                ...inq,
+                closed: typedAction.how,
+                ...(typedAction.answeredBy && { answeredBy: typedAction.answeredBy }),
+                answeredAt: typedAction.timestamp,
+              }
+            : inq,
+        ),
+        meetingLog: log(
+          typedAction.timestamp,
+          typedAction.how === 'aloud'
+            ? `Chair answers ${label} aloud: "${inquiry.question}"`
+            : `Chair dismisses ${label}: "${inquiry.question}"`,
+        ),
+      };
+    }
+
     default:
       // This handler only receives its specific actions from the main reducer
       return state;

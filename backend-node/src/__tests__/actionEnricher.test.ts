@@ -91,6 +91,7 @@ describe('enrichAction', () => {
       SET_ASIDE_ELECTION: {},
       ASK_INQUIRY: { askerId: SPOOF_ID, askedBy: SPOOF_NAME },
       ANSWER_INQUIRY: { answeredBy: SPOOF_NAME },
+      CLOSE_INQUIRY: { answeredBy: SPOOF_NAME },
       // The server finds the chair being replaced; a client can't name one
       SET_MEMBER_ROLE: { changedById: SPOOF_ID, changedBy: SPOOF_NAME, previousChairId: SPOOF_ID },
       ADD_MEMBER: {},
@@ -149,6 +150,7 @@ describe('enrichAction', () => {
         CAST_BALLOT: { id: 'voterId' },
         ASK_INQUIRY: { id: 'askerId', name: 'askedBy' },
         ANSWER_INQUIRY: { name: 'answeredBy' },
+        CLOSE_INQUIRY: { name: 'answeredBy' },
         NOMINATE: { id: 'nominatorId', name: 'nominatedBy' },
         OBJECT_TO_CONSENT: { id: 'objectorId', name: 'objector' },
         AGENDA_OBJECTION: { id: 'objectorId' },

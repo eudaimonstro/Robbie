@@ -405,6 +405,13 @@ export const ACTION_SCHEMAS = {
     answeredBy: optionalName,
     timestamp,
   }),
+  CLOSE_INQUIRY: z.strictObject({
+    type: z.literal('CLOSE_INQUIRY'),
+    inquiryId: id,
+    how: z.enum(['aloud', 'dismissed']),
+    answeredBy: optionalName,
+    timestamp,
+  }),
   SET_MEMBER_ROLE: z.strictObject({
     type: z.literal('SET_MEMBER_ROLE'),
     targetMemberId: id,

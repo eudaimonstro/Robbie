@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { stepName } from '@robbie-bylawyer/shared/constants';
-import { generateTimestamp } from '@robbie-bylawyer/shared/utils';
+import { awaitingAnswer, generateTimestamp } from '@robbie-bylawyer/shared/utils';
 import { useSocket } from '../context/SocketContext';
 import { useRoster } from '../hooks/useRoster';
 import { useEligibleVoters } from '../hooks/useEligibleVoters';
@@ -92,7 +92,7 @@ export function ChairConsole() {
       : 'No question is pending.';
   const seconding = secondingId !== null && state.pendingSecond?.id === secondingId;
   const electing = !adjourned && electionUnderway(state);
-  const questionsWaiting = state.inquiries.some((inquiry) => !inquiry.answer);
+  const questionsWaiting = state.inquiries.some(awaitingAnswer);
   const actions = chairActions(state, presidingId);
   // A dialog whose action the meeting has moved past (a vote opened, the election ended, the
   // meeting adjourned elsewhere) closes itself

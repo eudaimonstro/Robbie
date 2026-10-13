@@ -160,6 +160,28 @@ describe('ChairConsole', () => {
       expect(screen.queryByPlaceholderText('Enter your answer...')).not.toBeNull();
     });
 
+    it('settles a question answered aloud, or dismisses one needing no answer', () => {
+      render(<ChairConsole />);
+      fireEvent.click(screen.getByRole('button', { name: 'Answered aloud' }));
+      expect(socket.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'CLOSE_INQUIRY', inquiryId: 7, how: 'aloud' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+      expect(socket.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'CLOSE_INQUIRY', inquiryId: 7, how: 'dismissed' }),
+      );
+    });
+
+    it('lists a settled question as answered aloud, no longer waiting', () => {
+      socket.state = {
+        ...socket.state,
+        inquiries: socket.state.inquiries.map((i) => ({ ...i, closed: 'aloud' as const })),
+      };
+      render(<ChairConsole />);
+      expect(screen.getByText('No questions are waiting.')).toBeTruthy();
+      expect(screen.getByText('Answered aloud')).toBeTruthy();
+    });
+
     it('puts a question waiting for an answer first, above the attendance', () => {
       render(<ChairConsole />);
       const questions = screen.getByRole('region', { name: 'Questions for the chair' });

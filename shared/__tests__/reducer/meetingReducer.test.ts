@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { meetingReducer, initialState } from '../../reducer/index.js';
+import { awaitingAnswer } from '../../utils/index.js';
 import type { MeetingAction, MeetingState, Motion, Member } from '../../types/index.js';
 
 // Mock members for testing (initialState now starts with empty members array)
@@ -2358,6 +2359,51 @@ describe('meetingReducer', () => {
 
       expect(state.inquiries[0].answer).toBe('Yes, the motion is in order.');
       expect(state.inquiries[0].answeredBy).toBe('Chair');
+    });
+  });
+
+  describe('CLOSE_INQUIRY', () => {
+    const asked: MeetingState = {
+      ...initialState,
+      inquiries: [
+        {
+          id: 1,
+          type: 'information',
+          question: 'How much is in the reserve fund?',
+          askedBy: 'John',
+          askerId: 1,
+          timestamp: '10:25:00',
+        },
+      ],
+    };
+
+    it('settles a question the chair answered aloud, without a written answer', () => {
+      const state = meetingReducer(asked, {
+        type: 'CLOSE_INQUIRY',
+        inquiryId: 1,
+        how: 'aloud',
+        answeredBy: 'Chair',
+        timestamp: '10:26:00',
+      });
+      expect(state.inquiries[0]).toMatchObject({ closed: 'aloud', answeredBy: 'Chair' });
+      expect(state.inquiries[0].answer).toBeUndefined();
+      expect(awaitingAnswer(state.inquiries[0])).toBe(false);
+      expect(state.meetingLog.at(-1)?.message).toBe(
+        'Chair answers Request for Information aloud: "How much is in the reserve fund?"',
+      );
+    });
+
+    it('dismisses a question that needs no answer', () => {
+      const state = meetingReducer(asked, {
+        type: 'CLOSE_INQUIRY',
+        inquiryId: 1,
+        how: 'dismissed',
+        timestamp: '10:26:00',
+      });
+      expect(state.inquiries[0].closed).toBe('dismissed');
+      expect(state.meetingLog.at(-1)?.message).toBe(
+        'Chair dismisses Request for Information: "How much is in the reserve fund?"',
+      );
     });
   });
 
