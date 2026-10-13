@@ -240,8 +240,14 @@ describe('the action toolbar', () => {
 
   it("offers to undo the chair's last step, even with nothing else to do (a vote open)", () => {
     const onUndo = vi.fn();
-    render(<ActionToolbar dispatch={dispatch} actions={[]} undo={{ name: 'No second', onUndo }} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Undo: No second' }));
+    render(
+      <ActionToolbar
+        dispatch={dispatch}
+        actions={[]}
+        undo={{ name: 'declaring no second', onUndo }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Undo declaring no second' }));
     expect(onUndo).toHaveBeenCalled();
   });
 });

@@ -25,7 +25,7 @@ describe("undoing the chair's last step", () => {
     // The log keeps what happened, and says it was undone
     expect(s.meetingLog.slice(-2).map((e) => e.message)).toEqual([
       'Objection raised to agenda.',
-      'The chair undid "Objection to the agenda".',
+      'The chair undid recording the agenda objection.',
     ]);
     s = act(s, 'dana', { type: 'ADOPT_AGENDA' });
     expect(minutesOf(s)).toContain('The agenda was adopted without objection.');

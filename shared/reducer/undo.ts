@@ -15,17 +15,27 @@ import { stepName } from '../constants/stepNames.js';
  *   (never the chair's to erase), and what is done outside the meeting's state too (the call to
  *   order and adjournment, approving minutes, a role change, a bylaw amendment decided)
  *
- * A function decides an action shared with members by who sent it, or by what it decides.
+ * A function decides an action shared with members by who sent it, or by what it decided (the
+ * states before and after it).
  */
 type UndoRule =
-  'step' | 'keeps' | 'ends' | ((state: MeetingState, action: MeetingAction) => boolean);
+  | 'step'
+  | 'keeps'
+  | 'ends'
+  | ((before: MeetingState, action: MeetingAction, after: MeetingState) => boolean);
 
 /** Recorded for someone in the room: the chair's step; sent from a member's phone: theirs */
 const fromFloor = (_state: MeetingState, action: MeetingAction) =>
   'fromFloor' in action && action.fromFloor === true;
 
-/** A bylaw amendment decided is applied to the bylaws by the server: it can't be taken back */
-const notBylawDecision = (state: MeetingState) => state.currentMotion?.type !== 'bylawAmendment';
+/**
+ * A bylaw amendment decided is applied to the bylaws by the server (bylawSyncService, from the
+ * records the action added): it can't be taken back
+ */
+const notBylawDecision = (before: MeetingState, _action: MeetingAction, after: MeetingState) =>
+  !after.completedMotions
+    .slice(before.completedMotions.length)
+    .some((record) => record.type === 'bylawAmendment');
 
 /** An objection the chair recorded at the console, not a member's from their phone */
 const byConsole = (state: MeetingState, action: MeetingAction) => {
@@ -112,9 +122,9 @@ const NOT_RESTORED: ReadonlySet<string> = new Set([
   'attendedIds',
 ]);
 
-function isStep(state: MeetingState, action: MeetingAction): boolean {
+function isStep(before: MeetingState, action: MeetingAction, after: MeetingState): boolean {
   const rule = UNDO_RULES[action.type];
-  return typeof rule === 'function' ? rule(state, action) : rule === 'step';
+  return typeof rule === 'function' ? rule(before, action, after) : rule === 'step';
 }
 
 /** The fields the step changed, as they were before it (a shallow comparison, as the reducer keeps what it doesn't change) */
@@ -144,7 +154,8 @@ export function settleLastStep(
   if (action.type === 'UNDO_LAST_STEP') return after;
   // A step the reducer refused changes nothing, and leaves the one before it
   if (after === before) return after;
-  if (isStep(before, action)) return { ...after, lastStep: recordStep(before, after, action.type) };
+  if (isStep(before, action, after))
+    return { ...after, lastStep: recordStep(before, after, action.type) };
   if (UNDO_RULES[action.type] === 'keeps' || !after.lastStep) return after;
   return { ...after, lastStep: null };
 }
@@ -173,6 +184,6 @@ export function undoLastStep(
   return {
     ...(restored as unknown as MeetingState),
     lastStep: null,
-    meetingLog: log(timestamp, `The chair undid "${stepName(step.type)}".`),
+    meetingLog: log(timestamp, `The chair undid ${stepName(step.type)}.`),
   };
 }

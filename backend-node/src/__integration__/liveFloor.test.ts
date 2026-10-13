@@ -104,7 +104,9 @@ describe('business from the floor in a live meeting', () => {
     const state = await stateOf(f.packet.code);
     expect(state.pendingSecond).toBeNull();
     expect(state.lastStep).toBeNull();
-    expect(state.meetingLog.at(-1)?.message).toBe('The chair undid "A motion from the floor".');
+    expect(state.meetingLog.at(-1)?.message).toBe(
+      'The chair undid recording the motion from the floor.',
+    );
   });
 
   it("refuses a member's floor motion and floor second", async () => {

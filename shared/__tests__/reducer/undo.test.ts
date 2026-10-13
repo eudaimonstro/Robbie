@@ -59,7 +59,7 @@ describe('the last step', () => {
     expect(floor.lastStep?.type).toBe('OBJECT_TO_CONSENT');
     const undone = run(floor, { type: 'UNDO_LAST_STEP', timestamp: '7:02' });
     expect(undone.unanimousConsentPending).toBe(true);
-    expect(undone.meetingLog.at(-1)?.message).toBe('The chair undid "Objection from the floor".');
+    expect(undone.meetingLog.at(-1)?.message).toBe('The chair undid recording the objection.');
 
     const phone = run(asked, {
       type: 'OBJECT_TO_CONSENT',
@@ -117,7 +117,7 @@ describe('the last step', () => {
   });
 
   it('has a name for the console, or a plain one', () => {
-    expect(stepName('DECLINE_SECOND')).toBe('No second');
-    expect(stepName('CAST_VOTE')).toBe('The last step');
+    expect(stepName('DECLINE_SECOND')).toBe('declaring no second');
+    expect(stepName('CAST_VOTE')).toBe('the last step');
   });
 });

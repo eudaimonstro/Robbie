@@ -62,7 +62,7 @@ export function ActionToolbar({
       {undo && (
         <button type="button" className="btn-ghost ml-auto" onClick={undo.onUndo}>
           <Undo2 className="h-4 w-4" aria-hidden="true" />
-          Undo: {undo.name}
+          Undo {undo.name}
         </button>
       )}
     </div>

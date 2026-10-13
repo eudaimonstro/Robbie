@@ -10,7 +10,7 @@ An objector taking back an objection to the agenda is a real event of its own (`
 
 ## Decisions
 
-- **One step, the chair's, until the meeting moves on.** The console shows **Undo: _step_** at the end of the toolbar while the chair's last step can be taken back (`UNDO_LAST_STEP`, presiding only). Undoing is not a step, so it never redoes, and there is one level.
+- **One step, the chair's, until the meeting moves on.** The console shows **Undo _step_** ("Undo adopting the agenda": the step as something done, so it never reads as the button that did it) at the end of the toolbar while the chair's last step can be taken back (`UNDO_LAST_STEP`, presiding only). Undoing is not a step, so it never redoes, and there is one level.
 - **Every action has a rule** (`UNDO_RULES` in `shared/reducer/undo.ts`, exhaustive over the action union):
   - _step_: the console's own business (opening and closing a vote, recognizing, rulings, the agenda, consent, nominations and ballots, declaring and setting aside, resuming), and what the chair records for the room (a motion, a second, an objection, a nomination, a withdrawal, a division, from the floor).
   - _keeps_: what goes on around the business: votes and ballots, hands, presence and the room's count, settings, the server's bookkeeping. The step stays undoable through them.
