@@ -92,6 +92,7 @@ export function ChairConsole() {
       : 'No question is pending.';
   const seconding = secondingId !== null && state.pendingSecond?.id === secondingId;
   const electing = !adjourned && electionUnderway(state);
+  const questionsWaiting = state.inquiries.some((inquiry) => !inquiry.answer);
   const actions = chairActions(state, presidingId);
   // A dialog whose action the meeting has moved past (a vote opened, the election ended, the
   // meeting adjourned elsewhere) closes itself
@@ -129,7 +130,8 @@ export function ChairConsole() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div ref={nowRef} className="space-y-4 xl:col-span-8">
-          {!adjourned && <JoinInfoCard code={meetingCode} compact={!beforeMeeting} />}
+          {/* Before the call to order people are joining; after it, the code moves aside */}
+          {beforeMeeting && <JoinInfoCard code={meetingCode} />}
           <CurrentItemLine item={state.currentAgendaItem} packet={packet} />
           {state.meetingActive && !attendance.hasQuorum && (
             <p
@@ -172,11 +174,12 @@ export function ChairConsole() {
             )}
             <ChairScriptLine state={state} />
           </QuestionCard>
-          {/* Who is waiting to speak, right under the question: recognizing is the next step */}
-          {!adjourned && (
-            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
-          )}
+          {/* The business under the question, each only while it is under way: the minutes to
+              approve, the open vote, its result */}
           <MinutesApprovalCard state={state} dispatch={dispatch} />
+          {!adjourned && state.votingOpen && (
+            <VoteControl state={state} dispatch={dispatch} me={currentUser} />
+          )}
           {result && !adjourned && (
             <section aria-label="The result" className="card p-6">
               <Stamp
@@ -187,10 +190,23 @@ export function ChairConsole() {
               />
             </section>
           )}
-          {!adjourned && <VoteControl state={state} dispatch={dispatch} me={currentUser} />}
+          {/* Who is waiting to speak: recognizing is the next step while there is no vote */}
+          {!adjourned && (
+            <SpeakerQueuePanel state={state} dispatch={dispatch} sortedQueue={sortedQueue} />
+          )}
+          {/* How the next vote will be taken, chosen while debate goes on */}
+          {!adjourned && !state.votingOpen && (
+            <VoteControl state={state} dispatch={dispatch} me={currentUser} />
+          )}
         </div>
 
-        <div className="space-y-4 xl:col-span-4">
+        {/* Kept in view beside the question while the chair scrolls it on its own (xl): what
+            needs the chair first, then the room, the agenda and the rest */}
+        <div className="space-y-4 scrollbar-thin xl:sticky xl:top-0 xl:col-span-4 xl:max-h-[calc(100dvh-6.5rem)] xl:self-start xl:overflow-y-auto">
+          {/* A question for the chair waits for an answer: first, until it has one */}
+          {presiding && !adjourned && questionsWaiting && (
+            <InquiryPanel state={state} dispatch={dispatch} currentUser={presiding} />
+          )}
           {/* An election in hand comes first, where its next step is in view */}
           {currentUser && electing && (
             <ElectionCard
@@ -213,9 +229,10 @@ export function ChairConsole() {
           {currentUser && !electing && (
             <ElectionCard state={state} dispatch={dispatch} me={currentUser} />
           )}
-          {presiding && !adjourned && (
+          {presiding && !adjourned && !questionsWaiting && (
             <InquiryPanel state={state} dispatch={dispatch} currentUser={presiding} />
           )}
+          {state.meetingActive && <JoinInfoCard code={meetingCode} compact />}
           <MoreArea
             state={state}
             dispatch={dispatch}

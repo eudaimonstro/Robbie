@@ -95,6 +95,17 @@ describe('AttendancePanel', () => {
     expect(screen.queryByText('Morgan Lee')).toBeNull();
   });
 
+  it('folds the roster and headcount away once the meeting is called to order', () => {
+    const roll = () => document.querySelector('details')!;
+    const { rerender } = renderPanel();
+    expect(roll().open).toBe(true);
+    rerender(panel({ ...state, meetingActive: true }));
+    expect(roll().open).toBe(false);
+    // One click opens them, for someone arriving late
+    fireEvent.click(screen.getByText('Roster and headcount'));
+    expect(roll().open).toBe(true);
+  });
+
   it('marks someone without a phone present from the roster', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Mark Carmen Diaz present' }));
