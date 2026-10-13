@@ -95,6 +95,15 @@ describe('AttendancePanel', () => {
     expect(screen.queryByText('Morgan Lee')).toBeNull();
   });
 
+  it('says the voting members without an account are counted in the headcount', () => {
+    renderPanel();
+    expect(
+      screen.getByText(
+        /of the 142 voting members are in Robbie \(an account, or added by email\)\. Count the others who are here in the headcount below\./,
+      ),
+    ).toBeTruthy();
+  });
+
   it('marks someone without a phone present from the roster', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Mark Carmen Diaz present' }));

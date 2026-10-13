@@ -244,6 +244,13 @@ export function AttendancePanel({
             )}
           </ul>
         )}
+        {/* Most voting members never have an account: the roster can't list them, the headcount counts them */}
+        {roster && !board && eligible !== null && eligible > entries.length && (
+          <p className="text-xs text-ink-muted">
+            {entries.length} of the {eligible} voting members are in Robbie (an account, or added by
+            email).{!readOnly && ' Count the others who are here in the headcount below.'}
+          </p>
+        )}
       </div>
 
       {!readOnly && !board && (
