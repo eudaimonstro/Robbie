@@ -209,6 +209,18 @@ describe('ChairConsole', () => {
     });
   });
 
+  it('records only a point of order from the floor during a vote, and says so', () => {
+    socket.state = { ...active, currentMotion: motion, motionStack: [motion], votingOpen: true };
+    render(<ChairConsole />);
+    expect(screen.queryByRole('button', { name: 'A motion from the floor' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'A point of order from the floor' }));
+    const dialog = screen.getByRole('dialog', { name: 'A point of order from the floor' });
+    const kinds = within(dialog).getByLabelText('Kind of motion');
+    expect([...(kinds as HTMLSelectElement).options].map((o) => o.text)).toEqual([
+      'Point of order',
+    ]);
+  });
+
   it('puts an open vote right under the question, above who is waiting to speak', () => {
     socket.state = { ...active, currentMotion: motion, motionStack: [motion], votingOpen: true };
     render(<ChairConsole />);
@@ -516,13 +528,13 @@ describe('ChairConsole', () => {
     it("labels the chair's own ballot apart from running the election", () => {
       socket.state = { ...active, currentElection: ballot };
       render(<ChairConsole />);
-      // Nothing else comes up during the ballot but setting it aside, and the card leads the
-      // side column
+      // Nothing else comes up during the ballot but setting it aside (and a point of order), and
+      // the card leads the side column
       expect(
         within(screen.getByRole('toolbar'))
           .getAllByRole('button')
           .map((b) => b.textContent),
-      ).toEqual(['Close the ballot', 'Set the election aside', 'A motion from the floor']);
+      ).toEqual(['Close the ballot', 'Set the election aside', 'A point of order from the floor']);
       const headings = screen.getAllByRole('heading').map((h) => h.textContent);
       expect(headings.indexOf('Election for Director')).toBeLessThan(
         headings.indexOf('Attendance'),

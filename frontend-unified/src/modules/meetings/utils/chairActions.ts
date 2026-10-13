@@ -14,6 +14,7 @@ import {
   winnersOf,
 } from '@robbie-bylawyer/shared/utils';
 import { minutesItemUnderWay } from './minutesApproval';
+import { FORM_MOTIONS } from './motionWords';
 
 /** One thing the chair can do now, as a button in the console's toolbar */
 export interface ChairAction {
@@ -558,6 +559,24 @@ function actionsInOrder(state: MeetingState, presidingId: number | null): ChairA
   return [...forum, ...takeUp, adjourn(forum.length > 0 ? 'secondary' : 'primary')];
 }
 
+/** The kinds of motion the chair records from the floor now (the ones with forms of their own are made on a device) */
+export function floorMotionKinds(state: MeetingState): string[] {
+  return getValidMotions(state)
+    .map((m) => m.key)
+    .filter((key) => !FORM_MOTIONS.includes(key));
+}
+
+/**
+ * What the floor's form records, by what is in order: only a point of order during a vote or
+ * while a motion awaits a second, and the button and the form say so
+ */
+export function floorMotionTitle(state: MeetingState): string {
+  const kinds = floorMotionKinds(state);
+  return kinds.length === 1 && kinds[0] === 'pointOrder'
+    ? 'A point of order from the floor'
+    : 'A motion from the floor';
+}
+
 /**
  * What the chair can record for people in the room, many of them without a phone: a second for
  * the motion waiting for one, and a motion of any kind in order now (an amendment, close debate,
@@ -570,7 +589,7 @@ export function floorActions(state: MeetingState): FloorAction[] {
     actions.push({ id: 'floor-second', label: 'Seconded from the floor', tone: 'secondary' });
   }
   if (getValidMotions(state).length > 0) {
-    actions.push({ id: 'floor-motion', label: 'A motion from the floor', tone: 'secondary' });
+    actions.push({ id: 'floor-motion', label: floorMotionTitle(state), tone: 'secondary' });
   }
   return actions;
 }
