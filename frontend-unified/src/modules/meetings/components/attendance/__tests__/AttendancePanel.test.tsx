@@ -158,6 +158,24 @@ describe('AttendancePanel', () => {
     await waitFor(() => expect(toast.showToast).toHaveBeenCalledWith('success', 'Headcount saved'));
   });
 
+  it('saves the headcount when the chair clicks away, not between its fields', async () => {
+    renderPanel();
+    const count = screen.getByLabelText('Headcount');
+    const proxies = screen.getByLabelText('Proxies and absentee ballots held');
+    // Leaving it untouched saves nothing
+    fireEvent.blur(count, { relatedTarget: null });
+    expect(dispatch).not.toHaveBeenCalled();
+
+    fireEvent.change(count, { target: { value: '4' } });
+    fireEvent.blur(count, { relatedTarget: proxies });
+    expect(dispatch).not.toHaveBeenCalled();
+    fireEvent.blur(proxies, { relatedTarget: null });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_HEADCOUNT', count: 4 }),
+    );
+    await waitFor(() => expect(toast.showToast).toHaveBeenCalledWith('success', 'Headcount saved'));
+  });
+
   it('changes nothing once the meeting is adjourned', () => {
     renderPanel({ meetingStage: 'adjourned' }, true);
     expect(screen.queryByLabelText('Headcount')).toBeNull();
