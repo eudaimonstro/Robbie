@@ -369,6 +369,15 @@ describe('chairActions', () => {
       pending.motionStack = [pending.currentMotion];
       expect(floor(pending)).toEqual(['floor-motion']);
       expect(floor({ ...pending, votingOpen: true })).toEqual(['floor-motion']);
+      expect(floorActions(pending)[0].label).toBe('A motion from the floor');
+      // In a vote, or with a motion awaiting a second, a point of order is all that is in order
+      expect(floorActions({ ...pending, votingOpen: true })[0].label).toBe(
+        'A point of order from the floor',
+      );
+      expect(
+        floorActions({ ...adopted, pendingSecond: motion('mainMotion', { secondedBy: null }) })[1]
+          .label,
+      ).toBe('A point of order from the floor');
       expect(
         floor({ ...adopted, nominationsOpen: true, currentNominationPosition: 'Treasurer' }),
       ).toEqual(['floor-motion']);

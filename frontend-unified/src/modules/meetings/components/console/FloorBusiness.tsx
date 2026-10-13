@@ -3,7 +3,6 @@ import { MAX_FLOOR_NAME_LENGTH, motionWords } from '@robbie-bylawyer/shared/cons
 import {
   generateId,
   generateTimestamp,
-  getValidMotions,
   smallBoard,
   takesPart,
 } from '@robbie-bylawyer/shared/utils';
@@ -11,7 +10,7 @@ import type { MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import Modal from '../../../../components/ui/Modal';
 import { useSocket } from '../../context/SocketContext';
 import type { MeetingDispatch } from '../../types/socket';
-import { FORM_MOTIONS } from '../../utils/motionWords';
+import { floorMotionKinds, floorMotionTitle } from '../../utils/chairActions';
 import { MotionWordsFields } from '../MotionWordsFields';
 import { EMPTY_DRAFT, motionFromDraft, type MotionDraft } from '../../utils/motionDraft';
 
@@ -69,7 +68,7 @@ export function FloorMotionDialog({
   meId,
 }: FloorMotionDialogProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="A motion from the floor">
+    <Modal isOpen={isOpen} onClose={onClose} title={floorMotionTitle(state)}>
       {/* Mounted only while open, so each motion starts from an empty form */}
       {isOpen && (
         <FloorMotionForm
@@ -93,15 +92,9 @@ function FloorMotionForm({
 }: Omit<FloorMotionDialogProps, 'isOpen' | 'onClose'> & { onDone: () => void }) {
   const kindId = useId();
   const whoId = useId();
-  const kinds = useMemo(
-    () =>
-      // Motions with details of their own (a bylaw change, an agenda change) are made on a
-      // device, where their forms are
-      getValidMotions(state)
-        .map((m) => m.key)
-        .filter((key) => !FORM_MOTIONS.includes(key)),
-    [state],
-  );
+  // Motions with details of their own (a bylaw change, an agenda change) are made on a device,
+  // where their forms are
+  const kinds = useMemo(() => floorMotionKinds(state), [state]);
   const [kind, setKind] = useState(() =>
     kinds.includes('mainMotion') ? 'mainMotion' : (kinds[0] ?? 'mainMotion'),
   );
