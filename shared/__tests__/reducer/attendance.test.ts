@@ -113,6 +113,32 @@ describe('attendance actions', () => {
       });
       expect(next.members[0]).toEqual({ id: 1, name: 'Ann', role: 'member', present: false });
     });
+
+    it('adds someone who has not joined as absent, never among those who attended', () => {
+      const next = meetingReducer(
+        { ...state, meetingActive: true },
+        {
+          type: 'MARK_ABSENT',
+          memberId: 9,
+          excused: false,
+          member: { id: 9, name: 'Cy', role: 'member', present: true, presentBy: 'chair' },
+          timestamp: '10:00',
+        },
+      );
+      expect(next.members.at(-1)).toEqual({ id: 9, name: 'Cy', role: 'member', present: false });
+      expect(next.attendedIds).not.toContain(9);
+      expect(next.meetingLog.at(-1)?.message).toBe('Cy marked absent.');
+    });
+
+    it('changes nothing for someone neither in the meeting nor given by the server', () => {
+      const next = meetingReducer(state, {
+        type: 'MARK_ABSENT',
+        memberId: 9,
+        excused: false,
+        timestamp: '10:00',
+      });
+      expect(next).toBe(state);
+    });
   });
 
   describe('SET_HEADCOUNT', () => {

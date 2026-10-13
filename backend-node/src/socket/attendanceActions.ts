@@ -1,4 +1,4 @@
-import type { MeetingAction, MeetingState } from '@robbie-bylawyer/shared/types';
+import type { MeetingAction, MeetingState, Member } from '@robbie-bylawyer/shared/types';
 import type { ActionErrorCode } from '@robbie-bylawyer/shared/types/socket';
 import { findMeetingPacket, findOrgPeople } from './meetingPacket.js';
 import { deriveMeetingSeat } from './meetingRoles.js';
@@ -14,7 +14,8 @@ type Prepared = { action: MeetingAction } | { error: string; errorCode: ActionEr
  *   leaves when it does.
  * - SET_HEADCOUNT is refused with more proxies held than the organization has voting members
  * - MARK_ABSENT is refused for a member whose device is still connected, however they were
- *   marked present: they are still in the room, and leave when their device does
+ *   marked present: they are still in the room, and leave when their device does. Someone who
+ *   hasn't joined gets the person from the roster, as MARK_PRESENT does.
  */
 export async function prepareAttendanceAction(
   meetingCode: string,
@@ -29,28 +30,8 @@ export async function prepareAttendanceAction(
         errorCode: 'INVALID_STATE',
       };
     }
-    // Through the packet, which every live meeting has (older live states may not record
-    // their organization)
-    const packet = await findMeetingPacket(meetingCode);
-    if (!packet) return { action };
-    const person = (await findOrgPeople(packet.organizationId, [action.userId])).get(action.userId);
-    if (!person) return { action };
-    return {
-      action: {
-        ...action,
-        member: {
-          id: action.userId,
-          // Someone marked present may never have signed in to set a name
-          name: person.name ?? person.email.split('@')[0],
-          ...deriveMeetingSeat(
-            packet,
-            { orgRole: person.role, isDirector: person.isDirector },
-            action.userId,
-          ),
-          present: true,
-        },
-      },
-    };
+    const member = await rosterMember(meetingCode, action.userId, true);
+    return { action: member ? { ...action, member } : action };
   }
 
   // No more proxies and absentee ballots than the organization has voting members
@@ -73,9 +54,39 @@ export async function prepareAttendanceAction(
         errorCode: 'MEMBER_CONNECTED',
       };
     }
+    // Someone who hasn't joined is marked absent from the roster, without being marked present
+    // first (which would put them among those who attended)
+    if (!member) {
+      const fromRoster = await rosterMember(meetingCode, action.memberId, false);
+      return { action: fromRoster ? { ...action, member: fromRoster } : action };
+    }
   }
 
   return { action };
+}
+
+/**
+ * A person of the meeting's organization as a meeting member, with the seat the organization
+ * gives them; null when they aren't in it
+ */
+async function rosterMember(
+  meetingCode: string,
+  userId: number,
+  present: boolean,
+): Promise<Member | null> {
+  // Through the packet, which every live meeting has (older live states may not record
+  // their organization)
+  const packet = await findMeetingPacket(meetingCode);
+  if (!packet) return null;
+  const person = (await findOrgPeople(packet.organizationId, [userId])).get(userId);
+  if (!person) return null;
+  return {
+    id: userId,
+    // Someone marked present or absent may never have signed in to set a name
+    name: person.name ?? person.email.split('@')[0],
+    ...deriveMeetingSeat(packet, { orgRole: person.role, isDirector: person.isDirector }, userId),
+    present,
+  };
 }
 
 /**
