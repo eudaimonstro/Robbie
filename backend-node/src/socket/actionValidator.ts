@@ -1114,6 +1114,20 @@ export function validateAction(state: MeetingState, action: MeetingAction): Vali
       }
       return { valid: true };
 
+    case 'WITHDRAW_AGENDA_OBJECTION':
+      if (state.agendaAdopted || !state.agendaObjection) {
+        return { valid: false, error: 'No objection to the agenda', errorCode: 'INVALID_STATE' };
+      }
+      // A motion on the agenda made after the objection is the meeting's to decide
+      if (state.currentMotion || state.pendingSecond) {
+        return {
+          valid: false,
+          error: 'Settle the pending motion first',
+          errorCode: 'INVALID_STATE',
+        };
+      }
+      return { valid: true };
+
     case 'CALL_AGENDA_ITEM': {
       if (!state.agendaAdopted) {
         return {

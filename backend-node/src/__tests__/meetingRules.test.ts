@@ -700,6 +700,31 @@ describe('the agenda', () => {
       '## Proceedings\n\n**Adopt the agenda.** Alice Brennan moved: "I move to adopt the agenda as presented." Seconded by Ben Whitaker. Carried, 5 to 0.',
     );
   });
+
+  it('after an objection that is withdrawn, is adopted without objection', () => {
+    let s = act(gathered(), 'dana', { type: 'START_MEETING' });
+    s = act(s, 'dana', { type: 'AGENDA_OBJECTION' });
+    // The chair records it; a member can't take back someone's objection from a phone
+    expect(refusal(s, 'carl', { type: 'WITHDRAW_AGENDA_OBJECTION' })).toMatchObject({
+      errorCode: 'PERMISSION_DENIED',
+    });
+    s = act(s, 'dana', { type: 'WITHDRAW_AGENDA_OBJECTION' });
+    expect(s.agendaObjection).toBe(false);
+    expect(refusal(s, 'dana', { type: 'WITHDRAW_AGENDA_OBJECTION' })).toMatchObject({
+      errorCode: 'INVALID_STATE',
+    });
+    s = act(s, 'dana', { type: 'ADOPT_AGENDA' });
+    expect(minutesOf(s)).toContain('## Proceedings\n\nThe agenda was adopted without objection.');
+  });
+
+  it('keeps an objection once a motion on the agenda is before the meeting', () => {
+    let s = act(gathered(), 'dana', { type: 'START_MEETING' });
+    s = act(s, 'carl', { type: 'AGENDA_OBJECTION' });
+    s = moved(s, 'alice', 'adoptAgenda', 'I move to adopt the agenda as presented.', 'ben');
+    expect(refusal(s, 'dana', { type: 'WITHDRAW_AGENDA_OBJECTION' })).toMatchObject({
+      error: 'Settle the pending motion first',
+    });
+  });
 });
 
 describe('words that come from what a motion does', () => {

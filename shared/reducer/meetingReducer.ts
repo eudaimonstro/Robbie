@@ -119,6 +119,7 @@ function applyAction(state: MeetingState, action: MeetingAction): MeetingState {
     case 'REORDER_AGENDA':
     case 'ADOPT_AGENDA':
     case 'AGENDA_OBJECTION':
+    case 'WITHDRAW_AGENDA_OBJECTION':
     case 'CALL_AGENDA_ITEM':
     case 'COMPLETE_AGENDA_ITEM':
     case 'RELOAD_AGENDA':

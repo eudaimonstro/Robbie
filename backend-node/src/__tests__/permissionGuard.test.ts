@@ -18,6 +18,7 @@ describe('permissionGuard', () => {
         'RECOGNIZE_SPEAKER',
         'CHAIR_RULING',
         'ADOPT_AGENDA',
+        'WITHDRAW_AGENDA_OBJECTION',
         'CALL_AGENDA_ITEM',
         'COMPLETE_AGENDA_ITEM',
         'REQUEST_UNANIMOUS_CONSENT',

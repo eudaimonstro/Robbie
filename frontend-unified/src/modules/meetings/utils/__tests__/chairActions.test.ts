@@ -39,7 +39,10 @@ describe('chairActions', () => {
 
   it('adopts the agenda, then calls the next item', () => {
     expect(ids(active)).toEqual(['adopt-agenda', 'agenda-objection', 'adjourn']);
-    expect(ids({ ...active, agendaObjection: true })).toEqual(['adjourn']);
+    expect(ids({ ...active, agendaObjection: true })).toEqual([
+      'withdraw-agenda-objection',
+      'adjourn',
+    ]);
     const next = chairActions(adopted, 2);
     expect(next.map((a) => a.label)).toEqual(['Call the next item: Call to order', 'Adjourn']);
     expect(next[0].make()).toMatchObject({ type: 'CALL_AGENDA_ITEM', id: 1 });

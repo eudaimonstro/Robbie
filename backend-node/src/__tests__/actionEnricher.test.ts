@@ -62,6 +62,7 @@ describe('enrichAction', () => {
       REMOVE_AGENDA_ITEM: {},
       ADOPT_AGENDA: {},
       AGENDA_OBJECTION: { objectorId: SPOOF_ID },
+      WITHDRAW_AGENDA_OBJECTION: {},
       CALL_AGENDA_ITEM: {},
       COMPLETE_AGENDA_ITEM: {},
       REORDER_AGENDA: {},

@@ -1149,6 +1149,20 @@ describe('meetingReducer', () => {
 
       expect(state.agendaObjection).toBe(true);
     });
+
+    it('is withdrawn, and the chair asks for consent again', () => {
+      const objected = meetingReducer(initialState, {
+        type: 'AGENDA_OBJECTION',
+        timestamp: '10:05:00',
+      });
+      const state = meetingReducer(objected, {
+        type: 'WITHDRAW_AGENDA_OBJECTION',
+        timestamp: '10:06:00',
+      });
+
+      expect(state.agendaObjection).toBe(false);
+      expect(state.meetingLog.at(-1)?.message).toBe('The objection to the agenda is withdrawn.');
+    });
   });
 
   describe('ADD_AGENDA_ITEM', () => {
