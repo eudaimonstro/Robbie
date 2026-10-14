@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Robbie** runs in-person HOA meetings under Robert's Rules and keeps the association's governing documents. In the room the chair runs the meeting from a laptop (the console), homeowners take part on their phones in the browser (by link or QR code), a TV shows the display, and people without a phone or an account are counted by the chair. The documents side keeps the bylaws in versions, amendments from draft to adoption, and the minutes, which the server drafts when a meeting adjourns. A bylaw amendment adopted in a meeting becomes a new version of the bylaws.
 
-It is one product with one server and one web app. "Bylawyer" (the documents side's old name) survives only in code: `backend-node/src/bylawyer/`, the `@robbie-bylawyer/*` package names. Plans and decisions: `docs/mvp-roadmap.md` (what is built, known gaps), `docs/decisions.md`, `docs/design/` (each part's design, history), `docs/RONR_IMPLEMENTATION_STATUS.md` (which motions and rules), `docs/design-brief.md` (the look), `docs/deploy.md` (production runbook), `docs/demo.md`.
+It is one product with one server and one web app. "Bylawyer" (the documents side's old name) survives only in code: `backend-node/src/bylawyer/`, the `@robbie-bylawyer/*` package names. Plans and decisions: `docs/mvp-roadmap.md` (what is built, known gaps), `docs/decisions.md`, `docs/design/` (each part's design, history), `docs/RONR_IMPLEMENTATION_STATUS.md` (which motions and rules), `docs/capabilities.md` (what it does and doesn't, in plain words), `docs/design-brief.md` (the look), `docs/deploy.md` (production runbook), `docs/demo.md`.
 
 ## Layout
 
